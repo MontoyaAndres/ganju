@@ -7,7 +7,6 @@ export type Bindings = {
   HYPERDRIVE: Hyperdrive;
   STORAGE_BUCKET: R2Bucket;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
-  RESOURCE_HANDLER_PORT: string;
   DATABASE_URL?: string;
   NODE_ENV?: string;
 };

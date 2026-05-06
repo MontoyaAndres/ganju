@@ -36,6 +36,4 @@ app
   .post('/', MCPController.business)
   .get('/health', MCPController.health);
 
-export { ResourceHandler } from '@anju/containers';
-
 export default app;

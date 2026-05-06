@@ -1,8 +1,11 @@
 import { Container, getContainer } from '@cloudflare/containers';
 import { utils } from '@anju/utils';
 
-export interface ResourceHandlerEnv {
+export interface ResourceHandlerCallerEnv {
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
+}
+
+export interface ResourceHandlerEnv extends ResourceHandlerCallerEnv {
   RESOURCE_HANDLER_PORT: string;
   DATABASE_URL?: string;
   NODE_ENV?: string;
@@ -25,5 +28,5 @@ export class ResourceHandler extends Container<ResourceHandlerEnv> {
   }
 }
 
-export const getResourceHandler = (env: ResourceHandlerEnv) =>
+export const getResourceHandler = (env: ResourceHandlerCallerEnv) =>
   getContainer(env.RESOURCE_HANDLER);

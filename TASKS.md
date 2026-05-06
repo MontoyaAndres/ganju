@@ -1,8 +1,6 @@
 - Show sources to bots (let the user decide if she wants to show the source, by default ACTIVE)
-- When something is processing, keep sending the messages one by one to know what is happening
 - Fix ui to create a new channel, we are not letting the user to choose a model
 - make http endpoint generate types for apps
-- is necessary two containers? one for api and another for mcp?
 - Allow save crawl url, google drive, onedrive, etc
 - Create outlook, slack tool and search for the best ones out there
 - Create landing

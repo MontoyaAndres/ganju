@@ -21,7 +21,6 @@ invocation_logs = true
 enabled = false
 [env.development.vars]
 NODE_ENV = "production"
-RESOURCE_HANDLER_PORT="8082"
 NEXT_PUBLIC_API_URL = "https://development-api.vocesqueabrazan.com"
 NEXT_PUBLIC_MCP_URL = "https://development-mcp.vocesqueabrazan.com"
 NEXT_PUBLIC_WEB_URL = "https://development-app.vocesqueabrazan.com"
@@ -32,18 +31,10 @@ id = "20b38b96e12a4f45ac111fb7d8161edf"
 [[env.development.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "anju-storage-development"
-[[env.development.containers]]
-class_name = "ResourceHandler"
-image = "../resource-handler/Dockerfile"
-image_build_context = "../.."
-max_instances = 3
-instance_type = "standard-1"
 [[env.development.durable_objects.bindings]]
 name = "RESOURCE_HANDLER"
 class_name = "ResourceHandler"
-[[env.development.migrations]]
-tag = "v1"
-new_sqlite_classes = ["ResourceHandler"]
+script_name = "anju-api-development"
 
 [env.production]
 name = "anju-mcp-production"
@@ -56,7 +47,6 @@ invocation_logs = true
 enabled = false
 [env.production.vars]
 NODE_ENV = "production"
-RESOURCE_HANDLER_PORT="8082"
 NEXT_PUBLIC_API_URL = "https://api.anju.ai"
 NEXT_PUBLIC_MCP_URL = "https://mcp.anju.ai"
 NEXT_PUBLIC_WEB_URL = "https://app.anju.ai"
@@ -67,15 +57,7 @@ id = "<YOUR_HYPERDRIVE_ID>"
 [[env.production.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "anju-storage-production"
-[[env.production.containers]]
-class_name = "ResourceHandler"
-image = "../resource-handler/Dockerfile"
-image_build_context = "../.."
-max_instances = 3
-instance_type = "standard-1"
 [[env.production.durable_objects.bindings]]
 name = "RESOURCE_HANDLER"
 class_name = "ResourceHandler"
-[[env.production.migrations]]
-tag = "v1"
-new_sqlite_classes = ["ResourceHandler"]
+script_name = "anju-api-production"
