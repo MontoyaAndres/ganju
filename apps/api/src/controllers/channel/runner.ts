@@ -234,14 +234,18 @@ export const runChannelTurn = async (
   }> = [];
 
   try {
-    const toolsResponse = await mcp.client.listTools();
-    const llmTools: LlmToolDefinition[] = (toolsResponse.tools || []).map(
-      tool => ({
+    let llmTools: LlmToolDefinition[] = [];
+    try {
+      const toolsResponse = await mcp.client.listTools();
+      llmTools = (toolsResponse.tools || []).map(tool => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema || { type: 'object', properties: {} }
-      })
-    );
+      }));
+    } catch (error: any) {
+      // -32601 = artifact has no tools registered; SDK never enabled tools/list
+      if (error?.code !== -32601) throw error;
+    }
 
     let userTurn: LlmMessage[] = [
       {
