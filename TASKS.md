@@ -1,4 +1,4 @@
-- Replicate what I did with Google Drive with One Drive and increase limit size to 1GB
+- Increase limit size to 1GB
 - Protect by default using api token for mcp, each has its own token to use the mcp
 - support zip, rar, audio and videos (embeddings)
 - invitations and roles on projects and organizations
