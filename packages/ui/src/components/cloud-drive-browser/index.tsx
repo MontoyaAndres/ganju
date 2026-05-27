@@ -32,7 +32,7 @@ const GDRIVE_FOLDER_MIME =
   utils.constants.MIMETYPE_APPLICATION_VND_GOOGLE_APPS_FOLDER;
 const GDRIVE_API_BASE = utils.constants.GOOGLE_DRIVE_API_BASE;
 const GDRIVE_LIST_FIELDS = utils.constants.GOOGLE_DRIVE_LIST_FIELDS;
-const ONEDRIVE_API_BASE = utils.constants.ONE_DRIVE_API_BASE;
+const ONEDRIVE_API_BASE = utils.constants.MICROSOFT_GRAPH_API_BASE;
 const ONEDRIVE_ITEM_SELECT = utils.constants.ONE_DRIVE_ITEM_SELECT;
 
 export type CloudDriveProvider = 'google-drive' | 'onedrive';

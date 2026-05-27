@@ -4,25 +4,10 @@ import { utils as dbUtils } from '@anju/db';
 
 import { extractDocuments } from './extract.js';
 import { handleGmailSend } from './gmailSend.js';
+import { handleOutlookSend } from './outlookSend.js';
 import { handleTelegramSend } from './telegramSend.js';
 import { crawlDiscover, crawlPage } from './crawl.js';
-
-const readBody = (req: http.IncomingMessage): Promise<Buffer> =>
-  new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', chunk => chunks.push(chunk as Buffer));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-
-const sendJson = (
-  res: http.ServerResponse,
-  status: number,
-  body: unknown
-): void => {
-  res.writeHead(status, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(body));
-};
+import { utils as serverUtils } from './utils/index.js';
 
 const handleExtract = async (
   req: http.IncomingMessage,
@@ -34,35 +19,30 @@ const handleExtract = async (
     : undefined;
 
   if (!mimeType) {
-    sendJson(res, 400, { error: 'missing x-mime-type header' });
+    serverUtils.sendJson(res, 400, { error: 'missing x-mime-type header' });
     return;
   }
   if (!utils.isEmbeddableMimeType(mimeType)) {
-    sendJson(res, 200, { documents: null });
+    serverUtils.sendJson(res, 200, { documents: null });
     return;
   }
 
-  const body = await readBody(req);
+  const body = await serverUtils.readBody(req);
   const documents = await extractDocuments(body, mimeType, fileName);
-  sendJson(res, 200, { documents });
-};
-
-const parseJsonBody = async <T>(req: http.IncomingMessage): Promise<T> => {
-  const buffer = await readBody(req);
-  return JSON.parse(buffer.toString('utf8') || '{}') as T;
+  serverUtils.sendJson(res, 200, { documents });
 };
 
 const handleCrawlDiscover = async (
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> => {
-  const body = await parseJsonBody<{
+  const body = await serverUtils.parseJsonBody<{
     url?: string;
     maxPages?: number;
     maxDepth?: number;
   }>(req);
   if (!body.url) {
-    sendJson(res, 400, { error: 'missing url' });
+    serverUtils.sendJson(res, 400, { error: 'missing url' });
     return;
   }
   const result = await crawlDiscover({
@@ -76,27 +56,27 @@ const handleCrawlDiscover = async (
       utils.constants.CRAWL_MAX_DEPTH_LIMIT
     )
   });
-  sendJson(res, 200, result);
+  serverUtils.sendJson(res, 200, result);
 };
 
 const handleCrawlPage = async (
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> => {
-  const body = await parseJsonBody<{
+  const body = await serverUtils.parseJsonBody<{
     url?: string;
     renderer?: 'cheerio' | 'playwright';
   }>(req);
   if (!body.url) {
-    sendJson(res, 400, { error: 'missing url' });
+    serverUtils.sendJson(res, 400, { error: 'missing url' });
     return;
   }
   const result = await crawlPage(body.url, body.renderer);
   if (!result) {
-    sendJson(res, 422, { error: 'failed to extract page' });
+    serverUtils.sendJson(res, 422, { error: 'failed to extract page' });
     return;
   }
-  sendJson(res, 200, result);
+  serverUtils.sendJson(res, 200, result);
 };
 
 const server = http.createServer(async (req, res) => {
@@ -124,6 +104,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && req.url === '/gmail/send') {
       await handleGmailSend(req, res);
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/outlook/send') {
+      await handleOutlookSend(req, res);
       return;
     }
 
@@ -155,7 +140,7 @@ const server = http.createServer(async (req, res) => {
       { service: utils.constants.SERVICE_NAME_RESOURCE_HANDLER }
     );
     if (!res.headersSent) {
-      sendJson(res, status, { id: refId, ...body });
+      serverUtils.sendJson(res, status, { id: refId, ...body });
     } else {
       res.end();
     }

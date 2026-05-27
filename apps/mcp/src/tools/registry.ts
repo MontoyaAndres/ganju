@@ -20,6 +20,26 @@ import {
   getProfile as gmailGetProfile
 } from './gmail';
 import {
+  sendEmail as outlookSendEmail,
+  replyEmail as outlookReplyEmail,
+  forwardEmail as outlookForwardEmail,
+  listEmails as outlookListEmails,
+  readEmail as outlookReadEmail,
+  trashEmail as outlookTrashEmail,
+  listFolders as outlookListFolders,
+  moveMessage as outlookMoveMessage,
+  batchMoveMessages as outlookBatchMoveMessages,
+  listThreads as outlookListThreads,
+  getThread as outlookGetThread,
+  createDraft as outlookCreateDraft,
+  listDrafts as outlookListDrafts,
+  getDraft as outlookGetDraft,
+  updateDraft as outlookUpdateDraft,
+  deleteDraft as outlookDeleteDraft,
+  sendDraft as outlookSendDraft,
+  getProfile as outlookGetProfile
+} from './outlook';
+import {
   listResources,
   readResource,
   sendResource,
@@ -52,5 +72,23 @@ export const toolRegistry = new Map<string, ToolDefinition>([
   ['gmail-update-draft', gmailUpdateDraft],
   ['gmail-delete-draft', gmailDeleteDraft],
   ['gmail-send-draft', gmailSendDraft],
-  ['gmail-get-profile', gmailGetProfile]
+  ['gmail-get-profile', gmailGetProfile],
+  ['outlook-send-email', outlookSendEmail],
+  ['outlook-reply-email', outlookReplyEmail],
+  ['outlook-forward-email', outlookForwardEmail],
+  ['outlook-list-emails', outlookListEmails],
+  ['outlook-read-email', outlookReadEmail],
+  ['outlook-trash-email', outlookTrashEmail],
+  ['outlook-list-folders', outlookListFolders],
+  ['outlook-move-message', outlookMoveMessage],
+  ['outlook-batch-move-messages', outlookBatchMoveMessages],
+  ['outlook-list-threads', outlookListThreads],
+  ['outlook-get-thread', outlookGetThread],
+  ['outlook-create-draft', outlookCreateDraft],
+  ['outlook-list-drafts', outlookListDrafts],
+  ['outlook-get-draft', outlookGetDraft],
+  ['outlook-update-draft', outlookUpdateDraft],
+  ['outlook-delete-draft', outlookDeleteDraft],
+  ['outlook-send-draft', outlookSendDraft],
+  ['outlook-get-profile', outlookGetProfile]
 ]);

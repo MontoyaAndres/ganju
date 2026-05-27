@@ -134,7 +134,7 @@ const GOOGLE_DRIVE_TAB_LABELS: ReadonlyArray<{
   { value: GOOGLE_DRIVE_TAB_STARRED, label: GOOGLE_DRIVE_TAB_LABEL_STARRED }
 ];
 
-const ONE_DRIVE_API_BASE = 'https://graph.microsoft.com/v1.0';
+const MICROSOFT_GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 const ONE_DRIVE_DEFAULT_PAGE_SIZE = 200;
 const ONE_DRIVE_MAX_FOLDER_PAGES = 50;
 const ONE_DRIVE_TOKEN_REFRESH_LEEWAY_MS = 60_000;
@@ -407,6 +407,13 @@ const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 // Gmail caps a sent message at 25MB encoded. Combined raw attachment size
 // must stay under ~18MB so the base64 multipart envelope fits.
 const GMAIL_MAX_RAW_ATTACHMENT_BYTES = 18 * 1024 * 1024;
+
+// Microsoft Graph: attachments ≤3MB go inline in the message JSON; larger
+// ones need createUploadSession + chunked PUT. We enforce a per-attachment
+// cap so a single huge file fails fast instead of after a partial upload.
+const OUTLOOK_ATTACHMENT_INLINE_THRESHOLD = 3 * 1024 * 1024;
+const OUTLOOK_MAX_ATTACHMENT_BYTES = 150 * 1024 * 1024;
+const OUTLOOK_UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024;
 
 // Telegram Bot API per-method file caps (sendPhoto vs sendDocument differ).
 const TELEGRAM_MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -721,7 +728,7 @@ export const constants = {
   GOOGLE_DRIVE_TAB_LABEL_SHARED_DRIVES,
   GOOGLE_DRIVE_TAB_LABEL_STARRED,
   GOOGLE_DRIVE_TAB_LABELS,
-  ONE_DRIVE_API_BASE,
+  MICROSOFT_GRAPH_API_BASE,
   ONE_DRIVE_DEFAULT_PAGE_SIZE,
   ONE_DRIVE_MAX_FOLDER_PAGES,
   ONE_DRIVE_TOKEN_REFRESH_LEEWAY_MS,
@@ -816,6 +823,9 @@ export const constants = {
   MAX_FILE_SIZE,
   MAX_AVATAR_SIZE,
   GMAIL_MAX_RAW_ATTACHMENT_BYTES,
+  OUTLOOK_ATTACHMENT_INLINE_THRESHOLD,
+  OUTLOOK_MAX_ATTACHMENT_BYTES,
+  OUTLOOK_UPLOAD_CHUNK_BYTES,
   TELEGRAM_MAX_PHOTO_BYTES,
   TELEGRAM_MAX_FILE_BYTES,
   RATE_LIMIT_BACKOFF_SECONDS,

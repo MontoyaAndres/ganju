@@ -20,7 +20,17 @@ const TOOL_STATUS_COPY: Record<string, string> = {
   'gmail-delete-draft': 'Deleting the draft…',
   'gmail-trash-email': 'Moving the email to trash…',
   'gmail-modify-labels': 'Updating email labels…',
-  'gmail-batch-modify-labels': 'Updating email labels…'
+  'gmail-batch-modify-labels': 'Updating email labels…',
+  'outlook-send-email': 'Sending the email…',
+  'outlook-reply-email': 'Sending the reply…',
+  'outlook-forward-email': 'Forwarding the email…',
+  'outlook-send-draft': 'Sending the draft…',
+  'outlook-create-draft': 'Saving the draft…',
+  'outlook-update-draft': 'Updating the draft…',
+  'outlook-delete-draft': 'Deleting the draft…',
+  'outlook-trash-email': 'Moving the email to trash…',
+  'outlook-move-message': 'Moving the email…',
+  'outlook-batch-move-messages': 'Moving the emails…'
 };
 
 export const getToolStatusMessage = (toolName: string): string | null =>

@@ -6,18 +6,9 @@ import type {
   MimeMessageInput
 } from '@anju/utils';
 
-import { parseMultipartRequest } from './multipart.js';
+import { utils as serverUtils } from './utils/index.js';
 
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
-
-const sendJson = (
-  res: http.ServerResponse,
-  status: number,
-  body: unknown
-): void => {
-  res.writeHead(status, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(body));
-};
 
 const dispatchGmail = async (
   req: GmailSendRequest,
@@ -80,9 +71,9 @@ export const handleGmailSend = async (
 ): Promise<void> => {
   let form: FormData;
   try {
-    form = await parseMultipartRequest(req);
+    form = await serverUtils.parseMultipartRequest(req);
   } catch (err) {
-    sendJson(res, 400, {
+    serverUtils.sendJson(res, 400, {
       error: `failed to parse multipart body: ${(err as Error).message}`
     });
     return;
@@ -90,7 +81,7 @@ export const handleGmailSend = async (
 
   const metadataRaw = form.get('metadata');
   if (typeof metadataRaw !== 'string') {
-    sendJson(res, 400, { error: 'missing metadata field' });
+    serverUtils.sendJson(res, 400, { error: 'missing metadata field' });
     return;
   }
 
@@ -98,18 +89,18 @@ export const handleGmailSend = async (
   try {
     metadata = JSON.parse(metadataRaw) as GmailSendRequest;
   } catch (err) {
-    sendJson(res, 400, {
+    serverUtils.sendJson(res, 400, {
       error: `metadata field is not valid JSON: ${(err as Error).message}`
     });
     return;
   }
 
   if (!metadata.accessToken) {
-    sendJson(res, 401, { error: 'missing accessToken in metadata' });
+    serverUtils.sendJson(res, 401, { error: 'missing accessToken in metadata' });
     return;
   }
   if (!metadata.to || !metadata.body) {
-    sendJson(res, 400, { error: 'metadata must include to and body' });
+    serverUtils.sendJson(res, 400, { error: 'metadata must include to and body' });
     return;
   }
 
@@ -121,7 +112,7 @@ export const handleGmailSend = async (
     const buf = Buffer.from(await file.arrayBuffer());
     totalRaw += buf.byteLength;
     if (totalRaw > utils.constants.GMAIL_MAX_RAW_ATTACHMENT_BYTES) {
-      sendJson(res, 413, {
+      serverUtils.sendJson(res, 413, {
         error: `attachments exceed Gmail's ${Math.round(
           utils.constants.GMAIL_MAX_RAW_ATTACHMENT_BYTES / (1024 * 1024)
         )}MB raw cap`
@@ -152,5 +143,5 @@ export const handleGmailSend = async (
   const raw = utils.utf8ToBase64Url(mime);
 
   const { status, body } = await dispatchGmail(metadata, raw);
-  sendJson(res, status, body);
+  serverUtils.sendJson(res, status, body);
 };

@@ -50,6 +50,11 @@ import type {
   TelegramSendRequest,
   TelegramSendResponse
 } from './telegramSend';
+import type {
+  OutlookOperation,
+  OutlookSendRequest,
+  OutlookSendResponse
+} from './outlookSend';
 import { parseHttpErrorMessage } from './parseHttpError';
 import { isApiError, getApiErrorMessage } from './apiError';
 import { toStringArray } from './coerce';
@@ -189,6 +194,9 @@ export type {
   GmailOperation,
   GmailSendRequest,
   GmailSendResponse,
+  OutlookOperation,
+  OutlookSendRequest,
+  OutlookSendResponse,
   TelegramSendRequest,
   TelegramSendResponse,
   EnvSource,

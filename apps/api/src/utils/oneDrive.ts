@@ -155,7 +155,7 @@ const graphFetch = async (
 ): Promise<Response> => {
   const url = path.startsWith('http')
     ? path
-    : `${utils.constants.ONE_DRIVE_API_BASE}${path}`;
+    : `${utils.constants.MICROSOFT_GRAPH_API_BASE}${path}`;
   return fetch(url, {
     ...init,
     headers: {

@@ -39,6 +39,8 @@ export const providers: Record<string, OAuthProviderConfig> = {
     clientSecretEnv: 'MICROSOFT_CLIENT_SECRET',
     defaultScopes: [
       'https://graph.microsoft.com/Mail.ReadWrite',
+      'https://graph.microsoft.com/Mail.Send',
+      'https://graph.microsoft.com/User.Read',
       'offline_access'
     ]
   },
