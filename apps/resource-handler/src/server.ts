@@ -5,6 +5,7 @@ import { utils as dbUtils } from '@anju/db';
 import { extractDocuments } from './extract.js';
 import { handleGmailSend } from './gmailSend.js';
 import { handleOutlookSend } from './outlookSend.js';
+import { handleSlackSend } from './slackSend.js';
 import { handleTelegramSend } from './telegramSend.js';
 import { crawlDiscover, crawlPage } from './crawl.js';
 import { utils as serverUtils } from './utils/index.js';
@@ -109,6 +110,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && req.url === '/outlook/send') {
       await handleOutlookSend(req, res);
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/slack/send') {
+      await handleSlackSend(req, res);
       return;
     }
 

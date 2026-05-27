@@ -34,6 +34,17 @@ The default position: **proxy first, build only when there's no good MCP server 
 | `gmail-list-threads` / `gmail-get-thread` | gmail | `google-gmail` | Thread view. |
 | `gmail-create-draft` / `gmail-list-drafts` / `gmail-get-draft` / `gmail-update-draft` / `gmail-delete-draft` / `gmail-send-draft` | gmail | `google-gmail` | Draft CRUD. |
 | `gmail-get-profile` | gmail | `google-gmail` | Account info. |
+| `outlook-send-email` / `outlook-reply-email` / `outlook-forward-email` | outlook | `microsoft-outlook` | Compose flow. Attachments >3MB use Graph upload session via resource-handler. |
+| `outlook-list-emails` / `outlook-read-email` / `outlook-trash-email` | outlook | `microsoft-outlook` | Inbox read flow. |
+| `outlook-list-folders` / `outlook-move-message` / `outlook-batch-move-messages` | outlook | `microsoft-outlook` | Folder mgmt (Outlook's analog to Gmail labels). |
+| `outlook-list-threads` / `outlook-get-thread` | outlook | `microsoft-outlook` | Thread view (conversationId-based). |
+| `outlook-create-draft` / `outlook-list-drafts` / `outlook-get-draft` / `outlook-update-draft` / `outlook-delete-draft` / `outlook-send-draft` | outlook | `microsoft-outlook` | Draft CRUD. |
+| `outlook-get-profile` | outlook | `microsoft-outlook` | Account info. |
+| `slack-send-message` | slack | `slack` | Post to a channel / DM / thread via `chat.postMessage`. Routes through resource-handler. |
+| `slack-list-channels` | slack | `slack` | Discover channel IDs via `conversations.list`. |
+| `slack-search-messages` | slack | `slack` | `search.messages` — **user token (xoxp) only**, requires `search:read`. |
+| `slack-get-user` | slack | `slack` | `users.info` / `users.lookupByEmail`. |
+| `slack-upload-file` | slack | `slack` | Upload an artifact resource via `files.getUploadURLExternal` + `completeUploadExternal`. 100MB cap. |
 
 Baseline pattern to copy when adding a new native provider: [gmail/index.ts](gmail/index.ts).
 
@@ -42,20 +53,6 @@ Baseline pattern to copy when adding a new native provider: [gmail/index.ts](gma
 Build order reuses already-scaffolded OAuth providers first, then no-auth tools, then new providers.
 
 ### Tier 1 — Free / default-discoverable
-
-#### Outlook
-- **Group:** `outlook` · **Provider:** `microsoft-outlook` (already in `OAUTH_PROVIDERS`)
-- **Tools:** mirror the Gmail suite — `outlook-send-email`, `outlook-reply-email`, `outlook-forward-email`, `outlook-list-emails`, `outlook-read-email`, `outlook-trash-email`, `outlook-list-folders`, `outlook-move-message`, `outlook-list-threads`, `outlook-get-thread`, `outlook-create-draft`, `outlook-list-drafts`, `outlook-get-draft`, `outlook-update-draft`, `outlook-delete-draft`, `outlook-send-draft`, `outlook-get-profile`
-- **API:** Microsoft Graph `/me/messages`, `/me/mailFolders`, `/me/sendMail`
-- **Scopes:** `Mail.ReadWrite Mail.Send offline_access`
-- **Notes:** Outlook uses folders instead of labels; map the Gmail label tools to `outlook-list-folders` + `outlook-move-message`. Attachments >3MB require the upload-session endpoint — route those through the resource-handler.
-
-#### Slack (post-out)
-- **Group:** `slack` · **Provider:** `slack` (already in `OAUTH_PROVIDERS`)
-- **Tools:** `slack-send-message`, `slack-list-channels`, `slack-search-messages`, `slack-get-user`, `slack-upload-file`
-- **API:** `chat.postMessage`, `conversations.list`, `search.messages`, `users.info`, `files.upload`
-- **Scopes:** `chat:write channels:read groups:read search:read users:read files:write`
-- **Notes:** Distinct from Slack-as-channel — this is the agent posting *out* mid-conversation (notifications, escalations, "logged this in #support").
 
 #### Google Calendar
 - **Group:** `google-calendar` · **Provider:** new `google-calendar` (don't reuse `google-gmail` — keeps consent screens scoped per use case and reauth granular)

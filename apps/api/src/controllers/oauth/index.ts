@@ -42,11 +42,16 @@ const authorize = async (c: Context<AppEnv>) => {
     ? scopes.split(',')
     : providerConfig.defaultScopes;
 
+  // Slack provider variants put their scopes under different query params:
+  // `slack` (bot) → scope=, `slack-user` → user_scope=. Other providers
+  // default to `scope=`.
+  const scopeParam = providerConfig.scopeParam || 'scope';
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: callbackUrl,
     response_type: 'code',
-    scope: resolvedScopes.join(' '),
+    [scopeParam]: resolvedScopes.join(' '),
     state,
     access_type: 'offline',
     prompt: 'consent'
@@ -90,16 +95,22 @@ const callback = async (c: Context<AppEnv>) => {
 
   const callbackUrl = `${utils.getEnv(c, 'NEXT_PUBLIC_API_URL')}/oauth/${provider}/callback`;
 
+  const tokenBody: Record<string, string> = {
+    client_id: clientId,
+    client_secret: clientSecret,
+    code,
+    redirect_uri: callbackUrl
+  };
+  // Slack's oauth.v2.access returns internal_error when grant_type is sent
+  // on the code-exchange call; Google/Microsoft require it.
+  if (!providerConfig.omitGrantType) {
+    tokenBody.grant_type = 'authorization_code';
+  }
+
   const tokenResponse = await fetch(providerConfig.tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: callbackUrl
-    })
+    body: new URLSearchParams(tokenBody)
   });
 
   if (!tokenResponse.ok) {
@@ -108,20 +119,47 @@ const callback = async (c: Context<AppEnv>) => {
   }
 
   const tokens: {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-    scope: string;
+    ok?: boolean;
+    error?: string;
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    scope?: string;
+    // Slack OAuth v2 nests the user-token response under authed_user when
+    // user_scope was requested. The `slack-user` provider uses
+    // tokenSource='authed_user' to read from here instead of top level.
+    authed_user?: {
+      id?: string;
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+      scope?: string;
+    };
   } = await tokenResponse.json();
+
+  // Slack returns HTTP 200 even on errors — surface them as failures.
+  if (tokens.ok === false) {
+    throw new Error(`Token exchange failed: ${tokens.error || 'unknown'}`);
+  }
+
+  // Pull credential fields from whichever bucket the provider config points
+  // at. Everything except slack-user reads from top level.
+  const tokenFields =
+    providerConfig.tokenSource === 'authed_user' ? tokens.authed_user : tokens;
+  if (!tokenFields?.access_token) {
+    throw new Error('Token exchange returned no access_token');
+  }
 
   const encryptionKey = utils.getCredentialEncryptionKey(c);
   const encryptedAccessToken = utils.encryptString(
-    tokens.access_token,
+    tokenFields.access_token,
     encryptionKey
   );
-  const encryptedRefreshToken = tokens.refresh_token
-    ? utils.encryptString(tokens.refresh_token, encryptionKey)
+  const encryptedRefreshToken = tokenFields.refresh_token
+    ? utils.encryptString(tokenFields.refresh_token, encryptionKey)
     : null;
+  const grantedScopes = tokenFields.scope || null;
+  const expiresInSeconds = tokenFields.expires_in;
 
   const dbInstance = db.create(c);
 
@@ -165,8 +203,8 @@ const callback = async (c: Context<AppEnv>) => {
       )
       .limit(1);
 
-    const expiresAt = tokens.expires_in
-      ? new Date(Date.now() + tokens.expires_in * 1000)
+    const expiresAt = expiresInSeconds
+      ? new Date(Date.now() + expiresInSeconds * 1000)
       : null;
 
     if (existingCredential) {
@@ -191,7 +229,7 @@ const callback = async (c: Context<AppEnv>) => {
           refreshToken:
             encryptedRefreshToken || existingCredential.refreshToken,
           expiresAt,
-          scopes: tokens.scope || existingCredential.scopes,
+          scopes: grantedScopes || existingCredential.scopes,
           metadata: nextMetadata
         })
         .where(eq(db.schema.artifactCredential.id, existingCredential.id));
@@ -201,7 +239,7 @@ const callback = async (c: Context<AppEnv>) => {
         accessToken: encryptedAccessToken,
         refreshToken: encryptedRefreshToken,
         expiresAt,
-        scopes: tokens.scope || null,
+        scopes: grantedScopes,
         artifactId: currentArtifactByProject.id
       });
 

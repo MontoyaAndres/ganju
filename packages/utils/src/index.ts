@@ -55,6 +55,11 @@ import type {
   OutlookSendRequest,
   OutlookSendResponse
 } from './outlookSend';
+import type {
+  SlackOperation,
+  SlackSendRequest,
+  SlackSendResponse
+} from './slackSend';
 import { parseHttpErrorMessage } from './parseHttpError';
 import { isApiError, getApiErrorMessage } from './apiError';
 import { toStringArray } from './coerce';
@@ -197,6 +202,9 @@ export type {
   OutlookOperation,
   OutlookSendRequest,
   OutlookSendResponse,
+  SlackOperation,
+  SlackSendRequest,
+  SlackSendResponse,
   TelegramSendRequest,
   TelegramSendResponse,
   EnvSource,

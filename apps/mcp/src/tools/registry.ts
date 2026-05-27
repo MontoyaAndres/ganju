@@ -40,6 +40,13 @@ import {
   getProfile as outlookGetProfile
 } from './outlook';
 import {
+  sendMessage as slackSendMessage,
+  listChannels as slackListChannels,
+  searchMessages as slackSearchMessages,
+  getUser as slackGetUser,
+  uploadFile as slackUploadFile
+} from './slack';
+import {
   listResources,
   readResource,
   sendResource,
@@ -90,5 +97,10 @@ export const toolRegistry = new Map<string, ToolDefinition>([
   ['outlook-update-draft', outlookUpdateDraft],
   ['outlook-delete-draft', outlookDeleteDraft],
   ['outlook-send-draft', outlookSendDraft],
-  ['outlook-get-profile', outlookGetProfile]
+  ['outlook-get-profile', outlookGetProfile],
+  ['slack-send-message', slackSendMessage],
+  ['slack-list-channels', slackListChannels],
+  ['slack-search-messages', slackSearchMessages],
+  ['slack-get-user', slackGetUser],
+  ['slack-upload-file', slackUploadFile]
 ]);
