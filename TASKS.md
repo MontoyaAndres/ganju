@@ -1,9 +1,9 @@
-- make http endpoint generate types for apps
 - Create outlook, slack tool and search for the best ones out there (Inspiration https://www.chatbase.co/)
 - Home view per project has logs, how the user uses the mcp and channels how interactive it is based on everything it has, also shows the mcp link
 - Create landing (inspiration https://postiz.com/ I like how the show the images of how to use the product, it is more visual)
 - Create docs
   https://styles.refero.design/
+- Make an introdution view like chatbase does
 - implement evals in the code and for general use in mcps for users promptfoo
 
 Plans:
