@@ -6,6 +6,7 @@ import { extractDocuments } from './extract.js';
 import { handleGmailSend } from './gmailSend.js';
 import { handleOutlookSend } from './outlookSend.js';
 import { handleSlackSend } from './slackSend.js';
+import { handleSlackSendRemoteResource } from './slackSendRemoteResource.js';
 import { handleTelegramSend } from './telegramSend.js';
 import { handleTelegramSendRemoteResource } from './telegramSendRemoteResource.js';
 import { crawlDiscover, crawlPage } from './crawl.js';
@@ -116,6 +117,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && req.url === '/slack/send') {
       await handleSlackSend(req, res);
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/slack/send-remote-resource') {
+      await handleSlackSendRemoteResource(req, res);
       return;
     }
 

@@ -23,6 +23,7 @@ import {
   decryptString,
   getCredentialEncryptionKey,
   sha256Hex,
+  hmacSha256Hex,
   timingSafeEqual
 } from './crypto';
 import {
@@ -65,7 +66,8 @@ import type {
 import type {
   SlackOperation,
   SlackSendRequest,
-  SlackSendResponse
+  SlackSendResponse,
+  SlackSendRemoteResourceRequest
 } from './slackSend';
 import { parseHttpErrorMessage } from './parseHttpError';
 import { isApiError, getApiErrorMessage } from './apiError';
@@ -138,6 +140,7 @@ export const utils = {
   decryptString,
   getCredentialEncryptionKey,
   sha256Hex,
+  hmacSha256Hex,
   timingSafeEqual,
   bytesToBase64,
   base64ToBytes,
@@ -208,6 +211,7 @@ export type {
   SlackOperation,
   SlackSendRequest,
   SlackSendResponse,
+  SlackSendRemoteResourceRequest,
   TelegramSendRequest,
   TelegramSendResponse,
   TelegramSendRemoteResourceRequest,

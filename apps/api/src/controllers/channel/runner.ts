@@ -508,6 +508,23 @@ export const runChannelTurn = async (
 
     const messages: LlmMessage[] = [...history, ...userTurn];
 
+    // The conversation must end with a user message — many models reject an
+    // assistant-final request as an unsupported "prefill". A matched prompt can
+    // legitimately expand to messages ending in an assistant turn (e.g. a
+    // `/start` welcome that's a canned greeting, or a few-shot example), and
+    // that expansion replaces the user's own text. Re-append the user's input
+    // as the final turn so the model has something to respond to.
+    const lastMessage = messages[messages.length - 1];
+    if (
+      lastMessage &&
+      lastMessage.role === utils.constants.ROLE_MESSAGE_ASSISTANT
+    ) {
+      messages.push({
+        role: utils.constants.ROLE_MESSAGE_USER,
+        content: options.userText || 'Continue.'
+      });
+    }
+
     const adapter = getLlmAdapter(llmRow.provider);
 
     // Anchor the model in real time — channel clients don't inject "now", so

@@ -562,6 +562,33 @@ const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const TELEGRAM_MESSAGE_LIMIT = 3500;
 
+// Slack channel (inbound bot webhook). Slack signs every request to the
+// Events API / slash-command Request URL with the app signing secret; we verify
+// `v0:{timestamp}:{rawBody}` against the x-slack-signature header and reject
+// stale timestamps (replay protection). A `section` block's mrkdwn text caps at
+// 3000 chars — we chunk a bit under that. Source links become Block Kit URL
+// buttons (≤5 per actions block on Slack's side).
+const SLACK_SIGNATURE_HEADER = 'x-slack-signature';
+const SLACK_TIMESTAMP_HEADER = 'x-slack-request-timestamp';
+const SLACK_RETRY_NUM_HEADER = 'x-slack-retry-num';
+const SLACK_SIGNATURE_VERSION = 'v0';
+const SLACK_SIGNATURE_MAX_SKEW_SECONDS = 300;
+const SLACK_MESSAGE_LIMIT = 2900;
+const SLACK_MAX_SOURCE_BUTTONS = 10;
+
+// The Slack app configuration Anju needs, surfaced in the UI when connecting a
+// Slack channel. Required scopes back the runner's calls (mentions, DMs,
+// posting, file upload); recommended scopes only enrich names/titles and
+// degrade gracefully; bot events are what the webhook subscribes to.
+const SLACK_REQUIRED_SCOPES = [
+  'app_mentions:read',
+  'im:history',
+  'chat:write',
+  'files:write'
+];
+const SLACK_RECOMMENDED_SCOPES = ['users:read', 'channels:read', 'groups:read'];
+const SLACK_BOT_EVENTS = ['app_mention', 'message.im'];
+
 const EMBEDDING_MODEL = 'gemini-embedding-001';
 const EMBEDDING_DIMENSIONS = 3072;
 const CHUNK_TARGET_CHARS = 2000;
@@ -1212,6 +1239,16 @@ export const constants = {
   TELEGRAM_SECRET_HEADER,
   TELEGRAM_API_BASE,
   TELEGRAM_MESSAGE_LIMIT,
+  SLACK_SIGNATURE_HEADER,
+  SLACK_TIMESTAMP_HEADER,
+  SLACK_RETRY_NUM_HEADER,
+  SLACK_SIGNATURE_VERSION,
+  SLACK_SIGNATURE_MAX_SKEW_SECONDS,
+  SLACK_MESSAGE_LIMIT,
+  SLACK_MAX_SOURCE_BUTTONS,
+  SLACK_REQUIRED_SCOPES,
+  SLACK_RECOMMENDED_SCOPES,
+  SLACK_BOT_EVENTS,
   EMBEDDING_MODEL,
   EMBEDDING_DIMENSIONS,
   CHUNK_TARGET_CHARS,

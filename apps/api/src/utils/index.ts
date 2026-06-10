@@ -10,6 +10,7 @@ import {
   reindexResourceChunks
 } from './embedding';
 import { markdownToTelegramHtml } from './telegramFormat';
+import { markdownToSlackMrkdwn } from './slackFormat';
 import {
   enqueueIndex,
   enqueueCrawlDiscover,
@@ -69,6 +70,7 @@ export {
   generateEmbeddings,
   reindexResourceChunks,
   markdownToTelegramHtml,
+  markdownToSlackMrkdwn,
   enqueueIndex,
   enqueueCrawlDiscover,
   enqueueGdriveDiscover,

@@ -9,8 +9,10 @@ import {
   registerTelegramWebhook,
   getTelegramBotInfo
 } from './telegram';
+import { handleSlackWebhook, getSlackBotInfo } from './slack';
 
 import type { TelegramBotInfo } from './telegram';
+import type { SlackBotInfo } from './slack';
 import { loadProxiedPrompts } from './proxiedPrompts';
 import { registerTelegramBotCommands } from '../../utils';
 
@@ -66,11 +68,28 @@ const create = async (c: Context<AppEnv>) => {
 
   let platformMetadata: Record<string, unknown> | null = null;
   let telegramBotInfo: TelegramBotInfo | null = null;
+  let slackBotInfo: SlackBotInfo | null = null;
   if (currentValues.platform === utils.constants.CHANNEL_PLATFORM_TELEGRAM) {
     telegramBotInfo = await getTelegramBotInfo(
       currentValues.credentials.botToken
     );
     platformMetadata = { telegram: { bot: telegramBotInfo } };
+  } else if (
+    currentValues.platform === utils.constants.CHANNEL_PLATFORM_SLACK
+  ) {
+    if (
+      !currentValues.credentials.botToken ||
+      !currentValues.credentials.signingSecret
+    ) {
+      throw new Error(
+        'Slack channels require both a bot token and a signing secret.'
+      );
+    }
+    // Verifies the bot token and gives us the bot identity for the card +
+    // duplicate-connection detection. The signing secret can't be verified
+    // until Slack signs the first webhook, so we store it as-is.
+    slackBotInfo = await getSlackBotInfo(currentValues.credentials.botToken);
+    platformMetadata = { slack: { bot: slackBotInfo } };
   }
 
   const result = await dbInstance.transaction(async tx => {
@@ -155,6 +174,75 @@ const create = async (c: Context<AppEnv>) => {
 
         throw new Error(
           `Telegram bot @${telegramBotInfo.username} is already connected to a project in another organization you don't have access to. Use a different bot.`
+        );
+      }
+    }
+
+    if (slackBotInfo) {
+      const botLabel = slackBotInfo.username
+        ? `@${slackBotInfo.username}`
+        : 'this Slack app';
+      const [conflict] = await tx
+        .select({
+          projectName: db.schema.project.name,
+          organizationId: db.schema.project.organizationId,
+          organizationName: db.schema.organization.name
+        })
+        .from(db.schema.channel)
+        .innerJoin(
+          db.schema.artifact,
+          eq(db.schema.channel.artifactId, db.schema.artifact.id)
+        )
+        .innerJoin(
+          db.schema.project,
+          eq(db.schema.artifact.projectId, db.schema.project.id)
+        )
+        .innerJoin(
+          db.schema.organization,
+          eq(db.schema.project.organizationId, db.schema.organization.id)
+        )
+        .where(
+          and(
+            eq(
+              db.schema.channel.platform,
+              utils.constants.CHANNEL_PLATFORM_SLACK
+            ),
+            // Same bot user in the same workspace = the same Slack app.
+            sql`${db.schema.channel.metadata}->'slack'->'bot'->>'teamId' = ${slackBotInfo.teamId}`,
+            sql`${db.schema.channel.metadata}->'slack'->'bot'->>'userId' = ${slackBotInfo.userId}`
+          )
+        )
+        .limit(1);
+
+      if (conflict) {
+        if (conflict.organizationId === currentValues.organizationId) {
+          throw new Error(
+            `Slack app ${botLabel} is already connected to project "${conflict.projectName}" in this organization. Remove it there first or use a different app.`
+          );
+        }
+
+        const [membership] = await tx
+          .select({ organizationId: db.schema.organizationUser.organizationId })
+          .from(db.schema.organizationUser)
+          .where(
+            and(
+              eq(db.schema.organizationUser.userId, currentValues.userId),
+              eq(
+                db.schema.organizationUser.organizationId,
+                conflict.organizationId
+              )
+            )
+          )
+          .limit(1);
+
+        if (membership) {
+          throw new Error(
+            `Slack app ${botLabel} is already connected to project "${conflict.projectName}" in your organization "${conflict.organizationName}". Remove it there first or use a different app.`
+          );
+        }
+
+        throw new Error(
+          `Slack app ${botLabel} is already connected to a project in another organization you don't have access to. Use a different app.`
         );
       }
     }
@@ -390,6 +478,9 @@ const webhook = async (c: Context<AppEnv>) => {
   const platform = c.req.param('platform');
   if (platform === utils.constants.CHANNEL_PLATFORM_TELEGRAM) {
     return handleTelegramWebhook(c);
+  }
+  if (platform === utils.constants.CHANNEL_PLATFORM_SLACK) {
+    return handleSlackWebhook(c);
   }
   return c.json({ error: `Unsupported platform: ${platform}` }, 400);
 };

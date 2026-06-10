@@ -146,7 +146,7 @@ const resolveChannelId = async (
   return { ok: false, error: `channel "${input}" not found in workspace` };
 };
 
-const handleUploadFile = async (
+export const handleUploadFile = async (
   req: SlackSendRequest,
   attachment: { name: string; contentType: string; bytes: Buffer } | undefined
 ): Promise<{ status: number; body: SlackSendResponse | { error: string } }> => {

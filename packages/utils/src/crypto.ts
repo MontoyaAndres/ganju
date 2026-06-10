@@ -61,6 +61,27 @@ export const sha256Hex = async (input: string) => {
   return hex;
 };
 
+export const hmacSha256Hex = async (key: string, message: string) => {
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(key),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    cryptoKey,
+    new TextEncoder().encode(message)
+  );
+  const bytes = new Uint8Array(signature);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
+};
+
 export const timingSafeEqual = (a: string, b: string) => {
   if (a.length !== b.length) return false;
   let diff = 0;

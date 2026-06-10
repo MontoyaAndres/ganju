@@ -11,8 +11,10 @@ import type {
 import { getResourceHandler } from '@anju/containers';
 
 import { runChannelTurn } from './runner';
-import { loadProxiedPrompts } from './proxiedPrompts';
+import { resolveSlashPrompt } from './slashPrompt';
 import { markdownToTelegramHtml, createAuth } from '../../utils';
+
+import type { ParsedSlashCommand } from './slashPrompt';
 
 import type { ChannelAttachment } from './runner';
 import type { AppEnv, Bindings } from '../../types';
@@ -412,11 +414,6 @@ const sendChatAction = async (
   ).catch(() => undefined);
 };
 
-interface ParsedSlashCommand {
-  name: string;
-  trailingText: string;
-}
-
 const parseSlashCommand = (
   message: TelegramIncomingMessage,
   botUsername: string | undefined
@@ -443,62 +440,6 @@ const parseSlashCommand = (
 
   const trailingText = text.slice(cmdEntity.offset + cmdEntity.length).trim();
   return { name: name.toLowerCase(), trailingText };
-};
-
-const resolveSlashPrompt = async (
-  c: Context<AppEnv>,
-  artifactId: string,
-  command: ParsedSlashCommand
-): Promise<{
-  // The name the runner passes to getPrompt (artifact_prompt id, or a proxied
-  // MCP prompt name `<prefix>__<remote>`).
-  promptId: string;
-  // The artifact_prompt FK to record on usage — null for proxied prompts.
-  artifactPromptId: string | null;
-  args: Record<string, string>;
-} | null> => {
-  const dbInstance = db.create(c);
-  const prompts = await dbInstance
-    .select()
-    .from(db.schema.artifactPrompt)
-    .where(eq(db.schema.artifactPrompt.artifactId, artifactId));
-
-  const match = prompts.find(
-    p => utils.slugifyPromptTitle(p.title) === command.name
-  );
-  if (match) {
-    const schema = match.schema as {
-      properties?: Record<string, { type: string }>;
-    } | null;
-    const args: Record<string, string> = {};
-    const firstProp = schema?.properties
-      ? Object.keys(schema.properties)[0]
-      : null;
-    if (firstProp && command.trailingText) {
-      args[firstProp] = command.trailingText;
-    }
-    return { promptId: match.id, artifactPromptId: match.id, args };
-  }
-
-  // Fall back to proxied (mcp-proxy) prompts, invoked by their MCP name.
-  const proxied = await loadProxiedPrompts(dbInstance, artifactId);
-  const proxiedMatch = proxied.find(
-    p => utils.slugifyPromptTitle(p.title) === command.name
-  );
-  if (proxiedMatch) {
-    const args: Record<string, string> = {};
-    const firstArg = proxiedMatch.argumentNames[0];
-    if (firstArg && command.trailingText) {
-      args[firstArg] = command.trailingText;
-    }
-    return {
-      promptId: proxiedMatch.mcpName,
-      artifactPromptId: null,
-      args
-    };
-  }
-
-  return null;
 };
 
 interface ExternalLinkApi {

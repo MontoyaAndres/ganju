@@ -2,6 +2,7 @@ import { Input } from './input';
 import { Button } from './button';
 import { Portal } from './portal';
 import { Alert } from './alert';
+import { Icons } from './icons';
 import { Select } from './select';
 import { Skeleton } from './skeleton';
 import { CopyableBlock } from './copyable-block';
@@ -17,6 +18,7 @@ export const UI = {
   Button,
   Portal,
   Alert,
+  Icons,
   Select,
   Skeleton,
   CopyableBlock,

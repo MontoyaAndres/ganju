@@ -31,6 +31,29 @@ export interface SlackSendRequest {
   initialComment?: string;    // message body posted alongside the file
 }
 
+// Wire protocol for sending a PROXIED (remote MCP) resource as a Slack file.
+// Mirrors TelegramSendRemoteResourceRequest: the worker sends only the remote
+// connection details + resolved auth header as JSON, and the resource-handler
+// container does the remote read + decode + Slack external-upload itself — so a
+// large file's bytes never transit the 128 MiB worker.
+export interface SlackSendRemoteResourceRequest {
+  slack: {
+    accessToken: string;
+    channel: string;
+    threadTs?: string;
+    title?: string;
+    initialComment?: string;
+  };
+  remote: {
+    url: string;
+    transport: string;
+    // Single header injected on the remote MCP connection (e.g. Authorization).
+    authHeader?: { name: string; value: string } | null;
+    uri: string;
+    timeoutMs: number;
+  };
+}
+
 export interface SlackSendResponse {
   // chat.postMessage returns ts; files.completeUploadExternal returns the
   // file id. Empty string when Slack returns ok:true with no id (shouldn't

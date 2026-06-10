@@ -27,18 +27,6 @@ import { Wrapper, UsageModalOverlay } from './styles';
 
 import type { Source } from '@anju/utils';
 
-const SlackIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-    <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
-  </svg>
-);
-
-const DiscordIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-    <path d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z" />
-  </svg>
-);
-
 interface BotInfo {
   id: number;
   isBot: boolean;
@@ -46,12 +34,24 @@ interface BotInfo {
   username?: string;
 }
 
+interface SlackBotInfo {
+  userId: string;
+  botId?: string;
+  teamId: string;
+  teamName?: string;
+  username?: string;
+  url?: string;
+}
+
 interface Channel {
   id: string;
   platform: string;
   status: string;
   config: Record<string, unknown> | null;
-  metadata: { telegram?: { bot?: BotInfo } } | null;
+  metadata: {
+    telegram?: { bot?: BotInfo };
+    slack?: { bot?: SlackBotInfo };
+  } | null;
   conversationCount: number;
   messageCount: number;
   artifactId: string;
@@ -139,8 +139,8 @@ const PLATFORMS = [
   {
     id: utils.constants.CHANNEL_PLATFORM_SLACK,
     label: 'Slack',
-    Icon: SlackIcon,
-    enabled: false
+    Icon: UI.Icons.Slack,
+    enabled: true
   },
   {
     id: utils.constants.CHANNEL_PLATFORM_WHATSAPP,
@@ -151,7 +151,7 @@ const PLATFORMS = [
   {
     id: utils.constants.CHANNEL_PLATFORM_DISCORD,
     label: 'Discord',
-    Icon: DiscordIcon,
+    Icon: UI.Icons.Discord,
     enabled: false
   }
 ];
@@ -159,6 +159,9 @@ const PLATFORMS = [
 const platformIcon = (platform: string) => {
   if (platform === utils.constants.CHANNEL_PLATFORM_TELEGRAM)
     return <Telegram />;
+
+  if (platform === utils.constants.CHANNEL_PLATFORM_SLACK)
+    return <UI.Icons.Slack width={20} height={20} />;
 
   if (platform === utils.constants.CHANNEL_PLATFORM_WHATSAPP)
     return <WhatsApp />;
@@ -171,6 +174,11 @@ const channelLabel = (channel: Channel): string => {
     const bot = channel.metadata?.telegram?.bot;
     if (bot?.username) return `@${bot.username}`;
     if (bot?.firstName) return bot.firstName;
+  }
+  if (channel.platform === utils.constants.CHANNEL_PLATFORM_SLACK) {
+    const bot = channel.metadata?.slack?.bot;
+    if (bot?.username) return `@${bot.username}`;
+    if (bot?.teamName) return bot.teamName;
   }
   return channel.platform;
 };
@@ -280,6 +288,48 @@ const collectResourceAttachments = (
   return out;
 };
 
+const SlackRequirements = () => (
+  <div className="slack-requirements">
+    <div className="slack-requirements-group">
+      <p className="slack-requirements-label">Bot token scopes — required</p>
+      <div className="slack-scope-chips">
+        {utils.constants.SLACK_REQUIRED_SCOPES.map(scope => (
+          <code key={scope} className="slack-scope-chip">
+            {scope}
+          </code>
+        ))}
+      </div>
+    </div>
+    <div className="slack-requirements-group">
+      <p className="slack-requirements-label">Bot token scopes — recommended</p>
+      <div className="slack-scope-chips">
+        {utils.constants.SLACK_RECOMMENDED_SCOPES.map(scope => (
+          <code key={scope} className="slack-scope-chip">
+            {scope}
+          </code>
+        ))}
+      </div>
+      <p className="slack-requirements-hint">
+        Optional — without these the bot still works but falls back to user and
+        channel IDs instead of names.
+      </p>
+    </div>
+    <div className="slack-requirements-group">
+      <p className="slack-requirements-label">Subscribe to bot events</p>
+      <div className="slack-scope-chips">
+        {utils.constants.SLACK_BOT_EVENTS.map(event => (
+          <code key={event} className="slack-scope-chip">
+            {event}
+          </code>
+        ))}
+      </div>
+      <p className="slack-requirements-hint">
+        Also enable the Messages tab (App Home) so users can DM the bot.
+      </p>
+    </div>
+  </div>
+);
+
 export const Channels = () => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
@@ -303,6 +353,7 @@ export const Channels = () => {
   const [createValues, setCreateValues] = useState({
     platform: utils.constants.CHANNEL_PLATFORM_TELEGRAM as string,
     botToken: '',
+    signingSecret: '',
     llmId: utils.constants.LLM_SYSTEM_DEFAULT as string
   });
   const [llms, setLlms] = useState<OrganizationLlm[]>([]);
@@ -421,6 +472,7 @@ export const Channels = () => {
     setCreateValues({
       platform: utils.constants.CHANNEL_PLATFORM_TELEGRAM,
       botToken: '',
+      signingSecret: '',
       llmId: utils.constants.LLM_SYSTEM_DEFAULT
     });
     setErrors({});
@@ -484,14 +536,31 @@ export const Channels = () => {
     if (submitting) return;
     setErrors({});
 
+    const isSlack =
+      createValues.platform === utils.constants.CHANNEL_PLATFORM_SLACK;
+
+    const nextErrors: Record<string, string> = {};
     if (!createValues.botToken.trim()) {
-      setErrors({ botToken: 'Bot token is required' });
+      nextErrors.botToken = 'Bot token is required';
+    }
+    if (isSlack && !createValues.signingSecret.trim()) {
+      nextErrors.signingSecret = 'Signing secret is required';
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
       return;
+    }
+
+    const credentials: Record<string, string> = {
+      botToken: createValues.botToken.trim()
+    };
+    if (isSlack) {
+      credentials.signingSecret = createValues.signingSecret.trim();
     }
 
     const body: Record<string, unknown> = {
       platform: createValues.platform,
-      credentials: { botToken: createValues.botToken.trim() },
+      credentials,
       llmId:
         createValues.llmId === utils.constants.LLM_SYSTEM_DEFAULT
           ? null
@@ -671,7 +740,7 @@ export const Channels = () => {
           <div className="channels-empty-state">
             <ForumOutlined />
             <h3>No channels yet</h3>
-            <p>Connect a Telegram bot to start receiving messages.</p>
+            <p>Connect a Telegram or Slack bot to start receiving messages.</p>
             <UI.Button variant="contained" size="small" onClick={handleCreate}>
               <Add />
               <span className="button-text">Add channel</span>
@@ -851,6 +920,70 @@ export const Channels = () => {
                   />
                 )}
 
+                {createValues.platform ===
+                  utils.constants.CHANNEL_PLATFORM_SLACK && (
+                  <>
+                    <UI.Input
+                      label="Bot token"
+                      name="botToken"
+                      type="password"
+                      placeholder="xoxb-..."
+                      value={createValues.botToken}
+                      disabled={submitting}
+                      error={!!errors.botToken}
+                      helperText={
+                        errors.botToken ||
+                        'Bot User OAuth Token (OAuth & Permissions, after installing the app with the scopes below).'
+                      }
+                      onChange={e => {
+                        setCreateValues(prev => ({
+                          ...prev,
+                          botToken: e.target.value
+                        }));
+                        if (errors.botToken) {
+                          setErrors(prev => {
+                            const n = { ...prev };
+                            delete n.botToken;
+                            return n;
+                          });
+                        }
+                      }}
+                    />
+                    <UI.Input
+                      label="Signing secret"
+                      name="signingSecret"
+                      type="password"
+                      placeholder="Slack app signing secret"
+                      value={createValues.signingSecret}
+                      disabled={submitting}
+                      error={!!errors.signingSecret}
+                      helperText={
+                        errors.signingSecret ||
+                        'Found under Basic Information → App Credentials. Used to verify incoming events.'
+                      }
+                      onChange={e => {
+                        setCreateValues(prev => ({
+                          ...prev,
+                          signingSecret: e.target.value
+                        }));
+                        if (errors.signingSecret) {
+                          setErrors(prev => {
+                            const n = { ...prev };
+                            delete n.signingSecret;
+                            return n;
+                          });
+                        }
+                      }}
+                    />
+                    <SlackRequirements />
+                    <p className="panel-toggle-hint">
+                      After connecting, you&apos;ll get a Request URL to paste
+                      into your Slack app&apos;s Event Subscriptions. The same
+                      URL works for any Slash Commands you add.
+                    </p>
+                  </>
+                )}
+
                 <div className="panel-edit-actions">
                   <UI.Button
                     variant="contained"
@@ -892,6 +1025,45 @@ export const Channels = () => {
                       </div>
                     </div>
                   )}
+
+                {selectedChannel.platform ===
+                  utils.constants.CHANNEL_PLATFORM_SLACK &&
+                  selectedChannel.metadata?.slack?.bot && (
+                    <div className="panel-bot-card">
+                      <div className="panel-bot-avatar">
+                        <UI.Icons.Slack width={22} height={22} />
+                      </div>
+                      <div className="panel-bot-text">
+                        <p className="panel-bot-name">
+                          {selectedChannel.metadata.slack.bot.teamName ||
+                            'Slack workspace'}
+                        </p>
+                        {selectedChannel.metadata.slack.bot.username && (
+                          <p className="panel-bot-handle">
+                            @{selectedChannel.metadata.slack.bot.username}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {selectedChannel.platform ===
+                  utils.constants.CHANNEL_PLATFORM_SLACK && (
+                  <div className="panel-section">
+                    <p className="panel-section-label">Slack setup</p>
+                    <UI.CopyableBlock
+                      label="Request URL"
+                      text={`${process.env.NEXT_PUBLIC_API_URL || ''}/channel/${selectedChannel.id}/webhook/slack`}
+                      onCopy={() => snackbar.success('Request URL copied')}
+                      onCopyError={() => snackbar.error('Failed to copy')}
+                    />
+                    <p className="panel-toggle-hint">
+                      Paste this into your Slack app under Event Subscriptions,
+                      and as the Request URL for any Slash Commands you add.
+                    </p>
+                    <SlackRequirements />
+                  </div>
+                )}
 
                 <div className="panel-section">
                   <p className="panel-section-label">Status</p>

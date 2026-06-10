@@ -427,6 +427,49 @@ export const Wrapper = styled.div<IProps>`
           }
         }
 
+        .slack-requirements {
+          border: 1px solid ${theme.colors.alto};
+          border-radius: 8px;
+          padding: 12px;
+          margin-top: 12px;
+
+          .slack-requirements-group + .slack-requirements-group {
+            margin-top: 12px;
+          }
+
+          .slack-requirements-label {
+            font-size: ${theme.fonts.xs};
+            font-weight: 600;
+            color: ${theme.colors.bastille};
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 6px 0;
+          }
+
+          .slack-scope-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+
+          .slack-scope-chip {
+            font-family: monospace;
+            font-size: ${theme.fonts.xs};
+            background-color: ${theme.colors.bastille}0D;
+            border: 1px solid ${theme.colors.alto};
+            border-radius: 6px;
+            padding: 2px 6px;
+            color: ${theme.colors.bastille};
+          }
+
+          .slack-requirements-hint {
+            font-size: ${theme.fonts.xs};
+            color: ${theme.colors.saltBox};
+            margin: 8px 0 0 0;
+            line-height: 1.4;
+          }
+        }
+
         .panel-toggle-row {
           display: flex;
           align-items: center;
