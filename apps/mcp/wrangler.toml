@@ -28,13 +28,13 @@ NEXT_PUBLIC_WEB_URL = "https://development-app.vocesqueabrazan.com"
 NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
-id = "20b38b96e12a4f45ac111fb7d8161edf"
+id = "bf3f371679734af2af0b11302b3cb971"
 [[env.development.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-development"
 [[env.development.kv_namespaces]]
 binding = "JWKS_CACHE"
-id = "970ea5ba5ff948c587803b33c594e5bc"
+id = "566eeced11594b61b719b4782bccf10b"
 [[env.development.unsafe.bindings]]
 name = "HTTP_ENDPOINT_RATE_LIMITER"
 type = "ratelimit"
@@ -69,13 +69,13 @@ NEXT_PUBLIC_WEB_URL = "https://app.ganju.ai"
 NEXT_PUBLIC_DOMAIN = "ganju.ai"
 [[env.production.hyperdrive]]
 binding = "HYPERDRIVE"
-id = "<YOUR_HYPERDRIVE_ID>"
+id = "c552a4fd338d4025b0442e4737a8635b"
 [[env.production.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-production"
 [[env.production.kv_namespaces]]
 binding = "JWKS_CACHE"
-id = "<JWKS_CACHE_KV_ID_PROD>"
+id = "909add5eb9fe4b0ca094f11f3a5dd348"
 [[env.production.unsafe.bindings]]
 name = "HTTP_ENDPOINT_RATE_LIMITER"
 type = "ratelimit"

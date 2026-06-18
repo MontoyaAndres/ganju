@@ -37,7 +37,7 @@ binding = "API"
 service = "ganju-api-development"
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
-id = "20b38b96e12a4f45ac111fb7d8161edf"
+id = "bf3f371679734af2af0b11302b3cb971"
 [[env.development.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-development"
@@ -156,7 +156,7 @@ binding = "API"
 service = "ganju-api-production"
 [[env.production.hyperdrive]]
 binding = "HYPERDRIVE"
-id = "<YOUR_HYPERDRIVE_ID>"
+id = "c552a4fd338d4025b0442e4737a8635b"
 [[env.production.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-production"
