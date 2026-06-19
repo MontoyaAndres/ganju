@@ -4,13 +4,13 @@ The database layer: [Drizzle ORM](https://orm.drizzle.team) schema, Postgres con
 
 ## Contents
 
-| Path | What |
-| --- | --- |
+| Path                                     | What                                                       |
+| ---------------------------------------- | ---------------------------------------------------------- |
 | [`src/lib/schema.ts`](src/lib/schema.ts) | The full schema — source of truth for all tables/relations |
-| [`src/lib/db.ts`](src/lib/db.ts) | Connection (Hyperdrive / `postgres`) |
-| [`src/lib/usage.ts`](src/lib/usage.ts) | Usage-tally helpers |
-| [`src/utils`](src/utils) | Error handler, connection-string resolver |
-| [`drizzle.config.ts`](drizzle.config.ts) | Drizzle Kit config |
+| [`src/lib/db.ts`](src/lib/db.ts)         | Connection (Hyperdrive / `postgres`)                       |
+| [`src/lib/usage.ts`](src/lib/usage.ts)   | Usage-tally helpers                                        |
+| [`src/utils`](src/utils)                 | Error handler, connection-string resolver                  |
+| [`drizzle.config.ts`](drizzle.config.ts) | Drizzle Kit config                                         |
 
 A guided tour of the entities is in [docs/DATA_MODEL.md](../../docs/DATA_MODEL.md).
 
@@ -28,4 +28,3 @@ npm run studio -w @ganju/db        # Drizzle Studio
 - Requires Postgres with [`pgvector`](https://github.com/pgvector/pgvector) ≥ 0.7 (the embedding column is a 3072-dim `halfvec` with an HNSW cosine index).
 - IDs are UUIDv7 text keys. Status/enum columns are validated against constant arrays in [`@ganju/utils`](../utils).
 - `toolGroup`, `toolDefinition`, and `mcpServerCatalog` rows are seeded out of band.
-</content>

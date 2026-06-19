@@ -32,25 +32,25 @@ cp .env.example .env
 
 ### Variables
 
-| Variable | Used by | Notes |
-| --- | --- | --- |
-| `NODE_ENV` | all | `development` locally |
-| `RESOURCE_HANDLER_PORT` | api, mcp, resource-handler | Default `8082` |
-| `DATABASE_URL` | db, queue consumers, resource-handler | Postgres connection string |
-| `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` | api, mcp (local) | Local Hyperdrive override → your Postgres |
-| `JWT_SECRET` | api, mcp | Signs/verifies tokens between services |
-| `CRYPTO_SECRET` | api, mcp | Symmetric key for encrypting stored credentials |
-| `MCP_INTERNAL_SECRET` | api, mcp | Guards internal worker-to-worker / DO ingest calls |
-| `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET` | api | OAuth client used by MCP-client login |
-| `EMBEDDING_API_KEY` | api | Gemini key for embeddings (and default LLM) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | api | Google social login + Gmail/Drive/Calendar OAuth |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | api | GitHub social login |
-| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` | api | Outlook / OneDrive OAuth |
-| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | api | Slack OAuth |
-| `NEXT_PUBLIC_API_URL` | web | `http://localhost:8080` locally |
-| `NEXT_PUBLIC_WEB_URL` | web, api (CORS) | `http://localhost:3000` locally |
-| `NEXT_PUBLIC_MCP_URL` | web | `http://localhost:8081` locally |
-| `NEXT_PUBLIC_DOMAIN` | web, api | Base domain (blank locally) |
+| Variable                                                   | Used by                               | Notes                                              |
+| ---------------------------------------------------------- | ------------------------------------- | -------------------------------------------------- |
+| `NODE_ENV`                                                 | all                                   | `development` locally                              |
+| `RESOURCE_HANDLER_PORT`                                    | api, mcp, resource-handler            | Default `8082`                                     |
+| `DATABASE_URL`                                             | db, queue consumers, resource-handler | Postgres connection string                         |
+| `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` | api, mcp (local)                      | Local Hyperdrive override → your Postgres          |
+| `JWT_SECRET`                                               | api, mcp                              | Signs/verifies tokens between services             |
+| `CRYPTO_SECRET`                                            | api, mcp                              | Symmetric key for encrypting stored credentials    |
+| `MCP_INTERNAL_SECRET`                                      | api, mcp                              | Guards internal worker-to-worker / DO ingest calls |
+| `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET`          | api                                   | OAuth client used by MCP-client login              |
+| `EMBEDDING_API_KEY`                                        | api                                   | Gemini key for embeddings (and default LLM)        |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                | api                                   | Google social login + Gmail/Drive/Calendar OAuth   |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`                | api                                   | GitHub social login                                |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET`          | api                                   | Outlook / OneDrive OAuth                           |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`                  | api                                   | Slack OAuth                                        |
+| `NEXT_PUBLIC_API_URL`                                      | web                                   | `http://localhost:8080` locally                    |
+| `NEXT_PUBLIC_WEB_URL`                                      | web, api (CORS)                       | `http://localhost:3000` locally                    |
+| `NEXT_PUBLIC_MCP_URL`                                      | web                                   | `http://localhost:8081` locally                    |
+| `NEXT_PUBLIC_DOMAIN`                                       | web, api                              | Base domain (blank locally)                        |
 
 `NEXT_PUBLIC_*` values are also baked into the Worker `vars` per environment in each `wrangler.toml`.
 
@@ -79,12 +79,12 @@ Start everything with Turbo:
 npm run dev
 ```
 
-| App | URL | How it runs |
-| --- | --- | --- |
-| `apps/api` | http://localhost:8080 | `wrangler dev --env development` (via [`scripts/wrangler-dev.sh`](../scripts/wrangler-dev.sh)) |
-| `apps/mcp` | http://localhost:8081 | `wrangler dev --env development` |
-| `apps/resource-handler` | http://localhost:8082 | Container started by Wrangler/Docker |
-| `apps/web` | http://localhost:3000 | `next dev` |
+| App                     | URL                   | How it runs                                                                                    |
+| ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
+| `apps/api`              | http://localhost:8080 | `wrangler dev --env development` (via [`scripts/wrangler-dev.sh`](../scripts/wrangler-dev.sh)) |
+| `apps/mcp`              | http://localhost:8081 | `wrangler dev --env development`                                                               |
+| `apps/resource-handler` | http://localhost:8082 | Container started by Wrangler/Docker                                                           |
+| `apps/web`              | http://localhost:3000 | `next dev`                                                                                     |
 
 To run a single app, use the workspace filter, e.g.:
 
@@ -97,17 +97,17 @@ npm run dev -w api
 
 Defined in the root [`package.json`](../package.json), orchestrated by Turbo:
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Start all apps in watch mode |
-| `npm run build` | Build every workspace |
-| `npm run start` | Start built outputs |
-| `npm run generate` | Generate Drizzle migrations |
-| `npm run migrate-dev` | Generate + apply migrations (dev) |
-| `npm run migrate-prod` | Generate + apply migrations (prod) |
-| `npm run deploy-dev` | Deploy all apps to the `development` env |
-| `npm run deploy-prod` | Deploy all apps to the `production` env |
-| `npm run clean` | Remove build outputs and `node_modules` |
+| Command                | What it does                             |
+| ---------------------- | ---------------------------------------- |
+| `npm run dev`          | Start all apps in watch mode             |
+| `npm run build`        | Build every workspace                    |
+| `npm run start`        | Start built outputs                      |
+| `npm run generate`     | Generate Drizzle migrations              |
+| `npm run migrate-dev`  | Generate + apply migrations (dev)        |
+| `npm run migrate-prod` | Generate + apply migrations (prod)       |
+| `npm run deploy-dev`   | Deploy all apps to the `development` env |
+| `npm run deploy-prod`  | Deploy all apps to the `production` env  |
+| `npm run clean`        | Remove build outputs and `node_modules`  |
 
 ## Conventions
 
@@ -125,4 +125,3 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for the contribution workflow and [app
 - **Resource-handler won't start** — Docker must be running; Wrangler builds the image from [`apps/resource-handler/Dockerfile`](../apps/resource-handler/Dockerfile).
 - **OAuth callbacks fail locally** — register `http://localhost:8080/oauth/<provider>/callback` (and the better-auth callback) as authorized redirect URIs in each provider's console.
 - **`.dev.vars.development` is a symlink** — it points at the root `.env`; the dev script manages it. Don't commit it.
-</content>

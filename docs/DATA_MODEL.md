@@ -70,12 +70,12 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
 
 ## Observability & audit tables
 
-| Table | What it records |
-| --- | --- |
+| Table                       | What it records                                                                |
+| --------------------------- | ------------------------------------------------------------------------------ |
 | `mcpSession` / `mcpRequest` | Each MCP client session and individual request (method, tool, latency, errors) |
-| `artifactExecution` | Unified audit of tool/prompt/resource runs (source, actor, channel/user) |
-| `channelMessageUsage` | Per-message breakdown of what a channel turn used |
-| `errorLog` | Cross-service error capture (service, path, stack, references) |
+| `artifactExecution`         | Unified audit of tool/prompt/resource runs (source, actor, channel/user)       |
+| `channelMessageUsage`       | Per-message breakdown of what a channel turn used                              |
+| `errorLog`                  | Cross-service error capture (service, path, stack, references)                 |
 
 ## Conventions
 
@@ -84,4 +84,3 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
 - **Counters** on `artifact` / `organization` / `project` are maintained in application code — keep them in sync when you add a create/delete path.
 - **Enums** are plain text columns validated against constant arrays in [`packages/utils/src/constants.ts`](../packages/utils/src/constants.ts) (e.g. `STATUS_*`, `CHANNEL_PLATFORMS`, `LLM_PROVIDERS`).
 - **Seeded data** — `toolGroup`, `toolDefinition`, and `mcpServerCatalog` rows are inserted out of band, not created through the app UI.
-</content>

@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ganju — Connect your AI to your files, tools, and apps</title>
+    <meta
+      name="description"
+      content="Ganju connects AI assistants like Claude, ChatGPT, and Cursor — and your Telegram, Slack, WhatsApp, and Discord bots — to your own files, tools, and apps. Set it up in minutes, no coding required. Open source."
+    />
+
+    <!-- Open Graph -->
+    <meta
+      property="og:title"
+      content="Ganju — Connect your AI to everything you work with"
+    />
+    <meta
+      property="og:description"
+      content="Give your AI assistant secure access to your documents, tools, and apps — and turn it into a helpful bot on Telegram, Slack, WhatsApp, or Discord."
+    />
+    <meta property="og:type" content="website" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fustat:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- ===== Brand icon sprite (referenced via <use>) ===== -->
+    <svg class="brand-sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-claude" viewBox="0 0 24 24">
+        <g stroke="#D97757" stroke-width="2.4" stroke-linecap="round">
+          <path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" />
+        </g>
+      </symbol>
+      <symbol id="i-chatgpt" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="#10A37F"
+          stroke-width="2"
+          stroke-linejoin="round"
+          d="M12 3l7.5 4.3v8.4L12 21l-7.5-4.3V7.3z"
+        />
+        <circle cx="12" cy="12" r="2.4" fill="#10A37F" />
+      </symbol>
+      <symbol id="i-cursor" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="#111111"
+          stroke-width="1.7"
+          stroke-linejoin="round"
+          d="M12 3l8 4.6v8.8L12 21l-8-4.6V7.6zM12 12l8-4.6M12 12v9M12 12L4 7.4"
+        />
+      </symbol>
+      <symbol id="i-telegram" viewBox="0 0 24 24">
+        <path
+          fill="#229ED9"
+          d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"
+        />
+      </symbol>
+      <symbol id="i-slack" viewBox="0 0 24 24">
+        <path
+          fill="#4A154B"
+          d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"
+        />
+      </symbol>
+      <symbol id="i-whatsapp" viewBox="0 0 24 24">
+        <path
+          fill="#25D366"
+          d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"
+        />
+      </symbol>
+      <symbol id="i-discord" viewBox="0 0 24 24">
+        <path
+          fill="#5865F2"
+          d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"
+        />
+      </symbol>
+      <symbol id="i-gmail" viewBox="0 0 24 24">
+        <rect
+          x="3"
+          y="6"
+          width="18"
+          height="12"
+          rx="2"
+          fill="#fff"
+          stroke="#EA4335"
+          stroke-width="1.6"
+        />
+        <path
+          fill="none"
+          stroke="#EA4335"
+          stroke-width="2"
+          stroke-linejoin="round"
+          d="M4 7.5l8 5.5 8-5.5"
+        />
+      </symbol>
+      <symbol id="i-outlook" viewBox="0 0 24 24">
+        <rect x="3" y="4.5" width="18" height="15" rx="3" fill="#0078D4" />
+        <ellipse
+          cx="12"
+          cy="12"
+          rx="4"
+          ry="4.6"
+          fill="none"
+          stroke="#fff"
+          stroke-width="2"
+        />
+      </symbol>
+      <symbol id="i-gcal" viewBox="0 0 24 24">
+        <rect
+          x="4"
+          y="5"
+          width="16"
+          height="15"
+          rx="2.5"
+          fill="#fff"
+          stroke="#4285F4"
+          stroke-width="1.5"
+        />
+        <path d="M4 8.5h16V9H4z" fill="#4285F4" />
+        <rect x="4" y="5" width="16" height="3.5" fill="#4285F4" />
+        <rect x="9" y="11.2" width="6" height="5.6" rx="1" fill="#34A853" />
+      </symbol>
+      <symbol id="i-calcom" viewBox="0 0 24 24">
+        <rect x="3" y="4.5" width="18" height="15" rx="4" fill="#111111" />
+        <rect
+          x="7"
+          y="9"
+          width="10"
+          height="7"
+          rx="1.6"
+          fill="none"
+          stroke="#fff"
+          stroke-width="1.4"
+        />
+        <path d="M7 11.4h10" stroke="#fff" stroke-width="1.4" />
+      </symbol>
+      <symbol id="i-tavily" viewBox="0 0 24 24">
+        <g
+          fill="none"
+          stroke="#0EA5A5"
+          stroke-width="2.1"
+          stroke-linecap="round"
+        >
+          <circle cx="10.5" cy="10.5" r="5.3" />
+          <path d="M14.6 14.6L20 20" />
+        </g>
+      </symbol>
+      <symbol id="i-gdrive" viewBox="0 0 24 24">
+        <path fill="#1A73E8" d="M4 18l4-7 4 7z" />
+        <path fill="#34A853" d="M12 18l4-7 4 7z" />
+        <path fill="#FBBC04" d="M8 11h8l-4-7z" />
+      </symbol>
+      <symbol id="i-onedrive" viewBox="0 0 24 24">
+        <path
+          fill="#0F87E0"
+          d="M7 17.5h10.2a3.3 3.3 0 0 0 .55-6.56 4.6 4.6 0 0 0-8.7-1.2A3.85 3.85 0 0 0 7 17.5z"
+        />
+      </symbol>
+      <symbol id="i-endpoint" viewBox="0 0 24 24">
+        <g
+          fill="none"
+          stroke="#1c1825"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 8l-4 4 4 4M15 8l4 4-4 4" />
+        </g>
+      </symbol>
+      <symbol id="i-proxy" viewBox="0 0 24 24">
+        <g
+          fill="none"
+          stroke="#1c1825"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="5" cy="12" r="2" />
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1.2" />
+          <circle cx="19" cy="12" r="2" />
+          <path d="M7 12h2.5M14.5 12H17" />
+        </g>
+      </symbol>
+      <symbol id="i-notion" viewBox="0 0 24 24">
+        <rect
+          x="3.5"
+          y="3.5"
+          width="17"
+          height="17"
+          rx="3.5"
+          fill="#fff"
+          stroke="#111111"
+          stroke-width="1.6"
+        />
+        <path
+          fill="none"
+          stroke="#111111"
+          stroke-width="1.9"
+          stroke-linejoin="round"
+          d="M8.5 16V8.4l7 7.2V8"
+        />
+      </symbol>
+      <symbol id="i-github" viewBox="0 0 24 24">
+        <path
+          fill="#181717"
+          d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
+        />
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path
+          fill="#000000"
+          d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+        />
+      </symbol>
+      <symbol id="i-linkedin" viewBox="0 0 24 24">
+        <path
+          fill="#0A66C2"
+          d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"
+        />
+      </symbol>
+    </svg>
+
+    <!-- ===== Header ===== -->
+    <header class="site-header" id="header">
+      <div class="container header-inner">
+        <a href="#top" class="brand" aria-label="Ganju home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-name">Ganju</span>
+        </a>
+
+        <nav class="nav" id="nav" aria-label="Primary">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#integrations">Integrations</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+
+        <div class="header-actions">
+          <a
+            class="btn btn-ghost btn-star"
+            href="https://github.com/MontoyaAndres/ganju"
+            target="_blank"
+            rel="noopener"
+            aria-label="Star Ganju on GitHub"
+          >
+            <svg class="brand-ico" aria-hidden="true">
+              <use href="#i-github" />
+            </svg>
+            Star
+            <span class="star-count" id="starCount">—</span>
+          </a>
+          <a
+            class="btn btn-primary"
+            href="https://app.ganju.ai"
+            target="_blank"
+            rel="noopener"
+            >Get started</a
+          >
+        </div>
+
+        <button
+          class="nav-toggle"
+          id="navToggle"
+          aria-label="Toggle menu"
+          aria-expanded="false"
+        >
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main id="top">
+      <!-- ===== Hero ===== -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="container hero-grid">
+          <div class="hero-copy reveal">
+            <span class="badge">
+              <span class="dot"></span> Open source · Apache-2.0
+            </span>
+            <h1>Connect your AI to your files, tools &amp; apps.</h1>
+            <p class="lead">
+              Ganju lets AI assistants like Claude and ChatGPT — and your bots
+              on Telegram, Slack, WhatsApp, and Discord — safely use your own
+              documents, tools, and apps. Your AI answers with your information
+              and gets real work done. Set it up in minutes, no coding required.
+            </p>
+
+            <div class="hero-cta">
+              <a
+                class="btn btn-primary btn-lg"
+                href="https://app.ganju.ai"
+                target="_blank"
+                rel="noopener"
+                >Start building free</a
+              >
+              <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+            </div>
+          </div>
+
+          <!-- Hero illustration (AI-generated) -->
+          <div class="hero-art reveal">
+            <div class="art-frame art-hero">
+              <img
+                src="images/hero.png"
+                alt="Tools and AI clients connecting to your Ganju MCP server"
+                width="1024"
+                height="1024"
+                onerror="this.style.display = 'none'"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Trust bar -->
+        <div class="container trustbar reveal">
+          <span class="trust-label">Works with</span>
+          <ul class="trust-logos">
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-claude" />
+              </svg>
+              Claude
+            </li>
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-chatgpt" />
+              </svg>
+              ChatGPT
+            </li>
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-cursor" />
+              </svg>
+              Cursor
+            </li>
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-telegram" />
+              </svg>
+              Telegram
+            </li>
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-slack" />
+              </svg>
+              Slack
+            </li>
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-whatsapp" />
+              </svg>
+              WhatsApp
+            </li>
+            <li>
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-discord" />
+              </svg>
+              Discord
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ===== Features ===== -->
+      <section class="section" id="features">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">Everything in one place</span>
+            <h2>Everything your AI needs, in one place.</h2>
+            <p>
+              Add your documents, connect your tools, write instructions, and
+              hook up your chat apps — all from one simple dashboard.
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <article class="card reveal">
+              <div class="art-spot">
+                <img
+                  src="images/feature-host.png"
+                  alt=""
+                  width="36"
+                  height="36"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h3>No setup, no servers</h3>
+              <p>
+                Nothing to install or maintain. Create a connection and it's
+                live instantly — we host and run everything for you.
+              </p>
+            </article>
+
+            <article class="card reveal">
+              <div class="art-spot">
+                <img
+                  src="images/feature-rag.png"
+                  alt=""
+                  width="36"
+                  height="36"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h3>Answers from your content</h3>
+              <p>
+                Upload files, add a website, or connect Google Drive or
+                OneDrive. Your AI searches all of it and answers using your own
+                information.
+              </p>
+            </article>
+
+            <article class="card reveal">
+              <div class="art-spot">
+                <img
+                  src="images/feature-tools.png"
+                  alt=""
+                  width="36"
+                  height="36"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h3>Tools your AI can use</h3>
+              <p>
+                Let your AI handle email, check your calendar, search the web,
+                post to Slack — or connect your own apps and services, no coding
+                needed.
+              </p>
+            </article>
+
+            <article class="card reveal">
+              <div class="art-spot">
+                <img
+                  src="images/feature-channels.png"
+                  alt=""
+                  width="36"
+                  height="36"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h3>Bring it to your chat apps</h3>
+              <p>
+                Turn the same setup into a helpful bot on Telegram, Slack,
+                WhatsApp, or Discord — for your team or your customers.
+              </p>
+            </article>
+
+            <article class="card reveal">
+              <div class="art-spot">
+                <img
+                  src="images/feature-team.png"
+                  alt=""
+                  width="36"
+                  height="36"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h3>Built for teams</h3>
+              <p>
+                Invite teammates, organize work into projects, and control who
+                can do what — all built in from day one.
+              </p>
+            </article>
+
+            <article class="card reveal">
+              <div class="art-spot">
+                <img
+                  src="images/feature-audit.png"
+                  alt=""
+                  width="36"
+                  height="36"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h3>See everything it does</h3>
+              <p>
+                Every question, action, and message is recorded — so you always
+                know what your AI did, when, and for whom.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== How it works ===== -->
+      <section class="section section-alt" id="how">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">From zero to connected</span>
+            <h2>Up and running in four steps</h2>
+            <p>No technical setup — just a few clicks.</p>
+          </div>
+
+          <div class="steps">
+            <article class="step reveal">
+              <div class="art-frame art-step">
+                <img
+                  src="images/step-1.png"
+                  alt="Create an artifact"
+                  width="1024"
+                  height="768"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <div class="step-body">
+                <span class="step-num">01</span>
+                <h3>Create your workspace</h3>
+                <p>
+                  Sign up and start a project — your private space to set
+                  everything up.
+                </p>
+              </div>
+            </article>
+
+            <article class="step reveal step-reverse">
+              <div class="art-frame art-step">
+                <img
+                  src="images/step-2.png"
+                  alt="Add resources and tools"
+                  width="1024"
+                  height="768"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <div class="step-body">
+                <span class="step-num">02</span>
+                <h3>Add your content &amp; tools</h3>
+                <p>
+                  Upload documents, connect a drive or website, and switch on
+                  the tools you want your AI to use.
+                </p>
+              </div>
+            </article>
+
+            <article class="step reveal">
+              <div class="art-frame art-step">
+                <img
+                  src="images/step-3.png"
+                  alt="Connect your AI client"
+                  width="1024"
+                  height="768"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <div class="step-body">
+                <span class="step-num">03</span>
+                <h3>Connect your AI</h3>
+                <p>
+                  Link it to Claude, ChatGPT, or Cursor in a couple of clicks.
+                  It stays private and secure.
+                </p>
+              </div>
+            </article>
+
+            <article class="step reveal step-reverse">
+              <div class="art-frame art-step">
+                <img
+                  src="images/step-4.png"
+                  alt="Ship it to a chat channel"
+                  width="1024"
+                  height="768"
+                  loading="lazy"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <div class="step-body">
+                <span class="step-num">04</span>
+                <h3>Share it with your team</h3>
+                <p>
+                  Add it as a bot on Telegram, Slack, WhatsApp, or Discord so
+                  anyone can use it.
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Integrations ===== -->
+      <section class="section" id="integrations">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">Tools &amp; integrations</span>
+            <h2>Connect the tools you already use.</h2>
+            <p>
+              Popular apps work right out of the box. Need something custom?
+              Connect your own app or another service — without writing code.
+            </p>
+          </div>
+
+          <div class="integration-grid reveal">
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-gmail" />
+              </svg>
+              Gmail
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-outlook" />
+              </svg>
+              Outlook
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-slack" />
+              </svg>
+              Slack
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-gcal" />
+              </svg>
+              Google Calendar
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-calcom" />
+              </svg>
+              Cal.com
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-tavily" />
+              </svg>
+              Web Search
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-gdrive" />
+              </svg>
+              Google Drive
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-onedrive" />
+              </svg>
+              OneDrive
+            </div>
+            <div class="chip chip-accent">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-endpoint" />
+              </svg>
+              http-endpoint
+            </div>
+            <div class="chip chip-accent">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-proxy" />
+              </svg>
+              mcp-proxy
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-notion" />
+              </svg>
+              Notion
+            </div>
+            <div class="chip">
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-github" />
+              </svg>
+              GitHub
+            </div>
+          </div>
+
+          <div class="integration-note reveal">
+            <strong>http-endpoint</strong> connects your own app or website.
+            <strong>mcp-proxy</strong> plugs in other ready-made services like
+            Notion and GitHub. Both work without writing any code.
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Pricing ===== -->
+      <section class="section section-alt" id="pricing">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">Pricing</span>
+            <h2>Start free. Scale when you're ready.</h2>
+            <p>
+              Use it free, upgrade as you grow — or run it yourself for free.
+            </p>
+          </div>
+
+          <div class="pricing-grid">
+            <!-- Free -->
+            <article class="price-card reveal">
+              <h3 class="tier">Free</h3>
+              <div class="price">
+                <span class="amount">$0</span><span class="per">/mo</span>
+              </div>
+              <p class="tier-sub">
+                Perfect for personal projects and trying things out.
+              </p>
+              <ul class="price-features">
+                <li>1 workspace</li>
+                <li>Up to 24&nbsp;MB per file</li>
+                <li>Up to 5 tools and 5 prompts</li>
+                <li>Your own connection link</li>
+                <li>Community support</li>
+              </ul>
+              <a
+                class="btn btn-ghost btn-block"
+                href="https://app.ganju.ai"
+                target="_blank"
+                rel="noopener"
+                >Get started</a
+              >
+            </article>
+
+            <!-- Paid / Pro -->
+            <article class="price-card price-featured reveal">
+              <span class="ribbon">Most popular</span>
+              <h3 class="tier">Pro</h3>
+              <!-- TODO: set your real price here -->
+              <div class="price">
+                <span class="amount">$—</span><span class="per">/mo</span>
+              </div>
+              <p class="tier-sub">For teams and growing products.</p>
+              <ul class="price-features">
+                <li>Unlimited projects &amp; teammates</li>
+                <li>Up to 500&nbsp;MB per file</li>
+                <li>Unlimited tools, prompts &amp; files</li>
+                <li>Your own custom web address</li>
+                <li>Build your own custom tools</li>
+                <li>24/7 support</li>
+              </ul>
+              <a
+                class="btn btn-primary btn-block"
+                href="https://app.ganju.ai"
+                target="_blank"
+                rel="noopener"
+                >Start Pro</a
+              >
+            </article>
+
+            <!-- Enterprise -->
+            <article class="price-card reveal">
+              <h3 class="tier">Enterprise</h3>
+              <div class="price"><span class="amount">Custom</span></div>
+              <p class="tier-sub">
+                For larger organizations with advanced needs.
+              </p>
+              <ul class="price-features">
+                <li>No upload limits</li>
+                <li>Unlimited everything</li>
+                <li>Custom web address &amp; tools</li>
+                <li>Dedicated support with guaranteed response times</li>
+                <li>Hands-on help from our team</li>
+              </ul>
+              <a
+                class="btn btn-ghost btn-block"
+                href="https://app.ganju.ai"
+                target="_blank"
+                rel="noopener"
+                >Contact sales</a
+              >
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== FAQ ===== -->
+      <section class="section" id="faq">
+        <div class="container narrow">
+          <div class="section-head reveal">
+            <span class="eyebrow">FAQ</span>
+            <h2>Good questions</h2>
+          </div>
+
+          <div class="faq">
+            <details class="reveal">
+              <summary>Do I need to be technical to use Ganju?</summary>
+              <p>
+                No. If you can fill out a form and click a few buttons, you can
+                set up Ganju — connecting your files, tools, and AI takes just a
+                few minutes, no coding required. (Developers get powerful
+                options too, like connecting their own apps.)
+              </p>
+            </details>
+            <details class="reveal">
+              <summary>What is MCP?</summary>
+              <p>
+                MCP (the Model Context Protocol) is the standard way AI
+                assistants connect to outside tools and information. You don't
+                need to understand the details — Ganju handles all of it so your
+                AI can safely use your files and apps.
+              </p>
+            </details>
+            <details class="reveal">
+              <summary>Which AI assistants can I use?</summary>
+              <p>
+                Use Google Gemini, Anthropic Claude, or OpenAI (ChatGPT) — just
+                add your own account. Other compatible providers work too.
+              </p>
+            </details>
+            <details class="reveal">
+              <summary>Is my data safe?</summary>
+              <p>
+                Yes. Your passwords and keys are encrypted, never shown in plain
+                text, and never shared. Everything runs on Cloudflare's secure
+                global network — and if you run Ganju yourself, your data stays
+                entirely in your own account.
+              </p>
+            </details>
+            <details class="reveal">
+              <summary>Can I run Ganju myself?</summary>
+              <p>
+                Yes. Ganju is open source and free to use and modify. Host it on
+                your own account, or let us run it for you on a paid plan.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CTA ===== -->
+      <section class="cta" id="cta">
+        <div class="cta-glow" aria-hidden="true"></div>
+        <div class="container cta-inner reveal">
+          <h2>Give your AI everything it needs to help.</h2>
+          <p>Set it up in minutes — free to start.</p>
+          <div class="hero-cta center">
+            <a
+              class="btn btn-primary btn-lg"
+              href="https://app.ganju.ai"
+              target="_blank"
+              rel="noopener"
+              >Start building free</a
+            >
+            <a
+              class="btn btn-ghost btn-lg"
+              href="https://docs.ganju.ai"
+              target="_blank"
+              rel="noopener"
+              >Read the docs</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ===== Footer ===== -->
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <a href="#top" class="brand">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span class="brand-name">Ganju</span>
+          </a>
+          <p>Connect your AI to your files, tools, and apps. Open source.</p>
+
+          <div class="footer-social">
+            <a
+              href="https://x.com/ganju_ai"
+              target="_blank"
+              rel="noopener"
+              aria-label="Ganju on X"
+            >
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-x" />
+              </svg>
+            </a>
+            <a
+              href="https://www.linkedin.com/company/ganju"
+              target="_blank"
+              rel="noopener"
+              aria-label="Ganju on LinkedIn"
+            >
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-linkedin" />
+              </svg>
+            </a>
+            <a
+              href="https://github.com/MontoyaAndres/ganju"
+              target="_blank"
+              rel="noopener"
+              aria-label="Ganju on GitHub"
+            >
+              <svg class="brand-ico" aria-hidden="true">
+                <use href="#i-github" />
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <nav class="footer-col" aria-label="Product">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#integrations">Integrations</a>
+          <a href="#pricing">Pricing</a>
+        </nav>
+
+        <nav class="footer-col" aria-label="Resources">
+          <h4>Resources</h4>
+          <a href="https://docs.ganju.ai" target="_blank" rel="noopener"
+            >Docs</a
+          >
+          <a
+            href="https://github.com/MontoyaAndres/ganju"
+            target="_blank"
+            rel="noopener"
+            >GitHub</a
+          >
+          <a href="#faq">FAQ</a>
+        </nav>
+
+        <nav class="footer-col" aria-label="Legal">
+          <h4>Legal</h4>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a
+            href="https://www.apache.org/licenses/LICENSE-2.0"
+            target="_blank"
+            rel="noopener"
+            >License (Apache-2.0)</a
+          >
+        </nav>
+      </div>
+      <div class="container footer-bottom">
+        <span
+          >© <span id="year"></span> Ganju. Open source under Apache-2.0.</span
+        >
+      </div>
+    </footer>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>

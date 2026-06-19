@@ -12,13 +12,13 @@ The Hono Cloudflare Worker that everything except live MCP traffic flows through
 
 ## Layout
 
-| Path | What |
-| --- | --- |
-| [`src/controllers`](src/controllers) | Route handlers, grouped by resource |
-| [`src/middleware`](src/middleware) | Auth/user guards |
-| [`src/queue`](src/queue) | Background job consumers |
-| [`src/durable-objects`](src/durable-objects) | Discord Gateway DO |
-| [`src/utils`](src/utils) | OAuth, providers, LLM clients, channel formatting, embeddings |
+| Path                                         | What                                                          |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| [`src/controllers`](src/controllers)         | Route handlers, grouped by resource                           |
+| [`src/middleware`](src/middleware)           | Auth/user guards                                              |
+| [`src/queue`](src/queue)                     | Background job consumers                                      |
+| [`src/durable-objects`](src/durable-objects) | Discord Gateway DO                                            |
+| [`src/utils`](src/utils)                     | OAuth, providers, LLM clients, channel formatting, embeddings |
 
 ## Local dev
 
@@ -27,4 +27,3 @@ npm run dev -w api    # http://localhost:8080
 ```
 
 Bindings (Hyperdrive, R2, queues, Email, containers, DOs) are declared in [`wrangler.toml`](wrangler.toml). See [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) and [docs/DEPLOYMENT.md](../../docs/DEPLOYMENT.md).
-</content>

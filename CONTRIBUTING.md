@@ -59,4 +59,3 @@ Open an issue with enough to reproduce (steps, expected vs. actual, environment)
 ## License
 
 By contributing, you agree that your contributions are licensed under the [Apache License 2.0](LICENSE). The Apache-2.0 grant in Section 5 ("Submission of Contributions") covers inbound contributions, so no separate CLA is required for permissive use.
-</content>

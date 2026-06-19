@@ -6,10 +6,10 @@ Ganju deploys to Cloudflare. Each Worker app has a `wrangler.toml` with `develop
 
 ## Environments
 
-| Env | Trigger | Domains (example) |
-| --- | --- | --- |
-| `development` | `npm run deploy-dev` | `development-{api,mcp,app}.<domain>` |
-| `production` | `npm run deploy-prod` | `{api,mcp,app}.<domain>` |
+| Env           | Trigger               | Domains (example)                    |
+| ------------- | --------------------- | ------------------------------------ |
+| `development` | `npm run deploy-dev`  | `development-{api,mcp,app}.<domain>` |
+| `production`  | `npm run deploy-prod` | `{api,mcp,app}.<domain>`             |
 
 Per-app deploy scripts (`deploy-dev` / `deploy-prod`) run `wrangler deploy --env <env>` (or `opennextjs-cloudflare deploy` for web). The root scripts fan out across workspaces via Turbo.
 
@@ -64,4 +64,3 @@ npm run migrate-prod   # generates + applies against .env.prod
 ## Observability
 
 Workers have observability logs enabled in both envs (`[env.<env>.observability]`). Use `wrangler tail --env <env>` to stream logs, and watch the dead-letter queues for stuck background jobs. Cross-service errors also land in the `error_log` table (see [DATA_MODEL.md](DATA_MODEL.md)).
-</content>

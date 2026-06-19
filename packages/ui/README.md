@@ -15,4 +15,3 @@ Each lives under [`src/components/<name>`](src/components) with an `index.tsx` a
 - Follow the existing `index.tsx` + `styles.tsx` split when adding a component.
 - Re-export new components from [`src/components/index.tsx`](src/components/index.tsx) / [`src/index.tsx`](src/index.tsx).
 - Theme tokens come from the web app's [`theme.ts`](../../apps/web/src/theme.ts).
-</content>

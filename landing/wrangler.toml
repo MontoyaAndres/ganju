@@ -1,0 +1,6 @@
+name = "ganju-landing"
+pages_build_output_dir = "public"
+# Pinned so `wrangler pages dev` shims its Worker with a date the local
+# runtime supports. Static Pages run no Worker code in production, so this
+# only affects local preview. Matches the apps' compatibility_date.
+compatibility_date = "2025-11-17"

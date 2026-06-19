@@ -1,0 +1,12 @@
+{
+  "name": "landing",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Ganju marketing landing page — static HTML/CSS/JS on Cloudflare Pages",
+  "scripts": {
+    "preview": "wrangler pages dev --port 5173",
+    "deploy-dev": "wrangler pages deploy --branch=preview --commit-dirty=true",
+    "deploy-prod": "wrangler pages deploy --branch=main --commit-dirty=true",
+    "clean": "rm -rf node_modules"
+  }
+}

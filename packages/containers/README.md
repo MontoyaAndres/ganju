@@ -8,4 +8,3 @@ The [Cloudflare Container](https://developers.cloudflare.com/containers/) class 
 - **`getResourceHandler(env)`** — helper to obtain the container instance from a caller Worker.
 
 The Worker apps bind this as a Durable Object (`RESOURCE_HANDLER`) and declare the container image in their `wrangler.toml` (see [`apps/api/wrangler.toml`](../../apps/api/wrangler.toml)). Background on why it exists: [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
-</content>

@@ -41,12 +41,12 @@ flowchart LR
   API --> R2[(R2 storage)]
 ```
 
-| App | Runtime | Responsibility |
-| --- | --- | --- |
-| [`apps/api`](apps/api) | Cloudflare Worker (Hono) | Control plane: auth, CRUD, OAuth, channel webhooks, queue consumers |
-| [`apps/mcp`](apps/mcp) | Cloudflare Worker (Hono) | The MCP server itself — boots a server per request and dispatches tools/resources/prompts |
-| [`apps/resource-handler`](apps/resource-handler) | Node container | CPU/binary-heavy work: document extraction, web crawling, large file sends |
-| [`apps/web`](apps/web) | Next.js (OpenNext → Cloudflare) | The management dashboard |
+| App                                              | Runtime                         | Responsibility                                                                            |
+| ------------------------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| [`apps/api`](apps/api)                           | Cloudflare Worker (Hono)        | Control plane: auth, CRUD, OAuth, channel webhooks, queue consumers                       |
+| [`apps/mcp`](apps/mcp)                           | Cloudflare Worker (Hono)        | The MCP server itself — boots a server per request and dispatches tools/resources/prompts |
+| [`apps/resource-handler`](apps/resource-handler) | Node container                  | CPU/binary-heavy work: document extraction, web crawling, large file sends                |
+| [`apps/web`](apps/web)                           | Next.js (OpenNext → Cloudflare) | The management dashboard                                                                  |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full picture.
 
@@ -96,14 +96,14 @@ Full setup (prerequisites, environment variables, database, per-app commands) is
 
 ## Documentation
 
-| Doc | What's inside |
-| --- | --- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, apps, data flow, Cloudflare bindings |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local setup, env vars, commands, troubleshooting |
-| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Database entities and relationships |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploying to Cloudflare, environments, secrets |
-| [apps/mcp/src/tools/README.md](apps/mcp/src/tools/README.md) | How tools work and how to add one |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution workflow and conventions |
+| Doc                                                          | What's inside                                       |
+| ------------------------------------------------------------ | --------------------------------------------------- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                 | System design, apps, data flow, Cloudflare bindings |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | Local setup, env vars, commands, troubleshooting    |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                     | Database entities and relationships                 |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                     | Deploying to Cloudflare, environments, secrets      |
+| [apps/mcp/src/tools/README.md](apps/mcp/src/tools/README.md) | How tools work and how to add one                   |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                           | Contribution workflow and conventions               |
 
 ## Contributing
 
@@ -112,4 +112,3 @@ Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) fir
 ## License
 
 [Apache-2.0](LICENSE) — see also [NOTICE](NOTICE).
-</content>

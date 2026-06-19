@@ -8,7 +8,8 @@
   "license": "Apache-2.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "landing"
   ],
   "scripts": {
     "build": "turbo run build",
@@ -19,7 +20,9 @@
     "migrate-dev": "turbo run generate && turbo run migrate-dev",
     "migrate-prod": "turbo run generate && turbo run migrate-prod",
     "deploy-dev": "turbo run deploy-dev",
-    "deploy-prod": "turbo run deploy-prod"
+    "deploy-prod": "turbo run deploy-prod",
+    "landing-preview": "npm run preview -w landing",
+    "landing-deploy": "npm run deploy-prod -w landing"
   },
   "dependencies": {
     "turbo": "^2.9.18"

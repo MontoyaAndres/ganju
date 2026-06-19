@@ -12,12 +12,12 @@ It's **stateless**: a fresh `McpServer` is assembled per request from the artifa
 
 ## Layout
 
-| Path | What |
-| --- | --- |
-| [`src/tools`](src/tools) | Tool definitions + registry — **read [`src/tools/README.md`](src/tools/README.md)** |
-| [`src/controllers/mcp`](src/controllers/mcp) | Per-request server boot + dispatch |
-| [`src/controllers/wellKnown`](src/controllers/wellKnown) | OAuth protected-resource metadata |
-| [`src/utils`](src/utils) | Credential refresh, interpolation, rate limiting, remote MCP client, embeddings |
+| Path                                                     | What                                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`src/tools`](src/tools)                                 | Tool definitions + registry — **read [`src/tools/README.md`](src/tools/README.md)** |
+| [`src/controllers/mcp`](src/controllers/mcp)             | Per-request server boot + dispatch                                                  |
+| [`src/controllers/wellKnown`](src/controllers/wellKnown) | OAuth protected-resource metadata                                                   |
+| [`src/utils`](src/utils)                                 | Credential refresh, interpolation, rate limiting, remote MCP client, embeddings     |
 
 ## Adding or changing a tool
 
@@ -30,4 +30,3 @@ npm run dev -w mcp    # http://localhost:8081
 ```
 
 Bindings are in [`wrangler.toml`](wrangler.toml).
-</content>

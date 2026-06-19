@@ -44,13 +44,13 @@ A [Next.js](https://nextjs.org) app (Pages Router, MUI/Emotion) deployed to Clou
 
 ## Shared packages
 
-| Package | Role |
-| --- | --- |
-| [`packages/db`](../packages/db) | Drizzle schema ([`lib/schema.ts`](../packages/db/src/lib/schema.ts)), connection via Hyperdrive, migrations, shared error handler |
-| [`packages/utils`](../packages/utils) | The shared kernel: [`constants.ts`](../packages/utils/src/constants.ts) (mime types, provider URLs, platform caps, LLM catalog, chunking config), crypto, OAuth refresh, SSRF screening, chunking, per-channel send helpers |
-| [`packages/ui`](../packages/ui) | MUI-based component library used by the web app |
-| [`packages/containers`](../packages/containers) | The `ResourceHandler` Cloudflare Container class |
-| [`packages/tsconfig`](../packages/tsconfig) | Shared TypeScript config |
+| Package                                         | Role                                                                                                                                                                                                                        |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`packages/db`](../packages/db)                 | Drizzle schema ([`lib/schema.ts`](../packages/db/src/lib/schema.ts)), connection via Hyperdrive, migrations, shared error handler                                                                                           |
+| [`packages/utils`](../packages/utils)           | The shared kernel: [`constants.ts`](../packages/utils/src/constants.ts) (mime types, provider URLs, platform caps, LLM catalog, chunking config), crypto, OAuth refresh, SSRF screening, chunking, per-channel send helpers |
+| [`packages/ui`](../packages/ui)                 | MUI-based component library used by the web app                                                                                                                                                                             |
+| [`packages/containers`](../packages/containers) | The `ResourceHandler` Cloudflare Container class                                                                                                                                                                            |
+| [`packages/tsconfig`](../packages/tsconfig)     | Shared TypeScript config                                                                                                                                                                                                    |
 
 ## Data flow examples
 
@@ -103,26 +103,26 @@ A chat platform posts a webhook to `apps/api`, which runs an LLM tool-calling lo
 
 Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/wrangler.toml) for the full set). The API Worker is the binding hub:
 
-| Binding | Type | Purpose |
-| --- | --- | --- |
-| `HYPERDRIVE` | Hyperdrive | Pooled Postgres connection |
-| `STORAGE_BUCKET` | R2 | Uploaded files / avatars |
-| `SEND_EMAIL` | Email | Transactional email (verified destinations only) |
-| `RESOURCE_HANDLER` | Durable Object → Container | Heavy work delegation |
-| `DISCORD_GATEWAY` | Durable Object | Persistent Discord Gateway socket |
-| `MCP` / `API` | Service bindings | Worker-to-Worker calls |
-| `*_QUEUE` | Queues | Background jobs (see below) |
+| Binding            | Type                       | Purpose                                          |
+| ------------------ | -------------------------- | ------------------------------------------------ |
+| `HYPERDRIVE`       | Hyperdrive                 | Pooled Postgres connection                       |
+| `STORAGE_BUCKET`   | R2                         | Uploaded files / avatars                         |
+| `SEND_EMAIL`       | Email                      | Transactional email (verified destinations only) |
+| `RESOURCE_HANDLER` | Durable Object → Container | Heavy work delegation                            |
+| `DISCORD_GATEWAY`  | Durable Object             | Persistent Discord Gateway socket                |
+| `MCP` / `API`      | Service bindings           | Worker-to-Worker calls                           |
+| `*_QUEUE`          | Queues                     | Background jobs (see below)                      |
 
 ### Queues (background work)
 
 Each has a producer binding, a consumer, and a dead-letter queue:
 
-| Queue | Job |
-| --- | --- |
-| `INDEX_QUEUE` | Chunk + embed a resource |
-| `CRAWL_DISCOVER_QUEUE` / `CRAWL_PAGE_QUEUE` | Website crawl: discover URLs, then fetch pages |
-| `GDRIVE_DISCOVER_QUEUE` / `GDRIVE_FILE_QUEUE` | Google Drive folder sync |
-| `ONEDRIVE_DISCOVER_QUEUE` / `ONEDRIVE_FILE_QUEUE` | OneDrive folder sync |
+| Queue                                             | Job                                            |
+| ------------------------------------------------- | ---------------------------------------------- |
+| `INDEX_QUEUE`                                     | Chunk + embed a resource                       |
+| `CRAWL_DISCOVER_QUEUE` / `CRAWL_PAGE_QUEUE`       | Website crawl: discover URLs, then fetch pages |
+| `GDRIVE_DISCOVER_QUEUE` / `GDRIVE_FILE_QUEUE`     | Google Drive folder sync                       |
+| `ONEDRIVE_DISCOVER_QUEUE` / `ONEDRIVE_FILE_QUEUE` | OneDrive folder sync                           |
 
 Consumer code is in [`apps/api/src/queue`](../apps/api/src/queue).
 
@@ -133,4 +133,3 @@ Consumer code is in [`apps/api/src/queue`](../apps/api/src/queue).
 - **Secrets are never inlined.** Tool configs reference credentials by id; secrets live encrypted in `artifact_credential` and are applied just before egress, never logged.
 - **Untrusted egress is SSRF-screened.** `http-endpoint`, `mcp-proxy`, and the crawler screen target hosts against private/loopback ranges.
 - **Everything is auditable.** MCP requests, tool/prompt/resource executions, and channel messages are recorded.
-</content>
