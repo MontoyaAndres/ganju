@@ -53,7 +53,7 @@ export const buildMimeMessage = (input: MimeMessageInput): string => {
     return `${headers.join('\r\n')}\r\n\r\n${input.body}`;
   }
 
-  const boundary = `_anju_${crypto.randomUUID().replace(/-/g, '')}`;
+  const boundary = `_ganju_${crypto.randomUUID().replace(/-/g, '')}`;
   headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
 
   const parts: string[] = [headers.join('\r\n'), ''];
@@ -66,7 +66,9 @@ export const buildMimeMessage = (input: MimeMessageInput): string => {
   for (const att of input.attachments) {
     const safeName = sanitizeFilename(att.filename);
     parts.push(`--${boundary}`);
-    parts.push(`Content-Type: ${att.mimeType}; name="${safeName.replace(/"/g, '\\"')}"`);
+    parts.push(
+      `Content-Type: ${att.mimeType}; name="${safeName.replace(/"/g, '\\"')}"`
+    );
     parts.push('Content-Transfer-Encoding: base64');
     parts.push(
       `Content-Disposition: attachment; ${formatFilenameHeader(att.filename)}`
