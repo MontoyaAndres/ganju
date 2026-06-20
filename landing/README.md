@@ -13,7 +13,8 @@ landing/
 └── public/               ← the static site (this is what gets published)
     ├── index.html        Page markup & content
     ├── styles.css        Layout & components
-    ├── main.js           Header state, mobile nav, scroll reveal, copy buttons
+    ├── main.js           Header state, mobile nav, scroll reveal, GitHub star count
+    ├── icons/            Brand logos (Claude, Slack, GitHub … ) as SVG
     └── images/           Illustrations + the AI prompt sheet (README.md)
 ```
 
@@ -86,8 +87,15 @@ To use a custom domain, add it in the Cloudflare dashboard under
   (search for `TODO: set your real price`).
 - **Links** — GitHub, docs, and app URLs are placeholders (`app.ganju.ai`,
   `docs.ganju.ai`, `github.com`); point them at your real destinations.
-- **Illustrations** — the 11 visuals (hero, 6 feature icons, 4 steps) are
-  `<img>` tags pointing at [`public/images/`](public/images/). Generate them with
-  AI using the prompt sheet in [`public/images/README.md`](public/images/README.md)
-  and drop them in with the listed filenames. Until a file exists, the slot
+- **Illustrations** — the 11 visuals (hero, 6 feature tiles, 4 steps) are
+  `<img>` tags pointing at [`public/images/`](public/images/) — friendly,
+  colorful 3D scenes on a soft off-white background. Generate them with AI using
+  the prompt sheet in [`public/images/README.md`](public/images/README.md) and
+  drop them in with the listed filenames. Until a file exists, the slot
   gracefully shows the gradient frame (the `<img>` hides itself on a 404).
+- **Brand icons** — the logos in the trust bar, integrations, and footer are real
+  SVGs in [`public/icons/`](public/icons/), referenced as `<img class="brand-ico">`
+  and sized by the `.brand-ico` rule in `styles.css`. To add or swap one, drop an
+  SVG in that folder and point a new `<img>` at it. (The generic `http-endpoint`,
+  `mcp-proxy`, and Web Search glyphs stay inline in the markup — they have no
+  brand logo.)

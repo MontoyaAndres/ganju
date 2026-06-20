@@ -1,15 +1,9 @@
-/* ===========================================================================
-   Ganju landing — main.js
-   Vanilla JS: header state, mobile nav, scroll reveal, GitHub stars, footer year
-   =========================================================================== */
 (function () {
   'use strict';
 
-  /* ---- Footer year ---- */
   const yearEl = document.getElementById('year');
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
-  /* ---- Header shadow on scroll ---- */
   const header = document.getElementById('header');
   const onScroll = () => {
     if (!header) return;
@@ -18,7 +12,6 @@
   onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
 
-  /* ---- Mobile nav toggle ---- */
   const navToggle = document.getElementById('navToggle');
   const nav = document.getElementById('nav');
   if (navToggle && nav) {
@@ -45,7 +38,6 @@
     });
   }
 
-  /* ---- Scroll reveal (IntersectionObserver) ---- */
   const revealEls = document.querySelectorAll('.reveal');
   if ('IntersectionObserver' in window && revealEls.length) {
     const io = new IntersectionObserver(
@@ -65,7 +57,6 @@
     revealEls.forEach(el => el.classList.add('visible'));
   }
 
-  /* ---- Live GitHub star count ---- */
   const starEl = document.getElementById('starCount');
   if (starEl) {
     const REPO = 'MontoyaAndres/ganju';

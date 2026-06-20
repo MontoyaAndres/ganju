@@ -1,11 +1,3 @@
-/* ===========================================================================
-   Ganju landing — styles.css
-   Pure CSS. Organized: tokens · base · layout · components · sections · responsive
-   =========================================================================== */
-
-/* ---------- Design tokens ----------
-   Palette matches apps/web: white background, bastille (#1C1825) primary,
-   saltBox (#6E6B73) muted text, Fustat type, soft neutral shadows. */
 :root {
   --bg: #ffffff;
   --bg-2: #f6f6f8;
@@ -13,35 +5,27 @@
   --surface-2: #fbfbfc;
   --border: rgba(28, 24, 37, 0.1);
   --border-strong: rgba(28, 24, 37, 0.2);
-
-  --text: #1c1825; /* bastille */
-  --muted: #6e6b73; /* saltBox */
+  --text: #1c1825; 
+  --muted: #6e6b73; 
   --muted-2: #9a98a0;
-
   --brand: #1c1825;
   --brand-2: #1c1825;
-  --accent: #1c1825; /* solid primary (app uses no gradient) */
-  --purple: #f0f0f0; /* attention accent */
-  --accent-soft: rgb(240,240,240); /* soft purple — draws the eye */
-  --success: #2e7d32; /* japaneseLaurel */
-
+  --accent: #1c1825; 
+  --purple: #f0f0f0;
+  --accent-soft: rgb(240,240,240); 
+  --success: #2e7d32;
   --radius: 14px;
   --radius-lg: 22px;
   --radius-sm: 10px;
-
-  /* app custom-shadows */
   --shadow: 0px 10px 50px rgba(0, 0, 0, 0.16);
   --shadow-sm: 0px 3px 20px rgba(0, 0, 0, 0.25);
   --shadow-glow: 0 0 0 1px var(--border), 0px 14px 44px rgba(0, 0, 0, 0.12);
-
   --maxw: 1160px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-
   --font-sans: "Fustat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: "Fustat", var(--font-sans);
 }
 
-/* ---------- Reset / base ---------- */
 *,
 *::before,
 *::after {
@@ -97,7 +81,6 @@ svg {
   background: rgba(28, 24, 37, 0.14);
 }
 
-/* ---------- Layout ---------- */
 .container {
   width: 100%;
   max-width: var(--maxw);
@@ -147,7 +130,6 @@ svg {
   color: var(--muted-2);
 }
 
-/* ---------- Buttons ---------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -200,7 +182,6 @@ svg {
   width: 100%;
 }
 
-/* ---------- Header ---------- */
 .site-header {
   position: sticky;
   top: 0;
@@ -300,7 +281,6 @@ svg {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* ---------- Hero ---------- */
 .hero {
   position: relative;
   padding: 80px 0 60px;
@@ -377,21 +357,13 @@ svg {
   justify-content: center;
 }
 
-/* Brand icons (inline SVG sprite referenced via <use>) */
-.brand-sprite {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-}
-
 .brand-ico {
   width: 18px;
   height: 18px;
   flex: none;
+  object-fit: contain;
 }
 
-/* GitHub stars button in the navbar */
 .btn-star {
   gap: 8px;
 }
@@ -401,7 +373,6 @@ svg {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Art frames (illustrations) ---------- */
 .art-frame {
   position: relative;
   border-radius: var(--radius-lg);
@@ -421,8 +392,6 @@ svg {
   width: 100%;
 }
 
-/* Fills the frame; if the image is missing it's hidden (onerror) and the
-   gradient frame shows through as a placeholder. */
 .art-frame img {
   position: relative;
   z-index: 2;
@@ -431,25 +400,24 @@ svg {
   object-fit: cover;
 }
 
-/* Small icon badge used in feature cards */
 .art-spot {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 14px;
   display: grid;
   place-items: center;
+  overflow: hidden;
   background: var(--accent-soft);
   border: 1px solid var(--border);
   margin-bottom: 20px;
 }
 
 .art-spot img {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-/* ---------- Trust bar ---------- */
 .trustbar {
   display: flex;
   align-items: center;
@@ -492,7 +460,6 @@ svg {
   opacity: 1;
 }
 
-/* ---------- Feature grid ---------- */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -531,7 +498,6 @@ svg {
   border-radius: 5px;
 }
 
-/* ---------- Steps ---------- */
 .steps {
   display: flex;
   flex-direction: column;
@@ -568,7 +534,6 @@ svg {
   max-width: 440px;
 }
 
-/* ---------- Integrations ---------- */
 .integration-grid {
   display: flex;
   flex-wrap: wrap;
@@ -599,7 +564,6 @@ svg {
   border-color: var(--border-strong);
 }
 
-/* No-code definitions — soft purple to call attention, black text */
 .chip-accent {
   background: var(--purple);
   border-color: var(--purple);
@@ -618,7 +582,6 @@ svg {
   color: var(--text);
 }
 
-/* ---------- Pricing ---------- */
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -723,7 +686,6 @@ svg {
   color: var(--brand-2);
 }
 
-/* ---------- FAQ ---------- */
 .faq {
   display: flex;
   flex-direction: column;
@@ -775,7 +737,6 @@ svg {
   max-width: 640px;
 }
 
-/* ---------- CTA ---------- */
 .cta {
   position: relative;
   padding: 110px 0;
@@ -811,7 +772,6 @@ svg {
   margin-bottom: 32px;
 }
 
-/* ---------- Footer ---------- */
 .site-footer {
   border-top: 1px solid var(--border);
   background: var(--bg-2);
@@ -897,7 +857,6 @@ svg {
   font-size: 0.88rem;
 }
 
-/* ---------- Scroll reveal ---------- */
 .reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -909,10 +868,7 @@ svg {
   transform: none;
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 900px) {
-  /* Swap the full nav for a hamburger; keep "Get started" as a persistent CTA
-     (the Star button is tucked away to keep the bar uncluttered). */
   .nav {
     display: none;
   }
@@ -1062,15 +1018,20 @@ svg {
   .footer-grid {
     grid-template-columns: 1fr;
     gap: 28px;
+    padding-bottom: 20px;
+  }
+
+  .site-footer {
+    padding: 30px 0;
   }
 
   .footer-bottom {
     justify-content: center;
     text-align: center;
+    padding-top: 20px;
   }
 }
 
-/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
