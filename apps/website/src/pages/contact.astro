@@ -1,0 +1,178 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../lib/site';
+
+const description =
+  'Get in touch with the Ganju team — questions, sales, support, or feedback. We usually reply within a day.';
+---
+
+<Base title="Contact" description={description}>
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Contact</span>
+        <h2>Talk to us</h2>
+        <p>
+          Questions about a plan, need a hand, or want something custom? Send us
+          a message, we usually reply within a day.
+        </p>
+      </div>
+
+      <form
+        class="contact-form reveal"
+        id="contactForm"
+        data-endpoint={`${SITE.apiUrl}/contact`}
+      >
+        <div class="form-field">
+          <label for="cf-name">Your name or company</label>
+          <input
+            id="cf-name"
+            name="name"
+            type="text"
+            required
+            maxlength="200"
+            placeholder="My company Inc."
+            autocomplete="organization"
+          />
+        </div>
+
+        <div class="form-field">
+          <label for="cf-email">Email</label>
+          <input
+            id="cf-email"
+            name="email"
+            type="email"
+            required
+            maxlength="254"
+            placeholder="you@company.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-field">
+          <label for="cf-message">How can we help?</label>
+          <textarea
+            id="cf-message"
+            name="message"
+            rows="6"
+            required
+            maxlength="5000"
+            placeholder="Tell us what you're building or what you need…"></textarea>
+        </div>
+
+        <!-- Honeypot: hidden from people, catches bots. Leave empty. -->
+        <input
+          class="hp-field"
+          type="text"
+          name="company_url"
+          tabindex="-1"
+          autocomplete="off"
+          aria-hidden="true"
+        />
+
+        <button class="btn btn-primary btn-lg btn-block" type="submit" id="cf-submit">
+          Send message
+        </button>
+
+        <p class="form-status" id="cf-status" role="status" aria-live="polite" hidden>
+        </p>
+
+        <p class="form-note">
+          We usually reply within a day. Prefer email? Write to
+          <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.
+        </p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== Open a GitHub issue ===== -->
+  <section class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Open source</span>
+        <h2>Found a bug or have an idea?</h2>
+        <p>
+          Ganju is open source. Report bugs and request features on GitHub — we
+          read every issue.
+        </p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a
+          class="btn btn-primary btn-lg"
+          href={`${SITE.repo}/issues/new`}
+          target="_blank"
+          rel="noopener"
+        >
+          Create a GitHub issue
+        </a>
+        <a
+          class="btn btn-ghost btn-lg"
+          href={`${SITE.repo}/issues`}
+          target="_blank"
+          rel="noopener"
+        >
+          Browse open issues
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // POST the form to the API (apps/api → /contact), which emails the team via
+  // the Cloudflare send_email binding. No mail client needed on the visitor's end.
+  const form = document.getElementById('contactForm') as HTMLFormElement | null;
+  const submit = document.getElementById('cf-submit') as HTMLButtonElement | null;
+  const status = document.getElementById('cf-status') as HTMLElement | null;
+
+  if (form && submit && status) {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+
+      const endpoint = form.getAttribute('data-endpoint') || '';
+      const data = new FormData(form);
+      const payload = {
+        name: String(data.get('name') || '').trim(),
+        email: String(data.get('email') || '').trim(),
+        message: String(data.get('message') || '').trim(),
+        company_url: String(data.get('company_url') || '')
+      };
+
+      const label = submit.textContent;
+      submit.disabled = true;
+      submit.textContent = 'Sending…';
+      status.hidden = true;
+      status.classList.remove('is-error');
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(
+            (data && data.error) || 'Something went wrong. Please try again.'
+          );
+        }
+        // Success — swap the form fields for a thank-you message.
+        form
+          .querySelectorAll('.form-field, .form-note')
+          .forEach(el => el.remove());
+        submit.remove();
+        status.textContent =
+          "🎉 Thanks! Your message is on its way — we'll get back to you soon.";
+        status.hidden = false;
+      } catch (err) {
+        status.textContent =
+          err instanceof Error ? err.message : 'Could not send your message.';
+        status.classList.add('is-error');
+        status.hidden = false;
+        submit.disabled = false;
+        submit.textContent = label;
+      }
+    });
+  }
+</script>

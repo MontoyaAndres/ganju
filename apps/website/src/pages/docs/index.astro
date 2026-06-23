@@ -19,7 +19,6 @@ const docs = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.
         <p>Everything you need to connect your AI to your content, tools, and chat apps.</p>
       </div>
 
-      {/* Selective island: only this copy widget hydrates; the rest is static HTML. */}
       <div class="reveal" style="max-width:520px;margin:0 auto 2.5rem">
         <ConnectionUrl url="https://app.ganju.ai/mcp/your-workspace" client:only="react" />
       </div>

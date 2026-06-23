@@ -92,3 +92,73 @@ export const sendInvitationEmail = async (
     return false;
   }
 };
+
+interface ContactEmailInput {
+  name: string;
+  email: string;
+  message: string;
+}
+
+export const sendContactEmail = async (
+  c: Context<AppEnv>,
+  input: ContactEmailInput
+): Promise<boolean> => {
+  const sendEmail = c.env.SEND_EMAIL;
+  if (!sendEmail) return false;
+
+  const domain = utils.getEnv(c, 'NEXT_PUBLIC_DOMAIN')!;
+  const to = `hello@${domain}`;
+
+  const subject = `New contact message from ${input.name}`;
+
+  const text = [
+    `From: ${input.name}`,
+    `Email: ${input.email}`,
+    '',
+    input.message
+  ].join('\n');
+
+  const name = utils.escapeHtml(input.name);
+  const email = utils.escapeHtml(input.email);
+  const message = utils.escapeHtml(input.message).replace(/\n/g, '<br />');
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d1b2e;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:32px;">
+            <tr>
+              <td>
+                <h1 style="margin:0 0 16px;font-size:20px;">New contact message</h1>
+                <p style="margin:0 0 8px;font-size:14px;line-height:1.5;">
+                  <strong>From:</strong> ${name}
+                </p>
+                <p style="margin:0 0 16px;font-size:14px;line-height:1.5;">
+                  <strong>Email:</strong> <a href="mailto:${email}">${email}</a>
+                </p>
+                <p style="margin:0;font-size:14px;line-height:1.6;">${message}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  try {
+    await sendEmail.send({
+      from: `Ganju <noreply@${domain}>`,
+      to,
+      replyTo: input.email,
+      subject,
+      text,
+      html
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send contact email', error);
+    return false;
+  }
+};

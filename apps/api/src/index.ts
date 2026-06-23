@@ -18,7 +18,8 @@ import {
   GoogleCalendarController,
   CalcomController,
   OneDriveController,
-  WellKnownController
+  WellKnownController,
+  ContactController
 } from './controllers';
 import { UserMiddleware } from './middleware';
 import { createAuth } from './utils';
@@ -57,7 +58,10 @@ app
         const path = c.req.path;
         if (
           path.startsWith('/.well-known/') ||
-          path.startsWith('/auth/oauth2/')
+          path.startsWith('/auth/oauth2/') ||
+          // Public contact form lives on the marketing site (a different origin
+          // from the app), so it can't use the NEXT_PUBLIC_WEB_URL check below.
+          path === '/contact'
         ) {
           return origin ?? '*';
         }
@@ -113,6 +117,9 @@ app
   )
   // Public — the email landing page resolves an invitation by its token
   .get('/invitation/token/:token', InvitationController.getByToken)
+
+  // Public — marketing-site contact form posts here; emails the team inbox
+  .post('/contact', ContactController.create)
 
   // User controller
   .post('/user/avatar', UserMiddleware.verify, UserController.uploadAvatar)

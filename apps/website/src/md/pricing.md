@@ -6,32 +6,38 @@ Start free, scale when you're ready — or run it yourself for free under Apache
 
 Perfect for personal projects and trying things out.
 
-- 1 workspace
-- Up to 24 MB per file
-- Up to 5 tools and 5 prompts
+- 1 workspace, no teammates
+- Up to 5 tools, 5 prompts, 2 channels
+- 500 MB files · ~50 MB searchable (embedded) content
+- 2,000 channel messages / mo
 - Your own connection link
 - Community support
 
-## Pro — $—/mo
+## Pro — $20/mo + usage
 
-For teams and growing products.
+For teams and growing products. A flat base that includes an allowance; you pay
+only for what you use beyond it.
 
-- Unlimited projects & teammates
-- Up to 500 MB per file
-- Unlimited tools, prompts & files
-- Your own custom web address
-- Build your own custom tools
+- Unlimited projects, teammates, tools & prompts
+- Includes 10,000 channel messages + 5 GB searchable content each month
+- Overage: $2 per 1,000 extra messages · $0.50 per extra GB
+- MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
+- Custom domain add-on ($15/mo) · build your own custom tools
 - 24/7 support
+
+Only two things are metered, because they're the only things that cost us money:
+channel-bot assistant replies (each runs an LLM tool-calling loop) and embedded
+RAG content (stored as vectors in Postgres). Raw file storage is free.
 
 ## Enterprise — Custom
 
 For larger organizations with advanced needs.
 
-- No upload limits
-- Unlimited everything
+- Everything in Pro
+- Proxy your own / existing MCP server through Ganju
 - Custom web address & tools
+- SSO & contract terms
 - Dedicated support with guaranteed response times
-- Hands-on help from our team
 
 ## Self-host
 

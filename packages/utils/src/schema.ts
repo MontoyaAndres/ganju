@@ -91,6 +91,27 @@ const INVITATION_EMAIL = z
   .toLowerCase()
   .pipe(z.email({ message: 'Enter a valid email address' }).max(254));
 
+// Marketing-site contact form. `company_url` is a honeypot — a hidden field
+// real users leave empty; the controller drops the submission if it's filled.
+const CONTACT_MESSAGE = z.object({
+  name: z.string().trim().min(1).max(constants.CONTACT_MAX_NAME_LENGTH),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(
+      z
+        .email({ message: 'Enter a valid email address' })
+        .max(constants.CONTACT_MAX_EMAIL_LENGTH)
+    ),
+  message: z
+    .string()
+    .trim()
+    .min(constants.CONTACT_MIN_MESSAGE_LENGTH)
+    .max(constants.CONTACT_MAX_MESSAGE_LENGTH),
+  company_url: z.string().optional()
+});
+
 const ORGANIZATION_INVITATION_CREATE = z.object({
   email: INVITATION_EMAIL,
   userId: z.uuid(),
@@ -871,6 +892,7 @@ const ARTIFACT_UPDATE_SLUG_VIEW = ARTIFACT_UPDATE_SLUG.omit({
 });
 
 export const Schema = {
+  CONTACT_MESSAGE,
   ORGANIZATION_CREATE,
   ORGANIZATION_CREATE_VIEW,
   ORGANIZATION_UPDATE,

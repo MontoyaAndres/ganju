@@ -13,8 +13,10 @@ import { GoogleCalendarController } from './googleCalendar';
 import { CalcomController } from './calcom';
 import { OneDriveController } from './oneDrive';
 import { WellKnownController } from './wellKnown';
+import { ContactController } from './contact';
 
 export {
+  ContactController,
   UserController,
   ProjectController,
   ArtifactController,

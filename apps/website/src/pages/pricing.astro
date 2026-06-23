@@ -1,6 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import { SITE } from '../lib/site';
+import PricingCalculator from '../components/react/PricingCalculator.tsx';
+import { PRICING } from '../lib/pricing';
 
 const description = 'Ganju pricing — start free, scale when you are ready, or self-host for free under Apache-2.0.';
 ---
@@ -20,9 +22,10 @@ const description = 'Ganju pricing — start free, scale when you are ready, or 
           <div class="price"><span class="amount">$0</span><span class="per">/mo</span></div>
           <p class="tier-sub">Perfect for personal projects and trying things out.</p>
           <ul class="price-features">
-            <li>1 workspace</li>
-            <li>Up to 24&nbsp;MB per file</li>
-            <li>Up to 5 tools and 5 prompts</li>
+            <li>1 workspace, no teammates</li>
+            <li>Up to 5 tools, 5 prompts, 2 channels</li>
+            <li>500&nbsp;MB files · ~50&nbsp;MB searchable content</li>
+            <li>2,000 channel messages / mo</li>
             <li>Your own connection link</li>
             <li>Community support</li>
           </ul>
@@ -32,14 +35,14 @@ const description = 'Ganju pricing — start free, scale when you are ready, or 
         <article class="price-card price-featured reveal">
           <span class="ribbon">Most popular</span>
           <h3 class="tier">Pro</h3>
-          <div class="price"><span class="amount">$—</span><span class="per">/mo</span></div>
-          <p class="tier-sub">For teams and growing products.</p>
+          <div class="price"><span class="amount">$20</span><span class="per">/mo + usage</span></div>
+          <p class="tier-sub">For teams and growing products. Pay only for what you use beyond the base.</p>
           <ul class="price-features">
-            <li>Unlimited projects &amp; teammates</li>
-            <li>Up to 500&nbsp;MB per file</li>
-            <li>Unlimited tools, prompts &amp; files</li>
-            <li>Your own custom web address</li>
-            <li>Build your own custom tools</li>
+            <li>Unlimited projects, teammates, tools &amp; prompts</li>
+            <li>Includes 10,000 messages &amp; 5&nbsp;GB searchable content</li>
+            <li>Then $2 / 1k messages · $0.50 / GB</li>
+            <li>MCP tool calls bundled (Claude, Cursor, ChatGPT)</li>
+            <li>Custom domain add-on · build your own tools</li>
             <li>24/7 support</li>
           </ul>
           <a class="btn btn-primary btn-block" href={SITE.appUrl} target="_blank" rel="noopener">Start Pro</a>
@@ -50,14 +53,40 @@ const description = 'Ganju pricing — start free, scale when you are ready, or 
           <div class="price"><span class="amount">Custom</span></div>
           <p class="tier-sub">For larger organizations with advanced needs.</p>
           <ul class="price-features">
-            <li>No upload limits</li>
-            <li>Unlimited everything</li>
+            <li>Everything in Pro</li>
+            <li>Proxy your own / existing MCP server</li>
             <li>Custom web address &amp; tools</li>
+            <li>SSO &amp; contract terms</li>
             <li>Dedicated support with guaranteed response times</li>
-            <li>Hands-on help from our team</li>
           </ul>
-          <a class="btn btn-ghost btn-block" href={SITE.appUrl} target="_blank" rel="noopener">Contact sales</a>
+          <a class="btn btn-ghost btn-block" href="/contact">Contact sales</a>
         </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Estimate your bill</span>
+        <h2>What would Pro cost me?</h2>
+        <p>Pick a starting point or move the sliders to match how you'll use Ganju. You only pay for two things: the messages your bots send and how much your AI can search.</p>
+      </div>
+      <PricingCalculator config={PRICING} client:only="react" />
+    </div>
+  </section>
+
+  <!-- ===== Still have questions? ===== -->
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Still deciding?</span>
+        <h2>Not sure which plan fits?</h2>
+        <p>Tell us what you're building and we'll help you pick — or set up a custom plan for bigger teams.</p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a class="btn btn-primary btn-lg" href="/contact">Contact us</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start free</a>
       </div>
     </div>
   </section>
