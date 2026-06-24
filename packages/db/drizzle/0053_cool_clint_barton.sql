@@ -1,0 +1,2 @@
+ALTER TABLE "subscription" ADD COLUMN "reported_message_overage" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "subscription" ADD COLUMN "reported_embedded_overage_mb" bigint DEFAULT 0 NOT NULL;

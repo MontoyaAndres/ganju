@@ -18,7 +18,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-auth": "^1.6.16",
     "hono": "^4.12.25",
-    "openai": "^6.42.0"
+    "openai": "^6.42.0",
+    "stripe": "^22.2.3"
   },
   "devDependencies": {
     "@ganju/tsconfig": "*",

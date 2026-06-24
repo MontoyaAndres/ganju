@@ -14,8 +14,10 @@ import { CalcomController } from './calcom';
 import { OneDriveController } from './oneDrive';
 import { WellKnownController } from './wellKnown';
 import { ContactController } from './contact';
+import { BillingController } from './billing';
 
 export {
+  BillingController,
   ContactController,
   UserController,
   ProjectController,

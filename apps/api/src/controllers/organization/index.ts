@@ -4,6 +4,8 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
 
+import { Plan, createStripe } from '../../utils';
+
 // types
 import { AppEnv } from '../../types';
 
@@ -17,6 +19,10 @@ const create = async (c: Context<AppEnv>) => {
   const dbInstance = db.create(c);
 
   const result = await dbInstance.transaction(async tx => {
+    // Free plan = one organization per user; additional orgs require an
+    // existing paid org (throws PlanLimitError → 402 otherwise).
+    await Plan.assertOrganizationCreation(tx, currentValues.userId);
+
     const [org] = await tx
       .insert(db.schema.organization)
       .values({
@@ -26,6 +32,10 @@ const create = async (c: Context<AppEnv>) => {
         projectCount: 1
       })
       .returning();
+
+    // Every org starts on the Free plan; the row backs all later quota checks
+    // and the Stripe upgrade flow.
+    await Plan.ensureSubscription(tx, org.id);
 
     await tx
       .insert(db.schema.organizationUser)
@@ -237,6 +247,28 @@ const remove = async (c: Context<AppEnv>) => {
   });
 
   const dbInstance = db.create(c);
+
+  const [sub] = await dbInstance
+    .select({
+      stripeSubscriptionId: db.schema.subscription.stripeSubscriptionId
+    })
+    .from(db.schema.subscription)
+    .where(eq(db.schema.subscription.organizationId, currentValues.id))
+    .limit(1);
+
+  if (sub?.stripeSubscriptionId) {
+    const stripe = createStripe(c);
+    if (stripe) {
+      try {
+        await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
+      } catch (err) {
+        console.error(
+          `Failed to cancel Stripe subscription ${sub.stripeSubscriptionId} for org ${currentValues.id}:`,
+          err
+        );
+      }
+    }
+  }
 
   await dbInstance
     .delete(db.schema.organization)

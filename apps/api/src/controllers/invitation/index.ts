@@ -3,7 +3,7 @@ import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
-import { sendInvitationEmail } from '../../utils';
+import { sendInvitationEmail, Plan } from '../../utils';
 
 // types
 import { AppEnv } from '../../types';
@@ -40,6 +40,11 @@ const createForOrganization = async (c: Context<AppEnv>) => {
   if (!organization) {
     throw new Error('Organization not found');
   }
+
+  // Inviting teammates is a paid feature (throws PlanLimitError → 402 on Free).
+  Plan.assertInviteAllowed(
+    await Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
+  );
 
   const created = await dbInstance.transaction(async tx => {
     // Already a member? Match the invited email to an existing account that is in this organization.
@@ -190,6 +195,11 @@ const createForProject = async (c: Context<AppEnv>) => {
   if (!project) {
     throw new Error('Project not found');
   }
+
+  // Inviting teammates is a paid feature (throws PlanLimitError → 402 on Free).
+  Plan.assertInviteAllowed(
+    await Plan.getEffectivePlan(dbInstance, project.organizationId)
+  );
 
   const created = await dbInstance.transaction(async tx => {
     const [member] = await tx

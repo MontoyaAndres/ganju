@@ -45,6 +45,12 @@ export type Bindings = {
   BOT_OAUTH_CLIENT_SECRET?: string;
   DATABASE_URL?: string;
   NODE_ENV?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_PRO?: string;
+  STRIPE_PRICE_ENTERPRISE?: string;
+  STRIPE_PRICE_MESSAGE_OVERAGE?: string;
+  STRIPE_PRICE_EMBEDDED_OVERAGE?: string;
 };
 
 export type AppEnv = {

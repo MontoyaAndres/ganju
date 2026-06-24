@@ -365,6 +365,34 @@
       "when": 1781300543524,
       "tag": "0051_slippery_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1782313768968,
+      "tag": "0052_round_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1782317106682,
+      "tag": "0053_cool_clint_barton",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1782326232080,
+      "tag": "0054_spooky_mysterio",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1782326983490,
+      "tag": "0055_living_puppet_master",
+      "breakpoints": true
     }
   ]
 }

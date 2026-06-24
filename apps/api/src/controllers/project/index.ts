@@ -4,6 +4,8 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
 
+import { Plan } from '../../utils';
+
 // types
 import { AppEnv } from '../../types';
 
@@ -18,6 +20,9 @@ const create = async (c: Context<AppEnv>) => {
   const dbInstance = db.create(c);
 
   const result = await dbInstance.transaction(async tx => {
+    // Free plan = one project per org (throws PlanLimitError → 402 otherwise).
+    await Plan.assertProjectQuota(tx, currentValues.organizationId);
+
     const [project] = await tx
       .insert(db.schema.project)
       .values({

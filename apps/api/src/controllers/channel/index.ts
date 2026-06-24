@@ -31,7 +31,8 @@ import { loadCommandPrompts } from './proxiedPrompts';
 import { assertNoChannelConflict } from './conflicts';
 import {
   registerTelegramBotCommands,
-  registerDiscordCommands
+  registerDiscordCommands,
+  Plan
 } from '../../utils';
 
 import type { AppEnv } from '../../types';
@@ -175,6 +176,12 @@ const create = async (c: Context<AppEnv>) => {
       .limit(1);
 
     if (!artifactRow) throw new Error('Artifact not found for the project');
+
+    // Free plan caps the number of connected channels per artifact.
+    Plan.assertChannelQuota(
+      await Plan.getEffectivePlan(tx, currentValues.organizationId),
+      artifactRow.channelCount
+    );
 
     if (telegramBotInfo) {
       await assertNoChannelConflict(tx, {

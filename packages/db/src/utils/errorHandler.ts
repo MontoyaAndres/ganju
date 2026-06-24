@@ -13,8 +13,14 @@ export interface HandleErrorOptions {
 
 export interface HandleErrorResult {
   refId: string;
-  status: 400 | 401 | 403 | 404 | 409 | 500;
+  status: 400 | 401 | 402 | 403 | 404 | 409 | 500;
   body: Record<string, unknown>;
+}
+
+interface StatusCarryingError {
+  status?: unknown;
+  code?: unknown;
+  toBody?: () => Record<string, unknown>;
 }
 
 interface RequestContext {
@@ -83,8 +89,9 @@ export const handleError = async (
 ): Promise<HandleErrorResult> => {
   const refId = uuid();
   const err = error as { name?: string; message?: string; stack?: string };
+  const carried = error as StatusCarryingError;
 
-  let status: 400 | 401 | 403 | 404 | 409 | 500;
+  let status: HandleErrorResult['status'];
   let body: Record<string, unknown>;
 
   if (err?.name === 'ZodError') {
@@ -94,6 +101,14 @@ export const handleError = async (
         path: issue.path?.join('.') || '',
         message: issue.message
       }))
+    };
+  } else if (typeof carried.status === 'number') {
+    // The error knows its own HTTP status (e.g. PlanLimitError → 402). Trust it
+    // and merge any structured fields it exposes into the response body.
+    status = carried.status as HandleErrorResult['status'];
+    body = {
+      error: err?.message || String(error),
+      ...(typeof carried.toBody === 'function' ? carried.toBody() : {})
     };
   } else if (options.status) {
     status = options.status as HandleErrorResult['status'];

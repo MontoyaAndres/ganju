@@ -271,6 +271,51 @@ export const organizationUser = pgTable(
   table => [primaryKey({ columns: [table.userId, table.organizationId] })]
 );
 
+export const subscription = pgTable(
+  'subscription',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    organizationId: text('organization_id')
+      .notNull()
+      .unique()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    plan: text('plan').notNull().default(utils.constants.PLAN_FREE),
+    status: text('status')
+      .notNull()
+      .default(utils.constants.SUBSCRIPTION_STATUS_ACTIVE),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    stripePriceId: text('stripe_price_id'),
+    currentPeriodStart: timestamp('current_period_start', { mode: 'date' }),
+    currentPeriodEnd: timestamp('current_period_end', { mode: 'date' }),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    customDomain: boolean('custom_domain').notNull().default(false),
+    messageCount: integer('message_count').notNull().default(0),
+    messagePeriodStart: timestamp('message_period_start', { mode: 'date' }),
+    reportedMessageOverage: integer('reported_message_overage')
+      .notNull()
+      .default(0),
+    reportedEmbeddedOverageMb: bigint('reported_embedded_overage_mb', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    lastStripeEventAt: bigint('last_stripe_event_at', { mode: 'number' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    index('subscription_organization_idx').on(table.organizationId),
+    index('subscription_stripe_customer_idx').on(table.stripeCustomerId),
+    index('subscription_stripe_subscription_idx').on(table.stripeSubscriptionId)
+  ]
+);
+
 export const project = pgTable('project', {
   id: text('id')
     .primaryKey()
@@ -362,6 +407,11 @@ export const artifact = pgTable('artifact', {
   })
     .notNull()
     .default(0),
+  artifactResourceEmbeddedSize: bigint('artifact_resource_embedded_size', {
+    mode: 'number'
+  })
+    .notNull()
+    .default(0),
   artifactToolCount: integer('artifact_tool_count').notNull().default(0),
   artifactCredentialCount: integer('artifact_credential_count')
     .notNull()
@@ -432,7 +482,7 @@ export const channel = pgTable(
       .notNull()
       .references(() => artifact.id, { onDelete: 'cascade' }),
     llmId: text('llm_id').references(() => organizationLlm.id, {
-      onDelete: 'restrict'
+      onDelete: 'cascade'
     }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
@@ -943,9 +993,20 @@ export const organizationRelations = relations(
     projects: many(project),
     organizationUsers: many(organizationUser),
     organizationLlms: many(organizationLlm),
-    invitations: many(invitation)
+    invitations: many(invitation),
+    subscription: one(subscription, {
+      fields: [organization.id],
+      references: [subscription.organizationId]
+    })
   })
 );
+
+export const subscriptionRelations = relations(subscription, ({ one }) => ({
+  organization: one(organization, {
+    fields: [subscription.organizationId],
+    references: [organization.id]
+  })
+}));
 
 export const organizationUserRelations = relations(
   organizationUser,

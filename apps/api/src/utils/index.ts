@@ -64,8 +64,15 @@ import {
   registerDiscordCommands,
   syncDiscordCommandsForArtifact
 } from './discordCommands';
+import { Plan } from './plan';
+import { createStripe, stripeCryptoProvider } from './stripe';
+import { runOverageMetering } from './metering';
 
 export {
+  Plan,
+  createStripe,
+  stripeCryptoProvider,
+  runOverageMetering,
   createAuth,
   sendInvitationEmail,
   sendContactEmail,

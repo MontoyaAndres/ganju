@@ -14,7 +14,8 @@ import {
   resolveMcpProxyOauthSecret,
   readStoredMcpOauth,
   syncTelegramCommandsForArtifact,
-  syncDiscordCommandsForArtifact
+  syncDiscordCommandsForArtifact,
+  Plan
 } from '../../utils';
 
 // types
@@ -268,6 +269,11 @@ const createPrompt = async (c: Context<AppEnv>) => {
       }
     }
 
+    Plan.assertPromptQuota(
+      await Plan.getEffectivePlan(tx, currentValues.organizationId),
+      currentArtifactByProject.artifactPromptCount
+    );
+
     const artifactPrompt = await tx
       .insert(db.schema.artifactPrompt)
       .values({
@@ -519,6 +525,11 @@ const createResource = async (c: Context<AppEnv>) => {
       throw new Error('Artifact not found for the project');
     }
 
+    // Block new content once the org is already at its embedded-content (RAG)
+    // cap. The byte size of THIS resource isn't known until indexing, so this
+    // is a "you're full" gate, not a byte-exact one.
+    await Plan.assertEmbeddedStorageQuota(tx, organizationId);
+
     if (isWebsite) {
       const websiteValues =
         await utils.Schema.ARTIFACT_CREATE_WEBSITE.parseAsync({
@@ -577,6 +588,9 @@ const createResource = async (c: Context<AppEnv>) => {
       userId,
       organizationId
     });
+
+    // Raw file storage has a known size up front, so enforce it byte-exact.
+    await Plan.assertRawStorageQuota(tx, organizationId, fileValues.size ?? 0);
 
     const [conflicting] = await tx
       .select()
@@ -942,6 +956,17 @@ const removeResource = async (c: Context<AppEnv>) => {
       frontier = nextFrontier;
     }
 
+    // Embedded bytes about to be freed (chunks cascade-delete with the
+    // resources), so we can keep the artifact's embedded-size total in step.
+    const [{ freedBytes }] = await tx
+      .select({
+        freedBytes: sql<number>`coalesce(sum(octet_length(${db.schema.artifactResourceChunk.content})), 0)::bigint`
+      })
+      .from(db.schema.artifactResourceChunk)
+      .where(
+        inArray(db.schema.artifactResourceChunk.resourceId, Array.from(allIds))
+      );
+
     await tx
       .delete(db.schema.artifactResource)
       .where(eq(db.schema.artifactResource.id, seed.id));
@@ -949,7 +974,8 @@ const removeResource = async (c: Context<AppEnv>) => {
     await tx
       .update(db.schema.artifact)
       .set({
-        artifactResourceCount: sql`GREATEST(${db.schema.artifact.artifactResourceCount}::int - ${allIds.size}, 0)`
+        artifactResourceCount: sql`GREATEST(${db.schema.artifact.artifactResourceCount}::int - ${allIds.size}, 0)`,
+        artifactResourceEmbeddedSize: sql`GREATEST(${db.schema.artifact.artifactResourceEmbeddedSize}::bigint - ${Number(freedBytes)}, 0)`
       })
       .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
 
@@ -1066,6 +1092,11 @@ const createTool = async (c: Context<AppEnv>) => {
       : toolDef.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
         ? validateHttpEndpointConfig(currentValues.config)
         : currentValues.config || null;
+
+    Plan.assertToolQuota(
+      await Plan.getEffectivePlan(tx, currentValues.organizationId),
+      currentArtifactByProject.artifactToolCount
+    );
 
     const artifactTool = await tx
       .insert(db.schema.artifactTool)

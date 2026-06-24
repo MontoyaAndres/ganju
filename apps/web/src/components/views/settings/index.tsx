@@ -7,8 +7,15 @@ import { Add, DeleteOutlined, EditOutlined } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
 import { MembersManager } from './members-manager';
+import { BillingManager } from './billing-manager';
 
-type Section = 'organization' | 'members' | 'projects' | 'models' | 'danger';
+type Section =
+  | 'organization'
+  | 'billing'
+  | 'members'
+  | 'projects'
+  | 'models'
+  | 'danger';
 
 interface SettingsProps {
   auth: {
@@ -89,6 +96,7 @@ export const Settings = (props: SettingsProps) => {
 
   const [section, setSection] = useState<Section>('organization');
   const organizationRef = useRef<HTMLElement | null>(null);
+  const billingRef = useRef<HTMLElement | null>(null);
   const membersRef = useRef<HTMLElement | null>(null);
   const projectsRef = useRef<HTMLElement | null>(null);
   const modelsRef = useRef<HTMLElement | null>(null);
@@ -97,6 +105,7 @@ export const Settings = (props: SettingsProps) => {
   useEffect(() => {
     const refs: Array<{ id: Section; el: HTMLElement | null }> = [
       { id: 'organization', el: organizationRef.current },
+      { id: 'billing', el: billingRef.current },
       { id: 'members', el: membersRef.current },
       { id: 'projects', el: projectsRef.current },
       { id: 'models', el: modelsRef.current },
@@ -121,6 +130,7 @@ export const Settings = (props: SettingsProps) => {
   const scrollToSection = (id: Section) => {
     const map: Record<Section, HTMLElement | null> = {
       organization: organizationRef.current,
+      billing: billingRef.current,
       members: membersRef.current,
       projects: projectsRef.current,
       models: modelsRef.current,
@@ -612,6 +622,30 @@ export const Settings = (props: SettingsProps) => {
     </section>
   );
 
+  const renderBilling = () => (
+    <section
+      ref={el => {
+        billingRef.current = el;
+      }}
+    >
+      <header className="settings-header">
+        <h1 className="settings-title">Billing &amp; plan</h1>
+        <p className="settings-subtitle">
+          Your organization&apos;s plan, current usage, and subscription. Upgrade
+          to Pro to lift the Free limits.
+        </p>
+      </header>
+
+      <section className="settings-section">
+        {organization ? (
+          <BillingManager organizationId={organizationId} />
+        ) : (
+          <UI.Skeleton variant="rounded" width="100%" height={220} />
+        )}
+      </section>
+    </section>
+  );
+
   const renderMembers = () => (
     <section
       ref={el => {
@@ -884,6 +918,7 @@ export const Settings = (props: SettingsProps) => {
     <Wrapper>
       <aside className="settings-nav">
         {isMember && navItem('organization', 'Organization')}
+        {isMember && navItem('billing', 'Billing & plan')}
         {isMember && navItem('members', 'Members')}
         {navItem('projects', 'Projects')}
         {isMember && navItem('models', 'Models')}
@@ -892,6 +927,7 @@ export const Settings = (props: SettingsProps) => {
 
       <main className="settings-content">
         {isMember && renderOrganization()}
+        {isMember && renderBilling()}
         {isMember && renderMembers()}
         {renderProjects()}
         {isMember && renderModels()}

@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { db, utils as dbUtils } from '@ganju/db';
 import { utils } from '@ganju/utils';
 import type { EnvSource, ExtractedDocument } from '@ganju/utils';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { Bindings } from '../types';
 
@@ -95,49 +95,77 @@ export const reindexResourceChunks = async (
 
   const dbInstance = db.create(source);
 
+  // Capture this resource's current embedded footprint (bytes) before we drop
+  // its chunks, so we can apply the net change to the artifact's denormalized
+  // embedded-size total — the figure the plan's storage quota reads.
+  const [{ oldBytes }] = await dbInstance
+    .select({
+      oldBytes: sql<number>`coalesce(sum(octet_length(${db.schema.artifactResourceChunk.content})), 0)::bigint`
+    })
+    .from(db.schema.artifactResourceChunk)
+    .where(eq(db.schema.artifactResourceChunk.resourceId, resource.id));
+
   await dbInstance
     .delete(db.schema.artifactResourceChunk)
     .where(eq(db.schema.artifactResourceChunk.resourceId, resource.id));
 
-  if (prepared.length === 0) return;
-
   const apiKey = utils.getEnv(source, 'EMBEDDING_API_KEY');
-  if (!apiKey) return;
+  const willEmbed = prepared.length > 0 && !!apiKey;
 
-  const batchSize = utils.constants.EMBED_BATCH_SIZE;
-  for (let i = 0; i < prepared.length; i += batchSize) {
-    const batch = prepared.slice(i, i + batchSize);
-    const embeddings = await embedGemini({
-      apiKey,
-      inputs: batch.map(p => p.content),
-      taskType: 'RETRIEVAL_DOCUMENT'
-    });
-    if (i + batchSize < prepared.length) {
-      await utils.sleep(100);
-    }
-    try {
-      await dbInstance.insert(db.schema.artifactResourceChunk).values(
-        batch.map((chunk, j) => ({
-          resourceId: resource.id,
-          artifactId: resource.artifactId,
-          chunkIndex: i + j,
-          content: chunk.content,
-          embedding: embeddings[j],
-          metadata: chunk.metadata
-        }))
-      );
-    } catch (error: any) {
-      const { refId } = await dbUtils.handleError(source, error, {
-        service: utils.constants.SERVICE_NAME_API,
-        metadata: {
-          resourceId: resource.id,
-          batchIndex: i / batchSize,
-          batchSize: batch.length
-        }
+  // Bytes of embedded content this resource now holds (sum of inserted chunks).
+  let newBytes = 0;
+  if (willEmbed) {
+    const encoder = new TextEncoder();
+    const batchSize = utils.constants.EMBED_BATCH_SIZE;
+    for (let i = 0; i < prepared.length; i += batchSize) {
+      const batch = prepared.slice(i, i + batchSize);
+      const embeddings = await embedGemini({
+        apiKey: apiKey as string,
+        inputs: batch.map(p => p.content),
+        taskType: 'RETRIEVAL_DOCUMENT'
       });
-      throw new Error(
-        `embedding insert failed (refId: ${refId}) ${error.message}`
-      );
+      if (i + batchSize < prepared.length) {
+        await utils.sleep(100);
+      }
+      try {
+        await dbInstance.insert(db.schema.artifactResourceChunk).values(
+          batch.map((chunk, j) => ({
+            resourceId: resource.id,
+            artifactId: resource.artifactId,
+            chunkIndex: i + j,
+            content: chunk.content,
+            embedding: embeddings[j],
+            metadata: chunk.metadata
+          }))
+        );
+      } catch (error: any) {
+        const { refId } = await dbUtils.handleError(source, error, {
+          service: utils.constants.SERVICE_NAME_API,
+          metadata: {
+            resourceId: resource.id,
+            batchIndex: i / batchSize,
+            batchSize: batch.length
+          }
+        });
+        throw new Error(
+          `embedding insert failed (refId: ${refId}) ${error.message}`
+        );
+      }
+      for (const chunk of batch) {
+        newBytes += encoder.encode(chunk.content).length;
+      }
     }
+  }
+
+  // Apply the net delta to the artifact total, clamped at zero so transient
+  // drift can never make it negative.
+  const delta = newBytes - Number(oldBytes);
+  if (delta !== 0) {
+    await dbInstance
+      .update(db.schema.artifact)
+      .set({
+        artifactResourceEmbeddedSize: sql`GREATEST((${db.schema.artifact.artifactResourceEmbeddedSize}::bigint + ${delta}), 0)`
+      })
+      .where(eq(db.schema.artifact.id, resource.artifactId));
   }
 };

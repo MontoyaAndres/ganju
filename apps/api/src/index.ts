@@ -19,10 +19,11 @@ import {
   CalcomController,
   OneDriveController,
   WellKnownController,
-  ContactController
+  ContactController,
+  BillingController
 } from './controllers';
 import { UserMiddleware } from './middleware';
-import { createAuth } from './utils';
+import { createAuth, runOverageMetering } from './utils';
 import {
   handleIndexBatch,
   handleCrawlDiscoverBatch,
@@ -35,7 +36,11 @@ import {
 
 // types
 import type { AppEnv, Bindings } from './types';
-import type { ExecutionContext, MessageBatch } from '@cloudflare/workers-types';
+import type {
+  ExecutionContext,
+  MessageBatch,
+  ScheduledController
+} from '@cloudflare/workers-types';
 import type {
   IndexJob,
   CrawlDiscoverJob,
@@ -121,6 +126,9 @@ app
   // Public — marketing-site contact form posts here; emails the team inbox
   .post('/contact', ContactController.create)
 
+  // Stripe webhook (public, verified by the stripe-signature header)
+  .post('/billing/webhook', BillingController.webhook)
+
   // User controller
   .post('/user/avatar', UserMiddleware.verify, UserController.uploadAvatar)
   .get('/user/:userId/avatar/:filename', UserController.downloadAvatar)
@@ -142,6 +150,23 @@ app
     '/organization/:organizationId',
     UserMiddleware.verify,
     OrganizationController.remove
+  )
+
+  // Billing controller
+  .get(
+    '/organization/:organizationId/billing',
+    UserMiddleware.verify,
+    BillingController.getStatus
+  )
+  .post(
+    '/organization/:organizationId/billing/checkout',
+    UserMiddleware.verify,
+    BillingController.createCheckout
+  )
+  .post(
+    '/organization/:organizationId/billing/portal',
+    UserMiddleware.verify,
+    BillingController.createPortal
   )
 
   // Organization invitation controller
@@ -486,6 +511,13 @@ export { DiscordGatewayDO } from './durable-objects/discordGateway';
 
 export default {
   fetch: app.fetch,
+  scheduled: (
+    _controller: ScheduledController,
+    env: Bindings,
+    ctx: ExecutionContext
+  ) => {
+    ctx.waitUntil(runOverageMetering({ env }));
+  },
   queue: (
     batch: MessageBatch<
       | IndexJob

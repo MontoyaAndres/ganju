@@ -139,6 +139,9 @@ import {
   isCredentialNeedingReauth
 } from './oauth';
 import type { RefreshOAuthTokenInput, RefreshedOAuthToken } from './oauth';
+import { PlanLimitError, isPlanLimitError } from './planLimitError';
+import type { PlanLimitDetails } from './planLimitError';
+import type { PlanLimits } from './constants';
 
 export const utils = {
   Schema,
@@ -210,7 +213,9 @@ export const utils = {
   OAuthReauthRequiredError,
   buildReauthMetadata,
   clearReauthMetadata,
-  isCredentialNeedingReauth
+  isCredentialNeedingReauth,
+  PlanLimitError,
+  isPlanLimitError
 };
 
 export type {
@@ -260,5 +265,7 @@ export type {
   McpProxyDiscoveredTool,
   McpProxyDiscoveredResource,
   McpProxyDiscoveredPrompt,
-  McpProxyDiscovery
+  McpProxyDiscovery,
+  PlanLimitDetails,
+  PlanLimits
 };

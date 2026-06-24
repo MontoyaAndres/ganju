@@ -1117,7 +1117,170 @@ const RESERVED_SLUGS = [
   'internal'
 ];
 
+const PLAN_FREE = 'FREE' as 'FREE';
+const PLAN_PRO = 'PRO' as 'PRO';
+const PLAN_ENTERPRISE = 'ENTERPRISE' as 'ENTERPRISE';
+const PLANS = [PLAN_FREE, PLAN_PRO, PLAN_ENTERPRISE];
+
+// Mirror Stripe's subscription statuses so the webhook can store them verbatim.
+const SUBSCRIPTION_STATUS_ACTIVE = 'active' as 'active';
+const SUBSCRIPTION_STATUS_TRIALING = 'trialing' as 'trialing';
+const SUBSCRIPTION_STATUS_PAST_DUE = 'past_due' as 'past_due';
+const SUBSCRIPTION_STATUS_CANCELED = 'canceled' as 'canceled';
+const SUBSCRIPTION_STATUS_INCOMPLETE = 'incomplete' as 'incomplete';
+const SUBSCRIPTION_STATUS_INCOMPLETE_EXPIRED =
+  'incomplete_expired' as 'incomplete_expired';
+const SUBSCRIPTION_STATUS_UNPAID = 'unpaid' as 'unpaid';
+const SUBSCRIPTION_STATUS_PAUSED = 'paused' as 'paused';
+const SUBSCRIPTION_STATUSES = [
+  SUBSCRIPTION_STATUS_ACTIVE,
+  SUBSCRIPTION_STATUS_TRIALING,
+  SUBSCRIPTION_STATUS_PAST_DUE,
+  SUBSCRIPTION_STATUS_CANCELED,
+  SUBSCRIPTION_STATUS_INCOMPLETE,
+  SUBSCRIPTION_STATUS_INCOMPLETE_EXPIRED,
+  SUBSCRIPTION_STATUS_UNPAID,
+  SUBSCRIPTION_STATUS_PAUSED
+];
+// A subscription in one of these states still grants its paid entitlements.
+// Anything else falls back to the Free plan's limits.
+const SUBSCRIPTION_ENTITLED_STATUSES = [
+  SUBSCRIPTION_STATUS_ACTIVE,
+  SUBSCRIPTION_STATUS_TRIALING,
+  SUBSCRIPTION_STATUS_PAST_DUE
+];
+
+const MB = 1024 * 1024;
+const GB = 1024 * 1024 * 1024;
+
+// Pricing numbers (kept in sync with apps/website/src/lib/pricing.ts).
+const PRICING_PRO_BASE_USD = 20;
+const PRICING_INCLUDED_MESSAGES = 10_000;
+const PRICING_INCLUDED_EMBEDDED_GB = 5;
+const PRICING_MESSAGE_PER_1K_USD = 2;
+const PRICING_EMBEDDED_PER_GB_USD = 0.5;
+const PRICING_CUSTOM_DOMAIN_USD = 15;
+
+interface PlanLimits {
+  // null on any field means "no hard limit" for that plan.
+  maxProjects: number | null;
+  maxToolsPerArtifact: number | null;
+  maxPromptsPerArtifact: number | null;
+  maxChannelsPerArtifact: number | null;
+  maxRawStorageBytes: number | null;
+  maxEmbeddedBytes: number | null;
+  // Hard monthly cap on assistant channel messages. Free is capped; paid plans
+  // are `null` (metered, not blocked).
+  monthlyMessageCap: number | null;
+  canInvite: boolean;
+  // Display-only allowances included in the plan (what overage is measured
+  // against). Not used for blocking.
+  includedMessages: number;
+  includedEmbeddedBytes: number;
+}
+
+const PLAN_LIMITS: Record<
+  typeof PLAN_FREE | typeof PLAN_PRO | typeof PLAN_ENTERPRISE,
+  PlanLimits
+> = {
+  FREE: {
+    maxProjects: 1,
+    maxToolsPerArtifact: 5,
+    maxPromptsPerArtifact: 5,
+    maxChannelsPerArtifact: 2,
+    maxRawStorageBytes: 500 * MB,
+    maxEmbeddedBytes: 50 * MB,
+    monthlyMessageCap: 2_000,
+    canInvite: false,
+    includedMessages: 2_000,
+    includedEmbeddedBytes: 50 * MB
+  },
+  PRO: {
+    maxProjects: null,
+    maxToolsPerArtifact: null,
+    maxPromptsPerArtifact: null,
+    maxChannelsPerArtifact: null,
+    maxRawStorageBytes: null,
+    maxEmbeddedBytes: null,
+    monthlyMessageCap: null,
+    canInvite: true,
+    includedMessages: PRICING_INCLUDED_MESSAGES,
+    includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
+  },
+  ENTERPRISE: {
+    maxProjects: null,
+    maxToolsPerArtifact: null,
+    maxPromptsPerArtifact: null,
+    maxChannelsPerArtifact: null,
+    maxRawStorageBytes: null,
+    maxEmbeddedBytes: null,
+    monthlyMessageCap: null,
+    canInvite: true,
+    includedMessages: PRICING_INCLUDED_MESSAGES,
+    includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
+  }
+};
+
+// Quota features — used as the `feature` discriminator on PlanLimitError so the
+// dashboard can tailor the upgrade prompt.
+const PLAN_FEATURE_ORGANIZATION = 'organization' as 'organization';
+const PLAN_FEATURE_PROJECT = 'project' as 'project';
+const PLAN_FEATURE_TOOL = 'tool' as 'tool';
+const PLAN_FEATURE_PROMPT = 'prompt' as 'prompt';
+const PLAN_FEATURE_CHANNEL = 'channel' as 'channel';
+const PLAN_FEATURE_INVITE = 'invite' as 'invite';
+const PLAN_FEATURE_RAW_STORAGE = 'rawStorage' as 'rawStorage';
+const PLAN_FEATURE_EMBEDDED_STORAGE = 'embeddedStorage' as 'embeddedStorage';
+const PLAN_FEATURE_MESSAGE = 'message' as 'message';
+
+// Stable code returned on a quota block so clients can branch on it (402).
+const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
+
+// Stripe Billing Meter event names. The metering cron reports per-period
+// OVERAGE (usage above the plan's included allowance) to these meters; the
+// meters' prices on the subscription turn that into charges. Embedded storage
+// is reported in whole MB, messages as a raw count.
+const STRIPE_METER_MESSAGES = 'ganju_channel_messages';
+const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
+
+export type { PlanLimits };
+
 export const constants = {
+  MB,
+  GB,
+  PLAN_FREE,
+  PLAN_PRO,
+  PLAN_ENTERPRISE,
+  PLANS,
+  SUBSCRIPTION_STATUS_ACTIVE,
+  SUBSCRIPTION_STATUS_TRIALING,
+  SUBSCRIPTION_STATUS_PAST_DUE,
+  SUBSCRIPTION_STATUS_CANCELED,
+  SUBSCRIPTION_STATUS_INCOMPLETE,
+  SUBSCRIPTION_STATUS_INCOMPLETE_EXPIRED,
+  SUBSCRIPTION_STATUS_UNPAID,
+  SUBSCRIPTION_STATUS_PAUSED,
+  SUBSCRIPTION_STATUSES,
+  SUBSCRIPTION_ENTITLED_STATUSES,
+  PLAN_LIMITS,
+  PRICING_PRO_BASE_USD,
+  PRICING_INCLUDED_MESSAGES,
+  PRICING_INCLUDED_EMBEDDED_GB,
+  PRICING_MESSAGE_PER_1K_USD,
+  PRICING_EMBEDDED_PER_GB_USD,
+  PRICING_CUSTOM_DOMAIN_USD,
+  PLAN_FEATURE_ORGANIZATION,
+  PLAN_FEATURE_PROJECT,
+  PLAN_FEATURE_TOOL,
+  PLAN_FEATURE_PROMPT,
+  PLAN_FEATURE_CHANNEL,
+  PLAN_FEATURE_INVITE,
+  PLAN_FEATURE_RAW_STORAGE,
+  PLAN_FEATURE_EMBEDDED_STORAGE,
+  PLAN_FEATURE_MESSAGE,
+  PLAN_LIMIT_ERROR_CODE,
+  STRIPE_METER_MESSAGES,
+  STRIPE_METER_EMBEDDED,
   USER_ROLE_ADMIN,
   USER_ROLES,
   INVITATION_STATUS,

@@ -10,7 +10,8 @@ import {
   getLlmAdapter,
   createAuth,
   refreshArtifactCredential,
-  resolveMcpProxyOauthSecret
+  resolveMcpProxyOauthSecret,
+  Plan
 } from '../../utils';
 
 import type { LlmMessage, LlmToolCall, LlmToolDefinition } from '../../utils';
@@ -257,6 +258,28 @@ export const runChannelTurn = async (
       metadata: options.messageMetadata || null
     })
     .returning();
+
+  // Enforce the org's monthly assistant-message budget. The inbound user
+  // message is already recorded above; if the org is over its cap we reply with
+  // a one-line notice and skip the (costly) LLM tool-calling loop entirely.
+  // Paid plans have no hard cap, so this only ever stops Free bots.
+  const messageCap = await Plan.checkMessageCap(
+    dbInstance,
+    projectRow.organizationId
+  );
+  if (!messageCap.allowed) {
+    return {
+      assistantText:
+        'This assistant has reached its monthly message limit. The owner can upgrade the plan to continue the conversation.',
+      conversationId: conversation.id,
+      userMessageId: userMessage.id,
+      assistantMessageId: '',
+      attachments: [],
+      sources: [],
+      sourcesFooter: null,
+      sourceButtons: []
+    };
+  }
 
   const history = await loadRecentHistory(dbInstance, conversation.id, 20);
 
@@ -654,6 +677,13 @@ export const runChannelTurn = async (
     })
     .returning();
   assistantMessageId = assistantMessage.id;
+
+  // Count this assistant turn against the org's monthly budget. Best-effort —
+  // never let a metering write break message delivery.
+  await Plan.incrementMessageUsage(
+    dbInstance,
+    projectRow.organizationId
+  ).catch(() => undefined);
 
   if (usageEvents.length > 0) {
     // The message-usage rows, the execution-audit rows, and the denormalized
