@@ -248,6 +248,7 @@ const CRAWL_MAX_DEPTH_LIMIT = 10;
 const CRAWL_PAGE_FETCH_TIMEOUT_MS = 30000;
 const CRAWL_USER_AGENT =
   'Mozilla/5.0 (compatible; GanjuCrawler/1.0; +https://ganju.ai)';
+const CRAWL_PAGE_QUEUE_BATCH_SIZE = 100;
 
 const RESOURCE_ICON_THEME_DARK = 'dark';
 const RESOURCE_ICON_THEME_LIGHT = 'light';
@@ -1185,7 +1186,7 @@ const PLAN_LIMITS: Record<
 > = {
   FREE: {
     maxProjects: 1,
-    maxToolsPerArtifact: 3,
+    maxToolsPerArtifact: 9,
     maxPromptsPerArtifact: 3,
     maxChannelsPerArtifact: 1,
     maxRawStorageBytes: 300 * MB,
@@ -1440,6 +1441,7 @@ export const constants = {
   CRAWL_DEFAULT_MAX_DEPTH,
   CRAWL_MAX_DEPTH_LIMIT,
   CRAWL_PAGE_FETCH_TIMEOUT_MS,
+  CRAWL_PAGE_QUEUE_BATCH_SIZE,
   CRAWL_USER_AGENT,
   RESOURCE_ICON_THEME_DARK,
   RESOURCE_ICON_THEME_LIGHT,

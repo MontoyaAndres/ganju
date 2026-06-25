@@ -154,14 +154,20 @@ const discoverOne = async (
   });
 
   if (env.CRAWL_PAGE_QUEUE) {
-    await env.CRAWL_PAGE_QUEUE.sendBatch(
-      inserted.map(({ id }) => ({
-        body: {
-          resourceId: id,
-          parentResourceId: resource.id
-        } satisfies PageJob
-      }))
-    );
+    // Cloudflare Queues caps sendBatch at 100 messages / 256 KB per call, so we
+    // chunk the inserted pages to avoid "Payload Too Large" on large crawls.
+    const messages = inserted.map(({ id }) => ({
+      body: {
+        resourceId: id,
+        parentResourceId: resource.id
+      } satisfies PageJob
+    }));
+    const batchSize = utils.constants.CRAWL_PAGE_QUEUE_BATCH_SIZE;
+    for (let i = 0; i < messages.length; i += batchSize) {
+      await env.CRAWL_PAGE_QUEUE.sendBatch(
+        messages.slice(i, i + batchSize)
+      );
+    }
   }
 };
 
