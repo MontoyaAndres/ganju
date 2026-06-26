@@ -470,6 +470,10 @@ const TELEGRAM_MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 const RATE_LIMIT_BACKOFF_SECONDS = 60;
 
+// Short backoff for transient Cloudflare platform errors (e.g. a Durable Object
+// / Container reset) so the retried job lands after the object has recovered.
+const TRANSIENT_BACKOFF_SECONDS = 5;
+
 const CHANNEL_PLATFORM_TELEGRAM = 'telegram' as 'telegram';
 const CHANNEL_PLATFORM_SLACK = 'slack' as 'slack';
 const CHANNEL_PLATFORM_WHATSAPP = 'whatsapp' as 'whatsapp';
@@ -1457,6 +1461,7 @@ export const constants = {
   TELEGRAM_MAX_PHOTO_BYTES,
   TELEGRAM_MAX_FILE_BYTES,
   RATE_LIMIT_BACKOFF_SECONDS,
+  TRANSIENT_BACKOFF_SECONDS,
   ENCODINGS,
   ENCODING_UTF8,
   CHANNEL_PLATFORM_TELEGRAM,

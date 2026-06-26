@@ -6,6 +6,18 @@ export const isRateLimitError = (err: unknown): boolean => {
   return /\b429\b|quota|RESOURCE_EXHAUSTED|rate.?limit/i.test(msg);
 };
 
+// Transient Cloudflare platform errors that are safe to retry as-is: a Durable
+// Object / Container (e.g. the resource-handler) getting evicted or reset
+// mid-request, a code-update eviction, or a dropped internal connection. These
+// are infra hiccups, not job failures, so callers should re-run the job rather
+// than report an error or mark the work failed.
+export const isTransientInfraError = (err: unknown): boolean => {
+  const msg = String((err as { message?: unknown })?.message ?? err);
+  return /object to be reset|Durable Object reset|code (?:was|has been) updated|cannot access storage|Network connection lost|internal error.*Durable Object|Durable Object.*internal error/i.test(
+    msg
+  );
+};
+
 export interface RateLimitRetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;

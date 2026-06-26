@@ -1,4 +1,4 @@
-import { isRateLimitError } from './retry';
+import { isRateLimitError, isTransientInfraError } from './retry';
 import { constants } from './constants';
 
 export interface QueueMessageLike<T> {
@@ -26,6 +26,13 @@ export const processQueueBatch = async <T>(
       await handlers.process(message.body);
       message.ack();
     } catch (error) {
+      if (isTransientInfraError(error)) {
+        // Transient Cloudflare platform hiccup (e.g. a Durable Object /
+        // Container reset). The job itself is fine, so re-run it after a short
+        // backoff without reporting an error or marking the work failed.
+        message.retry({ delaySeconds: constants.TRANSIENT_BACKOFF_SECONDS });
+        continue;
+      }
       await handlers.onError(error, message.body, batch.queue);
       if (isRateLimitError(error)) {
         message.retry({
