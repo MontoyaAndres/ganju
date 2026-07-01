@@ -166,6 +166,9 @@ export const Settings = (props: SettingsProps) => {
     null
   );
   const [llmDeleting, setLlmDeleting] = useState(false);
+  // Connecting a custom model is a paid feature. Assume allowed until the plan
+  // loads so we don't flash an upgrade gate at paying orgs.
+  const [customLlmAllowed, setCustomLlmAllowed] = useState(true);
 
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(
     null
@@ -235,11 +238,30 @@ export const Settings = (props: SettingsProps) => {
     }
   };
 
+  // Whether this org's plan may configure its own model. The server is the
+  // source of truth (it rejects the create on Free); this just gates the UI.
+  const fetchCustomLlmAccess = async (signal?: AbortSignal) => {
+    if (!organizationId) return;
+    try {
+      const data = await utils.fetcher({
+        url: `${orgBase}/billing`,
+        config: { credentials: 'include', signal }
+      });
+      if (signal?.aborted) return;
+      if (data && !utils.isApiError(data)) {
+        setCustomLlmAllowed(!!data.limits?.canUseCustomLlm);
+      }
+    } catch {
+      // ignore — keep the optimistic default
+    }
+  };
+
   useEffect(() => {
     if (!organizationId) return;
     const controller = new AbortController();
     fetchOrganization(controller.signal);
     fetchLlms(controller.signal);
+    fetchCustomLlmAccess(controller.signal);
     return () => controller.abort();
   }, [organizationId]);
 
@@ -638,7 +660,10 @@ export const Settings = (props: SettingsProps) => {
 
       <section className="settings-section">
         {organization ? (
-          <BillingManager organizationId={organizationId} />
+          <BillingManager
+            organizationId={organizationId}
+            onGoToModels={() => scrollToSection('models')}
+          />
         ) : (
           <UI.Skeleton variant="rounded" width="100%" height={220} />
         )}
@@ -770,13 +795,20 @@ export const Settings = (props: SettingsProps) => {
           <UI.Button
             variant="contained"
             size="small"
-            disabled={!!llmForm}
+            disabled={!!llmForm || !customLlmAllowed}
             onClick={handleLlmCreate}
           >
             <Add />
             <span className="button-text">Add model</span>
           </UI.Button>
         </div>
+
+        {!customLlmAllowed && (
+          <p className="llms-empty">
+            Connecting your own AI model is a Pro feature. Your channels run on
+            the shared platform model — upgrade to Pro to add a custom model.
+          </p>
+        )}
 
         {llmForm && !llmForm.id && renderLlmForm()}
 
@@ -811,7 +843,7 @@ export const Settings = (props: SettingsProps) => {
                     <IconButton
                       aria-label="Edit"
                       onClick={() => handleLlmEdit(llm)}
-                      disabled={llmSubmitting}
+                      disabled={llmSubmitting || !customLlmAllowed}
                     >
                       <EditOutlined fontSize="small" />
                     </IconButton>

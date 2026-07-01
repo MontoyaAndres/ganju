@@ -3,6 +3,8 @@ import { and, desc, eq } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
+import { Plan } from '../../utils';
+
 import { AppEnv } from '../../types';
 
 const list = async (c: Context<AppEnv>) => {
@@ -49,6 +51,12 @@ const create = async (c: Context<AppEnv>) => {
 
   if (!organizationRow) throw new Error('Organization not found');
 
+  // Connecting a custom model is a paid feature: Free orgs use the shared
+  // platform model only (throws PlanLimitError → 402 on Free).
+  Plan.assertCustomLlmAllowed(
+    await Plan.getEffectivePlan(dbInstance, organizationRow.id)
+  );
+
   const [created] = await dbInstance
     .insert(db.schema.organizationLlm)
     .values({
@@ -77,6 +85,13 @@ const update = async (c: Context<AppEnv>) => {
   });
 
   const dbInstance = db.create(c);
+
+  // Editing a custom model is a paid feature too: a downgraded org can only list
+  // or delete its models, not keep editing them (throws PlanLimitError → 402 on
+  // Free).
+  Plan.assertCustomLlmAllowed(
+    await Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
+  );
 
   const [existing] = await dbInstance
     .select()

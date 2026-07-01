@@ -10,7 +10,7 @@ import {
   FunctionInterpolation,
   Interpolation,
   Keyframes,
-  SerializedStyles,
+  SerializedStyles
 } from '@emotion/serialize';
 import {
   ClassAttributes,
@@ -20,7 +20,7 @@ import {
   ReactElement,
   ReactNode,
   Ref,
-  createElement,
+  createElement
 } from 'react';
 import { EmotionJSX } from './jsx-namespace';
 
@@ -32,7 +32,7 @@ export {
   FunctionInterpolation,
   Interpolation,
   Keyframes,
-  SerializedStyles,
+  SerializedStyles
 };
 
 export * from './theming';
@@ -59,6 +59,9 @@ declare module '@emotion/react' {
       thunderbird: string;
       fairPink: string;
       salem: string;
+      corn: string;
+      roman: string;
+      indigo: string;
     };
     chart: {
       telegram: string;
@@ -167,8 +170,9 @@ export namespace jsx {
       P
     >;
     interface IntrinsicAttributes extends EmotionJSX.IntrinsicAttributes {}
-    interface IntrinsicClassAttributes<T>
-      extends EmotionJSX.IntrinsicClassAttributes<T> {}
+    interface IntrinsicClassAttributes<
+      T
+    > extends EmotionJSX.IntrinsicClassAttributes<T> {}
     type IntrinsicElements = EmotionJSX.IntrinsicElements;
   }
 }

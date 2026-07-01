@@ -122,6 +122,20 @@ export const assertInviteAllowed = ({
   }
 };
 
+// Configuring an org's own LLM (bring-your-own-key) is a paid feature: Free orgs
+// run on the shared platform model only. Throws on Free; no-op on paid plans.
+export const assertCustomLlmAllowed = ({
+  plan,
+  limits
+}: Pick<EffectivePlan, 'plan' | 'limits'>): void => {
+  if (!limits.canUseCustomLlm) {
+    throw new PlanLimitError(
+      'Connecting your own AI model is a Pro feature. Upgrade this organization to add a custom model.',
+      { feature: constants.PLAN_FEATURE_LLM, plan }
+    );
+  }
+};
+
 // org & project quotas (need a count query)
 
 export const assertProjectQuota = async (
@@ -307,6 +321,10 @@ export type MessageCapResult = {
   plan: string;
   used: number;
   cap: number | null;
+  // How many messages this period may still run on the shared platform model.
+  // Once `used` reaches this, a channel with no own key must connect one (paid)
+  // or the org must upgrade (Free). `null` = unlimited shared-model use.
+  sharedKeyCap: number | null;
 };
 
 // Resolve the org's message budget for the current period, lazily resetting the
@@ -319,7 +337,9 @@ export const checkMessageCap = async (
 ): Promise<MessageCapResult> => {
   const sub = await loadOrCreateSubscription(executor, organizationId);
   const plan = planFromSubscription(sub);
-  const cap = limitsFor(plan).monthlyMessageCap;
+  const limits = limitsFor(plan);
+  const cap = limits.monthlyMessageCap;
+  const sharedKeyCap = limits.sharedKeyMessageCap;
 
   const periodStart =
     plan !== constants.PLAN_FREE && sub.currentPeriodStart
@@ -344,7 +364,7 @@ export const checkMessageCap = async (
     used = 0;
   }
 
-  return { allowed: cap == null || used < cap, plan, used, cap };
+  return { allowed: cap == null || used < cap, plan, used, cap, sharedKeyCap };
 };
 
 // Count one assistant turn against the org's monthly budget. Best-effort: a
@@ -401,6 +421,7 @@ export const Plan = {
   assertPromptQuota,
   assertChannelQuota,
   assertInviteAllowed,
+  assertCustomLlmAllowed,
   assertProjectQuota,
   assertOrganizationCreation,
   assertRawStorageQuota,

@@ -103,6 +103,19 @@ export type ChannelAttachment =
       };
     };
 
+type UsageEvent = {
+  kind: string;
+  toolName: string;
+  resourceUri?: string | null;
+  artifactToolId: string | null;
+  artifactResourceId?: string | null;
+  artifactPromptId?: string | null;
+  input: Record<string, unknown>;
+  output: unknown;
+  latencyMs: number;
+  errorMessage?: string;
+};
+
 interface RunOptions {
   channelId: string;
   externalConversationId: string;
@@ -199,53 +212,121 @@ export const runChannelTurn = async (
 
   const dbInstance = db.create(c);
 
-  const [channelRow] = await dbInstance
-    .select()
+  // Channel → artifact → project is a strict FK chain, so resolve all three in a
+  // single joined round-trip instead of three sequential ones. Every turn pays
+  // this before any model work, so the saved latency is pure overhead removed.
+  const [chain] = await dbInstance
+    .select({
+      channel: db.schema.channel,
+      artifact: db.schema.artifact,
+      project: db.schema.project
+    })
     .from(db.schema.channel)
+    .innerJoin(
+      db.schema.artifact,
+      eq(db.schema.artifact.id, db.schema.channel.artifactId)
+    )
+    .innerJoin(
+      db.schema.project,
+      eq(db.schema.project.id, db.schema.artifact.projectId)
+    )
     .where(eq(db.schema.channel.id, options.channelId))
     .limit(1);
 
-  if (!channelRow) throw new Error('Channel not found');
+  if (!chain) throw new Error('Channel not found');
 
-  const [artifactRow] = await dbInstance
-    .select()
-    .from(db.schema.artifact)
-    .where(eq(db.schema.artifact.id, channelRow.artifactId))
-    .limit(1);
+  const channelRow = chain.channel;
+  const artifactRow = chain.artifact;
+  const projectRow = chain.project;
 
-  if (!artifactRow) throw new Error('Artifact not found for channel');
+  // Everything below is independent once the FK chain is resolved, so fan the
+  // reads out: the turn pays one round-trip of front-matter latency instead of
+  // six sequential ones, all before the (dominant) model loop even starts.
+  const [
+    llmConfig,
+    [conversation, participant],
+    messageCap,
+    artifactTools,
+    artifactResources,
+    // Resolve the participant's link for THIS channel only (set by `/link`).
+    // Per-channel scoping: a link in another channel — even by the same user —
+    // does not authenticate them here.
+    linkedIdentity
+  ] = await Promise.all([
+    resolveChannelLlm(c, dbInstance, channelRow.llmId),
+    Promise.all([
+      upsertConversation(
+        dbInstance,
+        channelRow.id,
+        options.externalConversationId,
+        options.conversationTitle || null,
+        options.conversationScope
+      ),
+      upsertParticipant(
+        dbInstance,
+        channelRow.id,
+        options.externalParticipantId,
+        options.participantDisplayName || null,
+        options.participantMetadata || null
+      )
+    ]),
+    // Enforce the org's monthly assistant-message budget. Paid plans have no
+    // hard cap, so this only ever stops Free bots.
+    Plan.checkMessageCap(dbInstance, projectRow.organizationId),
+    dbInstance
+      .select({
+        id: db.schema.artifactTool.id,
+        key: db.schema.toolDefinition.key,
+        config: db.schema.artifactTool.config,
+        metadata: db.schema.artifactTool.metadata
+      })
+      .from(db.schema.artifactTool)
+      .innerJoin(
+        db.schema.toolDefinition,
+        eq(db.schema.artifactTool.toolDefinitionId, db.schema.toolDefinition.id)
+      )
+      .where(eq(db.schema.artifactTool.artifactId, artifactRow.id)),
+    dbInstance
+      .select()
+      .from(db.schema.artifactResource)
+      .where(eq(db.schema.artifactResource.artifactId, artifactRow.id)),
+    dbInstance
+      .select({ userId: db.schema.externalIdentity.userId })
+      .from(db.schema.externalIdentity)
+      .where(
+        and(
+          eq(db.schema.externalIdentity.channelId, channelRow.id),
+          eq(db.schema.externalIdentity.provider, channelRow.platform),
+          eq(
+            db.schema.externalIdentity.externalId,
+            options.externalParticipantId
+          )
+        )
+      )
+      .limit(1)
+      .then(rows => rows[0])
+  ]);
 
-  const [projectRow] = await dbInstance
-    .select({
-      id: db.schema.project.id,
-      organizationId: db.schema.project.organizationId
-    })
-    .from(db.schema.project)
-    .where(eq(db.schema.project.id, artifactRow.projectId))
-    .limit(1);
-
-  if (!projectRow) throw new Error('Project not found for channel');
-
-  const llmConfig = await resolveChannelLlm(c, dbInstance, channelRow.llmId);
   const llmRow = llmConfig.row;
   const apiKeyPlain = llmConfig.apiKey;
 
-  const [conversation, participant] = await Promise.all([
-    upsertConversation(
-      dbInstance,
-      channelRow.id,
-      options.externalConversationId,
-      options.conversationTitle || null,
-      options.conversationScope
-    ),
-    upsertParticipant(
-      dbInstance,
-      channelRow.id,
-      options.externalParticipantId,
-      options.participantDisplayName || null,
-      options.participantMetadata || null
-    )
-  ]);
+  // No org LLM configured → this turn runs on the shared platform key and we pay
+  // the inference.
+  const onSharedKey = llmConfig.llmId === null;
+
+  // The tighter, cheaper envelope (less history, fewer tool loops) is the
+  // Free-tier experience on our default model. Paying orgs get the full envelope
+  // even when they use the default model — within their included shared-model
+  // allowance (bounded below), paying buys the better experience, not just more
+  // messages. Orgs on their own key always get the full envelope.
+  const limitedEnvelope =
+    onSharedKey && messageCap.plan === utils.constants.PLAN_FREE;
+  const historyLimit = limitedEnvelope
+    ? utils.constants.SHARED_KEY_HISTORY_LIMIT
+    : utils.constants.CHANNEL_HISTORY_LIMIT;
+  const maxToolLoops = limitedEnvelope
+    ? utils.constants.SHARED_KEY_MAX_TOOL_LOOPS
+    : utils.constants.MAX_TOOL_LOOPS;
 
   const [userMessage] = await dbInstance
     .insert(db.schema.channelMessage)
@@ -259,18 +340,15 @@ export const runChannelTurn = async (
     })
     .returning();
 
-  // Enforce the org's monthly assistant-message budget. The inbound user
-  // message is already recorded above; if the org is over its cap we reply with
-  // a one-line notice and skip the (costly) LLM tool-calling loop entirely.
-  // Paid plans have no hard cap, so this only ever stops Free bots.
-  const messageCap = await Plan.checkMessageCap(
-    dbInstance,
-    projectRow.organizationId
-  );
+  // The inbound user message is recorded above regardless; if the org is over
+  // its cap we reply with a one-line notice and skip the (costly) LLM
+  // tool-calling loop entirely. Like the shared-model block below, this reply is
+  // read by a stranger chatting with the bot, not the owner — keep it neutral;
+  // the upgrade prompt lives in the owner's billing dashboard.
   if (!messageCap.allowed) {
     return {
       assistantText:
-        'This assistant has reached its monthly message limit. The owner can upgrade the plan to continue the conversation.',
+        'This assistant is temporarily unavailable. Please check back later.',
       conversationId: conversation.id,
       userMessageId: userMessage.id,
       assistantMessageId: '',
@@ -281,21 +359,42 @@ export const runChannelTurn = async (
     };
   }
 
-  const history = await loadRecentHistory(dbInstance, conversation.id, 20);
+  // Shared-model allowance gate. A channel with no org LLM runs on OUR key and
+  // OUR inference bill; that's included only up to the plan's shared-key cap.
+  // Past it we don't flat-rate inference — the owner must connect their own AI
+  // model to keep this channel running (a paid feature). Own-key turns skip this
+  // entirely (they're metered as overage, not capped). Free never reaches here:
+  // its hard cap equals its shared-key cap, so `messageCap.allowed` fails first.
+  //
+  // The reply below is read by whoever is chatting with the bot — a stranger, not
+  // the owner — so keep it neutral: no plan details, no billing instructions they
+  // can't act on. The actionable "connect your own model" prompt lives in the
+  // owner's billing dashboard (Settings › Billing) instead.
+  if (
+    onSharedKey &&
+    messageCap.sharedKeyCap != null &&
+    messageCap.used >= messageCap.sharedKeyCap
+  ) {
+    return {
+      assistantText:
+        'This assistant is temporarily unavailable. Please check back later.',
+      conversationId: conversation.id,
+      userMessageId: userMessage.id,
+      assistantMessageId: '',
+      attachments: [],
+      sources: [],
+      sourcesFooter: null,
+      sourceButtons: []
+    };
+  }
 
-  const artifactTools = await dbInstance
-    .select({
-      id: db.schema.artifactTool.id,
-      key: db.schema.toolDefinition.key,
-      config: db.schema.artifactTool.config,
-      metadata: db.schema.artifactTool.metadata
-    })
-    .from(db.schema.artifactTool)
-    .innerJoin(
-      db.schema.toolDefinition,
-      eq(db.schema.artifactTool.toolDefinitionId, db.schema.toolDefinition.id)
-    )
-    .where(eq(db.schema.artifactTool.artifactId, artifactRow.id));
+  // Loaded after the user-message insert so it reflects this turn, matching the
+  // prior ordering.
+  const history = await loadRecentHistory(
+    dbInstance,
+    conversation.id,
+    historyLimit
+  );
 
   // Native tools call by their definition key, so key → install id resolves the
   // usage FK. Proxied definitions (http-endpoint, mcp-proxy) register MANY MCP
@@ -367,30 +466,11 @@ export const runChannelTurn = async (
     }
   }
 
-  const artifactResources = await dbInstance
-    .select()
-    .from(db.schema.artifactResource)
-    .where(eq(db.schema.artifactResource.artifactId, artifactRow.id));
   const artifactResourceByUri = new Map(artifactResources.map(r => [r.uri, r]));
   const artifactResourceById = new Map(artifactResources.map(r => [r.id, r]));
   const artifactResourceIdByUri = new Map<string, string>(
     artifactResources.map(r => [r.uri, r.id])
   );
-
-  // Resolve the participant's link for THIS channel only (set by `/link`).
-  // Per-channel scoping: a link in another channel — even by the same Telegram
-  // user — does not authenticate them here.
-  const [linkedIdentity] = await dbInstance
-    .select({ userId: db.schema.externalIdentity.userId })
-    .from(db.schema.externalIdentity)
-    .where(
-      and(
-        eq(db.schema.externalIdentity.channelId, channelRow.id),
-        eq(db.schema.externalIdentity.provider, channelRow.platform),
-        eq(db.schema.externalIdentity.externalId, options.externalParticipantId)
-      )
-    )
-    .limit(1);
 
   // Mirror the global link onto this channel's participant row — re-derived
   // every turn, so it tracks linking, unlinking, and re-linking to another
@@ -441,18 +521,7 @@ export const runChannelTurn = async (
   let totalTokensIn = 0;
   let totalTokensOut = 0;
   const attachments: ChannelAttachment[] = [];
-  const usageEvents: Array<{
-    kind: string;
-    toolName: string;
-    resourceUri?: string | null;
-    artifactToolId: string | null;
-    artifactResourceId?: string | null;
-    artifactPromptId?: string | null;
-    input: Record<string, unknown>;
-    output: unknown;
-    latencyMs: number;
-    errorMessage?: string;
-  }> = [];
+  const usageEvents: UsageEvent[] = [];
 
   try {
     let llmTools: LlmToolDefinition[] = [];
@@ -569,7 +638,7 @@ export const runChannelTurn = async (
       .filter(Boolean)
       .join('\n\n');
 
-    for (let loop = 0; loop < utils.constants.MAX_TOOL_LOOPS; loop++) {
+    for (let loop = 0; loop < maxToolLoops; loop++) {
       const start = Date.now();
       const completion = await adapter.complete({
         model: llmRow.model,
@@ -606,25 +675,37 @@ export const runChannelTurn = async (
         toolCalls: completion.assistant.toolCalls
       });
 
-      for (const call of completion.assistant.toolCalls) {
-        if (options.notifier && utils.getToolStatusMessage(call.name)) {
-          await options.notifier
-            .toolStarted({ toolName: call.name, arguments: call.arguments })
-            .catch(() => undefined);
-        }
-        const toolResult = await executeToolCall(
-          mcp.client,
-          call,
-          usageEvents,
-          artifactToolIdByCallName,
-          artifactResourceIdByUri,
-          artifactResourceByUri,
-          attachments,
-          resolveRemoteResource
-        );
+      // The model requested these tool calls together, so there's no ordering
+      // dependency between them — run them concurrently to collapse N sequential
+      // round-trips into one. We still append usage rows, attachments, and
+      // tool-result messages in the original call order afterward so persisted
+      // accounting and attachment delivery stay deterministic.
+      const toolOutcomes = await Promise.all(
+        completion.assistant.toolCalls.map(async call => {
+          if (options.notifier && utils.getToolStatusMessage(call.name)) {
+            await options.notifier
+              .toolStarted({ toolName: call.name, arguments: call.arguments })
+              .catch(() => undefined);
+          }
+          return executeToolCall(
+            mcp.client,
+            call,
+            artifactToolIdByCallName,
+            artifactResourceIdByUri,
+            artifactResourceByUri,
+            resolveRemoteResource
+          );
+        })
+      );
+
+      for (let i = 0; i < toolOutcomes.length; i++) {
+        const call = completion.assistant.toolCalls[i];
+        const { text, usageEvent, attachment } = toolOutcomes[i];
+        usageEvents.push(usageEvent);
+        if (attachment) attachments.push(attachment);
         messages.push({
           role: utils.constants.ROLE_MESSAGE_TOOL,
-          content: toolResult,
+          content: text,
           toolCallId: call.id
         });
       }
@@ -678,81 +759,101 @@ export const runChannelTurn = async (
     .returning();
   assistantMessageId = assistantMessage.id;
 
-  // Count this assistant turn against the org's monthly budget. Best-effort —
-  // never let a metering write break message delivery.
+  // Count this assistant turn against the org's monthly budget synchronously.
+  // This single cheap UPDATE is billing-grade — `checkMessageCap` reads it to
+  // enforce the Free cap and the hourly meter reports it to Stripe as overage —
+  // so it must not ride on waitUntil, which can silently drop work if the isolate
+  // is evicted (dropping it lets Free bots overrun and under-reports revenue).
+  // Best-effort still: a metering failure must never break delivery.
   await Plan.incrementMessageUsage(
     dbInstance,
     projectRow.organizationId
   ).catch(() => undefined);
 
-  if (usageEvents.length > 0) {
-    // The message-usage rows, the execution-audit rows, and the denormalized
-    // counter bump are one logical accounting record for this turn — write them
-    // in a transaction so a mid-sequence failure can't leave them disagreeing.
-    await dbInstance.transaction(async tx => {
-      await tx.insert(db.schema.channelMessageUsage).values(
-        usageEvents.map(event => ({
-          kind: event.kind,
-          toolName: event.toolName,
-          artifactToolId: event.artifactToolId,
-          artifactResourceId: event.artifactResourceId || null,
-          artifactPromptId: event.artifactPromptId || null,
-          input: event.input,
-          output: event.output,
-          latencyMs: event.latencyMs,
-          errorMessage: event.errorMessage || null,
-          messageId: assistantMessage.id
-        }))
-      );
+  // Everything below is pure analytics — the usage/audit rows and the
+  // denormalized display counters. The reply doesn't depend on any of it, so
+  // flush it after the turn returns (via waitUntil) and answer the user without
+  // waiting on these writes. The two message rows above stay synchronous on
+  // purpose: the next turn rebuilds context by reading them back, so deferring
+  // those could race a fast follow-up and drop the turn from history. Each
+  // segment is best-effort and can't even be observed by the user.
+  const flushBookkeeping = async () => {
+    if (usageEvents.length > 0) {
+      // The message-usage rows, the execution-audit rows, and the denormalized
+      // counter bump are one logical accounting record for this turn — write
+      // them in a transaction so a mid-sequence failure can't leave them
+      // disagreeing.
+      await dbInstance
+        .transaction(async tx => {
+          await tx.insert(db.schema.channelMessageUsage).values(
+            usageEvents.map(event => ({
+              kind: event.kind,
+              toolName: event.toolName,
+              artifactToolId: event.artifactToolId,
+              artifactResourceId: event.artifactResourceId || null,
+              artifactPromptId: event.artifactPromptId || null,
+              input: event.input,
+              output: event.output,
+              latencyMs: event.latencyMs,
+              errorMessage: event.errorMessage || null,
+              messageId: assistantMessage.id
+            }))
+          );
 
-      // Record the execution-audit rows for this channel turn: who (the linked
-      // user when known, plus the external participant) ran which tool/prompt or
-      // read which resource, and when. Source is the channel platform. Resource
-      // rows are named by their URI (matching the MCP path), not the generic
-      // read/send tool key.
-      await tx.insert(db.schema.artifactExecution).values(
-        usageEvents.map(event => ({
-          artifactId: artifactRow.id,
-          kind: event.kind,
-          name:
-            event.kind === utils.constants.USAGE_KIND_RESOURCE
-              ? event.resourceUri || event.toolName || null
-              : event.toolName || null,
-          source: channelRow.platform,
-          channelId: channelRow.id,
-          userId: linkedUserId,
-          externalActorId: participant.externalUserId,
-          externalActorName: participant.displayName,
-          artifactToolId: event.artifactToolId || null,
-          artifactPromptId: event.artifactPromptId || null,
-          artifactResourceId: event.artifactResourceId || null
-        }))
-      );
+          // Record the execution-audit rows for this channel turn: who (the
+          // linked user when known, plus the external participant) ran which
+          // tool/prompt or read which resource, and when. Source is the channel
+          // platform. Resource rows are named by their URI (matching the MCP
+          // path), not the generic read/send tool key.
+          await tx.insert(db.schema.artifactExecution).values(
+            usageEvents.map(event => ({
+              artifactId: artifactRow.id,
+              kind: event.kind,
+              name:
+                event.kind === utils.constants.USAGE_KIND_RESOURCE
+                  ? event.resourceUri || event.toolName || null
+                  : event.toolName || null,
+              source: channelRow.platform,
+              channelId: channelRow.id,
+              userId: linkedUserId,
+              externalActorId: participant.externalUserId,
+              externalActorName: participant.displayName,
+              artifactToolId: event.artifactToolId || null,
+              artifactPromptId: event.artifactPromptId || null,
+              artifactResourceId: event.artifactResourceId || null
+            }))
+          );
 
-      // Mirror invocations into the artifact's denormalized usage totals so the
-      // home view reads usage without aggregating usage rows.
-      await db.incrementArtifactUsage(
-        tx,
-        artifactRow.id,
-        utils.tallyUsageKinds(usageEvents)
-      );
-    });
-  }
+          // Mirror invocations into the artifact's denormalized usage totals so
+          // the home view reads usage without aggregating usage rows.
+          await db.incrementArtifactUsage(
+            tx,
+            artifactRow.id,
+            utils.tallyUsageKinds(usageEvents)
+          );
+        })
+        .catch(() => undefined);
+    }
 
-  await dbInstance
-    .update(db.schema.channelConversation)
-    .set({
-      messageCount: sql`(${db.schema.channelConversation.messageCount}::int + 2)::int`,
-      lastMessageAt: new Date()
-    })
-    .where(eq(db.schema.channelConversation.id, conversation.id));
+    await dbInstance
+      .update(db.schema.channelConversation)
+      .set({
+        messageCount: sql`(${db.schema.channelConversation.messageCount}::int + 2)::int`,
+        lastMessageAt: new Date()
+      })
+      .where(eq(db.schema.channelConversation.id, conversation.id))
+      .catch(() => undefined);
 
-  await dbInstance
-    .update(db.schema.channel)
-    .set({
-      messageCount: sql`(${db.schema.channel.messageCount}::int + 2)::int`
-    })
-    .where(eq(db.schema.channel.id, channelRow.id));
+    await dbInstance
+      .update(db.schema.channel)
+      .set({
+        messageCount: sql`(${db.schema.channel.messageCount}::int + 2)::int`
+      })
+      .where(eq(db.schema.channel.id, channelRow.id))
+      .catch(() => undefined);
+  };
+
+  c.executionCtx.waitUntil(flushBookkeeping());
 
   return {
     assistantText: assistantText || '...',
@@ -949,27 +1050,24 @@ const buildRemoteResourceResolver = (
   };
 };
 
+// Runs one tool call and returns its result text plus the accounting it
+// produced (the usage event, and an attachment if the call sent a file). It no
+// longer mutates shared arrays so calls within a turn can run concurrently; the
+// caller appends the outcomes in call order to keep persistence deterministic.
+type ToolCallOutcome = {
+  text: string;
+  usageEvent: UsageEvent;
+  attachment?: ChannelAttachment;
+};
+
 const executeToolCall = async (
   client: Client,
   call: LlmToolCall,
-  usageEvents: Array<{
-    kind: string;
-    toolName: string;
-    resourceUri?: string | null;
-    artifactToolId: string | null;
-    artifactResourceId?: string | null;
-    artifactPromptId?: string | null;
-    input: Record<string, unknown>;
-    output: unknown;
-    latencyMs: number;
-    errorMessage?: string;
-  }>,
   artifactToolIdByCallName: Map<string, string>,
   artifactResourceIdByUri: Map<string, string>,
   artifactResourceByUri: Map<string, ArtifactResourceRow>,
-  attachments: ChannelAttachment[],
   resolveRemoteResource: RemoteResourceResolver
-): Promise<string> => {
+): Promise<ToolCallOutcome> => {
   const artifactToolId = artifactToolIdByCallName.get(call.name) || null;
   const isResourceTool = RESOURCE_TOOL_KEYS.has(call.name);
   const kind = isResourceTool
@@ -983,6 +1081,7 @@ const executeToolCall = async (
   const artifactResourceId = uri
     ? artifactResourceIdByUri.get(uri) || null
     : null;
+  let attachment: ChannelAttachment | undefined;
   const start = Date.now();
   try {
     // Bridge resources through the MCP client so the agent sees the FULL set the
@@ -1040,7 +1139,7 @@ const executeToolCall = async (
       const target = await resolveRemoteResource(uri);
       const rawCaption = call.arguments?.caption;
       if (target) {
-        attachments.push({
+        attachment = {
           kind: 'remote-resource',
           uri,
           caption:
@@ -1048,7 +1147,7 @@ const executeToolCall = async (
               ? rawCaption.trim()
               : undefined,
           remote: target
-        });
+        };
       }
       result = {
         content: [
@@ -1072,40 +1171,45 @@ const executeToolCall = async (
       const resource = artifactResourceByUri.get(uri);
       if (resource) {
         const rawCaption = call.arguments?.caption;
-        attachments.push({
+        attachment = {
           kind: 'artifact',
           resource,
           caption:
             typeof rawCaption === 'string' && rawCaption.trim()
               ? rawCaption.trim()
               : undefined
-        });
+        };
       }
     }
-    usageEvents.push({
-      kind,
-      toolName: call.name,
-      resourceUri: uri,
-      artifactToolId,
-      artifactResourceId,
-      input: call.arguments,
-      output: result,
-      latencyMs
-    });
-    return text;
+    return {
+      text,
+      attachment,
+      usageEvent: {
+        kind,
+        toolName: call.name,
+        resourceUri: uri,
+        artifactToolId,
+        artifactResourceId,
+        input: call.arguments,
+        output: result,
+        latencyMs
+      }
+    };
   } catch (error: any) {
     const latencyMs = Date.now() - start;
-    usageEvents.push({
-      kind,
-      toolName: call.name,
-      resourceUri: uri,
-      artifactToolId,
-      artifactResourceId,
-      input: call.arguments,
-      output: null,
-      latencyMs,
-      errorMessage: error?.message || String(error)
-    });
-    return `Error calling tool ${call.name}: ${error?.message || error}`;
+    return {
+      text: `Error calling tool ${call.name}: ${error?.message || error}`,
+      usageEvent: {
+        kind,
+        toolName: call.name,
+        resourceUri: uri,
+        artifactToolId,
+        artifactResourceId,
+        input: call.arguments,
+        output: null,
+        latencyMs,
+        errorMessage: error?.message || String(error)
+      }
+    };
   }
 };

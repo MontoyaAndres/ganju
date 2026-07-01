@@ -1,4 +1,3 @@
-- Fix speed on answering messages
 - https://www.chatbase.co/
 - Make an introdution view like chatbase does
 - implement evals in the code and for general use in mcps for users promptfoo
@@ -30,17 +29,30 @@ Free:
 
 - One organization / one project, can't invite people
 - mcp.ganju.ai/<slug>
-- Limits: 3 tools, 3 prompts, 1 channel
-- Storage: 300 MB raw files, ≤ ~30 MB embedded/RAG content
-- 1,000 channel messages / month (HARD CAP — well below Pro's 10k allowance so
-  messages are a real upgrade reason, and channel bots are our costliest path)
+- Limits: 7 tools, 3 prompts, 1 channel
+- Storage: 30 MB raw files, ≤ ~5 MB embedded/RAG content
+- 100 channel messages / month (HARD CAP). Free runs on our shared platform
+  model key (we pay the inference), so the cap is trial-sized and the shared-key
+  turn envelope (history + tool loops) is tightened to bound cost. Anyone who
+  wants more for free can self-host (Apache-2.0).
+- Cannot connect its own LLM (bring-your-own-key) — that's a paid feature, so
+  Free always runs on (and is capped on) our shared key.
 - Community support
 
 Pro - $20/mo base + usage (base includes an allowance):
 
 - No limits on prompts/tools/channels
 - No limits on orgs/projects/invitations
-- Included each month: ~5 GB embedded content + ~10,000 channel messages
+- Can connect its own LLM (bring-your-own-key); BYO-key turns run on the org's
+  own inference and aren't capped on our shared model
+- Included each month: ~5 GB embedded content + ~3,000 channel messages. The
+  included message allowance also bounds shared-model use: those 3,000 can run on
+  our AI model or the org's own key, but once they're spent a channel with no own
+  key must connect one to continue (we don't flat-rate our model in the overage
+  zone). Note: the counter is the org's TOTAL messages, so heavy BYO traffic also
+  draws down the shared allowance — acceptable because the failure mode is
+  "blocks early," which never costs us inference. If mixed BYO+shared orgs prove
+  common, split it into a dedicated shared-model counter.
 - Overage: $0.50/GB embedded content · $2 per 1k channel messages (small — platform
   fee on BYO key, not token resale). Add a context-size fair-use cap so a few
   RAG-heavy power users don't sink the margin.

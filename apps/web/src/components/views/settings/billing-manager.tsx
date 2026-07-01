@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/router';
+import { Theme, useTheme } from '@emotion/react';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 
@@ -11,6 +12,10 @@ interface BillingLimits {
   maxRawStorageBytes: number | null;
   maxEmbeddedBytes: number | null;
   monthlyMessageCap: number | null;
+  // How many messages/mo may run on our shared AI model before a channel must
+  // connect its own key to continue. Present in the billing payload (full
+  // PlanLimits is serialized); used to warn the owner on the messages row.
+  sharedKeyMessageCap: number | null;
   canInvite: boolean;
   includedMessages: number;
   includedEmbeddedBytes: number;
@@ -45,6 +50,9 @@ interface BillingStatus {
 
 interface BillingManagerProps {
   organizationId: string;
+  // Scrolls the settings page to the Models section, so the shared-model note can
+  // link the owner straight to where they connect a key.
+  onGoToModels?: () => void;
 }
 
 const formatBytes = (bytes: number): string => {
@@ -61,18 +69,19 @@ const formatNumber = (n: number): string => n.toLocaleString();
 // a paid allowance that bills beyond the limit rather than blocking — going
 // over is shown amber + a billed note, vs red for a hard (Free) cap.
 const UsageRow = (props: {
+  theme: Theme;
   label: string;
   used: number;
   limit: number | null;
   render: (n: number) => string;
   overageRate?: string;
-  hint?: string;
+  hint?: ReactNode;
 }) => {
-  const { label, used, limit, render, overageRate, hint } = props;
+  const { theme, label, used, limit, render, overageRate, hint } = props;
   const pct =
     limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const over = limit != null && used > limit;
-  const overColor = overageRate ? '#e0a800' : '#d9534f';
+  const overColor = overageRate ? theme.colors.corn : theme.colors.roman;
   return (
     <div style={{ marginBottom: 14 }}>
       <div
@@ -104,7 +113,7 @@ const UsageRow = (props: {
             style={{
               height: '100%',
               width: `${pct}%`,
-              background: over ? overColor : '#5c6ac4',
+              background: over ? overColor : theme.colors.indigo,
               transition: 'width 0.3s ease'
             }}
           />
@@ -123,8 +132,9 @@ const UsageRow = (props: {
 };
 
 export const BillingManager = (props: BillingManagerProps) => {
-  const { organizationId } = props;
+  const { organizationId, onGoToModels } = props;
   const router = useRouter();
+  const theme = useTheme();
   const snackbar = UI.Alert.useSnackbar();
 
   const [status, setStatus] = useState<BillingStatus | null>(null);
@@ -212,6 +222,48 @@ export const BillingManager = (props: BillingManagerProps) => {
       ? 'Pro'
       : 'Enterprise';
 
+  // Paid plans read as "unlimited messages, just pay overage" on the row below,
+  // but the runner actually stops a channel that has no own key once shared-model
+  // use hits this cap — and that block only surfaces in-channel, where the owner
+  // never looks. Surface the rule (and, once they're over it, the action) here.
+  // Free is pure-shared and already hard-capped, so this note is paid-only.
+  const sharedCap = status.limits.sharedKeyMessageCap;
+  const overSharedCap =
+    sharedCap != null && status.usage.messagesUsed >= sharedCap;
+  const connectModelLink = (
+    <a
+      href="#models"
+      onClick={e => {
+        if (onGoToModels) {
+          e.preventDefault();
+          onGoToModels();
+        }
+      }}
+      style={{ color: theme.colors.bastille, textDecoration: 'underline' }}
+    >
+      connect your own model
+    </a>
+  );
+  const messagesHint: ReactNode =
+    !isFree && sharedCap != null ? (
+      overSharedCap ? (
+        <>
+          You&apos;ve used your {formatNumber(sharedCap)} included messages this
+          month. Channels without their own model are paused —{' '}
+          {connectModelLink} to keep them running. Channels on their own key are
+          unaffected.
+        </>
+      ) : (
+        <>
+          Up to {formatNumber(sharedCap)}/mo run on our shared AI model; past
+          that, {connectModelLink} to keep default channels running. Only your
+          assistant&apos;s replies count — incoming user messages are free.
+        </>
+      )
+    ) : (
+      "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance."
+    );
+
   return (
     <>
       <div className="settings-section-header">
@@ -257,6 +309,7 @@ export const BillingManager = (props: BillingManagerProps) => {
 
       <div style={{ marginTop: 8 }}>
         <UsageRow
+          theme={theme}
           label="Assistant replies this month"
           used={status.usage.messagesUsed}
           // Free shows the hard cap; paid shows the included allowance (overage
@@ -268,9 +321,10 @@ export const BillingManager = (props: BillingManagerProps) => {
           overageRate={
             isFree ? undefined : `$${status.pricing.messagePer1kUsd}/1k`
           }
-          hint="Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance."
+          hint={messagesHint}
         />
         <UsageRow
+          theme={theme}
           label="Embedded content (RAG)"
           used={status.usage.embeddedBytes}
           limit={
@@ -284,12 +338,14 @@ export const BillingManager = (props: BillingManagerProps) => {
           }
         />
         <UsageRow
+          theme={theme}
           label="File storage"
           used={status.usage.rawBytes}
           limit={status.limits.maxRawStorageBytes}
           render={formatBytes}
         />
         <UsageRow
+          theme={theme}
           label="Projects"
           used={status.usage.projectCount}
           limit={status.limits.maxProjects}

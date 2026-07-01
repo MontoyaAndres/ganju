@@ -371,7 +371,7 @@ export const ModalDialog = styled.div`
     position: relative;
 
     @media (min-width: ${theme.screens.md}) {
-      max-height: 90vh;
+      max-height: 45vh;
     }
 
     .modal-header {

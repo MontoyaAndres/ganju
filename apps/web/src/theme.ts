@@ -18,7 +18,10 @@ const basicConfig = {
     tahitiGold: '#F57C00',
     thunderbird: '#C62828',
     fairPink: '#FFEBEE',
-    salem: '#1F7A3A'
+    salem: '#1F7A3A',
+    corn: '#e0a800',
+    roman: '#d9534f',
+    indigo: '#5c6ac4'
   },
   chart: {
     telegram: '#7FC8EC',

@@ -7,9 +7,9 @@ Start free, scale when you're ready — or run it yourself for free under Apache
 Perfect for personal projects and trying things out.
 
 - 1 workspace, no teammates
-- Up to 3 tools, 3 prompts, 1 channel
-- 300 MB files · ~30 MB searchable (embedded) content
-- 1,000 channel messages / mo
+- Up to 7 tools, 3 prompts, 1 channel
+- 30 MB files · ~5 MB searchable (embedded) content
+- 100 channel messages / mo on our shared AI model
 - Your own connection link
 - Community support
 
@@ -19,8 +19,9 @@ For teams and growing products. A flat base that includes an allowance; you pay
 only for what you use beyond it.
 
 - Unlimited projects, teammates, tools & prompts
-- Includes 10,000 channel messages + 5 GB searchable content each month
-- Overage: $2 per 1,000 extra messages · $0.50 per extra GB
+- Connect your own AI model (bring-your-own-key)
+- Includes 3,000 channel messages/mo — run them on our AI model or your own — + 5 GB searchable content each month
+- Past that, connect your own model to continue — then $2 per 1,000 messages (compute) · $0.50 per extra GB
 - MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
 - Custom domain add-on ($15/mo) · build your own custom tools
 - 24/7 support

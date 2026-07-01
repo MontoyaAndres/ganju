@@ -567,6 +567,17 @@ const LLM_SYSTEM_DEFAULT = 'SYSTEM_DEFAULT';
 
 const MAX_TOOL_LOOPS = 8;
 
+// How many recent messages a channel turn replays as context.
+const CHANNEL_HISTORY_LIMIT = 20;
+
+// Tighter turn envelope when a channel runs on the shared platform model key
+// (Free, no org LLM configured) — we pay that inference, so we bound the two
+// dominant cost drivers: input tokens (smaller history) and number of model
+// calls (fewer tool loops). Orgs that bring their own key get the full envelope
+// above. Lower numbers also cut latency on the same path.
+const SHARED_KEY_HISTORY_LIMIT = 10;
+const SHARED_KEY_MAX_TOOL_LOOPS = 6;
+
 const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const TELEGRAM_MESSAGE_LIMIT = 3500;
@@ -1160,7 +1171,7 @@ const GB = 1024 * 1024 * 1024;
 
 // Pricing numbers (kept in sync with apps/website/src/lib/pricing.ts).
 const PRICING_PRO_BASE_USD = 20;
-const PRICING_INCLUDED_MESSAGES = 10_000;
+const PRICING_INCLUDED_MESSAGES = 3_000;
 const PRICING_INCLUDED_EMBEDDED_GB = 5;
 const PRICING_MESSAGE_PER_1K_USD = 2;
 const PRICING_EMBEDDED_PER_GB_USD = 0.5;
@@ -1177,7 +1188,19 @@ interface PlanLimits {
   // Hard monthly cap on assistant channel messages. Free is capped; paid plans
   // are `null` (metered, not blocked).
   monthlyMessageCap: number | null;
+  // Monthly cap on messages that may run on the SHARED platform model (our key,
+  // our inference bill). This is the included allowance: once it's reached, a
+  // channel with no org LLM configured must connect its own model to keep going.
+  // We never resell our model's inference at a flat rate beyond this — past the
+  // allowance you either bring your own key (paid plans) or upgrade (Free). Every
+  // plan sets a number here; `null` would mean unlimited shared-model use.
+  sharedKeyMessageCap: number | null;
   canInvite: boolean;
+  // Whether the org may configure its own LLM (bring-your-own-key). A paid-only
+  // feature: Free orgs run on the shared platform model key (capped); connecting
+  // a private model — which lets the org run its own inference past the shared
+  // allowance — requires upgrading.
+  canUseCustomLlm: boolean;
   // Display-only allowances included in the plan (what overage is measured
   // against). Not used for blocking.
   includedMessages: number;
@@ -1190,15 +1213,25 @@ const PLAN_LIMITS: Record<
 > = {
   FREE: {
     maxProjects: 1,
-    maxToolsPerArtifact: 9,
+    maxToolsPerArtifact: 7,
     maxPromptsPerArtifact: 3,
     maxChannelsPerArtifact: 1,
-    maxRawStorageBytes: 300 * MB,
-    maxEmbeddedBytes: 30 * MB,
-    monthlyMessageCap: 1_000,
+    maxRawStorageBytes: 30 * MB,
+    maxEmbeddedBytes: 5 * MB,
+    // Free runs on the shared platform model key, so we pay inference. The cap
+    // is deliberately a trial-sized amount, not a home — anyone who wants more
+    // for free can self-host (Apache-2.0). Cost per message is further bounded
+    // by the tighter shared-key turn envelope (history + tool loops) below.
+    monthlyMessageCap: 100,
+    // Free can't bring its own key, so the whole Free allowance runs on our
+    // model — the shared-key cap equals the hard cap.
+    sharedKeyMessageCap: 100,
     canInvite: false,
-    includedMessages: 1_000,
-    includedEmbeddedBytes: 30 * MB
+    // Free orgs use the shared platform model only; bringing your own model is a
+    // paid feature.
+    canUseCustomLlm: false,
+    includedMessages: 100,
+    includedEmbeddedBytes: 5 * MB
   },
   PRO: {
     maxProjects: null,
@@ -1208,7 +1241,12 @@ const PLAN_LIMITS: Record<
     maxRawStorageBytes: null,
     maxEmbeddedBytes: null,
     monthlyMessageCap: null,
+    // Pro has no hard message cap (own-key messages are unlimited and metered),
+    // but its use of OUR model is bounded to the included allowance. Past that,
+    // a channel must run on the org's own key — we don't flat-rate inference.
+    sharedKeyMessageCap: PRICING_INCLUDED_MESSAGES,
     canInvite: true,
+    canUseCustomLlm: true,
     includedMessages: PRICING_INCLUDED_MESSAGES,
     includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
   },
@@ -1220,7 +1258,9 @@ const PLAN_LIMITS: Record<
     maxRawStorageBytes: null,
     maxEmbeddedBytes: null,
     monthlyMessageCap: null,
+    sharedKeyMessageCap: PRICING_INCLUDED_MESSAGES,
     canInvite: true,
+    canUseCustomLlm: true,
     includedMessages: PRICING_INCLUDED_MESSAGES,
     includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
   }
@@ -1234,6 +1274,7 @@ const PLAN_FEATURE_TOOL = 'tool' as 'tool';
 const PLAN_FEATURE_PROMPT = 'prompt' as 'prompt';
 const PLAN_FEATURE_CHANNEL = 'channel' as 'channel';
 const PLAN_FEATURE_INVITE = 'invite' as 'invite';
+const PLAN_FEATURE_LLM = 'llm' as 'llm';
 const PLAN_FEATURE_RAW_STORAGE = 'rawStorage' as 'rawStorage';
 const PLAN_FEATURE_EMBEDDED_STORAGE = 'embeddedStorage' as 'embeddedStorage';
 const PLAN_FEATURE_MESSAGE = 'message' as 'message';
@@ -1280,6 +1321,7 @@ export const constants = {
   PLAN_FEATURE_PROMPT,
   PLAN_FEATURE_CHANNEL,
   PLAN_FEATURE_INVITE,
+  PLAN_FEATURE_LLM,
   PLAN_FEATURE_RAW_STORAGE,
   PLAN_FEATURE_EMBEDDED_STORAGE,
   PLAN_FEATURE_MESSAGE,
@@ -1488,6 +1530,9 @@ export const constants = {
   LLM_CATALOG,
   LLM_SYSTEM_DEFAULT,
   MAX_TOOL_LOOPS,
+  CHANNEL_HISTORY_LIMIT,
+  SHARED_KEY_HISTORY_LIMIT,
+  SHARED_KEY_MAX_TOOL_LOOPS,
   TELEGRAM_SECRET_HEADER,
   TELEGRAM_API_BASE,
   TELEGRAM_MESSAGE_LIMIT,
