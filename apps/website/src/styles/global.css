@@ -1517,6 +1517,14 @@ svg {
   color: var(--muted);
 }
 
+.prose img {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-glow);
+  margin: 1.4em 0;
+}
+
 .prose .eyebrow a {
   text-decoration: none;
 }
@@ -1525,4 +1533,246 @@ svg {
   color: var(--muted);
   font-size: 0.95rem;
   margin: 0 0 1.5em;
+}
+
+/* ---- Docs: sidebar layout ---- */
+.docs-section {
+  padding: 56px 0 96px;
+}
+
+.docs-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+
+.docs-content {
+  max-width: 760px;
+}
+
+.docs-article > .eyebrow {
+  margin-bottom: 8px;
+}
+
+.docs-aside {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+}
+
+/* The mobile "Menu" toggle is hidden on desktop, where the nav is always shown. */
+.docs-menu-toggle {
+  display: none;
+}
+
+.docs-nav-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin: 0 0 12px;
+  padding: 0 10px;
+}
+
+.docs-navlist,
+.docs-sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.docs-navlist > li + li {
+  margin-top: 2px;
+}
+
+/* Links + placeholders */
+.docs-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition:
+    color 0.15s var(--ease),
+    background-color 0.15s var(--ease);
+}
+
+a.docs-link:hover {
+  color: var(--text);
+  background: var(--bg-2);
+}
+
+.docs-link.active {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--accent-soft);
+}
+
+.docs-link.soon {
+  color: var(--muted-2);
+  cursor: default;
+}
+
+.docs-link.soon em {
+  font-style: normal;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: auto;
+}
+
+/* Collapsible group */
+.docs-group {
+  margin: 2px 0;
+}
+
+.docs-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background-color 0.15s var(--ease);
+}
+
+.docs-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-group-summary:hover {
+  background: var(--bg-2);
+}
+
+.docs-group-label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A group whose title is a link — clicking it navigates to the section page,
+   while the chevron still toggles the group open/closed. */
+a.docs-group-link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 6px;
+  margin: -2px -6px;
+  padding: 2px 6px;
+}
+
+a.docs-group-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.docs-group-summary:has(a.docs-group-link.active) {
+  background: var(--accent-soft);
+}
+
+.docs-chevron {
+  flex: none;
+  color: var(--muted-2);
+  transition: transform 0.2s var(--ease);
+}
+
+.docs-group[open] > .docs-group-summary .docs-chevron {
+  transform: rotate(180deg);
+}
+
+/* Nested items get an indented rail, like a folder tree */
+.docs-sublist {
+  margin: 2px 0 6px;
+  padding-left: 12px;
+  margin-left: 16px;
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .docs-shell {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Sticky toggle stays reachable while the page scrolls, tucked under the
+     70px site header. The nav drops out of it as an overlay panel. */
+  .docs-aside {
+    position: sticky;
+    top: 80px;
+    z-index: 40;
+    align-self: stretch;
+    margin-bottom: 20px;
+  }
+
+  .docs-menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-glow);
+    cursor: pointer;
+  }
+
+  .docs-menu-toggle > span {
+    flex: 1;
+    text-align: left;
+  }
+
+  .docs-menu-icon,
+  .docs-menu-chevron {
+    flex: none;
+    color: var(--muted);
+  }
+
+  .docs-menu-chevron {
+    transition: transform 0.2s var(--ease);
+  }
+
+  .docs-menu-toggle.open .docs-menu-chevron {
+    transform: rotate(180deg);
+  }
+
+  .docs-nav {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 8px);
+    max-height: min(70vh, 460px);
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .docs-nav.open {
+    display: block;
+  }
+
+  .docs-nav-title {
+    display: none;
+  }
 }

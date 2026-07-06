@@ -1,0 +1,65 @@
+---
+import type { DocNavNode } from '../lib/docs-nav';
+import { isActive, containsActive } from '../lib/docs-nav';
+import Self from './DocsNavNode.astro';
+
+interface Props {
+  node: DocNavNode;
+  current: string;
+}
+
+const { node, current } = Astro.props;
+const hasItems = !!node.items?.length;
+const active = isActive(node.href, current);
+const open = hasItems && containsActive(node, current);
+---
+
+{
+  hasItems ? (
+    <details class="docs-group" open={open}>
+      <summary class="docs-group-summary">
+        {node.href ? (
+          <a
+            class:list={['docs-group-label', 'docs-group-link', { active }]}
+            href={node.href}
+            aria-current={active ? 'page' : undefined}
+          >
+            {node.label}
+          </a>
+        ) : (
+          <span class="docs-group-label">{node.label}</span>
+        )}
+        <svg class="docs-chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M8 10l4 4 4-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </summary>
+      <ul class="docs-sublist">
+        {node.items!.map((child) => (
+          <li>
+            <Self node={child} current={current} />
+          </li>
+        ))}
+      </ul>
+    </details>
+  ) : node.href ? (
+    <a
+      class:list={['docs-link', { active }]}
+      href={node.href}
+      aria-current={active ? 'page' : undefined}
+    >
+      {node.label}
+    </a>
+  ) : (
+    <span class="docs-link soon" aria-disabled="true">
+      {node.label}
+      <em>Soon</em>
+    </span>
+  )
+}

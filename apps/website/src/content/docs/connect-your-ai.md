@@ -1,7 +1,7 @@
 ---
 title: Connect your AI
 description: Link Claude, ChatGPT, Cursor, or any MCP-compatible client to your workspace.
-order: 2
+order: 9
 updated: 2026-06-23
 ---
 
