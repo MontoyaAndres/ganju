@@ -143,3 +143,4 @@ vite.config.ts.timestamp-*
 .open-next
 .dev.vars
 .dev.vars.*
+.DS_Store

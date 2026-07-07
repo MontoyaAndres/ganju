@@ -30,7 +30,9 @@ export const DOCS_NAV: DocNavNode[] = [
       { label: 'Settings', href: '/docs/getting-started/settings' }
     ]
   },
-  { label: 'Connect your AI', href: '/docs/connect-your-ai' },
+  { label: 'Prompts', href: '/docs/prompts' },
+  { label: 'Resources', href: '/docs/resources' },
+  { label: 'Tools', href: '/docs/tools' },
   {
     label: 'Reference',
     items: [

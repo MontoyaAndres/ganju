@@ -26,8 +26,8 @@ need. Here's what each page covers:
 - **[Settings](/docs/getting-started/settings)** — manage members, choose the
   model your AI runs on, and handle billing.
 
-Work through them and you'll have a live assistant ready to
-[connect to your AI client](/docs/connect-your-ai) or share through a channel.
+Work through them and you'll have a live assistant ready to share through a
+channel.
 
 > Each item above is its own page in the sidebar under **Get started**. New here?
 > Begin with **[Sign in](/docs/getting-started/sign-in)**.

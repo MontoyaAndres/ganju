@@ -20,8 +20,8 @@ with anyone.
 
 - **[Getting started](/docs/getting-started)** — create your first workspace and
   connect your AI in a few minutes.
-- **[Connect your AI](/docs/connect-your-ai)** — link Claude, ChatGPT, Cursor, or
-  any MCP-compatible client to your workspace.
+- **[Prompts](/docs/prompts)** — build reusable, multi-turn prompt templates with
+  typed variables that become slash commands in your channels.
 
 ## How the docs are organized
 

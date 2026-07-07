@@ -45,5 +45,4 @@ can't be undone, so it asks you to confirm.
 
 ![The Danger zone with the Remove organization action and its permanent-delete warning](/images/settings-3.webp)
 
-Next: [connect your AI](/docs/connect-your-ai) or open a
-[channel](/docs/getting-started/channels) to go live.
+Next: open a [channel](/docs/getting-started/channels) to go live.
