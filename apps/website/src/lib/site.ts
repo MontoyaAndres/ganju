@@ -8,7 +8,7 @@ export const SITE = {
   repo: 'https://github.com/MontoyaAndres/ganju',
   tagline: 'Connect your AI to your files, tools & apps.',
   description:
-    'Ganju connects AI assistants like Claude, ChatGPT, and Cursor — and your Telegram, Slack, WhatsApp, and Discord bots — to your own files, tools, and apps. Set it up in minutes, no coding required. Open source.',
+    'Ganju connects AI assistants like Claude, ChatGPT, and Gemini — and your Telegram, Slack, WhatsApp, and Discord bots — to your own files, tools, and apps. Set it up in minutes, no coding required. Open source.',
   social: {
     x: 'https://x.com/ganju_ai',
     linkedin: 'https://www.linkedin.com/company/ganju',

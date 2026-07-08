@@ -1,6 +1,6 @@
 # Ganju — Connect your AI to your files, tools & apps
 
-Ganju lets AI assistants like Claude, ChatGPT, and Cursor — and your bots on
+Ganju lets AI assistants like Claude, ChatGPT, and Gemini — and your bots on
 Telegram, Slack, WhatsApp, and Discord — safely use your own documents, tools,
 and apps. Your AI answers with your information and gets real work done. Set it
 up in minutes, no coding required. Open source under Apache-2.0.
