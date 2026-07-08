@@ -872,7 +872,7 @@ export const ModalDialog = styled.div`
     position: relative;
 
     @media (min-width: ${theme.screens.md}) {
-      max-height: 30vh;
+      height: calc(100% - 10vh);
     }
 
     .profile-modal-header {

@@ -10,6 +10,10 @@ answers from your content instead of guessing. Add them from Google Drive,
 OneDrive, a website crawl, or by uploading files directly — each one gets a URI
 and, once processed, is marked **Ready**.
 
+> **Want the full picture?** This is the quick version. The complete
+> **[Resources](/docs/resources)** guide covers Google Drive and OneDrive imports,
+> website crawls, uploads, and citations.
+
 ## Where resources come from
 
 The **Resources** page groups everything by source: **Google Drive**, **OneDrive**,

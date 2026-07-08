@@ -1,6 +1,7 @@
 ---
 import Base from './Base.astro';
 import DocsSidebar from '../components/DocsSidebar.astro';
+import DocsFeedback from '../components/DocsFeedback.astro';
 import { normalizePath } from '../lib/docs-nav';
 
 interface Props {
@@ -22,4 +23,5 @@ const current = normalizePath(Astro.url.pathname);
       </div>
     </div>
   </section>
+  <DocsFeedback />
 </Base>

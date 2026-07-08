@@ -10,6 +10,10 @@ team, or individuals. Connect **Telegram**, **Slack**, **WhatsApp**, or
 **Discord** and they chat with it on the app they already use. Everything you set
 up — prompts, resources, and tools — comes along automatically.
 
+> **Want the full picture?** This is the quick version. The complete
+> **[Channels](/docs/channels)** guide has step-by-step setup for Telegram,
+> WhatsApp, Slack, and Discord, plus connecting [MCP clients](/docs/mcp).
+
 ## Add a channel
 
 Open **Channels** and select **Add channel**. Pick a **platform**, choose the

@@ -9,6 +9,10 @@ updated: 2026-07-06
 each area — **Organization**, **Billing & plan**, **Members**, **Projects**,
 **Models**, and the **Danger zone**.
 
+> **Want the full picture?** This is the quick version. The complete
+> **[Settings](/docs/settings)** guide explains how the Free, Pro, and Enterprise
+> plans really work, billing and overage, members, and bringing your own model.
+
 ## Organization & billing
 
 The **Organization** section shows when it was created, how many projects and

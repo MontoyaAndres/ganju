@@ -1,0 +1,35 @@
+---
+import { SITE } from '../lib/site';
+---
+
+<!-- ===== Open a GitHub issue ===== -->
+<section class="section section-alt">
+  <div class="container narrow">
+    <div class="section-head reveal">
+      <span class="eyebrow">Open source</span>
+      <h2>Found a bug or have an idea?</h2>
+      <p>
+        Ganju is open source. Report bugs and request features on GitHub — we
+        read every issue.
+      </p>
+    </div>
+    <div class="hero-cta center reveal">
+      <a
+        class="btn btn-primary btn-lg"
+        href={`${SITE.repo}/issues/new`}
+        target="_blank"
+        rel="noopener"
+      >
+        Create a GitHub issue
+      </a>
+      <a
+        class="btn btn-ghost btn-lg"
+        href={`${SITE.repo}/issues`}
+        target="_blank"
+        rel="noopener"
+      >
+        Browse open issues
+      </a>
+    </div>
+  </div>
+</section>

@@ -10,6 +10,11 @@ resource helpers to integrations like Gmail, Slack, and Google Calendar. The
 **Tools** page has two tabs: **Installed** (what's live on this assistant) and
 **Catalog** (everything you can add).
 
+> **Want the full picture?** This is the quick version. The complete
+> **[Tools](/docs/tools)** guide documents every integration — Gmail, Outlook,
+> Slack, calendars, web search, GitHub, Notion, and your own HTTP endpoints — tool
+> by tool.
+
 ## Built-in tools
 
 Every project starts with five **built-in** tools already installed — **List

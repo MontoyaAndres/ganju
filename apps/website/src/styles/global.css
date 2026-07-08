@@ -1525,6 +1525,35 @@ svg {
   margin: 1.4em 0;
 }
 
+/* Markdown tables (e.g. the Free vs Pro plan comparison). `display: block`
+   + overflow lets a wide table scroll on narrow screens instead of being
+   clipped by the page's overflow-x: hidden. */
+.prose table {
+  width: 100%;
+  margin: 1.4em 0;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  display: block;
+  overflow-x: auto;
+}
+
+.prose th,
+.prose td {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose thead th {
+  background: var(--bg-2);
+  font-weight: 700;
+}
+
+.prose tbody tr:nth-child(even) td {
+  background: var(--surface-2);
+}
+
 .prose .eyebrow a {
   text-decoration: none;
 }
@@ -1537,7 +1566,7 @@ svg {
 
 /* ---- Docs: sidebar layout ---- */
 .docs-section {
-  padding: 56px 0 96px;
+  padding: 26px 0 96px;
 }
 
 .docs-shell {
@@ -1559,6 +1588,13 @@ svg {
   position: sticky;
   top: 96px;
   align-self: start;
+  /* Cap to the viewport (minus the sticky offset) and scroll internally so a
+     long nav — e.g. the expanded Tools group — stays fully reachable. */
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
 
 /* The mobile "Menu" toggle is hidden on desktop, where the nav is always shown. */
@@ -1716,6 +1752,11 @@ a.docs-group-link:hover {
     z-index: 40;
     align-self: stretch;
     margin-bottom: 20px;
+    /* Reset the desktop scroll cap: the mobile nav is an absolutely-positioned
+       dropdown that scrolls on its own, and an overflow here would clip it. */
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
   }
 
   .docs-menu-toggle {

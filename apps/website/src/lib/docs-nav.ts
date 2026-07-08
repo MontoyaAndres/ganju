@@ -30,23 +30,40 @@ export const DOCS_NAV: DocNavNode[] = [
       { label: 'Settings', href: '/docs/getting-started/settings' }
     ]
   },
+  { label: 'Organizations & projects', href: '/docs/organizations-and-projects' },
   { label: 'Prompts', href: '/docs/prompts' },
   { label: 'Resources', href: '/docs/resources' },
-  { label: 'Tools', href: '/docs/tools' },
   {
-    label: 'Reference',
+    label: 'Tools',
+    href: '/docs/tools',
     items: [
-      { label: 'Billing & plans' },
-      {
-        label: 'API',
-        items: [
-          { label: 'Overview' },
-          { label: 'Authentication' },
-          { label: 'Errors' }
-        ]
-      }
+      { label: 'Built-in', href: '/docs/tools/built-in' },
+      { label: 'Gmail', href: '/docs/tools/gmail' },
+      { label: 'Outlook', href: '/docs/tools/outlook' },
+      { label: 'Slack', href: '/docs/tools/slack' },
+      { label: 'Slack Search', href: '/docs/tools/slack-search' },
+      { label: 'Google Calendar', href: '/docs/tools/google-calendar' },
+      { label: 'Cal.com', href: '/docs/tools/calcom' },
+      { label: 'Web Search', href: '/docs/tools/web-search' },
+      { label: 'GitHub', href: '/docs/tools/github' },
+      { label: 'Notion', href: '/docs/tools/notion' },
+      { label: 'HTTP Endpoints', href: '/docs/tools/http-endpoints' },
+      { label: 'Greeting', href: '/docs/tools/greeting' }
     ]
-  }
+  },
+  {
+    label: 'Channels',
+    href: '/docs/channels',
+    items: [
+      { label: 'Telegram', href: '/docs/channels/telegram' },
+      { label: 'WhatsApp', href: '/docs/channels/whatsapp' },
+      { label: 'Slack', href: '/docs/channels/slack' },
+      { label: 'Discord', href: '/docs/channels/discord' }
+    ]
+  },
+  { label: 'Settings', href: '/docs/settings' },
+  { label: 'MCP clients', href: '/docs/mcp' },
+  { label: 'Deploy it yourself', href: '/docs/deploy' }
 ];
 
 /** Strip a trailing slash (except on the root path) so paths compare equal. */

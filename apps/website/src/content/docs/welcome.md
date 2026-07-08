@@ -20,15 +20,28 @@ with anyone.
 
 - **[Getting started](/docs/getting-started)** — create your first workspace and
   connect your AI in a few minutes.
-- **[Prompts](/docs/prompts)** — build reusable, multi-turn prompt templates with
-  typed variables that become slash commands in your channels.
+- **[Organizations & projects](/docs/organizations-and-projects)** — how Ganju is
+  structured: an organization for your team and billing, a project per assistant.
 
-## How the docs are organized
+## Explore what Ganju can do
 
-- **Get started** — the fastest path from sign-up to a working assistant.
-- **Core concepts** — the building blocks: workspaces, prompts, resources, and
-  tools, plus the **channels** you use to offer your AI to clients and teams.
-- **Reference** — billing, plans, and the API.
+Once you're set up, these guides go deeper on each capability — the building blocks
+you combine to shape exactly what your assistant knows, does, and where it lives:
+
+- **[Prompts](/docs/prompts)** — reusable, multi-turn templates with typed
+  variables that become **slash commands** in every channel.
+- **[Resources](/docs/resources)** — ground your AI in your own knowledge: import
+  from Google Drive or OneDrive, crawl a website, or upload files, all searchable
+  with citations.
+- **[Tools](/docs/tools)** — let it take action: email (Gmail, Outlook), Slack,
+  calendars (Google, Cal.com), web search, remote MCP servers like GitHub and
+  Notion, or your own HTTP APIs.
+- **[Channels](/docs/channels)** — deliver it to real people on Telegram, WhatsApp,
+  Slack, and Discord, with step-by-step setup for each.
+- **[MCP clients](/docs/mcp)** — connect the same assistant to Claude, ChatGPT,
+  Cursor, or VS Code with one URL.
+- **[Settings](/docs/settings)** — manage your plan and billing, invite your team,
+  and bring your own language model.
 
 > Every page on this site is also available as Markdown — just add `.md` to the
 > URL (you're reading [`/docs/welcome.md`](/docs/welcome.md)). See

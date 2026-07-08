@@ -10,6 +10,10 @@ chat channel, each prompt becomes a **slash command** people can run by name —
 a common request becomes a one-word shortcut. Use `{{variables}}` in a message
 for values that get filled in when it runs.
 
+> **Want the full picture?** This is the quick version. The complete
+> **[Prompts](/docs/prompts)** guide covers multi-turn templates, typed variables,
+> and editing messages as JSON.
+
 ## Create a prompt
 
 Open the **Prompts** page and select **New prompt**. A panel opens where you'll
