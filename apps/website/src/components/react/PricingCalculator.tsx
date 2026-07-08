@@ -57,8 +57,8 @@ export default function PricingCalculator({
     storageMax
   } = config;
 
-  const [messages, setMessages] = useState(8_000);
-  const [storageGb, setStorageGb] = useState(3);
+  const [messages, setMessages] = useState(1_000);
+  const [storageGb, setStorageGb] = useState(1);
   const [customDomain, setCustomDomain] = useState(false);
 
   const result = useMemo(() => {
@@ -198,7 +198,9 @@ export default function PricingCalculator({
         <div className="calc-result">
           <p className="calc-result-label">You'd pay about</p>
           <div className="calc-result-total">
-            <span className="calc-result-amount">{usd.format(result.total)}</span>
+            <span className="calc-result-amount">
+              {usd.format(result.total)}
+            </span>
             <span className="calc-result-per">per month</span>
           </div>
 
@@ -239,7 +241,8 @@ export default function PricingCalculator({
 
           {withinFree && (
             <p className="calc-free">
-              🎉 Good news — this fits the Free plan. You might not need Pro yet.
+              🎉 Good news — this fits the Free plan. You might not need Pro
+              yet.
             </p>
           )}
         </div>
