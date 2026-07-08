@@ -6,7 +6,7 @@ updated: 2026-07-06
 ---
 
 Welcome to the Ganju docs. Ganju connects AI assistants like Claude, ChatGPT,
-and Cursor to your own files, tools, and apps — no servers to run, no code to
+and Gemini to your own files, tools, and apps — no servers to run, no code to
 write.
 
 Then it lets you **offer that AI to whoever you want** — clients, your team, or
