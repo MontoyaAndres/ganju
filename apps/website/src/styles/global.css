@@ -469,6 +469,13 @@ svg {
   opacity: 1;
 }
 
+.trust-logos a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+}
+
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

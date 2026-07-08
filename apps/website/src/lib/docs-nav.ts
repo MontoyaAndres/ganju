@@ -61,6 +61,7 @@ export const DOCS_NAV: DocNavNode[] = [
       { label: 'Discord', href: '/docs/channels/discord' }
     ]
   },
+  { label: 'Analytics', href: '/docs/analytics' },
   { label: 'Settings', href: '/docs/settings' },
   { label: 'MCP clients', href: '/docs/mcp' },
   { label: 'Deploy it yourself', href: '/docs/deploy' }

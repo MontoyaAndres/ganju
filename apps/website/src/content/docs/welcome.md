@@ -40,8 +40,12 @@ you combine to shape exactly what your assistant knows, does, and where it lives
   Slack, and Discord, with step-by-step setup for each.
 - **[MCP clients](/docs/mcp)** — connect the same assistant to Claude, ChatGPT,
   Cursor, or VS Code with one URL.
+- **[Analytics](/docs/analytics)** — see activity over time across channels and
+  clients, resource/tool/prompt usage, and a live recent-activity feed.
 - **[Settings](/docs/settings)** — manage your plan and billing, invite your team,
   and bring your own language model.
+- **[Deploy it yourself](/docs/deploy)** — Ganju is open source (Apache-2.0); run
+  your own instance on Cloudflare and Postgres, with no plan caps.
 
 > Every page on this site is also available as Markdown — just add `.md` to the
 > URL (you're reading [`/docs/welcome.md`](/docs/welcome.md)). See
