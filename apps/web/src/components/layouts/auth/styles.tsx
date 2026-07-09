@@ -13,7 +13,7 @@ export const Wrapper = styled.div`
       }
 
       .logo-image {
-        background-image: url('/ganju.svg');
+        background-image: url('/favicon.svg');
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
