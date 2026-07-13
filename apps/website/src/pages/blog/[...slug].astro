@@ -1,7 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import { SITE, blogPostingSchema } from '../../lib/site';
+import { SITE, blogPostingSchema, breadcrumbSchema } from '../../lib/site';
 
 export async function getStaticPaths() {
   const posts = (await getCollection('blog')).filter((p) => !p.data.draft);
@@ -13,14 +13,22 @@ const { Content } = await render(entry);
 const fmt = (d: Date) =>
   d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-const jsonLd = blogPostingSchema({
-  title: entry.data.title,
-  description: entry.data.description,
-  url: new URL(`/blog/${entry.id}`, SITE.url).href,
-  date: entry.data.date,
-  author: entry.data.author,
-  image: new URL('/images/hero.png', SITE.url).href
-});
+const jsonLd = [
+  blogPostingSchema({
+    title: entry.data.title,
+    description: entry.data.description,
+    url: new URL(`/blog/${entry.id}`, SITE.url).href,
+    date: entry.data.date,
+    updated: entry.data.updated,
+    author: entry.data.author,
+    image: new URL('/images/hero.png', SITE.url).href
+  }),
+  breadcrumbSchema([
+    { label: 'Home', href: '/' },
+    { label: 'Blog', href: '/blog' },
+    { label: entry.data.title, href: `/blog/${entry.id}` }
+  ])
+];
 ---
 
 <Base
@@ -34,7 +42,10 @@ const jsonLd = blogPostingSchema({
     <article class="container narrow prose reveal">
       <p class="eyebrow"><a href="/blog">← Blog</a></p>
       <h1>{entry.data.title}</h1>
-      <p class="post-meta">{fmt(entry.data.date)} · {entry.data.author}</p>
+      <p class="post-meta">
+        <time datetime={entry.data.date.toISOString()}>{fmt(entry.data.date)}</time>
+        {' · '}{entry.data.author}
+      </p>
       <Content />
     </article>
   </section>

@@ -1,12 +1,33 @@
 ---
 import { getEntry, render } from 'astro:content';
 import DocsLayout from '../../layouts/DocsLayout.astro';
+import { SITE, breadcrumbSchema, techArticleSchema } from '../../lib/site';
 
 const entry = await getEntry('docs', 'welcome');
 const { Content } = await render(entry!);
+
+const jsonLd = [
+  techArticleSchema({
+    title: entry!.data.title,
+    description: entry!.data.description,
+    url: new URL('/docs', SITE.url).href,
+    updated: entry!.data.updated
+  }),
+  breadcrumbSchema([
+    { label: 'Home', href: '/' },
+    { label: 'Docs', href: '/docs' }
+  ])
+];
 ---
 
-<DocsLayout title={entry!.data.title} description={entry!.data.description} mdPath="/docs/welcome.md">
+{/* Titled "Documentation", not "Welcome" — nobody searches for a welcome page. */}
+<DocsLayout
+  title="Documentation"
+  description={entry!.data.description}
+  mdPath="/docs/welcome.md"
+  brand={SITE.name}
+  {jsonLd}
+>
   <article class="prose docs-article">
     <p class="eyebrow">Documentation</p>
     <h1>{entry!.data.title}</h1>

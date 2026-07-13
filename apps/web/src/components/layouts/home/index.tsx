@@ -665,9 +665,6 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       )}
       <div className="container-navbar">
         <div className="sub-navbar">
-          <div className="sub-navbar-logo">
-            <img src="/favicon.svg" alt="Ganju" width={34} height={34} />
-          </div>
           <Tooltip title="Organizations" placement="right">
             <div
               className={`sub-navbar-icon${switcherOpen ? ' is-open' : ''}`}
@@ -792,7 +789,6 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                 <Menu />
               </IconButton>
             </Tooltip>
-            <div className="header-logo-image"></div>
             <p className="header-logo-text">Ganju.ai</p>
           </div>
         </nav>

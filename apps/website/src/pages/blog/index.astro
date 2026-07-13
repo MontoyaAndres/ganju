@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
+import { SITE, blogSchema, breadcrumbSchema } from '../../lib/site';
 
 const posts = (await getCollection('blog'))
   .filter((p) => !p.data.draft)
@@ -8,18 +9,34 @@ const posts = (await getCollection('blog'))
 
 const fmt = (d: Date) =>
   d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+const jsonLd = [
+  blogSchema(
+    posts.map((post) => ({
+      title: post.data.title,
+      description: post.data.description,
+      url: new URL(`/blog/${post.id}`, SITE.url).href,
+      date: post.data.date
+    }))
+  ),
+  breadcrumbSchema([
+    { label: 'Home', href: '/' },
+    { label: 'Blog', href: '/blog' }
+  ])
+];
 ---
 
 <Base
   title="Blog"
   description="Updates, guides, and stories from the Ganju team."
   mdPath="/blog.md"
+  {jsonLd}
 >
   <section class="section">
     <div class="container narrow">
       <div class="section-head reveal">
         <span class="eyebrow">Blog</span>
-        <h2>Latest from Ganju</h2>
+        <h1>Latest from Ganju</h1>
         <p>Product updates, guides, and notes on connecting AI to real work.</p>
       </div>
 
@@ -28,7 +45,11 @@ const fmt = (d: Date) =>
           <li>
             <a href={`/blog/${post.id}`}>
               <strong>{post.data.title}</strong>
-              <span>{fmt(post.data.date)} · {post.data.description}</span>
+              <span>
+                <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>
+                {' · '}
+                {post.data.description}
+              </span>
             </a>
           </li>
         ))}

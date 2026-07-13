@@ -4,17 +4,21 @@ import {
   Main,
   NextScript,
   DocumentProps,
-  DocumentContext,
+  DocumentContext
 } from 'next/document';
 import {
   DocumentHeadTags,
   DocumentHeadTagsProps,
-  documentGetInitialProps,
+  documentGetInitialProps
 } from '@mui/material-nextjs/v15-pagesRouter';
 
-const MyDocument = (props: DocumentProps & DocumentHeadTagsProps) => {
+import { DEFAULT_LOCALE } from '../seo';
+
+const MyDocument = (
+  props: DocumentProps & DocumentHeadTagsProps & { locale?: string }
+) => {
   return (
-    <Html lang="en">
+    <Html lang={props.locale ?? DEFAULT_LOCALE}>
       <Head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -39,7 +43,7 @@ const MyDocument = (props: DocumentProps & DocumentHeadTagsProps) => {
 
 MyDocument.getInitialProps = async (ctx: DocumentContext) => {
   const finalProps = await documentGetInitialProps(ctx);
-  return finalProps;
+  return { ...finalProps, locale: ctx.locale ?? DEFAULT_LOCALE };
 };
 
 export default MyDocument;

@@ -1,18 +1,56 @@
 ---
 import Base from '../layouts/Base.astro';
-import { SITE } from '../lib/site';
+import { SITE, PRICING_SCHEMA, breadcrumbSchema, faqSchema } from '../lib/site';
 import PricingCalculator from '../components/react/PricingCalculator.tsx';
 import { PRICING } from '../lib/pricing';
 
 const description = 'Ganju pricing — start free, scale when you are ready, or self-host for free under Apache-2.0.';
+
+// Answers to what people actually type into search before they buy. Every one
+// of these restates a fact already on this page — keep them in sync.
+const faqs = [
+  {
+    q: 'Is there a free plan?',
+    a: 'Yes. The Free plan is $0/mo: one workspace, up to 7 tools, 3 prompts, 1 channel, 30 MB of files, and 100 channel messages a month on our shared AI model.'
+  },
+  {
+    q: 'How much does Ganju cost?',
+    a: 'Pro is $20/mo plus usage. It includes 3,000 messages a month and 5 GB of searchable content. Past that it is $2 per 1,000 messages and $0.50 per GB — or connect your own AI model and keep going.'
+  },
+  {
+    q: 'What is MCP?',
+    a: "MCP (the Model Context Protocol) is the standard way AI assistants connect to outside tools and information. Ganju gives you an MCP server without any of the setup, so assistants like Claude, ChatGPT, and Cursor can use your files and tools. You don't need to understand the protocol to use it."
+  },
+  {
+    q: 'Are MCP tool calls charged separately?',
+    a: 'No. On Pro, MCP tool calls from clients like Claude, Cursor, and ChatGPT are bundled into the plan. Usage-based pricing applies to channel messages and searchable content, not to MCP tool calls.'
+  },
+  {
+    q: 'Can I use my own AI model?',
+    a: 'Yes. On Pro you can bring your own key for Anthropic Claude, OpenAI, or Google Gemini and run messages on your own model instead of ours.'
+  },
+  {
+    q: 'Can I self-host Ganju for free?',
+    a: 'Yes. Ganju is open source under Apache-2.0. Deploy it to your own account at no cost, and your data stays entirely in your account.'
+  }
+];
+
+const jsonLd = [
+  PRICING_SCHEMA,
+  faqSchema(faqs),
+  breadcrumbSchema([
+    { label: 'Home', href: '/' },
+    { label: 'Pricing', href: '/pricing' }
+  ])
+];
 ---
 
-<Base title="Pricing" description={description} mdPath="/pricing.md">
+<Base title="Pricing" description={description} mdPath="/pricing.md" {jsonLd}>
   <section class="section">
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Pricing</span>
-        <h2>Start free. Scale when you're ready.</h2>
+        <h1>Start free. Scale when you're ready.</h1>
         <p>Use it free, upgrade as you grow — or run it yourself for free.</p>
       </div>
 
@@ -77,8 +115,29 @@ const description = 'Ganju pricing — start free, scale when you are ready, or 
     </div>
   </section>
 
+  <!-- ===== FAQ ===== -->
+  <section class="section" id="faq">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">FAQ</span>
+        <h2>Pricing questions</h2>
+      </div>
+
+      <div class="faq">
+        {
+          faqs.map((item) => (
+            <details class="reveal">
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
   <!-- ===== Still have questions? ===== -->
-  <section class="section">
+  <section class="section section-alt">
     <div class="container narrow">
       <div class="section-head reveal">
         <span class="eyebrow">Still deciding?</span>

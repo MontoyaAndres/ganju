@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../lib/site';
+---
+
+<Base
+  title="Page not found"
+  description="That page doesn't exist. Head back to the Ganju homepage, docs, or pricing."
+  noindex
+>
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">404</span>
+        <h1>We couldn't find that page.</h1>
+        <p>
+          The link may be broken or the page may have moved. Try the docs, or head back home.
+        </p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a class="btn btn-primary btn-lg" href="/">Back to home</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.docsUrl}>Read the docs</a>
+      </div>
+    </div>
+  </section>
+</Base>

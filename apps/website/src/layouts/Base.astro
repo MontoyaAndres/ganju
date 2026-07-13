@@ -14,9 +14,10 @@ interface Props {
   imageAlt?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   noindex?: boolean;
+  brand?: string;
 }
 
-const { title, description, mdPath, ogType, image, imageAlt, jsonLd, noindex } =
+const { title, description, mdPath, ogType, image, imageAlt, jsonLd, noindex, brand } =
   Astro.props;
 ---
 
@@ -30,7 +31,7 @@ const { title, description, mdPath, ogType, image, imageAlt, jsonLd, noindex } =
 
     <Font cssVariable="--font-fustat" preload />
 
-    <Seo {title} {description} {mdPath} {ogType} {image} {imageAlt} {jsonLd} {noindex} />
+    <Seo {title} {description} {mdPath} {ogType} {image} {imageAlt} {jsonLd} {noindex} {brand} />
   </head>
   <body>
     <Header />

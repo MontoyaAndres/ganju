@@ -1,6 +1,17 @@
+# app.ganju.ai is the private dashboard. Everything behind the sign-in page is
+# per-tenant and has nothing to rank for, so keep it out of search entirely —
+# the marketing site (ganju.ai) holds the indexable content.
+#
+# Only the sign-in page is crawlable, so "Ganju login" still resolves here.
+# `Allow` beats `Disallow` on a longer match, so the specific rules below win
+# over the blanket `Disallow: /`.
+
 User-agent: *
 Allow: /$
-Disallow: /link
+Allow: /es$
+# Google needs the CSS/JS to render the sign-in page it is allowed to index.
+Allow: /_next/
+Allow: /favicon.svg
+Disallow: /
 
-# Marketing site holds the indexable content.
 Sitemap: https://ganju.ai/sitemap-index.xml

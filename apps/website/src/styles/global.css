@@ -106,7 +106,7 @@ svg {
   text-align: center;
 }
 
-.section-head h2 {
+.section-head :is(h1, h2) {
   font-size: clamp(1.9rem, 4vw, 2.8rem);
   margin: 14px 0;
 }
@@ -1569,6 +1569,16 @@ svg {
   color: var(--muted);
   font-size: 0.95rem;
   margin: 0 0 1.5em;
+}
+
+/* Freshness signal at the foot of every docs page, mirroring `dateModified`
+   in the page's TechArticle schema. */
+.docs-updated {
+  margin-top: 3em;
+  padding-top: 1.25em;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 /* ---- Docs: sidebar layout ---- */

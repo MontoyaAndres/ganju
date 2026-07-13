@@ -49,18 +49,6 @@ export const Wrapper = styled.nav<IProps>`
           border-right: 1px solid ${theme.colors.bastille}1A;
         }
 
-        .sub-navbar-logo {
-          width: 34px;
-          height: 34px;
-          margin-bottom: 16px;
-
-          & > img {
-            width: 100%;
-            height: 100%;
-            display: block;
-          }
-        }
-
         .sub-navbar-icon {
           width: 60px;
           height: 60px;
@@ -157,14 +145,6 @@ export const Wrapper = styled.nav<IProps>`
 
         @media (min-width: ${theme.screens.xl}) {
           display: none;
-        }
-
-        .header-logo-image {
-          width: 34px;
-          height: 34px;
-          background-image: url('/favicon.svg');
-          background-size: cover;
-          background-position: center;
         }
 
         .header-logo-text {

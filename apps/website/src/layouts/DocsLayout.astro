@@ -8,13 +8,18 @@ interface Props {
   title: string;
   description?: string;
   mdPath?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  /** Defaults to "Ganju Docs" — the docs landing overrides it to plain "Ganju". */
+  brand?: string;
 }
 
-const { title, description, mdPath } = Astro.props;
+const { title, description, mdPath, jsonLd, brand = 'Ganju Docs' } = Astro.props;
 const current = normalizePath(Astro.url.pathname);
 ---
 
-<Base {title} {description} {mdPath}>
+{/* Docs titles read "Gmail — Ganju Docs", so the 45 doc pages don't all
+    compete as bare product nouns in search results. */}
+<Base {title} {description} {mdPath} {jsonLd} {brand}>
   <section class="section docs-section">
     <div class="container docs-shell">
       <DocsSidebar {current} />

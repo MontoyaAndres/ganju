@@ -82,3 +82,29 @@ export function containsActive(node: DocNavNode, current: string): boolean {
   if (isActive(node.href, current)) return true;
   return node.items?.some((child) => containsActive(child, current)) ?? false;
 }
+
+/**
+ * Ancestor trail for a docs page, e.g. `/docs/tools/gmail` →
+ * Home › Docs › Tools › Gmail. Walks DOCS_NAV so the breadcrumb labels always
+ * match the sidebar. Falls back to Home › Docs for a page not in the menu.
+ */
+export function docsTrail(current: string): { label: string; href: string }[] {
+  const walk = (nodes: DocNavNode[]): DocNavNode[] | null => {
+    for (const node of nodes) {
+      if (isActive(node.href, current)) return [node];
+      const below = node.items ? walk(node.items) : null;
+      if (below) return [node, ...below];
+    }
+    return null;
+  };
+
+  const found = walk(DOCS_NAV) ?? [];
+  const trail = [{ label: 'Home', href: '/' }, { label: 'Docs', href: '/docs' }];
+
+  for (const node of found) {
+    // `Welcome` IS /docs — already the second crumb, so don't repeat it.
+    if (!node.href || normalizePath(node.href) === '/docs') continue;
+    trail.push({ label: node.label, href: node.href });
+  }
+  return trail;
+}
