@@ -25,6 +25,7 @@ import {
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
   createAuth,
+  requestedMcpAudience,
   runOverageMetering,
   runRetentionPurge,
   runErrorAlerts
@@ -117,8 +118,10 @@ app
       key: clientIp,
       message: 'Too many authentication requests. Please wait a minute.'
     }),
-    c => {
-      const auth = createAuth(c);
+    async c => {
+      // MCP clients name the artifact they want a token for via the RFC 8707
+      // `resource` parameter; it has to be admitted as a valid audience.
+      const auth = createAuth(c, await requestedMcpAudience(c));
       return auth.handler(c.req.raw);
     }
   )

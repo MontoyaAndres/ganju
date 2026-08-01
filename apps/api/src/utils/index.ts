@@ -1,6 +1,7 @@
 import { createAuth } from './better-auth';
 import { sendInvitationEmail, sendContactEmail } from './email';
 import { oauthConsentHTML } from './oauth-consent-page';
+import { requestedMcpAudience } from './oauthResource';
 import { oauthState } from './oauthState';
 import { providers } from './providers';
 import { getLlmAdapter } from './llm';
@@ -93,6 +94,7 @@ export {
   sendInvitationEmail,
   sendContactEmail,
   oauthConsentHTML,
+  requestedMcpAudience,
   oauthState,
   providers,
   getLlmAdapter,

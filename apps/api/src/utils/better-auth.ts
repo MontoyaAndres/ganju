@@ -13,7 +13,12 @@ import { consentActorFromRequest, recordConsent } from './consent';
 // types
 import type { AppEnv } from '../types';
 
-export const createAuth = (c: Context) => {
+export const createAuth = (
+  c: Context,
+  // An MCP resource indicator already checked against our own MCP origin — see
+  // `requestedMcpAudience`. Admitted as a valid token audience for this request.
+  mcpAudience?: string | null
+) => {
   const dbInstance = db.create(c);
   const isProduction = utils.getEnv(c, 'NODE_ENV') === 'production';
   const domain = utils.getEnv(c, 'NEXT_PUBLIC_DOMAIN');
@@ -97,6 +102,15 @@ export const createAuth = (c: Context) => {
         // closed. The upstream option is expected to go away once MCP settles
         // on Client ID Metadata Documents or signed software statements.
         allowUnauthenticatedClientRegistration: true,
+        // Audiences a token may be minted for. The plugin's default is the
+        // base URL alone, which rejects the per-artifact MCP resource an MCP
+        // client asks for; `mcpAudience` is that resource, already verified to
+        // be one of ours.
+        validAudiences: [
+          apiUrl,
+          `${apiUrl}/auth`,
+          ...(mcpAudience ? [mcpAudience] : [])
+        ],
         accessTokenExpiresIn: 3600,
         refreshTokenExpiresIn: 60 * 60 * 24 * 30,
         // Discovery is served from the origin root by WellKnownController with
