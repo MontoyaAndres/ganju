@@ -60,8 +60,9 @@ each app's `wrangler.toml`, or update the toml to match yours):
   `ganju-crawl-discover`, `ganju-crawl-page`, `ganju-gdrive-discover`,
   `ganju-gdrive-file`, `ganju-onedrive-discover`, `ganju-onedrive-file` (suffixed
   `-<env>`).
-- **Email routing** (`SEND_EMAIL`) — destinations must be verified; it only delivers
-  to verified Email Routing addresses.
+- **Email Service** (`SEND_EMAIL`) — onboard your sending domain under Email
+  Service so mail reaches any recipient; before that it only delivers to verified
+  Email Routing destinations.
 - **Containers** — the `ResourceHandler` container (built from
   `apps/resource-handler/Dockerfile`), on a paid plan.
 - **Durable Objects** — `ResourceHandler` and `DiscordGatewayDO`.

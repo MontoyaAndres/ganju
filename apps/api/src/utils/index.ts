@@ -1,6 +1,5 @@
 import { createAuth } from './better-auth';
 import { sendInvitationEmail, sendContactEmail } from './email';
-import { getSesConfig, sendViaSes } from './ses';
 import { oauthState } from './oauthState';
 import { providers } from './providers';
 import { getLlmAdapter } from './llm';
@@ -92,8 +91,6 @@ export {
   createAuth,
   sendInvitationEmail,
   sendContactEmail,
-  getSesConfig,
-  sendViaSes,
   oauthState,
   providers,
   getLlmAdapter,
@@ -148,7 +145,6 @@ export {
 export type { McpClientHandle } from './mcpClient';
 export type { Auth } from './better-auth';
 export type { ConsentActor, ConsentStatus } from './consent';
-export type { SesConfig, SesEmail } from './ses';
 export type { RetentionResult } from './retention';
 export type { AlertResult } from './alerting';
 export type { EmailSource } from './email';

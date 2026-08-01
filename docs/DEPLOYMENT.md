@@ -20,7 +20,7 @@ Create these in your Cloudflare account (names must match the `wrangler.toml` fo
 - **Hyperdrive** — pointing at your Postgres; put its id under `[[env.<env>.hyperdrive]]`.
 - **R2 bucket** — `ganju-storage-<env>` (binding `STORAGE_BUCKET`).
 - **Queues** (each with a dead-letter queue): `ganju-index`, `ganju-crawl-discover`, `ganju-crawl-page`, `ganju-gdrive-discover`, `ganju-gdrive-file`, `ganju-onedrive-discover`, `ganju-onedrive-file` — each suffixed `-<env>`. See [`apps/api/wrangler.toml`](../apps/api/wrangler.toml).
-- **Email routing** (`SEND_EMAIL`) — destinations must be verified; it only delivers to verified Email Routing addresses, not arbitrary recipients.
+- **Email Service** (`SEND_EMAIL`) — onboard the sending domain under Email Service in the dashboard (it adds the MX/SPF/DKIM/DMARC records). Until that's done the binding only delivers to verified Email Routing destinations; once onboarded it sends to any recipient. Workers Paid includes 3,000 sends/month, then $0.35 per 1,000 — sends to verified destinations stay free.
 - **Containers** — the `ResourceHandler` container (`instance_type = standard-1`) is built from [`apps/resource-handler/Dockerfile`](../apps/resource-handler/Dockerfile). Requires a **paid** Workers plan.
 - **Durable Objects** — `ResourceHandler` and `DiscordGatewayDO` (declared via `wrangler.toml` migrations `v1`/`v2`).
 

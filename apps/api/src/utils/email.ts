@@ -1,8 +1,6 @@
 import { Context } from 'hono';
 import { utils } from '@ganju/utils';
 
-import { getSesConfig, sendViaSes } from './ses';
-
 // types
 import type { EnvSource } from '@ganju/utils';
 import type { AppEnv, Bindings } from '../types';
@@ -20,14 +18,28 @@ interface OutboundEmail {
 }
 
 /**
- * Single exit point for transactional mail.
+ * `Ganju <noreply@ganju.ai>` is the readable form to keep in config, but the
+ * binding wants the display name and the address as separate fields.
+ */
+const parseAddress = (
+  value: string
+): { name: string; email: string } | string => {
+  const match = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (!match) return value.trim();
+  const [, name, email] = match;
+  return name ? { name, email } : email;
+};
+
+/**
+ * Single exit point for transactional mail, sent through Cloudflare Email
+ * Service via the `SEND_EMAIL` send binding.
  *
- * Prefers Amazon SES, and falls back to Cloudflare's `send_email` binding when
- * SES credentials aren't configured. That fallback is not equivalent: the
- * binding only delivers to addresses verified as Email Routing destinations on
- * the account, so invitations to real users — and the notice obligations in the
- * Privacy Policy, Terms, and DPA — need SES to actually work. The fallback
- * exists so local development and the pre-SES deployment keep functioning.
+ * Reaching arbitrary recipients — which invitations, and the notice obligations
+ * in the Privacy Policy, Terms, and DPA, all depend on — requires the sending
+ * domain to be onboarded to Email Service in the dashboard (MX/SPF/DKIM/DMARC).
+ * Until that's done the binding only delivers to addresses verified as Email
+ * Routing destinations on the account. `wrangler dev` never sends: it logs the
+ * message and writes the bodies to local files.
  */
 export const deliver = async (
   c: EmailSource,
@@ -36,32 +48,27 @@ export const deliver = async (
   const domain = utils.getEnv(c, 'NEXT_PUBLIC_DOMAIN')!;
   const from = utils.getEnv(c, 'EMAIL_FROM') || `Ganju <noreply@${domain}>`;
 
-  const ses = getSesConfig(c);
-  if (ses) {
-    try {
-      return await sendViaSes(ses, { ...email, from });
-    } catch (error) {
-      console.error('SES request threw', error);
-      return false;
-    }
-  }
-
   const sendEmail = c.env.SEND_EMAIL;
   if (!sendEmail) {
     console.error(
       `No email transport configured — dropped "${email.subject}" to ${email.to}. ` +
-        'Set AWS_SES_REGION / AWS_SES_ACCESS_KEY_ID / AWS_SES_SECRET_ACCESS_KEY.'
+        'Add a [[send_email]] binding named SEND_EMAIL to wrangler.toml.'
     );
     return false;
   }
 
   try {
-    await sendEmail.send({ from, ...email });
+    await sendEmail.send({ ...email, from: parseAddress(from) });
     return true;
   } catch (error) {
-    // Most common cause: the recipient isn't a verified Email Routing
-    // destination. That's a configuration limit, not a transient failure.
-    console.error(`Failed to send "${email.subject}" via send_email`, error);
+    // The binding throws with a `code` (E_SENDER_NOT_VERIFIED,
+    // E_RATE_LIMIT_EXCEEDED, …); most causes here are configuration, not
+    // transient — an un-onboarded sending domain or an unverified recipient.
+    const code = (error as { code?: string }).code;
+    console.error(
+      `Failed to send "${email.subject}"${code ? ` (${code})` : ''}`,
+      error
+    );
     return false;
   }
 };

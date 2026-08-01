@@ -107,7 +107,7 @@ Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/w
 | ------------------ | -------------------------- | ------------------------------------------------ |
 | `HYPERDRIVE`       | Hyperdrive                 | Pooled Postgres connection                       |
 | `STORAGE_BUCKET`   | R2                         | Uploaded files / avatars                         |
-| `SEND_EMAIL`       | Email                      | Transactional email (verified destinations only) |
+| `SEND_EMAIL`       | Email Service              | Transactional email (invitations, contact, alerts) |
 | `RESOURCE_HANDLER` | Durable Object → Container | Heavy work delegation                            |
 | `DISCORD_GATEWAY`  | Durable Object             | Persistent Discord Gateway socket                |
 | `MCP` / `API`      | Service bindings           | Worker-to-Worker calls                           |

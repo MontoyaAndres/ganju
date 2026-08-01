@@ -59,9 +59,6 @@ export type Bindings = {
   STRIPE_PRICE_ENTERPRISE?: string;
   STRIPE_PRICE_MESSAGE_OVERAGE?: string;
   STRIPE_PRICE_EMBEDDED_OVERAGE?: string;
-  AWS_SES_REGION?: string;
-  AWS_SES_ACCESS_KEY_ID?: string;
-  AWS_SES_SECRET_ACCESS_KEY?: string;
   EMAIL_FROM?: string;
   ALERT_EMAIL?: string;
 };

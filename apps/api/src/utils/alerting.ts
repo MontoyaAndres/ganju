@@ -295,7 +295,7 @@ export const runErrorAlerts = async (
     const { subject, text, html } = buildEmail(groups, rows.length, truncated);
 
     const domain = utils.getEnv(source, 'NEXT_PUBLIC_DOMAIN')!;
-    const to = utils.getEnv(source, 'ALERT_EMAIL') || `hello@${domain}`;
+    const to = utils.getEnv(source, 'ALERT_EMAIL') || `alerts@${domain}`;
 
     const sent = await deliver(source, { to, subject, text, html });
     if (!sent) {
