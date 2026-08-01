@@ -8,6 +8,7 @@ import { Add, DeleteOutlined, EditOutlined } from '@mui/icons-material';
 import { Wrapper } from './styles';
 import { MembersManager } from './members-manager';
 import { BillingManager } from './billing-manager';
+import { authClient } from '../../../utils';
 
 type Section =
   | 'organization'
@@ -15,7 +16,14 @@ type Section =
   | 'members'
   | 'projects'
   | 'models'
+  | 'account'
   | 'danger';
+
+interface ConsentStatus {
+  version: string;
+  upToDate: boolean;
+  accepted: { document: string; version: string; acceptedAt: string }[];
+}
 
 interface SettingsProps {
   auth: {
@@ -100,6 +108,7 @@ export const Settings = (props: SettingsProps) => {
   const membersRef = useRef<HTMLElement | null>(null);
   const projectsRef = useRef<HTMLElement | null>(null);
   const modelsRef = useRef<HTMLElement | null>(null);
+  const accountRef = useRef<HTMLElement | null>(null);
   const dangerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -109,6 +118,7 @@ export const Settings = (props: SettingsProps) => {
       { id: 'members', el: membersRef.current },
       { id: 'projects', el: projectsRef.current },
       { id: 'models', el: modelsRef.current },
+      { id: 'account', el: accountRef.current },
       { id: 'danger', el: dangerRef.current }
     ];
     const observer = new IntersectionObserver(
@@ -134,6 +144,7 @@ export const Settings = (props: SettingsProps) => {
       members: membersRef.current,
       projects: projectsRef.current,
       models: modelsRef.current,
+      account: accountRef.current,
       danger: dangerRef.current
     };
     const el = map[id];
@@ -173,6 +184,13 @@ export const Settings = (props: SettingsProps) => {
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(
     null
   );
+  // Personal-data controls. These are about the signed-in USER, not the
+  // organization, so every member sees them — not just the owner.
+  const [consent, setConsent] = useState<ConsentStatus | null>(null);
+  const [acceptingConsent, setAcceptingConsent] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [accountDeleteAlert, setAccountDeleteAlert] = useState(false);
 
   const orgBase = `/organization/${organizationId}`;
   // Any admin member can rename the organization; only the owner may delete it.
@@ -203,8 +221,7 @@ export const Settings = (props: SettingsProps) => {
       if (signal?.aborted) return;
       const found = Array.isArray(list)
         ? (list.find((item: Organization) => item.id === organizationId) as
-            | Organization
-            | undefined)
+            Organization | undefined)
         : undefined;
       if (found) {
         setOrganization(found);
@@ -265,6 +282,14 @@ export const Settings = (props: SettingsProps) => {
     return () => controller.abort();
   }, [organizationId]);
 
+  // Consent is per-user, not per-organization, so it loads independently of
+  // which organization the page is showing.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchConsent(controller.signal);
+    return () => controller.abort();
+  }, []);
+
   const handleOrgSave = async () => {
     if (savingOrg || !organization) return;
     const trimmed = orgName.trim();
@@ -316,6 +341,101 @@ export const Settings = (props: SettingsProps) => {
       snackbar.error('Failed to remove organization');
       setRemovingOrg(false);
       setOrgDeleteAlert(false);
+    }
+  };
+
+  const fetchConsent = async (signal?: AbortSignal) => {
+    try {
+      const data = await utils.fetcher({
+        url: '/user/consent',
+        config: { credentials: 'include', signal }
+      });
+      if (!signal?.aborted && data && !utils.isApiError(data)) setConsent(data);
+    } catch {
+      // Non-critical: the card just doesn't render its status line.
+    }
+  };
+
+  const handleAcceptConsent = async () => {
+    if (acceptingConsent) return;
+    setAcceptingConsent(true);
+    try {
+      const data = await utils.fetcher({
+        url: '/user/consent',
+        config: { method: 'POST', credentials: 'include' }
+      });
+      if (data && !utils.isApiError(data)) {
+        setConsent(data);
+        snackbar.success('Thanks — your acceptance is on record');
+      } else {
+        snackbar.error('Could not record your acceptance');
+      }
+    } catch {
+      snackbar.error('Could not record your acceptance');
+    } finally {
+      setAcceptingConsent(false);
+    }
+  };
+
+  // The export is a file, not JSON to render, so it bypasses `fetcher` and goes
+  // through a blob download — which also lets a 401/500 surface as a message
+  // instead of a browser-rendered error page.
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/user/export`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) throw new Error('export failed');
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ganju-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      snackbar.success('Your data is downloading');
+    } catch {
+      snackbar.error('Could not export your data');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleAccountDeleteConfirm = async () => {
+    if (deletingAccount) return;
+    setDeletingAccount(true);
+    try {
+      const data = await utils.fetcher({
+        url: '/user',
+        config: { method: 'DELETE', credentials: 'include' }
+      });
+
+      if (data?.deleted) {
+        await authClient.signOut();
+        window.location.href = '/';
+        return;
+      }
+
+      // 409: the account still owns organizations, which must go first — name
+      // them so the next step is obvious.
+      const owned =
+        (data?.organizations as { name: string }[] | undefined) ?? [];
+      snackbar.error(
+        owned.length
+          ? `Delete or transfer these organizations first: ${owned.map(o => o.name).join(', ')}`
+          : data?.error || 'Could not delete your account'
+      );
+    } catch {
+      snackbar.error('Could not delete your account');
+    } finally {
+      setDeletingAccount(false);
+      setAccountDeleteAlert(false);
     }
   };
 
@@ -653,8 +773,8 @@ export const Settings = (props: SettingsProps) => {
       <header className="settings-header">
         <h1 className="settings-title">Billing &amp; plan</h1>
         <p className="settings-subtitle">
-          Your organization&apos;s plan, current usage, and subscription. Upgrade
-          to Pro to lift the Free limits.
+          Your organization&apos;s plan, current usage, and subscription.
+          Upgrade to Pro to lift the Free limits.
         </p>
       </header>
 
@@ -865,6 +985,91 @@ export const Settings = (props: SettingsProps) => {
     </section>
   );
 
+  const renderAccount = () => {
+    const acceptedOn = consent?.accepted
+      .filter(entry => entry.version === consent.version)
+      .map(entry => new Date(entry.acceptedAt))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    return (
+      <section
+        ref={el => {
+          accountRef.current = el;
+        }}
+      >
+        <header className="settings-header">
+          <h1 className="settings-title">Your data</h1>
+          <p className="settings-subtitle">
+            Your personal data and the legal documents you&apos;ve accepted.
+            These apply to your account, not to this organization.
+          </p>
+        </header>
+        <section className="settings-section">
+          <div className="settings-section-header">
+            <div className="settings-section-text">
+              <h2 className="settings-section-title">Export your data</h2>
+              <p className="settings-section-description">
+                Download everything we hold about you as JSON — profile, sign-in
+                methods, sessions, memberships, invitations you sent, and your
+                acceptance record. Organization content (resources, prompts,
+                conversations) belongs to the organization and is downloaded
+                from its own pages.
+              </p>
+            </div>
+          </div>
+          <div className="settings-actions">
+            <UI.Button
+              variant="outlined"
+              size="small"
+              disabled={exporting}
+              onClick={handleExport}
+            >
+              {exporting ? 'Preparing…' : 'Download my data'}
+            </UI.Button>
+          </div>
+        </section>
+        <section className="settings-section">
+          <div className="settings-section-header">
+            <div className="settings-section-text">
+              <h2 className="settings-section-title">Terms and privacy</h2>
+              <p className="settings-section-description">
+                {consent?.upToDate && acceptedOn
+                  ? `You accepted the current Terms and Privacy Policy on ${acceptedOn.toLocaleDateString()}.`
+                  : 'Please review and accept the current Terms of Service and Privacy Policy.'}
+              </p>
+            </div>
+          </div>
+          <div className="settings-actions">
+            <UI.Button
+              variant="outlined"
+              size="small"
+              onClick={() => window.open('https://ganju.ai/terms', '_blank')}
+            >
+              Read the Terms
+            </UI.Button>
+            <UI.Button
+              variant="outlined"
+              size="small"
+              onClick={() => window.open('https://ganju.ai/privacy', '_blank')}
+            >
+              Read the Privacy Policy
+            </UI.Button>
+            {!consent?.upToDate && (
+              <UI.Button
+                variant="contained"
+                size="small"
+                disabled={acceptingConsent}
+                onClick={handleAcceptConsent}
+              >
+                {acceptingConsent ? 'Saving…' : 'I accept'}
+              </UI.Button>
+            )}
+          </div>
+        </section>
+      </section>
+    );
+  };
+
   const renderDanger = () => (
     <section
       ref={el => {
@@ -874,25 +1079,62 @@ export const Settings = (props: SettingsProps) => {
       <header className="settings-header">
         <h1 className="settings-title">Danger zone</h1>
         <p className="settings-subtitle">
-          Destructive actions that affect the entire organization.
+          Permanent, irreversible actions. Export anything you want to keep
+          first.
         </p>
       </header>
+
+      {/* Organization-wide, so only its owner sees it. Account deletion below
+          is personal and shown to everyone — which is why this section is no
+          longer gated as a whole. */}
+      {isMember && isOwner && (
+        <section className="settings-section danger-card">
+          <div className="settings-section-header">
+            <div className="settings-section-text">
+              <h2 className="settings-section-title">Remove organization</h2>
+              <p className="settings-section-description">
+                Permanently delete this organization and everything inside it.
+              </p>
+            </div>
+          </div>
+
+          <p className="danger-warning">
+            <strong>This action cannot be undone.</strong> Removing the
+            organization will permanently delete every project, channel,
+            conversation, message, resource, tool and language model it owns.
+            Make sure you really want to do this.
+          </p>
+
+          <div className="settings-actions">
+            <UI.Button
+              variant="contained"
+              size="small"
+              className="danger-button"
+              disabled={!organization || removingOrg}
+              onClick={() => setOrgDeleteAlert(true)}
+            >
+              Remove organization
+            </UI.Button>
+          </div>
+        </section>
+      )}
 
       <section className="settings-section danger-card">
         <div className="settings-section-header">
           <div className="settings-section-text">
-            <h2 className="settings-section-title">Remove organization</h2>
+            <h2 className="settings-section-title">Delete your account</h2>
             <p className="settings-section-description">
-              Permanently delete this organization and everything inside it.
+              Permanently delete your Ganju account.
             </p>
           </div>
         </div>
 
         <p className="danger-warning">
-          <strong>This action cannot be undone.</strong> Removing the
-          organization will permanently delete every project, channel,
-          conversation, message, resource, tool and language model it owns. Make
-          sure you really want to do this.
+          <strong>This action cannot be undone.</strong> Your profile, sign-in
+          methods, sessions, linked chat identities and acceptance record are
+          deleted, and you are removed from every organization and project.
+          Organizations you <em>own</em> must be deleted or transferred first.
+          Export your data from <strong>Your data</strong> before you do this.
         </p>
 
         <div className="settings-actions">
@@ -900,10 +1142,10 @@ export const Settings = (props: SettingsProps) => {
             variant="contained"
             size="small"
             className="danger-button"
-            disabled={!organization || removingOrg}
-            onClick={() => setOrgDeleteAlert(true)}
+            disabled={deletingAccount}
+            onClick={() => setAccountDeleteAlert(true)}
           >
-            Remove organization
+            Delete my account
           </UI.Button>
         </div>
       </section>
@@ -954,7 +1196,10 @@ export const Settings = (props: SettingsProps) => {
         {isMember && navItem('members', 'Members')}
         {navItem('projects', 'Projects')}
         {isMember && navItem('models', 'Models')}
-        {isMember && isOwner && navItem('danger', 'Danger zone', true)}
+        {navItem('account', 'Your data')}
+        {/* Not owner-gated any more: it holds account deletion, which every
+            signed-in user must be able to reach. */}
+        {navItem('danger', 'Danger zone', true)}
       </aside>
 
       <main className="settings-content">
@@ -963,7 +1208,8 @@ export const Settings = (props: SettingsProps) => {
         {isMember && renderMembers()}
         {renderProjects()}
         {isMember && renderModels()}
-        {isMember && isOwner && renderDanger()}
+        {renderAccount()}
+        {renderDanger()}
       </main>
 
       {isMember && (
@@ -978,6 +1224,17 @@ export const Settings = (props: SettingsProps) => {
           onCancel={() => setOrgDeleteAlert(false)}
         />
       )}
+
+      <UI.Alert
+        open={accountDeleteAlert}
+        title="Delete your account?"
+        description="This permanently deletes your profile, sign-in methods, sessions and acceptance record, and removes you from every organization and project. It cannot be undone."
+        confirmText="Yes, delete my account"
+        cancelText="Cancel"
+        loading={deletingAccount}
+        onConfirm={handleAccountDeleteConfirm}
+        onCancel={() => setAccountDeleteAlert(false)}
+      />
 
       {isMember && (
         <UI.Alert

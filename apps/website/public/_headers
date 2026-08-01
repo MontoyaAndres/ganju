@@ -1,4 +1,28 @@
-# Cloudflare Pages: long-lived browser cache for static media in /public.
+# Cloudflare Pages: security headers for every response, then long-lived
+# browser cache for static media in /public.
+
+/*
+  # The marketing site loads nothing from a third party: fonts are self-hosted
+  # at build time, images are local, and the only cross-origin request is the
+  # contact form POSTing to the API.
+  #
+  # `unsafe-inline` is present because Astro emits one inline <script
+  # type="module"> (the header/nav/reveal behaviour in Base.astro), an inline
+  # <style>, and the JSON-LD blocks. To drop it, move that script to its own
+  # file and switch to per-response nonces — which `_headers` can't do, so it
+  # would need a Pages Function.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.ganju.ai; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests
+  # HSTS covers app./api./mcp. too, which are all HTTPS-only. `preload` is
+  # deliberately omitted: getting off the preload list is slow and painful, and
+  # it should be a considered decision rather than a side effect of this file.
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-site
+
 # Astro's hashed _astro/* assets are already immutable; these unhashed paths
 # are not, so give them an explicit 30-day cache (re-fetched after a change
 # since the deploy replaces the file at the same URL).
@@ -7,3 +31,9 @@
 
 /icons/*
   Cache-Control: public, max-age=2592000
+
+# RFC 9116 expects text/plain. Served from /public it would otherwise be
+# content-sniffed, and `nosniff` above would then refuse to render it.
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=86400

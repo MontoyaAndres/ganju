@@ -17,6 +17,26 @@ export const SITE = {
   }
 } as const;
 
+/**
+ * Supplier identity. Colombia's Estatuto del Consumidor (Ley 1480 de 2011,
+ * art. 50) requires an online supplier to publish its razón social, NIT,
+ * address for judicial notice, phone, and email where a buyer can see them —
+ * which is why this ends up in the footer, not just in the legal pages.
+ *
+ * `nit` is rendered only when set: leave it empty until the RUT is issued
+ * rather than shipping a placeholder that reads as a real number.
+ */
+export const LEGAL = {
+  entity: 'Ganju S.A.S.',
+  nit: '',
+  address: 'Bogotá, D.C., Colombia',
+  phone: '+57 312 4678519',
+  // E.164, for `tel:` links — humans read `phone`, dialers read this.
+  phoneHref: '+573124678519',
+  email: SITE.email,
+  jurisdiction: 'Bogotá, D.C., Colombia'
+} as const;
+
 export const NAV = [
   { label: 'Features', href: '/#features' },
   { label: 'Docs', href: '/docs' },

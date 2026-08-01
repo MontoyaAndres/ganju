@@ -7,14 +7,18 @@ import { authClient } from '../../../utils';
 
 export const Auth = () => {
   const [status, setStatus] = useState('idle');
+  const [accepted, setAccepted] = useState(false);
 
   const signIn = async (provider: string) => {
+    if (!accepted) return;
     setStatus('pending');
     await authClient.signIn.social({
       provider,
       callbackURL: `${process.env.NEXT_PUBLIC_WEB_URL}/organization`
     });
   };
+
+  const disabled = status === 'pending' || !accepted;
 
   return (
     <Wrapper>
@@ -30,7 +34,7 @@ export const Auth = () => {
             variant="outlined"
             startIcon="/GOOGLE.svg"
             onClick={() => signIn(utils.constants.SOCIAL_PROVIDER_GOOGLE)}
-            disabled={status === 'pending'}
+            disabled={disabled}
           >
             Sign in with Google
           </UI.Button>
@@ -38,28 +42,54 @@ export const Auth = () => {
             variant="outlined"
             startIcon="/GITHUB.svg"
             onClick={() => signIn(utils.constants.SOCIAL_PROVIDER_GITHUB)}
-            disabled={status === 'pending'}
+            disabled={disabled}
           >
             Sign in with GitHub
           </UI.Button>
         </div>
+        <label className="terms-consent">
+          <input
+            type="checkbox"
+            checked={accepted}
+            onChange={event => setAccepted(event.target.checked)}
+          />
+          <span>
+            I have read and accept the{' '}
+            <a
+              href="https://ganju.ai/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Terms &amp; Conditions
+            </a>{' '}
+            and the{' '}
+            <a
+              href="https://ganju.ai/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Privacy Policy
+            </a>
+            .
+          </span>
+        </label>
       </div>
       <p className="terms">
-        By signing in, you agree to our{' '}
+        ¿Prefieres español? Lee los{' '}
         <a
-          href="https://ganju.ai/terms"
+          href="https://ganju.ai/es/terminos"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Terms & Conditions
+          Términos
         </a>{' '}
-        and{' '}
+        y la{' '}
         <a
-          href="https://ganju.ai/privacy"
+          href="https://ganju.ai/es/privacidad"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Privacy Policy
+          Política de Privacidad
         </a>
       </p>
     </Wrapper>

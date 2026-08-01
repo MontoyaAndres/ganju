@@ -16,6 +16,14 @@ interface Props {
   noindex?: boolean;
   /** Brand half of the title tag. Docs override it to "Ganju Docs". */
   brand?: string;
+  /** BCP-47 tag for this page's own language. */
+  lang?: string;
+  /**
+   * Language variants of this page, as `hreflang` → path (including this one).
+   * Every variant must list the whole set, or search engines ignore the
+   * pairing. The English entry doubles as `x-default`.
+   */
+  alternates?: Record<string, string>;
 }
 
 const {
@@ -27,8 +35,16 @@ const {
   imageAlt = SITE.tagline,
   jsonLd,
   noindex = false,
-  brand = SITE.name
+  brand = SITE.name,
+  lang = 'en',
+  alternates
 } = Astro.props;
+
+const alternateLinks = Object.entries(alternates ?? {}).map(
+  ([hreflang, path]) => ({ hreflang, href: new URL(path, SITE.url).href })
+);
+const defaultAlternate = alternates?.en;
+const ogLocale = lang.startsWith('es') ? 'es_CO' : 'en_US';
 
 const canonical = new URL(Astro.url.pathname, SITE.url).href;
 const fullTitle = title === SITE.name ? SITE.homeTitle : `${title} — ${brand}`;
@@ -57,6 +73,18 @@ const schema = [...globalSchema, ...pageSchema];
 {/* AI/agent-friendly: every page advertises its raw Markdown twin. */}
 {mdUrl && <link rel="alternate" type="text/markdown" href={mdUrl} />}
 
+{/* Language variants — each one points at the whole set, plus x-default. */}
+{alternateLinks.map(({ hreflang, href }) => (
+  <link rel="alternate" hreflang={hreflang} href={href} />
+))}
+{defaultAlternate && (
+  <link
+    rel="alternate"
+    hreflang="x-default"
+    href={new URL(defaultAlternate, SITE.url).href}
+  />
+)}
+
 <link
   rel="alternate"
   type="application/rss+xml"
@@ -70,7 +98,7 @@ const schema = [...globalSchema, ...pageSchema];
 <meta property="og:description" content={description} />
 <meta property="og:type" content={ogType} />
 <meta property="og:url" content={canonical} />
-<meta property="og:locale" content="en_US" />
+<meta property="og:locale" content={ogLocale} />
 <meta property="og:image" content={imageUrl} />
 <meta property="og:image:alt" content={imageAlt} />
 <meta property="og:image:width" content="2048" />

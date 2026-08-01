@@ -16,7 +16,7 @@ routes = [
   { pattern = "development-api.vocesqueabrazan.com", custom_domain = true }
 ]
 [env.development.triggers]
-crons = ["0 * * * *"]
+crons = ["0 * * * *", "*/15 * * * *"]
 [env.development.observability]
 enabled = true
 [env.development.observability.logs]
@@ -31,6 +31,27 @@ NEXT_PUBLIC_API_URL = "https://development-api.vocesqueabrazan.com"
 NEXT_PUBLIC_MCP_URL = "https://development-mcp.vocesqueabrazan.com"
 NEXT_PUBLIC_WEB_URL = "https://development-app.vocesqueabrazan.com"
 NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
+AWS_SES_REGION = "us-east-1"
+[[env.development.unsafe.bindings]]
+name = "CONTACT_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 3, period = 60 }
+[[env.development.unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 30, period = 60 }
+[[env.development.unsafe.bindings]]
+name = "WEBHOOK_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 120, period = 60 }
+[[env.development.unsafe.bindings]]
+name = "API_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1004"
+simple = { limit = 300, period = 60 }
 [[env.development.services]]
 binding = "MCP"
 service = "ganju-mcp-development"
@@ -137,7 +158,7 @@ new_sqlite_classes = ["DiscordGatewayDO"]
 [env.production]
 name = "ganju-api-production"
 [env.production.triggers]
-crons = ["0 * * * *"]
+crons = ["0 * * * *", "*/15 * * * *"]
 [env.production.observability]
 enabled = true
 [env.production.observability.logs]
@@ -152,6 +173,27 @@ NEXT_PUBLIC_API_URL = "https://api.ganju.ai"
 NEXT_PUBLIC_MCP_URL = "https://mcp.ganju.ai"
 NEXT_PUBLIC_WEB_URL = "https://app.ganju.ai"
 NEXT_PUBLIC_DOMAIN = "ganju.ai"
+AWS_SES_REGION = "us-east-1"
+[[env.production.unsafe.bindings]]
+name = "CONTACT_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 3, period = 60 }
+[[env.production.unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 30, period = 60 }
+[[env.production.unsafe.bindings]]
+name = "WEBHOOK_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 120, period = 60 }
+[[env.production.unsafe.bindings]]
+name = "API_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1004"
+simple = { limit = 300, period = 60 }
 [[env.production.services]]
 binding = "MCP"
 service = "ganju-mcp-production"

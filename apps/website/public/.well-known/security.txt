@@ -1,0 +1,9 @@
+# Ganju security contact — RFC 9116.
+# Full policy: https://github.com/MontoyaAndres/ganju/blob/main/SECURITY.md
+
+Contact: mailto:hello@ganju.ai
+Expires: 2027-08-01T00:00:00.000Z
+Preferred-Languages: en, es
+Canonical: https://ganju.ai/.well-known/security.txt
+Policy: https://github.com/MontoyaAndres/ganju/blob/main/SECURITY.md
+Acknowledgments: https://github.com/MontoyaAndres/ganju/blob/main/SECURITY.md#thanks

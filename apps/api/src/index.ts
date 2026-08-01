@@ -22,8 +22,13 @@ import {
   ContactController,
   BillingController
 } from './controllers';
-import { UserMiddleware } from './middleware';
-import { createAuth, runOverageMetering } from './utils';
+import { UserMiddleware, rateLimit, clientIp } from './middleware';
+import {
+  createAuth,
+  runOverageMetering,
+  runRetentionPurge,
+  runErrorAlerts
+} from './utils';
 import {
   handleIndexBatch,
   handleCrawlDiscoverBatch,
@@ -104,10 +109,19 @@ app
   )
 
   // Auth controller
-  .on(['GET', 'POST'], '/auth/*', c => {
-    const auth = createAuth(c);
-    return auth.handler(c.req.raw);
-  })
+  .on(
+    ['GET', 'POST'],
+    '/auth/*',
+    rateLimit({
+      binding: 'AUTH_RATE_LIMITER',
+      key: clientIp,
+      message: 'Too many authentication requests. Please wait a minute.'
+    }),
+    c => {
+      const auth = createAuth(c);
+      return auth.handler(c.req.raw);
+    }
+  )
   .get('/me', UserMiddleware.verify, c => {
     const user = c.get('user');
     return c.json({ user });
@@ -124,7 +138,16 @@ app
   .get('/invitation/token/:token', InvitationController.getByToken)
 
   // Public — marketing-site contact form posts here; emails the team inbox
-  .post('/contact', ContactController.create)
+  .post(
+    '/contact',
+    rateLimit({
+      binding: 'CONTACT_RATE_LIMITER',
+      key: clientIp,
+      message:
+        "Thanks — you've sent several messages. Please try again shortly."
+    }),
+    ContactController.create
+  )
 
   // Stripe webhook (public, verified by the stripe-signature header)
   .post('/billing/webhook', BillingController.webhook)
@@ -132,6 +155,13 @@ app
   // User controller
   .post('/user/avatar', UserMiddleware.verify, UserController.uploadAvatar)
   .get('/user/:userId/avatar/:filename', UserController.downloadAvatar)
+  // Consent proof (Decreto 1377 art. 5) — signup acceptance is recorded by the
+  // better-auth hook; these cover reading status and re-accepting a new version.
+  .get('/user/consent', UserMiddleware.verify, UserController.getConsent)
+  .post('/user/consent', UserMiddleware.verify, UserController.acceptConsent)
+  // Data subject rights: access/portability, and erasure.
+  .get('/user/export', UserMiddleware.verify, UserController.exportData)
+  .delete('/user', UserMiddleware.verify, UserController.remove)
 
   // Organization controller
   .get('/organization', UserMiddleware.verify, OrganizationController.list)
@@ -490,7 +520,14 @@ app
   )
 
   // Channel webhook (public, signed by platform secret)
-  .post('/channel/:channelId/webhook/:platform', ChannelController.webhook)
+  .post(
+    '/channel/:channelId/webhook/:platform',
+    rateLimit({
+      binding: 'WEBHOOK_RATE_LIMITER',
+      key: c => c.req.param('channelId') ?? null
+    }),
+    ChannelController.webhook
+  )
   // GET handshake on the same URL — WhatsApp's hub.challenge verification.
   .get('/channel/:channelId/webhook/:platform', ChannelController.webhookVerify)
 
@@ -498,13 +535,21 @@ app
   .post('/channel/:channelId/ingest/discord', ChannelController.discordIngest)
 
   // OAuth controller
-  .get('/oauth/mcp-proxy/callback', OAuthController.mcpProxyCallback)
+  .get(
+    '/oauth/mcp-proxy/callback',
+    rateLimit({ binding: 'AUTH_RATE_LIMITER', key: clientIp }),
+    OAuthController.mcpProxyCallback
+  )
   .get(
     '/oauth/:provider/authorize',
     UserMiddleware.verify,
     OAuthController.authorize
   )
-  .get('/oauth/:provider/callback', OAuthController.callback);
+  .get(
+    '/oauth/:provider/callback',
+    rateLimit({ binding: 'AUTH_RATE_LIMITER', key: clientIp }),
+    OAuthController.callback
+  );
 
 export { ResourceHandler } from '@ganju/containers';
 export { DiscordGatewayDO } from './durable-objects/discordGateway';
@@ -512,11 +557,24 @@ export { DiscordGatewayDO } from './durable-objects/discordGateway';
 export default {
   fetch: app.fetch,
   scheduled: (
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: Bindings,
     ctx: ExecutionContext
   ) => {
+    // Both crons hit this handler, so branch on which one fired. The error
+    // digest runs every 15 minutes; the heavier hourly work does not.
+    if (controller.cron === utils.constants.CRON_ERROR_ALERTS) {
+      ctx.waitUntil(runErrorAlerts({ env }));
+      return;
+    }
+
     ctx.waitUntil(runOverageMetering({ env }));
+    // Enforce the retention windows the privacy policy publishes. Batched, so
+    // a long backlog drains over several hourly runs.
+    ctx.waitUntil(runRetentionPurge({ env }));
+    // The hourly tick also sweeps, so a missed 15-minute run still gets picked
+    // up rather than waiting for the next one.
+    ctx.waitUntil(runErrorAlerts({ env }));
   },
   queue: (
     batch: MessageBatch<

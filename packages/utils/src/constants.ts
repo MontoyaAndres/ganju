@@ -1289,6 +1289,69 @@ const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
 const STRIPE_METER_MESSAGES = 'ganju_channel_messages';
 const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
 
+// Legal documents a user accepts, and the version they're on. Bump the version
+// when the document changes materially — existing users are then re-prompted,
+// and the old acceptance stays on record. Keep in sync with the "Last updated"
+// date on apps/website/src/md/{terms,privacy}.md.
+const CONSENT_DOCUMENT_TERMS = 'terms' as 'terms';
+const CONSENT_DOCUMENT_PRIVACY = 'privacy' as 'privacy';
+const CONSENT_DOCUMENTS = [CONSENT_DOCUMENT_TERMS, CONSENT_DOCUMENT_PRIVACY];
+const CONSENT_CURRENT_VERSION = '2026-08-01';
+
+const CONSENT_SOURCE_SIGNUP = 'signup' as 'signup';
+const CONSENT_SOURCE_REACCEPT = 'reaccept' as 'reaccept';
+const CONSENT_SOURCES = [CONSENT_SOURCE_SIGNUP, CONSENT_SOURCE_REACCEPT];
+
+/**
+ * Retention windows, in days, for the append-only tables that would otherwise
+ * grow forever. These are the numbers the privacy policy publishes — change
+ * one here and the policy has to change with it.
+ *
+ * `mcpRequest` is the sharpest of these: it stores the arguments AND results of
+ * every tool call, which can include mail bodies, calendar entries, and drive
+ * documents pulled from a connected account.
+ */
+const RETENTION_DAYS = {
+  // Tool-call arguments and results.
+  mcpRequest: 90,
+  // Stack traces, paths, IPs.
+  errorLog: 90,
+  // Channel conversation history.
+  channelMessage: 365,
+  // "Who ran what, when" audit rows.
+  artifactExecution: 365
+} as const;
+
+// Sessions are purged once they've been expired for this long — the row is
+// useless after expiry, but a short grace period keeps debugging possible.
+const RETENTION_EXPIRED_SESSION_DAYS = 30;
+
+// Error alerting. The sweep emails a digest of new server-side failures so a
+// breach or outage is noticed rather than sitting in a table — the DPA commits
+// to notifying customers within 72 hours of BECOMING AWARE, which requires a
+// way to become aware.
+// Cron expressions from apps/api/wrangler.toml. The scheduled handler branches
+// on these, so the strings must match the config exactly.
+const CRON_HOURLY = '0 * * * *';
+const CRON_ERROR_ALERTS = '*/15 * * * *';
+
+const ALERT_STATE_KEY_ERROR_LOG = 'error_log';
+// Only alert on genuine server failures. 4xx rows are expected client errors
+// (validation, not-found, quota) and would drown the signal.
+const ALERT_MIN_STATUS = 500;
+// Rows pulled per run. A larger backlog is counted but not itemised.
+const ALERT_MAX_ROWS = 500;
+// Distinct error signatures listed in the email body.
+const ALERT_MAX_GROUPS = 20;
+// Message prefix length used to group errors into a signature.
+const ALERT_SIGNATURE_LENGTH = 120;
+// At or above this many errors in one run, the subject is flagged as a spike.
+const ALERT_SPIKE_THRESHOLD = 25;
+
+// Rows deleted per table per purge run. The cron runs hourly, so this drains a
+// backlog over a few passes instead of holding one very long transaction.
+const RETENTION_PURGE_BATCH = 5_000;
+
 export type { PlanLimits };
 
 export const constants = {
@@ -1328,6 +1391,24 @@ export const constants = {
   PLAN_LIMIT_ERROR_CODE,
   STRIPE_METER_MESSAGES,
   STRIPE_METER_EMBEDDED,
+  CONSENT_DOCUMENT_TERMS,
+  CONSENT_DOCUMENT_PRIVACY,
+  CONSENT_DOCUMENTS,
+  CONSENT_CURRENT_VERSION,
+  CONSENT_SOURCE_SIGNUP,
+  CONSENT_SOURCE_REACCEPT,
+  CONSENT_SOURCES,
+  RETENTION_DAYS,
+  RETENTION_EXPIRED_SESSION_DAYS,
+  RETENTION_PURGE_BATCH,
+  CRON_HOURLY,
+  CRON_ERROR_ALERTS,
+  ALERT_STATE_KEY_ERROR_LOG,
+  ALERT_MIN_STATUS,
+  ALERT_MAX_ROWS,
+  ALERT_MAX_GROUPS,
+  ALERT_SIGNATURE_LENGTH,
+  ALERT_SPIKE_THRESHOLD,
   USER_ROLE_ADMIN,
   USER_ROLES,
   INVITATION_STATUS,

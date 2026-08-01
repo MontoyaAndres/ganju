@@ -1,5 +1,5 @@
 ---
-import { SITE } from '../lib/site';
+import { SITE, LEGAL } from '../lib/site';
 const year = new Date().getFullYear();
 ---
 
@@ -44,6 +44,8 @@ const year = new Date().getFullYear();
       <h4>Legal</h4>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
+      <a href="/subprocessors">Subprocessors</a>
+      <a href="/dpa">DPA</a>
       <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">
         License (Apache-2.0)
       </a>
@@ -51,5 +53,13 @@ const year = new Date().getFullYear();
   </div>
   <div class="container footer-bottom">
     <span>© {year} Ganju.</span>
+    {/* Supplier identity — Ley 1480 de 2011, art. 50. See LEGAL in lib/site.ts. */}
+    <address class="footer-legal">
+      <span>{LEGAL.entity}</span>
+      {LEGAL.nit && <span>NIT {LEGAL.nit}</span>}
+      <span>{LEGAL.address}</span>
+      <a href={`tel:${LEGAL.phoneHref}`}>{LEGAL.phone}</a>
+      <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>
+    </address>
   </div>
 </footer>

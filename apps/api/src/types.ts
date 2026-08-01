@@ -24,8 +24,16 @@ export type Variables = {
   session: Auth['$Infer']['Session']['session'];
 };
 
+export interface RateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export type Bindings = {
   HYPERDRIVE: Hyperdrive;
+  CONTACT_RATE_LIMITER?: RateLimiter;
+  AUTH_RATE_LIMITER?: RateLimiter;
+  WEBHOOK_RATE_LIMITER?: RateLimiter;
+  API_RATE_LIMITER?: RateLimiter;
   STORAGE_BUCKET: R2Bucket;
   INDEX_QUEUE: Queue<IndexJob>;
   CRAWL_DISCOVER_QUEUE: Queue<CrawlDiscoverJob>;
@@ -51,6 +59,11 @@ export type Bindings = {
   STRIPE_PRICE_ENTERPRISE?: string;
   STRIPE_PRICE_MESSAGE_OVERAGE?: string;
   STRIPE_PRICE_EMBEDDED_OVERAGE?: string;
+  AWS_SES_REGION?: string;
+  AWS_SES_ACCESS_KEY_ID?: string;
+  AWS_SES_SECRET_ACCESS_KEY?: string;
+  EMAIL_FROM?: string;
+  ALERT_EMAIL?: string;
 };
 
 export type AppEnv = {

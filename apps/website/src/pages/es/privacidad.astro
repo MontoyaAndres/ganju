@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+import { breadcrumbSchema } from '../../lib/site';
+import { Content } from '../../md/es/privacidad.md';
+
+const description =
+  'Cómo Ganju recoge, usa, almacena y comparte datos en el servicio alojado — qué llega a los proveedores de IA, qué registramos, con quién lo compartimos y cómo eliminarlo. Política de tratamiento conforme a la Ley 1581 de 2012.';
+
+const alternates = { en: '/privacy', es: '/es/privacidad' };
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Inicio', href: '/' },
+  { label: 'Privacidad', href: '/es/privacidad' }
+]);
+---
+
+<Base
+  title="Política de Privacidad"
+  {description}
+  mdPath="/es/privacidad.md"
+  {jsonLd}
+  lang="es"
+  {alternates}
+>
+  <section class="section">
+    <article class="container narrow prose">
+      <Content />
+    </article>
+  </section>
+</Base>

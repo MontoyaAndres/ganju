@@ -75,6 +75,38 @@ export const Wrapper = styled.div`
       }
     }
 
+    .terms-consent {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 20px;
+      width: 100%;
+      max-width: 320px;
+      cursor: pointer;
+      color: ${theme.colors.bastille}CC;
+      font-size: ${theme.fonts.sm};
+      line-height: 140%;
+      text-align: left;
+
+      @media (min-width: ${theme.screens.md}) {
+        max-width: 360px;
+      }
+
+      & > input {
+        margin: 2px 0 0;
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        cursor: pointer;
+        accent-color: ${theme.colors.bastille};
+      }
+
+      & a {
+        color: ${theme.colors.bastille};
+        text-decoration-line: underline;
+      }
+    }
+
     .terms {
       text-align: center;
       color: ${theme.colors.bastille}CC;

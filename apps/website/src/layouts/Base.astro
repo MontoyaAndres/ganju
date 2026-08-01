@@ -15,14 +15,29 @@ interface Props {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   noindex?: boolean;
   brand?: string;
+  /** BCP-47 tag for this page. Drives `<html lang>`, hreflang, and og:locale. */
+  lang?: string;
+  /** Language variants of this page, as `hreflang` → path. See Seo.astro. */
+  alternates?: Record<string, string>;
 }
 
-const { title, description, mdPath, ogType, image, imageAlt, jsonLd, noindex, brand } =
-  Astro.props;
+const {
+  title,
+  description,
+  mdPath,
+  ogType,
+  image,
+  imageAlt,
+  jsonLd,
+  noindex,
+  brand,
+  lang = 'en',
+  alternates
+} = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31,7 +46,19 @@ const { title, description, mdPath, ogType, image, imageAlt, jsonLd, noindex, br
 
     <Font cssVariable="--font-fustat" preload />
 
-    <Seo {title} {description} {mdPath} {ogType} {image} {imageAlt} {jsonLd} {noindex} {brand} />
+    <Seo
+      {title}
+      {description}
+      {mdPath}
+      {ogType}
+      {image}
+      {imageAlt}
+      {jsonLd}
+      {noindex}
+      {brand}
+      {lang}
+      {alternates}
+    />
   </head>
   <body>
     <Header />

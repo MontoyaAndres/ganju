@@ -9,6 +9,10 @@ import { db } from '@ganju/db';
 
 import { ganjuAuthPlugin } from './ganju-auth-plugin';
 import { oauthConsentHTML } from './oauth-consent-page';
+import { consentActorFromRequest, recordConsent } from './consent';
+
+// types
+import type { AppEnv } from '../types';
 
 export const createAuth = (c: Context) => {
   const dbInstance = db.create(c);
@@ -49,6 +53,28 @@ export const createAuth = (c: Context) => {
         generateId: () => uuid()
       },
       useSecureCookies: isProduction
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          // Capture the acceptance the moment the account exists, with the IP
+          // and user agent of the request that created it. Decreto 1377 art. 5
+          // requires proof the authorization was given, and sign-in is the only
+          // point where the user is shown the documents.
+          after: async newUser => {
+            try {
+              await recordConsent(
+                dbInstance,
+                newUser.id,
+                utils.constants.CONSENT_SOURCE_SIGNUP,
+                consentActorFromRequest(c as Context<AppEnv>)
+              );
+            } catch (error) {
+              console.error('failed to record signup consent', error);
+            }
+          }
+        }
+      }
     },
     plugins: [
       jwt({

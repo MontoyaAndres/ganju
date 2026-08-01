@@ -1,3 +1,4 @@
 import { UserMiddleware } from './user';
+import { RateLimitMiddleware, rateLimit, clientIp } from './rateLimit';
 
-export { UserMiddleware };
+export { UserMiddleware, RateLimitMiddleware, rateLimit, clientIp };

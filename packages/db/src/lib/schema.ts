@@ -233,6 +233,40 @@ export const oauthConsent = pgTable(
   ]
 );
 
+export const userConsent = pgTable(
+  'user_consent',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // 'terms' | 'privacy' — see CONSENT_DOCUMENTS in @ganju/utils.
+    document: text('document').notNull(),
+    // Version string of the document accepted, e.g. '2026-08-01'.
+    version: text('version').notNull(),
+    // Where the acceptance happened ('signup' | 'reaccept'), for context.
+    source: text('source').notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    // The locale of the copy the user actually saw — the Spanish version is
+    // authoritative in Colombia, so which one they read is worth recording.
+    locale: text('locale'),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [
+    index('user_consent_userId_idx').on(table.userId),
+    // The current-acceptance lookup: "has this user accepted this document at
+    // this version?" — one row per (user, document, version).
+    uniqueIndex('user_consent_user_document_version_idx').on(
+      table.userId,
+      table.document,
+      table.version
+    )
+  ]
+);
+
 export const organization = pgTable('organization', {
   id: text('id')
     .primaryKey()
@@ -694,6 +728,16 @@ export const errorLog = pgTable(
   ]
 );
 
+export const alertState = pgTable('alert_state', {
+  key: text('key').primaryKey(),
+  lastSeenId: text('last_seen_id'),
+  lastAlertAt: timestamp('last_alert_at', { mode: 'date' }),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date())
+});
+
 export const channelMessageUsage = pgTable(
   'channel_message_usage',
   {
@@ -971,7 +1015,15 @@ export const userRelations = relations(user, ({ many }) => ({
   ownedOrganizations: many(organization),
   createdProjects: many(project),
   organizationUsers: many(organizationUser),
-  projectUsers: many(projectUser)
+  projectUsers: many(projectUser),
+  consents: many(userConsent)
+}));
+
+export const userConsentRelations = relations(userConsent, ({ one }) => ({
+  user: one(user, {
+    fields: [userConsent.userId],
+    references: [user.id]
+  })
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

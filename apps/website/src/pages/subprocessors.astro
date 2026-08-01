@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import { breadcrumbSchema } from '../lib/site';
+import { Content } from '../md/subprocessors.md';
+
+const description =
+  'The companies that may process data on Ganju’s behalf — infrastructure, AI model providers, payments, and the integrations you switch on — plus how we notify you before the list changes.';
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Home', href: '/' },
+  { label: 'Subprocessors', href: '/subprocessors' }
+]);
+---
+
+<Base title="Subprocessors" {description} mdPath="/subprocessors.md" {jsonLd}>
+  <section class="section">
+    <article class="container narrow prose">
+      <Content />
+    </article>
+  </section>
+</Base>

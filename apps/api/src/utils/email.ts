@@ -1,8 +1,70 @@
 import { Context } from 'hono';
 import { utils } from '@ganju/utils';
 
+import { getSesConfig, sendViaSes } from './ses';
+
 // types
-import type { AppEnv } from '../types';
+import type { EnvSource } from '@ganju/utils';
+import type { AppEnv, Bindings } from '../types';
+
+// A Hono Context satisfies this, and so does the bare `{ env }` a cron handler
+// has — which is what lets the alerting sweep send mail without a request.
+export type EmailSource = EnvSource & { env: Bindings };
+
+interface OutboundEmail {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  replyTo?: string;
+}
+
+/**
+ * Single exit point for transactional mail.
+ *
+ * Prefers Amazon SES, and falls back to Cloudflare's `send_email` binding when
+ * SES credentials aren't configured. That fallback is not equivalent: the
+ * binding only delivers to addresses verified as Email Routing destinations on
+ * the account, so invitations to real users — and the notice obligations in the
+ * Privacy Policy, Terms, and DPA — need SES to actually work. The fallback
+ * exists so local development and the pre-SES deployment keep functioning.
+ */
+export const deliver = async (
+  c: EmailSource,
+  email: OutboundEmail
+): Promise<boolean> => {
+  const domain = utils.getEnv(c, 'NEXT_PUBLIC_DOMAIN')!;
+  const from = utils.getEnv(c, 'EMAIL_FROM') || `Ganju <noreply@${domain}>`;
+
+  const ses = getSesConfig(c);
+  if (ses) {
+    try {
+      return await sendViaSes(ses, { ...email, from });
+    } catch (error) {
+      console.error('SES request threw', error);
+      return false;
+    }
+  }
+
+  const sendEmail = c.env.SEND_EMAIL;
+  if (!sendEmail) {
+    console.error(
+      `No email transport configured — dropped "${email.subject}" to ${email.to}. ` +
+        'Set AWS_SES_REGION / AWS_SES_ACCESS_KEY_ID / AWS_SES_SECRET_ACCESS_KEY.'
+    );
+    return false;
+  }
+
+  try {
+    await sendEmail.send({ from, ...email });
+    return true;
+  } catch (error) {
+    // Most common cause: the recipient isn't a verified Email Routing
+    // destination. That's a configuration limit, not a transient failure.
+    console.error(`Failed to send "${email.subject}" via send_email`, error);
+    return false;
+  }
+};
 
 interface InvitationEmailInput {
   to: string;
@@ -18,11 +80,7 @@ export const sendInvitationEmail = async (
   c: Context<AppEnv>,
   input: InvitationEmailInput
 ): Promise<boolean> => {
-  const sendEmail = c.env.SEND_EMAIL;
-  if (!sendEmail) return false;
-
   const webUrl = utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL')!;
-  const domain = utils.getEnv(c, 'NEXT_PUBLIC_DOMAIN')!;
 
   const scopeLabel =
     input.scope === utils.constants.INVITATION_SCOPE_PROJECT
@@ -78,19 +136,7 @@ export const sendInvitationEmail = async (
   </body>
 </html>`;
 
-  try {
-    await sendEmail.send({
-      from: `Ganju <noreply@${domain}>`,
-      to: input.to,
-      subject,
-      text,
-      html
-    });
-    return true;
-  } catch (error) {
-    console.error('Failed to send invitation email', error);
-    return false;
-  }
+  return deliver(c, { to: input.to, subject, text, html });
 };
 
 interface ContactEmailInput {
@@ -103,9 +149,6 @@ export const sendContactEmail = async (
   c: Context<AppEnv>,
   input: ContactEmailInput
 ): Promise<boolean> => {
-  const sendEmail = c.env.SEND_EMAIL;
-  if (!sendEmail) return false;
-
   const domain = utils.getEnv(c, 'NEXT_PUBLIC_DOMAIN')!;
   const to = `hello@${domain}`;
 
@@ -147,18 +190,7 @@ export const sendContactEmail = async (
   </body>
 </html>`;
 
-  try {
-    await sendEmail.send({
-      from: `Ganju <noreply@${domain}>`,
-      to,
-      replyTo: input.email,
-      subject,
-      text,
-      html
-    });
-    return true;
-  } catch (error) {
-    console.error('Failed to send contact email', error);
-    return false;
-  }
+  // Reply-To is the visitor, so hitting reply in the team inbox answers them
+  // directly rather than the no-reply sender.
+  return deliver(c, { to, subject, text, html, replyTo: input.email });
 };

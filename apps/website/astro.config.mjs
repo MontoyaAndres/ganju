@@ -77,7 +77,7 @@ const toPath = url => {
 
 // Pages that send `noindex` — keep them out of the sitemap rather than
 // advertising URLs we've asked search engines not to index.
-const NOINDEX = new Set(['/privacy', '/terms', '/404']);
+const NOINDEX = new Set(['/404']);
 
 export default defineConfig({
   site: SITE_URL,

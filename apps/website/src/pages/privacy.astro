@@ -1,19 +1,31 @@
 ---
 import Base from '../layouts/Base.astro';
+import { breadcrumbSchema } from '../lib/site';
+// The Markdown file is the single source of truth: this page renders it, and
+// /privacy.md serves the same file raw to agents.
+import { Content } from '../md/privacy.md';
+
+const description =
+  'How Ganju collects, uses, stores, and shares data in the hosted service — what goes to AI model providers, what we log, who we share it with, and how to delete it.';
+
+const alternates = { en: '/privacy', es: '/es/privacidad' };
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Home', href: '/' },
+  { label: 'Privacy', href: '/privacy' }
+]);
 ---
 
-{/* noindex while this is a placeholder — thin "replace me" pages in the index
-    drag on sitewide quality. Drop `noindex` once the real policy lands. */}
-<Base title="Privacy" description="How Ganju handles your data." noindex>
+<Base
+  title="Privacy Policy"
+  {description}
+  mdPath="/privacy.md"
+  {jsonLd}
+  {alternates}
+>
   <section class="section">
-    <article class="container narrow prose reveal">
-      <h1>Privacy</h1>
-      <p class="lead">This page is a placeholder — replace it with your privacy policy.</p>
-      <p>
-        Your passwords and keys are encrypted, never shown in plain text, and never shared.
-        Everything runs on Cloudflare's secure global network. If you self-host Ganju, your data
-        stays entirely in your own account.
-      </p>
+    <article class="container narrow prose">
+      <Content />
     </article>
   </section>
 </Base>

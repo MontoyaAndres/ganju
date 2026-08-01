@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+import { breadcrumbSchema } from '../../lib/site';
+import { Content } from '../../md/es/terminos.md';
+
+const description =
+  'Los términos que rigen el servicio alojado de Ganju — cuentas, planes y facturación, derecho de retracto, uso aceptable, resultados de IA, responsabilidad y terminación. El código fuente sigue siendo Apache-2.0.';
+
+const alternates = { en: '/terms', es: '/es/terminos' };
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Inicio', href: '/' },
+  { label: 'Términos', href: '/es/terminos' }
+]);
+---
+
+<Base
+  title="Términos y Condiciones"
+  {description}
+  mdPath="/es/terminos.md"
+  {jsonLd}
+  lang="es"
+  {alternates}
+>
+  <section class="section">
+    <article class="container narrow prose">
+      <Content />
+    </article>
+  </section>
+</Base>

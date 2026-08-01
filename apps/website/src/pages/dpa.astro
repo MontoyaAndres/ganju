@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import { breadcrumbSchema } from '../lib/site';
+import { Content } from '../md/dpa.md';
+
+const description =
+  'Ganju’s Data Processing Agreement — applies automatically to every customer, with SCCs, subprocessor commitments, breach notification, and the technical measures behind them.';
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Home', href: '/' },
+  { label: 'DPA', href: '/dpa' }
+]);
+---
+
+<Base title="Data Processing Agreement" {description} mdPath="/dpa.md" {jsonLd}>
+  <section class="section">
+    <article class="container narrow prose">
+      <Content />
+    </article>
+  </section>
+</Base>

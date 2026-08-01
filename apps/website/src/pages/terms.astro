@@ -1,19 +1,31 @@
 ---
 import Base from '../layouts/Base.astro';
+import { breadcrumbSchema } from '../lib/site';
+// The Markdown file is the single source of truth: this page renders it, and
+// /terms.md serves the same file raw to agents.
+import { Content } from '../md/terms.md';
+
+const description =
+  'The terms that govern the hosted Ganju service — accounts, plans and billing, acceptable use, AI output, liability, and termination. The source code stays Apache-2.0.';
+
+const alternates = { en: '/terms', es: '/es/terminos' };
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Home', href: '/' },
+  { label: 'Terms', href: '/terms' }
+]);
 ---
 
-{/* noindex while this is a placeholder — see privacy.astro. Drop it once the
-    real terms land. */}
-<Base title="Terms" description="Terms of service for Ganju." noindex>
+<Base
+  title="Terms of Service"
+  {description}
+  mdPath="/terms.md"
+  {jsonLd}
+  {alternates}
+>
   <section class="section">
-    <article class="container narrow prose reveal">
-      <h1>Terms</h1>
-      <p class="lead">This page is a placeholder — replace it with your terms of service.</p>
-      <p>
-        Ganju is open source under the Apache-2.0 license. See the
-        <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">license</a>
-        for the terms that cover the software itself.
-      </p>
+    <article class="container narrow prose">
+      <Content />
     </article>
   </section>
 </Base>

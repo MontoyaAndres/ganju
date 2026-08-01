@@ -1,5 +1,6 @@
 import { createAuth } from './better-auth';
 import { sendInvitationEmail, sendContactEmail } from './email';
+import { getSesConfig, sendViaSes } from './ses';
 import { oauthState } from './oauthState';
 import { providers } from './providers';
 import { getLlmAdapter } from './llm';
@@ -67,15 +68,32 @@ import {
 import { Plan } from './plan';
 import { createStripe, stripeCryptoProvider } from './stripe';
 import { runOverageMetering } from './metering';
+import { runRetentionPurge } from './retention';
+import { runErrorAlerts, recentErrors } from './alerting';
+import {
+  consentActorFromRequest,
+  recordConsent,
+  getConsentStatus,
+  listConsents
+} from './consent';
 
 export {
   Plan,
+  runRetentionPurge,
+  runErrorAlerts,
+  recentErrors,
+  consentActorFromRequest,
+  recordConsent,
+  getConsentStatus,
+  listConsents,
   createStripe,
   stripeCryptoProvider,
   runOverageMetering,
   createAuth,
   sendInvitationEmail,
   sendContactEmail,
+  getSesConfig,
+  sendViaSes,
   oauthState,
   providers,
   getLlmAdapter,
@@ -129,6 +147,11 @@ export {
 
 export type { McpClientHandle } from './mcpClient';
 export type { Auth } from './better-auth';
+export type { ConsentActor, ConsentStatus } from './consent';
+export type { SesConfig, SesEmail } from './ses';
+export type { RetentionResult } from './retention';
+export type { AlertResult } from './alerting';
+export type { EmailSource } from './email';
 export type { OAuthProviderConfig } from './providers';
 export type {
   LlmAdapter,
