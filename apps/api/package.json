@@ -10,20 +10,21 @@
     "deploy-prod": "wrangler deploy --env production"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@better-auth/oauth-provider": "^1.6.25",
     "@ganju/containers": "*",
     "@ganju/db": "*",
     "@ganju/utils": "*",
-    "@anthropic-ai/sdk": "^0.104.1",
     "@google/genai": "^2.8.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "better-auth": "^1.6.16",
+    "better-auth": "^1.6.25",
     "hono": "^4.12.25",
     "openai": "^6.42.0",
     "stripe": "^22.2.3"
   },
   "devDependencies": {
-    "@ganju/tsconfig": "*",
     "@cloudflare/workers-types": "^4.20260611.1",
+    "@ganju/tsconfig": "*",
     "@types/node": "^25.9.3",
     "esbuild": "^0.28.0",
     "fast-glob": "^3.3.3",

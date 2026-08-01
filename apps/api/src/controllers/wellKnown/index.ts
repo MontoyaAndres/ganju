@@ -6,7 +6,7 @@ import type { AppEnv } from '../../types';
 // OAuth 2.0 Authorization Server Metadata (RFC 8414), also serving as a
 // compatible subset of OpenID Connect Discovery.
 //
-// The real OAuth endpoints are served by better-auth's oidcProvider plugin
+// The real OAuth endpoints are served by the @better-auth/oauth-provider plugin
 // under `/auth/oauth2/*`. better-auth only exposes its discovery document at
 // `/auth/.well-known/openid-configuration`, whose declared `issuer` is the
 // API root — a mismatch that strict MCP clients reject. This handler advertises

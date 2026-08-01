@@ -1060,7 +1060,7 @@ const MCP_CHANNEL_CLIENT_USER_AGENT = 'ganju-channel/0.0.1';
 const JWKS_KV_KEY = 'jwks:v1';
 const JWKS_TTL_SECONDS = 600;
 
-// Standard OIDC scopes the better-auth oidcProvider honors for user OAuth
+// Standard OIDC scopes the better-auth oauthProvider honors for user OAuth
 // flows. Advertised in the OAuth discovery documents (RFC 8414
 // authorization-server metadata and RFC 9728 protected-resource metadata).
 const OAUTH_SCOPES_SUPPORTED = ['openid', 'profile', 'email', 'offline_access'];

@@ -14,7 +14,7 @@
   "dependencies": {
     "@ganju/ui": "*",
     "@ganju/utils": "*",
-    "better-auth": "^1.6.16",
+    "better-auth": "^1.6.25",
     "chart.js": "^4.5.1",
     "next": "^16.2.9",
     "react": "^19.2.7",

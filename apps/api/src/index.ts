@@ -97,7 +97,7 @@ app
     return c.json(body, status);
   })
 
-  // OAuth discovery — advertises the better-auth oidcProvider endpoints at the
+  // OAuth discovery — advertises the @better-auth/oauth-provider endpoints at the
   // origin root so MCP clients (Claude Code, MCP Inspector) can discover them.
   .get(
     '/.well-known/oauth-authorization-server',
@@ -535,6 +535,13 @@ app
   .post('/channel/:channelId/ingest/discord', ChannelController.discordIngest)
 
   // OAuth controller
+  // Consent screen for the authorize flow, rendered on this origin so its POST
+  // to /auth/oauth2/consent is same-origin and carries the session cookie.
+  .get(
+    '/oauth/consent',
+    rateLimit({ binding: 'AUTH_RATE_LIMITER', key: clientIp }),
+    OAuthController.consent
+  )
   .get(
     '/oauth/mcp-proxy/callback',
     rateLimit({ binding: 'AUTH_RATE_LIMITER', key: clientIp }),

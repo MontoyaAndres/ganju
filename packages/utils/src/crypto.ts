@@ -61,6 +61,22 @@ export const sha256Hex = async (input: string) => {
   return hex;
 };
 
+/**
+ * SHA-256 as unpadded base64url — the format `@better-auth/oauth-provider`
+ * stores hashed client secrets in. Anything comparing against a stored
+ * `oauth_client.client_secret` has to hash the candidate exactly this way.
+ */
+export const sha256Base64Url = async (input: string) => {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(input)
+  );
+  const bytes = new Uint8Array(digest);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
 export const hmacSha256Hex = async (key: string, message: string) => {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',

@@ -23,6 +23,7 @@ import {
   decryptString,
   getCredentialEncryptionKey,
   sha256Hex,
+  sha256Base64Url,
   hmacSha256Hex,
   timingSafeEqual
 } from './crypto';
@@ -156,6 +157,7 @@ export const utils = {
   decryptString,
   getCredentialEncryptionKey,
   sha256Hex,
+  sha256Base64Url,
   hmacSha256Hex,
   timingSafeEqual,
   bytesToBase64,

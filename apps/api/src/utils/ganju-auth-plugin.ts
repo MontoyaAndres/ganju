@@ -93,7 +93,7 @@ const authenticateBotClient = async (
   }
 
   const row = (await ctx.context.adapter.findOne({
-    model: 'oauthApplication',
+    model: 'oauthClient',
     where: [{ field: 'clientId', value: clientId }]
   })) as BotClientRow | null;
 
@@ -104,7 +104,13 @@ const authenticateBotClient = async (
     });
   }
 
-  const ok = utils.timingSafeEqual(row.clientSecret, clientSecret);
+  // `@better-auth/oauth-provider` stores client secrets hashed, so the stored
+  // value is compared against a hash of what the caller presented — matching
+  // the plugin's own default (SHA-256, unpadded base64url).
+  const ok = utils.timingSafeEqual(
+    row.clientSecret,
+    await utils.sha256Base64Url(clientSecret)
+  );
   if (!ok) {
     throw new APIError('UNAUTHORIZED', {
       error: 'invalid_client',

@@ -2,13 +2,12 @@ import { Context } from 'hono';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins/jwt';
-import { oidcProvider } from 'better-auth/plugins/oidc-provider';
+import { oauthProvider } from '@better-auth/oauth-provider';
 import { v7 as uuid } from 'uuid';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
 import { ganjuAuthPlugin } from './ganju-auth-plugin';
-import { oauthConsentHTML } from './oauth-consent-page';
 import { consentActorFromRequest, recordConsent } from './consent';
 
 // types
@@ -52,6 +51,9 @@ export const createAuth = (c: Context) => {
       database: {
         generateId: () => uuid()
       },
+      ipAddress: {
+        ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for']
+      },
       useSecureCookies: isProduction
     },
     databaseHooks: {
@@ -83,13 +85,27 @@ export const createAuth = (c: Context) => {
           expirationTime: '1h'
         }
       }),
-      oidcProvider({
+      oauthProvider({
         loginPage: `${webUrl}/login`,
-        getConsentHTML: oauthConsentHTML,
-        useJWTPlugin: true,
+        // The plugin redirects here with the signed authorization query; the
+        // page posts it back to `/auth/oauth2/consent`. It lives on the API
+        // origin so that post is same-origin and carries the session cookie.
+        consentPage: `${apiUrl}/oauth/consent`,
         allowDynamicClientRegistration: true,
+        // MCP clients register themselves (RFC 7591) before any user has signed
+        // in, so registration has to stay open — the new plugin defaults it
+        // closed. The upstream option is expected to go away once MCP settles
+        // on Client ID Metadata Documents or signed software statements.
+        allowUnauthenticatedClientRegistration: true,
         accessTokenExpiresIn: 3600,
-        refreshTokenExpiresIn: 60 * 60 * 24 * 30
+        refreshTokenExpiresIn: 60 * 60 * 24 * 30,
+        // Discovery is served from the origin root by WellKnownController with
+        // a self-consistent issuer, because strict MCP clients reject the
+        // basePath-relative document the plugin would have us publish.
+        silenceWarnings: {
+          oauthAuthServerConfig: true,
+          openidConfig: true
+        }
       }),
       ganjuAuthPlugin(utils.getEnv(c, 'BOT_OAUTH_CLIENT_ID'))
     ]

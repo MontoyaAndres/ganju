@@ -3,7 +3,12 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
-import { oauthState, providers, completeMcpProxyOauth } from '../../utils';
+import {
+  oauthState,
+  providers,
+  completeMcpProxyOauth,
+  oauthConsentHTML
+} from '../../utils';
 
 // types
 import { AppEnv } from '../../types';
@@ -295,8 +300,59 @@ const mcpProxyCallback = async (c: Context<AppEnv>) => {
   return c.redirect(redirectUrl);
 };
 
+/**
+ * `GET /oauth/consent` — the page `@better-auth/oauth-provider` redirects to
+ * when a client needs authorization.
+ *
+ * The plugin appends the signed authorization query (`client_id`, `scope`, and
+ * its own `sig`/`exp`). We render the client's name and the requested scopes,
+ * then hand that query back untouched: `/auth/oauth2/consent` verifies the
+ * signature, so re-encoding or dropping a parameter here would invalidate it.
+ * That signature is also what makes reading `client_id` off the query safe —
+ * it can't be swapped for another client's name without breaking.
+ */
+const consent = async (c: Context<AppEnv>) => {
+  const url = new URL(c.req.url);
+  const oauthQuery = url.search.replace(/^\?/, '');
+  const clientId = url.searchParams.get('client_id');
+  const scopes =
+    url.searchParams.get('scope')?.split(' ').filter(Boolean) ?? [];
+
+  if (!oauthQuery || !clientId) {
+    return c.text('Missing authorization request', 400);
+  }
+
+  const dbInstance = db.create(c);
+  const [client] = await dbInstance
+    .select({
+      name: db.schema.oauthClient.name,
+      icon: db.schema.oauthClient.icon,
+      disabled: db.schema.oauthClient.disabled
+    })
+    .from(db.schema.oauthClient)
+    .where(eq(db.schema.oauthClient.clientId, clientId))
+    .limit(1);
+
+  if (!client || client.disabled) {
+    return c.text('Unknown client', 400);
+  }
+
+  return c.html(
+    oauthConsentHTML({
+      clientName: client.name ?? 'An application',
+      clientIcon: client.icon ?? undefined,
+      oauthQuery,
+      scopes
+    }),
+    200,
+    // The page embeds the signed query — keep it out of shared caches.
+    { 'Cache-Control': 'no-store' }
+  );
+};
+
 export const OAuthController = {
   authorize,
   callback,
-  mcpProxyCallback
+  mcpProxyCallback,
+  consent
 };

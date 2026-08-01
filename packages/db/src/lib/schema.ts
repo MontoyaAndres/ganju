@@ -112,24 +112,47 @@ export const jwks = pgTable('jwks', {
   expiresAt: timestamp('expires_at', { mode: 'date' })
 });
 
-export const oauthApplication = pgTable(
-  'oauth_application',
+// The four tables below back `@better-auth/oauth-provider`. Their shape is the
+// plugin's, not ours — `npx @better-auth/cli generate` is the source of truth,
+// so keep field names and array types in step with it when the plugin moves.
+// `organizationId` is the one local addition.
+export const oauthClient = pgTable(
+  'oauth_client',
   {
     id: text('id')
       .primaryKey()
       .$defaultFn(() => uuid()),
-    name: text('name').notNull(),
-    icon: text('icon'),
-    metadata: text('metadata'),
     clientId: text('client_id').notNull().unique(),
+    // Stored hashed (SHA-256, base64url) — never the plaintext the client holds.
     clientSecret: text('client_secret'),
-    redirectUrls: text('redirect_urls').notNull(),
-    type: text('type').notNull(),
     disabled: boolean('disabled').notNull().default(false),
+    skipConsent: boolean('skip_consent'),
+    enableEndSession: boolean('enable_end_session'),
+    subjectType: text('subject_type'),
+    scopes: text('scopes').array(),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade'
     }),
+    name: text('name'),
+    uri: text('uri'),
+    icon: text('icon'),
+    contacts: text('contacts').array(),
+    tos: text('tos'),
+    policy: text('policy'),
+    softwareId: text('software_id'),
+    softwareVersion: text('software_version'),
+    softwareStatement: text('software_statement'),
+    redirectUris: text('redirect_uris').array().notNull(),
+    postLogoutRedirectUris: text('post_logout_redirect_uris').array(),
+    tokenEndpointAuthMethod: text('token_endpoint_auth_method'),
+    grantTypes: text('grant_types').array(),
+    responseTypes: text('response_types').array(),
+    public: boolean('public'),
+    type: text('type'),
+    requirePKCE: boolean('require_pkce'),
+    referenceId: text('reference_id'),
+    metadata: json('metadata'),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
       .notNull()
@@ -137,8 +160,38 @@ export const oauthApplication = pgTable(
       .$onUpdate(() => new Date())
   },
   table => [
-    index('oauth_application_userId_idx').on(table.userId),
-    index('oauth_application_organizationId_idx').on(table.organizationId)
+    index('oauth_client_userId_idx').on(table.userId),
+    index('oauth_client_organizationId_idx').on(table.organizationId)
+  ]
+);
+
+export const oauthRefreshToken = pgTable(
+  'oauth_refresh_token',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    token: text('token').notNull().unique(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: 'cascade' }),
+    sessionId: text('session_id').references(() => session.id, {
+      onDelete: 'set null'
+    }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    referenceId: text('reference_id'),
+    expiresAt: timestamp('expires_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    revoked: timestamp('revoked', { mode: 'date' }),
+    authTime: timestamp('auth_time', { mode: 'date' }),
+    scopes: text('scopes').array().notNull()
+  },
+  table => [
+    index('oauth_refresh_token_clientId_idx').on(table.clientId),
+    index('oauth_refresh_token_sessionId_idx').on(table.sessionId),
+    index('oauth_refresh_token_userId_idx').on(table.userId)
   ]
 );
 
@@ -148,28 +201,27 @@ export const oauthAccessToken = pgTable(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => uuid()),
-    accessToken: text('access_token').notNull().unique(),
-    refreshToken: text('refresh_token').notNull().unique(),
-    accessTokenExpiresAt: timestamp('access_token_expires_at', {
-      mode: 'date'
-    }).notNull(),
-    refreshTokenExpiresAt: timestamp('refresh_token_expires_at', {
-      mode: 'date'
-    }).notNull(),
+    token: text('token').unique(),
     clientId: text('client_id')
       .notNull()
-      .references(() => oauthApplication.clientId, { onDelete: 'cascade' }),
+      .references(() => oauthClient.clientId, { onDelete: 'cascade' }),
+    sessionId: text('session_id').references(() => session.id, {
+      onDelete: 'set null'
+    }),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
-    scopes: text('scopes').notNull(),
+    referenceId: text('reference_id'),
+    refreshId: text('refresh_id').references(() => oauthRefreshToken.id, {
+      onDelete: 'cascade'
+    }),
+    expiresAt: timestamp('expires_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'date' })
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date())
+    scopes: text('scopes').array().notNull()
   },
   table => [
     index('oauth_access_token_clientId_idx').on(table.clientId),
-    index('oauth_access_token_userId_idx').on(table.userId)
+    index('oauth_access_token_sessionId_idx').on(table.sessionId),
+    index('oauth_access_token_userId_idx').on(table.userId),
+    index('oauth_access_token_refreshId_idx').on(table.refreshId)
   ]
 );
 
@@ -215,12 +267,10 @@ export const oauthConsent = pgTable(
       .$defaultFn(() => uuid()),
     clientId: text('client_id')
       .notNull()
-      .references(() => oauthApplication.clientId, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    scopes: text('scopes').notNull(),
-    consentGiven: boolean('consent_given').notNull().default(false),
+      .references(() => oauthClient.clientId, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    referenceId: text('reference_id'),
+    scopes: text('scopes').array().notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
       .notNull()

@@ -15,7 +15,7 @@ user
            └── artifact         the MCP server (see below)
 ```
 
-- A **user** authenticates via better-auth (`session`, `account`, `verification`, `jwks`, plus the OIDC tables `oauth_application`, `oauth_access_token`, `oauth_consent`).
+- A **user** authenticates via better-auth (`session`, `account`, `verification`, `jwks`, plus the OAuth provider tables `oauth_client`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`).
 - An **organization** is the billing/ownership boundary; **projects** group work inside it; both have a membership join table with a `role`.
 - **organizationLlm** holds reusable LLM connections (Anthropic / OpenAI / OpenAI-compatible / Google) that channels reference.
 

@@ -1,6 +1,9 @@
-// Inline consent page served by better-auth's oidcProvider via `getConsentHTML`.
-// Shown after login when a client requests authorization. The Allow/Cancel
-// buttons POST to `/auth/oauth2/consent`, which replies with `{ redirectURI }`.
+// Consent page for the OAuth authorize flow, served at `GET /oauth/consent`.
+//
+// `@better-auth/oauth-provider` redirects the browser here with the signed
+// authorization query, rather than rendering HTML itself — raw HTML isn't a
+// response type the authorize endpoint supports. The Allow/Cancel buttons POST
+// that query back to `/auth/oauth2/consent`, which replies `{ redirect_uri }`.
 
 import { utils } from '@ganju/utils';
 
@@ -22,11 +25,9 @@ const describeScope = (scope: string): string => {
 };
 
 export const oauthConsentHTML = (props: {
-  clientId: string;
   clientName: string;
   clientIcon?: string | undefined;
-  clientMetadata: Record<string, unknown> | null;
-  code: string;
+  oauthQuery: string;
   scopes: string[];
 }): string => {
   const name = utils.escapeHtml(props.clientName || 'An application');
@@ -122,7 +123,7 @@ export const oauthConsentHTML = (props: {
     <p class="err" id="err">Something went wrong. Please try again.</p>
   </div>
   <script>
-    var consentCode = ${JSON.stringify(props.code)};
+    var oauthQuery = ${JSON.stringify(props.oauthQuery)};
     function submit(accept) {
       var buttons = document.querySelectorAll('button');
       buttons.forEach(function (b) { b.disabled = true; });
@@ -130,14 +131,18 @@ export const oauthConsentHTML = (props: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ accept: accept, consent_code: consentCode })
+        body: JSON.stringify({ accept: accept, oauth_query: oauthQuery })
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data && data.redirectURI) {
-            window.location.href = data.redirectURI;
+          // A browser fetch sets sec-fetch-mode: cors, so the endpoint answers
+          // with { redirect: true, url } rather than a 302 — for both Allow and
+          // Cancel, the latter carrying access_denied back to the client.
+          var target = data && (data.url || data.redirect_uri);
+          if (target) {
+            window.location.href = target;
           } else {
-            throw new Error('missing redirectURI');
+            throw new Error('missing redirect target');
           }
         })
         .catch(function () {

@@ -115,22 +115,32 @@ export const runOverageMetering = async (
 
   const dbInstance = db.create(source);
 
-  const subs = await dbInstance
-    .select({ organizationId: db.schema.subscription.organizationId })
-    .from(db.schema.subscription)
-    .where(
-      and(
-        inArray(db.schema.subscription.plan, [
-          constants.PLAN_PRO,
-          constants.PLAN_ENTERPRISE
-        ]),
-        inArray(
-          db.schema.subscription.status,
-          constants.SUBSCRIPTION_ENTITLED_STATUSES as unknown as string[]
-        ),
-        isNotNull(db.schema.subscription.stripeCustomerId)
-      )
-    );
+  // The sweep runs under `ctx.waitUntil`, so an unhandled throw here is an
+  // unhandled rejection in the cron invocation rather than a logged failure —
+  // and a transient database blip on this one query would take the whole run
+  // with it. Retention and the alert digest contain their errors the same way.
+  let subs: { organizationId: string }[];
+  try {
+    subs = await dbInstance
+      .select({ organizationId: db.schema.subscription.organizationId })
+      .from(db.schema.subscription)
+      .where(
+        and(
+          inArray(db.schema.subscription.plan, [
+            constants.PLAN_PRO,
+            constants.PLAN_ENTERPRISE
+          ]),
+          inArray(
+            db.schema.subscription.status,
+            constants.SUBSCRIPTION_ENTITLED_STATUSES as unknown as string[]
+          ),
+          isNotNull(db.schema.subscription.stripeCustomerId)
+        )
+      );
+  } catch (error) {
+    console.error('[metering] failed to list billable organizations:', error);
+    return;
+  }
 
   for (const { organizationId } of subs) {
     try {
