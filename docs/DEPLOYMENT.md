@@ -40,6 +40,14 @@ wrangler secret put GOOGLE_CLIENT_SECRET --env production
 
 See the variable table in [DEVELOPMENT.md](DEVELOPMENT.md#variables) for the full list and which app needs each.
 
+`BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET` also need a matching row in
+`oauth_client`, or channel `/link` fails. After setting the secrets, provision it
+against the same environment's database:
+
+```bash
+npx dotenv -e .env.prod -- node scripts/provision-bot-client.mjs
+```
+
 ## Database migrations
 
 Run migrations against the target database **before** (or as part of) a deploy:

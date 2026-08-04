@@ -41,7 +41,7 @@ cp .env.example .env
 | `JWT_SECRET`                                               | api, mcp                              | Signs/verifies tokens between services             |
 | `CRYPTO_SECRET`                                            | api, mcp                              | Symmetric key for encrypting stored credentials    |
 | `MCP_INTERNAL_SECRET`                                      | api, mcp                              | Guards internal worker-to-worker / DO ingest calls |
-| `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET`          | api                                   | OAuth client used by MCP-client login              |
+| `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET`          | api                                   | Bot OAuth client — needs a matching `oauth_client` row, see below |
 | `EMBEDDING_API_KEY`                                        | api                                   | Gemini key for embeddings (and default LLM)        |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                | api                                   | Google social login + Gmail/Drive/Calendar OAuth   |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`                | api                                   | GitHub social login                                |
@@ -70,6 +70,22 @@ npm run studio -w @ganju/db   # Drizzle Studio — browse the DB
 ```
 
 Some rows are **seeded out of band** (tool groups, tool definitions, the MCP server catalog). If a tool doesn't appear in the dashboard, check those tables exist — see [DATA_MODEL.md](DATA_MODEL.md).
+
+### Bot OAuth client
+
+`BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET` name a row that has to exist in
+`oauth_client`. Channel bots authenticate as it for `/link` and for the
+bot-on-behalf-of token grant; without the row every `/link` answers "Could not
+start account linking". It can't be created through `/auth/oauth2/register`,
+which mints its own id and secret, so provision it from the env values:
+
+```bash
+npx dotenv -e .env -- node scripts/provision-bot-client.mjs
+```
+
+Idempotent, and re-runnable after rotating the secret. The secret is stored
+hashed (SHA-256, base64url) since the move to `@better-auth/oauth-provider` — a
+hand-written INSERT holding the plaintext authenticates as "Bad client secret".
 
 ## Running
 
