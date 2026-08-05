@@ -147,12 +147,18 @@ class_name = "ResourceHandler"
 [[env.development.durable_objects.bindings]]
 name = "DISCORD_GATEWAY"
 class_name = "DiscordGatewayDO"
+[[env.development.durable_objects.bindings]]
+name = "MESSAGE_BUFFER"
+class_name = "MessageBufferDO"
 [[env.development.migrations]]
 tag = "v1"
 new_sqlite_classes = ["ResourceHandler"]
 [[env.development.migrations]]
 tag = "v2"
 new_sqlite_classes = ["DiscordGatewayDO"]
+[[env.development.migrations]]
+tag = "v3"
+new_sqlite_classes = ["MessageBufferDO"]
 
 [env.production]
 name = "ganju-api-production"
@@ -288,9 +294,15 @@ class_name = "ResourceHandler"
 [[env.production.durable_objects.bindings]]
 name = "DISCORD_GATEWAY"
 class_name = "DiscordGatewayDO"
+[[env.production.durable_objects.bindings]]
+name = "MESSAGE_BUFFER"
+class_name = "MessageBufferDO"
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["ResourceHandler"]
 [[env.production.migrations]]
 tag = "v2"
 new_sqlite_classes = ["DiscordGatewayDO"]
+[[env.production.migrations]]
+tag = "v3"
+new_sqlite_classes = ["MessageBufferDO"]

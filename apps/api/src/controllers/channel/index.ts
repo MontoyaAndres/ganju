@@ -1,18 +1,24 @@
 import { Context } from 'hono';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { v7 as uuid } from 'uuid';
-import { db } from '@ganju/db';
+import { db, utils as dbUtils } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import {
   handleTelegramWebhook,
+  handleTelegramDebouncedBatch,
   registerTelegramWebhook,
   getTelegramBotInfo
 } from './telegram';
-import { handleSlackWebhook, getSlackBotInfo } from './slack';
+import {
+  handleSlackWebhook,
+  handleSlackDebouncedBatch,
+  getSlackBotInfo
+} from './slack';
 import {
   handleDiscordInteraction,
   handleDiscordIngest,
+  handleDiscordDebouncedBatch,
   getDiscordBotInfo,
   startGateway,
   stopGateway
@@ -20,6 +26,7 @@ import {
 import {
   handleWhatsappWebhook,
   handleWhatsappVerification,
+  handleWhatsappDebouncedBatch,
   getWhatsappBotInfo
 } from './whatsapp';
 
@@ -35,6 +42,10 @@ import {
   Plan
 } from '../../utils';
 
+import type {
+  BufferedChannelMessage,
+  ChannelBufferEnvelope
+} from '@ganju/utils';
 import type { AppEnv } from '../../types';
 
 const list = async (c: Context<AppEnv>) => {
@@ -519,6 +530,90 @@ const webhookVerify = async (c: Context<AppEnv>) => {
 // internal secret inside the handler.
 const discordIngest = async (c: Context<AppEnv>) => handleDiscordIngest(c);
 
+// Internal: the MessageBufferDO posts a settled burst here (via the API service
+// binding) so the turn runs in normal request context, where the platform
+// handlers can reach the DB, the container binding, and the chat APIs. Guarded
+// by the internal secret — never exposed to a chat platform or the public.
+const debouncedIngest = async (c: Context<AppEnv>) => {
+  const provided = c.req.header(utils.constants.MCP_INTERNAL_HEADER);
+  const expected = utils.getEnv(c, 'MCP_INTERNAL_SECRET');
+  if (!expected || !provided || !utils.timingSafeEqual(provided, expected)) {
+    return c.json({ ok: false, error: 'unauthorized' }, 401);
+  }
+
+  const channelId = c.req.param('channelId');
+  if (!channelId) return c.json({ ok: false }, 400);
+
+  const body = (await c.req.json().catch(() => null)) as {
+    envelope?: ChannelBufferEnvelope;
+    messages?: BufferedChannelMessage[];
+  } | null;
+
+  const envelope = body?.envelope;
+  const messages = (body?.messages || []).filter(
+    message => typeof message?.text === 'string'
+  );
+  if (!envelope || messages.length === 0) return c.json({ ok: true });
+  // The DO derives its own name from the channel, so a mismatch means a
+  // malformed payload rather than a routing quirk — refuse to act on it.
+  if (envelope.channelId !== channelId) {
+    return c.json({ ok: false, error: 'channel mismatch' }, 400);
+  }
+
+  const dbInstance = db.create(c);
+  const [channelRow] = await dbInstance
+    .select()
+    .from(db.schema.channel)
+    .where(eq(db.schema.channel.id, channelId))
+    .limit(1);
+
+  if (!channelRow) return c.json({ ok: false }, 404);
+  // A channel disabled while the burst was buffered drops it — matching what
+  // the webhook would have done had the messages arrived a moment later.
+  if (channelRow.status !== utils.constants.STATUS_ACTIVE) {
+    return c.json({ ok: true, skipped: 'disabled' });
+  }
+  if (channelRow.platform !== envelope.platform) {
+    return c.json({ ok: false, error: 'Wrong platform' }, 400);
+  }
+
+  const runBatch = {
+    [utils.constants.CHANNEL_PLATFORM_TELEGRAM]: handleTelegramDebouncedBatch,
+    [utils.constants.CHANNEL_PLATFORM_SLACK]: handleSlackDebouncedBatch,
+    [utils.constants.CHANNEL_PLATFORM_WHATSAPP]: handleWhatsappDebouncedBatch,
+    [utils.constants.CHANNEL_PLATFORM_DISCORD]: handleDiscordDebouncedBatch
+  }[channelRow.platform];
+
+  if (!runBatch) {
+    return c.json(
+      { ok: false, error: `Unsupported platform: ${channelRow.platform}` },
+      400
+    );
+  }
+
+  // Ack before running the turn. The DO only needs to know we took ownership of
+  // the batch — holding its alarm open for the whole model loop would be a long
+  // hand-off for no benefit, and a slow one risks a retry that answers twice.
+  // Failures past this point are the turn's own to report: it replies with an
+  // error reference rather than throwing back to the buffer.
+  c.executionCtx.waitUntil(
+    runBatch(c, channelRow, envelope, messages).catch(err =>
+      dbUtils.handleError(c, err, {
+        service: utils.constants.SERVICE_NAME_API,
+        metadata: {
+          source: 'channel-debounced-ingest',
+          platform: channelRow.platform,
+          channelId: channelRow.id,
+          conversation: envelope.externalConversationId,
+          messageCount: messages.length
+        }
+      })
+    )
+  );
+
+  return c.json({ ok: true });
+};
+
 export const ChannelController = {
   list,
   create,
@@ -528,5 +623,6 @@ export const ChannelController = {
   listMessages,
   webhook,
   webhookVerify,
-  discordIngest
+  discordIngest,
+  debouncedIngest
 };

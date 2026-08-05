@@ -537,6 +537,13 @@ app
   // Internal: Discord Gateway DO → worker ingest (guarded by internal secret)
   .post('/channel/:channelId/ingest/discord', ChannelController.discordIngest)
 
+  // Internal: MessageBufferDO → worker ingest when a debounced burst is ready
+  // to be answered (guarded by internal secret)
+  .post(
+    '/channel/:channelId/ingest/debounced',
+    ChannelController.debouncedIngest
+  )
+
   // OAuth controller
   // Consent screen for the authorize flow, rendered on this origin so its POST
   // to /auth/oauth2/consent is same-origin and carries the session cookie.
@@ -563,6 +570,7 @@ app
 
 export { ResourceHandler } from '@ganju/containers';
 export { DiscordGatewayDO } from './durable-objects/discordGateway';
+export { MessageBufferDO } from './durable-objects/messageBuffer';
 
 export default {
   fetch: app.fetch,

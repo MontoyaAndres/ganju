@@ -116,6 +116,15 @@ type UsageEvent = {
   errorMessage?: string;
 };
 
+// One inbound message from the user. A turn normally carries a single entry;
+// a debounced burst carries the whole batch the participant typed before they
+// paused. Each becomes its own channel_message row (the dashboard shows what
+// was actually sent), and together they form one user turn for the model.
+export interface RunUserMessage {
+  text: string;
+  externalMessageId?: string | null;
+}
+
 interface RunOptions {
   channelId: string;
   externalConversationId: string;
@@ -124,8 +133,7 @@ interface RunOptions {
   externalParticipantId: string;
   participantDisplayName?: string | null;
   participantMetadata?: Record<string, unknown>;
-  externalMessageId?: string | null;
-  userText: string;
+  userMessages: RunUserMessage[];
   messageMetadata?: Record<string, unknown>;
   promptId?: string | null;
   // The artifact_prompt FK to record on usage. Null for proxied prompts, whose
@@ -139,6 +147,8 @@ interface RunOptions {
 interface RunResult {
   assistantText: string;
   conversationId: string;
+  // The last inbound row recorded for this turn — a debounced batch writes one
+  // row per message, and this is the newest of them.
   userMessageId: string;
   assistantMessageId: string;
   attachments: ChannelAttachment[];
@@ -208,6 +218,10 @@ export const runChannelTurn = async (
     )
   ) {
     throw new Error(`Invalid conversationScope: ${options.conversationScope}`);
+  }
+
+  if (options.userMessages.length === 0) {
+    throw new Error('runChannelTurn requires at least one user message');
   }
 
   const dbInstance = db.create(c);
@@ -328,17 +342,26 @@ export const runChannelTurn = async (
     ? utils.constants.SHARED_KEY_MAX_TOOL_LOOPS
     : utils.constants.MAX_TOOL_LOOPS;
 
-  const [userMessage] = await dbInstance
+  // What the model is asked to answer: every buffered fragment as one user
+  // turn. Recorded separately below, so the audit trail keeps the fragments
+  // while the model sees a single coherent question.
+  const mergedUserText = utils.joinBufferedMessages(options.userMessages);
+
+  // One row per message the user actually sent, in arrival order.
+  const userMessageRows = await dbInstance
     .insert(db.schema.channelMessage)
-    .values({
-      role: utils.constants.ROLE_MESSAGE_USER,
-      content: options.userText,
-      externalMessageId: options.externalMessageId || null,
-      conversationId: conversation.id,
-      participantId: participant.id,
-      metadata: options.messageMetadata || null
-    })
+    .values(
+      options.userMessages.map(message => ({
+        role: utils.constants.ROLE_MESSAGE_USER,
+        content: message.text,
+        externalMessageId: message.externalMessageId || null,
+        conversationId: conversation.id,
+        participantId: participant.id,
+        metadata: options.messageMetadata || null
+      }))
+    )
     .returning();
+  const userMessage = userMessageRows[userMessageRows.length - 1];
 
   // The inbound user message is recorded above regardless; if the org is over
   // its cap we reply with a one-line notice and skip the (costly) LLM
@@ -389,11 +412,14 @@ export const runChannelTurn = async (
   }
 
   // Loaded after the user-message insert so it reflects this turn, matching the
-  // prior ordering.
+  // prior ordering — but the rows just written are excluded, because they're
+  // already the user turn appended below. Without that a debounced batch would
+  // reach the model twice: once as history, once as the question.
   const history = await loadRecentHistory(
     dbInstance,
     conversation.id,
-    historyLimit
+    historyLimit,
+    new Set(userMessageRows.map(row => row.id))
   );
 
   // Native tools call by their definition key, so key → install id resolves the
@@ -540,7 +566,7 @@ export const runChannelTurn = async (
     let userTurn: LlmMessage[] = [
       {
         role: utils.constants.ROLE_MESSAGE_USER,
-        content: options.userText
+        content: mergedUserText
       }
     ];
 
@@ -573,7 +599,7 @@ export const runChannelTurn = async (
           userTurn = [
             {
               role: utils.constants.ROLE_MESSAGE_USER,
-              content: options.userText
+              content: mergedUserText
             }
           ];
         }
@@ -615,7 +641,7 @@ export const runChannelTurn = async (
     ) {
       messages.push({
         role: utils.constants.ROLE_MESSAGE_USER,
-        content: options.userText || 'Continue.'
+        content: mergedUserText || 'Continue.'
       });
     }
 
@@ -835,10 +861,14 @@ export const runChannelTurn = async (
         .catch(() => undefined);
     }
 
+    // The inbound rows plus the one assistant reply. A debounced batch writes
+    // more than one inbound row, so this can't assume the old fixed +2.
+    const recordedMessages = userMessageRows.length + 1;
+
     await dbInstance
       .update(db.schema.channelConversation)
       .set({
-        messageCount: sql`(${db.schema.channelConversation.messageCount}::int + 2)::int`,
+        messageCount: sql`(${db.schema.channelConversation.messageCount}::int + ${recordedMessages})::int`,
         lastMessageAt: new Date()
       })
       .where(eq(db.schema.channelConversation.id, conversation.id))
@@ -847,7 +877,7 @@ export const runChannelTurn = async (
     await dbInstance
       .update(db.schema.channel)
       .set({
-        messageCount: sql`(${db.schema.channel.messageCount}::int + 2)::int`
+        messageCount: sql`(${db.schema.channel.messageCount}::int + ${recordedMessages})::int`
       })
       .where(eq(db.schema.channel.id, channelRow.id))
       .catch(() => undefined);
@@ -953,21 +983,33 @@ const upsertParticipant = async (
 const loadRecentHistory = async (
   dbInstance: ReturnType<typeof db.create>,
   conversationId: string,
-  limit: number
+  limit: number,
+  excludeIds: Set<string>
 ): Promise<LlmMessage[]> => {
+  // Over-fetch by the number of excluded rows so dropping them still leaves a
+  // full `limit` of prior context.
+  //
+  // The id breaks ties on created_at: a debounced burst inserts its rows in one
+  // statement, so they all carry the same transaction timestamp. Ids are
+  // UUIDv7 (time-ordered), so ordering by them second replays a burst in the
+  // order it was actually typed instead of an arbitrary one.
   const rows = await dbInstance
     .select()
     .from(db.schema.channelMessage)
     .where(eq(db.schema.channelMessage.conversationId, conversationId))
-    .orderBy(sql`${db.schema.channelMessage.createdAt} DESC`)
-    .limit(limit);
+    .orderBy(
+      sql`${db.schema.channelMessage.createdAt} DESC, ${db.schema.channelMessage.id} DESC`
+    )
+    .limit(limit + excludeIds.size);
 
   return rows
     .filter(
       r =>
-        r.role === utils.constants.ROLE_MESSAGE_USER ||
-        r.role === utils.constants.ROLE_MESSAGE_ASSISTANT
+        !excludeIds.has(r.id) &&
+        (r.role === utils.constants.ROLE_MESSAGE_USER ||
+          r.role === utils.constants.ROLE_MESSAGE_ASSISTANT)
     )
+    .slice(0, limit)
     .reverse()
     .map(r => ({
       role: r.role as 'user' | 'assistant',

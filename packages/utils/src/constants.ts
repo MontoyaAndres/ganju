@@ -578,6 +578,31 @@ const CHANNEL_HISTORY_LIMIT = 20;
 const SHARED_KEY_HISTORY_LIMIT = 10;
 const SHARED_KEY_MAX_TOOL_LOOPS = 6;
 
+// Message debounce — people type the way they talk, in bursts ("hey" / "quick
+// question" / "about the invoice"). Answering each fragment separately produces
+// three half-informed replies and bills three assistant turns. Instead a burst
+// from ONE participant in ONE conversation is buffered and answered once.
+//
+// The window restarts on every new message (so it tracks the typist), bounded by
+// CHANNEL_DEBOUNCE_MAX_WAIT_MS from the first buffered message so a chatty user
+// still gets an answer, and by CHANNEL_DEBOUNCE_MAX_MESSAGES so one batch can't
+// grow without limit. `debounceMs: 0` on channel.config disables buffering and
+// restores the answer-every-message behavior.
+const CHANNEL_DEBOUNCE_DEFAULT_MS = 5000;
+const CHANNEL_DEBOUNCE_MIN_MS = 500;
+const CHANNEL_DEBOUNCE_MAX_MS = 30_000;
+const CHANNEL_DEBOUNCE_MAX_WAIT_MS = 60_000;
+const CHANNEL_DEBOUNCE_MAX_MESSAGES = 20;
+// Disables buffering for a channel when set as `config.debounceMs`.
+const CHANNEL_DEBOUNCE_DISABLED = 0;
+// How buffered texts are joined into the single user turn the model sees. A
+// newline keeps each fragment on its own line rather than running them together.
+const CHANNEL_DEBOUNCE_JOIN = '\n';
+// Backoff between retries when the DO can't hand a flushed batch to the worker,
+// and how many times it tries before dropping the batch rather than looping.
+const CHANNEL_DEBOUNCE_RETRY_MS = 5000;
+const CHANNEL_DEBOUNCE_MAX_ATTEMPTS = 3;
+
 const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const TELEGRAM_MESSAGE_LIMIT = 3500;
@@ -1614,6 +1639,15 @@ export const constants = {
   CHANNEL_HISTORY_LIMIT,
   SHARED_KEY_HISTORY_LIMIT,
   SHARED_KEY_MAX_TOOL_LOOPS,
+  CHANNEL_DEBOUNCE_DEFAULT_MS,
+  CHANNEL_DEBOUNCE_MIN_MS,
+  CHANNEL_DEBOUNCE_MAX_MS,
+  CHANNEL_DEBOUNCE_MAX_WAIT_MS,
+  CHANNEL_DEBOUNCE_MAX_MESSAGES,
+  CHANNEL_DEBOUNCE_DISABLED,
+  CHANNEL_DEBOUNCE_JOIN,
+  CHANNEL_DEBOUNCE_RETRY_MS,
+  CHANNEL_DEBOUNCE_MAX_ATTEMPTS,
   TELEGRAM_SECRET_HEADER,
   TELEGRAM_API_BASE,
   TELEGRAM_MESSAGE_LIMIT,

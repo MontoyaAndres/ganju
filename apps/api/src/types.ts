@@ -9,6 +9,7 @@ import type { ResourceHandler } from '@ganju/containers';
 
 import type { Auth } from './utils';
 import type { DiscordGatewayDO } from './durable-objects/discordGateway';
+import type { MessageBufferDO } from './durable-objects/messageBuffer';
 import type {
   IndexJob,
   CrawlDiscoverJob,
@@ -45,6 +46,7 @@ export type Bindings = {
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
   RESOURCE_HANDLER_PORT: string;
   DISCORD_GATEWAY: DurableObjectNamespace<DiscordGatewayDO>;
+  MESSAGE_BUFFER: DurableObjectNamespace<MessageBufferDO>;
   API: Fetcher;
   SEND_EMAIL?: SendEmail;
   MCP: Fetcher;

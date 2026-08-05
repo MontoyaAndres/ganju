@@ -125,6 +125,16 @@ import type {
 import { getToolStatusMessage } from './channelNotifier';
 import type { ChannelNotifier, ToolStatusEvent } from './channelNotifier';
 import {
+  resolveDebounceMs,
+  channelBufferKey,
+  joinBufferedMessages
+} from './channelDebounce';
+import type {
+  BufferedChannelMessage,
+  ChannelBufferEnvelope,
+  ChannelBufferFlush
+} from './channelDebounce';
+import {
   isResourceSourceEnabled,
   safeHostname,
   buildResourceDownloadUrl,
@@ -206,6 +216,9 @@ export const utils = {
   withRateLimitRetry,
   processQueueBatch,
   getToolStatusMessage,
+  resolveDebounceMs,
+  channelBufferKey,
+  joinBufferedMessages,
   isResourceSourceEnabled,
   safeHostname,
   buildResourceDownloadUrl,
@@ -257,6 +270,9 @@ export type {
   ProcessQueueBatchHandlers,
   ChannelNotifier,
   ToolStatusEvent,
+  BufferedChannelMessage,
+  ChannelBufferEnvelope,
+  ChannelBufferFlush,
   Source,
   ResourceUrlContext,
   SourceButton,

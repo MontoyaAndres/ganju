@@ -447,6 +447,7 @@ export const Channels = () => {
   const [llms, setLlms] = useState<OrganizationLlm[]>([]);
   const [editingLlmId, setEditingLlmId] = useState<string | null>(null);
   const [savingLlm, setSavingLlm] = useState(false);
+  const [savingDebounce, setSavingDebounce] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -623,6 +624,49 @@ export const Channels = () => {
     } finally {
       setSavingLlm(false);
       setEditingLlmId(null);
+    }
+  };
+
+  // How long the bot waits for a participant to stop typing before answering.
+  // People send a thought across several messages; buffering lets one reply
+  // cover all of them. Sent as part of `config`, so the existing keys are
+  // preserved rather than replaced.
+  const handleDebounceChange = async (channelId: string, value: string) => {
+    if (savingDebounce) return;
+    const debounceMs = Number(value);
+    setSavingDebounce(true);
+    try {
+      const nextConfig = {
+        ...(selectedChannel?.config || {}),
+        debounceMs
+      };
+      const data = await utils.fetcher({
+        url: `${apiBase}/${channelId}`,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ config: nextConfig })
+        }
+      });
+      if (data && !data.error) {
+        setSelectedChannel(prev =>
+          prev && prev.id === channelId ? { ...prev, config: nextConfig } : prev
+        );
+        setChannels(prev =>
+          prev.map(c => (c.id === channelId ? { ...c, config: nextConfig } : c))
+        );
+        snackbar.success(
+          debounceMs === utils.constants.CHANNEL_DEBOUNCE_DISABLED
+            ? 'The bot will answer every message as it arrives'
+            : 'Reply timing updated'
+        );
+      } else {
+        snackbar.error(data?.error?.message || 'Failed to update reply timing');
+      }
+    } catch {
+      snackbar.error('Failed to update reply timing');
+    } finally {
+      setSavingDebounce(false);
     }
   };
 
@@ -1542,6 +1586,37 @@ export const Channels = () => {
                           ? ''
                           : value
                       );
+                    }}
+                  />
+                </div>
+
+                <div className="panel-section">
+                  <p className="panel-section-label">Reply timing</p>
+                  <UI.Select
+                    label=""
+                    name="channelDebounceMs"
+                    value={String(
+                      utils.resolveDebounceMs(selectedChannel.config)
+                    )}
+                    disabled={savingDebounce}
+                    helperText="People often send one thought across several messages. Waiting for a pause lets the bot answer them all in a single reply."
+                    options={[
+                      {
+                        label: 'Answer every message',
+                        value: String(utils.constants.CHANNEL_DEBOUNCE_DISABLED)
+                      },
+                      { label: 'Wait 2 seconds', value: '2000' },
+                      { label: 'Wait 5 seconds (recommended)', value: '5000' },
+                      { label: 'Wait 10 seconds', value: '10000' },
+                      { label: 'Wait 30 seconds', value: '30000' }
+                    ]}
+                    onChange={e => {
+                      const value = e.target.value as string;
+                      const current = String(
+                        utils.resolveDebounceMs(selectedChannel.config)
+                      );
+                      if (current === value) return;
+                      handleDebounceChange(selectedChannel.id, value);
                     }}
                   />
                 </div>

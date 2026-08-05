@@ -11,11 +11,20 @@ import { getResourceHandler } from '@ganju/containers';
 
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
+import {
+  bufferChannelMessage,
+  drainChannelBuffer,
+  toRunUserMessages
+} from './debounce';
 import { markdownToWhatsapp } from '../../utils';
 import { startChannelLink } from './link';
 
-import type { ChannelAttachment } from './runner';
+import type { ChannelAttachment, RunUserMessage } from './runner';
 import type { ParsedSlashCommand } from './slashPrompt';
+import type {
+  BufferedChannelMessage,
+  ChannelBufferEnvelope
+} from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
 
 const WHATSAPP_BASE = `${utils.constants.WHATSAPP_API_BASE}/${utils.constants.WHATSAPP_API_VERSION}`;
@@ -167,7 +176,9 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
   // message we may already be handling. Unlike Slack there's no retry header, so
   // we dedupe on the message id (wamid): if we've already recorded it for this
   // channel, drop it. (Meta spaces retries out by minutes, by which point the
-  // runner's user-message insert exists, so this catches the common case.)
+  // runner's user-message insert exists, so this catches the common case.) A
+  // resend that arrives while the message is still buffered hasn't been written
+  // yet — the buffer dedupes that one on the same wamid when it's pushed.
   if (await isMessageAlreadyHandled(dbInstance, channelRow.id, message.id)) {
     return c.json({ ok: true });
   }
@@ -237,7 +248,7 @@ interface IncomingWhatsappMessage {
 
 const processWhatsappMessage = async (
   c: Context<AppEnv>,
-  channelRow: { id: string; artifactId: string },
+  channelRow: { id: string; artifactId: string; config: unknown },
   credentials: WhatsappCredentials,
   message: IncomingWhatsappMessage
 ): Promise<void> => {
@@ -273,25 +284,120 @@ const processWhatsappMessage = async (
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
     : null;
 
+  const envelope: ChannelBufferEnvelope = {
+    channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_WHATSAPP,
+    // Every WhatsApp conversation is a 1:1 keyed by the user's wa_id.
+    externalConversationId: message.from,
+    conversationTitle: `DM · ${message.displayName}`,
+    conversationScope: utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE,
+    externalParticipantId: message.from,
+    participantDisplayName: message.displayName,
+    participantMetadata: null,
+    // Quote the burst's newest message on the reply.
+    delivery: { to: message.from, replyToMessageId: message.messageId }
+  };
+
+  const buffered: BufferedChannelMessage = {
+    text: cleanText,
+    externalMessageId: message.messageId,
+    receivedAt: Date.now()
+  };
+
+  // A command is answered immediately and takes any pending text with it;
+  // plain text waits for the burst to settle.
+  if (!promptMatch) {
+    const held = await bufferChannelMessage(
+      c,
+      channelRow.config,
+      envelope,
+      buffered
+    );
+    if (held) return;
+  }
+
+  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
+
+  await runWhatsappTurnAndReply(
+    c,
+    channelRow,
+    credentials,
+    envelope,
+    [...toRunUserMessages(pending), buffered],
+    promptMatch
+  );
+};
+
+// Called by the MessageBufferDO (through the internal ingest route) once a
+// participant's burst has settled.
+export const handleWhatsappDebouncedBatch = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string; artifactId: string; credentials: string },
+  envelope: ChannelBufferEnvelope,
+  messages: BufferedChannelMessage[]
+): Promise<void> => {
+  const credentials = loadCredentials(c, channelRow.credentials);
+  await runWhatsappTurnAndReply(
+    c,
+    channelRow,
+    credentials,
+    envelope,
+    toRunUserMessages(messages),
+    null
+  );
+};
+
+const readWhatsappDelivery = (
+  envelope: ChannelBufferEnvelope
+): { to: string; replyToMessageId: string | null } => {
+  const delivery = envelope.delivery as {
+    to?: unknown;
+    replyToMessageId?: unknown;
+  };
+  return {
+    to:
+      typeof delivery.to === 'string'
+        ? delivery.to
+        : envelope.externalConversationId,
+    replyToMessageId:
+      typeof delivery.replyToMessageId === 'string'
+        ? delivery.replyToMessageId
+        : null
+  };
+};
+
+type WhatsappPromptMatch = Awaited<ReturnType<typeof resolveSlashPrompt>>;
+
+// Run one turn and post the reply. Shared by the inline path (commands,
+// buffering disabled) and the debounced flush.
+const runWhatsappTurnAndReply = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string },
+  credentials: WhatsappCredentials,
+  envelope: ChannelBufferEnvelope,
+  userMessages: RunUserMessage[],
+  promptMatch: WhatsappPromptMatch
+): Promise<void> => {
+  const { to, replyToMessageId } = readWhatsappDelivery(envelope);
+
   let replyText: string;
   let attachments: ChannelAttachment[] = [];
   let sourcesFooter: string | null = null;
   try {
     const result = await runChannelTurn(c, {
-      channelId: channelRow.id,
-      // Every WhatsApp conversation is a 1:1 keyed by the user's wa_id.
-      externalConversationId: message.from,
-      conversationTitle: `DM · ${message.displayName}`,
-      conversationScope: utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE,
-      externalParticipantId: message.from,
-      participantDisplayName: message.displayName,
-      externalMessageId: message.messageId,
-      userText: cleanText,
+      channelId: envelope.channelId,
+      externalConversationId: envelope.externalConversationId,
+      conversationTitle: envelope.conversationTitle,
+      conversationScope: envelope.conversationScope,
+      externalParticipantId: envelope.externalParticipantId,
+      participantDisplayName: envelope.participantDisplayName,
+      participantMetadata: envelope.participantMetadata || undefined,
+      userMessages,
       promptId: promptMatch?.promptId || null,
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
       promptArgs: promptMatch?.args || undefined,
-      notifier: createWhatsappNotifier(credentials, message.from)
+      notifier: createWhatsappNotifier(credentials, to)
     });
     replyText = result.assistantText;
     attachments = result.attachments;
@@ -303,8 +409,8 @@ const processWhatsappMessage = async (
         source: 'channel-runner',
         platform: utils.constants.CHANNEL_PLATFORM_WHATSAPP,
         channelId: channelRow.id,
-        from: message.from,
-        messageId: message.messageId
+        from: to,
+        messageId: replyToMessageId
       }
     });
     replyText = `Sorry, something went wrong while processing your message (ref: ${refId}). The team has been notified.`;
@@ -314,8 +420,8 @@ const processWhatsappMessage = async (
     c,
     channelRow.id,
     credentials,
-    message.from,
-    message.messageId,
+    to,
+    replyToMessageId,
     replyText,
     sourcesFooter
   );
@@ -323,8 +429,8 @@ const processWhatsappMessage = async (
   for (const attachment of attachments) {
     await sendWhatsappAttachment(
       credentials,
-      message.from,
-      message.messageId,
+      to,
+      replyToMessageId,
       attachment,
       c.env
     ).catch(err =>
@@ -333,7 +439,7 @@ const processWhatsappMessage = async (
         metadata: {
           source: 'sendWhatsappAttachment',
           channelId: channelRow.id,
-          from: message.from,
+          from: to,
           resourceId:
             attachment.kind === 'artifact'
               ? attachment.resource.id

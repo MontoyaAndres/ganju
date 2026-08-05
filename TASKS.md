@@ -1,4 +1,3 @@
-- Debounce in messages
 - translate to spanish website/web/backend
 - https://www.chatbase.co/
 - Make an introdution view like chatbase does

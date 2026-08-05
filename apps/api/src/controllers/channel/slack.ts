@@ -9,13 +9,22 @@ import type {
 } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
+import {
+  bufferChannelMessage,
+  drainChannelBuffer,
+  toRunUserMessages
+} from './debounce';
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { markdownToSlackMrkdwn } from '../../utils';
 import { startChannelLink } from './link';
 
-import type { ChannelAttachment } from './runner';
+import type { ChannelAttachment, RunUserMessage } from './runner';
 import type { ParsedSlashCommand } from './slashPrompt';
+import type {
+  BufferedChannelMessage,
+  ChannelBufferEnvelope
+} from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
 
 const SLACK_BASE = utils.constants.SLACK_API_BASE;
@@ -189,7 +198,7 @@ type IncomingSlackEvent = SlackEventMessage & { team_id?: string };
 
 const processSlackEvent = async (
   c: Context<AppEnv>,
-  channelRow: { id: string; artifactId: string },
+  channelRow: { id: string; artifactId: string; config: unknown },
   botToken: string,
   botMeta: SlackBotInfo | null,
   event: IncomingSlackEvent
@@ -235,6 +244,44 @@ const processSlackEvent = async (
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
     : null;
 
+  const envelope: ChannelBufferEnvelope = {
+    channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_SLACK,
+    externalConversationId: event.channel,
+    conversationTitle,
+    conversationScope: scope,
+    externalParticipantId: event.user!,
+    participantDisplayName: displayName,
+    participantMetadata: {
+      teamId: event.team_id,
+      channelType: event.channel_type
+    },
+    // Thread the reply on the burst's newest message, so a follow-up lands
+    // where the user is looking.
+    delivery: { channel: event.channel, threadTs: replyThreadTs }
+  };
+
+  const buffered: BufferedChannelMessage = {
+    text: cleanText,
+    externalMessageId: event.ts || null,
+    receivedAt: Date.now()
+  };
+
+  // A command is answered immediately; plain text waits for the burst to
+  // settle. Either way nothing typed before it is lost — a command drains the
+  // buffer and folds those messages into the same turn.
+  if (!promptMatch) {
+    const held = await bufferChannelMessage(
+      c,
+      channelRow.config,
+      envelope,
+      buffered
+    );
+    if (held) return;
+  }
+
+  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
+
   await runSlackTurnAndReply(
     c,
     channelRow,
@@ -250,14 +297,56 @@ const processSlackEvent = async (
         teamId: event.team_id,
         channelType: event.channel_type
       },
-      externalMessageId: event.ts,
-      userText: cleanText,
+      userMessages: [...toRunUserMessages(pending), buffered],
       promptId: promptMatch?.promptId || null,
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
       promptArgs: promptMatch?.args || undefined
     },
     event.channel,
+    replyThreadTs
+  );
+};
+
+// Called by the MessageBufferDO (through the internal ingest route) once a
+// participant's burst has settled.
+export const handleSlackDebouncedBatch = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string; artifactId: string; credentials: string },
+  envelope: ChannelBufferEnvelope,
+  messages: BufferedChannelMessage[]
+): Promise<void> => {
+  const encryptionKey = utils.getCredentialEncryptionKey(c);
+  const credentials = JSON.parse(
+    utils.decryptString(channelRow.credentials, encryptionKey)
+  ) as { botToken: string };
+
+  const delivery = envelope.delivery as {
+    channel?: unknown;
+    threadTs?: unknown;
+  };
+  const replyChannel =
+    typeof delivery.channel === 'string'
+      ? delivery.channel
+      : envelope.externalConversationId;
+  const replyThreadTs =
+    typeof delivery.threadTs === 'string' ? delivery.threadTs : undefined;
+
+  await runSlackTurnAndReply(
+    c,
+    channelRow,
+    credentials.botToken,
+    {
+      channelId: envelope.channelId,
+      externalConversationId: envelope.externalConversationId,
+      conversationTitle: envelope.conversationTitle,
+      conversationScope: envelope.conversationScope,
+      externalParticipantId: envelope.externalParticipantId,
+      participantDisplayName: envelope.participantDisplayName,
+      participantMetadata: envelope.participantMetadata || undefined,
+      userMessages: toRunUserMessages(messages)
+    },
+    replyChannel,
     replyThreadTs
   );
 };
@@ -323,7 +412,7 @@ const handleSlashCommand = async (
         conversationScope: scope,
         externalParticipantId,
         participantMetadata: { viaSlashCommand: true },
-        userText: trailingText || `/${name}`,
+        userMessages: [{ text: trailingText || `/${name}` }],
         promptId: promptMatch?.promptId || null,
         promptArtifactId: promptMatch?.artifactPromptId ?? null,
         promptTitle: promptMatch?.promptTitle ?? null,
@@ -355,8 +444,7 @@ interface SlackRunOptions {
   externalParticipantId: string;
   participantDisplayName?: string | null;
   participantMetadata?: Record<string, unknown>;
-  externalMessageId?: string | null;
-  userText: string;
+  userMessages: RunUserMessage[];
   promptId?: string | null;
   promptArtifactId?: string | null;
   promptTitle?: string | null;

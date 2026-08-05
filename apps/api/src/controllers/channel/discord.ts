@@ -12,11 +12,20 @@ import { getResourceHandler } from '@ganju/containers';
 
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
+import {
+  bufferChannelMessage,
+  drainChannelBuffer,
+  toRunUserMessages
+} from './debounce';
 import { markdownToDiscord } from '../../utils';
 import { startChannelLink } from './link';
 
-import type { ChannelAttachment } from './runner';
+import type { ChannelAttachment, RunUserMessage } from './runner';
 import type { ParsedSlashCommand } from './slashPrompt';
+import type {
+  BufferedChannelMessage,
+  ChannelBufferEnvelope
+} from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
 
 const DISCORD_BASE = utils.constants.DISCORD_API_BASE;
@@ -278,8 +287,7 @@ interface DiscordRunOptions {
   externalParticipantId: string;
   participantDisplayName?: string | null;
   participantMetadata?: Record<string, unknown>;
-  externalMessageId?: string | null;
-  userText: string;
+  userMessages: RunUserMessage[];
   promptId?: string | null;
   promptArtifactId?: string | null;
   promptTitle?: string | null;
@@ -415,10 +423,13 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
     : null;
 
+  // Acknowledge straight away — the typing indicator is the only signal the
+  // user gets while a burst is still being collected.
   await sendDiscordTyping(credentials.botToken, message.channelId);
 
-  const result = await runDiscordTurn(c, channelRow, credentials.botToken, {
+  const envelope: ChannelBufferEnvelope = {
     channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_DISCORD,
     externalConversationId: message.channelId,
     conversationTitle,
     conversationScope: scope,
@@ -428,8 +439,92 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
       guildId: message.guildId,
       username: message.author.username
     },
+    // Reply-reference the burst's newest message.
+    delivery: { replyToMessageId: message.id }
+  };
+
+  const buffered: BufferedChannelMessage = {
+    text: cleanText,
     externalMessageId: message.id,
-    userText: cleanText,
+    receivedAt: Date.now()
+  };
+
+  // A command is answered immediately and takes any pending text with it;
+  // plain text waits for the burst to settle.
+  if (!promptMatch) {
+    const held = await bufferChannelMessage(
+      c,
+      channelRow.config,
+      envelope,
+      buffered
+    );
+    if (held) return c.json({ ok: true });
+  }
+
+  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
+
+  await runDiscordBatchAndReply(
+    c,
+    channelRow,
+    credentials.botToken,
+    envelope,
+    [...toRunUserMessages(pending), buffered],
+    promptMatch
+  );
+
+  return c.json({ ok: true });
+};
+
+// Called by the MessageBufferDO (through the internal ingest route) once a
+// participant's burst has settled.
+export const handleDiscordDebouncedBatch = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string; artifactId: string; credentials: string },
+  envelope: ChannelBufferEnvelope,
+  messages: BufferedChannelMessage[]
+): Promise<void> => {
+  const credentials = loadCredentials(c, channelRow.credentials);
+  await sendDiscordTyping(credentials.botToken, envelope.externalConversationId);
+  await runDiscordBatchAndReply(
+    c,
+    channelRow,
+    credentials.botToken,
+    envelope,
+    toRunUserMessages(messages),
+    null
+  );
+};
+
+type DiscordPromptMatch = Awaited<ReturnType<typeof resolveSlashPrompt>>;
+
+// Run one turn for a Gateway conversation and post the reply into the Discord
+// channel. Shared by the inline path (commands, buffering disabled) and the
+// debounced flush. The interaction path replies differently (it edits its
+// deferred response), so it keeps using runDiscordTurn directly.
+const runDiscordBatchAndReply = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string },
+  botToken: string,
+  envelope: ChannelBufferEnvelope,
+  userMessages: RunUserMessage[],
+  promptMatch: DiscordPromptMatch
+): Promise<void> => {
+  const delivery = envelope.delivery as { replyToMessageId?: unknown };
+  const replyToMessageId =
+    typeof delivery.replyToMessageId === 'string'
+      ? delivery.replyToMessageId
+      : null;
+  const conversationId = envelope.externalConversationId;
+
+  const result = await runDiscordTurn(c, channelRow, botToken, {
+    channelId: envelope.channelId,
+    externalConversationId: conversationId,
+    conversationTitle: envelope.conversationTitle,
+    conversationScope: envelope.conversationScope,
+    externalParticipantId: envelope.externalParticipantId,
+    participantDisplayName: envelope.participantDisplayName,
+    participantMetadata: envelope.participantMetadata || undefined,
+    userMessages,
     promptId: promptMatch?.promptId || null,
     promptArtifactId: promptMatch?.artifactPromptId ?? null,
     promptTitle: promptMatch?.promptTitle ?? null,
@@ -437,18 +532,18 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
   });
 
   await sendDiscordMessage(
-    credentials.botToken,
-    message.channelId,
-    message.id,
+    botToken,
+    conversationId,
+    replyToMessageId,
     result.replyText,
     result.sourceButtons
   );
 
   for (const attachment of result.attachments) {
     await sendDiscordAttachment(
-      credentials.botToken,
-      message.channelId,
-      message.id,
+      botToken,
+      conversationId,
+      replyToMessageId,
       attachment,
       c.env
     ).catch(err =>
@@ -457,7 +552,7 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
         metadata: {
           source: 'sendDiscordAttachment',
           channelId: channelRow.id,
-          channel: message.channelId,
+          channel: conversationId,
           resourceId:
             attachment.kind === 'artifact'
               ? attachment.resource.id
@@ -466,8 +561,6 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
       })
     );
   }
-
-  return c.json({ ok: true });
 };
 
 // Interactions endpoint (native slash commands)
@@ -666,7 +759,7 @@ export const handleDiscordInteraction = async (c: Context<AppEnv>) => {
           viaSlashCommand: true,
           guildId: interaction.guild_id || null
         },
-        userText: trailingText || `/${name}`,
+        userMessages: [{ text: trailingText || `/${name}` }],
         promptId: promptMatch?.promptId || null,
         promptArtifactId: promptMatch?.artifactPromptId ?? null,
         promptTitle: promptMatch?.promptTitle ?? null,

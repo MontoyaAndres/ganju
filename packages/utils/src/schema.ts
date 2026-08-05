@@ -592,9 +592,27 @@ const ORGANIZATION_UPDATE_LLM_VIEW = ORGANIZATION_UPDATE_LLM.omit({
   organizationId: true
 });
 
+// `channel.config` is an open bag, so this stays loose — it only pins down the
+// keys we actually read, and passes everything else through untouched.
+// `debounceMs` is how long a burst from one participant is buffered before the
+// agent answers it as a single turn; 0 disables buffering.
+const CHANNEL_CONFIG = z.looseObject({
+  debounceMs: z
+    .number()
+    .int()
+    .refine(
+      value =>
+        value === constants.CHANNEL_DEBOUNCE_DISABLED ||
+        (value >= constants.CHANNEL_DEBOUNCE_MIN_MS &&
+          value <= constants.CHANNEL_DEBOUNCE_MAX_MS),
+      `debounceMs must be 0 (disabled) or between ${constants.CHANNEL_DEBOUNCE_MIN_MS} and ${constants.CHANNEL_DEBOUNCE_MAX_MS} ms`
+    )
+    .optional()
+});
+
 const CHANNEL_CREATE = z.object({
   platform: z.enum(constants.CHANNEL_PLATFORMS),
-  config: z.record(z.string(), z.any()).optional(),
+  config: CHANNEL_CONFIG.optional(),
   credentials: z.record(z.string(), z.string()),
   llmId: z.uuid().nullable().optional(),
   projectId: z.uuid(),
@@ -605,7 +623,7 @@ const CHANNEL_CREATE = z.object({
 const CHANNEL_UPDATE = z.object({
   channelId: z.uuid(),
   status: z.enum(constants.CHANNEL_STATUS).optional(),
-  config: z.record(z.string(), z.any()).optional(),
+  config: CHANNEL_CONFIG.optional(),
   credentials: z.record(z.string(), z.string()).optional(),
   llmId: z.uuid().nullable().optional(),
   projectId: z.uuid(),
@@ -957,6 +975,7 @@ export const Schema = {
   ORGANIZATION_UPDATE_LLM,
   ORGANIZATION_UPDATE_LLM_VIEW,
   ORGANIZATION_REMOVE_LLM,
+  CHANNEL_CONFIG,
   CHANNEL_CREATE,
   CHANNEL_CREATE_VIEW,
   CHANNEL_UPDATE,

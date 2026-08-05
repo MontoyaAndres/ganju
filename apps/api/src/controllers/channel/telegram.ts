@@ -13,11 +13,20 @@ import { getResourceHandler } from '@ganju/containers';
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { startChannelLink } from './link';
+import {
+  bufferChannelMessage,
+  drainChannelBuffer,
+  toRunUserMessages
+} from './debounce';
 import { markdownToTelegramHtml } from '../../utils';
 
 import type { ParsedSlashCommand } from './slashPrompt';
 
-import type { ChannelAttachment } from './runner';
+import type { ChannelAttachment, RunUserMessage } from './runner';
+import type {
+  BufferedChannelMessage,
+  ChannelBufferEnvelope
+} from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
 
 interface TelegramMessageEntity {
@@ -152,36 +161,136 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
     : null;
 
+  // Acknowledge straight away — the typing bubble is the only signal the user
+  // gets while a burst is still being collected.
   await sendChatAction(credentials.botToken, message.chat.id, 'typing');
 
-  const notifier = createTelegramNotifier(
+  const envelope: ChannelBufferEnvelope = {
+    channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_TELEGRAM,
+    externalConversationId: String(message.chat.id),
+    conversationTitle,
+    conversationScope: message.chat.type,
+    externalParticipantId: String(message.from.id),
+    participantDisplayName: displayName || message.from.username || null,
+    participantMetadata: {
+      username: message.from.username,
+      languageCode: message.from.language_code
+    },
+    // Reply under the newest message of the burst — the envelope is overwritten
+    // on every push, so this is always the latest one.
+    delivery: {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id
+    }
+  };
+
+  const buffered: BufferedChannelMessage = {
+    text: cleanText,
+    externalMessageId: String(message.message_id),
+    receivedAt: Date.now()
+  };
+
+  // A command is an explicit "answer me now", so it skips the buffer — but it
+  // takes any messages typed just before it along for the ride, so nothing the
+  // user said is answered separately a moment later.
+  if (!promptMatch) {
+    const held = await bufferChannelMessage(
+      c,
+      channelRow.config,
+      envelope,
+      buffered
+    );
+    if (held) return c.json({ ok: true });
+  }
+
+  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
+
+  await runTelegramTurnAndReply(
+    c,
+    channelRow,
     credentials.botToken,
-    message.chat.id,
-    message.message_id
+    envelope,
+    [...toRunUserMessages(pending), buffered],
+    promptMatch
   );
+
+  return c.json({ ok: true });
+};
+
+// Called by the MessageBufferDO (through the internal ingest route) once a
+// participant's burst has settled. Everything platform-specific was captured on
+// the envelope at push time, so this only has to reload the bot token.
+export const handleTelegramDebouncedBatch = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string; artifactId: string; credentials: string },
+  envelope: ChannelBufferEnvelope,
+  messages: BufferedChannelMessage[]
+): Promise<void> => {
+  const encryptionKey = utils.getCredentialEncryptionKey(c);
+  const credentials = JSON.parse(
+    utils.decryptString(channelRow.credentials, encryptionKey)
+  ) as { botToken: string };
+
+  const { chatId } = readTelegramDelivery(envelope);
+  await sendChatAction(credentials.botToken, chatId, 'typing');
+
+  await runTelegramTurnAndReply(
+    c,
+    channelRow,
+    credentials.botToken,
+    envelope,
+    toRunUserMessages(messages),
+    null
+  );
+};
+
+const readTelegramDelivery = (
+  envelope: ChannelBufferEnvelope
+): { chatId: number; replyToMessageId: number } => {
+  const delivery = envelope.delivery as {
+    chatId?: unknown;
+    replyToMessageId?: unknown;
+  };
+  return {
+    chatId: Number(delivery.chatId),
+    replyToMessageId: Number(delivery.replyToMessageId)
+  };
+};
+
+type TelegramPromptMatch = Awaited<ReturnType<typeof resolveSlashPrompt>>;
+
+// Run one turn for this conversation and post the reply. Shared by the inline
+// path (commands, buffering disabled) and the debounced flush, so both deliver
+// identically.
+const runTelegramTurnAndReply = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string },
+  botToken: string,
+  envelope: ChannelBufferEnvelope,
+  userMessages: RunUserMessage[],
+  promptMatch: TelegramPromptMatch
+): Promise<void> => {
+  const { chatId, replyToMessageId } = readTelegramDelivery(envelope);
 
   let replyText: string;
   let attachments: ChannelAttachment[] = [];
   let sourceButtons: SourceButton[] = [];
   try {
     const result = await runChannelTurn(c, {
-      channelId: channelRow.id,
-      externalConversationId: String(message.chat.id),
-      conversationTitle,
-      conversationScope: message.chat.type,
-      externalParticipantId: String(message.from.id),
-      participantDisplayName: displayName || message.from.username || null,
-      participantMetadata: {
-        username: message.from.username,
-        languageCode: message.from.language_code
-      },
-      externalMessageId: String(message.message_id),
-      userText: cleanText,
+      channelId: envelope.channelId,
+      externalConversationId: envelope.externalConversationId,
+      conversationTitle: envelope.conversationTitle,
+      conversationScope: envelope.conversationScope,
+      externalParticipantId: envelope.externalParticipantId,
+      participantDisplayName: envelope.participantDisplayName,
+      participantMetadata: envelope.participantMetadata || undefined,
+      userMessages,
       promptId: promptMatch?.promptId || null,
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
       promptArgs: promptMatch?.args || undefined,
-      notifier
+      notifier: createTelegramNotifier(botToken, chatId, replyToMessageId)
     });
     replyText = result.assistantText;
     attachments = result.attachments;
@@ -193,9 +302,9 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
         source: 'channel-runner',
         platform: utils.constants.CHANNEL_PLATFORM_TELEGRAM,
         channelId: channelRow.id,
-        chatId: message.chat.id,
-        chatType: message.chat.type,
-        messageId: message.message_id
+        chatId,
+        chatType: envelope.conversationScope,
+        messageId: replyToMessageId
       }
     });
     replyText = `Sorry, something went wrong while processing your message (ref: ${refId}). The team has been notified.`;
@@ -214,9 +323,9 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
   for (let i = 0; i < chunks.length; i++) {
     const isLast = i === chunks.length - 1;
     await sendTelegramMessage(
-      credentials.botToken,
-      message.chat.id,
-      message.message_id,
+      botToken,
+      chatId,
+      replyToMessageId,
       chunks[i],
       isLast ? replyMarkup : undefined
     );
@@ -224,9 +333,9 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
 
   for (const attachment of attachments) {
     await sendTelegramAttachment(
-      credentials.botToken,
-      message.chat.id,
-      message.message_id,
+      botToken,
+      chatId,
+      replyToMessageId,
       attachment,
       c.env
     ).catch(err =>
@@ -235,8 +344,8 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
         metadata: {
           source: 'sendTelegramAttachment',
           channelId: channelRow.id,
-          chatId: message.chat.id,
-          messageId: message.message_id,
+          chatId,
+          messageId: replyToMessageId,
           resourceId:
             attachment.kind === 'artifact'
               ? attachment.resource.id
@@ -245,8 +354,6 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
       })
     );
   }
-
-  return c.json({ ok: true });
 };
 
 interface TelegramReplyMarkup {
