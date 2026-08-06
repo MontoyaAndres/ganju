@@ -3,30 +3,37 @@ import Base from './Base.astro';
 import DocsSidebar from '../components/DocsSidebar.astro';
 import DocsFeedback from '../components/DocsFeedback.astro';
 import { normalizePath } from '../lib/docs-nav';
+import { DOCS, toLang } from '../lib/i18n';
 
 interface Props {
   title: string;
   description?: string;
   mdPath?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
-  /** Defaults to "Ganju Docs" — the docs landing overrides it to plain "Ganju". */
+  /** Defaults to the localized "Ganju Docs" — the landing overrides it to "Ganju". */
   brand?: string;
+  /** BCP-47 tag for this page. */
+  lang?: string;
+  /** Language variants of this page, as `hreflang` → path. */
+  alternates?: Record<string, string>;
 }
 
-const { title, description, mdPath, jsonLd, brand = 'Ganju Docs' } = Astro.props;
+const { title, description, mdPath, jsonLd, alternates } = Astro.props;
+const lang = toLang(Astro.props.lang);
+const brand = Astro.props.brand ?? DOCS[lang].brand;
 const current = normalizePath(Astro.url.pathname);
 ---
 
 {/* Docs titles read "Gmail — Ganju Docs", so the 45 doc pages don't all
     compete as bare product nouns in search results. */}
-<Base {title} {description} {mdPath} {jsonLd} {brand}>
+<Base {title} {description} {mdPath} {jsonLd} {brand} {lang} {alternates}>
   <section class="section docs-section">
     <div class="container docs-shell">
-      <DocsSidebar {current} />
+      <DocsSidebar {current} {lang} />
       <div class="docs-content">
         <slot />
       </div>
     </div>
   </section>
-  <DocsFeedback />
+  <DocsFeedback {lang} />
 </Base>

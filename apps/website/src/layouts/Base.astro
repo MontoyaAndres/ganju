@@ -61,11 +61,11 @@ const {
     />
   </head>
   <body>
-    <Header />
+    <Header {lang} />
     <main id="top">
       <slot />
     </main>
-    <Footer />
+    <Footer {lang} />
 
     <script>
       // Header shadow on scroll, mobile nav drawer, scroll-reveal.

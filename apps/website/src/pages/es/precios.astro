@@ -1,0 +1,164 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SITE, PRICING_SCHEMA_ES, breadcrumbSchema, faqSchema } from '../../lib/site';
+import PricingCalculator from '../../components/react/PricingCalculator.tsx';
+import { PRICING } from '../../lib/pricing';
+import { CALCULATOR } from '../../lib/i18n';
+
+const description =
+  'Precios de Ganju — empieza gratis, crece cuando estés listo, o instálalo tú mismo sin costo bajo Apache-2.0.';
+
+// Respuestas a lo que la gente realmente busca antes de comprar. Cada una
+// repite un dato que ya está en esta página — mantenlas sincronizadas.
+const faqs = [
+  {
+    q: '¿Hay un plan gratuito?',
+    a: 'Sí. El plan Gratis cuesta $0/mes: un espacio de trabajo, hasta 7 herramientas, 3 prompts, 1 canal, 30 MB de archivos y 100 mensajes de canal al mes sobre nuestro modelo de IA compartido.'
+  },
+  {
+    q: '¿Cuánto cuesta Ganju?',
+    a: 'Pro cuesta $20/mes más consumo. Incluye 3.000 mensajes al mes y 5 GB de contenido consultable. De ahí en adelante son $2 por cada 1.000 mensajes y $0,50 por GB — o conectas tu propio modelo de IA y sigues.'
+  },
+  {
+    q: '¿Qué es MCP?',
+    a: 'MCP (Model Context Protocol) es la forma estándar en que los asistentes de IA se conectan con herramientas e información externas. Ganju te da un servidor MCP sin nada de la configuración, para que asistentes como Claude, ChatGPT y Cursor puedan usar tus archivos y herramientas. No necesitas entender el protocolo para usarlo.'
+  },
+  {
+    q: '¿Las llamadas a herramientas por MCP se cobran aparte?',
+    a: 'No. En Pro, las llamadas a herramientas por MCP desde clientes como Claude, Cursor y ChatGPT están incluidas en el plan. El precio por consumo aplica a los mensajes de canal y al contenido consultable, no a las llamadas MCP.'
+  },
+  {
+    q: '¿Puedo usar mi propio modelo de IA?',
+    a: 'Sí. En Pro puedes traer tu propia llave de Anthropic Claude, OpenAI o Google Gemini y ejecutar los mensajes en tu modelo en lugar del nuestro.'
+  },
+  {
+    q: '¿Puedo instalar Ganju por mi cuenta gratis?',
+    a: 'Sí. Ganju es software libre bajo Apache-2.0. Despliégalo en tu propia cuenta sin costo, y tus datos se quedan por completo en ella.'
+  }
+];
+
+const alternates = { en: '/pricing', es: '/es/precios' };
+
+const jsonLd = [
+  PRICING_SCHEMA_ES,
+  faqSchema(faqs),
+  breadcrumbSchema([
+    { label: 'Inicio', href: '/es/' },
+    { label: 'Precios', href: '/es/precios' }
+  ])
+];
+---
+
+<Base
+  title="Precios"
+  {description}
+  mdPath="/es/precios.md"
+  {jsonLd}
+  lang="es"
+  {alternates}
+>
+  <section class="section">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Precios</span>
+        <h1>Empieza gratis. Crece cuando estés listo.</h1>
+        <p>Úsalo gratis, mejora tu plan a medida que creces — o instálalo tú mismo sin costo.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <article class="price-card reveal">
+          <h3 class="tier">Gratis</h3>
+          <div class="price"><span class="amount">$0</span><span class="per">/mes</span></div>
+          <p class="tier-sub">Ideal para proyectos personales y para probar.</p>
+          <ul class="price-features">
+            <li>1 espacio de trabajo, sin compañeros de equipo</li>
+            <li>Hasta 7 herramientas, 3 prompts, 1 canal</li>
+            <li>30&nbsp;MB de archivos · ~5&nbsp;MB de contenido consultable</li>
+            <li>100 mensajes de canal / mes en nuestro modelo de IA compartido</li>
+            <li>Tu propio enlace de conexión</li>
+            <li>Soporte de la comunidad</li>
+          </ul>
+          <a class="btn btn-ghost btn-block" href={SITE.appUrl} target="_blank" rel="noopener">Empezar</a>
+        </article>
+
+        <article class="price-card price-featured reveal">
+          <span class="ribbon">El más popular</span>
+          <h3 class="tier">Pro</h3>
+          <div class="price"><span class="amount">$20</span><span class="per">/mes + consumo</span></div>
+          <p class="tier-sub">Para equipos y productos en crecimiento. Pagas solo por lo que uses por encima de la base.</p>
+          <ul class="price-features">
+            <li>Proyectos, compañeros de equipo, herramientas y prompts ilimitados</li>
+            <li>Conecta tu propio modelo de IA (con tu propia llave)</li>
+            <li>Incluye 3.000 mensajes/mes — córrelos en nuestro modelo o en el tuyo — y 5&nbsp;GB de contenido consultable</li>
+            <li>Pasado eso, conecta tu propio modelo para continuar — luego $2 / 1.000 mensajes · $0,50 / GB</li>
+            <li>Llamadas a herramientas por MCP incluidas (Claude, Cursor, ChatGPT)</li>
+            <li>Complemento de dominio propio · crea tus propias herramientas</li>
+            <li>Soporte 24/7</li>
+          </ul>
+          <a class="btn btn-primary btn-block" href={SITE.appUrl} target="_blank" rel="noopener">Empezar con Pro</a>
+        </article>
+
+        <article class="price-card reveal">
+          <h3 class="tier">Empresarial</h3>
+          <div class="price"><span class="amount">A la medida</span></div>
+          <p class="tier-sub">Para organizaciones grandes con necesidades avanzadas.</p>
+          <ul class="price-features">
+            <li>Todo lo de Pro</li>
+            <li>Usa Ganju como proxy de tu propio servidor MCP</li>
+            <li>Dirección web y herramientas a la medida</li>
+            <li>SSO y condiciones contractuales</li>
+            <li>Soporte dedicado con tiempos de respuesta garantizados</li>
+          </ul>
+          <a class="btn btn-ghost btn-block" href="/es/contacto">Hablar con ventas</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Calcula tu cuenta</span>
+        <h2>¿Cuánto me costaría Pro?</h2>
+        <p>Elige un punto de partida o mueve los controles según cómo vayas a usar Ganju. Solo pagas por dos cosas: los mensajes que envían tus bots y cuánto contenido puede buscar tu IA.</p>
+      </div>
+      <PricingCalculator config={PRICING} copy={CALCULATOR.es} client:visible />
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="section" id="faq">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Preguntas frecuentes</span>
+        <h2>Preguntas sobre precios</h2>
+      </div>
+
+      <div class="faq">
+        {
+          faqs.map((item) => (
+            <details class="reveal">
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ¿Todavía dudas? ===== -->
+  <section class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">¿Todavía lo estás pensando?</span>
+        <h2>¿No sabes qué plan te sirve?</h2>
+        <p>Cuéntanos qué estás construyendo y te ayudamos a elegir — o armamos un plan a la medida para equipos grandes.</p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a class="btn btn-primary btn-lg" href="/es/contacto">Contáctanos</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Empieza gratis</a>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -6,13 +6,15 @@ import { Content } from '../md/subprocessors.md';
 const description =
   'The companies that may process data on Ganju’s behalf — infrastructure, AI model providers, payments, and the integrations you switch on — plus how we notify you before the list changes.';
 
+const alternates = { en: '/subprocessors', es: '/es/subencargados' };
+
 const jsonLd = breadcrumbSchema([
   { label: 'Home', href: '/' },
   { label: 'Subprocessors', href: '/subprocessors' }
 ]);
 ---
 
-<Base title="Subprocessors" {description} mdPath="/subprocessors.md" {jsonLd}>
+<Base title="Subprocessors" {description} mdPath="/subprocessors.md" {jsonLd} {alternates}>
   <section class="section">
     <article class="container narrow prose">
       <Content />

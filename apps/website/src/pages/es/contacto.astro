@@ -1,0 +1,59 @@
+---
+import Base from '../../layouts/Base.astro';
+import ContactForm from '../../components/ContactForm.astro';
+import { SITE } from '../../lib/site';
+
+const description =
+  'Ponte en contacto con el equipo de Ganju — preguntas, ventas, soporte o comentarios. Solemos responder en un día.';
+
+const alternates = { en: '/contact', es: '/es/contacto' };
+---
+
+<Base title="Contacto" {description} lang="es" {alternates}>
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Contacto</span>
+        <h1>Hablemos</h1>
+        <p>
+          ¿Tienes dudas sobre un plan, necesitas una mano o quieres algo a la
+          medida? Escríbenos, solemos responder en un día.
+        </p>
+      </div>
+
+      <ContactForm lang="es" />
+    </div>
+  </section>
+
+  <!-- ===== Abrir un issue en GitHub ===== -->
+  <section class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Código abierto</span>
+        <h2>¿Encontraste un error o tienes una idea?</h2>
+        <p>
+          Ganju es software libre. Reporta errores y pide funciones en GitHub —
+          leemos todos los issues.
+        </p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a
+          class="btn btn-primary btn-lg"
+          href={`${SITE.repo}/issues/new`}
+          target="_blank"
+          rel="noopener"
+        >
+          Crear un issue en GitHub
+        </a>
+        <a
+          class="btn btn-ghost btn-lg"
+          href={`${SITE.repo}/issues`}
+          target="_blank"
+          rel="noopener"
+        >
+          Ver los issues abiertos
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -2,19 +2,28 @@
 import { getCollection, render } from 'astro:content';
 import DocsLayout from '../../layouts/DocsLayout.astro';
 import { docsTrail } from '../../lib/docs-nav';
+import { DOCS } from '../../lib/i18n';
 import { SITE, breadcrumbSchema, techArticleSchema } from '../../lib/site';
 
 export async function getStaticPaths() {
   // `welcome` is served at /docs (the docs landing), so skip it here to avoid a
   // duplicate page at /docs/welcome.
   const docs = (await getCollection('docs')).filter((entry) => entry.id !== 'welcome');
-  return docs.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+  // Only advertise a Spanish alternate for pages that have actually been
+  // translated — an hreflang pointing at a 404 is worse than none.
+  const translated = new Set((await getCollection('docsEs')).map((entry) => entry.id));
+  return docs.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry, hasEs: translated.has(entry.id) }
+  }));
 }
 
-const { entry } = Astro.props;
+const { entry, hasEs } = Astro.props;
 const { Content } = await render(entry);
+const t = DOCS.en;
 
 const path = `/docs/${entry.id}`;
+const alternates = hasEs ? { en: path, es: `/es${path}` } : undefined;
 const jsonLd = [
   techArticleSchema({
     title: entry.data.title,
@@ -22,7 +31,7 @@ const jsonLd = [
     url: new URL(path, SITE.url).href,
     updated: entry.data.updated
   }),
-  breadcrumbSchema(docsTrail(path))
+  breadcrumbSchema(docsTrail(path, 'en'))
 ];
 ---
 
@@ -31,18 +40,19 @@ const jsonLd = [
   description={entry.data.description}
   mdPath={`/docs/${entry.id}.md`}
   {jsonLd}
+  {alternates}
 >
   <article class="prose docs-article">
-    <p class="eyebrow">Documentation</p>
+    <p class="eyebrow">{t.eyebrow}</p>
     <h1>{entry.data.title}</h1>
     <p class="lead">{entry.data.description}</p>
     <Content />
     {
       entry.data.updated && (
         <p class="docs-updated">
-          Last updated{' '}
+          {t.lastUpdated}{' '}
           <time datetime={entry.data.updated.toISOString()}>
-            {entry.data.updated.toLocaleDateString('en-US', {
+            {entry.data.updated.toLocaleDateString(t.dateLocale, {
               year: 'numeric',
               month: 'long',
               day: 'numeric'

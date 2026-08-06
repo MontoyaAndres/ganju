@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { CalculatorCopy } from '../../lib/i18n';
 
 // Interactive island: the pricing page is static HTML; this estimator hydrates
 // on its own (`client:only="react"`). The plan numbers come in as props from
@@ -7,7 +8,8 @@ import { useMemo, useState } from 'react';
 // Copy is intentionally plain — no "RAG", "MCP", or "assistant turn" jargon.
 // We only charge for two things: messages your bots send, and how much content
 // your AI can search. Everything else (and using Ganju from Claude/Cursor/etc.)
-// is included.
+// is included. Every string arrives as a `copy` prop so the same island serves
+// both languages — see CALCULATOR in src/lib/i18n.ts.
 
 export interface PricingConfig {
   proBase: number;
@@ -22,28 +24,30 @@ export interface PricingConfig {
   storageMax: number;
 }
 
-const usd = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
-});
-
-const num = new Intl.NumberFormat('en-US');
-
-// Quick starting points so people don't have to guess their numbers.
-const PRESETS = [
-  { label: '👋 Just trying it out', messages: 1_000, storageGb: 1 },
-  { label: '💬 Small support bot', messages: 8_000, storageGb: 3 },
-  { label: '🚀 Growing product', messages: 30_000, storageGb: 10 },
-  { label: '🏢 High volume', messages: 100_000, storageGb: 30 }
-];
+/** Fill `{name}` placeholders in a copy string. */
+const fill = (template: string, values: Record<string, string>) =>
+  template.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
 
 export default function PricingCalculator({
-  config
+  config,
+  copy
 }: {
   config: PricingConfig;
+  copy: CalculatorCopy;
 }) {
+  const usd = useMemo(
+    () =>
+      new Intl.NumberFormat(copy.locale, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }),
+    [copy.locale]
+  );
+
+  const num = useMemo(() => new Intl.NumberFormat(copy.locale), [copy.locale]);
+
   const {
     proBase,
     includedMessages,
@@ -106,7 +110,7 @@ export default function PricingCalculator({
   return (
     <div className="calc">
       <div className="calc-presets">
-        {PRESETS.map(p => {
+        {copy.presets.map(p => {
           const active = messages === p.messages && storageGb === p.storageGb;
           return (
             <button
@@ -128,12 +132,10 @@ export default function PricingCalculator({
         <div className="calc-controls">
           <div className="calc-field">
             <div className="calc-field-head">
-              <label htmlFor="calc-messages">
-                How many messages will your bots send?
-              </label>
+              <label htmlFor="calc-messages">{copy.messagesLabel}</label>
               <span className="calc-value">
                 {num.format(messages)}
-                <small>/mo</small>
+                <small>{copy.messagesUnit}</small>
               </span>
             </div>
             <input
@@ -146,20 +148,18 @@ export default function PricingCalculator({
               onChange={e => setMessages(Number(e.target.value))}
             />
             <p className="calc-hint">
-              Every reply your bot sends on Telegram, Slack, WhatsApp, or
-              Discord. The first {num.format(includedMessages)} each month are
-              included.
+              {fill(copy.messagesHint, {
+                included: num.format(includedMessages)
+              })}
             </p>
           </div>
 
           <div className="calc-field">
             <div className="calc-field-head">
-              <label htmlFor="calc-storage">
-                How much can your AI search through?
-              </label>
+              <label htmlFor="calc-storage">{copy.storageLabel}</label>
               <span className="calc-value">
                 {num.format(storageGb)}
-                <small> GB</small>
+                <small>{copy.storageUnit}</small>
               </span>
             </div>
             <input
@@ -172,9 +172,9 @@ export default function PricingCalculator({
               onChange={e => setStorageGb(Number(e.target.value))}
             />
             <p className="calc-hint">
-              Documents, web pages, and files your AI can read and answer from.
-              The first {includedStorageGb} GB are included — that's thousands
-              of pages.
+              {fill(copy.storageHint, {
+                included: num.format(includedStorageGb)
+              })}
             </p>
           </div>
 
@@ -186,64 +186,69 @@ export default function PricingCalculator({
               onChange={e => setCustomDomain(e.target.checked)}
             />
             <span>
-              Use your own web address
+              {copy.domainLabel}
               <span className="calc-hint">
-                Like your-company.mcp.ganju.ai — adds{' '}
-                {usd.format(customDomainPrice)}/mo
+                {fill(copy.domainHint, {
+                  price: usd.format(customDomainPrice)
+                })}
               </span>
             </span>
           </label>
         </div>
 
         <div className="calc-result">
-          <p className="calc-result-label">You'd pay about</p>
+          <p className="calc-result-label">{copy.resultLabel}</p>
           <div className="calc-result-total">
             <span className="calc-result-amount">
               {usd.format(result.total)}
             </span>
-            <span className="calc-result-per">per month</span>
+            <span className="calc-result-per">{copy.resultPer}</span>
           </div>
 
           <ul className="calc-breakdown">
             <li>
-              <span>Pro plan</span>
+              <span>{copy.proPlan}</span>
               <span>{usd.format(proBase)}</span>
             </li>
             {result.extraMessages > 0 && (
               <li>
-                <span>{num.format(result.extraMessages)} extra messages</span>
+                <span>
+                  {fill(copy.extraMessages, {
+                    n: num.format(result.extraMessages)
+                  })}
+                </span>
                 <span>{usd.format(result.messageCost)}</span>
               </li>
             )}
             {result.extraStorage > 0 && (
               <li>
-                <span>{num.format(result.extraStorage)} GB extra content</span>
+                <span>
+                  {fill(copy.extraStorage, {
+                    n: num.format(result.extraStorage)
+                  })}
+                </span>
                 <span>{usd.format(result.storageCost)}</span>
               </li>
             )}
             {customDomain && (
               <li>
-                <span>Your own web address</span>
+                <span>{copy.domainLine}</span>
                 <span>{usd.format(result.domainCost)}</span>
               </li>
             )}
           </ul>
 
           <p className="calc-included">
-            Your plan already includes {num.format(includedMessages)} messages
-            and {includedStorageGb} GB every month.
+            {fill(copy.included, {
+              messages: num.format(includedMessages),
+              storage: num.format(includedStorageGb)
+            })}
           </p>
 
-          <p className="calc-note">
-            Using Ganju from Claude, Cursor, or ChatGPT is always free — it
-            never uses up your messages.
-          </p>
+          <p className="calc-note">{copy.note}</p>
 
           {withinFree && (
-            <p className="calc-free">
-              🎉 Good news — this fits the Free plan. You might not need Pro
-              yet.
-            </p>
+            <p className="calc-free">{copy.free}</p>
           )}
         </div>
       </div>

@@ -1228,6 +1228,26 @@ svg {
   font-size: 0.88rem;
 }
 
+.footer-lang {
+  display: flex;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 0.88rem;
+}
+
+.footer-lang a {
+  color: var(--muted-2);
+  transition: color 0.2s var(--ease);
+}
+
+.footer-lang a:hover {
+  color: var(--text);
+}
+
+.footer-lang [aria-current] {
+  color: var(--text);
+}
+
 /* Supplier identity line — Ley 1480 art. 50. Reads as one sentence on desktop,
    wraps to as many lines as it needs on a phone. */
 .footer-legal {
@@ -1422,7 +1442,8 @@ svg {
     padding-top: 20px;
   }
 
-  .footer-legal {
+  .footer-legal,
+  .footer-lang {
     justify-content: center;
   }
 }

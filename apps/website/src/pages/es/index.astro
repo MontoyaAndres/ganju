@@ -1,0 +1,332 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SITE, SITE_ES, SOFTWARE_APPLICATION_SCHEMA_ES, faqSchema } from '../../lib/site';
+import { HOME_ALTERNATES } from '../../lib/i18n';
+
+const faqs = [
+  {
+    q: '¿Necesito conocimientos técnicos para usar Ganju?',
+    a: 'No. Si sabes llenar un formulario y hacer clic en algunos botones, puedes configurar Ganju — conectar tus archivos, herramientas e IA toma solo unos minutos, sin programar. (Y si eres desarrollador, también tienes opciones potentes, como conectar tus propias aplicaciones).'
+  },
+  {
+    q: '¿Qué es MCP?',
+    a: 'MCP (Model Context Protocol) es la forma estándar en que los asistentes de IA se conectan con herramientas e información externas. No necesitas entender los detalles: Ganju se encarga de todo para que tu IA pueda usar tus archivos y aplicaciones de forma segura.'
+  },
+  {
+    q: '¿Qué asistentes de IA puedo usar?',
+    a: 'Google Gemini, Anthropic Claude u OpenAI (ChatGPT) — solo agregas tu propia cuenta. Otros proveedores compatibles también funcionan.'
+  },
+  {
+    q: '¿Mis datos están seguros?',
+    a: 'Sí. Tus contraseñas y llaves se guardan cifradas, nunca se muestran en texto plano y nunca se comparten. Todo corre sobre la red global segura de Cloudflare — y si instalas Ganju por tu cuenta, tus datos se quedan por completo en tu propia infraestructura.'
+  },
+  {
+    q: '¿Puedo instalar Ganju yo mismo?',
+    a: 'Sí. Ganju es software libre: puedes usarlo y modificarlo sin costo. Instálalo en tu propia cuenta, o deja que nosotros lo operemos por ti con un plan de pago.'
+  }
+];
+
+const jsonLd = [SOFTWARE_APPLICATION_SCHEMA_ES, faqSchema(faqs)];
+---
+
+<Base
+  title={SITE.name}
+  description={SITE_ES.description}
+  imageAlt={SITE_ES.tagline}
+  mdPath="/es/index.md"
+  {jsonLd}
+  lang="es"
+  alternates={HOME_ALTERNATES}
+>
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="container hero-grid">
+      <div class="hero-copy reveal">
+        <a class="badge" href="/es/docs/deploy"><span class="dot"></span> Código abierto · Apache-2.0</a>
+        <h1>Conecta tu IA con tus archivos, herramientas y apps.</h1>
+        <p class="lead">
+          Ganju permite que asistentes de IA como Claude y ChatGPT — y tus bots en Telegram, Slack,
+          WhatsApp y Discord — usen de forma segura tus propios documentos, herramientas y
+          aplicaciones. Tu IA responde con tu información y hace trabajo real. Se configura en
+          minutos, sin programar.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">
+            Empieza gratis
+          </a>
+          <a class="btn btn-ghost btn-lg" href="#how">Mira cómo funciona</a>
+        </div>
+      </div>
+
+      <div class="hero-art reveal">
+        <div class="art-frame art-hero">
+          <picture>
+            <source srcset="/images/hero.webp" type="image/webp" />
+            <img
+              src="/images/hero.png"
+              alt="Herramientas y clientes de IA conectándose a tu servidor MCP de Ganju"
+              width="1024"
+              height="1024"
+              fetchpriority="high"
+              onerror="this.style.display = 'none'"
+            />
+          </picture>
+        </div>
+      </div>
+    </div>
+
+    <div class="container trustbar reveal">
+      <span class="trust-label">Funciona con</span>
+      <ul class="trust-logos">
+        <li><a href="/es/docs/mcp"><img class="brand-ico" src="/icons/claude.svg" alt="Logo de Claude" loading="lazy" /> Claude</a></li>
+        <li><a href="/es/docs/mcp"><img class="brand-ico" src="/icons/chatgpt.svg" alt="Logo de ChatGPT" loading="lazy" /> ChatGPT</a></li>
+        <li><a href="/es/docs/mcp"><img class="brand-ico" src="/icons/cursor.svg" alt="Logo de Cursor" loading="lazy" /> Cursor</a></li>
+        <li><a href="/es/docs/channels/telegram"><img class="brand-ico" src="/icons/telegram.svg" alt="Logo de Telegram" loading="lazy" /> Telegram</a></li>
+        <li><a href="/es/docs/channels/slack"><img class="brand-ico" src="/icons/slack.svg" alt="Logo de Slack" loading="lazy" /> Slack</a></li>
+        <li><a href="/es/docs/channels/whatsapp"><img class="brand-ico" src="/icons/whatsapp.svg" alt="Logo de WhatsApp" loading="lazy" /> WhatsApp</a></li>
+        <li><a href="/es/docs/channels/discord"><img class="brand-ico" src="/icons/discord.svg" alt="Logo de Discord" loading="lazy" /> Discord</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== Funciones ===== -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Todo en un solo lugar</span>
+        <h2>Todo lo que tu IA necesita, en un solo lugar.</h2>
+        <p>
+          Agrega tus documentos, conecta tus herramientas, escribe instrucciones y engancha tus
+          apps de chat — todo desde un panel sencillo.
+        </p>
+      </div>
+
+      <div class="feature-grid">
+        <a class="card reveal" href="/es/docs/getting-started">
+          <div class="art-spot">
+            <picture>
+              <source srcset="/images/feature-host.webp" type="image/webp" />
+              <img src="/images/feature-host.png" alt="Ilustración de hosting administrado" width="64" height="64" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <h3>Sin instalación, sin servidores</h3>
+          <p>No hay nada que instalar ni mantener. Creas una conexión y queda activa al instante — nosotros alojamos y operamos todo por ti.</p>
+        </a>
+
+        <a class="card reveal" href="/es/docs/resources">
+          <div class="art-spot">
+            <picture>
+              <source srcset="/images/feature-rag.webp" type="image/webp" />
+              <img src="/images/feature-rag.png" alt="Ilustración de búsqueda en tus archivos" width="64" height="64" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <h3>Respuestas con tu contenido</h3>
+          <p>Sube archivos, agrega un sitio web o conecta Google Drive u OneDrive. Tu IA busca en todo y responde con tu propia información.</p>
+        </a>
+
+        <a class="card reveal" href="/es/docs/tools">
+          <div class="art-spot">
+            <picture>
+              <source srcset="/images/feature-tools.webp" type="image/webp" />
+              <img src="/images/feature-tools.png" alt="Ilustración de herramientas conectables" width="64" height="64" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <h3>Herramientas que tu IA puede usar</h3>
+          <p>Deja que tu IA maneje el correo, revise tu calendario, busque en la web, publique en Slack — o conecta tus propias apps y servicios, sin escribir código.</p>
+        </a>
+
+        <a class="card reveal" href="/es/docs/channels">
+          <div class="art-spot">
+            <picture>
+              <source srcset="/images/feature-channels.webp" type="image/webp" />
+              <img src="/images/feature-channels.png" alt="Ilustración de canales de mensajería" width="64" height="64" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <h3>Llévalo a tus apps de chat</h3>
+          <p>Convierte la misma configuración en un bot útil en Telegram, Slack, WhatsApp o Discord — para tu equipo o para tus clientes.</p>
+        </a>
+
+        <a class="card reveal" href="/es/docs/organizations-and-projects">
+          <div class="art-spot">
+            <picture>
+              <source srcset="/images/feature-team.webp" type="image/webp" />
+              <img src="/images/feature-team.png" alt="Ilustración de equipo y proyectos compartidos" width="64" height="64" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <h3>Pensado para equipos</h3>
+          <p>Invita a tu equipo, organiza el trabajo en proyectos y controla quién puede hacer qué — todo incluido desde el primer día.</p>
+        </a>
+
+        <a class="card reveal" href="/es/docs/analytics">
+          <div class="art-spot">
+            <picture>
+              <source srcset="/images/feature-audit.webp" type="image/webp" />
+              <img src="/images/feature-audit.png" alt="Ilustración de registros de actividad" width="64" height="64" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <h3>Mira todo lo que hace</h3>
+          <p>Cada pregunta, acción y mensaje queda registrado — así siempre sabes qué hizo tu IA, cuándo y para quién.</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Cómo funciona ===== -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">De cero a conectado</span>
+        <h2>Funcionando en cuatro pasos</h2>
+        <p>Sin configuración técnica — solo unos clics.</p>
+      </div>
+
+      <div class="steps">
+        <a class="step reveal" href="/es/docs/getting-started">
+          <div class="art-frame art-step">
+            <picture>
+              <source srcset="/images/step-1.webp" type="image/webp" />
+              <img src="/images/step-1.png" alt="Crear un nuevo espacio de trabajo en Ganju" width="1024" height="768" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <div class="step-body">
+            <span class="step-num">01</span>
+            <h3>Crea tu espacio de trabajo</h3>
+            <p>Regístrate y empieza un proyecto — tu espacio privado para configurarlo todo.</p>
+          </div>
+        </a>
+
+        <a class="step reveal step-reverse" href="/es/docs/tools">
+          <div class="art-frame art-step">
+            <picture>
+              <source srcset="/images/step-2.webp" type="image/webp" />
+              <img src="/images/step-2.png" alt="Agregar documentos y herramientas" width="1024" height="768" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <div class="step-body">
+            <span class="step-num">02</span>
+            <h3>Agrega tu contenido y tus herramientas</h3>
+            <p>Sube documentos, conecta un drive o un sitio web, y activa las herramientas que quieres que use tu IA.</p>
+          </div>
+        </a>
+
+        <a class="step reveal" href="/es/docs/mcp">
+          <div class="art-frame art-step">
+            <picture>
+              <source srcset="/images/step-3.webp" type="image/webp" />
+              <img src="/images/step-3.png" alt="Conectar un asistente de IA de forma segura" width="1024" height="768" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <div class="step-body">
+            <span class="step-num">03</span>
+            <h3>Conecta tu IA</h3>
+            <p>Enlázala con Claude, OpenAI o Cursor en un par de clics. Todo se mantiene privado y seguro.</p>
+          </div>
+        </a>
+
+        <a class="step reveal step-reverse" href="/es/docs/channels">
+          <div class="art-frame art-step">
+            <picture>
+              <source srcset="/images/step-4.webp" type="image/webp" />
+              <img src="/images/step-4.png" alt="Compartir tu asistente en apps de chat" width="1024" height="768" loading="lazy" onerror="this.style.display = 'none'" />
+            </picture>
+          </div>
+          <div class="step-body">
+            <span class="step-num">04</span>
+            <h3>Compártelo con tu equipo</h3>
+            <p>Agrégalo como bot en Telegram, Slack, WhatsApp o Discord para que cualquiera pueda usarlo.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Integraciones ===== -->
+  <section class="section" id="integrations">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Herramientas e integraciones</span>
+        <h2>Conecta las herramientas que ya usas.</h2>
+        <p>Las apps más populares funcionan de inmediato. ¿Necesitas algo a la medida? Conecta tu propia aplicación u otro servicio — sin escribir código.</p>
+      </div>
+
+      <div class="integration-grid reveal">
+        <a class="chip" href="/es/docs/tools/gmail"><img class="brand-ico" src="/icons/gmail.svg" alt="Logo de Gmail" loading="lazy" /> Gmail</a>
+        <a class="chip" href="/es/docs/tools/outlook"><img class="brand-ico" src="/icons/outlook.svg" alt="Logo de Outlook" loading="lazy" /> Outlook</a>
+        <a class="chip" href="/es/docs/tools/slack"><img class="brand-ico" src="/icons/slack.svg" alt="Logo de Slack" loading="lazy" /> Slack</a>
+        <a class="chip" href="/es/docs/tools/google-calendar"><img class="brand-ico" src="/icons/google-calendar.svg" alt="Logo de Google Calendar" loading="lazy" /> Google Calendar</a>
+        <a class="chip" href="/es/docs/tools/calcom"><img class="brand-ico" src="/icons/calcom.svg" alt="Logo de Cal.com" loading="lazy" /> Cal.com</a>
+        <a class="chip" href="/es/docs/tools/web-search">
+          <svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24"><g fill="none" stroke="#0EA5A5" stroke-width="2.1" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="5.3"></circle><path d="M14.6 14.6L20 20"></path></g></svg>
+          Búsqueda web
+        </a>
+        <a class="chip" href="/es/docs/resources"><img class="brand-ico" src="/icons/google-drive.svg" alt="Logo de Google Drive" loading="lazy" /> Google Drive</a>
+        <a class="chip" href="/es/docs/resources"><img class="brand-ico" src="/icons/onedrive.svg" alt="Logo de OneDrive" loading="lazy" /> OneDrive</a>
+        <a class="chip chip-accent" href="/es/docs/tools/http-endpoints">
+          <svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24"><g fill="none" stroke="#1c1825" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"></path></g></svg>
+          http-endpoint
+        </a>
+        <a class="chip chip-accent" href="/es/docs/tools">
+          <svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24"><g fill="none" stroke="#1c1825" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2"></circle><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"></rect><circle cx="19" cy="12" r="2"></circle><path d="M7 12h2.5M14.5 12H17"></path></g></svg>
+          mcp-proxy
+        </a>
+        <a class="chip" href="/es/docs/tools/notion"><img class="brand-ico" src="/icons/notion.svg" alt="Logo de Notion" loading="lazy" /> Notion</a>
+        <a class="chip" href="/es/docs/tools/github"><img class="brand-ico" src="/icons/github.svg" alt="Logo de GitHub" loading="lazy" /> GitHub</a>
+      </div>
+
+      <div class="integration-note reveal">
+        <strong>http-endpoint</strong> conecta tu propia aplicación o sitio web.
+        <strong>mcp-proxy</strong> enchufa otros servicios ya listos como Notion y GitHub. Ninguno requiere escribir código.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Precios ===== -->
+  <section class="section section-alt" id="pricing">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Precios</span>
+        <h2>Empieza gratis. Crece cuando estés listo.</h2>
+        <p>Úsalo gratis, mejora tu plan a medida que creces — o instálalo tú mismo sin costo.</p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a class="btn btn-primary btn-lg" href="/es/precios">Ver todos los precios</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Empieza gratis</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="section" id="faq">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Preguntas frecuentes</span>
+        <h2>Buenas preguntas</h2>
+      </div>
+
+      <div class="faq">
+        {
+          faqs.map((item) => (
+            <details class="reveal">
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="cta" id="cta">
+    <div class="cta-glow" aria-hidden="true"></div>
+    <div class="container cta-inner reveal">
+      <h2>Dale a tu IA todo lo que necesita para ayudarte.</h2>
+      <p>Se configura en minutos — gratis para empezar.</p>
+      <div class="hero-cta center">
+        <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Empieza gratis</a>
+        <a class="btn btn-ghost btn-lg" href="/es/docs">Lee la documentación</a>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -37,13 +37,16 @@ export const LEGAL = {
   jurisdiction: 'Bogotá, D.C., Colombia'
 } as const;
 
-export const NAV = [
-  { label: 'Features', href: '/#features' },
-  { label: 'Docs', href: '/docs' },
-  { label: 'Blog', href: '/blog' },
-  { label: 'Pricing', href: '/pricing' },
-  { label: 'Contact', href: '/contact' }
-] as const;
+/**
+ * Spanish half of the identity above, for `/es`. Navigation and footer strings
+ * live in `lib/i18n.ts`; this is only what SEO and structured data need.
+ */
+export const SITE_ES = {
+  tagline: 'Conecta tu IA con tus archivos, herramientas y apps.',
+  homeTitle: 'Ganju — Conecta tu IA con tus archivos, herramientas y apps',
+  description:
+    'Ganju conecta asistentes de IA como Claude, ChatGPT y Gemini — y tus bots de Telegram, Slack, WhatsApp y Discord — con tus propios archivos, herramientas y aplicaciones. Se configura en minutos, sin programar. Código abierto.'
+} as const;
 
 const ORG_ID = `${SITE.url}/#organization`;
 
@@ -87,6 +90,20 @@ export const SOFTWARE_APPLICATION_SCHEMA = {
   }
 } as const;
 
+/** Same application, described in Spanish for `/es`. */
+export const SOFTWARE_APPLICATION_SCHEMA_ES = {
+  ...SOFTWARE_APPLICATION_SCHEMA,
+  url: `${SITE.url}/es`,
+  description: SITE_ES.description,
+  inLanguage: 'es',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    description: 'Plan gratuito disponible; código abierto bajo Apache-2.0.'
+  }
+} as const;
+
 /**
  * SoftwareApplication carrying the real plan prices, for the pricing page.
  * `offers` is what makes Google eligible to show a price alongside the result.
@@ -122,6 +139,34 @@ export const PRICING_SCHEMA = {
   ]
 } as const;
 
+/** The same plan prices, described in Spanish for `/es/precios`. */
+export const PRICING_SCHEMA_ES = {
+  ...PRICING_SCHEMA,
+  url: `${SITE.url}/es/precios`,
+  description: SITE_ES.description,
+  inLanguage: 'es',
+  offers: [
+    {
+      '@type': 'Offer',
+      name: 'Gratis',
+      price: '0',
+      priceCurrency: 'USD',
+      url: `${SITE.url}/es/precios`,
+      description:
+        'Un espacio de trabajo, hasta 7 herramientas, 3 prompts, 1 canal y 100 mensajes de canal al mes.'
+    },
+    {
+      '@type': 'Offer',
+      name: 'Pro',
+      price: '20',
+      priceCurrency: 'USD',
+      url: `${SITE.url}/es/precios`,
+      description:
+        'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes y 5 GB de contenido consultable; de ahí en adelante, precio por consumo.'
+    }
+  ]
+} as const;
+
 /** Build a BreadcrumbList so search results show the page's place in the site. */
 export function breadcrumbSchema(trail: { label: string; href: string }[]) {
   return {
@@ -142,6 +187,7 @@ export function techArticleSchema(doc: {
   description: string;
   url: string;
   updated?: Date;
+  lang?: string;
 }) {
   return {
     '@context': 'https://schema.org',
@@ -154,7 +200,7 @@ export function techArticleSchema(doc: {
     author: { '@id': ORG_ID },
     publisher: { '@id': ORG_ID },
     isPartOf: { '@type': 'WebSite', '@id': `${SITE.url}/#website` },
-    inLanguage: 'en'
+    inLanguage: doc.lang ?? 'en'
   };
 }
 

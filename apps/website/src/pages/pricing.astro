@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import { SITE, PRICING_SCHEMA, breadcrumbSchema, faqSchema } from '../lib/site';
 import PricingCalculator from '../components/react/PricingCalculator.tsx';
 import { PRICING } from '../lib/pricing';
+import { CALCULATOR } from '../lib/i18n';
 
 const description = 'Ganju pricing — start free, scale when you are ready, or self-host for free under Apache-2.0.';
 
@@ -35,6 +36,8 @@ const faqs = [
   }
 ];
 
+const alternates = { en: '/pricing', es: '/es/precios' };
+
 const jsonLd = [
   PRICING_SCHEMA,
   faqSchema(faqs),
@@ -45,7 +48,7 @@ const jsonLd = [
 ];
 ---
 
-<Base title="Pricing" description={description} mdPath="/pricing.md" {jsonLd}>
+<Base title="Pricing" description={description} mdPath="/pricing.md" {jsonLd} {alternates}>
   <section class="section">
     <div class="container">
       <div class="section-head reveal">
@@ -111,7 +114,7 @@ const jsonLd = [
         <h2>What would Pro cost me?</h2>
         <p>Pick a starting point or move the sliders to match how you'll use Ganju. You only pay for two things: the messages your bots send and how much your AI can search.</p>
       </div>
-      <PricingCalculator config={PRICING} client:visible />
+      <PricingCalculator config={PRICING} copy={CALCULATOR.en} client:visible />
     </div>
   </section>
 

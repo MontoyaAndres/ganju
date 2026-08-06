@@ -1,71 +1,153 @@
 /**
  * Sidebar navigation for the docs — the single source of truth for the docs
- * menu. A node with `items` renders as a collapsible group; if that group also
- * has an `href`, its title is a link to that page (with a separate chevron to
- * expand). A leaf with `href` is a live link; a leaf without `href` is a "Soon"
- * placeholder (page not yet written) so the menu can show the full module map
- * without dead links.
+ * menu, in every language.
+ *
+ * The tree is declared once, keyed by slug, with a label per language. Both
+ * language trees therefore have exactly the same shape and the same slugs:
+ * `/docs/tools/gmail` and `/es/docs/tools/gmail` are the same page in two
+ * languages. Slugs stay English on purpose — translating them would mean
+ * maintaining a slug map and rewriting every cross-link inside 34 documents,
+ * for a URL nobody reads.
+ *
+ * A node with `items` renders as a collapsible group; if that group also has a
+ * slug, its title links to that page (with a separate chevron to expand). A
+ * leaf with a slug is a live link; a leaf without one is a "Soon" placeholder
+ * (page not yet written) so the menu can show the full module map without dead
+ * links.
  */
+import type { Lang } from './i18n';
+
+/** Where each language's docs tree is rooted. */
+export const DOCS_ROOT: Record<Lang, string> = { en: '/docs', es: '/es/docs' };
+
+/** A label in every language we publish. */
+type Label = Record<Lang, string>;
+
+interface DocNavSpec {
+  /** Path below the docs root, e.g. `tools/gmail`. Omitted for the root page. */
+  slug?: string;
+  label: Label;
+  items?: DocNavSpec[];
+  /** Set for a menu entry with no page behind it yet. */
+  soon?: boolean;
+}
+
+/** A node with its href already resolved for one language. */
 export interface DocNavNode {
   label: string;
   href?: string;
   items?: DocNavNode[];
 }
 
-export const DOCS_NAV: DocNavNode[] = [
-  { label: 'Welcome', href: '/docs' },
+const SPEC: DocNavSpec[] = [
+  { label: { en: 'Welcome', es: 'Bienvenido' } },
   {
-    label: 'Get started',
-    href: '/docs/getting-started',
+    slug: 'getting-started',
+    label: { en: 'Get started', es: 'Primeros pasos' },
     items: [
-      { label: 'Sign in', href: '/docs/getting-started/sign-in' },
       {
-        label: 'Create an organization & project',
-        href: '/docs/getting-started/organization-and-project'
+        slug: 'getting-started/sign-in',
+        label: { en: 'Sign in', es: 'Iniciar sesión' }
       },
-      { label: 'Prompts', href: '/docs/getting-started/prompts' },
-      { label: 'Resources', href: '/docs/getting-started/resources' },
-      { label: 'Tools', href: '/docs/getting-started/tools' },
-      { label: 'Channels', href: '/docs/getting-started/channels' },
-      { label: 'Settings', href: '/docs/getting-started/settings' }
+      {
+        slug: 'getting-started/organization-and-project',
+        label: {
+          en: 'Create an organization & project',
+          es: 'Crear una organización y un proyecto'
+        }
+      },
+      {
+        slug: 'getting-started/prompts',
+        label: { en: 'Prompts', es: 'Prompts' }
+      },
+      {
+        slug: 'getting-started/resources',
+        label: { en: 'Resources', es: 'Recursos' }
+      },
+      {
+        slug: 'getting-started/tools',
+        label: { en: 'Tools', es: 'Herramientas' }
+      },
+      {
+        slug: 'getting-started/channels',
+        label: { en: 'Channels', es: 'Canales' }
+      },
+      {
+        slug: 'getting-started/settings',
+        label: { en: 'Settings', es: 'Configuración' }
+      }
     ]
   },
-  { label: 'Organizations & projects', href: '/docs/organizations-and-projects' },
-  { label: 'Prompts', href: '/docs/prompts' },
-  { label: 'Resources', href: '/docs/resources' },
   {
-    label: 'Tools',
-    href: '/docs/tools',
+    slug: 'organizations-and-projects',
+    label: { en: 'Organizations & projects', es: 'Organizaciones y proyectos' }
+  },
+  { slug: 'prompts', label: { en: 'Prompts', es: 'Prompts' } },
+  { slug: 'resources', label: { en: 'Resources', es: 'Recursos' } },
+  {
+    slug: 'tools',
+    label: { en: 'Tools', es: 'Herramientas' },
     items: [
-      { label: 'Built-in', href: '/docs/tools/built-in' },
-      { label: 'Gmail', href: '/docs/tools/gmail' },
-      { label: 'Outlook', href: '/docs/tools/outlook' },
-      { label: 'Slack', href: '/docs/tools/slack' },
-      { label: 'Slack Search', href: '/docs/tools/slack-search' },
-      { label: 'Google Calendar', href: '/docs/tools/google-calendar' },
-      { label: 'Cal.com', href: '/docs/tools/calcom' },
-      { label: 'Web Search', href: '/docs/tools/web-search' },
-      { label: 'GitHub', href: '/docs/tools/github' },
-      { label: 'Notion', href: '/docs/tools/notion' },
-      { label: 'HTTP Endpoints', href: '/docs/tools/http-endpoints' },
-      { label: 'Greeting', href: '/docs/tools/greeting' }
+      { slug: 'tools/built-in', label: { en: 'Built-in', es: 'Integradas' } },
+      { slug: 'tools/gmail', label: { en: 'Gmail', es: 'Gmail' } },
+      { slug: 'tools/outlook', label: { en: 'Outlook', es: 'Outlook' } },
+      { slug: 'tools/slack', label: { en: 'Slack', es: 'Slack' } },
+      {
+        slug: 'tools/slack-search',
+        label: { en: 'Slack Search', es: 'Búsqueda en Slack' }
+      },
+      {
+        slug: 'tools/google-calendar',
+        label: { en: 'Google Calendar', es: 'Google Calendar' }
+      },
+      { slug: 'tools/calcom', label: { en: 'Cal.com', es: 'Cal.com' } },
+      {
+        slug: 'tools/web-search',
+        label: { en: 'Web Search', es: 'Búsqueda web' }
+      },
+      { slug: 'tools/github', label: { en: 'GitHub', es: 'GitHub' } },
+      { slug: 'tools/notion', label: { en: 'Notion', es: 'Notion' } },
+      {
+        slug: 'tools/http-endpoints',
+        label: { en: 'HTTP Endpoints', es: 'Endpoints HTTP' }
+      },
+      { slug: 'tools/greeting', label: { en: 'Greeting', es: 'Saludo' } }
     ]
   },
   {
-    label: 'Channels',
-    href: '/docs/channels',
+    slug: 'channels',
+    label: { en: 'Channels', es: 'Canales' },
     items: [
-      { label: 'Telegram', href: '/docs/channels/telegram' },
-      { label: 'WhatsApp', href: '/docs/channels/whatsapp' },
-      { label: 'Slack', href: '/docs/channels/slack' },
-      { label: 'Discord', href: '/docs/channels/discord' }
+      { slug: 'channels/telegram', label: { en: 'Telegram', es: 'Telegram' } },
+      { slug: 'channels/whatsapp', label: { en: 'WhatsApp', es: 'WhatsApp' } },
+      { slug: 'channels/slack', label: { en: 'Slack', es: 'Slack' } },
+      { slug: 'channels/discord', label: { en: 'Discord', es: 'Discord' } }
     ]
   },
-  { label: 'Analytics', href: '/docs/analytics' },
-  { label: 'Settings', href: '/docs/settings' },
-  { label: 'MCP clients', href: '/docs/mcp' },
-  { label: 'Deploy it yourself', href: '/docs/deploy' }
+  { slug: 'analytics', label: { en: 'Analytics', es: 'Analítica' } },
+  { slug: 'settings', label: { en: 'Settings', es: 'Configuración' } },
+  { slug: 'mcp', label: { en: 'MCP clients', es: 'Clientes MCP' } },
+  {
+    slug: 'deploy',
+    label: { en: 'Deploy it yourself', es: 'Instálalo tú mismo' }
+  }
 ];
+
+/** Absolute path of a docs page in one language. `slug` omitted → the root. */
+export function docsHref(slug: string | undefined, lang: Lang): string {
+  return slug ? `${DOCS_ROOT[lang]}/${slug}` : DOCS_ROOT[lang];
+}
+
+const resolve = (spec: DocNavSpec, lang: Lang): DocNavNode => ({
+  label: spec.label[lang],
+  ...(spec.soon ? {} : { href: docsHref(spec.slug, lang) }),
+  ...(spec.items ? { items: spec.items.map((item) => resolve(item, lang)) } : {})
+});
+
+/** The sidebar tree for one language, hrefs resolved. */
+export function docsNav(lang: Lang): DocNavNode[] {
+  return SPEC.map((spec) => resolve(spec, lang));
+}
 
 /** Strip a trailing slash (except on the root path) so paths compare equal. */
 export function normalizePath(path: string): string {
@@ -83,12 +165,22 @@ export function containsActive(node: DocNavNode, current: string): boolean {
   return node.items?.some((child) => containsActive(child, current)) ?? false;
 }
 
+const TRAIL_ROOT: Record<Lang, { home: string; docs: string }> = {
+  en: { home: 'Home', docs: 'Docs' },
+  es: { home: 'Inicio', docs: 'Docs' }
+};
+
+const HOME: Record<Lang, string> = { en: '/', es: '/es/' };
+
 /**
  * Ancestor trail for a docs page, e.g. `/docs/tools/gmail` →
- * Home › Docs › Tools › Gmail. Walks DOCS_NAV so the breadcrumb labels always
+ * Home › Docs › Tools › Gmail. Walks the nav so the breadcrumb labels always
  * match the sidebar. Falls back to Home › Docs for a page not in the menu.
  */
-export function docsTrail(current: string): { label: string; href: string }[] {
+export function docsTrail(
+  current: string,
+  lang: Lang = 'en'
+): { label: string; href: string }[] {
   const walk = (nodes: DocNavNode[]): DocNavNode[] | null => {
     for (const node of nodes) {
       if (isActive(node.href, current)) return [node];
@@ -98,12 +190,16 @@ export function docsTrail(current: string): { label: string; href: string }[] {
     return null;
   };
 
-  const found = walk(DOCS_NAV) ?? [];
-  const trail = [{ label: 'Home', href: '/' }, { label: 'Docs', href: '/docs' }];
+  const root = DOCS_ROOT[lang];
+  const found = walk(docsNav(lang)) ?? [];
+  const trail = [
+    { label: TRAIL_ROOT[lang].home, href: HOME[lang] },
+    { label: TRAIL_ROOT[lang].docs, href: root }
+  ];
 
   for (const node of found) {
-    // `Welcome` IS /docs — already the second crumb, so don't repeat it.
-    if (!node.href || normalizePath(node.href) === '/docs') continue;
+    // `Welcome` IS the docs root — already the second crumb, so don't repeat it.
+    if (!node.href || normalizePath(node.href) === root) continue;
     trail.push({ label: node.label, href: node.href });
   }
   return trail;

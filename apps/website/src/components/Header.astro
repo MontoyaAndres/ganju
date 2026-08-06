@@ -1,19 +1,27 @@
 ---
-import { SITE, NAV } from '../lib/site';
+import { SITE } from '../lib/site';
+import { HOME, UI, toLang } from '../lib/i18n';
 import { getStarCount } from '../lib/stars';
 
+interface Props {
+  /** BCP-47 tag of the page this header sits on. */
+  lang?: string;
+}
+
+const lang = toLang(Astro.props.lang);
+const t = UI[lang];
 const stars = await getStarCount();
 ---
 
 <header class="site-header" id="header">
   <div class="container header-inner">
-    <a href="/" class="brand" aria-label="Ganju home">
+    <a href={HOME[lang]} class="brand" aria-label={t.brandAria}>
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Ganju</span>
     </a>
 
-    <nav class="nav" id="nav" aria-label="Primary">
-      {NAV.map((item) => <a href={item.href}>{item.label}</a>)}
+    <nav class="nav" id="nav" aria-label={t.navAria}>
+      {t.nav.map((item) => <a href={item.href}>{item.label}</a>)}
     </nav>
 
     <div class="header-actions">
@@ -22,18 +30,18 @@ const stars = await getStarCount();
         href={SITE.repo}
         target="_blank"
         rel="noopener"
-        aria-label="Star Ganju on GitHub"
+        aria-label={t.starAria}
       >
         <img class="brand-ico" src="/icons/github.svg" alt="GitHub logo" loading="lazy" />
-        Star
+        {t.star}
         {stars && <span class="star-count" id="starCount">{stars}</span>}
       </a>
       <a class="btn btn-primary" href={SITE.appUrl} target="_blank" rel="noopener">
-        Get started
+        {t.getStarted}
       </a>
     </div>
 
-    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+    <button class="nav-toggle" id="navToggle" aria-label={t.menuAria} aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
   </div>

@@ -1,5 +1,5 @@
 ---
-import { SITE, ORGANIZATION_SCHEMA, WEBSITE_SCHEMA } from '../lib/site';
+import { SITE, SITE_ES, ORGANIZATION_SCHEMA, WEBSITE_SCHEMA } from '../lib/site';
 import Schema from './Schema.astro';
 
 interface Props {
@@ -40,14 +40,25 @@ const {
   alternates
 } = Astro.props;
 
+/**
+ * Astro builds directory-style, so canonical URLs end in a slash. `alternates`
+ * is written without one — normalise, or an `hreflang` self-reference points
+ * at a URL that is not the canonical one and search engines drop the pairing.
+ */
+const canonicalise = (path: string) =>
+  new URL(path.endsWith('/') ? path : `${path}/`, SITE.url).href;
+
 const alternateLinks = Object.entries(alternates ?? {}).map(
-  ([hreflang, path]) => ({ hreflang, href: new URL(path, SITE.url).href })
+  ([hreflang, path]) => ({ hreflang, href: canonicalise(path) })
 );
 const defaultAlternate = alternates?.en;
 const ogLocale = lang.startsWith('es') ? 'es_CO' : 'en_US';
 
 const canonical = new URL(Astro.url.pathname, SITE.url).href;
-const fullTitle = title === SITE.name ? SITE.homeTitle : `${title} — ${brand}`;
+// A homepage passes the bare brand name and gets the full keyword title back;
+// every other page reads "<page> — Ganju".
+const homeTitle = lang.startsWith('es') ? SITE_ES.homeTitle : SITE.homeTitle;
+const fullTitle = title === SITE.name ? homeTitle : `${title} — ${brand}`;
 const imageUrl = new URL(image, SITE.url).href;
 const mdUrl = mdPath ? new URL(mdPath, SITE.url).href : undefined;
 const twitterHandle = '@' + SITE.social.x.split('/').pop();
@@ -78,11 +89,7 @@ const schema = [...globalSchema, ...pageSchema];
   <link rel="alternate" hreflang={hreflang} href={href} />
 ))}
 {defaultAlternate && (
-  <link
-    rel="alternate"
-    hreflang="x-default"
-    href={new URL(defaultAlternate, SITE.url).href}
-  />
+  <link rel="alternate" hreflang="x-default" href={canonicalise(defaultAlternate)} />
 )}
 
 <link

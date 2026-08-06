@@ -1,16 +1,26 @@
 ---
 import { SITE, LEGAL } from '../lib/site';
+import { HOME, LANG_HREF, UI, toLang } from '../lib/i18n';
+
+interface Props {
+  /** BCP-47 tag of the page this footer sits on. */
+  lang?: string;
+}
+
+const lang = toLang(Astro.props.lang);
+const t = UI[lang];
+const f = t.footer;
 const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
   <div class="container footer-grid">
     <div class="footer-brand">
-      <a href="/" class="brand">
+      <a href={HOME[lang]} class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <span class="brand-name">Ganju</span>
       </a>
-      <p>Connect your AI to your files, tools, and apps.</p>
+      <p>{f.tagline}</p>
 
       <div class="footer-social">
         <a href={SITE.social.x} target="_blank" rel="noopener" aria-label="Ganju on X">
@@ -25,34 +35,42 @@ const year = new Date().getFullYear();
       </div>
     </div>
 
-    <nav class="footer-col" aria-label="Product">
-      <h4>Product</h4>
-      <a href="/#features">Features</a>
-      <a href="/#how">How it works</a>
-      <a href="/#integrations">Integrations</a>
-      <a href="/pricing">Pricing</a>
+    <nav class="footer-col" aria-label={f.product.title}>
+      <h4>{f.product.title}</h4>
+      {f.product.links.map((link) => <a href={link.href}>{link.label}</a>)}
     </nav>
 
-    <nav class="footer-col" aria-label="Resources">
-      <h4>Resources</h4>
-      <a href="/docs">Docs</a>
-      <a href="/blog">Blog</a>
-      <a href="/contact">Contact</a>
+    <nav class="footer-col" aria-label={f.resources.title}>
+      <h4>{f.resources.title}</h4>
+      {f.resources.links.map((link) => <a href={link.href}>{link.label}</a>)}
     </nav>
 
-    <nav class="footer-col" aria-label="Legal">
-      <h4>Legal</h4>
-      <a href="/privacy">Privacy</a>
-      <a href="/terms">Terms</a>
-      <a href="/subprocessors">Subprocessors</a>
-      <a href="/dpa">DPA</a>
+    <nav class="footer-col" aria-label={f.legal.title}>
+      <h4>{f.legal.title}</h4>
+      {f.legal.links.map((link) => <a href={link.href}>{link.label}</a>)}
       <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">
-        License (Apache-2.0)
+        {f.legal.license}
       </a>
     </nav>
   </div>
   <div class="container footer-bottom">
     <span>© {year} Ganju.</span>
+
+    {/* Explicit language choice — overrides the geo redirect on `/`. */}
+    <nav class="footer-lang" aria-label={f.languageAria}>
+      {
+        (['en', 'es'] as const).map((code) =>
+          code === lang ? (
+            <span aria-current="true">{UI[code].label}</span>
+          ) : (
+            <a href={LANG_HREF[code]} hreflang={code} lang={code}>
+              {UI[code].label}
+            </a>
+          )
+        )
+      }
+    </nav>
+
     {/* Supplier identity — Ley 1480 de 2011, art. 50. See LEGAL in lib/site.ts. */}
     <address class="footer-legal">
       <span>{LEGAL.entity}</span>

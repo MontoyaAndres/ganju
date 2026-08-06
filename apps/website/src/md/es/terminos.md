@@ -14,7 +14,7 @@ esa licencia — no este documento — rige lo que puedes hacer con el código. 
 términos cubren únicamente el servicio alojado que nosotros operamos. Si lo instalas
 por tu cuenta, nada de esto aplica.
 
-> Esta es la traducción al español de nuestros [Terms of Service](/terms). Si hay
+> Esta es la traducción al español de nuestros [Terms of Service](/es/terminos). Si hay
 > alguna discrepancia entre las dos versiones, **prevalece esta versión en español**
 > para los usuarios en Colombia.
 
@@ -189,9 +189,9 @@ conforme a lo anterior es lícito — incluidos los datos personales de tus Usua
 Finales, empleados o clientes. Respecto de ese contenido tú eres el **responsable del
 tratamiento** bajo la Ley 1581 de 2012 (y "controller" bajo el RGPD y regímenes
 similares) y nosotros actuamos como **encargado**. Nuestro
-[Acuerdo de Tratamiento de Datos](/dpa) se incorpora a estos términos y aplica
+[Acuerdo de Tratamiento de Datos](/es/dpa) se incorpora a estos términos y aplica
 automáticamente a todos los clientes; los proveedores que nos autoriza a usar están en
-la [página de subencargados](/subprocessors).
+la [página de subencargados](/es/subencargados).
 
 Eres responsable de conservar tus propias copias. No somos un servicio de respaldo.
 
@@ -301,7 +301,7 @@ menos 30 días de anticipación por correo para que puedas exportar tu contenido
 funciones marcadas como beta o experimentales pueden cambiar o desaparecer sin previo
 aviso y no tienen compromiso de disponibilidad.
 
-Los niveles de soporte son los que describe la [página de precios](/pricing) para tu
+Los niveles de soporte son los que describe la [página de precios](/es/precios) para tu
 plan.
 
 ## Suspensión y terminación
@@ -432,4 +432,4 @@ aceptas los nuevos términos; si no estás de acuerdo, cancela antes.
 - **Correo** — hello@ganju.ai
 - **Teléfono** — +57 312 4678519
 - **Dirección** — Ganju S.A.S., Bogotá, D.C., Colombia
-- **Formulario** — [ganju.ai/contact](/contact)
+- **Formulario** — [ganju.ai/contact](/es/contacto)

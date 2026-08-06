@@ -14,7 +14,7 @@ custodias los datos y nosotros nunca los vemos. Todo lo que sigue se refiere al
 servicio que nosotros operamos.
 
 > Esta es la traducción al español de nuestra
-> [Privacy Policy](/privacy). Si hay alguna discrepancia entre las dos versiones,
+> [Privacy Policy](/es/privacidad). Si hay alguna discrepancia entre las dos versiones,
 > **prevalece esta versión en español** para los titulares en Colombia.
 
 - [Quiénes somos y qué papel cumplimos](#quiénes-somos-y-qué-papel-cumplimos)
@@ -274,7 +274,7 @@ identificarla, escribe a **hello@ganju.ai** y trasladaremos la solicitud al oper
 
 No vendemos datos. Solo los compartimos con los proveedores que hacen funcionar el
 servicio. La tabla siguiente es el resumen; la lista siempre actualizada, con el papel
-y la ubicación de cada uno, está en la [página de subencargados](/subprocessors),
+y la ubicación de cada uno, está en la [página de subencargados](/es/subencargados),
 donde además nos comprometemos a avisarte antes de que uno nuevo empiece a tratar tu
 contenido.
 
@@ -292,7 +292,7 @@ contenido.
 | Cualquier **servidor MCP remoto** o **endpoint HTTP** que configures | Lo que envíen tus herramientas | Tú elegiste el destino |
 
 También podemos revelar datos cuando la ley nos obligue, para hacer cumplir nuestros
-[Términos](/terms) o para proteger los derechos y la seguridad de los usuarios y del
+[Términos](/es/terminos) o para proteger los derechos y la seguridad de los usuarios y del
 público. Si Ganju llega a participar en una fusión, adquisición o venta de activos,
 los datos podrían transferirse como parte de la operación — te avisaríamos antes de
 que queden sujetos a una política distinta.
@@ -383,7 +383,7 @@ de modo que **hay transferencia internacional de datos** para todos los usuarios
 - **EEE, Reino Unido, Suiza.** Las transferencias se amparan en las Cláusulas
   Contractuales Tipo y garantías equivalentes en los términos de nuestros proveedores.
 
-Nuestro [Acuerdo de Tratamiento de Datos](/dpa) aplica automáticamente a todos los
+Nuestro [Acuerdo de Tratamiento de Datos](/es/dpa) aplica automáticamente a todos los
 clientes. Si necesitas una copia firmada, escríbenos a **hello@ganju.ai**.
 
 ## Tus derechos como titular
@@ -455,4 +455,4 @@ Preguntas, solicitudes o quejas sobre privacidad:
 - **Correo** — hello@ganju.ai
 - **Teléfono** — +57 312 4678519
 - **Dirección** — Ganju S.A.S., Bogotá, D.C., Colombia
-- **Formulario** — [ganju.ai/contact](/contact)
+- **Formulario** — [ganju.ai/contact](/es/contacto)

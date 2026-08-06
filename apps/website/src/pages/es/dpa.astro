@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+import { breadcrumbSchema } from '../../lib/site';
+import { Content } from '../../md/es/dpa.md';
+
+const description =
+  'El Acuerdo de Tratamiento de Datos de Ganju — aplica automáticamente a todos los clientes, con Cláusulas Contractuales Tipo, compromisos sobre subencargados, notificación de incidentes y las medidas técnicas que los respaldan.';
+
+const alternates = { en: '/dpa', es: '/es/dpa' };
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Inicio', href: '/es/' },
+  { label: 'DPA', href: '/es/dpa' }
+]);
+---
+
+<Base
+  title="Acuerdo de Tratamiento de Datos"
+  {description}
+  mdPath="/es/dpa.md"
+  {jsonLd}
+  lang="es"
+  {alternates}
+>
+  <section class="section">
+    <article class="container narrow prose">
+      <Content />
+    </article>
+  </section>
+</Base>

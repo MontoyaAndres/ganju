@@ -1,5 +1,10 @@
 # Cloudflare Pages: security headers for every response, then long-lived
 # browser cache for static media in /public.
+#
+# These rules do not reach responses that a Pages Function produced, and `/`
+# now has one in front of it (functions/index.ts, the language redirect).
+# The root block below is mirrored in functions/security-headers.ts — change
+# one and change the other.
 
 /*
   # The marketing site loads nothing from a third party: fonts are self-hosted

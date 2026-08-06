@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, fontProviders } from 'astro/config';
@@ -35,12 +35,19 @@ function buildLastmod() {
   const lastmod = new Map();
   const slug = file => file.replace(/\.md$/, '').split('\\').join('/');
 
-  for (const file of markdownFiles(join(root, 'src/content/docs'))) {
-    const updated = frontmatterDate(join(root, 'src/content/docs', file), 'updated');
-    if (!updated) continue;
-    const id = slug(file);
-    // `welcome` is served at /docs, not /docs/welcome.
-    lastmod.set(id === 'welcome' ? '/docs' : `/docs/${id}`, updated);
+  // Both docs trees, each rooted at its own prefix. File ids match one-to-one
+  // across them — see src/lib/docs-nav.ts.
+  for (const [dir, prefix] of [
+    ['src/content/docs', '/docs'],
+    ['src/content/docs-es', '/es/docs']
+  ]) {
+    for (const file of markdownFiles(join(root, dir))) {
+      const updated = frontmatterDate(join(root, dir, file), 'updated');
+      if (!updated) continue;
+      const id = slug(file);
+      // `welcome` is served at the docs root, not at `<root>/welcome`.
+      lastmod.set(id === 'welcome' ? prefix : `${prefix}/${id}`, updated);
+    }
   }
 
   for (const file of markdownFiles(join(root, 'src/content/blog'))) {
@@ -77,12 +84,36 @@ const toPath = url => {
 
 // Pages that send `noindex` — keep them out of the sitemap rather than
 // advertising URLs we've asked search engines not to index.
-const NOINDEX = new Set(['/404']);
+const NOINDEX = new Set(['/404', '/es/404']);
+
+/**
+ * Move the Spanish 404 to where Cloudflare Pages looks for it.
+ *
+ * Pages answers a miss with the nearest `404.html`, walking up from the
+ * requested path — so `/es/404.html` covers everything under `/es/` and a
+ * Spanish visitor keeps their language instead of landing on the English 404.
+ * Astro's directory build format writes `es/404/index.html` instead (it only
+ * special-cases the root 404), so this hook puts the file where it belongs and
+ * drops the directory, which would otherwise be a second, reachable copy.
+ */
+function spanishNotFound() {
+  return {
+    name: 'spanish-404',
+    hooks: {
+      'astro:build:done': ({ dir }) => {
+        const out = fileURLToPath(dir);
+        renameSync(join(out, 'es/404/index.html'), join(out, 'es/404.html'));
+        rmSync(join(out, 'es/404'), { recursive: true, force: true });
+      }
+    }
+  };
+}
 
 export default defineConfig({
   site: SITE_URL,
   integrations: [
     react(),
+    spanishNotFound(),
     sitemap({
       // Keep the raw Markdown twins (`*.md`) and text/feed endpoints (llms.txt,
       // rss.xml) out of the sitemap — they're for agents and readers, not for
@@ -99,13 +130,16 @@ export default defineConfig({
         const lastmod = LASTMOD.get(path);
         if (lastmod) item.lastmod = lastmod.toISOString();
 
-        if (path === '/') {
+        // Both homepages — each is the entry point for its language.
+        if (path === '/' || path === '/es') {
           item.priority = 1.0;
           item.changefreq = 'daily';
         }
         // Docs are the deep organic-search surface — rank them above the
         // boilerplate pages that share the 0.7 default.
-        if (path.startsWith('/docs')) item.priority = 0.8;
+        if (path.startsWith('/docs') || path.startsWith('/es/docs')) {
+          item.priority = 0.8;
+        }
 
         return item;
       }

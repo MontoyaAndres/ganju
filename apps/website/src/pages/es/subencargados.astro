@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+import { breadcrumbSchema } from '../../lib/site';
+import { Content } from '../../md/es/subencargados.md';
+
+const description =
+  'Las empresas que pueden tratar datos por cuenta de Ganju — infraestructura, proveedores de modelos de IA, pagos y las integraciones que enciendas — y cómo te avisamos antes de que la lista cambie.';
+
+const alternates = { en: '/subprocessors', es: '/es/subencargados' };
+
+const jsonLd = breadcrumbSchema([
+  { label: 'Inicio', href: '/es/' },
+  { label: 'Subencargados', href: '/es/subencargados' }
+]);
+---
+
+<Base
+  title="Subencargados"
+  {description}
+  mdPath="/es/subencargados.md"
+  {jsonLd}
+  lang="es"
+  {alternates}
+>
+  <section class="section">
+    <article class="container narrow prose">
+      <Content />
+    </article>
+  </section>
+</Base>

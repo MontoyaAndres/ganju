@@ -1,12 +1,18 @@
 ---
-import { DOCS_NAV } from '../lib/docs-nav';
+import { docsNav } from '../lib/docs-nav';
+import { DOCS, toLang } from '../lib/i18n';
 import DocsNavNode from './DocsNavNode.astro';
 
 interface Props {
   current: string;
+  /** BCP-47 tag of the page this sidebar sits on. */
+  lang?: string;
 }
 
 const { current } = Astro.props;
+const lang = toLang(Astro.props.lang);
+const t = DOCS[lang];
+const nav = docsNav(lang);
 ---
 
 <aside class="docs-aside">
@@ -26,7 +32,7 @@ const { current } = Astro.props;
         stroke-linecap="round"
       ></path>
     </svg>
-    <span>Menu</span>
+    <span>{t.menu}</span>
     <svg class="docs-menu-chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
       <path
         d="M8 10l4 4 4-4"
@@ -39,13 +45,13 @@ const { current } = Astro.props;
     </svg>
   </button>
 
-  <nav class="docs-nav" id="docsNav" aria-label="Documentation">
-    <p class="docs-nav-title">Documentation</p>
+  <nav class="docs-nav" id="docsNav" aria-label={t.navAria}>
+    <p class="docs-nav-title">{t.navTitle}</p>
     <ul class="docs-navlist">
       {
-        DOCS_NAV.map((node) => (
+        nav.map((node) => (
           <li>
-            <DocsNavNode node={node} current={current} />
+            <DocsNavNode node={node} current={current} {lang} />
           </li>
         ))
       }

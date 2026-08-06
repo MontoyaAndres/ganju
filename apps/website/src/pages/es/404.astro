@@ -1,0 +1,35 @@
+---
+import Base from '../../layouts/Base.astro';
+import { DOCS_ROOT } from '../../lib/docs-nav';
+import { HOME } from '../../lib/i18n';
+---
+
+{/*
+  Cloudflare Pages resolves a miss to the nearest `404.html`, walking up from
+  the requested path — so this one answers everything under `/es/`, and the
+  visitor keeps their language (and Spanish nav) instead of being dropped into
+  the English 404.
+*/}
+<Base
+  title="Página no encontrada"
+  description="Esa página no existe. Vuelve al inicio de Ganju, a la documentación o a los precios."
+  lang="es"
+  noindex
+>
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">404</span>
+        <h1>No encontramos esa página.</h1>
+        <p>
+          Puede que el enlace esté roto o que la página se haya movido. Prueba con la
+          documentación, o vuelve al inicio.
+        </p>
+      </div>
+      <div class="hero-cta center reveal">
+        <a class="btn btn-primary btn-lg" href={HOME.es}>Volver al inicio</a>
+        <a class="btn btn-ghost btn-lg" href={DOCS_ROOT.es}>Lee la documentación</a>
+      </div>
+    </div>
+  </section>
+</Base>

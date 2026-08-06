@@ -1,0 +1,60 @@
+---
+import { getCollection, render } from 'astro:content';
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import { docsTrail } from '../../../lib/docs-nav';
+import { DOCS } from '../../../lib/i18n';
+import { SITE, breadcrumbSchema, techArticleSchema } from '../../../lib/site';
+
+export async function getStaticPaths() {
+  // `welcome` is served at /es/docs, so skip it here — same rule as English.
+  const docs = (await getCollection('docsEs')).filter((entry) => entry.id !== 'welcome');
+  return docs.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const t = DOCS.es;
+
+const path = `/es/docs/${entry.id}`;
+const alternates = { en: `/docs/${entry.id}`, es: path };
+const jsonLd = [
+  techArticleSchema({
+    title: entry.data.title,
+    description: entry.data.description,
+    url: new URL(path, SITE.url).href,
+    updated: entry.data.updated,
+    lang: 'es'
+  }),
+  breadcrumbSchema(docsTrail(path, 'es'))
+];
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  mdPath={`/es/docs/${entry.id}.md`}
+  {jsonLd}
+  lang="es"
+  {alternates}
+>
+  <article class="prose docs-article">
+    <p class="eyebrow">{t.eyebrow}</p>
+    <h1>{entry.data.title}</h1>
+    <p class="lead">{entry.data.description}</p>
+    <Content />
+    {
+      entry.data.updated && (
+        <p class="docs-updated">
+          {t.lastUpdated}{' '}
+          <time datetime={entry.data.updated.toISOString()}>
+            {entry.data.updated.toLocaleDateString(t.dateLocale, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </time>
+        </p>
+      )
+    }
+  </article>
+</DocsLayout>
