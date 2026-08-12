@@ -4,6 +4,7 @@ import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 
 import { Wrapper } from './styles';
+import { i18n } from '../../../lib';
 
 interface TokenInvitation {
   id: string;
@@ -26,6 +27,9 @@ export const Invitation = (props: IProps) => {
   const { invitation, auth } = props;
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.INVITATION);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const other = i18n.LANGS.find(lang => lang !== t.lang);
 
   const [responding, setResponding] = useState<'accept' | 'decline' | null>(
     null
@@ -45,17 +49,15 @@ export const Invitation = (props: IProps) => {
         }
       });
       if (utils.isApiError(data)) {
-        snackbar.error(
-          utils.getApiErrorMessage(data, 'Failed to respond to invitation')
-        );
+        snackbar.error(utils.getApiErrorMessage(data, t('toastFailed')));
         return;
       }
       setDone(action === 'accept' ? 'accepted' : 'declined');
       if (action === 'accept') {
-        snackbar.success('Invitation accepted');
+        snackbar.success(t('toastAccepted'));
       }
     } catch {
-      snackbar.error('Failed to respond to invitation');
+      snackbar.error(t('toastFailed'));
     } finally {
       setResponding(null);
     }
@@ -63,26 +65,33 @@ export const Invitation = (props: IProps) => {
 
   const card = (children: React.ReactNode) => (
     <Wrapper>
-      <div className="invitation-card">{children}</div>
+      <div className="invitation-card">
+        {children}
+        {other && (
+          <p className="invitation-language">
+            {c('switchPrompt')}{' '}
+            <a href={i18n.langHref(router.asPath, other)}>
+              {c('switchAction')}
+            </a>
+          </p>
+        )}
+      </div>
     </Wrapper>
   );
 
   if (done === 'accepted') {
     return card(
       <>
-        <p className="invitation-eyebrow">Invitation</p>
-        <h1 className="invitation-title">You&apos;re in</h1>
-        <p className="invitation-text">
-          The invitation has been accepted. You now have access to this
-          workspace.
-        </p>
+        <p className="invitation-eyebrow">{t('eyebrow')}</p>
+        <h1 className="invitation-title">{t('acceptedTitle')}</h1>
+        <p className="invitation-text">{t('acceptedText')}</p>
         <div className="invitation-actions">
           <UI.Button
             variant="contained"
             size="small"
             onClick={() => router.push('/organization')}
           >
-            Go to dashboard
+            {t('goToDashboard')}
           </UI.Button>
         </div>
       </>
@@ -92,14 +101,12 @@ export const Invitation = (props: IProps) => {
   if (done === 'declined') {
     return card(
       <>
-        <p className="invitation-eyebrow">Invitation</p>
-        <h1 className="invitation-title">Invitation declined</h1>
-        <p className="invitation-text">
-          You&apos;ve declined this invitation. No access was granted.
-        </p>
+        <p className="invitation-eyebrow">{t('eyebrow')}</p>
+        <h1 className="invitation-title">{t('declinedTitle')}</h1>
+        <p className="invitation-text">{t('declinedText')}</p>
         <div className="invitation-actions">
           <UI.Button size="small" onClick={() => router.push('/')}>
-            Go to Ganju
+            {t('goToGanju')}
           </UI.Button>
         </div>
       </>
@@ -109,39 +116,33 @@ export const Invitation = (props: IProps) => {
   if (!invitation) {
     return card(
       <>
-        <p className="invitation-eyebrow">Invitation</p>
-        <h1 className="invitation-title">Invitation not found</h1>
-        <p className="invitation-text">
-          This invitation link is invalid. Ask whoever invited you to send a new
-          one.
-        </p>
+        <p className="invitation-eyebrow">{t('eyebrow')}</p>
+        <h1 className="invitation-title">{t('notFoundTitle')}</h1>
+        <p className="invitation-text">{t('notFoundText')}</p>
         <div className="invitation-actions">
           <UI.Button size="small" onClick={() => router.push('/')}>
-            Go to Ganju
+            {t('goToGanju')}
           </UI.Button>
         </div>
       </>
     );
   }
 
-  const targetName =
-    (invitation.scope === 'PROJECT'
-      ? invitation.projectName
-      : invitation.organizationName) || 'a workspace';
-  const scopeLabel =
-    invitation.scope === 'PROJECT' ? 'project' : 'organization';
+  const isProject = invitation.scope === 'PROJECT';
+  const target =
+    (isProject ? invitation.projectName : invitation.organizationName) ||
+    t('fallbackTarget');
+  const scopeLabel = isProject ? t('scopeProject') : t('scopeOrganization');
 
   if (invitation.status !== utils.constants.STATUS_PENDING) {
     return card(
       <>
-        <p className="invitation-eyebrow">Invitation</p>
-        <h1 className="invitation-title">Invitation unavailable</h1>
-        <p className="invitation-text">
-          This invitation to {targetName} has already been used or was revoked.
-        </p>
+        <p className="invitation-eyebrow">{t('eyebrow')}</p>
+        <h1 className="invitation-title">{t('unavailableTitle')}</h1>
+        <p className="invitation-text">{t('unavailableText', { target })}</p>
         <div className="invitation-actions">
           <UI.Button size="small" onClick={() => router.push('/')}>
-            Go to Ganju
+            {t('goToGanju')}
           </UI.Button>
         </div>
       </>
@@ -151,15 +152,12 @@ export const Invitation = (props: IProps) => {
   if (invitation.expired) {
     return card(
       <>
-        <p className="invitation-eyebrow">Invitation</p>
-        <h1 className="invitation-title">Invitation expired</h1>
-        <p className="invitation-text">
-          This invitation to {targetName} has expired. Ask whoever invited you
-          to send a new one.
-        </p>
+        <p className="invitation-eyebrow">{t('eyebrow')}</p>
+        <h1 className="invitation-title">{t('expiredTitle')}</h1>
+        <p className="invitation-text">{t('expiredText', { target })}</p>
         <div className="invitation-actions">
           <UI.Button size="small" onClick={() => router.push('/')}>
-            Go to Ganju
+            {t('goToGanju')}
           </UI.Button>
         </div>
       </>
@@ -171,11 +169,14 @@ export const Invitation = (props: IProps) => {
 
   return card(
     <>
-      <p className="invitation-eyebrow">Invitation</p>
-      <h1 className="invitation-title">You&apos;ve been invited</h1>
+      <p className="invitation-eyebrow">{t('eyebrow')}</p>
+      <h1 className="invitation-title">{t('invitedTitle')}</h1>
       <p className="invitation-text">
-        {invitation.inviterName || 'A teammate'} invited you to join{' '}
-        <span className="invitation-target">{targetName}</span> on Ganju.
+        {t('invitedTextBefore', {
+          inviter: invitation.inviterName || t('fallbackInviter')
+        })}
+        <span className="invitation-target">{target}</span>
+        {t('invitedTextAfter')}
       </p>
       <span className="invitation-scope">{scopeLabel}</span>
 
@@ -188,26 +189,30 @@ export const Invitation = (props: IProps) => {
               disabled={!!responding}
               onClick={() => handleRespond('accept')}
             >
-              {responding === 'accept' ? 'Accepting...' : 'Accept invitation'}
+              {responding === 'accept' ? t('accepting') : t('accept')}
             </UI.Button>
             <UI.Button
               size="small"
               disabled={!!responding}
               onClick={() => handleRespond('decline')}
             >
-              {responding === 'decline' ? 'Declining...' : 'Decline'}
+              {responding === 'decline' ? t('declining') : t('decline')}
             </UI.Button>
           </div>
           <p className="invitation-note">
-            Accepting adds {invitation.email} to this {scopeLabel}.
+            {t(isProject ? 'acceptNoteProject' : 'acceptNoteOrganization', {
+              email: invitation.email
+            })}
           </p>
         </>
       ) : auth ? (
         <>
           <p className="invitation-text">
-            This invitation was sent to <strong>{invitation.email}</strong>, but
-            you are signed in as <strong>{auth.email}</strong>. Sign in with the
-            invited address to accept it.
+            {t('wrongAccountBefore')}
+            <strong>{invitation.email}</strong>
+            {t('wrongAccountBetween')}
+            <strong>{auth.email}</strong>
+            {t('wrongAccountAfter')}
           </p>
           <div className="invitation-actions">
             <UI.Button
@@ -215,15 +220,16 @@ export const Invitation = (props: IProps) => {
               size="small"
               onClick={() => router.push('/organization')}
             >
-              Go to dashboard
+              {t('goToDashboard')}
             </UI.Button>
           </div>
         </>
       ) : (
         <>
           <p className="invitation-text">
-            Sign in or create an account with{' '}
-            <strong>{invitation.email}</strong> to accept this invitation.
+            {t('signInBefore')}
+            <strong>{invitation.email}</strong>
+            {t('signInAfter')}
           </p>
           <div className="invitation-actions">
             <UI.Button
@@ -231,7 +237,7 @@ export const Invitation = (props: IProps) => {
               size="small"
               onClick={() => router.push('/')}
             >
-              Sign in to accept
+              {t('signInAction')}
             </UI.Button>
           </div>
         </>

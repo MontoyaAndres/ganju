@@ -20,6 +20,7 @@ export interface IProps {
   description?: string;
   confirmText?: string;
   cancelText?: string;
+  loadingText?: string;
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -32,6 +33,7 @@ const ConfirmAlert = (props: IProps) => {
     description,
     confirmText = 'Confirm',
     cancelText = 'Cancel',
+    loadingText = 'Deleting...',
     loading = false,
     onConfirm,
     onCancel
@@ -71,7 +73,7 @@ const ConfirmAlert = (props: IProps) => {
               onClick={onConfirm}
               disabled={loading}
             >
-              {loading ? 'Deleting...' : confirmText}
+              {loading ? loadingText : confirmText}
             </MaterialButton>
           </div>
         </Dialog>
@@ -99,10 +101,11 @@ const SnackbarContext = createContext<SnackbarContextValue | null>(null);
 export interface ISnackbarProviderProps {
   children: ReactNode;
   duration?: number;
+  dismissText?: string;
 }
 
 const SnackbarProvider = (props: ISnackbarProviderProps) => {
-  const { children, duration = 6000 } = props;
+  const { children, duration = 6000, dismissText = 'Dismiss' } = props;
   const [items, setItems] = useState<SnackbarItem[]>([]);
   const idRef = useRef(0);
 
@@ -146,7 +149,7 @@ const SnackbarProvider = (props: ISnackbarProviderProps) => {
               <button
                 type="button"
                 className="snackbar-close"
-                aria-label="Dismiss"
+                aria-label={dismissText}
                 onClick={() => dismiss(item.id)}
               >
                 x

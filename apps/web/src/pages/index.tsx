@@ -3,9 +3,11 @@ import { useRouter } from 'next/router';
 import { Components } from '../components';
 import { Seo } from '../components/Seo';
 import { ssr } from '../utils';
+import { i18n } from '../lib';
 
 const IndexPage = () => {
   const { locale } = useRouter();
+  const t = i18n.useT(i18n.copy.AUTH);
 
   return (
     <>
@@ -13,8 +15,9 @@ const IndexPage = () => {
         index
         path="/"
         locale={locale}
-        title="Log in to Ganju"
-        description="Log in to your Ganju account to manage your projects, resources, tools, and channels — and connect your AI to your files and apps."
+        title={t('seoTitle')}
+        description={t('seoIndexDescription')}
+        imageAlt={t('seoImageAlt')}
       />
       <Components.Views.Auth />
     </>

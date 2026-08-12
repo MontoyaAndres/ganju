@@ -15,6 +15,7 @@ module.exports = {
   },
   i18n: {
     locales: utils.constants.LANGUAGES,
-    defaultLocale: utils.constants.LANGUAGE_EN
+    defaultLocale: utils.constants.LANGUAGE_EN,
+    localeDetection: false
   }
 };

@@ -36,8 +36,10 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { Wrapper } from './styles';
+import { i18n } from '../../../lib';
 
 import type { CloudDriveItem } from '@ganju/ui';
+import type { Translate } from '../../../lib';
 
 interface Resource {
   id: string;
@@ -184,6 +186,35 @@ const getResourceIcon = (resource: {
   return getMimeIcon(resource.mimeType);
 };
 
+/**
+ * Values the API sends, mapped to a catalog key rather than to a string, so the
+ * badge reads as words in either language while the wire keeps `FILE` and
+ * `static`. An unrecognised value falls back to what the API said.
+ */
+type ResourcesT = Translate<(typeof i18n.copy.RESOURCES)['en']>;
+
+const SOURCE_TYPE_KEY = {
+  [utils.constants.RESOURCE_SOURCE_TYPE_FILE]: 'sourceTypeFile',
+  [utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE]: 'sourceTypeWebsite',
+  [utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER]:
+    'sourceTypeGoogleDrive',
+  [utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER]: 'sourceTypeOneDrive'
+} as const satisfies Record<string, keyof (typeof i18n.copy.RESOURCES)['en']>;
+
+const TYPE_KEY = {
+  [utils.constants.RESOURCE_TYPE_STATIC]: 'typeStaticBadge',
+  [utils.constants.RESOURCE_TYPE_TEMPLATE]: 'typeTemplateBadge'
+} as const satisfies Record<string, keyof (typeof i18n.copy.RESOURCES)['en']>;
+
+const labelFor = (
+  map: Record<string, keyof (typeof i18n.copy.RESOURCES)['en']>,
+  value: string,
+  t: ResourcesT
+): string => {
+  const key = map[value];
+  return key ? t(key) : value;
+};
+
 const INITIAL_FILE_VALUES = {
   title: '',
   uri: '',
@@ -206,6 +237,34 @@ const INITIAL_WEBSITE_VALUES = {
 export const Resources = () => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.RESOURCES);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const driveLabels = {
+    empty: t('uiDriveEmpty'),
+    sessionExpired: t('uiDriveSessionExpired'),
+    loadError: t('uiDriveLoadError'),
+    search: t('uiDriveSearch'),
+    clearSearch: t('uiDriveClearSearch'),
+    clearAll: t('uiDriveClearAll'),
+    folder: t('uiDriveFolder'),
+    file: t('uiDriveFile'),
+    tabs: {
+      [utils.constants.GOOGLE_DRIVE_TAB_MY_DRIVE]: t('uiDriveTabMyDrive'),
+      [utils.constants.GOOGLE_DRIVE_TAB_SHARED_WITH_ME]: t(
+        'uiDriveTabSharedWithMe'
+      ),
+      [utils.constants.GOOGLE_DRIVE_TAB_SHARED_DRIVES]: t(
+        'uiDriveTabSharedDrives'
+      ),
+      [utils.constants.GOOGLE_DRIVE_TAB_STARRED]: t('uiDriveTabStarred'),
+      [utils.constants.ONE_DRIVE_TAB_MY_FILES]: t('uiDriveTabMyFiles'),
+      [utils.constants.ONE_DRIVE_TAB_RECENT]: t('uiDriveTabRecent'),
+      [utils.constants.ONE_DRIVE_TAB_DRIVES]: t('uiDriveTabDrives')
+    },
+    selectedCount: (count: number) => t.plural('uiDriveSelected', count),
+    remove: (name: string) => t('uiDriveRemove', { name }),
+    alreadyIncluded: (name: string) => t('uiDriveAlreadyIncluded', { name })
+  };
   const [resources, setResources] = useState<Resource[]>([]);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(
     null
@@ -608,7 +667,7 @@ export const Resources = () => {
           { credentials: 'include' }
         );
         if (!response.ok) {
-          if (!revoked) setFilePreviewError('Failed to load file preview');
+          if (!revoked) setFilePreviewError(t('toastFilePreviewFailed'));
           return;
         }
         const blob = await response.blob();
@@ -616,7 +675,7 @@ export const Resources = () => {
         const url = URL.createObjectURL(blob);
         setFilePreviewUrl(url);
       } catch {
-        if (!revoked) setFilePreviewError('Failed to load file preview');
+        if (!revoked) setFilePreviewError(t('toastFilePreviewFailed'));
       }
     };
 
@@ -636,8 +695,10 @@ export const Resources = () => {
   }, [selectedResource?.id]);
 
   const renderCollapsibleJson = (
-    sectionKey: string,
-    label: string,
+    sectionKey: 'metadata' | 'annotations',
+    label: 'sectionMetadata' | 'sectionAnnotations',
+    show: 'showMetadata' | 'showAnnotations',
+    hide: 'hideMetadata' | 'hideAnnotations',
     value: unknown,
     threshold = 600
   ) => {
@@ -646,7 +707,7 @@ export const Resources = () => {
     const expanded = expandedSections.has(sectionKey);
     return (
       <div className="panel-section">
-        <h3 className="panel-section-label">{label}</h3>
+        <h3 className="panel-section-label">{t(label)}</h3>
         {isLarge && !expanded ? (
           <button
             type="button"
@@ -659,7 +720,7 @@ export const Resources = () => {
               })
             }
           >
-            Show {label.toLowerCase()} ({json.length.toLocaleString()} chars)
+            {t(show, { count: t.n(json.length) })}
           </button>
         ) : (
           <>
@@ -676,7 +737,7 @@ export const Resources = () => {
                   })
                 }
               >
-                Hide {label.toLowerCase()}
+                {t(hide)}
               </button>
             )}
           </>
@@ -777,7 +838,10 @@ export const Resources = () => {
       const formatted = (
         err as { issues: { path: string[]; message: string }[] }
       ).issues.reduce(
-        (acc, curr) => ({ ...acc, [curr.path[0]]: curr.message }),
+        (acc, curr) => ({
+          ...acc,
+          [curr.path[0]]: utils.localizeZodIssue(curr, t.lang)
+        }),
         {} as Record<string, string>
       );
       setErrors(formatted);
@@ -881,13 +945,13 @@ export const Resources = () => {
           setSelectedResource(data);
         }
         snackbar.success(
-          addingType === 'website' ? 'Crawl started' : 'Resource created'
+          t(addingType === 'website' ? 'toastCrawlStarted' : 'toastCreated')
         );
       } else {
-        snackbar.error(data?.error || 'Failed to create resource');
+        snackbar.error(data?.error || t('toastCreateFailed'));
       }
     } catch {
-      snackbar.error('Failed to create resource');
+      snackbar.error(t('toastCreateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -978,14 +1042,14 @@ export const Resources = () => {
         fetchResources();
         snackbar.success(
           next === utils.constants.STATUS_ACTIVE
-            ? 'Sources enabled'
-            : 'Sources hidden'
+            ? t('toastSourcesEnabled')
+            : t('toastSourcesHidden')
         );
       } else {
-        snackbar.error(data?.error || 'Failed to update source visibility');
+        snackbar.error(data?.error || t('toastSourcesFailed'));
       }
     } catch {
-      snackbar.error('Failed to update source visibility');
+      snackbar.error(t('toastSourcesFailed'));
     } finally {
       setSourceVisibilityUpdating(false);
     }
@@ -1013,12 +1077,12 @@ export const Resources = () => {
         setFile(null);
         setIsEditing(false);
         fetchResources();
-        snackbar.success('Resource updated');
+        snackbar.success(t('toastUpdated'));
       } else {
-        snackbar.error(data?.error || 'Failed to update resource');
+        snackbar.error(data?.error || t('toastUpdateFailed'));
       }
     } catch {
-      snackbar.error('Failed to update resource');
+      snackbar.error(t('toastUpdateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -1080,12 +1144,12 @@ export const Resources = () => {
           setFolderPath(prev => prev.slice(0, folderIdx));
         }
         fetchResources();
-        snackbar.success('Resource deleted');
+        snackbar.success(t('toastDeleted'));
       } else {
-        snackbar.error(data?.error || 'Failed to delete resource');
+        snackbar.error(data?.error || t('toastDeleteFailed'));
       }
     } catch {
-      snackbar.error('Failed to delete resource');
+      snackbar.error(t('toastDeleteFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -1103,11 +1167,19 @@ export const Resources = () => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')}`;
 
+  // Its own B→GB ladder rather than `t.bytes`, which floors at MB, and its own
+  // `B`/`KB` rather than CLDR's `byte`/`kB` — the same call `overview` makes.
+  // Only the number goes through `Intl`, which is the part that was wrong:
+  // `.toFixed(1)` hands a Spanish reader `1.5`.
   const formatSize = (bytes: number) => {
-    if (!bytes || bytes <= 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
+    if (!bytes || bytes <= 0) return `${t.n(0)} ${units[0]}`;
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+    const decimals = i === 0 ? 0 : 1;
+    return `${t.n(bytes / Math.pow(1024, i), {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    })} ${units[i]}`;
   };
 
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -1181,7 +1253,9 @@ export const Resources = () => {
     if (selected.size > utils.constants.MAX_FILE_SIZE) {
       setErrors(prev => ({
         ...prev,
-        file: `File size exceeds the ${utils.constants.MAX_FILE_SIZE / (1024 * 1024)}MB limit`
+        file: t('errorFileTooLarge', {
+          size: utils.constants.MAX_FILE_SIZE / (1024 * 1024)
+        })
       }));
       e.target.value = '';
       return;
@@ -1194,7 +1268,7 @@ export const Resources = () => {
     ) {
       setErrors(prev => ({
         ...prev,
-        file: `Unsupported mime type: ${detectedMime}`
+        file: t('errorFileType', { type: detectedMime })
       }));
       e.target.value = '';
       return;
@@ -1251,7 +1325,9 @@ export const Resources = () => {
     );
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new Error(detail || `Upload failed (${response.status})`);
+      throw new Error(
+        detail || t('errorUploadFailed', { status: response.status })
+      );
     }
     return await response.json();
   };
@@ -1265,10 +1341,10 @@ export const Resources = () => {
       if (data?.url) {
         window.location.href = data.url;
       } else {
-        snackbar.error('Unable to start Google Drive connection');
+        snackbar.error(t('toastGdriveConnectFailed'));
       }
     } catch {
-      snackbar.error('Unable to start Google Drive connection');
+      snackbar.error(t('toastGdriveConnectFailed'));
     }
   };
 
@@ -1281,7 +1357,7 @@ export const Resources = () => {
         config: { credentials: 'include' }
       });
       if (data?.error) {
-        snackbar.error('Connect Google Drive to import files');
+        snackbar.error(t('toastGdriveConnectToImport'));
         await startGoogleDriveConnect();
         return;
       }
@@ -1293,7 +1369,7 @@ export const Resources = () => {
         await startGoogleDriveConnect();
       }
     } catch {
-      snackbar.error('Failed to open Google Drive');
+      snackbar.error(t('toastGdriveOpenFailed'));
     } finally {
       setGdriveLoadingToken(false);
     }
@@ -1327,14 +1403,12 @@ export const Resources = () => {
         setFolder('gdrive');
         fetchResources();
         const count = items.length;
-        snackbar.success(
-          `Importing ${count} item${count === 1 ? '' : 's'} from Google Drive`
-        );
+        snackbar.success(t.plural('toastImportingGdrive', count));
       } else {
-        snackbar.error(data?.error || 'Failed to import from Google Drive');
+        snackbar.error(data?.error || t('toastGdriveImportFailed'));
       }
     } catch {
-      snackbar.error('Failed to import from Google Drive');
+      snackbar.error(t('toastGdriveImportFailed'));
     } finally {
       setGdriveImporting(false);
     }
@@ -1350,7 +1424,7 @@ export const Resources = () => {
         ? [currentFolder]
         : gdriveTopResources;
     if (targets.length === 0) {
-      snackbar.error('Nothing to sync');
+      snackbar.error(t('toastNothingToSync'));
       return;
     }
     try {
@@ -1359,12 +1433,12 @@ export const Resources = () => {
         config: { credentials: 'include' }
       });
       if (tokenData?.error || !tokenData?.accessToken) {
-        snackbar.error('Connect Google Drive to sync files');
+        snackbar.error(t('toastGdriveConnectToSync'));
         await startGoogleDriveConnect();
         return;
       }
     } catch {
-      snackbar.error('Connect Google Drive to sync files');
+      snackbar.error(t('toastGdriveConnectToSync'));
       await startGoogleDriveConnect();
       return;
     }
@@ -1386,11 +1460,9 @@ export const Resources = () => {
           (r.status === 'fulfilled' && r.value?.error)
       ).length;
       if (failed > 0) {
-        snackbar.error(
-          `Sync failed for ${failed} item${failed === 1 ? '' : 's'}`
-        );
+        snackbar.error(t.plural('toastSyncFailed', failed));
       } else {
-        snackbar.success('Sync started');
+        snackbar.success(t('toastSyncStarted'));
       }
     } finally {
       setGdriveSyncingId(null);
@@ -1406,10 +1478,10 @@ export const Resources = () => {
       if (data?.url) {
         window.location.href = data.url;
       } else {
-        snackbar.error('Unable to start OneDrive connection');
+        snackbar.error(t('toastOnedriveConnectFailed'));
       }
     } catch {
-      snackbar.error('Unable to start OneDrive connection');
+      snackbar.error(t('toastOnedriveConnectFailed'));
     }
   };
 
@@ -1422,7 +1494,7 @@ export const Resources = () => {
         config: { credentials: 'include' }
       });
       if (data?.error) {
-        snackbar.error('Connect OneDrive to import files');
+        snackbar.error(t('toastOnedriveConnectToImport'));
         await startOneDriveConnect();
         return;
       }
@@ -1434,7 +1506,7 @@ export const Resources = () => {
         await startOneDriveConnect();
       }
     } catch {
-      snackbar.error('Failed to open OneDrive');
+      snackbar.error(t('toastOnedriveOpenFailed'));
     } finally {
       setOnedriveLoadingToken(false);
     }
@@ -1468,14 +1540,12 @@ export const Resources = () => {
         setFolder('onedrive');
         fetchResources();
         const count = items.length;
-        snackbar.success(
-          `Importing ${count} item${count === 1 ? '' : 's'} from OneDrive`
-        );
+        snackbar.success(t.plural('toastImportingOnedrive', count));
       } else {
-        snackbar.error(data?.error || 'Failed to import from OneDrive');
+        snackbar.error(data?.error || t('toastOnedriveImportFailed'));
       }
     } catch {
-      snackbar.error('Failed to import from OneDrive');
+      snackbar.error(t('toastOnedriveImportFailed'));
     } finally {
       setOnedriveImporting(false);
     }
@@ -1491,7 +1561,7 @@ export const Resources = () => {
         ? [currentFolder]
         : onedriveTopResources;
     if (targets.length === 0) {
-      snackbar.error('Nothing to sync');
+      snackbar.error(t('toastNothingToSync'));
       return;
     }
     try {
@@ -1500,12 +1570,12 @@ export const Resources = () => {
         config: { credentials: 'include' }
       });
       if (tokenData?.error || !tokenData?.accessToken) {
-        snackbar.error('Connect OneDrive to sync files');
+        snackbar.error(t('toastOnedriveConnectToSync'));
         await startOneDriveConnect();
         return;
       }
     } catch {
-      snackbar.error('Connect OneDrive to sync files');
+      snackbar.error(t('toastOnedriveConnectToSync'));
       await startOneDriveConnect();
       return;
     }
@@ -1527,11 +1597,9 @@ export const Resources = () => {
           (r.status === 'fulfilled' && r.value?.error)
       ).length;
       if (failed > 0) {
-        snackbar.error(
-          `Sync failed for ${failed} item${failed === 1 ? '' : 's'}`
-        );
+        snackbar.error(t.plural('toastSyncFailed', failed));
       } else {
-        snackbar.success('Sync started');
+        snackbar.success(t('toastSyncStarted'));
       }
     } finally {
       setOnedriveSyncingId(null);
@@ -1556,15 +1624,13 @@ export const Resources = () => {
           <img src="/GOOGLE_DRIVE.svg" alt="" />
         </div>
         <div className="resource-folder-body">
-          <p className="resource-folder-title">Google Drive</p>
+          <p className="resource-folder-title">{t('folderGoogleDrive')}</p>
           <p className="resource-folder-meta">
-            {gdriveTopResources.length} item
-            {gdriveTopResources.length === 1 ? '' : 's'}
+            {t.plural('countItems', gdriveTopResources.length)}
             {gdriveChildrenTotal > 0 && (
               <>
                 {' · '}
-                {gdriveChildrenTotal} document
-                {gdriveChildrenTotal === 1 ? '' : 's'}
+                {t.plural('countDocuments', gdriveChildrenTotal)}
               </>
             )}
           </p>
@@ -1579,7 +1645,7 @@ export const Resources = () => {
           disabled={gdriveLoadingToken}
         >
           <Add />
-          {gdriveLoadingToken ? 'Loading…' : 'Add from Google Drive'}
+          {gdriveLoadingToken ? t('loading') : t('addFromGoogleDrive')}
         </button>
       </div>
       <div
@@ -1598,15 +1664,13 @@ export const Resources = () => {
           <img src="/ONEDRIVE.svg" alt="" />
         </div>
         <div className="resource-folder-body">
-          <p className="resource-folder-title">OneDrive</p>
+          <p className="resource-folder-title">{t('folderOneDrive')}</p>
           <p className="resource-folder-meta">
-            {onedriveTopResources.length} item
-            {onedriveTopResources.length === 1 ? '' : 's'}
+            {t.plural('countItems', onedriveTopResources.length)}
             {onedriveChildrenTotal > 0 && (
               <>
                 {' · '}
-                {onedriveChildrenTotal} document
-                {onedriveChildrenTotal === 1 ? '' : 's'}
+                {t.plural('countDocuments', onedriveChildrenTotal)}
               </>
             )}
           </p>
@@ -1621,7 +1685,7 @@ export const Resources = () => {
           disabled={onedriveLoadingToken}
         >
           <Add />
-          {onedriveLoadingToken ? 'Loading…' : 'Add from OneDrive'}
+          {onedriveLoadingToken ? t('loading') : t('addFromOneDrive')}
         </button>
       </div>
       <div
@@ -1640,15 +1704,13 @@ export const Resources = () => {
           <LanguageOutlined />
         </div>
         <div className="resource-folder-body">
-          <p className="resource-folder-title">Websites</p>
+          <p className="resource-folder-title">{t('folderWebsites')}</p>
           <p className="resource-folder-meta">
-            {websiteParents.length} website
-            {websiteParents.length === 1 ? '' : 's'}
+            {t.plural('countWebsites', websiteParents.length)}
             {websitePagesCount > 0 && (
               <>
                 {' · '}
-                {websitePagesCount} page
-                {websitePagesCount === 1 ? '' : 's'}
+                {t.plural('countPages', websitePagesCount)}
               </>
             )}
           </p>
@@ -1662,7 +1724,7 @@ export const Resources = () => {
           }}
         >
           <Add />
-          Add website
+          {t('addWebsite')}
         </button>
       </div>
       <div
@@ -1681,10 +1743,9 @@ export const Resources = () => {
           <FolderOpenOutlined />
         </div>
         <div className="resource-folder-body">
-          <p className="resource-folder-title">My folder</p>
+          <p className="resource-folder-title">{t('folderMine')}</p>
           <p className="resource-folder-meta">
-            {fileResources.length} item
-            {fileResources.length === 1 ? '' : 's'}
+            {t.plural('countItems', fileResources.length)}
           </p>
         </div>
         <button
@@ -1696,7 +1757,7 @@ export const Resources = () => {
           }}
         >
           <Add />
-          Add files
+          {t('addFiles')}
         </button>
       </div>
     </div>
@@ -1736,30 +1797,33 @@ export const Resources = () => {
           <div className="resource-item-top">
             <div className="resource-item-top-between">
               <p className="resource-item-title">{resource.title}</p>
-              <UI.Status status={resource.status} />
+              <UI.Status
+                status={resource.status}
+                pendingLabel={t('uiIndexing')}
+                completedLabel={t('uiReady')}
+                failedLabel={t('uiFailed')}
+              />
             </div>
             <UI.TruncatedText
-              text={isWebsite ? 'Website' : resource.mimeType}
+              text={isWebsite ? t('badgeWebsite') : resource.mimeType}
               className="resource-item-type"
             />
           </div>
           <div className="resource-item-meta">
             <span className="resource-item-uri">{resource.uri}</span>
             {isWebsite && childCount > 0 && (
-              <span>
-                {childCount} page{childCount === 1 ? '' : 's'}
-              </span>
+              <span>{t.plural('countPages', childCount)}</span>
             )}
             {!isWebsite && resource.size > 0 && (
               <span>{formatSize(resource.size)}</span>
             )}
-            <span>{new Date(resource.updatedAt).toLocaleDateString()}</span>
+            <span>{t.date(resource.updatedAt)}</span>
           </div>
         </div>
         {isFolder && (
           <IconButton
             size="small"
-            aria-label="Delete folder"
+            aria-label={t('deleteFolder')}
             className="resource-item-remove-button"
             onClick={e => handleDeleteRow(e, resource)}
           >
@@ -1772,15 +1836,15 @@ export const Resources = () => {
 
   const folderTitle =
     folder === 'files'
-      ? 'My folder'
+      ? t('folderMine')
       : folder === 'websites'
-        ? 'Websites'
+        ? t('folderWebsites')
         : folder === 'gdrive'
-          ? 'Google Drive'
+          ? t('folderGoogleDrive')
           : folder === 'onedrive'
-            ? 'OneDrive'
+            ? t('folderOneDrive')
             : '';
-  const folderEmptyLabel = folder === 'websites' ? 'Add website' : 'Add files';
+  const folderEmptyLabel = t(folder === 'websites' ? 'addWebsite' : 'addFiles');
   const folderEmptyType: 'file' | 'website' =
     folder === 'websites' ? 'website' : 'file';
 
@@ -1791,10 +1855,8 @@ export const Resources = () => {
       >
         <div className="resources-header">
           <div className="resources-header-text">
-            <h1 className="resources-title">Resources</h1>
-            <p className="resources-subtitle">
-              Static files and templates this MCP server can serve to clients.
-            </p>
+            <h1 className="resources-title">{t('title')}</h1>
+            <p className="resources-subtitle">{t('subtitle')}</p>
           </div>
           <div className="resources-header-actions">
             <div className="resources-view-toggle">
@@ -1806,7 +1868,7 @@ export const Resources = () => {
                 }}
               >
                 <GridViewOutlined />
-                Sources
+                {t('viewSources')}
               </button>
               <button
                 type="button"
@@ -1817,7 +1879,7 @@ export const Resources = () => {
                 }}
               >
                 <ViewListOutlined />
-                All resources
+                {t('viewAll')}
               </button>
             </div>
           </div>
@@ -1838,14 +1900,14 @@ export const Resources = () => {
                 }}
               >
                 <ArrowBack />
-                Back
+                {t('back')}
               </button>
             )}
             <div className="resources-search">
               <Search />
               <input
                 type="text"
-                placeholder="Search"
+                placeholder={t('search')}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -1859,7 +1921,7 @@ export const Resources = () => {
                   onClick={() => startCreate('file')}
                 >
                   <Add />
-                  <span className="button-text">Add files</span>
+                  <span className="button-text">{t('addFiles')}</span>
                 </UI.Button>
               )}
             {view === 'sources' &&
@@ -1871,7 +1933,7 @@ export const Resources = () => {
                   onClick={() => startCreate('website')}
                 >
                   <Add />
-                  <span className="button-text">Add website</span>
+                  <span className="button-text">{t('addWebsite')}</span>
                 </UI.Button>
               )}
             {view === 'sources' &&
@@ -1885,7 +1947,9 @@ export const Resources = () => {
                 >
                   <Add />
                   <span className="button-text">
-                    {gdriveLoadingToken ? 'Loading…' : 'Add from Google Drive'}
+                    {gdriveLoadingToken
+                      ? t('loading')
+                      : t('addFromGoogleDrive')}
                   </span>
                 </UI.Button>
               )}
@@ -1898,7 +1962,7 @@ export const Resources = () => {
               >
                 <Sync />
                 <span className="button-text">
-                  {gdriveSyncingId !== null ? 'Syncing…' : 'Sync'}
+                  {gdriveSyncingId !== null ? t('syncing') : t('sync')}
                 </span>
               </UI.Button>
             )}
@@ -1913,7 +1977,7 @@ export const Resources = () => {
                 >
                   <Add />
                   <span className="button-text">
-                    {onedriveLoadingToken ? 'Loading…' : 'Add from OneDrive'}
+                    {onedriveLoadingToken ? t('loading') : t('addFromOneDrive')}
                   </span>
                 </UI.Button>
               )}
@@ -1926,7 +1990,7 @@ export const Resources = () => {
               >
                 <Sync />
                 <span className="button-text">
-                  {onedriveSyncingId !== null ? 'Syncing…' : 'Sync'}
+                  {onedriveSyncingId !== null ? t('syncing') : t('sync')}
                 </span>
               </UI.Button>
             )}
@@ -2002,7 +2066,7 @@ export const Resources = () => {
               return folderPath.length > 0 ? (
                 <div className="resources-empty-state">
                   <FolderOpenOutlined />
-                  <h3>This folder is empty</h3>
+                  <h3>{t('folderEmpty')}</h3>
                 </div>
               ) : (
                 <div className="resources-empty-state">
@@ -2025,23 +2089,23 @@ export const Resources = () => {
                   )}
                   <h3>
                     {view === 'all'
-                      ? 'No resources yet'
+                      ? t('emptyAll')
                       : folder === 'websites'
-                        ? 'No websites yet'
+                        ? t('emptyWebsites')
                         : folder === 'gdrive'
-                          ? 'No Google Drive items yet'
+                          ? t('emptyGdrive')
                           : folder === 'onedrive'
-                            ? 'No OneDrive items yet'
-                            : 'No files yet'}
+                            ? t('emptyOnedrive')
+                            : t('emptyFiles')}
                   </h3>
                   <p>
                     {folder === 'websites'
-                      ? 'Add a URL to crawl and index its pages.'
+                      ? t('emptyWebsitesText')
                       : folder === 'gdrive'
-                        ? 'Pick files or folders from Google Drive to import and keep in sync.'
+                        ? t('emptyGdriveText')
                         : folder === 'onedrive'
-                          ? 'Pick files or folders from OneDrive to import and keep in sync.'
-                          : 'Upload files or paste text content for this MCP server to serve.'}
+                          ? t('emptyOnedriveText')
+                          : t('emptyFilesText')}
                   </p>
                   {view === 'sources' &&
                     (folder === 'gdrive' ? (
@@ -2054,8 +2118,8 @@ export const Resources = () => {
                         <Add />
                         <span className="button-text">
                           {gdriveLoadingToken
-                            ? 'Loading…'
-                            : 'Add from Google Drive'}
+                            ? t('loading')
+                            : t('addFromGoogleDrive')}
                         </span>
                       </UI.Button>
                     ) : folder === 'onedrive' ? (
@@ -2068,8 +2132,8 @@ export const Resources = () => {
                         <Add />
                         <span className="button-text">
                           {onedriveLoadingToken
-                            ? 'Loading…'
-                            : 'Add from OneDrive'}
+                            ? t('loading')
+                            : t('addFromOneDrive')}
                         </span>
                       </UI.Button>
                     ) : (
@@ -2103,15 +2167,21 @@ export const Resources = () => {
             </IconButton>
             <h2 className="panel-title">
               {addingType === 'website'
-                ? 'Add Website'
+                ? t('panelAddWebsite')
                 : addingType === 'file'
-                  ? 'New Resource'
+                  ? t('panelNewResource')
                   : isEditing
-                    ? 'Edit Resource'
+                    ? t('panelEditResource')
                     : selectedResource!.title}
             </h2>
             {!isEditing && !isCreating && selectedResource && (
-              <UI.Status status={selectedResource.status} variant="badge" />
+              <UI.Status
+                status={selectedResource.status}
+                variant="badge"
+                pendingLabel={t('uiIndexing')}
+                completedLabel={t('uiReady')}
+                failedLabel={t('uiFailed')}
+              />
             )}
             <div className="panel-actions">
               {!isEditing && !isCreating && (
@@ -2137,23 +2207,20 @@ export const Resources = () => {
               <div className="panel-edit-form">
                 {addingType === 'website' && (
                   <UI.Input
-                    label="URL"
+                    label={t('websiteUrl')}
                     name="uri"
-                    placeholder="https://example.com"
+                    placeholder={t('websiteUrlPlaceholder')}
                     value={websiteValues.uri}
                     disabled={submitting}
                     onChange={handleWebsiteChange}
                     error={!!errors.uri}
-                    helperText={
-                      errors.uri ||
-                      'The starting URL. Same-origin links are followed.'
-                    }
+                    helperText={errors.uri || t('websiteUrlHelp')}
                   />
                 )}
                 <UI.Input
-                  label="Title"
+                  label={t('websiteTitle')}
                   name="title"
-                  placeholder="A name for this website"
+                  placeholder={t('websiteTitlePlaceholder')}
                   value={websiteValues.title}
                   disabled={submitting}
                   onChange={handleWebsiteChange}
@@ -2161,9 +2228,9 @@ export const Resources = () => {
                   helperText={errors.title}
                 />
                 <UI.Input
-                  label="Description"
+                  label={t('websiteDescription')}
                   name="description"
-                  placeholder="What is on this site?"
+                  placeholder={t('websiteDescriptionPlaceholder')}
                   value={websiteValues.description}
                   disabled={submitting}
                   onChange={handleWebsiteChange}
@@ -2175,7 +2242,7 @@ export const Resources = () => {
                 {addingType === 'website' && (
                   <div className="panel-crawl-grid">
                     <UI.Input
-                      label="Max pages"
+                      label={t('maxPages')}
                       name="maxPages"
                       type="number"
                       value={websiteValues.maxPages}
@@ -2194,7 +2261,7 @@ export const Resources = () => {
                       }
                     />
                     <UI.Input
-                      label="Max depth"
+                      label={t('maxDepth')}
                       name="maxDepth"
                       type="number"
                       value={websiteValues.maxDepth}
@@ -2224,50 +2291,45 @@ export const Resources = () => {
                   >
                     {submitting
                       ? isCreating
-                        ? 'Starting crawl...'
-                        : 'Saving...'
+                        ? t('startingCrawl')
+                        : c('saving')
                       : isCreating
-                        ? 'Start crawl'
-                        : 'Save'}
+                        ? t('startCrawl')
+                        : c('save')}
                   </UI.Button>
                   <UI.Button
                     size="small"
                     disabled={submitting}
                     onClick={handleCancel}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                 </div>
               </div>
             ) : isCreating || isEditing ? (
               <div className="panel-edit-form">
                 <UI.Input
-                  label="Title"
+                  label={t('resourceTitle')}
                   name="title"
-                  placeholder="e.g. System Instructions"
+                  placeholder={t('resourceTitlePlaceholder')}
                   value={editValues.title}
                   disabled={submitting}
                   onChange={handleEditChange}
                   error={!!errors.title}
-                  helperText={
-                    errors.title || 'A human-readable name for this resource'
-                  }
+                  helperText={errors.title || t('resourceTitleHelp')}
                 />
                 <UI.Input
-                  label="URI"
+                  label={t('uri')}
                   name="uri"
-                  placeholder="resource://my-resource"
+                  placeholder={t('uriPlaceholder')}
                   value={editValues.uri}
                   disabled={submitting}
                   onChange={handleEditChange}
                   error={!!errors.uri}
-                  helperText={
-                    errors.uri ||
-                    'Auto-generated from title. Edit to customize.'
-                  }
+                  helperText={errors.uri || t('uriHelp')}
                 />
                 <UI.Select
-                  label="Type"
+                  label={t('type')}
                   name="type"
                   value={editValues.type}
                   disabled={submitting}
@@ -2279,24 +2341,24 @@ export const Resources = () => {
                   }
                   helperText={
                     editValues.type === utils.constants.RESOURCE_TYPE_STATIC
-                      ? "Fixed content that doesn't change"
-                      : 'Dynamic content with variables (e.g. {userId})'
+                      ? t('typeStaticHelp')
+                      : t('typeTemplateHelp')
                   }
                   options={[
                     {
-                      label: 'Static — Fixed content',
+                      label: t('typeStatic'),
                       value: utils.constants.RESOURCE_TYPE_STATIC
                     },
                     {
-                      label: 'Template — Dynamic with variables',
+                      label: t('typeTemplate'),
                       value: utils.constants.RESOURCE_TYPE_TEMPLATE
                     }
                   ]}
                 />
                 <UI.Input
-                  label="Description"
+                  label={t('description')}
                   name="description"
-                  placeholder="What is this resource about?"
+                  placeholder={t('descriptionPlaceholder')}
                   value={editValues.description}
                   disabled={submitting}
                   onChange={handleEditChange}
@@ -2307,7 +2369,9 @@ export const Resources = () => {
                 />
                 {isCreating && (
                   <div className="panel-content-mode">
-                    <p className="panel-content-mode-label">Content source</p>
+                    <p className="panel-content-mode-label">
+                      {t('contentSource')}
+                    </p>
                     <div className="panel-content-mode-toggle">
                       <button
                         type="button"
@@ -2316,7 +2380,7 @@ export const Resources = () => {
                         onClick={() => setContentMode('file')}
                       >
                         <UploadFile />
-                        File
+                        {t('contentSourceFile')}
                       </button>
                       <button
                         type="button"
@@ -2328,7 +2392,7 @@ export const Resources = () => {
                         }}
                       >
                         <TextFields />
-                        Text
+                        {t('contentSourceText')}
                       </button>
                     </div>
                   </div>
@@ -2336,7 +2400,7 @@ export const Resources = () => {
                 {contentMode === 'text' ? (
                   <>
                     <UI.Select
-                      label="MIME Type"
+                      label={t('mimeType')}
                       name="mimeType"
                       value={editValues.mimeType}
                       disabled={submitting}
@@ -2352,7 +2416,7 @@ export const Resources = () => {
                       }))}
                     />
                     <UI.Select
-                      label="Encoding"
+                      label={t('encoding')}
                       name="encoding"
                       value={editValues.encoding}
                       disabled={submitting}
@@ -2368,7 +2432,7 @@ export const Resources = () => {
                       }))}
                     />
                     <UI.Input
-                      label="Content"
+                      label={t('content')}
                       name="content"
                       value={editValues.content}
                       disabled={submitting}
@@ -2377,7 +2441,9 @@ export const Resources = () => {
                       rows={8}
                     />
                     <p className="panel-size-hint">
-                      Size: {formatSize(Number(editValues.size))}
+                      {t('sizeHint', {
+                        size: formatSize(Number(editValues.size))
+                      })}
                     </p>
                   </>
                 ) : (
@@ -2412,7 +2478,7 @@ export const Resources = () => {
                           )}
                           <p className="panel-file-name">{file.name}</p>
                           <p className="panel-file-meta">
-                            {file.type || 'unknown'} &middot;{' '}
+                            {file.type || t('fileUnknownType')} &middot;{' '}
                             {formatSize(file.size)}
                           </p>
                         </div>
@@ -2437,14 +2503,12 @@ export const Resources = () => {
                             {selectedResource.mimeType} &middot;{' '}
                             {formatSize(selectedResource.size)}
                           </p>
-                          <p className="panel-file-hint">
-                            Click to replace file
-                          </p>
+                          <p className="panel-file-hint">{t('fileReplace')}</p>
                         </div>
                       ) : (
                         <div className="panel-file-placeholder">
                           <UploadFile />
-                          <p>Click to select a file</p>
+                          <p>{t('fileSelect')}</p>
                         </div>
                       )}
                     </div>
@@ -2460,12 +2524,12 @@ export const Resources = () => {
                     onClick={() => setShowAdvanced(prev => !prev)}
                   >
                     {showAdvanced ? <ExpandLess /> : <ExpandMore />}
-                    Advanced options
+                    {t('advancedOptions')}
                   </button>
                   {showAdvanced && (
                     <div className="panel-advanced-content">
                       <div className="panel-advanced-section">
-                        <p className="panel-advanced-label">Audience</p>
+                        <p className="panel-advanced-label">{t('audience')}</p>
                         <div className="panel-audience-checks">
                           {utils.constants.ROLE_MESSAGES.map(role => (
                             <FormControlLabel
@@ -2491,7 +2555,7 @@ export const Resources = () => {
                         </div>
                       </div>
                       <UI.Input
-                        label="Priority (0 to 1)"
+                        label={t('priority')}
                         name="priority"
                         type="number"
                         value={annotations.priority}
@@ -2506,7 +2570,7 @@ export const Resources = () => {
                       />
                       <div className="panel-advanced-section">
                         <div className="panel-advanced-section-header">
-                          <p className="panel-advanced-label">Icons</p>
+                          <p className="panel-advanced-label">{t('icons')}</p>
                           <IconButton
                             size="small"
                             disabled={submitting}
@@ -2523,7 +2587,7 @@ export const Resources = () => {
                         {icons.map((icon, i) => (
                           <div key={i} className="panel-icon-row">
                             <UI.Input
-                              label="URL"
+                              label={t('iconUrl')}
                               value={icon.src}
                               disabled={submitting}
                               onChange={e =>
@@ -2537,7 +2601,7 @@ export const Resources = () => {
                               }
                             />
                             <UI.Select
-                              label="Theme"
+                              label={t('iconTheme')}
                               value={icon.theme}
                               disabled={submitting}
                               onChange={e =>
@@ -2553,7 +2617,7 @@ export const Resources = () => {
                                 )
                               }
                               options={[
-                                { label: 'None', value: '' },
+                                { label: t('iconThemeNone'), value: '' },
                                 ...utils.constants.RESOURCE_ICON_THEMES.map(
                                   t => ({
                                     label: t,
@@ -2577,7 +2641,7 @@ export const Resources = () => {
                         ))}
                         {icons.length === 0 && (
                           <p className="panel-advanced-hint">
-                            No icons added yet.
+                            {t('iconsEmpty')}
                           </p>
                         )}
                       </div>
@@ -2593,18 +2657,18 @@ export const Resources = () => {
                   >
                     {submitting
                       ? isCreating
-                        ? 'Creating...'
-                        : 'Saving...'
+                        ? c('creating')
+                        : c('saving')
                       : isCreating
-                        ? 'Create'
-                        : 'Save'}
+                        ? c('create')
+                        : c('save')}
                   </UI.Button>
                   <UI.Button
                     size="small"
                     disabled={submitting}
                     onClick={handleCancel}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                 </div>
               </div>
@@ -2640,32 +2704,40 @@ export const Resources = () => {
                 })()}
                 <div className="panel-info-grid">
                   <div className="panel-info-item">
-                    <span className="panel-info-label">Source</span>
+                    <span className="panel-info-label">{t('infoSource')}</span>
                     <span className="panel-info-badge">
-                      {selectedResource.sourceType}
+                      {labelFor(
+                        SOURCE_TYPE_KEY,
+                        selectedResource.sourceType,
+                        t
+                      )}
                     </span>
                   </div>
                   <div className="panel-info-item">
-                    <span className="panel-info-label">Type</span>
+                    <span className="panel-info-label">{t('infoType')}</span>
                     <span className="panel-info-badge">
-                      {selectedResource.type}
+                      {labelFor(TYPE_KEY, selectedResource.type, t)}
                     </span>
                   </div>
                   <div className="panel-info-item">
-                    <span className="panel-info-label">MIME Type</span>
+                    <span className="panel-info-label">
+                      {t('infoMimeType')}
+                    </span>
                     <span className="panel-info-value">
                       {selectedResource.mimeType}
                     </span>
                   </div>
                   <div className="panel-info-item">
-                    <span className="panel-info-label">Size</span>
+                    <span className="panel-info-label">{t('infoSize')}</span>
                     <span className="panel-info-value">
                       {formatSize(selectedResource.size)}
                     </span>
                   </div>
                   {selectedResource.encoding && (
                     <div className="panel-info-item">
-                      <span className="panel-info-label">Encoding</span>
+                      <span className="panel-info-label">
+                        {t('infoEncoding')}
+                      </span>
                       <span className="panel-info-value">
                         {selectedResource.encoding}
                       </span>
@@ -2673,7 +2745,9 @@ export const Resources = () => {
                   )}
                   {selectedResource.fileName && (
                     <div className="panel-info-item">
-                      <span className="panel-info-label">File name</span>
+                      <span className="panel-info-label">
+                        {t('infoFileName')}
+                      </span>
                       <UI.TruncatedText
                         text={selectedResource.fileName}
                         className="panel-info-value"
@@ -2682,22 +2756,21 @@ export const Resources = () => {
                   )}
                 </div>
                 <div className="panel-section">
-                  <h3 className="panel-section-label">URI</h3>
+                  <h3 className="panel-section-label">{t('sectionUri')}</h3>
                   <p className="panel-section-text">{selectedResource.uri}</p>
                 </div>
                 <div className="panel-section">
-                  <h3 className="panel-section-label">Sources</h3>
+                  <h3 className="panel-section-label">{t('sectionSources')}</h3>
                   <div className="panel-toggle-row">
                     <div>
                       <p className="panel-toggle-label">
-                        {utils.isResourceSourceEnabled(selectedResource)
-                          ? 'Cite this resource in replies'
-                          : 'Hidden from citations'}
+                        {t(
+                          utils.isResourceSourceEnabled(selectedResource)
+                            ? 'sourcesOn'
+                            : 'sourcesOff'
+                        )}
                       </p>
-                      <p className="panel-toggle-hint">
-                        When enabled, the agent will reference this resource as
-                        a source in answers that use it.
-                      </p>
+                      <p className="panel-toggle-hint">{t('sourcesHint')}</p>
                     </div>
                     <Switch
                       checked={utils.isResourceSourceEnabled(selectedResource)}
@@ -2708,7 +2781,9 @@ export const Resources = () => {
                 </div>
                 {selectedResource.description && (
                   <div className="panel-section">
-                    <h3 className="panel-section-label">Description</h3>
+                    <h3 className="panel-section-label">
+                      {t('sectionDescription')}
+                    </h3>
                     <p className="panel-section-text">
                       {selectedResource.description}
                     </p>
@@ -2716,7 +2791,7 @@ export const Resources = () => {
                 )}
                 {selectedResource.fileKey && (
                   <div className="panel-section">
-                    <h3 className="panel-section-label">File</h3>
+                    <h3 className="panel-section-label">{t('sectionFile')}</h3>
                     {filePreviewError ? (
                       <p className="panel-file-error">{filePreviewError}</p>
                     ) : (
@@ -2738,7 +2813,7 @@ export const Resources = () => {
                           <OpenInNew />
                           <span className="button-text">
                             {filePreviewUrl ? (
-                              'Open file'
+                              t('openFile')
                             ) : (
                               <UI.Skeleton
                                 variant="text"
@@ -2760,7 +2835,9 @@ export const Resources = () => {
                     const expanded = expandedSections.has('content');
                     return (
                       <div className="panel-section">
-                        <h3 className="panel-section-label">Content</h3>
+                        <h3 className="panel-section-label">
+                          {t('sectionContent')}
+                        </h3>
                         {isLarge && !expanded ? (
                           <button
                             type="button"
@@ -2773,7 +2850,7 @@ export const Resources = () => {
                               })
                             }
                           >
-                            Show content ({text.length.toLocaleString()} chars)
+                            {t('showContent', { count: t.n(text.length) })}
                           </button>
                         ) : (
                           <>
@@ -2790,7 +2867,7 @@ export const Resources = () => {
                                   })
                                 }
                               >
-                                Hide content
+                                {t('hideContent')}
                               </button>
                             )}
                           </>
@@ -2802,14 +2879,18 @@ export const Resources = () => {
                   Object.keys(selectedResource.metadata).length > 0 &&
                   renderCollapsibleJson(
                     'metadata',
-                    'Metadata',
+                    'sectionMetadata',
+                    'showMetadata',
+                    'hideMetadata',
                     selectedResource.metadata
                   )}
                 {selectedResource.annotations &&
                   Object.keys(selectedResource.annotations).length > 0 &&
                   renderCollapsibleJson(
                     'annotations',
-                    'Annotations',
+                    'sectionAnnotations',
+                    'showAnnotations',
+                    'hideAnnotations',
                     selectedResource.annotations
                   )}
               </div>
@@ -2819,7 +2900,7 @@ export const Resources = () => {
       )}
       <UI.Alert
         open={deleteAlert}
-        title="Delete resource"
+        title={t('confirmDeleteTitle')}
         description={(() => {
           const title = resourceToDelete?.title ?? '';
           const isFolder = resourceToDelete
@@ -2827,12 +2908,13 @@ export const Resources = () => {
             : false;
           const childCount = resourceToDelete?.childResourceCount ?? 0;
           if (isFolder && childCount > 0) {
-            return `Are you sure you want to delete "${title}"? This will also remove ${childCount} item${childCount === 1 ? '' : 's'} inside. This action cannot be undone.`;
+            return t.plural('confirmDeleteFolder', childCount, { title });
           }
-          return `Are you sure you want to delete "${title}"? This action cannot be undone.`;
+          return t('confirmDeleteText', { title });
         })()}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t('confirmDelete')}
+        cancelText={c('cancel')}
+        loadingText={c('deleting')}
         loading={submitting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => {
@@ -2842,8 +2924,9 @@ export const Resources = () => {
       />
       <UI.Modal
         open={gdriveOpen}
-        title="Import from Google Drive"
+        title={t('importGoogleDrive')}
         width={820}
+        closeLabel={c('close')}
         onClose={() => {
           if (gdriveImporting) return;
           setGdriveOpen(false);
@@ -2860,7 +2943,7 @@ export const Resources = () => {
                 setGdriveSelected(new Map());
               }}
             >
-              Cancel
+              {c('cancel')}
             </UI.Button>
             <UI.Button
               variant="contained"
@@ -2870,10 +2953,10 @@ export const Resources = () => {
               onClick={handleGoogleDriveImport}
             >
               {gdriveImporting
-                ? 'Importing…'
+                ? t('importing')
                 : gdriveSelected.size === 0
-                  ? 'Add selected'
-                  : `Add selected (${gdriveSelected.size})`}
+                  ? t('addSelected')
+                  : t('addSelectedCount', { count: gdriveSelected.size })}
             </UI.Button>
           </>
         }
@@ -2881,6 +2964,8 @@ export const Resources = () => {
         <UI.CloudDriveBrowser
           provider="google-drive"
           accessToken={gdriveToken}
+          labels={driveLabels}
+          locale={t.locale}
           selected={gdriveSelected}
           onSelectionChange={setGdriveSelected}
           onTokenExpired={() => {
@@ -2892,8 +2977,9 @@ export const Resources = () => {
       </UI.Modal>
       <UI.Modal
         open={onedriveOpen}
-        title="Import from OneDrive"
+        title={t('importOneDrive')}
         width={820}
+        closeLabel={c('close')}
         onClose={() => {
           if (onedriveImporting) return;
           setOnedriveOpen(false);
@@ -2910,7 +2996,7 @@ export const Resources = () => {
                 setOnedriveSelected(new Map());
               }}
             >
-              Cancel
+              {c('cancel')}
             </UI.Button>
             <UI.Button
               variant="contained"
@@ -2920,10 +3006,10 @@ export const Resources = () => {
               onClick={handleOneDriveImport}
             >
               {onedriveImporting
-                ? 'Importing…'
+                ? t('importing')
                 : onedriveSelected.size === 0
-                  ? 'Add selected'
-                  : `Add selected (${onedriveSelected.size})`}
+                  ? t('addSelected')
+                  : t('addSelectedCount', { count: onedriveSelected.size })}
             </UI.Button>
           </>
         }
@@ -2931,6 +3017,8 @@ export const Resources = () => {
         <UI.CloudDriveBrowser
           provider="onedrive"
           accessToken={onedriveToken}
+          labels={driveLabels}
+          locale={t.locale}
           selected={onedriveSelected}
           onSelectionChange={setOnedriveSelected}
           onTokenExpired={() => {

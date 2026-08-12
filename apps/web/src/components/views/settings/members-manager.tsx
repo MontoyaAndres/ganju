@@ -5,6 +5,7 @@ import IconButton from '@mui/material/IconButton';
 import { Close } from '@mui/icons-material';
 
 import { MembersManagerWrapper } from './styles';
+import { i18n } from '../../../lib';
 
 type Scope = 'organization' | 'project';
 
@@ -48,7 +49,9 @@ const isHttpUrl = (value: string | null): value is string =>
 export const MembersManager = (props: IProps) => {
   const { scope, basePath, currentUserId, ownerId } = props;
   const snackbar = UI.Alert.useSnackbar();
-  const scopeLabel = scope === 'project' ? 'project' : 'organization';
+  const t = i18n.useT(i18n.copy.SETTINGS);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const isProject = scope === 'project';
 
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -126,8 +129,13 @@ export const MembersManager = (props: IProps) => {
       const parsed = await schema.parseAsync({ email: inviteEmail });
       email = parsed.email;
     } catch (err) {
+      // Parsed in the browser, so this issue never passes through
+      // `handleError` where the API localizes the ones it raises.
       const issues = (err as { issues?: { message: string }[] })?.issues;
-      setInviteError(issues?.[0]?.message || 'Enter a valid email address');
+      const issue = issues?.[0];
+      setInviteError(
+        issue ? utils.localizeZodIssue(issue, t.lang) : t('inviteInvalidEmail')
+      );
       return;
     }
 
@@ -143,16 +151,14 @@ export const MembersManager = (props: IProps) => {
         }
       });
       if (utils.isApiError(data)) {
-        snackbar.error(
-          utils.getApiErrorMessage(data, 'Failed to send invitation')
-        );
+        snackbar.error(utils.getApiErrorMessage(data, t('toastInviteFailed')));
         return;
       }
-      snackbar.success(`Invitation sent to ${email}`);
+      snackbar.success(t('toastInviteSent', { email }));
       setInviteEmail('');
       await fetchData();
     } catch {
-      snackbar.error('Failed to send invitation');
+      snackbar.error(t('toastInviteFailed'));
     } finally {
       setInviting(false);
     }
@@ -169,14 +175,14 @@ export const MembersManager = (props: IProps) => {
         });
         if (utils.isApiError(data)) {
           snackbar.error(
-            utils.getApiErrorMessage(data, 'Failed to remove member')
+            utils.getApiErrorMessage(data, t('toastMemberRemoveFailed'))
           );
           return;
         }
         setMembers(prev =>
           prev.filter(member => member.userId !== confirm.member.userId)
         );
-        snackbar.success('Member removed');
+        snackbar.success(t('toastMemberRemoved'));
       } else {
         const data = await utils.fetcher({
           url: `${basePath}/invitation/${confirm.invitation.id}`,
@@ -184,18 +190,18 @@ export const MembersManager = (props: IProps) => {
         });
         if (utils.isApiError(data)) {
           snackbar.error(
-            utils.getApiErrorMessage(data, 'Failed to revoke invitation')
+            utils.getApiErrorMessage(data, t('toastRevokeFailed'))
           );
           return;
         }
         setInvitations(prev =>
           prev.filter(item => item.id !== confirm.invitation.id)
         );
-        snackbar.success('Invitation revoked');
+        snackbar.success(t('toastInvitationRevoked'));
       }
       setConfirm(null);
     } catch {
-      snackbar.error('Something went wrong');
+      snackbar.error(c('somethingWentWrong'));
     } finally {
       setActioning(false);
     }
@@ -212,8 +218,7 @@ export const MembersManager = (props: IProps) => {
     return (
       <MembersManagerWrapper>
         <p className="mm-denied">
-          You are not a member of this {scopeLabel}. Only basic information is
-          available — ask an existing member to invite you.
+          {t(isProject ? 'membersDeniedProject' : 'membersDeniedOrganization')}
         </p>
       </MembersManagerWrapper>
     );
@@ -223,7 +228,7 @@ export const MembersManager = (props: IProps) => {
     <MembersManagerWrapper>
       <div className="mm-block">
         <div className="mm-block-head">
-          <h3 className="mm-block-title">Members</h3>
+          <h3 className="mm-block-title">{t('membersHeading')}</h3>
           {!loading && <span className="mm-count">{members.length}</span>}
         </div>
 
@@ -253,10 +258,12 @@ export const MembersManager = (props: IProps) => {
                   <p className="mm-row-name">
                     {member.user.name}
                     {member.userId === currentUserId && (
-                      <span className="mm-tag">You</span>
+                      <span className="mm-tag">{t('memberYou')}</span>
                     )}
                     {member.userId === ownerId && (
-                      <span className="mm-tag mm-tag-owner">Owner</span>
+                      <span className="mm-tag mm-tag-owner">
+                        {t('memberOwner')}
+                      </span>
                     )}
                   </p>
                   <p className="mm-row-sub">{member.user.email}</p>
@@ -264,7 +271,7 @@ export const MembersManager = (props: IProps) => {
                 <span className="mm-role">{member.role}</span>
                 {canRemove(member) && (
                   <IconButton
-                    aria-label="Remove member"
+                    aria-label={t('removeMember')}
                     size="small"
                     onClick={() =>
                       setConfirm({ type: 'remove-member', member })
@@ -282,10 +289,10 @@ export const MembersManager = (props: IProps) => {
       <form className="mm-invite" onSubmit={handleInvite}>
         <div className="mm-invite-field">
           <UI.Input
-            label="Invite a teammate by email"
+            label={t('inviteLabel')}
             name="inviteEmail"
             type="email"
-            placeholder="teammate@company.com"
+            placeholder={t('invitePlaceholder')}
             value={inviteEmail}
             disabled={inviting}
             error={!!inviteError}
@@ -302,14 +309,14 @@ export const MembersManager = (props: IProps) => {
           size="small"
           disabled={inviting || !inviteEmail.trim()}
         >
-          {inviting ? 'Sending...' : 'Invite'}
+          {inviting ? t('inviteSending') : t('inviteAction')}
         </UI.Button>
       </form>
 
       {invitations.length > 0 && (
         <div className="mm-block">
           <div className="mm-block-head">
-            <h3 className="mm-block-title">Pending invitations</h3>
+            <h3 className="mm-block-title">{t('pendingInvitations')}</h3>
             <span className="mm-count">{invitations.length}</span>
           </div>
           <div className="mm-list">
@@ -321,13 +328,17 @@ export const MembersManager = (props: IProps) => {
                 <div className="mm-row-info">
                   <p className="mm-row-name">{invitation.email}</p>
                   <p className="mm-row-sub">
-                    Invited by {invitation.invitedBy?.name || 'a teammate'} ·{' '}
-                    {new Date(invitation.createdAt).toLocaleDateString()}
+                    {t('invitedByOn', {
+                      name: invitation.invitedBy?.name || t('fallbackInviter'),
+                      date: t.date(invitation.createdAt)
+                    })}
                   </p>
                 </div>
-                <span className="mm-role mm-role-pending">Pending</span>
+                <span className="mm-role mm-role-pending">
+                  {t('pendingBadge')}
+                </span>
                 <IconButton
-                  aria-label="Revoke invitation"
+                  aria-label={t('revokeInvitation')}
                   size="small"
                   onClick={() =>
                     setConfirm({ type: 'revoke-invitation', invitation })
@@ -343,20 +354,28 @@ export const MembersManager = (props: IProps) => {
 
       <UI.Alert
         open={!!confirm}
-        title={
+        title={t(
           confirm?.type === 'remove-member'
-            ? 'Remove member'
-            : 'Revoke invitation'
-        }
+            ? 'confirmRemoveMemberTitle'
+            : 'confirmRevokeTitle'
+        )}
         description={
           confirm?.type === 'remove-member'
-            ? `Remove ${confirm.member.user.name} from this ${scopeLabel}? They will lose access immediately.`
+            ? t(
+                isProject
+                  ? 'confirmRemoveMemberProject'
+                  : 'confirmRemoveMemberOrganization',
+                { name: confirm.member.user.name }
+              )
             : confirm?.type === 'revoke-invitation'
-              ? `Revoke the invitation for ${confirm.invitation.email}? They will no longer be able to accept it.`
+              ? t('confirmRevokeText', { email: confirm.invitation.email })
               : ''
         }
-        confirmText={confirm?.type === 'remove-member' ? 'Remove' : 'Revoke'}
-        cancelText="Cancel"
+        confirmText={t(
+          confirm?.type === 'remove-member' ? 'confirmRemove' : 'confirmRevoke'
+        )}
+        cancelText={c('cancel')}
+        loadingText={c('deleting')}
         loading={actioning}
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}

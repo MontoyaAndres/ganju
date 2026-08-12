@@ -9,6 +9,7 @@ import { Wrapper } from './styles';
 import { MembersManager } from './members-manager';
 import { BillingManager } from './billing-manager';
 import { authClient } from '../../../utils';
+import { i18n } from '../../../lib';
 
 type Section =
   | 'organization'
@@ -100,6 +101,8 @@ export const Settings = (props: SettingsProps) => {
   const { auth } = props;
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.SETTINGS);
+  const c = i18n.useT(i18n.copy.COMMON);
   const { id: organizationId } = router.query as { id: string };
 
   const [section, setSection] = useState<Section>('organization');
@@ -221,7 +224,8 @@ export const Settings = (props: SettingsProps) => {
       if (signal?.aborted) return;
       const found = Array.isArray(list)
         ? (list.find((item: Organization) => item.id === organizationId) as
-            Organization | undefined)
+            | Organization
+            | undefined)
         : undefined;
       if (found) {
         setOrganization(found);
@@ -294,7 +298,7 @@ export const Settings = (props: SettingsProps) => {
     if (savingOrg || !organization) return;
     const trimmed = orgName.trim();
     if (!trimmed) {
-      setOrgErrors({ name: 'Name is required' });
+      setOrgErrors({ name: t('nameRequired') });
       return;
     }
     setOrgErrors({});
@@ -310,12 +314,14 @@ export const Settings = (props: SettingsProps) => {
       });
       if (data && !data.error) {
         setOrganization(prev => (prev ? { ...prev, name: trimmed } : prev));
-        snackbar.success('Organization updated');
+        snackbar.success(t('toastOrganizationUpdated'));
       } else {
-        snackbar.error(data?.error?.message || 'Failed to update organization');
+        snackbar.error(
+          data?.error?.message || t('toastOrganizationUpdateFailed')
+        );
       }
     } catch {
-      snackbar.error('Failed to update organization');
+      snackbar.error(t('toastOrganizationUpdateFailed'));
     } finally {
       setSavingOrg(false);
     }
@@ -330,15 +336,17 @@ export const Settings = (props: SettingsProps) => {
         config: { method: 'DELETE', credentials: 'include' }
       });
       if (data && !data.error) {
-        snackbar.success('Organization removed');
+        snackbar.success(t('toastOrganizationRemoved'));
         router.push('/organization');
       } else {
-        snackbar.error(data?.error?.message || 'Failed to remove organization');
+        snackbar.error(
+          data?.error?.message || t('toastOrganizationRemoveFailed')
+        );
         setRemovingOrg(false);
         setOrgDeleteAlert(false);
       }
     } catch {
-      snackbar.error('Failed to remove organization');
+      snackbar.error(t('toastOrganizationRemoveFailed'));
       setRemovingOrg(false);
       setOrgDeleteAlert(false);
     }
@@ -366,12 +374,12 @@ export const Settings = (props: SettingsProps) => {
       });
       if (data && !utils.isApiError(data)) {
         setConsent(data);
-        snackbar.success('Thanks — your acceptance is on record');
+        snackbar.success(t('toastConsentRecorded'));
       } else {
-        snackbar.error('Could not record your acceptance');
+        snackbar.error(t('toastConsentFailed'));
       }
     } catch {
-      snackbar.error('Could not record your acceptance');
+      snackbar.error(t('toastConsentFailed'));
     } finally {
       setAcceptingConsent(false);
     }
@@ -399,9 +407,9 @@ export const Settings = (props: SettingsProps) => {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      snackbar.success('Your data is downloading');
+      snackbar.success(t('toastExportStarted'));
     } catch {
-      snackbar.error('Could not export your data');
+      snackbar.error(t('toastExportFailed'));
     } finally {
       setExporting(false);
     }
@@ -428,11 +436,13 @@ export const Settings = (props: SettingsProps) => {
         (data?.organizations as { name: string }[] | undefined) ?? [];
       snackbar.error(
         owned.length
-          ? `Delete or transfer these organizations first: ${owned.map(o => o.name).join(', ')}`
-          : data?.error || 'Could not delete your account'
+          ? t('toastOwnedOrganizations', {
+              names: owned.map(o => o.name).join(', ')
+            })
+          : data?.error || t('toastAccountDeleteFailed')
       );
     } catch {
-      snackbar.error('Could not delete your account');
+      snackbar.error(t('toastAccountDeleteFailed'));
     } finally {
       setDeletingAccount(false);
       setAccountDeleteAlert(false);
@@ -469,10 +479,10 @@ export const Settings = (props: SettingsProps) => {
     const isEdit = !!llmForm.id;
 
     const errors: Record<string, string> = {};
-    if (!llmForm.name.trim()) errors.name = 'Name is required';
-    if (!llmForm.catalogKey) errors.catalogKey = 'Pick a model';
+    if (!llmForm.name.trim()) errors.name = t('nameRequired');
+    if (!llmForm.catalogKey) errors.catalogKey = t('modelPickError');
     if (!isEdit && !llmForm.apiKey.trim())
-      errors.apiKey = 'API key is required';
+      errors.apiKey = t('modelApiKeyRequired');
 
     if (Object.keys(errors).length > 0) {
       setLlmErrors(errors);
@@ -481,7 +491,7 @@ export const Settings = (props: SettingsProps) => {
 
     const catalog = findCatalogEntry(llmForm.catalogKey);
     if (!catalog) {
-      setLlmErrors({ catalogKey: 'Unknown model' });
+      setLlmErrors({ catalogKey: t('modelUnknown') });
       return;
     }
 
@@ -507,14 +517,14 @@ export const Settings = (props: SettingsProps) => {
         }
       });
       if (data && !data.error) {
-        snackbar.success(isEdit ? 'Model updated' : 'Model added');
+        snackbar.success(t(isEdit ? 'toastModelUpdated' : 'toastModelAdded'));
         await fetchLlms();
         setLlmForm(null);
       } else {
-        snackbar.error(data?.error?.message || 'Failed to save model');
+        snackbar.error(data?.error?.message || t('toastModelSaveFailed'));
       }
     } catch {
-      snackbar.error('Failed to save model');
+      snackbar.error(t('toastModelSaveFailed'));
     } finally {
       setLlmSubmitting(false);
     }
@@ -529,14 +539,14 @@ export const Settings = (props: SettingsProps) => {
         config: { method: 'DELETE', credentials: 'include' }
       });
       if (data && !data.error) {
-        snackbar.success('Model removed');
+        snackbar.success(t('toastModelRemoved'));
         setLlms(prev => prev.filter(l => l.id !== llmDeleteAlert.id));
         setLlmDeleteAlert(null);
       } else {
-        snackbar.error(data?.error?.message || 'Failed to remove model');
+        snackbar.error(data?.error?.message || t('toastModelRemoveFailed'));
       }
     } catch {
-      snackbar.error('Failed to remove model');
+      snackbar.error(t('toastModelRemoveFailed'));
     } finally {
       setLlmDeleting(false);
     }
@@ -547,13 +557,13 @@ export const Settings = (props: SettingsProps) => {
     return (
       <div className="llm-form">
         <p className="llm-form-title">
-          {llmForm.id ? 'Edit model' : 'New model'}
+          {t(llmForm.id ? 'modelFormEdit' : 'modelFormNew')}
         </p>
 
         <UI.Input
-          label="Display name"
+          label={t('modelName')}
           name="llmName"
-          placeholder="e.g. Production Gemini"
+          placeholder={t('modelNamePlaceholder')}
           value={llmForm.name}
           disabled={llmSubmitting}
           error={!!llmErrors.name}
@@ -571,7 +581,7 @@ export const Settings = (props: SettingsProps) => {
         />
 
         <UI.Select
-          label="Model"
+          label={t('modelPick')}
           name="llmCatalogKey"
           value={llmForm.catalogKey}
           disabled={llmSubmitting}
@@ -591,7 +601,7 @@ export const Settings = (props: SettingsProps) => {
         />
 
         <UI.Input
-          label={llmForm.id ? 'API key (leave blank to keep)' : 'API key'}
+          label={t(llmForm.id ? 'modelApiKeyKeep' : 'modelApiKey')}
           name="llmApiKey"
           type="password"
           placeholder="sk-..."
@@ -612,7 +622,7 @@ export const Settings = (props: SettingsProps) => {
         />
 
         <UI.Input
-          label="Base URL (optional)"
+          label={t('modelBaseUrl')}
           name="llmBaseUrl"
           placeholder="https://..."
           value={llmForm.baseUrl}
@@ -624,7 +634,7 @@ export const Settings = (props: SettingsProps) => {
         />
 
         <UI.Input
-          label="System prompt (optional)"
+          label={t('modelSystemPrompt')}
           name="llmSystemPrompt"
           multiline
           minRows={3}
@@ -645,17 +655,17 @@ export const Settings = (props: SettingsProps) => {
             onClick={handleLlmSubmit}
           >
             {llmSubmitting
-              ? 'Saving...'
+              ? c('saving')
               : llmForm.id
-                ? 'Save changes'
-                : 'Create model'}
+                ? t('saveChanges')
+                : t('modelCreate')}
           </UI.Button>
           <UI.Button
             size="small"
             disabled={llmSubmitting}
             onClick={handleLlmCancel}
           >
-            Cancel
+            {c('cancel')}
           </UI.Button>
         </div>
       </div>
@@ -680,10 +690,8 @@ export const Settings = (props: SettingsProps) => {
       }}
     >
       <header className="settings-header">
-        <h1 className="settings-title">Organization</h1>
-        <p className="settings-subtitle">
-          Update your organization details and review the projects it owns.
-        </p>
+        <h1 className="settings-title">{t('navOrganization')}</h1>
+        <p className="settings-subtitle">{t('organizationSubtitle')}</p>
       </header>
 
       <section className="settings-section">
@@ -706,21 +714,19 @@ export const Settings = (props: SettingsProps) => {
           <>
             <div className="settings-meta-row">
               <div className="settings-meta">
-                <p className="settings-meta-label">Created</p>
+                <p className="settings-meta-label">{t('metaCreated')}</p>
                 <p className="settings-meta-value">
-                  {organization
-                    ? new Date(organization.createdAt).toLocaleDateString()
-                    : '—'}
+                  {organization ? t.date(organization.createdAt) : '—'}
                 </p>
               </div>
               <div className="settings-meta">
-                <p className="settings-meta-label">Projects</p>
+                <p className="settings-meta-label">{t('metaProjects')}</p>
                 <p className="settings-meta-value">
                   {organization?.projectCount ?? '—'}
                 </p>
               </div>
               <div className="settings-meta">
-                <p className="settings-meta-label">Members</p>
+                <p className="settings-meta-label">{t('metaMembers')}</p>
                 <p className="settings-meta-value">
                   {organization?.organizationUserCount ?? '—'}
                 </p>
@@ -730,7 +736,7 @@ export const Settings = (props: SettingsProps) => {
             <div className="settings-field-row">
               <div className="field">
                 <UI.Input
-                  label="Organization name"
+                  label={t('organizationName')}
                   name="organizationName"
                   value={orgName}
                   disabled={!organization || savingOrg}
@@ -755,7 +761,7 @@ export const Settings = (props: SettingsProps) => {
                 }
                 onClick={handleOrgSave}
               >
-                {savingOrg ? 'Saving...' : 'Save changes'}
+                {savingOrg ? c('saving') : t('saveChanges')}
               </UI.Button>
             </div>
           </>
@@ -771,11 +777,8 @@ export const Settings = (props: SettingsProps) => {
       }}
     >
       <header className="settings-header">
-        <h1 className="settings-title">Billing &amp; plan</h1>
-        <p className="settings-subtitle">
-          Your organization&apos;s plan, current usage, and subscription.
-          Upgrade to Pro to lift the Free limits.
-        </p>
+        <h1 className="settings-title">{t('navBilling')}</h1>
+        <p className="settings-subtitle">{t('billingSubtitle')}</p>
       </header>
 
       <section className="settings-section">
@@ -798,11 +801,8 @@ export const Settings = (props: SettingsProps) => {
       }}
     >
       <header className="settings-header">
-        <h1 className="settings-title">Members</h1>
-        <p className="settings-subtitle">
-          People with access to this organization. Invite teammates by email —
-          they accept the invitation in-app.
-        </p>
+        <h1 className="settings-title">{t('navMembers')}</h1>
+        <p className="settings-subtitle">{t('membersSubtitle')}</p>
       </header>
 
       <section className="settings-section">
@@ -827,11 +827,8 @@ export const Settings = (props: SettingsProps) => {
       }}
     >
       <header className="settings-header">
-        <h1 className="settings-title">Projects</h1>
-        <p className="settings-subtitle">
-          Projects under this organization. Open a project, or manage who can
-          access it.
-        </p>
+        <h1 className="settings-title">{t('navProjects')}</h1>
+        <p className="settings-subtitle">{t('projectsSubtitle')}</p>
       </header>
 
       <section className="settings-section">
@@ -842,7 +839,7 @@ export const Settings = (props: SettingsProps) => {
             ))}
           </div>
         ) : !organization?.projects || organization.projects.length === 0 ? (
-          <p className="projects-empty">No projects yet.</p>
+          <p className="projects-empty">{t('projectsEmpty')}</p>
         ) : (
           <div className="projects-list">
             {organization.projects.map(project => (
@@ -857,9 +854,11 @@ export const Settings = (props: SettingsProps) => {
                     )
                   }
                 >
-                  {expandedProjectId === project.id
-                    ? 'Hide members'
-                    : 'Members'}
+                  {t(
+                    expandedProjectId === project.id
+                      ? 'projectHideMembers'
+                      : 'projectMembers'
+                  )}
                 </button>
                 <button
                   type="button"
@@ -870,7 +869,7 @@ export const Settings = (props: SettingsProps) => {
                     )
                   }
                 >
-                  Open →
+                  {t('projectOpen')}
                 </button>
                 {expandedProjectId === project.id && (
                   <div className="project-members">
@@ -896,20 +895,16 @@ export const Settings = (props: SettingsProps) => {
       }}
     >
       <header className="settings-header">
-        <h1 className="settings-title">Models</h1>
-        <p className="settings-subtitle">
-          The language models available to this organization. Channels can pick
-          any of these, or fall back to the system default.
-        </p>
+        <h1 className="settings-title">{t('navModels')}</h1>
+        <p className="settings-subtitle">{t('modelsSubtitle')}</p>
       </header>
 
       <section className="settings-section">
         <div className="settings-section-header">
           <div className="settings-section-text">
-            <h2 className="settings-section-title">Configured models</h2>
+            <h2 className="settings-section-title">{t('modelsConfigured')}</h2>
             <p className="settings-section-description">
-              Add a model with its API key once and reuse it across any channel
-              in the organization.
+              {t('modelsConfiguredHelp')}
             </p>
           </div>
           <UI.Button
@@ -919,16 +914,11 @@ export const Settings = (props: SettingsProps) => {
             onClick={handleLlmCreate}
           >
             <Add />
-            <span className="button-text">Add model</span>
+            <span className="button-text">{t('modelsAdd')}</span>
           </UI.Button>
         </div>
 
-        {!customLlmAllowed && (
-          <p className="llms-empty">
-            Connecting your own AI model is a Pro feature. Your channels run on
-            the shared platform model — upgrade to Pro to add a custom model.
-          </p>
-        )}
+        {!customLlmAllowed && <p className="llms-empty">{t('modelsGated')}</p>}
 
         {llmForm && !llmForm.id && renderLlmForm()}
 
@@ -941,10 +931,7 @@ export const Settings = (props: SettingsProps) => {
         ) : null}
 
         {!llmsLoading && !llmForm && llms.length === 0 && (
-          <p className="llms-empty">
-            No models configured yet. Add one to give your channels something to
-            talk with.
-          </p>
+          <p className="llms-empty">{t('modelsEmpty')}</p>
         )}
 
         {llms.length > 0 && (
@@ -956,19 +943,19 @@ export const Settings = (props: SettingsProps) => {
                     <p className="llm-card-name">{llm.name}</p>
                     <div className="llm-card-meta">
                       <span>{llmCatalogLabel(llm)}</span>
-                      {llm.baseUrl && <span>· custom URL</span>}
+                      {llm.baseUrl && <span>{t('modelCustomUrl')}</span>}
                     </div>
                   </div>
                   <div className="llm-card-actions">
                     <IconButton
-                      aria-label="Edit"
+                      aria-label={t('modelEdit')}
                       onClick={() => handleLlmEdit(llm)}
                       disabled={llmSubmitting || !customLlmAllowed}
                     >
                       <EditOutlined fontSize="small" />
                     </IconButton>
                     <IconButton
-                      aria-label="Remove"
+                      aria-label={t('modelRemove')}
                       onClick={() => setLlmDeleteAlert(llm)}
                       disabled={llmSubmitting}
                     >
@@ -998,23 +985,14 @@ export const Settings = (props: SettingsProps) => {
         }}
       >
         <header className="settings-header">
-          <h1 className="settings-title">Your data</h1>
-          <p className="settings-subtitle">
-            Your personal data and the legal documents you&apos;ve accepted.
-            These apply to your account, not to this organization.
-          </p>
+          <h1 className="settings-title">{t('navAccount')}</h1>
+          <p className="settings-subtitle">{t('accountSubtitle')}</p>
         </header>
         <section className="settings-section">
           <div className="settings-section-header">
             <div className="settings-section-text">
-              <h2 className="settings-section-title">Export your data</h2>
-              <p className="settings-section-description">
-                Download everything we hold about you as JSON — profile, sign-in
-                methods, sessions, memberships, invitations you sent, and your
-                acceptance record. Organization content (resources, prompts,
-                conversations) belongs to the organization and is downloaded
-                from its own pages.
-              </p>
+              <h2 className="settings-section-title">{t('exportTitle')}</h2>
+              <p className="settings-section-description">{t('exportHelp')}</p>
             </div>
           </div>
           <div className="settings-actions">
@@ -1024,18 +1002,18 @@ export const Settings = (props: SettingsProps) => {
               disabled={exporting}
               onClick={handleExport}
             >
-              {exporting ? 'Preparing…' : 'Download my data'}
+              {exporting ? t('exportPreparing') : t('exportAction')}
             </UI.Button>
           </div>
         </section>
         <section className="settings-section">
           <div className="settings-section-header">
             <div className="settings-section-text">
-              <h2 className="settings-section-title">Terms and privacy</h2>
+              <h2 className="settings-section-title">{t('consentTitle')}</h2>
               <p className="settings-section-description">
                 {consent?.upToDate && acceptedOn
-                  ? `You accepted the current Terms and Privacy Policy on ${acceptedOn.toLocaleDateString()}.`
-                  : 'Please review and accept the current Terms of Service and Privacy Policy.'}
+                  ? t('consentAcceptedOn', { date: t.date(acceptedOn) })
+                  : t('consentPending')}
               </p>
             </div>
           </div>
@@ -1043,16 +1021,16 @@ export const Settings = (props: SettingsProps) => {
             <UI.Button
               variant="outlined"
               size="small"
-              onClick={() => window.open('https://ganju.ai/terms', '_blank')}
+              onClick={() => window.open(t('termsUrl'), '_blank')}
             >
-              Read the Terms
+              {t('consentReadTerms')}
             </UI.Button>
             <UI.Button
               variant="outlined"
               size="small"
-              onClick={() => window.open('https://ganju.ai/privacy', '_blank')}
+              onClick={() => window.open(t('privacyUrl'), '_blank')}
             >
-              Read the Privacy Policy
+              {t('consentReadPrivacy')}
             </UI.Button>
             {!consent?.upToDate && (
               <UI.Button
@@ -1061,7 +1039,7 @@ export const Settings = (props: SettingsProps) => {
                 disabled={acceptingConsent}
                 onClick={handleAcceptConsent}
               >
-                {acceptingConsent ? 'Saving…' : 'I accept'}
+                {acceptingConsent ? t('consentSaving') : t('consentAccept')}
               </UI.Button>
             )}
           </div>
@@ -1077,11 +1055,8 @@ export const Settings = (props: SettingsProps) => {
       }}
     >
       <header className="settings-header">
-        <h1 className="settings-title">Danger zone</h1>
-        <p className="settings-subtitle">
-          Permanent, irreversible actions. Export anything you want to keep
-          first.
-        </p>
+        <h1 className="settings-title">{t('navDanger')}</h1>
+        <p className="settings-subtitle">{t('dangerSubtitle')}</p>
       </header>
 
       {/* Organization-wide, so only its owner sees it. Account deletion below
@@ -1091,18 +1066,16 @@ export const Settings = (props: SettingsProps) => {
         <section className="settings-section danger-card">
           <div className="settings-section-header">
             <div className="settings-section-text">
-              <h2 className="settings-section-title">Remove organization</h2>
+              <h2 className="settings-section-title">{t('dangerOrgTitle')}</h2>
               <p className="settings-section-description">
-                Permanently delete this organization and everything inside it.
+                {t('dangerOrgHelp')}
               </p>
             </div>
           </div>
 
           <p className="danger-warning">
-            <strong>This action cannot be undone.</strong> Removing the
-            organization will permanently delete every project, channel,
-            conversation, message, resource, tool and language model it owns.
-            Make sure you really want to do this.
+            <strong>{t('dangerIrreversible')}</strong>
+            {t('dangerOrgWarning')}
           </p>
 
           <div className="settings-actions">
@@ -1113,7 +1086,7 @@ export const Settings = (props: SettingsProps) => {
               disabled={!organization || removingOrg}
               onClick={() => setOrgDeleteAlert(true)}
             >
-              Remove organization
+              {t('dangerOrgAction')}
             </UI.Button>
           </div>
         </section>
@@ -1122,19 +1095,22 @@ export const Settings = (props: SettingsProps) => {
       <section className="settings-section danger-card">
         <div className="settings-section-header">
           <div className="settings-section-text">
-            <h2 className="settings-section-title">Delete your account</h2>
+            <h2 className="settings-section-title">
+              {t('dangerAccountTitle')}
+            </h2>
             <p className="settings-section-description">
-              Permanently delete your Ganju account.
+              {t('dangerAccountHelp')}
             </p>
           </div>
         </div>
 
         <p className="danger-warning">
-          <strong>This action cannot be undone.</strong> Your profile, sign-in
-          methods, sessions, linked chat identities and acceptance record are
-          deleted, and you are removed from every organization and project.
-          Organizations you <em>own</em> must be deleted or transferred first.
-          Export your data from <strong>Your data</strong> before you do this.
+          <strong>{t('dangerIrreversible')}</strong>
+          {t('dangerAccountWarningBefore')}
+          <em>{t('dangerAccountWarningOwn')}</em>
+          {t('dangerAccountWarningMiddle')}
+          <strong>{t('navAccount')}</strong>
+          {t('dangerAccountWarningAfter')}
         </p>
 
         <div className="settings-actions">
@@ -1145,7 +1121,7 @@ export const Settings = (props: SettingsProps) => {
             disabled={deletingAccount}
             onClick={() => setAccountDeleteAlert(true)}
           >
-            Delete my account
+            {t('dangerAccountAction')}
           </UI.Button>
         </div>
       </section>
@@ -1158,23 +1134,18 @@ export const Settings = (props: SettingsProps) => {
         <main className="settings-content">
           <section>
             <header className="settings-header">
-              <h1 className="settings-title">No access</h1>
-              <p className="settings-subtitle">
-                You don&apos;t have access to this organization or any of its
-                projects.
-              </p>
+              <h1 className="settings-title">{t('noAccessTitle')}</h1>
+              <p className="settings-subtitle">{t('noAccessSubtitle')}</p>
             </header>
             <section className="settings-section">
-              <p className="projects-empty">
-                Ask an admin to invite you to get access.
-              </p>
+              <p className="projects-empty">{t('noAccessHint')}</p>
               <div className="settings-actions">
                 <UI.Button
                   variant="contained"
                   size="small"
                   onClick={() => router.push('/organization')}
                 >
-                  Back to organizations
+                  {t('noAccessBack')}
                 </UI.Button>
               </div>
             </section>
@@ -1191,15 +1162,15 @@ export const Settings = (props: SettingsProps) => {
   return (
     <Wrapper>
       <aside className="settings-nav">
-        {isMember && navItem('organization', 'Organization')}
-        {isMember && navItem('billing', 'Billing & plan')}
-        {isMember && navItem('members', 'Members')}
-        {navItem('projects', 'Projects')}
-        {isMember && navItem('models', 'Models')}
-        {navItem('account', 'Your data')}
+        {isMember && navItem('organization', t('navOrganization'))}
+        {isMember && navItem('billing', t('navBilling'))}
+        {isMember && navItem('members', t('navMembers'))}
+        {navItem('projects', t('navProjects'))}
+        {isMember && navItem('models', t('navModels'))}
+        {navItem('account', t('navAccount'))}
         {/* Not owner-gated any more: it holds account deletion, which every
             signed-in user must be able to reach. */}
-        {navItem('danger', 'Danger zone', true)}
+        {navItem('danger', t('navDanger'), true)}
       </aside>
 
       <main className="settings-content">
@@ -1215,10 +1186,13 @@ export const Settings = (props: SettingsProps) => {
       {isMember && (
         <UI.Alert
           open={orgDeleteAlert}
-          title="Remove organization?"
-          description={`This will permanently delete "${organization?.name || 'this organization'}" along with every project, channel, conversation, resource and model inside it. This cannot be undone.`}
-          confirmText="Yes, remove permanently"
-          cancelText="Cancel"
+          title={t('confirmRemoveOrgTitle')}
+          description={t('confirmRemoveOrgText', {
+            name: organization?.name || t('confirmRemoveOrgFallback')
+          })}
+          confirmText={t('confirmRemoveOrgAction')}
+          cancelText={c('cancel')}
+          loadingText={c('deleting')}
           loading={removingOrg}
           onConfirm={handleOrgRemoveConfirm}
           onCancel={() => setOrgDeleteAlert(false)}
@@ -1227,10 +1201,11 @@ export const Settings = (props: SettingsProps) => {
 
       <UI.Alert
         open={accountDeleteAlert}
-        title="Delete your account?"
-        description="This permanently deletes your profile, sign-in methods, sessions and acceptance record, and removes you from every organization and project. It cannot be undone."
-        confirmText="Yes, delete my account"
-        cancelText="Cancel"
+        title={t('confirmDeleteAccountTitle')}
+        description={t('confirmDeleteAccountText')}
+        confirmText={t('confirmDeleteAccountAction')}
+        cancelText={c('cancel')}
+        loadingText={c('deleting')}
         loading={deletingAccount}
         onConfirm={handleAccountDeleteConfirm}
         onCancel={() => setAccountDeleteAlert(false)}
@@ -1239,10 +1214,13 @@ export const Settings = (props: SettingsProps) => {
       {isMember && (
         <UI.Alert
           open={!!llmDeleteAlert}
-          title="Remove model"
-          description={`Remove "${llmDeleteAlert?.name || 'this model'}"? Channels using it must be re-pointed first.`}
-          confirmText="Remove"
-          cancelText="Cancel"
+          title={t('confirmRemoveModelTitle')}
+          description={t('confirmRemoveModelText', {
+            name: llmDeleteAlert?.name || t('confirmRemoveModelFallback')
+          })}
+          confirmText={t('modelRemove')}
+          cancelText={c('cancel')}
+          loadingText={c('deleting')}
           loading={llmDeleting}
           onConfirm={handleLlmDeleteConfirm}
           onCancel={() => setLlmDeleteAlert(null)}

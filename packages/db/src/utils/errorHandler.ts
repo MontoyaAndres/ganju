@@ -1,5 +1,6 @@
 import { v7 as uuid } from 'uuid';
 import { db } from '@ganju/db';
+import { utils } from '@ganju/utils';
 
 // types
 import type { ZodError } from 'zod';
@@ -40,8 +41,7 @@ interface DbSource {
 }
 
 export type HandleErrorSource =
-  | Context
-  | (DbSource & { request?: RequestContext });
+  Context | (DbSource & { request?: RequestContext });
 
 const matchStatus = (message: string): 400 | 401 | 403 | 404 | 409 | null => {
   const lower = message.toLowerCase();
@@ -57,6 +57,19 @@ const matchStatus = (message: string): 400 | 401 | 403 | 404 | 409 | null => {
 
   return null;
 };
+
+/**
+ * The language to answer a failed validation in.
+ *
+ * `packages/utils/src/fetcher.ts` sends the app's own locale on
+ * `Accept-Language`, so this is what the reader is actually looking at rather
+ * than whatever their browser is configured for. Anything else — a bot, a
+ * direct API call — falls through to English.
+ */
+const requestLanguage = (source: HandleErrorSource): string =>
+  isHonoContext(source)
+    ? utils.languageFromHeader(source.req.header('accept-language'))
+    : utils.constants.LANGUAGE_EN;
 
 const isHonoContext = (source: HandleErrorSource): source is Context =>
   typeof (source as Context).get === 'function' &&
@@ -97,10 +110,14 @@ export const handleError = async (
 
   if (err?.name === 'ZodError') {
     status = 400;
+    // Re-rendered here rather than at the ~100 parse sites, and only in the
+    // response — the `error_log` insert below still persists `err.message`,
+    // Zod's own English dump from parse time.
+    const language = requestLanguage(source);
     body = {
       errors: (error as ZodError).issues.map(issue => ({
         path: issue.path?.join('.') || '',
-        message: issue.message
+        message: utils.localizeZodIssue(issue, language)
       }))
     };
   } else if (typeof carried.status === 'number') {

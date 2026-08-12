@@ -5,6 +5,7 @@ import { utils } from '@ganju/utils';
 import { CheckCircleOutlined } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
+import { i18n } from '../../../lib';
 
 type Status = 'idle' | 'pending' | 'resolved' | 'rejected';
 
@@ -15,12 +16,11 @@ interface LinkedIdentity {
   displayName: string | null;
 }
 
-const ERROR_MESSAGES: Record<string, string> = {
-  invalid_or_expired_code:
-    'That code is invalid or has expired. Ask your bot for a new one.',
-  expired_code: 'That code has expired. Ask your bot for a new one.',
-  already_linked_to_other_user:
-    'This account is already linked to a different Ganju user.'
+type LinkKey = keyof typeof i18n.copy.LINK.en;
+
+const errorKey = (code: unknown): LinkKey => {
+  const key = `error_${String(code)}`;
+  return key in i18n.copy.LINK.en ? (key as LinkKey) : 'errorGeneric';
 };
 
 const formatProvider = (provider: string) =>
@@ -28,6 +28,7 @@ const formatProvider = (provider: string) =>
 
 export const Link = () => {
   const router = useRouter();
+  const t = i18n.useT(i18n.copy.LINK);
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export const Link = () => {
     if (status === 'pending') return;
     const trimmed = code.trim();
     if (!trimmed) {
-      setError('Enter the code from your bot');
+      setError(t('errorEmpty'));
       return;
     }
 
@@ -65,14 +66,11 @@ export const Link = () => {
         setStatus('resolved');
       } else {
         setStatus('rejected');
-        setError(
-          ERROR_MESSAGES[data?.error] ||
-            'Could not link your account. Please try again.'
-        );
+        setError(t(errorKey(data?.error)));
       }
     } catch {
       setStatus('rejected');
-      setError('Could not link your account. Please try again.');
+      setError(t('errorGeneric'));
     }
   };
 
@@ -82,29 +80,29 @@ export const Link = () => {
         <div className="link-card">
           <div className="link-success">
             <CheckCircleOutlined className="link-success-icon" />
-            <p className="link-success-title">Account linked</p>
+            <p className="link-success-title">{t('successTitle')}</p>
             <p className="link-success-text">
-              Your {formatProvider(linked.provider)} account
-              {linked.displayName ? ` (${linked.displayName})` : ''} is now
-              connected to Ganju. You can head back to your bot.
+              {t('successText', {
+                provider: formatProvider(linked.provider),
+                name: linked.displayName
+                  ? t('successName', { name: linked.displayName })
+                  : ''
+              })}
             </p>
           </div>
         </div>
       ) : (
         <div className="link-card">
           <div className="link-header">
-            <h1 className="link-title">Link your account</h1>
-            <p className="link-subtitle">
-              Enter the code your bot gave you to connect it to your Ganju
-              account.
-            </p>
+            <h1 className="link-title">{t('title')}</h1>
+            <p className="link-subtitle">{t('subtitle')}</p>
           </div>
 
           <div className="link-form">
             <UI.Input
-              label="Link code"
+              label={t('codeLabel')}
               name="linkCode"
-              placeholder="e.g. G7K9P2QMX4WJ"
+              placeholder={t('codePlaceholder')}
               value={code}
               disabled={status === 'pending'}
               error={!!error}
@@ -119,7 +117,7 @@ export const Link = () => {
               disabled={status === 'pending'}
               onClick={handleSubmit}
             >
-              {status === 'pending' ? 'Linking...' : 'Link account'}
+              {status === 'pending' ? t('submitting') : t('submit')}
             </UI.Button>
           </div>
         </div>

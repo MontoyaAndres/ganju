@@ -15,6 +15,8 @@ export interface ISeoProps {
   path?: string;
   /** Current locale, so the canonical and hreflang tags point at the right URL. */
   locale?: string;
+  /** Alt text for the share image. Copy, so it comes from the page's catalog. */
+  imageAlt?: string;
 }
 
 /**
@@ -27,7 +29,8 @@ export const Seo = ({
   description,
   index = false,
   path = '/',
-  locale = DEFAULT_LOCALE
+  locale = DEFAULT_LOCALE,
+  imageAlt = SEO.ogImageAlt
 }: ISeoProps) => {
   const canonical = localeUrl(path, locale);
 
@@ -71,11 +74,7 @@ export const Seo = ({
       />
       <meta property="og:url" content={canonical} key="og:url" />
       <meta property="og:image" content={SEO.ogImage} key="og:image" />
-      <meta
-        property="og:image:alt"
-        content={SEO.ogImageAlt}
-        key="og:image:alt"
-      />
+      <meta property="og:image:alt" content={imageAlt} key="og:image:alt" />
 
       <meta name="twitter:title" content={title} key="twitter:title" />
       <meta

@@ -271,6 +271,51 @@ const LANGUAGE_EN = 'en';
 const LANGUAGE_ES = 'es';
 const LANGUAGES = [LANGUAGE_EN, LANGUAGE_ES];
 
+/**
+ * Countries where Spanish is the (or an) official language.
+ *
+ * Location, not `Accept-Language`, is what picks a language for a first-time
+ * visitor: the Spanish pages carry Colombian legal content (Ley 1480, Ley
+ * 1581), so where someone is matters more than how their browser happens to be
+ * configured. Both surfaces read this list — the website's `/` Pages Function
+ * and the dashboard's middleware — so a visitor who lands on ganju.ai and then
+ * signs in at app.ganju.ai gets the same language on both.
+ */
+const SPANISH_COUNTRIES = [
+  'AR',
+  'BO',
+  'CL',
+  'CO',
+  'CR',
+  'CU',
+  'DO',
+  'EC',
+  'ES',
+  'GQ',
+  'GT',
+  'HN',
+  'MX',
+  'NI',
+  'PA',
+  'PE',
+  'PR',
+  'PY',
+  'SV',
+  'UY',
+  'VE'
+];
+
+/**
+ * Where an explicit language choice is remembered. The website and the
+ * dashboard sit on different hosts under one registrable domain, and the cookie
+ * is scoped to that domain (see `languageCookieDomain`) so a choice made on
+ * ganju.ai is still honoured after signing in at app.ganju.ai.
+ */
+const LANGUAGE_COOKIE = 'ganju_lang';
+const LANGUAGE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+/** Query parameter that carries an explicit switch, e.g. `?lang=es`. */
+const LANGUAGE_QUERY_PARAM = 'lang';
+
 const MIMETYPE_TEXT = 'text/plain' as 'text/plain';
 const MIMETYPE_TEXT_CSV = 'text/csv' as 'text/csv';
 const MIMETYPE_TEXT_HTML = 'text/html' as 'text/html';
@@ -1534,6 +1579,10 @@ export const constants = {
   LANGUAGE_EN,
   LANGUAGE_ES,
   LANGUAGES,
+  SPANISH_COUNTRIES,
+  LANGUAGE_COOKIE,
+  LANGUAGE_COOKIE_MAX_AGE,
+  LANGUAGE_QUERY_PARAM,
   MIMETYPE_TEXT,
   MIMETYPE_TEXT_CSV,
   MIMETYPE_TEXT_HTML,

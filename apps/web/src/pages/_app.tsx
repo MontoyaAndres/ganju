@@ -10,6 +10,7 @@ import { UI } from '@ganju/ui';
 
 import { materialTheme } from '../theme';
 import { globalStyles } from '../global-styles';
+import { i18n } from '../lib';
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
   getLayout?: (page: ReactElement) => ReactNode;
@@ -21,6 +22,7 @@ export interface MyAppProps extends AppProps {
 
 const MyApp = (props: MyAppProps) => {
   const { Component, pageProps } = props;
+  const c = i18n.useT(i18n.copy.COMMON);
 
   const getLayout = Component.getLayout ?? (page => page);
 
@@ -35,7 +37,7 @@ const MyApp = (props: MyAppProps) => {
         <title key="title">Ganju</title>
         <meta
           name="description"
-          content="Ganju dashboard — manage your projects, tools, resources, and channels."
+          content={c('appDescription')}
           key="description"
         />
         <meta name="robots" content="noindex, nofollow" key="robots" />
@@ -64,7 +66,7 @@ const MyApp = (props: MyAppProps) => {
         <EmotionThemeProvider theme={materialTheme}>
           {globalStyles}
           <CssBaseline />
-          <UI.Alert.SnackbarProvider>
+          <UI.Alert.SnackbarProvider dismissText={c('dismiss')}>
             <>{getLayout(<Component {...pageProps} />)}</>
           </UI.Alert.SnackbarProvider>
         </EmotionThemeProvider>

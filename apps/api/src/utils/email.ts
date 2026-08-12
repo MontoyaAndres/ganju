@@ -83,28 +83,102 @@ interface InvitationEmailInput {
   token: string;
 }
 
+/**
+ * The invitation email, in each language the product speaks.
+ *
+ * This is the one piece of transactional copy a person outside the account ever
+ * reads, and it is the link the invitation page's own language switcher exists
+ * for. `apps/api` has no catalog machinery, so it lives here as a plain record
+ * of functions — the same shape the dashboard's catalogs take, minus the
+ * `{placeholder}` layer, which buys nothing for six strings.
+ *
+ * Every sentence that names the target is written once per scope rather than
+ * splicing a noun: `la organización` and `el proyecto` disagree in Spanish, and
+ * no amount of interpolation fixes an article.
+ */
+interface InvitationCopy {
+  subject: (inviter: string, target: string, isProject: boolean) => string;
+  /** Plain-text body, which is also what a client with images off shows. */
+  intro: (inviter: string, target: string, isProject: boolean) => string;
+  signInText: string;
+  heading: string;
+  /** The same sentence as `intro`, with `<strong>` around the two names. */
+  introHtml: (inviter: string, target: string, isProject: boolean) => string;
+  signInHtml: string;
+  cta: string;
+  expiryText: (days: number) => string;
+  expiryHtml: (days: number) => string;
+}
+
+const INVITATION_COPY: Record<string, InvitationCopy> = {
+  [utils.constants.LANGUAGE_EN]: {
+    subject: (inviter, target, isProject) =>
+      `${inviter} invited you to the ${target} ${isProject ? 'project' : 'organization'}`,
+    intro: (inviter, target, isProject) =>
+      `${inviter} has invited you to join the ${isProject ? 'project' : 'organization'} "${target}" on Ganju.`,
+    signInText: 'Sign in to accept or decline this invitation:',
+    heading: "You've been invited",
+    introHtml: (inviter, target, isProject) =>
+      `<strong>${inviter}</strong> has invited you to join the ${isProject ? 'project' : 'organization'} <strong>${target}</strong> on Ganju.`,
+    signInHtml:
+      'Sign in with this email address to accept or decline the invitation.',
+    cta: 'View invitation',
+    expiryText: days => `This invitation expires in ${days} days.`,
+    expiryHtml: days =>
+      `This invitation expires in ${days} days. If you weren't expecting it, you can safely ignore this email.`
+  },
+  [utils.constants.LANGUAGE_ES]: {
+    subject: (inviter, target, isProject) =>
+      isProject
+        ? `${inviter} te invitó al proyecto ${target}`
+        : `${inviter} te invitó a la organización ${target}`,
+    intro: (inviter, target, isProject) =>
+      isProject
+        ? `${inviter} te invitó a unirte al proyecto "${target}" en Ganju.`
+        : `${inviter} te invitó a unirte a la organización "${target}" en Ganju.`,
+    signInText: 'Inicia sesión para aceptar o rechazar esta invitación:',
+    heading: 'Tienes una invitación',
+    introHtml: (inviter, target, isProject) =>
+      isProject
+        ? `<strong>${inviter}</strong> te invitó a unirte al proyecto <strong>${target}</strong> en Ganju.`
+        : `<strong>${inviter}</strong> te invitó a unirte a la organización <strong>${target}</strong> en Ganju.`,
+    signInHtml:
+      'Inicia sesión con este correo para aceptar o rechazar la invitación.',
+    cta: 'Ver la invitación',
+    expiryText: days => `Esta invitación vence en ${days} días.`,
+    expiryHtml: days =>
+      `Esta invitación vence en ${days} días. Si no la esperabas, puedes ignorar este correo.`
+  }
+};
+
 export const sendInvitationEmail = async (
   c: Context<AppEnv>,
   input: InvitationEmailInput
 ): Promise<boolean> => {
   const webUrl = utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL')!;
 
-  const scopeLabel =
-    input.scope === utils.constants.INVITATION_SCOPE_PROJECT
-      ? 'project'
-      : 'organization';
+  // The `Accept-Language` the dashboard sent, which is the **inviter's**
+  // language, not the recipient's — we have no account for them yet, so there
+  // is nothing else to go on. A team writing to a colleague is the common case
+  // and they usually share a language; when they do not, the invitation page
+  // the link opens carries its own switcher.
+  const language = utils.languageFromHeader(c.req.header('accept-language'));
+  const copy =
+    INVITATION_COPY[language] ?? INVITATION_COPY[utils.constants.LANGUAGE_EN];
+
+  const isProject = input.scope === utils.constants.INVITATION_SCOPE_PROJECT;
   const acceptUrl = `${webUrl}/invitation/${input.token}`;
   const expiryDays = utils.constants.INVITATION_EXPIRY_DAYS;
 
-  const subject = `${input.inviterName} invited you to the ${input.targetName} ${scopeLabel}`;
+  const subject = copy.subject(input.inviterName, input.targetName, isProject);
 
   const text = [
-    `${input.inviterName} has invited you to join the ${scopeLabel} "${input.targetName}" on Ganju.`,
+    copy.intro(input.inviterName, input.targetName, isProject),
     '',
-    'Sign in to accept or decline this invitation:',
+    copy.signInText,
     acceptUrl,
     '',
-    `This invitation expires in ${expiryDays} days.`
+    copy.expiryText(expiryDays)
   ].join('\n');
 
   const inviter = utils.escapeHtml(input.inviterName);
@@ -118,21 +192,18 @@ export const sendInvitationEmail = async (
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:32px;">
             <tr>
               <td>
-                <h1 style="margin:0 0 16px;font-size:20px;">You've been invited</h1>
+                <h1 style="margin:0 0 16px;font-size:20px;">${copy.heading}</h1>
                 <p style="margin:0 0 16px;font-size:14px;line-height:1.5;">
-                  <strong>${inviter}</strong> has invited you to join the
-                  ${scopeLabel} <strong>${target}</strong> on Ganju.
+                  ${copy.introHtml(inviter, target, isProject)}
                 </p>
                 <p style="margin:0 0 24px;font-size:14px;line-height:1.5;">
-                  Sign in with this email address to accept or decline the
-                  invitation.
+                  ${copy.signInHtml}
                 </p>
                 <a href="${acceptUrl}" style="display:inline-block;background:#1d1b2e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">
-                  View invitation
+                  ${copy.cta}
                 </a>
                 <p style="margin:24px 0 0;font-size:12px;color:#6b6878;">
-                  This invitation expires in ${expiryDays} days. If you weren't
-                  expecting it, you can safely ignore this email.
+                  ${copy.expiryHtml(expiryDays)}
                 </p>
               </td>
             </tr>

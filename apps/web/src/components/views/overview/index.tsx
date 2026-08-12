@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useTheme } from '@emotion/react';
-import type { Theme } from '@emotion/react';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import Tooltip from '@mui/material/Tooltip';
@@ -30,10 +29,15 @@ import {
   Tooltip as ChartTooltip,
   Filler
 } from 'chart.js';
-import type { ChartData, ChartOptions } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 
 import { Wrapper, McpModalBody } from './styles';
+import { i18n } from '../../../lib';
+
+import type { Theme } from '@emotion/react';
+import type { ChartData, ChartOptions } from 'chart.js';
+import type { Translate } from '../../../lib';
+import type { Format } from '../../../lib';
 
 ChartJS.register(
   CategoryScale,
@@ -125,12 +129,15 @@ const channelColor = (platform: string, chart: ChartColors): string => {
 };
 
 const RANGE_OPTIONS: RangeDays[] = [7, 30, 90];
-const CHART_OPTIONS: { type: ChartType; label: string; Icon: IconComponent }[] =
-  [
-    { type: 'line', label: 'Line', Icon: ShowChartOutlined },
-    { type: 'area', label: 'Area', Icon: StackedLineChartOutlined },
-    { type: 'bar', label: 'Bar', Icon: BarChartOutlined }
-  ];
+const CHART_OPTIONS: {
+  type: ChartType;
+  labelKey: 'chartLine' | 'chartArea' | 'chartBar';
+  Icon: IconComponent;
+}[] = [
+  { type: 'line', labelKey: 'chartLine', Icon: ShowChartOutlined },
+  { type: 'area', labelKey: 'chartArea', Icon: StackedLineChartOutlined },
+  { type: 'bar', labelKey: 'chartBar', Icon: BarChartOutlined }
+];
 
 const hexAlpha = (hex: string, alpha: number): string => {
   const h = hex.replace('#', '');
@@ -140,23 +147,29 @@ const hexAlpha = (hex: string, alpha: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const formatBytes = (bytes: number): string => {
-  if (!bytes || bytes <= 0) return '0 B';
+// Keeps its own B..TB ladder rather than using `Format.bytes`, which floors at
+// MB for the billing rows. Only the number goes through `Intl` — CLDR renders
+// these units as "byte" and "kB", and the compact forms below are what the
+// dashboard has always shown.
+const formatBytes = (bytes: number, f: Format): string => {
+  if (!bytes || bytes <= 0) return `${f.n(0)} B`;
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const exp = Math.min(
     Math.floor(Math.log(bytes) / Math.log(1024)),
     units.length - 1
   );
   const value = bytes / Math.pow(1024, exp);
-  return `${value >= 10 || exp === 0 ? Math.round(value) : value.toFixed(1)} ${units[exp]}`;
+  const decimals = value >= 10 || exp === 0 ? 0 : 1;
+  return `${f.n(value, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  })} ${units[exp]}`;
 };
 
-const formatNumber = (n: number): string => n.toLocaleString('en-US');
-
-const KIND_VERB: Record<string, string> = {
-  tool: 'ran',
-  prompt: 'used',
-  resource: 'read'
+const KIND_VERB: Record<string, 'verbTool' | 'verbPrompt' | 'verbResource'> = {
+  tool: 'verbTool',
+  prompt: 'verbPrompt',
+  resource: 'verbResource'
 };
 
 const sourceLabel = (source: string): string =>
@@ -171,10 +184,10 @@ const sourceColor = (source: string, chart: ChartColors): string =>
 const sourceIcon = (source: string): IconComponent | null =>
   PLATFORM_INFO[source]?.Icon || null;
 
-const actorName = (e: RecentExecution): string =>
+const actorName = (e: RecentExecution, t: OverviewT): string =>
   e.userName ||
   e.externalActorName ||
-  (e.source === 'mcp' ? 'An MCP client' : 'Someone');
+  t(e.source === 'mcp' ? 'actorMcpClient' : 'actorSomeone');
 
 // Build the trailing N-day axis from the server-provided window start. The
 // server buckets via date_trunc/to_char, so we mirror those YYYY-MM-DD keys
@@ -190,9 +203,11 @@ const buildAxis = (sinceIso: string, days: number): string[] => {
   return axis;
 };
 
-const shortDate = (iso: string): string => {
+// UTC throughout: the server buckets by UTC day, so rendering in the reader's
+// zone would slide a point onto the wrong column.
+const shortDate = (iso: string, f: Format): string => {
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+  return f.date(new Date(Date.UTC(y, m - 1, d)), {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC'
@@ -208,10 +223,13 @@ interface Series {
   total: number;
 }
 
+type OverviewT = Translate<(typeof i18n.copy.OVERVIEW)['en']>;
+
 const buildSeries = (
   activity: Overview['activity'],
   axis: string[],
-  chart: ChartColors
+  chart: ChartColors,
+  unknownClient: string
 ): Series[] => {
   const idx = new Map(axis.map((d, i) => [d, i]));
   const series: Series[] = [];
@@ -240,7 +258,7 @@ const buildSeries = (
   // One line per MCP client, so you can see which client was used.
   const byClient = new Map<string, number[]>();
   for (const row of activity.mcp) {
-    const client = row.client || 'Unknown client';
+    const client = row.client || unknownClient;
     if (!byClient.has(client)) {
       byClient.set(client, new Array(axis.length).fill(0));
     }
@@ -280,13 +298,14 @@ const ActivityChart = ({
   hidden: Set<string>;
 }) => {
   const theme = useTheme();
+  const f = i18n.useFormat();
   const axisColor = theme.colors.saltBox;
   const gridColor = hexAlpha(theme.colors.bastille, 0.07);
   const isBar = chartType === 'bar';
 
   const data = useMemo<ChartData<'line' | 'bar', number[], string>>(
     () => ({
-      labels: axis.map(shortDate),
+      labels: axis.map(iso => shortDate(iso, f)),
       datasets: series.map(s => ({
         label: s.label,
         data: s.points,
@@ -360,6 +379,8 @@ const ActivityChart = ({
 export const Overview = () => {
   const router = useRouter();
   const theme = useTheme();
+  const t = i18n.useT(i18n.copy.OVERVIEW);
+  const c = i18n.useT(i18n.copy.COMMON);
   const chart = theme.chart;
   const snackbar = UI.Alert.useSnackbar();
   const { id: organizationId, projectId } = router.query as {
@@ -404,7 +425,7 @@ export const Overview = () => {
     } catch {
       if (signal?.aborted) return;
       // Keep the page usable if a range change fails after the first load.
-      if (data) snackbar.error('Could not refresh activity');
+      if (data) snackbar.error(t('toastRefreshFailed'));
       setStatus('rejected');
     }
   };
@@ -428,7 +449,8 @@ export const Overview = () => {
     [data]
   );
   const allSeries = useMemo(
-    () => (data ? buildSeries(data.activity, axis, chart) : []),
+    () =>
+      data ? buildSeries(data.activity, axis, chart, t('unknownClient')) : [],
     [data, axis, chart]
   );
   const visibleCount = allSeries.filter(s => !hidden.has(s.key)).length;
@@ -458,8 +480,8 @@ export const Overview = () => {
     if (!mcpUrl) return;
     navigator.clipboard
       .writeText(mcpUrl)
-      .then(() => snackbar.success('MCP URL copied'))
-      .catch(() => snackbar.error('Could not copy'));
+      .then(() => snackbar.success(t('toastMcpUrlCopied')))
+      .catch(() => snackbar.error(t('toastCopyFailed')));
   };
 
   const handleSaveSlug = async () => {
@@ -470,13 +492,11 @@ export const Overview = () => {
       return;
     }
     if (!utils.isValidSlugFormat(next)) {
-      setSlugError(
-        'Use 3-63 lowercase letters, digits or hyphens, starting and ending with a letter or digit.'
-      );
+      setSlugError(t('slugFormatError'));
       return;
     }
     if (utils.isReservedSlug(next)) {
-      setSlugError('That slug is reserved.');
+      setSlugError(t('slugReserved'));
       return;
     }
     setSavingSlug(true);
@@ -497,12 +517,12 @@ export const Overview = () => {
             : prev
         );
         setEditingSlug(false);
-        snackbar.success('MCP URL updated');
+        snackbar.success(t('toastMcpUrlUpdated'));
       } else {
-        setSlugError(result?.error || 'Could not update the slug.');
+        setSlugError(result?.error || t('slugUpdateFailed'));
       }
     } catch {
-      setSlugError('Could not update the slug.');
+      setSlugError(t('slugUpdateFailed'));
     } finally {
       setSavingSlug(false);
     }
@@ -517,9 +537,9 @@ export const Overview = () => {
         <div className="overview-inner">
           <div className="overview-error">
             <ShowChartOutlined />
-            <p>We couldn&apos;t load this project&apos;s overview.</p>
+            <p>{t('errorText')}</p>
             <UI.Button size="small" onClick={() => fetchOverview(days)}>
-              <span className="button-text">Retry</span>
+              <span className="button-text">{t('retry')}</span>
             </UI.Button>
           </div>
         </div>
@@ -553,19 +573,18 @@ export const Overview = () => {
               <>
                 <h1 className="overview-title">{data.project.name}</h1>
                 <p className="overview-subtitle">
-                  {data.project.description ||
-                    'Everything this project exposes through its MCP server, at a glance.'}
+                  {data.project.description || t('defaultDescription')}
                 </p>
               </>
             )}
           </div>
           <div className="overview-mcp">
-            <p className="overview-mcp-label">MCP URL</p>
+            <p className="overview-mcp-label">{t('mcpUrl')}</p>
             {loading ? (
               <UI.Skeleton variant="rounded" width="100%" height={44} />
             ) : (
               <div className="overview-mcp-row">
-                <Tooltip title="Click to copy">
+                <Tooltip title={t('clickToCopy')}>
                   <button
                     type="button"
                     className="overview-mcp-url"
@@ -575,7 +594,7 @@ export const Overview = () => {
                     <ContentCopy className="overview-mcp-url-copy" />
                   </button>
                 </Tooltip>
-                <Tooltip title="Edit MCP URL">
+                <Tooltip title={t('editMcpUrl')}>
                   <IconButton size="small" onClick={startEditSlug}>
                     <EditOutlined />
                   </IconButton>
@@ -587,12 +606,8 @@ export const Overview = () => {
         <div className="overview-card overview-activity">
           <div className="overview-activity-head">
             <div className="overview-activity-headings">
-              <p className="overview-activity-title">Activity</p>
-              <p className="overview-activity-sub">
-                All interactions per day across channels and MCP clients —
-                including incoming messages. Only assistant replies count toward
-                billing.
-              </p>
+              <p className="overview-activity-title">{t('activity')}</p>
+              <p className="overview-activity-sub">{t('activityHelp')}</p>
             </div>
             <div className="overview-activity-controls">
               <div className="overview-seg">
@@ -603,13 +618,13 @@ export const Overview = () => {
                     className={`overview-seg-btn ${days === r ? 'active' : ''}`}
                     onClick={() => setDays(r)}
                   >
-                    {r}d
+                    {t('rangeDays', { days: r })}
                   </button>
                 ))}
               </div>
               <div className="overview-seg">
                 {CHART_OPTIONS.map(opt => (
-                  <Tooltip key={opt.type} title={opt.label}>
+                  <Tooltip key={opt.type} title={t(opt.labelKey)}>
                     <button
                       type="button"
                       className={`overview-seg-btn icon ${chartType === opt.type ? 'active' : ''}`}
@@ -627,7 +642,7 @@ export const Overview = () => {
           ) : !hasActivity ? (
             <div className="overview-activity-empty">
               <ShowChartOutlined />
-              <p>No activity yet in the last {data.activity.days} days.</p>
+              <p>{t('activityEmpty', { days: data.activity.days })}</p>
             </div>
           ) : (
             <>
@@ -640,7 +655,7 @@ export const Overview = () => {
                       key={s.key}
                       className={`overview-legend-item ${isHidden ? 'is-hidden' : ''}`}
                       onClick={() => toggleSeries(s.key)}
-                      title={isHidden ? 'Show' : 'Hide'}
+                      title={t(isHidden ? 'legendShow' : 'legendHide')}
                     >
                       {s.Icon ? (
                         <s.Icon
@@ -653,7 +668,7 @@ export const Overview = () => {
                           style={{ background: s.color }}
                         />
                       )}
-                      {s.label} <strong>{formatNumber(s.total)}</strong>
+                      {s.label} <strong>{t.n(s.total)}</strong>
                     </button>
                   );
                 })}
@@ -661,9 +676,7 @@ export const Overview = () => {
               {visibleCount === 0 ? (
                 <div className="overview-activity-empty">
                   <ShowChartOutlined />
-                  <p>
-                    Every series is hidden — click a legend item to show it.
-                  </p>
+                  <p>{t('allHidden')}</p>
                 </div>
               ) : (
                 <ActivityChart
@@ -701,12 +714,14 @@ export const Overview = () => {
                   </span>
                 </div>
                 <p className="overview-stat-count">
-                  {formatNumber(data.stats.resources.count)}
+                  {t.n(data.stats.resources.count)}
                 </p>
-                <p className="overview-stat-label">Resources</p>
+                <p className="overview-stat-label">{t('statResources')}</p>
                 <p className="overview-stat-meta">
-                  {formatBytes(data.stats.resources.totalSize)} stored ·{' '}
-                  {formatNumber(data.stats.resources.usage)} reads
+                  {t('statResourcesMeta', {
+                    size: formatBytes(data.stats.resources.totalSize, t),
+                    reads: t.n(data.stats.resources.usage)
+                  })}
                 </p>
               </button>
 
@@ -724,11 +739,11 @@ export const Overview = () => {
                   </span>
                 </div>
                 <p className="overview-stat-count">
-                  {formatNumber(data.stats.tools.count)}
+                  {t.n(data.stats.tools.count)}
                 </p>
-                <p className="overview-stat-label">Tools</p>
+                <p className="overview-stat-label">{t('statTools')}</p>
                 <p className="overview-stat-meta">
-                  {formatNumber(data.stats.tools.usage)} calls
+                  {t('statToolsMeta', { count: t.n(data.stats.tools.usage) })}
                 </p>
               </button>
 
@@ -746,18 +761,20 @@ export const Overview = () => {
                   </span>
                 </div>
                 <p className="overview-stat-count">
-                  {formatNumber(data.stats.prompts.count)}
+                  {t.n(data.stats.prompts.count)}
                 </p>
-                <p className="overview-stat-label">Prompts</p>
+                <p className="overview-stat-label">{t('statPrompts')}</p>
                 <p className="overview-stat-meta">
-                  {formatNumber(data.stats.prompts.usage)} uses
+                  {t('statPromptsMeta', {
+                    count: t.n(data.stats.prompts.usage)
+                  })}
                 </p>
               </button>
             </>
           )}
         </div>
         <div className="overview-card overview-recent">
-          <p className="overview-recent-title">Recent activity</p>
+          <p className="overview-recent-title">{t('recentTitle')}</p>
           {loading ? (
             <div className="overview-recent-list">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -770,7 +787,7 @@ export const Overview = () => {
           ) : data.recentActivity.length === 0 ? (
             <div className="overview-recent-empty">
               <ScheduleOutlined />
-              <p>No tool, prompt, or resource runs recorded yet.</p>
+              <p>{t('recentEmpty')}</p>
             </div>
           ) : (
             <div className="overview-recent-list">
@@ -786,8 +803,8 @@ export const Overview = () => {
                       {Icon ? <Icon /> : sourceLabel(e.source).charAt(0)}
                     </span>
                     <p className="overview-recent-text">
-                      <strong>{actorName(e)}</strong>{' '}
-                      {KIND_VERB[e.kind] || 'used'}{' '}
+                      <strong>{actorName(e, t)}</strong>{' '}
+                      {t(KIND_VERB[e.kind] || 'verbDefault')}{' '}
                       <span className="overview-recent-name">
                         {e.name || e.kind}
                       </span>
@@ -797,7 +814,7 @@ export const Overview = () => {
                       </span>
                     </p>
                     <span className="overview-recent-time">
-                      {utils.formatRelativeTime(e.createdAt)}
+                      {t.relativeShort(e.createdAt)}
                     </span>
                   </div>
                 );
@@ -807,8 +824,9 @@ export const Overview = () => {
         </div>
         <UI.Modal
           open={editingSlug}
-          title="Edit MCP URL"
+          title={t('editMcpUrl')}
           width={560}
+          closeLabel={c('close')}
           onClose={() => {
             if (!savingSlug) cancelEditSlug();
           }}
@@ -820,7 +838,7 @@ export const Overview = () => {
                 disabled={savingSlug}
                 onClick={cancelEditSlug}
               >
-                Cancel
+                {c('cancel')}
               </UI.Button>
               <UI.Button
                 variant="contained"
@@ -830,7 +848,7 @@ export const Overview = () => {
                 onClick={handleSaveSlug}
               >
                 <span className="button-text">
-                  {savingSlug ? 'Saving…' : 'Save'}
+                  {savingSlug ? c('saving') : c('save')}
                 </span>
               </UI.Button>
             </>
@@ -838,7 +856,7 @@ export const Overview = () => {
         >
           <McpModalBody>
             <div>
-              <label className="mcp-modal-field-label">Slug</label>
+              <label className="mcp-modal-field-label">{t('slugLabel')}</label>
               <div className={`mcp-modal-field ${slugError ? 'is-error' : ''}`}>
                 <span className="mcp-modal-prefix">{mcpRoot}/</span>
                 <input
@@ -846,7 +864,7 @@ export const Overview = () => {
                   value={slugValue}
                   spellCheck={false}
                   autoComplete="off"
-                  placeholder="my-company"
+                  placeholder={t('slugPlaceholder')}
                   disabled={savingSlug}
                   onChange={e => {
                     setSlugValue(e.target.value);
@@ -861,17 +879,17 @@ export const Overview = () => {
               {slugError && <p className="mcp-modal-error">{slugError}</p>}
             </div>
             <div className="mcp-modal-section">
-              <p className="mcp-modal-section-label">Preview</p>
+              <p className="mcp-modal-section-label">{t('preview')}</p>
               <UI.CopyableBlock
-                label="MCP URL"
+                label={t('mcpUrl')}
                 text={previewUrl}
-                onCopy={() => snackbar.success('MCP URL copied')}
+                onCopy={() => snackbar.success(t('toastMcpUrlCopied'))}
               />
               <UI.CopyableBlock
-                label="Client config"
-                meta="Add this to your MCP client (Claude Desktop, Cursor, …)"
+                label={t('clientConfig')}
+                meta={t('clientConfigHint')}
                 text={configSnippet}
-                onCopy={() => snackbar.success('Config copied')}
+                onCopy={() => snackbar.success(t('toastConfigCopied'))}
               />
             </div>
           </McpModalBody>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
+
 import IconButton from '@mui/material/IconButton';
 import { AddOutlined, Close } from '@mui/icons-material';
 
@@ -11,6 +12,7 @@ import {
   ModalOverlay,
   Wrapper
 } from './styles';
+import { i18n } from '../../../lib';
 
 // types
 import { IProps } from '../../../pages/organization';
@@ -58,6 +60,8 @@ export const Organization = (props: IProps) => {
   const { organizations, auth } = props;
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.ORGANIZATION);
+  const c = i18n.useT(i18n.copy.COMMON);
 
   // Create-organization form / modal.
   const [values, setValues] = useState(INITIAL_FORM_STATE);
@@ -151,10 +155,7 @@ export const Organization = (props: IProps) => {
       if (utils.isApiError(newOrganization)) {
         setStatus('rejected');
         setApiError(
-          utils.getApiErrorMessage(
-            newOrganization,
-            'Something went wrong. Please try again.'
-          )
+          utils.getApiErrorMessage(newOrganization, c('somethingWentWrong'))
         );
         return;
       }
@@ -197,21 +198,19 @@ export const Organization = (props: IProps) => {
         }
       });
       if (utils.isApiError(data)) {
-        snackbar.error(
-          utils.getApiErrorMessage(data, 'Failed to respond to invitation')
-        );
+        snackbar.error(utils.getApiErrorMessage(data, t('toastRespondFailed')));
         return;
       }
       setInvitations(prev => prev.filter(item => item.id !== invitation.id));
       if (action === 'accept') {
-        snackbar.success('Invitation accepted');
+        snackbar.success(t('toastInvitationAccepted'));
         // Re-run getServerSideProps so the new membership shows up.
         router.replace(router.asPath);
       } else {
-        snackbar.success('Invitation declined');
+        snackbar.success(t('toastInvitationDeclined'));
       }
     } catch {
-      snackbar.error('Failed to respond to invitation');
+      snackbar.error(t('toastRespondFailed'));
     } finally {
       setRespondingId(null);
     }
@@ -237,9 +236,7 @@ export const Organization = (props: IProps) => {
       email = parsed.email;
     } catch (err) {
       const issues = (err as { issues?: { message: string }[] })?.issues;
-      setInviteEmailError(
-        issues?.[0]?.message || 'Enter a valid email address'
-      );
+      setInviteEmailError(issues?.[0]?.message || t('inviteInvalidEmail'));
       return;
     }
 
@@ -255,17 +252,15 @@ export const Organization = (props: IProps) => {
         }
       });
       if (utils.isApiError(data)) {
-        snackbar.error(
-          utils.getApiErrorMessage(data, 'Failed to send invitation')
-        );
+        snackbar.error(utils.getApiErrorMessage(data, t('toastInviteFailed')));
         return;
       }
-      snackbar.success(`Invitation sent to ${email}`);
+      snackbar.success(t('toastInviteSent', { email }));
       setInviting(false);
       setInviteOrg(null);
       setInviteEmail('');
     } catch {
-      snackbar.error('Failed to send invitation');
+      snackbar.error(t('toastInviteFailed'));
       setInviting(false);
     }
   };
@@ -294,10 +289,8 @@ export const Organization = (props: IProps) => {
     return (
       <div className="invitations-panel">
         <div className="invitations-head">
-          <h2 className="invitations-title">Your invitations</h2>
-          <p className="invitations-subtitle">
-            You&apos;ve been invited to the following workspaces.
-          </p>
+          <h2 className="invitations-title">{t('invitationsTitle')}</h2>
+          <p className="invitations-subtitle">{t('invitationsSubtitle')}</p>
         </div>
         <div className="invitations-list">
           {invitations.map(invitation => {
@@ -305,18 +298,22 @@ export const Organization = (props: IProps) => {
             const targetName =
               (isProject
                 ? invitation.project?.name
-                : invitation.organization?.name) || 'a workspace';
+                : invitation.organization?.name) || t('fallbackTarget');
             return (
               <div key={invitation.id} className="invitation-card">
                 <div className="invitation-info">
                   <p className="invitation-target">
                     {targetName}
                     <span className="invitation-scope">
-                      {isProject ? 'Project' : 'Organization'}
+                      {isProject
+                        ? t('invitationProject')
+                        : t('invitationOrganization')}
                     </span>
                   </p>
                   <p className="invitation-meta">
-                    Invited by {invitation.invitedBy?.name || 'a teammate'}
+                    {t('invitedBy', {
+                      name: invitation.invitedBy?.name || t('fallbackInviter')
+                    })}
                   </p>
                 </div>
                 <div className="invitation-actions">
@@ -326,14 +323,16 @@ export const Organization = (props: IProps) => {
                     disabled={respondingId === invitation.id}
                     onClick={() => handleRespond(invitation, 'accept')}
                   >
-                    {respondingId === invitation.id ? 'Working...' : 'Accept'}
+                    {respondingId === invitation.id
+                      ? t('working')
+                      : t('accept')}
                   </UI.Button>
                   <UI.Button
                     size="small"
                     disabled={respondingId === invitation.id}
                     onClick={() => handleRespond(invitation, 'decline')}
                   >
-                    Decline
+                    {t('decline')}
                   </UI.Button>
                 </div>
               </div>
@@ -367,7 +366,9 @@ export const Organization = (props: IProps) => {
           <div className="organization-badges">
             {organization.isMember ? (
               <>
-                {isOwner && <span className="organization-badge">Owner</span>}
+                {isOwner && (
+                  <span className="organization-badge">{t('badgeOwner')}</span>
+                )}
                 <span
                   className={`organization-badge organization-badge-plan${
                     isPaidPlan(organization.plan)
@@ -380,7 +381,7 @@ export const Organization = (props: IProps) => {
               </>
             ) : (
               <span className="organization-badge organization-badge-basic">
-                Project access
+                {t('badgeProjectAccess')}
               </span>
             )}
           </div>
@@ -390,13 +391,15 @@ export const Organization = (props: IProps) => {
           <>
             <ul className="organization-info">
               <li className="organization-info-item">
-                Projects: {organization.projectCount}
+                {t('infoProjects', { count: t.n(organization.projectCount) })}
               </li>
               <li className="organization-info-item">
-                Members: {organization.organizationUserCount}
+                {t('infoMembers', {
+                  count: t.n(organization.organizationUserCount)
+                })}
               </li>
               <li className="organization-info-item">
-                Created {new Date(organization.createdAt).toLocaleDateString()}
+                {t('infoCreated', { date: t.date(organization.createdAt) })}
               </li>
             </ul>
 
@@ -425,7 +428,7 @@ export const Organization = (props: IProps) => {
                   });
                 }}
               >
-                Invite
+                {t('invite')}
               </UI.Button>
               <UI.Button
                 size="small"
@@ -434,16 +437,14 @@ export const Organization = (props: IProps) => {
                   router.push(`/organization/${organization.id}/settings`);
                 }}
               >
-                Settings
+                {t('settings')}
               </UI.Button>
             </div>
           </>
         ) : (
           <>
             <p className="organization-basic-note">
-              You have access to {organization.projects.length} project
-              {organization.projects.length === 1 ? '' : 's'} in this
-              organization. Ask an admin to invite you for full access.
+              {t.plural('basicNote', organization.projects.length)}
             </p>
             <ul className="organization-info">
               {organization.projects.map(project => (
@@ -462,15 +463,14 @@ export const Organization = (props: IProps) => {
     <form className="create-organization-form" onSubmit={handleSubmit}>
       <div className="form-section">
         <div className="form-section-header">
-          <h2 className="form-section-title">Organization</h2>
+          <h2 className="form-section-title">{t('sectionOrganization')}</h2>
           <p className="form-section-description">
-            An organization is your workspace where you manage teams and
-            projects.
+            {t('sectionOrganizationHelp')}
           </p>
         </div>
         <UI.Input
-          label="Name"
-          placeholder="Enter organization name"
+          label={t('name')}
+          placeholder={t('namePlaceholder')}
           name="name"
           value={values.name}
           onChange={handleValueChange}
@@ -481,14 +481,12 @@ export const Organization = (props: IProps) => {
       </div>
       <div className="form-section">
         <div className="form-section-header">
-          <h2 className="form-section-title">Project</h2>
-          <p className="form-section-description">
-            A project contains your AI agents and configurations.
-          </p>
+          <h2 className="form-section-title">{t('sectionProject')}</h2>
+          <p className="form-section-description">{t('sectionProjectHelp')}</p>
         </div>
         <UI.Input
-          label="Name"
-          placeholder="Enter your project name"
+          label={t('name')}
+          placeholder={t('projectNamePlaceholder')}
           name="projectName"
           value={values.projectName}
           onChange={handleValueChange}
@@ -497,8 +495,8 @@ export const Organization = (props: IProps) => {
           helperText={error.projectName}
         />
         <UI.Input
-          label="Description"
-          placeholder="Describe your project"
+          label={t('description')}
+          placeholder={t('projectDescriptionPlaceholder')}
           name="projectDescription"
           value={values.projectDescription}
           onChange={handleValueChange}
@@ -516,7 +514,7 @@ export const Organization = (props: IProps) => {
           size="small"
           disabled={status === 'pending'}
         >
-          {status === 'pending' ? 'Creating...' : 'Create Organization'}
+          {status === 'pending' ? c('creating') : t('submit')}
         </UI.Button>
       </div>
     </form>
@@ -527,11 +525,9 @@ export const Organization = (props: IProps) => {
     return (
       <CreateOrganizationWrapper>
         <div className="create-organization-header">
-          <h1 className="create-organization-title">
-            Create Your Organization
-          </h1>
+          <h1 className="create-organization-title">{t('onboardingTitle')}</h1>
           <p className="create-organization-subtitle">
-            Set up your workspace to start building with AI
+            {t('onboardingSubtitle')}
           </p>
         </div>
         {renderCreateForm()}
@@ -545,27 +541,22 @@ export const Organization = (props: IProps) => {
 
       <div className="organization-header">
         <div className="organization-heading">
-          <h1 className="organization-title">Organizations</h1>
-          <p className="create-organization-subtitle">
-            You are a member of the following organizations:
-          </p>
+          <h1 className="organization-title">{t('title')}</h1>
+          <p className="create-organization-subtitle">{t('subtitle')}</p>
         </div>
         <div className="organization-new-button">
           <UI.Button variant="contained" size="small" onClick={handleModalOpen}>
             <AddOutlined />
-            New organization
+            {t('newOrganization')}
           </UI.Button>
         </div>
       </div>
 
       {organizations.length === 0 ? (
         <div className="organization-empty">
-          <p className="organization-empty-text">
-            You are not part of any organization yet. Accept an invitation
-            above, or create your own.
-          </p>
+          <p className="organization-empty-text">{t('emptyText')}</p>
           <UI.Button variant="contained" size="small" onClick={handleModalOpen}>
-            Create organization
+            {t('emptyAction')}
           </UI.Button>
         </div>
       ) : (
@@ -579,7 +570,7 @@ export const Organization = (props: IProps) => {
           <ModalOverlay onClick={handleModalClose}>
             <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Create a new organization</h2>
+                <h2 className="modal-title">{t('modalTitle')}</h2>
                 <IconButton size="small" onClick={handleModalClose}>
                   <Close />
                 </IconButton>
@@ -588,14 +579,16 @@ export const Organization = (props: IProps) => {
                 <div className="modal-body">
                   <div className="form-section">
                     <div className="form-section-header">
-                      <h3 className="form-section-title">Organization</h3>
+                      <h3 className="form-section-title">
+                        {t('sectionOrganization')}
+                      </h3>
                       <p className="form-section-description">
-                        This is your workspace name. You can change it later.
+                        {t('sectionOrganizationHelpShort')}
                       </p>
                     </div>
                     <UI.Input
-                      label="Name"
-                      placeholder="Enter organization name"
+                      label={t('name')}
+                      placeholder={t('namePlaceholder')}
                       name="name"
                       value={values.name}
                       onChange={handleValueChange}
@@ -606,14 +599,16 @@ export const Organization = (props: IProps) => {
                   </div>
                   <div className="form-section">
                     <div className="form-section-header">
-                      <h3 className="form-section-title">Project</h3>
+                      <h3 className="form-section-title">
+                        {t('sectionProject')}
+                      </h3>
                       <p className="form-section-description">
-                        Every organization starts with one project.
+                        {t('sectionProjectHelpShort')}
                       </p>
                     </div>
                     <UI.Input
-                      label="Project name"
-                      placeholder="Enter your project name"
+                      label={t('projectName')}
+                      placeholder={t('projectNamePlaceholder')}
                       name="projectName"
                       value={values.projectName}
                       onChange={handleValueChange}
@@ -622,8 +617,8 @@ export const Organization = (props: IProps) => {
                       helperText={error.projectName}
                     />
                     <UI.Input
-                      label="Project description"
-                      placeholder="Describe your project"
+                      label={t('projectDescription')}
+                      placeholder={t('projectDescriptionPlaceholder')}
                       name="projectDescription"
                       value={values.projectDescription}
                       onChange={handleValueChange}
@@ -641,7 +636,7 @@ export const Organization = (props: IProps) => {
                     disabled={status === 'pending'}
                     onClick={handleModalClose}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                   <UI.Button
                     type="submit"
@@ -649,7 +644,7 @@ export const Organization = (props: IProps) => {
                     size="small"
                     disabled={status === 'pending'}
                   >
-                    {status === 'pending' ? 'Creating...' : 'Create'}
+                    {status === 'pending' ? c('creating') : c('create')}
                   </UI.Button>
                 </div>
               </form>
@@ -663,7 +658,9 @@ export const Organization = (props: IProps) => {
           <ModalOverlay onClick={closeInviteModal}>
             <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Invite to {inviteOrg.name}</h2>
+                <h2 className="modal-title">
+                  {t('inviteTitle', { name: inviteOrg.name })}
+                </h2>
                 <IconButton size="small" onClick={closeInviteModal}>
                   <Close />
                 </IconButton>
@@ -671,8 +668,8 @@ export const Organization = (props: IProps) => {
               <form onSubmit={handleInviteSubmit}>
                 <div className="modal-body">
                   <UI.Input
-                    label="Email"
-                    placeholder="teammate@company.com"
+                    label={t('inviteEmail')}
+                    placeholder={t('inviteEmailPlaceholder')}
                     name="inviteEmail"
                     type="email"
                     value={inviteEmail}
@@ -684,10 +681,7 @@ export const Organization = (props: IProps) => {
                       if (inviteEmailError) setInviteEmailError('');
                     }}
                   />
-                  <p className="modal-hint">
-                    They&apos;ll receive an email and can accept the invitation
-                    once signed in with this address.
-                  </p>
+                  <p className="modal-hint">{t('inviteHint')}</p>
                 </div>
                 <div className="modal-actions">
                   <UI.Button
@@ -695,7 +689,7 @@ export const Organization = (props: IProps) => {
                     disabled={inviting}
                     onClick={closeInviteModal}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                   <UI.Button
                     type="submit"
@@ -703,7 +697,7 @@ export const Organization = (props: IProps) => {
                     size="small"
                     disabled={inviting || !inviteEmail.trim()}
                   >
-                    {inviting ? 'Sending...' : 'Send invitation'}
+                    {inviting ? t('inviteSending') : t('inviteSubmit')}
                   </UI.Button>
                 </div>
               </form>

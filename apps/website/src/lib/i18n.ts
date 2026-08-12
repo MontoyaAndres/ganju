@@ -6,6 +6,8 @@
  * blog on purpose. Adding a language means adding a key here plus the pages
  * themselves; nothing else reads locale.
  */
+import { utils } from './utils';
+
 export type Lang = 'en' | 'es';
 
 /**
@@ -28,8 +30,8 @@ export const HOME_ALTERNATES = { en: HOME.en, es: HOME.es } as const;
  * choice would be undone by the next geo redirect.
  */
 export const LANG_HREF: Record<Lang, string> = {
-  en: '/?lang=en',
-  es: '/?lang=es'
+  en: `/?${utils.constants.LANGUAGE_QUERY_PARAM}=en`,
+  es: `/?${utils.constants.LANGUAGE_QUERY_PARAM}=es`
 };
 
 export const UI = {
@@ -191,7 +193,8 @@ export const CONTACT = {
     messagePlaceholder: "Tell us what you're building or what you need…",
     submit: 'Send message',
     sending: 'Sending…',
-    success: "🎉 Thanks! Your message is on its way — we'll get back to you soon.",
+    success:
+      "🎉 Thanks! Your message is on its way — we'll get back to you soon.",
     failure: 'Could not send your message.',
     notePrefix: 'We usually reply within a day. Prefer email? Write to'
   },
@@ -206,7 +209,8 @@ export const CONTACT = {
     sending: 'Enviando…',
     success: '🎉 ¡Gracias! Tu mensaje va en camino — te responderemos pronto.',
     failure: 'No pudimos enviar tu mensaje.',
-    notePrefix: 'Solemos responder en un día. ¿Prefieres el correo? Escríbenos a'
+    notePrefix:
+      'Solemos responder en un día. ¿Prefieres el correo? Escríbenos a'
   }
 } as const satisfies Record<Lang, unknown>;
 
@@ -300,8 +304,7 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     extraMessages: '{n} mensajes adicionales',
     extraStorage: '{n} GB de contenido adicional',
     domainLine: 'Tu propia dirección web',
-    included:
-      'Tu plan ya incluye {messages} mensajes y {storage} GB cada mes.',
+    included: 'Tu plan ya incluye {messages} mensajes y {storage} GB cada mes.',
     note: 'Usar Ganju desde Claude, Cursor o ChatGPT siempre es gratis — nunca consume tus mensajes.',
     free: '🎉 Buenas noticias: esto cabe en el plan Gratis. Puede que todavía no necesites Pro.'
   }

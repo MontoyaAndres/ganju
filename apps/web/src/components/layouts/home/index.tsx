@@ -46,6 +46,7 @@ import {
 } from './styles';
 import { NoAccess } from './no-access';
 import { authClient } from '../../../utils';
+import { i18n } from '../../../lib';
 
 type SocialProvider = 'google' | 'github';
 
@@ -121,6 +122,8 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { pathname, query } = router;
+  const t = i18n.useT(i18n.copy.LAYOUT);
+  const c = i18n.useT(i18n.copy.COMMON);
 
   const currentOrgId = typeof query.id === 'string' ? query.id : null;
   const currentProjectId =
@@ -275,10 +278,10 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       }
       if (data?.image) {
         setProfileImage(data.image);
-        snackbar.success('Avatar updated');
+        snackbar.success(t('toastAvatarUpdated'));
       }
     } catch {
-      snackbar.error('Failed to upload avatar');
+      snackbar.error(t('toastAvatarFailed'));
     } finally {
       setAvatarBusy(false);
     }
@@ -294,7 +297,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
         callbackURL
       });
       if (error) {
-        snackbar.error(error.message || `Failed to link ${provider}`);
+        snackbar.error(error.message || t('toastLinkFailed', { provider }));
         return;
       }
       if (data?.url) {
@@ -303,7 +306,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       }
       await loadLinkedAccounts();
     } catch {
-      snackbar.error(`Failed to link ${provider}`);
+      snackbar.error(t('toastLinkFailed', { provider }));
     } finally {
       setLinkBusy(null);
     }
@@ -312,7 +315,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
   const handleUnlinkProvider = async (provider: SocialProvider) => {
     if (linkBusy) return;
     if (linkedProviders.size <= 1) {
-      snackbar.error('You must keep at least one linked account');
+      snackbar.error(t('profileKeepOneAccount'));
       return;
     }
     setLinkBusy(provider);
@@ -321,13 +324,13 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
         providerId: provider
       });
       if (error) {
-        snackbar.error(error.message || `Failed to unlink ${provider}`);
+        snackbar.error(error.message || t('toastUnlinkFailed', { provider }));
         return;
       }
-      snackbar.success(`Unlinked ${provider}`);
+      snackbar.success(t('toastUnlinked', { provider }));
       await loadLinkedAccounts();
     } catch {
-      snackbar.error(`Failed to unlink ${provider}`);
+      snackbar.error(t('toastUnlinkFailed', { provider }));
     } finally {
       setLinkBusy(null);
     }
@@ -337,7 +340,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
     if (profileSaving) return;
     const trimmedName = profileName.trim();
     if (!trimmedName) {
-      snackbar.error('Name is required');
+      snackbar.error(t('toastNameRequired'));
       return;
     }
     setProfileSaving(true);
@@ -347,10 +350,10 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
         image: profileImage.trim() || undefined
       });
       if (error) {
-        snackbar.error(error.message || 'Failed to update profile');
+        snackbar.error(error.message || t('toastProfileFailed'));
         return;
       }
-      snackbar.success('Profile updated');
+      snackbar.success(t('toastProfileUpdated'));
       setProfileOpen(false);
       router.replace(router.asPath);
     } finally {
@@ -478,9 +481,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
 
       if (newProject?.error) {
         setProjectStatus('rejected');
-        setProjectApiError(
-          newProject.error || 'Something went wrong. Please try again.'
-        );
+        setProjectApiError(newProject.error || c('somethingWentWrong'));
         return;
       }
 
@@ -521,7 +522,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
             className="background"
             role="button"
             tabIndex={0}
-            aria-label="Close menu"
+            aria-label={t('ariaCloseMenu')}
             onClick={handleMobileMenuClicked}
             onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -551,7 +552,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   }}
                 >
                   <AppsOutlined />
-                  <span className="button-text">Organizations</span>
+                  <span className="button-text">{t('organizations')}</span>
                 </UI.Button>
                 <UI.Button
                   fullWidth
@@ -567,7 +568,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   ) : (
                     <HomeOutlined />
                   )}
-                  <span className="button-text">Home</span>
+                  <span className="button-text">{t('home')}</span>
                 </UI.Button>
                 <UI.Button
                   fullWidth
@@ -585,7 +586,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   ) : (
                     <EmojiObjectsOutlined />
                   )}
-                  <span className="button-text">Prompts</span>
+                  <span className="button-text">{t('prompts')}</span>
                 </UI.Button>
                 <UI.Button
                   fullWidth
@@ -603,7 +604,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   ) : (
                     <ChatOutlined />
                   )}
-                  <span className="button-text">Resources</span>
+                  <span className="button-text">{t('resources')}</span>
                 </UI.Button>
                 <UI.Button
                   fullWidth
@@ -620,7 +621,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   ) : (
                     <SettingsOutlined />
                   )}
-                  <span className="button-text">Tools</span>
+                  <span className="button-text">{t('tools')}</span>
                 </UI.Button>
                 <UI.Button
                   fullWidth
@@ -638,25 +639,25 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   ) : (
                     <ForumOutlined />
                   )}
-                  <span className="button-text">Channels</span>
+                  <span className="button-text">{t('channels')}</span>
                 </UI.Button>
               </div>
               <div className="options-down">
                 <UI.Button fullWidth onClick={handleProfileOpen}>
                   <AccountCircleOutlined />
-                  <span className="button-text">Account</span>
+                  <span className="button-text">{t('account')}</span>
                 </UI.Button>
                 <UI.Button fullWidth onClick={handleSettingsClicked}>
                   <SettingsOutlined />
-                  <span className="button-text">Settings</span>
+                  <span className="button-text">{t('settings')}</span>
                 </UI.Button>
                 <UI.Button fullWidth onClick={handleDocumentationClicked}>
                   <MenuBookOutlined />
-                  <span className="button-text">Documentation</span>
+                  <span className="button-text">{t('documentation')}</span>
                 </UI.Button>
                 <UI.Button fullWidth onClick={handleLogoutClicked}>
                   <LogoutOutlined />
-                  <span className="button-text">Logout</span>
+                  <span className="button-text">{t('logout')}</span>
                 </UI.Button>
               </div>
             </div>
@@ -665,12 +666,12 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       )}
       <div className="container-navbar">
         <div className="sub-navbar">
-          <Tooltip title="Organizations" placement="right">
+          <Tooltip title={t('organizations')} placement="right">
             <div
               className={`sub-navbar-icon${switcherOpen ? ' is-open' : ''}`}
               role="button"
               tabIndex={0}
-              aria-label="Open organization switcher"
+              aria-label={t('ariaOpenSwitcher')}
               aria-expanded={switcherOpen}
               onClick={handleSwitcherOpen}
               onKeyDown={e => {
@@ -698,7 +699,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               ) : (
                 <HomeOutlined />
               )}
-              <span className="button-text">Home</span>
+              <span className="button-text">{t('home')}</span>
             </UI.Button>
             <UI.Button
               fullWidth
@@ -714,7 +715,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               ) : (
                 <EmojiObjectsOutlined />
               )}
-              <span className="button-text">Prompts</span>
+              <span className="button-text">{t('prompts')}</span>
             </UI.Button>
             <UI.Button
               fullWidth
@@ -731,7 +732,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               ) : (
                 <ChatOutlined />
               )}
-              <span className="button-text">Resources</span>
+              <span className="button-text">{t('resources')}</span>
             </UI.Button>
             <UI.Button
               fullWidth
@@ -747,7 +748,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               ) : (
                 <SettingsOutlined />
               )}
-              <span className="button-text">Tools</span>
+              <span className="button-text">{t('tools')}</span>
             </UI.Button>
             <UI.Button
               fullWidth
@@ -764,14 +765,14 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               ) : (
                 <ForumOutlined />
               )}
-              <span className="button-text">Channels</span>
+              <span className="button-text">{t('channels')}</span>
             </UI.Button>
           </div>
           <div
             className="sub-navbar-user"
             role="button"
             tabIndex={0}
-            aria-label="Account menu"
+            aria-label={t('ariaAccountMenu')}
             ref={accountTriggerRef}
             onClick={handleAccountClicked}
             onKeyDown={e => {
@@ -784,7 +785,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
         </div>
         <nav className="navbar">
           <div className="header-logo">
-            <Tooltip title="Open menu" placement="right">
+            <Tooltip title={t('ariaOpenMenu')} placement="right">
               <IconButton onClick={handleMobileMenuClicked}>
                 <Menu />
               </IconButton>
@@ -814,7 +815,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               }}
             >
               <AccountCircleOutlined />
-              <p className="account-menu-item-text">Account</p>
+              <p className="account-menu-item-text">{t('account')}</p>
             </div>
             <div
               className="account-menu-item"
@@ -829,7 +830,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               }}
             >
               <SettingsOutlined />
-              <p className="account-menu-item-text">Settings</p>
+              <p className="account-menu-item-text">{t('settings')}</p>
             </div>
             <div
               className="account-menu-item"
@@ -844,7 +845,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               }}
             >
               <MenuBookOutlined />
-              <p className="account-menu-item-text">Documentation</p>
+              <p className="account-menu-item-text">{t('documentation')}</p>
             </div>
             <div
               className="account-menu-item"
@@ -859,7 +860,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               }}
             >
               <LogoutOutlined />
-              <p className="account-menu-item-text">Logout</p>
+              <p className="account-menu-item-text">{t('logout')}</p>
             </div>
           </div>
         )}
@@ -878,7 +879,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               className="switcher-backdrop"
               role="button"
               tabIndex={0}
-              aria-label="Close switcher"
+              aria-label={t('ariaCloseSwitcher')}
               onClick={handleSwitcherClose}
               onKeyDown={e => {
                 if (e.key === 'Escape') handleSwitcherClose();
@@ -886,9 +887,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
             />
             <div className="switcher-panel" role="dialog" aria-modal="true">
               <div className="switcher-header">
-                <h2 className="switcher-header-title">
-                  Organizations & Projects
-                </h2>
+                <h2 className="switcher-header-title">{t('switcherTitle')}</h2>
                 <IconButton size="small" onClick={handleSwitcherClose}>
                   <Close />
                 </IconButton>
@@ -925,10 +924,10 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                             <div className="switcher-item-texts">
                               <p className="switcher-item-name">{org.name}</p>
                               <p className="switcher-item-meta">
-                                {org.organizationUserCount ?? 0} member
-                                {Number(org.organizationUserCount ?? 0) === 1
-                                  ? ''
-                                  : 's'}
+                                {t.plural(
+                                  'members',
+                                  Number(org.organizationUserCount ?? 0)
+                                )}
                               </p>
                             </div>
                             <span className="switcher-item-count">
@@ -973,7 +972,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                                 })
                               ) : (
                                 <p className="switcher-empty">
-                                  No projects yet
+                                  {t('switcherNoProjects')}
                                 </p>
                               )}
                               <button
@@ -982,7 +981,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                                 onClick={() => handleOpenProjectModal(org.id)}
                               >
                                 <AddOutlined />
-                                New project
+                                {t('switcherNewProject')}
                               </button>
                             </div>
                           )}
@@ -991,18 +990,20 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     })}
                   </div>
                 ) : (
-                  <p className="switcher-empty">No organizations yet</p>
+                  <p className="switcher-empty">
+                    {t('switcherNoOrganizations')}
+                  </p>
                 )}
                 <div className="switcher-footer">
                   <UI.Button fullWidth onClick={handleManageOrganizations}>
                     <BusinessOutlined />
-                    <span className="button-text">Manage organizations</span>
+                    <span className="button-text">{t('switcherManage')}</span>
                   </UI.Button>
                 </div>
               </div>
               <div className="switcher-columns">
                 <div className="switcher-column">
-                  <p className="switcher-column-label">Organizations</p>
+                  <p className="switcher-column-label">{t('organizations')}</p>
                   <div className="switcher-list">
                     {orgsLoading && organizations === null ? (
                       <div className="switcher-list-skeleton">
@@ -1049,10 +1050,10 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                             <div className="switcher-item-texts">
                               <p className="switcher-item-name">{org.name}</p>
                               <p className="switcher-item-meta">
-                                {org.organizationUserCount ?? 0} member
-                                {Number(org.organizationUserCount ?? 0) === 1
-                                  ? ''
-                                  : 's'}
+                                {t.plural(
+                                  'members',
+                                  Number(org.organizationUserCount ?? 0)
+                                )}
                               </p>
                             </div>
                             <span className="switcher-item-count">
@@ -1062,18 +1063,22 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                         );
                       })
                     ) : (
-                      <p className="switcher-empty">No organizations yet</p>
+                      <p className="switcher-empty">
+                        {t('switcherNoOrganizations')}
+                      </p>
                     )}
                   </div>
                   <div className="switcher-footer">
                     <UI.Button fullWidth onClick={handleManageOrganizations}>
                       <BusinessOutlined />
-                      <span className="button-text">Manage organizations</span>
+                      <span className="button-text">{t('switcherManage')}</span>
                     </UI.Button>
                   </div>
                 </div>
                 <div className="switcher-column">
-                  <p className="switcher-column-label">Projects</p>
+                  <p className="switcher-column-label">
+                    {t('switcherProjects')}
+                  </p>
                   <div className="switcher-list">
                     {selectedOrg && selectedOrg.projects?.length ? (
                       selectedOrg.projects.map(project => {
@@ -1107,8 +1112,8 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     ) : (
                       <p className="switcher-empty">
                         {selectedOrg
-                          ? 'No projects in this organization'
-                          : 'Select an organization'}
+                          ? t('switcherNoProjectsInOrg')
+                          : t('switcherSelectOrganization')}
                       </p>
                     )}
                   </div>
@@ -1119,7 +1124,9 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                       onClick={handleCreateProject}
                     >
                       <AddOutlined />
-                      <span className="button-text">New project</span>
+                      <span className="button-text">
+                        {t('switcherNewProject')}
+                      </span>
                     </UI.Button>
                   </div>
                 </div>
@@ -1133,7 +1140,9 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
           <ModalOverlay onClick={handleCloseProjectModal}>
             <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="profile-modal-header">
-                <h2 className="profile-modal-title">Create a new project</h2>
+                <h2 className="profile-modal-title">
+                  {t('projectModalTitle')}
+                </h2>
                 <IconButton size="small" onClick={handleCloseProjectModal}>
                   <Close />
                 </IconButton>
@@ -1141,8 +1150,8 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               <form onSubmit={handleProjectSubmit}>
                 <div className="profile-modal-body">
                   <UI.Input
-                    label="Name"
-                    placeholder="Enter project name"
+                    label={t('projectName')}
+                    placeholder={t('projectNamePlaceholder')}
                     name="name"
                     value={projectValues.name}
                     onChange={handleProjectValueChange}
@@ -1152,8 +1161,8 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     disabled={projectStatus === 'pending'}
                   />
                   <UI.Input
-                    label="Description"
-                    placeholder="Describe your project"
+                    label={t('projectDescription')}
+                    placeholder={t('projectDescriptionPlaceholder')}
                     name="description"
                     value={projectValues.description}
                     onChange={handleProjectValueChange}
@@ -1173,7 +1182,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     disabled={projectStatus === 'pending'}
                     onClick={handleCloseProjectModal}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                   <UI.Button
                     type="submit"
@@ -1181,7 +1190,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     size="small"
                     disabled={projectStatus === 'pending'}
                   >
-                    {projectStatus === 'pending' ? 'Creating...' : 'Create'}
+                    {projectStatus === 'pending' ? c('creating') : c('create')}
                   </UI.Button>
                 </div>
               </form>
@@ -1194,7 +1203,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
           <ModalOverlay onClick={handleProfileClose}>
             <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="profile-modal-header">
-                <h2 className="profile-modal-title">Account</h2>
+                <h2 className="profile-modal-title">{t('account')}</h2>
                 <IconButton size="small" onClick={handleProfileClose}>
                   <Close />
                 </IconButton>
@@ -1217,7 +1226,9 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     >
                       <CameraAltOutlined />
                       <span className="button-text">
-                        {avatarBusy ? 'Uploading...' : 'Upload image'}
+                        {avatarBusy
+                          ? t('profileUploading')
+                          : t('profileUploadImage')}
                       </span>
                     </UI.Button>
                   </div>
@@ -1230,15 +1241,17 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   />
                 </div>
                 <UI.Input
-                  label="Name"
+                  label={t('profileName')}
                   name="name"
-                  placeholder="Your name"
+                  placeholder={t('profileNamePlaceholder')}
                   value={profileName}
                   disabled={profileSaving}
                   onChange={e => setProfileName(e.target.value)}
                 />
                 <div className="profile-linked-accounts">
-                  <p className="profile-section-title">Linked accounts</p>
+                  <p className="profile-section-title">
+                    {t('profileLinkedAccounts')}
+                  </p>
                   {SOCIAL_PROVIDERS.map(({ id, label, Icon }) => {
                     const linked = linkedProviders.has(id);
                     const busy = linkBusy === id;
@@ -1257,7 +1270,11 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                       >
                         {linked ? <LinkOff /> : <LinkIcon />}
                         <span className="button-text">
-                          {busy ? 'Working...' : linked ? 'Unlink' : 'Link'}
+                          {busy
+                            ? t('profileWorking')
+                            : linked
+                              ? t('profileUnlink')
+                              : t('profileLink')}
                         </span>
                       </UI.Button>
                     );
@@ -1267,11 +1284,13 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                           <Icon />
                           <span className="profile-linked-label">{label}</span>
                           {linked && (
-                            <span className="profile-linked-badge">Linked</span>
+                            <span className="profile-linked-badge">
+                              {t('profileLinked')}
+                            </span>
                           )}
                         </div>
                         {isLastLinked ? (
-                          <Tooltip title="You must keep at least one linked account">
+                          <Tooltip title={t('profileKeepOneAccount')}>
                             <span>{button}</span>
                           </Tooltip>
                         ) : (
@@ -1288,7 +1307,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   disabled={profileSaving}
                   onClick={handleProfileClose}
                 >
-                  Cancel
+                  {c('cancel')}
                 </UI.Button>
                 <UI.Button
                   variant="contained"
@@ -1296,7 +1315,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   disabled={profileSaving}
                   onClick={handleProfileSave}
                 >
-                  {profileSaving ? 'Saving...' : 'Save'}
+                  {profileSaving ? c('saving') : c('save')}
                 </UI.Button>
               </div>
             </ModalDialog>

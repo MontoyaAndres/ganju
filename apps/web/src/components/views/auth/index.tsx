@@ -1,13 +1,18 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 
 import { Wrapper } from './styles';
 import { authClient } from '../../../utils';
+import { i18n } from '../../../lib';
 
 export const Auth = () => {
   const [status, setStatus] = useState('idle');
-  const [accepted, setAccepted] = useState(false);
+  const [accepted, setAccepted] = useState(true);
+  const router = useRouter();
+  const t = i18n.useT(i18n.copy.AUTH);
+  const c = i18n.useT(i18n.copy.COMMON);
 
   const signIn = async (provider: string) => {
     if (!accepted) return;
@@ -19,15 +24,14 @@ export const Auth = () => {
   };
 
   const disabled = status === 'pending' || !accepted;
+  const other = i18n.LANGS.find(lang => lang !== t.lang);
 
   return (
     <Wrapper>
       <div className="login-content">
         <p className="login-content-texts">
-          <span className="login-content-subtitle">
-            Give Your AI Superpowers{' '}
-          </span>
-          <span className="login-content-title">No Coding Needed</span>
+          <span className="login-content-subtitle">{t('headline')} </span>
+          <span className="login-content-title">{t('subheadline')}</span>
         </p>
         <div className="login-content-buttons">
           <UI.Button
@@ -36,7 +40,7 @@ export const Auth = () => {
             onClick={() => signIn(utils.constants.SOCIAL_PROVIDER_GOOGLE)}
             disabled={disabled}
           >
-            Sign in with Google
+            {t('signInGoogle')}
           </UI.Button>
           <UI.Button
             variant="outlined"
@@ -44,7 +48,7 @@ export const Auth = () => {
             onClick={() => signIn(utils.constants.SOCIAL_PROVIDER_GITHUB)}
             disabled={disabled}
           >
-            Sign in with GitHub
+            {t('signInGithub')}
           </UI.Button>
         </div>
         <label className="terms-consent">
@@ -54,44 +58,24 @@ export const Auth = () => {
             onChange={event => setAccepted(event.target.checked)}
           />
           <span>
-            I have read and accept the{' '}
-            <a
-              href="https://ganju.ai/terms"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Terms &amp; Conditions
-            </a>{' '}
-            and the{' '}
-            <a
-              href="https://ganju.ai/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Privacy Policy
+            {t('consentBefore')}
+            <a href={t('termsUrl')} target="_blank" rel="noopener noreferrer">
+              {t('consentTerms')}
             </a>
-            .
+            {t('consentBetween')}
+            <a href={t('privacyUrl')} target="_blank" rel="noopener noreferrer">
+              {t('consentPrivacy')}
+            </a>
+            {t('consentAfter')}
           </span>
         </label>
       </div>
-      <p className="terms">
-        ¿Prefieres español? Lee los{' '}
-        <a
-          href="https://ganju.ai/es/terminos"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Términos
-        </a>{' '}
-        y la{' '}
-        <a
-          href="https://ganju.ai/es/privacidad"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Política de Privacidad
-        </a>
-      </p>
+      {other && (
+        <p className="terms">
+          {c('switchPrompt')}{' '}
+          <a href={i18n.langHref(router.asPath, other)}>{c('switchAction')}</a>
+        </p>
+      )}
     </Wrapper>
   );
 };

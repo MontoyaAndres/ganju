@@ -14,6 +14,7 @@ export interface IProps {
   width?: number;
   maxHeight?: string;
   closeOnBackdrop?: boolean;
+  closeLabel?: string;
 }
 
 export const Modal = (props: IProps) => {
@@ -25,7 +26,8 @@ export const Modal = (props: IProps) => {
     footer,
     width,
     maxHeight,
-    closeOnBackdrop = true
+    closeOnBackdrop = true,
+    closeLabel = 'Close'
   } = props;
 
   useEffect(() => {
@@ -59,7 +61,7 @@ export const Modal = (props: IProps) => {
               className="modal-close"
               size="small"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={closeLabel}
             >
               <Close />
             </IconButton>

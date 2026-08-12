@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
+
 import IconButton from '@mui/material/IconButton';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
@@ -24,7 +25,9 @@ import {
 } from '@mui/icons-material';
 
 import { Wrapper, UsageModalOverlay } from './styles';
+import { i18n } from '../../../lib';
 
+import type { Translate } from '../../../lib';
 import type { Source } from '@ganju/utils';
 
 interface BotInfo {
@@ -213,6 +216,40 @@ const channelLabel = (channel: Channel): string => {
   return channel.platform;
 };
 
+/**
+ * Values the API sends, mapped to a catalog key rather than to a string — the
+ * same call `overview`'s `CHART_OPTIONS` makes. Typed as a union, so a typo
+ * fails the build; an unrecognised value falls back to what the wire said,
+ * which is better than a blank pill.
+ */
+const SCOPE_KEY = {
+  [utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE]: 'scopePrivate',
+  [utils.constants.CHANNEL_CONVERSATION_SCOPE_GROUP]: 'scopeGroup',
+  [utils.constants.CHANNEL_CONVERSATION_SCOPE_CHANNEL]: 'scopeChannel'
+} as const satisfies Record<string, keyof (typeof i18n.copy.CHANNELS)['en']>;
+
+const ROLE_KEY = {
+  [utils.constants.ROLE_MESSAGE_USER]: 'roleUser',
+  [utils.constants.ROLE_MESSAGE_ASSISTANT]: 'roleAssistant',
+  [utils.constants.ROLE_MESSAGE_SYSTEM]: 'roleSystem',
+  [utils.constants.ROLE_MESSAGE_TOOL]: 'roleTool'
+} as const satisfies Record<string, keyof (typeof i18n.copy.CHANNELS)['en']>;
+
+const KIND_KEY = {
+  [utils.constants.USAGE_KIND_PROMPT]: 'kindPrompt',
+  [utils.constants.USAGE_KIND_TOOL]: 'kindTool',
+  [utils.constants.USAGE_KIND_RESOURCE]: 'kindResource'
+} as const satisfies Record<string, keyof (typeof i18n.copy.CHANNELS)['en']>;
+
+const labelFor = (
+  map: Record<string, keyof (typeof i18n.copy.CHANNELS)['en']>,
+  value: string,
+  t: ChannelsT
+): string => {
+  const key = map[value];
+  return key ? t(key) : value;
+};
+
 const usageIcon = (kind: MessageUsage['kind']) => {
   if (kind === utils.constants.USAGE_KIND_TOOL) return <BuildOutlined />;
   if (kind === utils.constants.USAGE_KIND_RESOURCE)
@@ -220,7 +257,7 @@ const usageIcon = (kind: MessageUsage['kind']) => {
   return <AutoAwesomeOutlined />;
 };
 
-const usageLabel = (u: MessageUsage): string => {
+const usageLabel = (u: MessageUsage, t: ChannelsT): string => {
   if (u.kind === utils.constants.USAGE_KIND_TOOL) {
     const def = u.artifactTool?.toolDefinition;
     // http-endpoint / mcp-proxy back many tools per row, so their definition
@@ -233,7 +270,9 @@ const usageLabel = (u: MessageUsage): string => {
       u.toolName ||
       def?.title ||
       def?.key ||
-      (typeof u.input?.name === 'string' ? (u.input.name as string) : 'Tool')
+      (typeof u.input?.name === 'string'
+        ? (u.input.name as string)
+        : t('fallbackTool'))
     );
   }
   if (u.kind === utils.constants.USAGE_KIND_RESOURCE) {
@@ -247,11 +286,11 @@ const usageLabel = (u: MessageUsage): string => {
         ? (u.input.uri as string)
         : typeof u.input?.name === 'string'
           ? (u.input.name as string)
-          : 'Resource')
+          : t('fallbackResource'))
     );
   }
   // Proxied prompts have no artifact_prompt row — fall back to the recorded name.
-  return u.artifactPrompt?.title || u.toolName || 'Prompt';
+  return u.artifactPrompt?.title || u.toolName || t('fallbackPrompt');
 };
 
 const extractUsageText = (output: unknown): string => {
@@ -317,10 +356,12 @@ const collectResourceAttachments = (
   return out;
 };
 
-const SlackRequirements = () => (
+type ChannelsT = Translate<(typeof i18n.copy.CHANNELS)['en']>;
+
+const SlackRequirements = ({ t }: { t: ChannelsT }) => (
   <div className="slack-requirements">
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Bot token scopes — required</p>
+      <p className="slack-requirements-label">{t('scopesRequired')}</p>
       <div className="slack-scope-chips">
         {utils.constants.SLACK_REQUIRED_SCOPES.map(scope => (
           <code key={scope} className="slack-scope-chip">
@@ -330,7 +371,7 @@ const SlackRequirements = () => (
       </div>
     </div>
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Bot token scopes — recommended</p>
+      <p className="slack-requirements-label">{t('scopesRecommended')}</p>
       <div className="slack-scope-chips">
         {utils.constants.SLACK_RECOMMENDED_SCOPES.map(scope => (
           <code key={scope} className="slack-scope-chip">
@@ -338,13 +379,10 @@ const SlackRequirements = () => (
           </code>
         ))}
       </div>
-      <p className="slack-requirements-hint">
-        Optional — without these the bot still works but falls back to user and
-        channel IDs instead of names.
-      </p>
+      <p className="slack-requirements-hint">{t('scopesRecommendedHint')}</p>
     </div>
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Subscribe to bot events</p>
+      <p className="slack-requirements-label">{t('botEvents')}</p>
       <div className="slack-scope-chips">
         {utils.constants.SLACK_BOT_EVENTS.map(event => (
           <code key={event} className="slack-scope-chip">
@@ -352,61 +390,51 @@ const SlackRequirements = () => (
           </code>
         ))}
       </div>
-      <p className="slack-requirements-hint">
-        Also enable the Messages tab (App Home) so users can DM the bot.
-      </p>
+      <p className="slack-requirements-hint">{t('botEventsHint')}</p>
     </div>
   </div>
 );
 
-const DiscordRequirements = () => (
+const DiscordRequirements = ({ t }: { t: ChannelsT }) => (
   <div className="slack-requirements">
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Privileged Gateway Intents</p>
+      <p className="slack-requirements-label">{t('discordIntents')}</p>
       <div className="slack-scope-chips">
         <code className="slack-scope-chip">MESSAGE CONTENT INTENT</code>
         <code className="slack-scope-chip">SERVER MEMBERS INTENT</code>
       </div>
-      <p className="slack-requirements-hint">
-        Enable these under Bot → Privileged Gateway Intents in the Discord
-        Developer Portal. Without MESSAGE CONTENT the bot can only read messages
-        in DMs or when it&apos;s @mentioned.
-      </p>
+      <p className="slack-requirements-hint">{t('discordIntentsHint')}</p>
     </div>
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Invite scopes</p>
+      <p className="slack-requirements-label">{t('discordInviteScopes')}</p>
       <div className="slack-scope-chips">
         <code className="slack-scope-chip">bot</code>
         <code className="slack-scope-chip">applications.commands</code>
       </div>
-      <p className="slack-requirements-hint">
-        Invite the bot with the Send Messages, Read Message History, and Attach
-        Files permissions so it can reply and share files.
-      </p>
+      <p className="slack-requirements-hint">{t('discordInviteHint')}</p>
     </div>
   </div>
 );
 
-const WhatsappRequirements = () => (
+const WhatsappRequirements = ({ t }: { t: ChannelsT }) => (
   <div className="slack-requirements">
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Webhook fields</p>
+      <p className="slack-requirements-label">{t('whatsappWebhookFields')}</p>
       <div className="slack-scope-chips">
         <code className="slack-scope-chip">messages</code>
       </div>
       <p className="slack-requirements-hint">
-        In the Meta app dashboard → WhatsApp → Configuration, subscribe the
-        webhook to the <code>messages</code> field. Use the same Verify token
-        you entered here.
+        {t('whatsappWebhookHintBefore')}
+        <code>messages</code>
+        {t('whatsappWebhookHintAfter')}
       </p>
     </div>
     <div className="slack-requirements-group">
-      <p className="slack-requirements-label">Credentials</p>
+      <p className="slack-requirements-label">{t('whatsappCredentials')}</p>
       <p className="slack-requirements-hint">
-        Access token: a permanent System User token with{' '}
-        <code>whatsapp_business_messaging</code> permission. Phone number ID and
-        App secret come from the WhatsApp → API Setup and App → Settings → Basic
-        pages.
+        {t('whatsappCredentialsBefore')}
+        <code>whatsapp_business_messaging</code>
+        {t('whatsappCredentialsAfter')}
       </p>
     </div>
   </div>
@@ -415,6 +443,8 @@ const WhatsappRequirements = () => (
 export const Channels = () => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.CHANNELS);
+  const c = i18n.useT(i18n.copy.COMMON);
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -615,12 +645,12 @@ export const Channels = () => {
         setChannels(prev =>
           prev.map(c => (c.id === channelId ? { ...c, llmId: next } : c))
         );
-        snackbar.success('Model updated');
+        snackbar.success(t('toastModelUpdated'));
       } else {
-        snackbar.error(data?.error?.message || 'Failed to update model');
+        snackbar.error(data?.error?.message || t('toastModelUpdateFailed'));
       }
     } catch {
-      snackbar.error('Failed to update model');
+      snackbar.error(t('toastModelUpdateFailed'));
     } finally {
       setSavingLlm(false);
       setEditingLlmId(null);
@@ -657,14 +687,14 @@ export const Channels = () => {
         );
         snackbar.success(
           debounceMs === utils.constants.CHANNEL_DEBOUNCE_DISABLED
-            ? 'The bot will answer every message as it arrives'
-            : 'Reply timing updated'
+            ? t('toastReplyEveryMessage')
+            : t('toastReplyTimingUpdated')
         );
       } else {
-        snackbar.error(data?.error?.message || 'Failed to update reply timing');
+        snackbar.error(data?.error?.message || t('toastReplyTimingFailed'));
       }
     } catch {
-      snackbar.error('Failed to update reply timing');
+      snackbar.error(t('toastReplyTimingFailed'));
     } finally {
       setSavingDebounce(false);
     }
@@ -685,28 +715,28 @@ export const Channels = () => {
     // WhatsApp authenticates with an access token (not a bot token); every other
     // platform uses a bot token.
     if (!isWhatsapp && !createValues.botToken.trim()) {
-      nextErrors.botToken = 'Bot token is required';
+      nextErrors.botToken = t('errorBotToken');
     }
     if (isSlack && !createValues.signingSecret.trim()) {
-      nextErrors.signingSecret = 'Signing secret is required';
+      nextErrors.signingSecret = t('errorSigningSecret');
     }
     if (isDiscord && !createValues.applicationId.trim()) {
-      nextErrors.applicationId = 'Application ID is required';
+      nextErrors.applicationId = t('errorApplicationId');
     }
     if (isDiscord && !createValues.publicKey.trim()) {
-      nextErrors.publicKey = 'Public key is required';
+      nextErrors.publicKey = t('errorPublicKey');
     }
     if (isWhatsapp && !createValues.accessToken.trim()) {
-      nextErrors.accessToken = 'Access token is required';
+      nextErrors.accessToken = t('errorAccessToken');
     }
     if (isWhatsapp && !createValues.phoneNumberId.trim()) {
-      nextErrors.phoneNumberId = 'Phone number ID is required';
+      nextErrors.phoneNumberId = t('errorPhoneNumberId');
     }
     if (isWhatsapp && !createValues.verifyToken.trim()) {
-      nextErrors.verifyToken = 'Verify token is required';
+      nextErrors.verifyToken = t('errorVerifyToken');
     }
     if (isWhatsapp && !createValues.appSecret.trim()) {
-      nextErrors.appSecret = 'App secret is required';
+      nextErrors.appSecret = t('errorAppSecret');
     }
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -754,12 +784,12 @@ export const Channels = () => {
         await fetchChannels();
         setSelectedChannel({ ...data, hasCredentials: true });
         setActiveTab('overview');
-        snackbar.success('Channel connected');
+        snackbar.success(t('toastChannelConnected'));
       } else {
-        snackbar.error(data?.error || 'Failed to create channel');
+        snackbar.error(data?.error || t('toastChannelCreateFailed'));
       }
     } catch {
-      snackbar.error('Failed to create channel');
+      snackbar.error(t('toastChannelCreateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -792,14 +822,14 @@ export const Channels = () => {
         );
         snackbar.success(
           next === utils.constants.STATUS_ACTIVE
-            ? 'Channel enabled'
-            : 'Channel disabled'
+            ? t('toastChannelEnabled')
+            : t('toastChannelDisabled')
         );
       } else {
-        snackbar.error(data?.error || 'Failed to update channel');
+        snackbar.error(data?.error || t('toastChannelUpdateFailed'));
       }
     } catch {
-      snackbar.error('Failed to update channel');
+      snackbar.error(t('toastChannelUpdateFailed'));
     } finally {
       setStatusUpdating(false);
     }
@@ -817,12 +847,12 @@ export const Channels = () => {
         setDeleteAlert(false);
         setSelectedChannel(null);
         fetchChannels();
-        snackbar.success('Channel removed');
+        snackbar.success(t('toastChannelRemoved'));
       } else {
-        snackbar.error(data?.error || 'Failed to remove channel');
+        snackbar.error(data?.error || t('toastChannelRemoveFailed'));
       }
     } catch {
-      snackbar.error('Failed to remove channel');
+      snackbar.error(t('toastChannelRemoveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -881,15 +911,12 @@ export const Channels = () => {
       <div className={`channels-list ${showRightPanel ? 'has-selection' : ''}`}>
         <div className="channels-header">
           <div className="channels-header-text">
-            <h1 className="channels-title">Channels</h1>
-            <p className="channels-subtitle">
-              Connect this artifact to messaging platforms so users can chat
-              with it.
-            </p>
+            <h1 className="channels-title">{t('title')}</h1>
+            <p className="channels-subtitle">{t('subtitle')}</p>
           </div>
           <UI.Button variant="contained" size="small" onClick={handleCreate}>
             <Add />
-            <span className="button-text">Add channel</span>
+            <span className="button-text">{t('addChannel')}</span>
           </UI.Button>
         </div>
 
@@ -910,11 +937,11 @@ export const Channels = () => {
         {status !== 'pending' && channels.length === 0 && (
           <div className="channels-empty-state">
             <ForumOutlined />
-            <h3>No channels yet</h3>
-            <p>Connect a Telegram or Slack bot to start receiving messages.</p>
+            <h3>{t('emptyTitle')}</h3>
+            <p>{t('emptyText')}</p>
             <UI.Button variant="contained" size="small" onClick={handleCreate}>
               <Add />
-              <span className="button-text">Add channel</span>
+              <span className="button-text">{t('addChannel')}</span>
             </UI.Button>
           </div>
         )}
@@ -942,15 +969,22 @@ export const Channels = () => {
                 <div className="channel-item-body">
                   <p className="channel-item-title">{channelLabel(channel)}</p>
                   <p className="channel-item-meta">
-                    <span>{channel.conversationCount} conversations</span>
+                    <span>
+                      {t.plural(
+                        'countConversations',
+                        channel.conversationCount
+                      )}
+                    </span>
                     <span>·</span>
-                    <span>{channel.messageCount} messages</span>
+                    <span>
+                      {t.plural('countMessages', channel.messageCount)}
+                    </span>
                   </p>
                 </div>
                 <span
                   className={`channel-status-pill ${active ? 'is-active' : 'is-disabled'}`}
                 >
-                  {active ? 'Active' : 'Disabled'}
+                  {t(active ? 'statusActive' : 'statusDisabled')}
                 </span>
               </div>
             );
@@ -979,9 +1013,9 @@ export const Channels = () => {
             )}
             <h2 className="panel-title">
               {isCreating
-                ? 'Connect channel'
+                ? t('panelConnect')
                 : activeConversation
-                  ? activeConversation.title || 'Conversation'
+                  ? activeConversation.title || t('panelConversation')
                   : selectedChannel
                     ? channelLabel(selectedChannel)
                     : ''}
@@ -1000,14 +1034,14 @@ export const Channels = () => {
                 className={`panel-tab ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => handleTabChange('overview')}
               >
-                Overview
+                {t('tabOverview')}
               </button>
               <button
                 type="button"
                 className={`panel-tab ${activeTab === 'conversations' ? 'active' : ''}`}
                 onClick={() => handleTabChange('conversations')}
               >
-                Conversations
+                {t('tabConversations')}
               </button>
             </div>
           )}
@@ -1016,7 +1050,7 @@ export const Channels = () => {
             {isCreating && (
               <div className="panel-edit-form">
                 <div className="panel-section">
-                  <p className="panel-section-label">Platform</p>
+                  <p className="panel-section-label">{t('platform')}</p>
                   <div className="panel-platform-grid">
                     {PLATFORMS.map(({ id, label, Icon, enabled }) => (
                       <button
@@ -1031,7 +1065,9 @@ export const Channels = () => {
                         <Icon />
                         <span className="panel-platform-label">{label}</span>
                         {!enabled && (
-                          <span className="panel-platform-soon">Soon</span>
+                          <span className="panel-platform-soon">
+                            {t('platformSoon')}
+                          </span>
                         )}
                       </button>
                     ))}
@@ -1039,18 +1075,16 @@ export const Channels = () => {
                 </div>
 
                 <UI.Select
-                  label="Language model"
+                  label={t('languageModel')}
                   name="llmId"
                   value={createValues.llmId}
                   disabled={submitting}
                   helperText={
-                    llms.length === 0
-                      ? 'No LLMs configured for this organization — the system default will be used. Add one in Settings.'
-                      : 'Pick the model this channel will use, or leave the system default.'
+                    llms.length === 0 ? t('llmHelpEmpty') : t('llmHelp')
                   }
                   options={[
                     {
-                      label: 'System default',
+                      label: t('systemDefault'),
                       value: utils.constants.LLM_SYSTEM_DEFAULT
                     },
                     ...llms.map(llm => ({ label: llm.name, value: llm.id }))
@@ -1064,17 +1098,14 @@ export const Channels = () => {
                 {createValues.platform ===
                   utils.constants.CHANNEL_PLATFORM_TELEGRAM && (
                   <UI.Input
-                    label="Bot token"
+                    label={t('botToken')}
                     name="botToken"
                     type="password"
                     placeholder="123456:ABC-DEF..."
                     value={createValues.botToken}
                     disabled={submitting}
                     error={!!errors.botToken}
-                    helperText={
-                      errors.botToken ||
-                      'Get a token from @BotFather on Telegram. We register the webhook automatically.'
-                    }
+                    helperText={errors.botToken || t('telegramTokenHelp')}
                     onChange={e => {
                       setCreateValues(prev => ({
                         ...prev,
@@ -1095,17 +1126,14 @@ export const Channels = () => {
                   utils.constants.CHANNEL_PLATFORM_SLACK && (
                   <>
                     <UI.Input
-                      label="Bot token"
+                      label={t('botToken')}
                       name="botToken"
                       type="password"
                       placeholder="xoxb-..."
                       value={createValues.botToken}
                       disabled={submitting}
                       error={!!errors.botToken}
-                      helperText={
-                        errors.botToken ||
-                        'Bot User OAuth Token (OAuth & Permissions, after installing the app with the scopes below).'
-                      }
+                      helperText={errors.botToken || t('slackTokenHelp')}
                       onChange={e => {
                         setCreateValues(prev => ({
                           ...prev,
@@ -1121,16 +1149,15 @@ export const Channels = () => {
                       }}
                     />
                     <UI.Input
-                      label="Signing secret"
+                      label={t('signingSecret')}
                       name="signingSecret"
                       type="password"
-                      placeholder="Slack app signing secret"
+                      placeholder={t('signingSecretPlaceholder')}
                       value={createValues.signingSecret}
                       disabled={submitting}
                       error={!!errors.signingSecret}
                       helperText={
-                        errors.signingSecret ||
-                        'Found under Basic Information → App Credentials. Used to verify incoming events.'
+                        errors.signingSecret || t('signingSecretHelp')
                       }
                       onChange={e => {
                         setCreateValues(prev => ({
@@ -1146,11 +1173,9 @@ export const Channels = () => {
                         }
                       }}
                     />
-                    <SlackRequirements />
+                    <SlackRequirements t={t} />
                     <p className="panel-toggle-hint">
-                      After connecting, you&apos;ll get a Request URL to paste
-                      into your Slack app&apos;s Event Subscriptions. The same
-                      URL works for any Slash Commands you add.
+                      {t('slackAfterConnect')}
                     </p>
                   </>
                 )}
@@ -1159,17 +1184,14 @@ export const Channels = () => {
                   utils.constants.CHANNEL_PLATFORM_DISCORD && (
                   <>
                     <UI.Input
-                      label="Bot token"
+                      label={t('botToken')}
                       name="botToken"
                       type="password"
-                      placeholder="Bot token from the Bot tab"
+                      placeholder={t('discordTokenPlaceholder')}
                       value={createValues.botToken}
                       disabled={submitting}
                       error={!!errors.botToken}
-                      helperText={
-                        errors.botToken ||
-                        'Discord Developer Portal → your application → Bot → Reset Token.'
-                      }
+                      helperText={errors.botToken || t('discordTokenHelp')}
                       onChange={e => {
                         setCreateValues(prev => ({
                           ...prev,
@@ -1185,15 +1207,14 @@ export const Channels = () => {
                       }}
                     />
                     <UI.Input
-                      label="Application ID"
+                      label={t('applicationId')}
                       name="applicationId"
-                      placeholder="Application (client) ID"
+                      placeholder={t('applicationIdPlaceholder')}
                       value={createValues.applicationId}
                       disabled={submitting}
                       error={!!errors.applicationId}
                       helperText={
-                        errors.applicationId ||
-                        'General Information → Application ID. Used to register slash commands.'
+                        errors.applicationId || t('applicationIdHelp')
                       }
                       onChange={e => {
                         setCreateValues(prev => ({
@@ -1210,16 +1231,13 @@ export const Channels = () => {
                       }}
                     />
                     <UI.Input
-                      label="Public key"
+                      label={t('publicKey')}
                       name="publicKey"
-                      placeholder="Application public key"
+                      placeholder={t('publicKeyPlaceholder')}
                       value={createValues.publicKey}
                       disabled={submitting}
                       error={!!errors.publicKey}
-                      helperText={
-                        errors.publicKey ||
-                        'General Information → Public Key. Used to verify incoming interactions.'
-                      }
+                      helperText={errors.publicKey || t('publicKeyHelp')}
                       onChange={e => {
                         setCreateValues(prev => ({
                           ...prev,
@@ -1234,11 +1252,9 @@ export const Channels = () => {
                         }
                       }}
                     />
-                    <DiscordRequirements />
+                    <DiscordRequirements t={t} />
                     <p className="panel-toggle-hint">
-                      After connecting, you&apos;ll get an Interactions Endpoint
-                      URL to paste into your application&apos;s General
-                      Information page — that&apos;s what powers slash commands.
+                      {t('discordAfterConnect')}
                     </p>
                   </>
                 )}
@@ -1247,17 +1263,14 @@ export const Channels = () => {
                   utils.constants.CHANNEL_PLATFORM_WHATSAPP && (
                   <>
                     <UI.Input
-                      label="Access token"
+                      label={t('accessToken')}
                       name="accessToken"
                       type="password"
-                      placeholder="System User access token"
+                      placeholder={t('accessTokenPlaceholder')}
                       value={createValues.accessToken}
                       disabled={submitting}
                       error={!!errors.accessToken}
-                      helperText={
-                        errors.accessToken ||
-                        'A permanent System User token with the whatsapp_business_messaging permission.'
-                      }
+                      helperText={errors.accessToken || t('accessTokenHelp')}
                       onChange={e => {
                         setCreateValues(prev => ({
                           ...prev,
@@ -1273,15 +1286,14 @@ export const Channels = () => {
                       }}
                     />
                     <UI.Input
-                      label="Phone number ID"
+                      label={t('phoneNumberId')}
                       name="phoneNumberId"
-                      placeholder="WhatsApp phone number ID"
+                      placeholder={t('phoneNumberIdPlaceholder')}
                       value={createValues.phoneNumberId}
                       disabled={submitting}
                       error={!!errors.phoneNumberId}
                       helperText={
-                        errors.phoneNumberId ||
-                        'WhatsApp → API Setup → From: the Phone number ID (not the display number).'
+                        errors.phoneNumberId || t('phoneNumberIdHelp')
                       }
                       onChange={e => {
                         setCreateValues(prev => ({
@@ -1298,16 +1310,13 @@ export const Channels = () => {
                       }}
                     />
                     <UI.Input
-                      label="Verify token"
+                      label={t('verifyToken')}
                       name="verifyToken"
-                      placeholder="A token you choose"
+                      placeholder={t('verifyTokenPlaceholder')}
                       value={createValues.verifyToken}
                       disabled={submitting}
                       error={!!errors.verifyToken}
-                      helperText={
-                        errors.verifyToken ||
-                        'Any value you choose. Enter the same token in the Meta dashboard when you set the Callback URL.'
-                      }
+                      helperText={errors.verifyToken || t('verifyTokenHelp')}
                       onChange={e => {
                         setCreateValues(prev => ({
                           ...prev,
@@ -1323,17 +1332,14 @@ export const Channels = () => {
                       }}
                     />
                     <UI.Input
-                      label="App secret"
+                      label={t('appSecret')}
                       name="appSecret"
                       type="password"
-                      placeholder="Meta app secret"
+                      placeholder={t('appSecretPlaceholder')}
                       value={createValues.appSecret}
                       disabled={submitting}
                       error={!!errors.appSecret}
-                      helperText={
-                        errors.appSecret ||
-                        'App → Settings → Basic → App secret. Used to verify incoming webhooks.'
-                      }
+                      helperText={errors.appSecret || t('appSecretHelp')}
                       onChange={e => {
                         setCreateValues(prev => ({
                           ...prev,
@@ -1348,11 +1354,9 @@ export const Channels = () => {
                         }
                       }}
                     />
-                    <WhatsappRequirements />
+                    <WhatsappRequirements t={t} />
                     <p className="panel-toggle-hint">
-                      After connecting, you&apos;ll get a Callback URL to paste
-                      into the Meta app dashboard → WhatsApp → Configuration,
-                      together with the Verify token above.
+                      {t('whatsappAfterConnect')}
                     </p>
                   </>
                 )}
@@ -1364,14 +1368,14 @@ export const Channels = () => {
                     disabled={submitting}
                     onClick={handleCreateSubmit}
                   >
-                    {submitting ? 'Connecting...' : 'Connect'}
+                    {submitting ? t('connecting') : t('connect')}
                   </UI.Button>
                   <UI.Button
                     size="small"
                     disabled={submitting}
                     onClick={() => setIsCreating(false)}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                 </div>
               </div>
@@ -1409,7 +1413,7 @@ export const Channels = () => {
                       <div className="panel-bot-text">
                         <p className="panel-bot-name">
                           {selectedChannel.metadata.slack.bot.teamName ||
-                            'Slack workspace'}
+                            t('fallbackSlackWorkspace')}
                         </p>
                         {selectedChannel.metadata.slack.bot.username && (
                           <p className="panel-bot-handle">
@@ -1423,18 +1427,17 @@ export const Channels = () => {
                 {selectedChannel.platform ===
                   utils.constants.CHANNEL_PLATFORM_SLACK && (
                   <div className="panel-section">
-                    <p className="panel-section-label">Slack setup</p>
+                    <p className="panel-section-label">{t('slackSetup')}</p>
                     <UI.CopyableBlock
-                      label="Request URL"
+                      label={t('requestUrl')}
                       text={`${process.env.NEXT_PUBLIC_API_URL || ''}/channel/${selectedChannel.id}/webhook/slack`}
-                      onCopy={() => snackbar.success('Request URL copied')}
-                      onCopyError={() => snackbar.error('Failed to copy')}
+                      onCopy={() =>
+                        snackbar.success(t('toastRequestUrlCopied'))
+                      }
+                      onCopyError={() => snackbar.error(t('toastCopyFailed'))}
                     />
-                    <p className="panel-toggle-hint">
-                      Paste this into your Slack app under Event Subscriptions,
-                      and as the Request URL for any Slash Commands you add.
-                    </p>
-                    <SlackRequirements />
+                    <p className="panel-toggle-hint">{t('slackSetupHint')}</p>
+                    <SlackRequirements t={t} />
                   </div>
                 )}
 
@@ -1449,7 +1452,7 @@ export const Channels = () => {
                         <p className="panel-bot-name">
                           {selectedChannel.metadata.discord.bot.globalName ||
                             selectedChannel.metadata.discord.bot.username ||
-                            'Discord bot'}
+                            t('fallbackDiscordBot')}
                         </p>
                         {selectedChannel.metadata.discord.bot.username && (
                           <p className="panel-bot-handle">
@@ -1463,22 +1466,17 @@ export const Channels = () => {
                 {selectedChannel.platform ===
                   utils.constants.CHANNEL_PLATFORM_DISCORD && (
                   <div className="panel-section">
-                    <p className="panel-section-label">Discord setup</p>
+                    <p className="panel-section-label">{t('discordSetup')}</p>
                     <UI.CopyableBlock
-                      label="Interactions Endpoint URL"
+                      label={t('interactionsUrl')}
                       text={`${process.env.NEXT_PUBLIC_API_URL || ''}/channel/${selectedChannel.id}/webhook/discord`}
                       onCopy={() =>
-                        snackbar.success('Interactions Endpoint URL copied')
+                        snackbar.success(t('toastInteractionsUrlCopied'))
                       }
-                      onCopyError={() => snackbar.error('Failed to copy')}
+                      onCopyError={() => snackbar.error(t('toastCopyFailed'))}
                     />
-                    <p className="panel-toggle-hint">
-                      Paste this into the Discord Developer Portal → General
-                      Information → Interactions Endpoint URL (needed for slash
-                      commands). Normal messages and @mentions arrive over the
-                      Gateway automatically.
-                    </p>
-                    <DiscordRequirements />
+                    <p className="panel-toggle-hint">{t('discordSetupHint')}</p>
+                    <DiscordRequirements t={t} />
                   </div>
                 )}
 
@@ -1494,7 +1492,7 @@ export const Channels = () => {
                           {selectedChannel.metadata.whatsapp.bot.verifiedName ||
                             selectedChannel.metadata.whatsapp.bot
                               .displayPhoneNumber ||
-                            'WhatsApp number'}
+                            t('fallbackWhatsappNumber')}
                         </p>
                         {selectedChannel.metadata.whatsapp.bot
                           .displayPhoneNumber && (
@@ -1512,33 +1510,33 @@ export const Channels = () => {
                 {selectedChannel.platform ===
                   utils.constants.CHANNEL_PLATFORM_WHATSAPP && (
                   <div className="panel-section">
-                    <p className="panel-section-label">WhatsApp setup</p>
+                    <p className="panel-section-label">{t('whatsappSetup')}</p>
                     <UI.CopyableBlock
-                      label="Callback URL"
+                      label={t('callbackUrl')}
                       text={`${process.env.NEXT_PUBLIC_API_URL || ''}/channel/${selectedChannel.id}/webhook/whatsapp`}
-                      onCopy={() => snackbar.success('Callback URL copied')}
-                      onCopyError={() => snackbar.error('Failed to copy')}
+                      onCopy={() =>
+                        snackbar.success(t('toastCallbackUrlCopied'))
+                      }
+                      onCopyError={() => snackbar.error(t('toastCopyFailed'))}
                     />
                     <p className="panel-toggle-hint">
-                      Paste this into the Meta app dashboard → WhatsApp →
-                      Configuration → Callback URL, with the Verify token you
-                      set when connecting, then subscribe to the messages field.
+                      {t('whatsappSetupHint')}
                     </p>
-                    <WhatsappRequirements />
+                    <WhatsappRequirements t={t} />
                   </div>
                 )}
 
                 <div className="panel-section">
-                  <p className="panel-section-label">Status</p>
+                  <p className="panel-section-label">{t('statusLabel')}</p>
                   <div className="panel-toggle-row">
                     <div>
                       <p className="panel-toggle-label">
-                        {isActive ? 'Receiving messages' : 'Paused'}
+                        {t(isActive ? 'statusReceiving' : 'statusPaused')}
                       </p>
                       <p className="panel-toggle-hint">
-                        {isActive
-                          ? 'Incoming webhook events are processed by the agent.'
-                          : 'Webhook still configured but events are dropped until re-enabled.'}
+                        {t(
+                          isActive ? 'statusReceivingHint' : 'statusPausedHint'
+                        )}
                       </p>
                     </div>
                     <Switch
@@ -1550,7 +1548,7 @@ export const Channels = () => {
                 </div>
 
                 <div className="panel-section">
-                  <p className="panel-section-label">Language model</p>
+                  <p className="panel-section-label">{t('languageModel')}</p>
                   <UI.Select
                     label=""
                     name="channelLlmId"
@@ -1561,12 +1559,12 @@ export const Channels = () => {
                     disabled={savingLlm && editingLlmId === selectedChannel.id}
                     helperText={
                       llms.length === 0
-                        ? 'No LLMs configured. Add one in Settings to switch from the system default.'
-                        : 'Change which language model this channel uses.'
+                        ? t('channelLlmHelpEmpty')
+                        : t('channelLlmHelp')
                     }
                     options={[
                       {
-                        label: 'System default',
+                        label: t('systemDefault'),
                         value: utils.constants.LLM_SYSTEM_DEFAULT
                       },
                       ...llms.map(llm => ({
@@ -1591,7 +1589,7 @@ export const Channels = () => {
                 </div>
 
                 <div className="panel-section">
-                  <p className="panel-section-label">Reply timing</p>
+                  <p className="panel-section-label">{t('replyTiming')}</p>
                   <UI.Select
                     label=""
                     name="channelDebounceMs"
@@ -1599,16 +1597,16 @@ export const Channels = () => {
                       utils.resolveDebounceMs(selectedChannel.config)
                     )}
                     disabled={savingDebounce}
-                    helperText="People often send one thought across several messages. Waiting for a pause lets the bot answer them all in a single reply."
+                    helperText={t('replyTimingHelp')}
                     options={[
                       {
-                        label: 'Answer every message',
+                        label: t('replyEveryMessage'),
                         value: String(utils.constants.CHANNEL_DEBOUNCE_DISABLED)
                       },
-                      { label: 'Wait 2 seconds', value: '2000' },
-                      { label: 'Wait 5 seconds (recommended)', value: '5000' },
-                      { label: 'Wait 10 seconds', value: '10000' },
-                      { label: 'Wait 30 seconds', value: '30000' }
+                      { label: t('replyWait2'), value: '2000' },
+                      { label: t('replyWait5'), value: '5000' },
+                      { label: t('replyWait10'), value: '10000' },
+                      { label: t('replyWait30'), value: '30000' }
                     ]}
                     onChange={e => {
                       const value = e.target.value as string;
@@ -1622,32 +1620,34 @@ export const Channels = () => {
                 </div>
 
                 <div className="panel-section">
-                  <p className="panel-section-label">Activity</p>
+                  <p className="panel-section-label">{t('activity')}</p>
                   <div className="panel-stats">
                     <div className="panel-stat">
-                      <p className="panel-stat-label">Conversations</p>
+                      <p className="panel-stat-label">
+                        {t('statConversations')}
+                      </p>
                       <p className="panel-stat-value">
-                        {selectedChannel.conversationCount}
+                        {t.n(selectedChannel.conversationCount)}
                       </p>
                     </div>
                     <div className="panel-stat">
-                      <p className="panel-stat-label">Messages</p>
+                      <p className="panel-stat-label">{t('statMessages')}</p>
                       <p className="panel-stat-value">
-                        {selectedChannel.messageCount}
+                        {t.n(selectedChannel.messageCount)}
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="panel-danger-zone">
-                  <p className="panel-danger-label">Danger zone</p>
+                  <p className="panel-danger-label">{t('dangerZone')}</p>
                   <UI.Button
                     size="small"
                     variant="outlined"
                     onClick={() => setDeleteAlert(true)}
                   >
                     <DeleteOutlined />
-                    <span className="button-text">Remove channel</span>
+                    <span className="button-text">{t('removeChannel')}</span>
                   </UI.Button>
                 </div>
               </div>
@@ -1670,10 +1670,7 @@ export const Channels = () => {
                   )}
                   {conversationsStatus !== 'pending' &&
                     conversations.length === 0 && (
-                      <p className="panel-empty">
-                        No conversations yet. Send a message to your bot to
-                        start one.
-                      </p>
+                      <p className="panel-empty">{t('conversationsEmpty')}</p>
                     )}
                   <div className="panel-conversation-list">
                     {conversations.map(conv => (
@@ -1692,16 +1689,18 @@ export const Channels = () => {
                       >
                         <div className="panel-conversation-row">
                           <p className="panel-conversation-title">
-                            {conv.title || 'Untitled'}
+                            {conv.title || t('conversationUntitled')}
                           </p>
                           <span className="panel-conversation-scope">
-                            {conv.scope}
+                            {labelFor(SCOPE_KEY, conv.scope, t)}
                           </span>
                         </div>
                         <p className="panel-conversation-meta">
-                          <span>{conv.messageCount} messages</span>
                           <span>
-                            {utils.formatRelative(conv.lastMessageAt)}
+                            {t.plural('countMessages', conv.messageCount)}
+                          </span>
+                          <span>
+                            {t.relative(conv.lastMessageAt, c('never'))}
                           </span>
                         </p>
                       </div>
@@ -1713,10 +1712,10 @@ export const Channels = () => {
             {selectedChannel && activeConversation && (
               <div className="panel-messages-thread">
                 {messagesStatus === 'pending' && (
-                  <p className="panel-empty">Loading messages...</p>
+                  <p className="panel-empty">{t('loadingMessages')}</p>
                 )}
                 {messagesStatus !== 'pending' && messages.length === 0 && (
-                  <p className="panel-empty">No messages in this thread.</p>
+                  <p className="panel-empty">{t('threadEmpty')}</p>
                 )}
                 {[...messages].reverse().map(msg => {
                   const isUser = msg.role === utils.constants.ROLE_MESSAGE_USER;
@@ -1768,9 +1767,9 @@ export const Channels = () => {
                             </>
                           )
                         )}
-                        <span>{msg.role}</span>
+                        <span>{labelFor(ROLE_KEY, msg.role, t)}</span>
                         <span>·</span>
-                        <span>{utils.formatRelative(msg.createdAt)}</span>
+                        <span>{t.relative(msg.createdAt)}</span>
                       </div>
                       {msg.content ? (
                         <UI.Markdown
@@ -1809,7 +1808,7 @@ export const Channels = () => {
                         msg.metadata.sources.length > 0 && (
                           <div className="panel-message-sources">
                             <p className="panel-message-sources-label">
-                              Sources
+                              {t('messageSources')}
                             </p>
                             <div className="panel-source-pills">
                               {msg.metadata.sources.map(
@@ -1839,7 +1838,9 @@ export const Channels = () => {
                                       </span>
                                       {isFile && source.pageNumber && (
                                         <span className="panel-source-tooltip-meta">
-                                          Page {source.pageNumber}
+                                          {t('sourcePage', {
+                                            number: source.pageNumber
+                                          })}
                                         </span>
                                       )}
                                       {isFile && source.mimeType && (
@@ -1898,13 +1899,13 @@ export const Channels = () => {
                       {(msg.tokensIn || msg.tokensOut || msg.latencyMs) && (
                         <p className="panel-message-stats">
                           {msg.tokensIn != null && (
-                            <span>↓ {msg.tokensIn} tok</span>
+                            <span>↓ {t.n(msg.tokensIn)} tok</span>
                           )}
                           {msg.tokensOut != null && (
-                            <span>↑ {msg.tokensOut} tok</span>
+                            <span>↑ {t.n(msg.tokensOut)} tok</span>
                           )}
                           {msg.latencyMs != null && (
-                            <span>{msg.latencyMs}ms</span>
+                            <span>{t.n(msg.latencyMs)}ms</span>
                           )}
                         </p>
                       )}
@@ -1933,14 +1934,14 @@ export const Channels = () => {
                                 >
                                   {usageIcon(u.kind)}
                                   <span className="panel-usage-kind">
-                                    {u.kind}
+                                    {labelFor(KIND_KEY, u.kind, t)}
                                   </span>
                                   <span className="panel-usage-name">
-                                    {usageLabel(u)}
+                                    {usageLabel(u, t)}
                                   </span>
                                   {u.latencyMs != null && (
                                     <span className="panel-usage-latency">
-                                      {u.latencyMs}ms
+                                      {t.n(u.latencyMs)}ms
                                     </span>
                                   )}
                                 </div>
@@ -1965,10 +1966,15 @@ export const Channels = () => {
 
       <UI.Alert
         open={deleteAlert}
-        title="Remove channel"
-        description={`This will disconnect ${selectedChannel ? channelLabel(selectedChannel) : 'this channel'} and delete its conversation history. This cannot be undone.`}
-        confirmText="Remove"
-        cancelText="Cancel"
+        title={t('confirmRemoveTitle')}
+        description={t('confirmRemoveText', {
+          name: selectedChannel
+            ? channelLabel(selectedChannel)
+            : t('confirmRemoveFallback')
+        })}
+        confirmText={t('confirmRemove')}
+        cancelText={c('cancel')}
+        loadingText={c('deleting')}
         loading={submitting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteAlert(false)}
@@ -1978,7 +1984,7 @@ export const Channels = () => {
           <UsageModalOverlay
             role="button"
             tabIndex={0}
-            aria-label="Close details"
+            aria-label={t('closeDetails')}
             onClick={() => setViewingUsage(null)}
             onKeyDown={e => {
               if (e.key === 'Escape') setViewingUsage(null);
@@ -1992,13 +1998,15 @@ export const Channels = () => {
             >
               <div className="usage-modal-header">
                 <div className="usage-modal-header-text">
-                  <p className="usage-modal-kind">{viewingUsage.usage.kind}</p>
+                  <p className="usage-modal-kind">
+                    {labelFor(KIND_KEY, viewingUsage.usage.kind, t)}
+                  </p>
                   <h2 className="usage-modal-title">
-                    {usageLabel(viewingUsage.usage)}
+                    {usageLabel(viewingUsage.usage, t)}
                   </h2>
                   {viewingUsage.usage.latencyMs != null && (
                     <p className="usage-modal-meta">
-                      {viewingUsage.usage.latencyMs}ms
+                      {t.n(viewingUsage.usage.latencyMs)}ms
                     </p>
                   )}
                 </div>
@@ -2009,18 +2017,20 @@ export const Channels = () => {
               <div className="usage-modal-body">
                 {viewingUsage.userMessage && (
                   <UI.CopyableBlock
-                    label="User message"
+                    label={t('usageUserMessage')}
                     text={viewingUsage.userMessage.content || ''}
-                    onCopy={() => snackbar.success('User message copied')}
-                    onCopyError={() => snackbar.error('Failed to copy')}
-                    meta={`${viewingUsage.userMessage.participant?.linkedUser?.name || viewingUsage.userMessage.participant?.displayName || 'Unknown'} · ${utils.formatRelative(viewingUsage.userMessage.createdAt)}`}
+                    onCopy={() => snackbar.success(t('toastUserMessageCopied'))}
+                    onCopyError={() => snackbar.error(t('toastCopyFailed'))}
+                    meta={`${viewingUsage.userMessage.participant?.linkedUser?.name || viewingUsage.userMessage.participant?.displayName || t('usageUnknownActor')} · ${t.relative(viewingUsage.userMessage.createdAt)}`}
                   />
                 )}
                 {(viewingUsage.message.tokensIn != null ||
                   viewingUsage.message.tokensOut != null ||
                   viewingUsage.message.latencyMs != null) && (
                   <div className="usage-modal-section">
-                    <p className="usage-modal-label">Assistant turn</p>
+                    <p className="usage-modal-label">
+                      {t('usageAssistantTurn')}
+                    </p>
                     <p className="usage-modal-meta">
                       {viewingUsage.message.tokensIn != null && (
                         <span>↓ {viewingUsage.message.tokensIn} tok</span>
@@ -2036,20 +2046,20 @@ export const Channels = () => {
                 )}
                 {viewingUsage.usage.errorMessage && (
                   <UI.CopyableBlock
-                    label="Error"
+                    label={t('usageError')}
                     text={viewingUsage.usage.errorMessage}
                     variant="error"
-                    onCopy={() => snackbar.success('Error copied')}
-                    onCopyError={() => snackbar.error('Failed to copy')}
+                    onCopy={() => snackbar.success(t('toastErrorCopied'))}
+                    onCopyError={() => snackbar.error(t('toastCopyFailed'))}
                   />
                 )}
                 {viewingUsage.usage.input &&
                   Object.keys(viewingUsage.usage.input).length > 0 && (
                     <UI.CopyableBlock
-                      label="Input"
+                      label={t('usageInput')}
                       text={JSON.stringify(viewingUsage.usage.input, null, 2)}
-                      onCopy={() => snackbar.success('Input copied')}
-                      onCopyError={() => snackbar.error('Failed to copy')}
+                      onCopy={() => snackbar.success(t('toastInputCopied'))}
+                      onCopyError={() => snackbar.error(t('toastCopyFailed'))}
                     />
                   )}
                 {(() => {
@@ -2063,10 +2073,10 @@ export const Channels = () => {
                   }
                   return (
                     <UI.CopyableBlock
-                      label="Output"
+                      label={t('usageOutput')}
                       text={pretty}
-                      onCopy={() => snackbar.success('Output copied')}
-                      onCopyError={() => snackbar.error('Failed to copy')}
+                      onCopy={() => snackbar.success(t('toastOutputCopied'))}
+                      onCopyError={() => snackbar.error(t('toastCopyFailed'))}
                     />
                   );
                 })()}
@@ -2081,7 +2091,7 @@ export const Channels = () => {
                 if (u.artifactTool?.id) {
                   const id = u.artifactTool.id;
                   targets.push({
-                    label: 'Open in Tools',
+                    label: t('usageOpenInTools'),
                     Icon: BuildOutlined,
                     onClick: () => {
                       setViewingUsage(null);
@@ -2092,7 +2102,7 @@ export const Channels = () => {
                 if (u.artifactResource?.id) {
                   const id = u.artifactResource.id;
                   targets.push({
-                    label: 'Open in Resources',
+                    label: t('usageOpenInResources'),
                     Icon: AttachFileOutlined,
                     onClick: () => {
                       setViewingUsage(null);
@@ -2103,7 +2113,7 @@ export const Channels = () => {
                 if (u.artifactPrompt?.id) {
                   const id = u.artifactPrompt.id;
                   targets.push({
-                    label: 'Open in Prompts',
+                    label: t('usageOpenInPrompts'),
                     Icon: AutoAwesomeOutlined,
                     onClick: () => {
                       setViewingUsage(null);

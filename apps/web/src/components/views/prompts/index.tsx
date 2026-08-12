@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
+
 import IconButton from '@mui/material/IconButton';
 import {
   Add,
@@ -18,6 +19,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { Wrapper } from './styles';
+import { i18n } from '../../../lib';
 
 interface Prompt {
   id: string;
@@ -33,6 +35,8 @@ interface Prompt {
 export const Prompts = () => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.PROMPTS);
+  const c = i18n.useT(i18n.copy.COMMON);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -163,7 +167,7 @@ export const Prompts = () => {
     try {
       return JSON.parse(editValues.messagesJson);
     } catch {
-      setErrors({ messages: 'Invalid JSON format' });
+      setErrors({ messages: t('errorInvalidJson') });
       return null;
     }
   };
@@ -234,7 +238,7 @@ export const Prompts = () => {
     const parsedMessages = getMessages();
     if (!parsedMessages) return;
     if (parsedMessages.length === 0) {
-      setErrors({ messages: 'At least one message is required' });
+      setErrors({ messages: t('errorNoMessages') });
       return;
     }
 
@@ -267,12 +271,12 @@ export const Prompts = () => {
         setIsCreating(false);
         setSelectedPrompt(data);
         fetchPrompts();
-        snackbar.success('Prompt created');
+        snackbar.success(t('toastCreated'));
       } else {
-        snackbar.error(data?.error || 'Failed to create prompt');
+        snackbar.error(data?.error || t('toastCreateFailed'));
       }
     } catch {
-      snackbar.error('Failed to create prompt');
+      snackbar.error(t('toastCreateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -328,7 +332,7 @@ export const Prompts = () => {
     const parsedMessages = getMessages();
     if (!parsedMessages) return;
     if (parsedMessages.length === 0) {
-      setErrors({ messages: 'At least one message is required' });
+      setErrors({ messages: t('errorNoMessages') });
       return;
     }
 
@@ -361,12 +365,12 @@ export const Prompts = () => {
         setSelectedPrompt(data);
         setIsEditing(false);
         fetchPrompts();
-        snackbar.success('Prompt updated');
+        snackbar.success(t('toastUpdated'));
       } else {
-        snackbar.error(data?.error || 'Failed to update prompt');
+        snackbar.error(data?.error || t('toastUpdateFailed'));
       }
     } catch {
-      snackbar.error('Failed to update prompt');
+      snackbar.error(t('toastUpdateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -394,12 +398,12 @@ export const Prompts = () => {
         setSelectedPrompt(null);
         setIsEditing(false);
         fetchPrompts();
-        snackbar.success('Prompt deleted');
+        snackbar.success(t('toastDeleted'));
       } else {
-        snackbar.error(data?.error || 'Failed to delete prompt');
+        snackbar.error(data?.error || t('toastDeleteFailed'));
       }
     } catch {
-      snackbar.error('Failed to delete prompt');
+      snackbar.error(t('toastDeleteFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -441,16 +445,12 @@ export const Prompts = () => {
       >
         <div className="prompts-header">
           <div className="prompts-header-text">
-            <h1 className="prompts-title">Prompts</h1>
-            <p className="prompts-subtitle">
-              Reusable prompt templates with variables this MCP server can
-              expose. In linked chat channels each prompt becomes a slash
-              command (shown on every card).
-            </p>
+            <h1 className="prompts-title">{t('title')}</h1>
+            <p className="prompts-subtitle">{t('subtitle')}</p>
           </div>
           <UI.Button variant="contained" size="small" onClick={handleCreate}>
             <Add />
-            <span className="button-text">New prompt</span>
+            <span className="button-text">{t('newPrompt')}</span>
           </UI.Button>
         </div>
         {status === 'pending' && prompts.length === 0 && (
@@ -467,11 +467,11 @@ export const Prompts = () => {
         {status !== 'pending' && prompts.length === 0 && (
           <div className="prompts-empty-state">
             <ChatBubbleOutlineOutlined />
-            <h3>No prompts yet</h3>
-            <p>Create a prompt template to expose through this MCP server.</p>
+            <h3>{t('emptyTitle')}</h3>
+            <p>{t('emptyText')}</p>
             <UI.Button variant="contained" size="small" onClick={handleCreate}>
               <Add />
-              <span className="button-text">New prompt</span>
+              <span className="button-text">{t('newPrompt')}</span>
             </UI.Button>
           </div>
         )}
@@ -494,7 +494,7 @@ export const Prompts = () => {
               {utils.slugifyTitle(prompt.title) && (
                 <code
                   className="prompt-item-command"
-                  title="Slash command in linked chat channels"
+                  title={t('commandTooltip')}
                 >
                   /{utils.slugifyTitle(prompt.title)}
                 </code>
@@ -503,9 +503,7 @@ export const Prompts = () => {
                 <p className="prompt-item-description">{prompt.description}</p>
               )}
               <p className="prompt-item-date">
-                {new Date(
-                  prompt.updatedAt || prompt.createdAt
-                ).toLocaleDateString()}
+                {t.date(prompt.updatedAt || prompt.createdAt)}
               </p>
             </div>
           ))}
@@ -523,9 +521,9 @@ export const Prompts = () => {
             </IconButton>
             <h2 className="panel-title">
               {isCreating
-                ? 'New Prompt'
+                ? t('panelNew')
                 : isEditing
-                  ? 'Edit Prompt'
+                  ? t('panelEdit')
                   : selectedPrompt!.title}
             </h2>
             <div className="panel-actions">
@@ -548,15 +546,13 @@ export const Prompts = () => {
             {isCreating || isEditing ? (
               <div className="panel-edit-form">
                 <UI.Input
-                  label="Title"
+                  label={t('titleLabel')}
                   name="title"
-                  placeholder="e.g. Summarize Article"
+                  placeholder={t('titlePlaceholder')}
                   value={editValues.title}
                   disabled={submitting}
                   error={!!errors.title}
-                  helperText={
-                    errors.title || 'A short name to identify this prompt'
-                  }
+                  helperText={errors.title || t('titleHelp')}
                   onChange={e => {
                     setEditValues(prev => ({ ...prev, title: e.target.value }));
                     if (errors.title)
@@ -569,14 +565,14 @@ export const Prompts = () => {
                 />
                 {utils.slugifyTitle(editValues.title) && (
                   <p className="panel-command-hint">
-                    Slash command:{' '}
+                    {t('slashCommand')}{' '}
                     <code>/{utils.slugifyTitle(editValues.title)}</code>
                   </p>
                 )}
                 <UI.Input
-                  label="Description"
+                  label={t('descriptionLabel')}
                   name="description"
-                  placeholder="Describe what this prompt does"
+                  placeholder={t('descriptionPlaceholder')}
                   value={editValues.description}
                   disabled={submitting}
                   error={!!errors.description}
@@ -598,7 +594,7 @@ export const Prompts = () => {
                 />
                 <div className="panel-messages-section">
                   <div className="panel-messages-header">
-                    <p className="panel-messages-label">Messages</p>
+                    <p className="panel-messages-label">{t('messages')}</p>
                     <div className="panel-messages-mode-toggle">
                       <button
                         type="button"
@@ -619,7 +615,7 @@ export const Prompts = () => {
                         }}
                       >
                         <ViewList />
-                        Visual
+                        {t('modeVisual')}
                       </button>
                       <button
                         type="button"
@@ -638,7 +634,7 @@ export const Prompts = () => {
                         }}
                       >
                         <Code />
-                        JSON
+                        {t('modeJson')}
                       </button>
                     </div>
                   </div>
@@ -672,7 +668,7 @@ export const Prompts = () => {
                                   )
                                 }
                               >
-                                User
+                                {t('roleUser')}
                               </button>
                               <button
                                 type="button"
@@ -692,7 +688,7 @@ export const Prompts = () => {
                                   )
                                 }
                               >
-                                Assistant
+                                {t('roleAssistant')}
                               </button>
                             </div>
                             {visualMessages.length > 1 && (
@@ -712,8 +708,8 @@ export const Prompts = () => {
                           <UI.Input
                             placeholder={
                               msg.role === utils.constants.ROLE_MESSAGE_USER
-                                ? 'Write the user message... Use {{variable}} for dynamic values'
-                                : 'Write the assistant response...'
+                                ? t('userPlaceholder')
+                                : t('assistantPlaceholder')
                             }
                             value={msg.content}
                             disabled={submitting}
@@ -746,20 +742,18 @@ export const Prompts = () => {
                           }
                         >
                           <Add />
-                          <span className="button-text">Add message</span>
+                          <span className="button-text">{t('addMessage')}</span>
                         </UI.Button>
                       </div>
                     </div>
                   ) : (
                     <UI.Input
-                      label="Messages (JSON)"
+                      label={t('messagesJson')}
                       name="messagesJson"
                       value={editValues.messagesJson}
                       disabled={submitting}
                       error={!!errors.messages}
-                      helperText={
-                        errors.messages || 'Array of {role, content} objects'
-                      }
+                      helperText={errors.messages || t('messagesJsonHelp')}
                       onChange={e => {
                         setEditValues(prev => ({
                           ...prev,
@@ -778,11 +772,8 @@ export const Prompts = () => {
                   )}
                   {schemaVars.length > 0 && (
                     <div className="panel-schema-editor">
-                      <p className="panel-schema-label">Variables</p>
-                      <p className="panel-schema-hint">
-                        Auto-detected from {'{{variables}}'} in your messages.
-                        Customize type and requirements below.
-                      </p>
+                      <p className="panel-schema-label">{t('variables')}</p>
+                      <p className="panel-schema-hint">{t('variablesHint')}</p>
                       <div className="panel-schema-vars">
                         {schemaVars.map((v, i) => (
                           <div key={v.name} className="panel-schema-var">
@@ -810,12 +801,12 @@ export const Prompts = () => {
                                     }
                                   />
                                 }
-                                label="Required"
+                                label={t('variableRequired')}
                               />
                             </div>
                             <div className="panel-schema-var-fields">
                               <UI.Select
-                                label="Type"
+                                label={t('variableType')}
                                 value={v.type}
                                 disabled={submitting}
                                 onChange={e =>
@@ -840,8 +831,10 @@ export const Prompts = () => {
                                 ]}
                               />
                               <UI.Input
-                                label="Description"
-                                placeholder="What is this variable for?"
+                                label={t('variableDescription')}
+                                placeholder={t(
+                                  'variableDescriptionPlaceholder'
+                                )}
                                 value={v.description}
                                 disabled={submitting}
                                 onChange={e =>
@@ -873,18 +866,18 @@ export const Prompts = () => {
                   >
                     {submitting
                       ? isCreating
-                        ? 'Creating...'
-                        : 'Saving...'
+                        ? c('creating')
+                        : c('saving')
                       : isCreating
-                        ? 'Create'
-                        : 'Save'}
+                        ? c('create')
+                        : c('save')}
                   </UI.Button>
                   <UI.Button
                     size="small"
                     disabled={submitting}
                     onClick={handleCancel}
                   >
-                    Cancel
+                    {c('cancel')}
                   </UI.Button>
                 </div>
               </div>
@@ -892,14 +885,16 @@ export const Prompts = () => {
               <div className="panel-view">
                 {selectedPrompt.description && (
                   <div className="panel-section">
-                    <h3 className="panel-section-label">Description</h3>
+                    <h3 className="panel-section-label">
+                      {t('viewDescription')}
+                    </h3>
                     <p className="panel-section-text">
                       {selectedPrompt.description}
                     </p>
                   </div>
                 )}
                 <div className="panel-section">
-                  <h3 className="panel-section-label">Messages</h3>
+                  <h3 className="panel-section-label">{t('viewMessages')}</h3>
                   <div className="panel-messages">
                     {selectedPrompt.messages.map((msg, i) => (
                       <div
@@ -919,7 +914,9 @@ export const Prompts = () => {
                   ).length > 0 && (
                     <div className="panel-section">
                       <div className="panel-schema-header">
-                        <h3 className="panel-section-label">Variables</h3>
+                        <h3 className="panel-section-label">
+                          {t('variables')}
+                        </h3>
                         <div className="panel-schema-view-toggle">
                           <button
                             type="button"
@@ -927,7 +924,7 @@ export const Prompts = () => {
                             onClick={() => setSchemaViewMode('visual')}
                           >
                             <ViewList />
-                            Visual
+                            {t('modeVisual')}
                           </button>
                           <button
                             type="button"
@@ -935,7 +932,7 @@ export const Prompts = () => {
                             onClick={() => setSchemaViewMode('json')}
                           >
                             <Code />
-                            JSON
+                            {t('modeJson')}
                           </button>
                         </div>
                       </div>
@@ -965,11 +962,11 @@ export const Prompts = () => {
                                   </span>
                                   {required.includes(name) ? (
                                     <span className="panel-schema-visual-required">
-                                      Required
+                                      {t('variableRequired')}
                                     </span>
                                   ) : (
                                     <span className="panel-schema-visual-optional">
-                                      Optional
+                                      {t('variableOptional')}
                                     </span>
                                   )}
                                 </div>
@@ -996,10 +993,13 @@ export const Prompts = () => {
       )}
       <UI.Alert
         open={deleteAlert}
-        title="Delete prompt"
-        description={`Are you sure you want to delete "${selectedPrompt?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t('confirmDeleteTitle')}
+        description={t('confirmDeleteText', {
+          title: selectedPrompt?.title ?? ''
+        })}
+        confirmText={t('confirmDelete')}
+        cancelText={c('cancel')}
+        loadingText={c('deleting')}
         loading={submitting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteAlert(false)}

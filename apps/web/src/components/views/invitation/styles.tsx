@@ -81,6 +81,18 @@ export const Wrapper = styled.div`
         margin: 16px 0 0;
         line-height: 1.5;
       }
+
+      .invitation-language {
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.bastille}80;
+        margin: 24px 0 0;
+
+        a {
+          color: inherit;
+          font-weight: 700;
+          text-decoration: underline;
+        }
+      }
     }
   `}
 `;

@@ -90,6 +90,8 @@ import { buildProxyToolName } from './mcpProxy';
 import { ipv4InPrivateRange, isBlockedHost } from './ssrf';
 import { formatRelative } from './formatRelative';
 import { formatRelativeTime } from './formatRelativeTime';
+import { languageCookieDomain } from './languageCookieDomain';
+import { localizeZodIssue, languageFromHeader } from './localizeZodIssue';
 import { slugifyTitle } from './slugifyTitle';
 import { tallyUsageKinds } from './tallyUsageKinds';
 import { formatFilename } from './formatFilename';
@@ -197,6 +199,9 @@ export const utils = {
   validateMessageVariables,
   formatRelative,
   formatRelativeTime,
+  languageCookieDomain,
+  localizeZodIssue,
+  languageFromHeader,
   slugifyTitle,
   tallyUsageKinds,
   formatFilename,

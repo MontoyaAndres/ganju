@@ -1,5 +1,3 @@
-- translate to spanish website/web/backend
-- https://www.chatbase.co/
 - Make an introdution view like chatbase does
 - implement evals in the code and for general use in mcps for users promptfoo
 

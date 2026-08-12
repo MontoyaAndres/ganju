@@ -207,6 +207,7 @@ export const Wrapper = styled.nav<IProps>`
           display: flex;
           align-items: center;
           cursor: pointer;
+          text-decoration: none;
 
           & > svg {
             width: 24px;

@@ -3,6 +3,7 @@ import { UI } from '@ganju/ui';
 import { LockOutlined } from '@mui/icons-material';
 
 import { NoAccessWrapper } from './styles';
+import { i18n } from '../../../lib';
 
 interface IProps {
   organizationId: string | null;
@@ -11,6 +12,7 @@ interface IProps {
 export const NoAccess = (props: IProps) => {
   const { organizationId } = props;
   const router = useRouter();
+  const t = i18n.useT(i18n.copy.LAYOUT);
 
   return (
     <NoAccessWrapper>
@@ -18,14 +20,8 @@ export const NoAccess = (props: IProps) => {
         <div className="no-access-icon">
           <LockOutlined />
         </div>
-        <h1 className="no-access-title">
-          You don&apos;t have access to this project
-        </h1>
-        <p className="no-access-text">
-          You&apos;re a member of this organization, but not of this project. A
-          project admin can invite you from the project&apos;s members in the
-          organization settings.
-        </p>
+        <h1 className="no-access-title">{t('noAccessTitle')}</h1>
+        <p className="no-access-text">{t('noAccessText')}</p>
         <div className="no-access-actions">
           <UI.Button
             variant="contained"
@@ -38,7 +34,7 @@ export const NoAccess = (props: IProps) => {
               )
             }
           >
-            Go to organization settings
+            {t('noAccessAction')}
           </UI.Button>
         </div>
       </div>

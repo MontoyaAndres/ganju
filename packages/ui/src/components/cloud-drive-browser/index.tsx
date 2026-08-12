@@ -432,8 +432,11 @@ const getMimeIcon = (mimeType: string) => {
   return <InsertDriveFileOutlined />;
 };
 
-const friendlyMime = (item: CloudDriveItem): string => {
-  if (item.isFolder) return 'Folder';
+const friendlyMime = (
+  item: CloudDriveItem,
+  labels: CloudDriveLabels
+): string => {
+  if (item.isFolder) return labels.folder;
   if (item.provider === 'google-drive') {
     if (item.mimeType.startsWith('application/vnd.google-apps.')) {
       return item.mimeType
@@ -441,11 +444,67 @@ const friendlyMime = (item: CloudDriveItem): string => {
         .replace(/^./, c => c.toUpperCase());
     }
   }
-  return item.mimeType || 'File';
+  return item.mimeType || labels.file;
 };
 
 const itemKey = (item: CloudDriveItem): string =>
   item.driveId ? `${item.driveId}:${item.id}` : item.id;
+
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+const numberFormat = (locale: string): Intl.NumberFormat => {
+  const hit = numberFormats.get(locale);
+  if (hit) return hit;
+  const made = new Intl.NumberFormat(locale);
+  numberFormats.set(locale, made);
+  return made;
+};
+
+/**
+ * Every word this component renders on its own.
+ *
+ * `packages/ui` holds no catalog — it is shared by surfaces that do not all
+ * speak the same languages — so the copy arrives as a prop and English is the
+ * default. `apps/web` passes these from `copy/resources.ts`.
+ *
+ * The three that take an argument do so rather than carrying a `{placeholder}`:
+ * a caller with a translator already knows how to interpolate, and `selected`
+ * needs a plural rule this package has no business owning.
+ */
+export interface CloudDriveLabels {
+  empty: string;
+  sessionExpired: string;
+  loadError: string;
+  search: string;
+  clearSearch: string;
+  clearAll: string;
+  folder: string;
+  file: string;
+  /**
+   * Tab and root-breadcrumb names, keyed by tab value
+   * (`utils.constants.GOOGLE_DRIVE_TAB_*` / `ONE_DRIVE_TAB_*`). A tab with no
+   * entry keeps the English name from the provider config.
+   */
+  tabs: Record<string, string>;
+  selectedCount: (count: number) => string;
+  remove: (name: string) => string;
+  alreadyIncluded: (name: string) => string;
+}
+
+const DEFAULT_LABELS: CloudDriveLabels = {
+  empty: 'No files in this folder',
+  sessionExpired: 'Session expired. Please reconnect and try again.',
+  loadError: 'Failed to load',
+  search: 'Search across this tab',
+  clearSearch: 'Clear search',
+  clearAll: 'Clear all',
+  folder: 'Folder',
+  file: 'File',
+  tabs: {},
+  selectedCount: count => `${count} selected`,
+  remove: name => `Remove ${name}`,
+  alreadyIncluded: name => `Already included via "${name}"`
+};
 
 export interface IProps {
   provider: CloudDriveProvider;
@@ -454,7 +513,8 @@ export interface IProps {
   selected?: Map<string, CloudDriveItem>;
   onSelectionChange?: (selected: Map<string, CloudDriveItem>) => void;
   onTokenExpired?: () => void;
-  emptyText?: string;
+  labels?: Partial<CloudDriveLabels>;
+  locale?: string;
 }
 
 export const CloudDriveBrowser = (props: IProps) => {
@@ -465,10 +525,32 @@ export const CloudDriveBrowser = (props: IProps) => {
     selected: controlledSelected,
     onSelectionChange,
     onTokenExpired,
-    emptyText = 'No files in this folder'
+    labels: labelOverrides,
+    locale = 'en-US'
   } = props;
 
+  // Rebuilt every render on purpose: nothing may put this object in a
+  // dependency array — the fetch effect below reads the two strings it needs as
+  // primitives, which compare by value however the caller spells the prop.
+  const labels: CloudDriveLabels = {
+    ...DEFAULT_LABELS,
+    ...labelOverrides,
+    tabs: { ...DEFAULT_LABELS.tabs, ...labelOverrides?.tabs }
+  };
+  const { sessionExpired, loadError } = labels;
+
   const config = useMemo(() => providerConfig(provider), [provider]);
+
+  /** The tab's own name, which is also its root breadcrumb. */
+  const tabLabel = (value: string, fallback: string): string =>
+    labels.tabs[value] ?? fallback;
+
+  /**
+   * `KB` rather than CLDR's `kB`, which is the unit the rest of the dashboard
+   * shows; only the number follows the locale, so Spanish groups it its own way.
+   */
+  const sizeInKb = (bytes: number): string =>
+    `${numberFormat(locale).format(Math.round(bytes / 1024))} KB`;
 
   const [tab, setTab] = useState<string>(defaultTab ?? config.defaultTab);
   const [path, setPath] = useState<Crumb[]>([
@@ -529,7 +611,7 @@ export const CloudDriveBrowser = (props: IProps) => {
         if (response.status === 401) {
           if (!cancelled) {
             onTokenExpiredRef.current?.();
-            setError('Session expired. Please reconnect and try again.');
+            setError(sessionExpired);
             setItems([]);
           }
           return;
@@ -547,7 +629,7 @@ export const CloudDriveBrowser = (props: IProps) => {
         );
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load');
+          setError(err instanceof Error ? err.message : loadError);
           setItems([]);
         }
       } finally {
@@ -558,7 +640,7 @@ export const CloudDriveBrowser = (props: IProps) => {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tab, path, search, config]);
+  }, [accessToken, tab, path, search, config, sessionExpired, loadError]);
 
   const handleTabChange = (next: string) => {
     if (next === tab) return;
@@ -602,11 +684,12 @@ export const CloudDriveBrowser = (props: IProps) => {
   const breadcrumbItems = useMemo(
     () =>
       path.map((crumb, index) => ({
-        label: crumb.name,
+        // The root crumb is the tab itself, under the same name.
+        label: index === 0 ? tabLabel(tab, crumb.name) : crumb.name,
         onClick:
           index < path.length - 1 ? () => handleBreadcrumb(index) : undefined
       })),
-    [path]
+    [path, tab]
   );
 
   const ancestorSelectedCrumb = useMemo(() => {
@@ -623,7 +706,7 @@ export const CloudDriveBrowser = (props: IProps) => {
     const coveredByAncestor = !!ancestorSelectedCrumb && !isSelected;
     const effectiveSelected = isSelected || coveredByAncestor;
     const ancestorTitle = ancestorSelectedCrumb
-      ? `Already included via "${ancestorSelectedCrumb.name}"`
+      ? labels.alreadyIncluded(ancestorSelectedCrumb.name)
       : undefined;
 
     const onActivate = () => {
@@ -671,14 +754,12 @@ export const CloudDriveBrowser = (props: IProps) => {
         <div className="gdrive-row-body">
           <p className="gdrive-row-name">{item.name}</p>
           {!item.isFolder && item.size != null && (
-            <p className="gdrive-row-meta">
-              {(item.size / 1024).toFixed(0)} KB
-            </p>
+            <p className="gdrive-row-meta">{sizeInKb(item.size)}</p>
           )}
         </div>
-        <div className="gdrive-row-type">{friendlyMime(item)}</div>
+        <div className="gdrive-row-type">{friendlyMime(item, labels)}</div>
         <div className="gdrive-row-time">
-          {utils.formatRelativeTime(item.modifiedTime)}
+          {utils.formatRelativeTime(item.modifiedTime, locale)}
         </div>
       </div>
     );
@@ -699,7 +780,7 @@ export const CloudDriveBrowser = (props: IProps) => {
           <Tab
             key={t.value}
             value={t.value}
-            label={t.label}
+            label={tabLabel(t.value, t.label)}
             icon={t.icon as never}
             iconPosition="start"
           />
@@ -714,7 +795,7 @@ export const CloudDriveBrowser = (props: IProps) => {
             <Search />
             <input
               type="text"
-              placeholder="Search across this tab"
+              placeholder={labels.search}
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
             />
@@ -722,7 +803,7 @@ export const CloudDriveBrowser = (props: IProps) => {
               <IconButton
                 className="gdrive-search-clear"
                 size="small"
-                aria-label="Clear search"
+                aria-label={labels.clearSearch}
                 onClick={resetSearch}
               >
                 <Close fontSize="small" />
@@ -731,7 +812,7 @@ export const CloudDriveBrowser = (props: IProps) => {
           </div>
           {selected.size > 0 && (
             <span className="gdrive-selection-info">
-              {selected.size} selected
+              {labels.selectedCount(selected.size)}
             </span>
           )}
         </div>
@@ -759,7 +840,7 @@ export const CloudDriveBrowser = (props: IProps) => {
                 <IconButton
                   className="gdrive-chip-remove"
                   size="small"
-                  aria-label={`Remove ${item.name}`}
+                  aria-label={labels.remove(item.name)}
                   onClick={() => toggleItem(item)}
                 >
                   <Close fontSize="inherit" />
@@ -772,7 +853,7 @@ export const CloudDriveBrowser = (props: IProps) => {
             className="gdrive-selected-clear"
             onClick={() => updateSelected(new Map())}
           >
-            Clear all
+            {labels.clearAll}
           </button>
         </div>
       )}
@@ -799,7 +880,7 @@ export const CloudDriveBrowser = (props: IProps) => {
         {!loading && items.length === 0 && !error && (
           <div className="gdrive-empty">
             <FolderOutlined />
-            <p>{emptyText}</p>
+            <p>{labels.empty}</p>
           </div>
         )}
 

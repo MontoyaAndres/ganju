@@ -4,6 +4,8 @@ import { Theme, useTheme } from '@emotion/react';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 
+import { i18n } from '../../../lib';
+
 interface BillingLimits {
   maxProjects: number | null;
   maxToolsPerArtifact: number | null;
@@ -55,15 +57,6 @@ interface BillingManagerProps {
   onGoToModels?: () => void;
 }
 
-const formatBytes = (bytes: number): string => {
-  if (!bytes) return '0 MB';
-  const mb = bytes / (1024 * 1024);
-  if (mb < 1024) return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
-  return `${(mb / 1024).toFixed(mb / 1024 < 10 ? 1 : 0)} GB`;
-};
-
-const formatNumber = (n: number): string => n.toLocaleString();
-
 // One usage row: a label, "used / limit" caption and a progress bar. A null
 // limit with no allowance renders as "Unlimited" (no bar). `overageRate` marks
 // a paid allowance that bills beyond the limit rather than blocking — going
@@ -76,8 +69,22 @@ const UsageRow = (props: {
   render: (n: number) => string;
   overageRate?: string;
   hint?: ReactNode;
+  unlimitedText: string;
+  includedText: string;
+  overText: (amount: string, rate: string) => string;
 }) => {
-  const { theme, label, used, limit, render, overageRate, hint } = props;
+  const {
+    theme,
+    label,
+    used,
+    limit,
+    render,
+    overageRate,
+    hint,
+    unlimitedText,
+    includedText,
+    overText
+  } = props;
   const pct =
     limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const over = limit != null && used > limit;
@@ -96,8 +103,8 @@ const UsageRow = (props: {
         <span style={{ opacity: 0.75 }}>
           {render(used)}
           {limit != null
-            ? ` / ${render(limit)}${overageRate ? ' included' : ''}`
-            : ' · Unlimited'}
+            ? ` / ${render(limit)}${overageRate ? ` ${includedText}` : ''}`
+            : ` · ${unlimitedText}`}
         </span>
       </div>
       {limit != null && (
@@ -121,7 +128,7 @@ const UsageRow = (props: {
       )}
       {over && overageRate && (
         <div style={{ fontSize: 12, color: overColor, marginTop: 4 }}>
-          {render(used - (limit as number))} over · billed at {overageRate}
+          {overText(render(used - (limit as number)), overageRate)}
         </div>
       )}
       {hint && (
@@ -135,6 +142,7 @@ export const BillingManager = (props: BillingManagerProps) => {
   const { organizationId, onGoToModels } = props;
   const router = useRouter();
   const theme = useTheme();
+  const t = i18n.useT(i18n.copy.SETTINGS);
   const snackbar = UI.Alert.useSnackbar();
 
   const [status, setStatus] = useState<BillingStatus | null>(null);
@@ -173,9 +181,9 @@ export const BillingManager = (props: BillingManagerProps) => {
   useEffect(() => {
     const result = router.query.billing;
     if (result === 'success') {
-      snackbar.success('Subscription active — welcome to Pro!');
+      snackbar.success(t('toastCheckoutSuccess'));
     } else if (result === 'cancelled') {
-      snackbar.error('Checkout cancelled.');
+      snackbar.error(t('toastCheckoutCancelled'));
     }
     if (result) {
       const { billing: _omit, ...rest } = router.query;
@@ -197,11 +205,9 @@ export const BillingManager = (props: BillingManagerProps) => {
         window.location.href = data.url;
         return;
       }
-      snackbar.error(
-        utils.getApiErrorMessage(data, 'Could not open billing. Try again.')
-      );
+      snackbar.error(utils.getApiErrorMessage(data, t('toastBillingFailed')));
     } catch {
-      snackbar.error('Could not open billing. Try again.');
+      snackbar.error(t('toastBillingFailed'));
     } finally {
       setActing(false);
     }
@@ -212,7 +218,7 @@ export const BillingManager = (props: BillingManagerProps) => {
   }
 
   if (!status) {
-    return <p className="projects-empty">Billing is unavailable right now.</p>;
+    return <p className="projects-empty">{t('billingUnavailable')}</p>;
   }
 
   const isFree = status.plan === utils.constants.PLAN_FREE;
@@ -241,27 +247,27 @@ export const BillingManager = (props: BillingManagerProps) => {
       }}
       style={{ color: theme.colors.bastille, textDecoration: 'underline' }}
     >
-      connect your own model
+      {t('sharedCapLink')}
     </a>
   );
   const messagesHint: ReactNode =
     !isFree && sharedCap != null ? (
       overSharedCap ? (
         <>
-          You&apos;ve used your {formatNumber(sharedCap)} included messages this
-          month. Channels without their own model are paused —{' '}
-          {connectModelLink} to keep them running. Channels on their own key are
-          unaffected.
+          {t('sharedCapOverBefore', { count: t.n(sharedCap) })}
+          {t('sharedCapOverMiddle')}
+          {connectModelLink}
+          {t('sharedCapOverAfter')}
         </>
       ) : (
         <>
-          Up to {formatNumber(sharedCap)}/mo run on our shared AI model; past
-          that, {connectModelLink} to keep default channels running. Only your
-          assistant&apos;s replies count — incoming user messages are free.
+          {t('sharedCapUnderBefore', { count: t.n(sharedCap) })}
+          {connectModelLink}
+          {t('sharedCapUnderAfter')}
         </>
       )
     ) : (
-      "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance."
+      t('messagesHintFree')
     );
 
   return (
@@ -269,7 +275,7 @@ export const BillingManager = (props: BillingManagerProps) => {
       <div className="settings-section-header">
         <div className="settings-section-text">
           <h2 className="settings-section-title">
-            {planLabel} plan
+            {t('planHeading', { plan: planLabel })}
             {status.subscription && !isFree && (
               <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>
                 {' '}
@@ -279,22 +285,21 @@ export const BillingManager = (props: BillingManagerProps) => {
           </h2>
           <p className="settings-section-description">
             {isFree
-              ? `Upgrade to Pro for unlimited tools, prompts, channels and team members, plus ${formatNumber(
-                  status.pricing.includedMessages
-                )} included messages/month — $${status.pricing.proBaseUsd}/mo.`
+              ? t('upgradePitch', {
+                  messages: t.n(status.pricing.includedMessages),
+                  price: status.pricing.proBaseUsd
+                })
               : status.subscription?.cancelAtPeriodEnd
-                ? `Your plan ends on ${
-                    status.subscription.currentPeriodEnd
-                      ? new Date(
-                          status.subscription.currentPeriodEnd
-                        ).toLocaleDateString()
-                      : 'the period end'
-                  }.`
+                ? t('planEnds', {
+                    date: status.subscription.currentPeriodEnd
+                      ? t.date(status.subscription.currentPeriodEnd)
+                      : t('planEndsFallback')
+                  })
                 : status.subscription?.currentPeriodEnd
-                  ? `Renews on ${new Date(
-                      status.subscription.currentPeriodEnd
-                    ).toLocaleDateString()}.`
-                  : 'Your subscription is active.'}
+                  ? t('planRenews', {
+                      date: t.date(status.subscription.currentPeriodEnd)
+                    })
+                  : t('planActive')}
           </p>
         </div>
         <UI.Button
@@ -303,21 +308,28 @@ export const BillingManager = (props: BillingManagerProps) => {
           disabled={acting}
           onClick={() => goToStripe(isFree ? 'checkout' : 'portal')}
         >
-          {acting ? 'Opening…' : isFree ? `Upgrade to Pro` : 'Manage billing'}
+          {acting
+            ? t('opening')
+            : isFree
+              ? t('upgradeAction')
+              : t('manageBilling')}
         </UI.Button>
       </div>
 
       <div style={{ marginTop: 8 }}>
         <UsageRow
           theme={theme}
-          label="Assistant replies this month"
+          unlimitedText={t('usageUnlimited')}
+          includedText={t('usageIncluded')}
+          overText={(amount, rate) => t('usageOverage', { amount, rate })}
+          label={t('usageMessages')}
           used={status.usage.messagesUsed}
           // Free shows the hard cap; paid shows the included allowance (overage
           // is metered, not blocked).
           limit={
             isFree ? status.usage.messageCap : status.limits.includedMessages
           }
-          render={formatNumber}
+          render={t.n}
           overageRate={
             isFree ? undefined : `$${status.pricing.messagePer1kUsd}/1k`
           }
@@ -325,31 +337,40 @@ export const BillingManager = (props: BillingManagerProps) => {
         />
         <UsageRow
           theme={theme}
-          label="Embedded content (RAG)"
+          unlimitedText={t('usageUnlimited')}
+          includedText={t('usageIncluded')}
+          overText={(amount, rate) => t('usageOverage', { amount, rate })}
+          label={t('usageEmbedded')}
           used={status.usage.embeddedBytes}
           limit={
             isFree
               ? status.limits.maxEmbeddedBytes
               : status.limits.includedEmbeddedBytes
           }
-          render={formatBytes}
+          render={t.bytes}
           overageRate={
             isFree ? undefined : `$${status.pricing.embeddedPerGbUsd}/GB`
           }
         />
         <UsageRow
           theme={theme}
-          label="File storage"
+          unlimitedText={t('usageUnlimited')}
+          includedText={t('usageIncluded')}
+          overText={(amount, rate) => t('usageOverage', { amount, rate })}
+          label={t('usageStorage')}
           used={status.usage.rawBytes}
           limit={status.limits.maxRawStorageBytes}
-          render={formatBytes}
+          render={t.bytes}
         />
         <UsageRow
           theme={theme}
-          label="Projects"
+          unlimitedText={t('usageUnlimited')}
+          includedText={t('usageIncluded')}
+          overText={(amount, rate) => t('usageOverage', { amount, rate })}
+          label={t('usageProjects')}
           used={status.usage.projectCount}
           limit={status.limits.maxProjects}
-          render={formatNumber}
+          render={t.n}
         />
       </div>
     </>

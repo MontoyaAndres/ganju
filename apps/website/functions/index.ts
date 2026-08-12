@@ -21,6 +21,8 @@
  * still see the English homepage at `/`, with `hreflang` pointing it at `/es`.
  * Redirecting it instead is how `/` drops out of the index.
  */
+import { utils } from '../src/lib/utils';
+
 import { withSecurityHeaders } from './security-headers';
 
 /** Minimal shape of the Pages Function context we use. */
@@ -29,16 +31,12 @@ interface Context {
   next: () => Promise<Response>;
 }
 
-const COOKIE = 'ganju_lang';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const COOKIE = utils.constants.LANGUAGE_COOKIE;
+const COOKIE_MAX_AGE = utils.constants.LANGUAGE_COOKIE_MAX_AGE;
+const SPANISH_COUNTRIES = new Set(utils.constants.SPANISH_COUNTRIES);
 
-/** Countries where Spanish is the (or an) official language. */
-const SPANISH_COUNTRIES = new Set([
-  'AR', 'BO', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'ES', 'GQ', 'GT',
-  'HN', 'MX', 'NI', 'PA', 'PE', 'PR', 'PY', 'SV', 'UY', 'VE'
-]);
-
-const BOT = /bot|crawler|crawling|spider|slurp|facebookexternalhit|embedly|preview|lighthouse|headless/i;
+const BOT =
+  /bot|crawler|crawling|spider|slurp|facebookexternalhit|embedly|preview|lighthouse|headless/i;
 
 type Lang = 'en' | 'es';
 
@@ -59,26 +57,36 @@ function readCookie(request: Request, name: string): string | undefined {
 }
 
 /** 302 — the choice can change on the next visit, so it must not be cached. */
-function redirect(to: string, setCookie?: Lang): Response {
+function redirect(to: string, setCookie?: Lang, hostname?: string): Response {
   const headers = new Headers({ Location: to, 'Cache-Control': 'no-store' });
   if (setCookie) {
+    // Scoped to the registrable domain rather than this host, so the dashboard
+    // on app.ganju.ai reads the same choice instead of re-deciding on country.
+    const domain = hostname ? utils.languageCookieDomain(hostname) : undefined;
     headers.set(
       'Set-Cookie',
-      `${COOKIE}=${setCookie}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax; Secure`
+      `${COOKIE}=${setCookie}; Path=/;${domain ? ` Domain=${domain};` : ''} Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax; Secure`
     );
   }
   return withSecurityHeaders(new Response(null, { status: 302, headers }));
 }
 
-export const onRequest = async ({ request, next }: Context): Promise<Response> => {
+export const onRequest = async ({
+  request,
+  next
+}: Context): Promise<Response> => {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return withSecurityHeaders(await next());
   }
 
+  const url = new URL(request.url);
+
   // An explicit choice: remember it, then land the visitor on that homepage
   // without the query string trailing behind them.
-  const chosen = asLang(new URL(request.url).searchParams.get('lang'));
-  if (chosen) return redirect(HOME[chosen], chosen);
+  const chosen = asLang(
+    url.searchParams.get(utils.constants.LANGUAGE_QUERY_PARAM)
+  );
+  if (chosen) return redirect(HOME[chosen], chosen, url.hostname);
 
   const remembered = asLang(readCookie(request, COOKIE));
   if (remembered === 'es') return redirect(HOME.es);

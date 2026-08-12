@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { Components } from '../components';
 import { Seo } from '../components/Seo';
 import { ssr } from '../utils';
+import { i18n } from '../lib';
 
 // types
 import type { GetServerSideProps } from 'next';
@@ -21,13 +22,15 @@ import type { GetServerSideProps } from 'next';
  */
 const LoginPage = () => {
   const { locale } = useRouter();
+  const t = i18n.useT(i18n.copy.AUTH);
 
   return (
     <>
       <Seo
         locale={locale}
-        title="Log in to Ganju"
-        description="Log in to your Ganju account to continue authorizing the application that sent you here."
+        title={t('seoTitle')}
+        description={t('seoLoginDescription')}
+        imageAlt={t('seoImageAlt')}
       />
       <Components.Views.Auth />
     </>
