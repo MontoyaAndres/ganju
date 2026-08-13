@@ -111,6 +111,7 @@ import {
 } from './chunking';
 import type { Separator, ChunkMetadata, PreparedChunk } from './chunking';
 import { isEmbeddableMimeType } from './embeddable';
+import { l2Normalize } from './l2Normalize';
 import { sleep, isRateLimitError, withRateLimitRetry } from './retry';
 import type { RateLimitRetryOptions } from './retry';
 import { processQueueBatch } from './processQueueBatch';
@@ -216,6 +217,7 @@ export const utils = {
   buildHeader,
   prepareChunks,
   isEmbeddableMimeType,
+  l2Normalize,
   sleep,
   isRateLimitError,
   withRateLimitRetry,

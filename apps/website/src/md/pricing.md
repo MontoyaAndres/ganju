@@ -20,8 +20,8 @@ only for what you use beyond it.
 
 - Unlimited projects, teammates, tools & prompts
 - Connect your own AI model (bring-your-own-key)
-- Includes 3,000 channel messages/mo — up to 1,000 of them on our AI model — + 5 GB searchable content each month
-- Past that: $2 per 1,000 messages on your own AI key, $15 per 1,000 on ours · $0.50 per extra GB
+- Includes 3,000 channel messages/mo — up to 1,000 of them on our AI model — + 1 GB searchable content each month
+- Past that: $2 per 1,000 messages on your own AI key, $15 per 1,000 on ours · $2 per extra GB
 - MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
 - Custom domain add-on ($15/mo) · build your own custom tools
 - 24/7 support

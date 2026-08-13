@@ -23,7 +23,10 @@ const embedGemini = async (params: {
     const response = await ai.models.embedContent({
       model: utils.constants.EMBEDDING_MODEL,
       contents: params.inputs,
-      config: { taskType: params.taskType }
+      config: {
+        taskType: params.taskType,
+        outputDimensionality: utils.constants.EMBEDDING_DIMENSIONS
+      }
     });
 
     const items = response.embeddings;
@@ -38,7 +41,7 @@ const embedGemini = async (params: {
           `Gemini returned ${item.values.length} dims; expected ${utils.constants.EMBEDDING_DIMENSIONS}.`
         );
       }
-      return item.values;
+      return utils.l2Normalize(item.values);
     });
   });
 

@@ -96,7 +96,7 @@ actuamos según las instrucciones de quien tenga el rol de Propietario.
 | Proyectos | 1 | Ilimitados | Ilimitados |
 | Herramientas · prompts · canales por asistente | 7 · 3 · 1 | Ilimitados | Ilimitados |
 | Almacenamiento de archivos | 30 MB | Ilimitado | Ilimitado |
-| Contenido indexado (buscable) | 5 MB | 5 GB incluidos | A convenir |
+| Contenido indexado (buscable) | 5 MB | 1 GB incluido | A convenir |
 | Respuestas del asistente incluidas | 100 / mes | 3.000 / mes | A convenir |
 | Invitar compañeros | — | ✓ | ✓ |
 | Usar tu propia llave de modelo | — | ✓ | ✓ |
@@ -127,7 +127,7 @@ excedente en Pro es:
   tokens del modelo, que pagas directamente a tu proveedor.
 - **USD 15 por cada 1.000 respuestas** que superen las primeras 1.000 ejecutadas con
   el modelo propio de Ganju, que cubre la inferencia que compramos por ti.
-- **USD 0,50 por GB** de contenido indexado adicional sobre los 5 GB.
+- **USD 2 por GB** de contenido indexado adicional sobre 1 GB. El contenido buscable cuesta mucho más de almacenar que el archivo original — cada fragmento lleva un índice de búsqueda varias veces mayor que él mismo.
 
 El complemento de dominio personalizado cuesta **USD 15 / mes**.
 

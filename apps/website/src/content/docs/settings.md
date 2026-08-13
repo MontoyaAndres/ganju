@@ -31,7 +31,7 @@ organization — `Pro plan · active`, with assistant replies tracked against th
 | Price                      | $0                                     | **$29 / mo**                         | Custom         |
 | Assistant replies included | **100 / mo**                           | **3,000 / mo**                       | Unlimited      |
 | Past the included replies  | Assistant pauses — upgrade to continue | Keeps going — billed as overage      | Custom terms   |
-| Embedded content (RAG)     | 5 MB                                   | 5 GB                                 | Unlimited      |
+| Embedded content (RAG)     | 5 MB                                   | 1 GB                                 | Unlimited      |
 | File storage               | 30 MB                                  | Unlimited                            | Unlimited      |
 | Projects                   | 1                                      | Unlimited                            | Unlimited      |
 | Prompts per assistant      | 3                                      | Unlimited                            | Unlimited      |
@@ -73,7 +73,7 @@ Pro adds nothing to your bill until you go past the included amounts:
 - **Extra replies on Ganju's model** — $15 per 1,000 beyond the first 1,000. Higher
   because Ganju is buying the inference for you, so this rate covers a real cost
   rather than just the platform work.
-- **Extra embedded content (RAG)** — $0.50 per GB beyond the included 5 GB.
+- **Extra embedded content (RAG)** — $2 per GB beyond the included 1 GB. Searchable content is stored with a search index several times its own size, which is why this costs more per GB than plain file storage (which is free).
 - **Custom domain** — $15 / mo add-on.
 
 > Want more for free? Ganju is Apache-2.0 — you can self-host and run on your own

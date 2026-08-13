@@ -1006,7 +1006,9 @@ export const artifactResourceChunk = pgTable(
       .references(() => artifact.id, { onDelete: 'cascade' }),
     chunkIndex: integer('chunk_index').notNull(),
     content: text('content').notNull(),
-    embedding: halfvec('embedding', { dimensions: 3072 }).notNull(),
+    embedding: halfvec('embedding', {
+      dimensions: utils.constants.EMBEDDING_DIMENSIONS
+    }).notNull(),
     metadata: json('metadata'),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
   },

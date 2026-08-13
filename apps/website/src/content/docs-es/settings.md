@@ -31,7 +31,7 @@ medidas contra las `3,000` incluidas.
 | Precio                              | $0                                            | **$29 / mes**                            | A la medida           |
 | Respuestas del asistente incluidas  | **100 / mes**                                 | **3.000 / mes**                          | Ilimitadas            |
 | Pasadas las respuestas incluidas    | El asistente se pausa — mejora para continuar | Sigue funcionando — se factura como consumo | Condiciones a la medida |
-| Contenido con embeddings (RAG)      | 5 MB                                          | 5 GB                                     | Ilimitado             |
+| Contenido con embeddings (RAG)      | 5 MB                                          | 1 GB                                     | Ilimitado             |
 | Almacenamiento de archivos          | 30 MB                                         | Ilimitado                                | Ilimitado             |
 | Proyectos                           | 1                                             | Ilimitados                               | Ilimitados            |
 | Prompts por asistente               | 3                                             | Ilimitados                               | Ilimitados            |
@@ -77,8 +77,10 @@ Pro no suma nada a tu cuenta hasta que pasas de los montos incluidos:
 - **Respuestas adicionales con el modelo de Ganju** — $15 por cada 1.000 más allá
   de las primeras 1.000. Es más alta porque Ganju compra esa inferencia por ti, así
   que cubre un costo real y no solo el trabajo de plataforma.
-- **Contenido con embeddings (RAG) adicional** — $0,50 por GB más allá de los 5 GB
-  incluidos.
+- **Contenido con embeddings (RAG) adicional** — $2 por GB más allá del 1 GB
+  incluido. El contenido consultable se guarda con un índice de búsqueda varias
+  veces más grande que él mismo, y por eso cuesta más por GB que el
+  almacenamiento de archivos (que es gratis).
 - **Dominio propio** — complemento de $15 / mes.
 
 > ¿Quieres más gratis? Ganju es Apache-2.0 — puedes instalarlo por tu cuenta y

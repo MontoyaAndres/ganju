@@ -19,9 +19,9 @@ import type { PricingConfig } from '../components/react/PricingCalculator';
 export const PRICING: PricingConfig = {
   proBase: 29, // $/mo flat base
   includedMessages: 3_000, // channel assistant turns included
-  includedStorageGb: 5, // embedded/RAG content included
+  includedStorageGb: 1, // embedded/RAG content included
   messagePer1k: 2, // $ per 1,000 extra messages, on the org's OWN key
-  storagePerGb: 0.5, // $ per extra GB of embedded content
+  storagePerGb: 2, // $ per extra GB of embedded content
   customDomain: 15, // $/mo custom-domain add-on (covers Cloudflare ACM + margin)
   freeMessages: 100, // Free tier monthly cap — trial-sized; runs on our shared key
   freeEmbeddedMb: 5, // Free tier embedded-content allowance

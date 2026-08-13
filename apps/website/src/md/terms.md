@@ -92,7 +92,7 @@ of whoever holds the Owner role.
 | Projects | 1 | Unlimited | Unlimited |
 | Tools · prompts · channels per assistant | 7 · 3 · 1 | Unlimited | Unlimited |
 | File storage | 30 MB | Unlimited | Unlimited |
-| Embedded (searchable) content | 5 MB | 5 GB included | Custom |
+| Embedded (searchable) content | 5 MB | 1 GB included | Custom |
 | Assistant replies included | 100 / month | 3,000 / month, of which 1,000 on Ganju's model | Custom |
 | Invite teammates | — | ✓ | ✓ |
 | Bring your own model key | — | ✓ | ✓ |
@@ -121,7 +121,7 @@ the two cost us very different amounts. Past the included amounts, Pro overage i
   directly.
 - **$15 per 1,000 replies** beyond the first 1,000 run on Ganju's own model, which
   covers the inference we buy on your behalf.
-- **$0.50 per GB** of embedded content beyond 5 GB.
+- **$2 per GB** of embedded content beyond 1 GB. Searchable content costs far more to store than the raw file does — every passage carries a search index several times its own size.
 
 The custom-domain add-on is **$15 / month**.
 

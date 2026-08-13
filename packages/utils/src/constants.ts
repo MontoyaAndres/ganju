@@ -775,7 +775,17 @@ const WHATSAPP_MAX_AUDIO_BYTES = 16 * 1024 * 1024;
 const WHATSAPP_MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
 
 const EMBEDDING_MODEL = 'gemini-embedding-001';
-const EMBEDDING_DIMENSIONS = 3072;
+// 1536, not the model's native 3072. Matryoshka training means the first half of
+// the vector carries almost all the signal: measured on our own corpus, 1536
+// agrees with exact 3072 search on 93% of top-10 results — while the HNSW index
+// we already run agrees only 73% of the time, so this costs less fidelity than
+// the index itself does. In exchange the vector and its index entry both halve,
+// taking embedded storage from ~12.9x expansion to ~6.9x.
+//
+// Two things depend on this staying in step: the halfvec(1536) column in
+// packages/db, and the l2Normalize call in both embed paths — the API does NOT
+// normalise output below 3072 dimensions.
+const EMBEDDING_DIMENSIONS = 1536;
 const CHUNK_TARGET_CHARS = 2000;
 const CHUNK_OVERLAP_CHARS = 200;
 const EMBED_BATCH_SIZE = 96;
@@ -1276,7 +1286,16 @@ const PRICING_INCLUDED_MESSAGES = 3_000;
 // past it they meter at the shared rate below even if the org is still under its
 // 3,000. The sub-cap exists because these are the only turns we pay inference on.
 const PRICING_INCLUDED_SHARED_MESSAGES = 1_000;
-const PRICING_INCLUDED_EMBEDDED_GB = 5;
+// Embedded content is the one unit that costs meaningfully more than it looks.
+// The billed figure is chunk TEXT, but each chunk also carries a 3072-dim
+// halfvec plus its HNSW entry — ~17 KB of fixed overhead per chunk against
+// ~1.5 KB of text. Measured on real data that's a **12.9× expansion**, so at
+// Neon's $0.35/GB-month a billed GB actually costs ~$4.52/GB-month.
+//
+// 1 GB rather than 5: at 5 GB the included allowance alone could cost ~$22 of a
+// $29 plan. 1 GB is still ~500,000 pages of text — generous for the real use
+// case, and it caps the downside of a single heavy account.
+const PRICING_INCLUDED_EMBEDDED_GB = 1;
 // Two message rates, because the two kinds of turn cost us wildly different
 // amounts. A turn on the customer's own key costs us ~nothing — $2/1,000 is a
 // platform fee for running the loop and serving RAG. A turn on our model costs
@@ -1291,7 +1310,16 @@ const PRICING_SHARED_MESSAGE_PER_1K_USD = 15;
 // only ever catches a runaway loop or a stolen channel token. Raise it for an
 // Enterprise contract rather than treating it as a plan feature.
 const PRICING_SHARED_KEY_HARD_CAP = 100_000;
-const PRICING_EMBEDDED_PER_GB_USD = 0.5;
+// $2, up from $0.50 — which was set believing storage cost us ~$0.50/GB and was
+// therefore "at cost". It isn't: see the expansion note above.
+//
+// ⚠️ $2 does NOT reach the measured $4.52/GB cost. It is deliberately a partial
+// correction — a 4× rise is already steep for anyone repricing onto it, and the
+// remaining gap closes from the cost side rather than the price side: halving
+// the embedding to 1536 dimensions takes the true cost to ~$2.35/GB, at which
+// point this rate is roughly break-even. If that dimension change doesn't
+// happen, this number has to go to ~$5 instead.
+const PRICING_EMBEDDED_PER_GB_USD = 2;
 const PRICING_CUSTOM_DOMAIN_USD = 15;
 
 interface PlanLimits {

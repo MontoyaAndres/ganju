@@ -134,7 +134,7 @@ export const PRICING_SCHEMA = {
       priceCurrency: 'USD',
       url: `${SITE.url}/pricing`,
       description:
-        'Unlimited projects, teammates, tools and prompts. Includes 3,000 messages a month and 5 GB of searchable content, then usage-based pricing.'
+        'Unlimited projects, teammates, tools and prompts. Includes 3,000 messages a month and 1 GB of searchable content, then usage-based pricing.'
     }
   ]
 } as const;
@@ -162,7 +162,7 @@ export const PRICING_SCHEMA_ES = {
       priceCurrency: 'USD',
       url: `${SITE.url}/es/precios`,
       description:
-        'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes y 5 GB de contenido consultable; de ahí en adelante, precio por consumo.'
+        'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes y 1 GB de contenido consultable; de ahí en adelante, precio por consumo.'
     }
   ]
 } as const;

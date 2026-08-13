@@ -20,7 +20,10 @@ export const generateEmbedding = async (
     const response = await ai.models.embedContent({
       model: utils.constants.EMBEDDING_MODEL,
       contents: text,
-      config: { taskType }
+      config: {
+        taskType,
+        outputDimensionality: utils.constants.EMBEDDING_DIMENSIONS
+      }
     });
 
     const values = response.embeddings?.[0]?.values;
@@ -30,6 +33,8 @@ export const generateEmbedding = async (
         `Gemini returned ${values.length} dims; expected ${utils.constants.EMBEDDING_DIMENSIONS}.`
       );
     }
-    return values;
+    // Query vectors must be normalised exactly as the stored ones are, or the
+    // two sides of the cosine comparison aren't on the same scale.
+    return utils.l2Normalize(values);
   });
 };
