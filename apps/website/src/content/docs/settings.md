@@ -28,9 +28,9 @@ organization — `Pro plan · active`, with assistant replies tracked against th
 
 |                            | **Free**                               | **Pro**                              | **Enterprise** |
 | -------------------------- | -------------------------------------- | ------------------------------------ | -------------- |
-| Price                      | $0                                     | **$20 / mo**                         | Custom         |
+| Price                      | $0                                     | **$29 / mo**                         | Custom         |
 | Assistant replies included | **100 / mo**                           | **3,000 / mo**                       | Unlimited      |
-| Past the included replies  | Assistant pauses — upgrade to continue | Keep going on **your own model key** | Custom terms   |
+| Past the included replies  | Assistant pauses — upgrade to continue | Keeps going — billed as overage      | Custom terms   |
 | Embedded content (RAG)     | 5 MB                                   | 5 GB                                 | Unlimited      |
 | File storage               | 30 MB                                  | Unlimited                            | Unlimited      |
 | Projects                   | 1                                      | Unlimited                            | Unlimited      |
@@ -57,20 +57,22 @@ unlimited:
 - **Free** — 100 replies a month on the shared model. When you hit the cap the
   assistant pauses until the next cycle, or you upgrade. Free can't bring its own
   model key.
-- **Pro** — 3,000 replies a month on the shared model, included in the $20 base.
-  Past 3,000, a channel keeps replying **only if it runs on a model you've added in
-  [Models](#models--bring-your-own)** — your own provider key. Those own-key replies
-  are unlimited.
+- **Pro** — 3,000 replies a month included, of which up to **1,000 may run on the
+  shared model**. Past those 1,000, shared replies keep working and bill at the
+  higher shared rate below. Adding your own provider key in
+  [Models](#models--bring-your-own) moves them to the much cheaper own-key rate,
+  which is what most people do once they're sending real volume.
 
 ### Overage (Pro)
 
 Pro adds nothing to your bill until you go past the included amounts:
 
-- **Extra replies** — $2 per 1,000, and only for replies on **your own model key**.
-  This is a **platform fee** for running the tools and compute of each turn — _not_
-  a resale of model tokens (you pay your provider directly via your key). Ganju
-  never flat-rates its own model's inference, which is why shared-model use stops at
-  the included allowance instead of billing overage.
+- **Extra replies on your own model key** — $2 per 1,000. This is a **platform
+  fee** for running the tools and compute of each turn — _not_ a resale of model
+  tokens (you pay your provider directly via your key).
+- **Extra replies on Ganju's model** — $15 per 1,000 beyond the first 1,000. Higher
+  because Ganju is buying the inference for you, so this rate covers a real cost
+  rather than just the platform work.
 - **Extra embedded content (RAG)** — $0.50 per GB beyond the included 5 GB.
 - **Custom domain** — $15 / mo add-on.
 

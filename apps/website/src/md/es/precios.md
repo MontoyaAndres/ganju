@@ -16,15 +16,15 @@ Ideal para proyectos personales y para probar.
 - Tu propio enlace de conexión
 - Soporte de la comunidad
 
-## Pro — $20/mes + consumo
+## Pro — $29/mes + consumo
 
 Para equipos y productos en crecimiento. Una base fija que incluye una cuota; pagas
 solo por lo que uses por encima de ella.
 
 - Proyectos, compañeros de equipo, herramientas y prompts ilimitados
 - Conecta tu propio modelo de IA (con tu propia llave)
-- Incluye 3.000 mensajes de canal/mes — córrelos en nuestro modelo o en el tuyo — más 5 GB de contenido consultable cada mes
-- Pasado eso, conecta tu propio modelo para continuar — luego $2 por cada 1.000 mensajes (cómputo) · $0,50 por GB adicional
+- Incluye 3.000 mensajes de canal/mes — hasta 1.000 con nuestro modelo de IA — más 5 GB de contenido consultable cada mes
+- Pasado eso: $2 por cada 1.000 mensajes con tu propia llave de IA, $15 por cada 1.000 con la nuestra · $0,50 por GB adicional
 - Las llamadas a herramientas desde clientes MCP (Claude, Cursor, ChatGPT) están incluidas — no se cobran como mensajes
 - Complemento de dominio propio ($15/mes) · crea tus propias herramientas
 - Soporte 24/7

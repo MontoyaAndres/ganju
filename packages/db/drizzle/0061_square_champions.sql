@@ -1,0 +1,1 @@
+ALTER TABLE "subscription" ADD COLUMN "shared_message_count" integer DEFAULT 0 NOT NULL;

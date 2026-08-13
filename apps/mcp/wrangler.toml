@@ -4,6 +4,9 @@ compatibility_date = "2025-11-17"
 
 compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
 
+[limits]
+cpu_ms = 30000
+
 [build]
 command = "npm run build"
 

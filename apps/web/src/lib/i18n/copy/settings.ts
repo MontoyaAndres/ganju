@@ -50,6 +50,7 @@ const en = {
   manageBilling: 'Manage billing',
   opening: 'Opening…',
   usageMessages: 'Assistant replies this month',
+  usageSharedMessages: 'Of those, on our AI model',
   usageEmbedded: 'Embedded content (RAG)',
   usageStorage: 'File storage',
   usageProjects: 'Projects',
@@ -62,15 +63,16 @@ const en = {
    * rather than navigating — so it has to be an element, not part of a string.
    */
   sharedCapOverBefore:
-    "You've used your {count} included messages this month. ",
+    "You've used the {count} replies included on our AI model this month. ",
   sharedCapLink: 'connect your own model',
-  sharedCapOverMiddle: 'Channels without their own model are paused — ',
+  sharedCapOverMiddle:
+    'Channels without their own model keep running, billed at ${rate} per 1,000 — ',
   sharedCapOverAfter:
-    ' to keep them running. Channels on their own key are unaffected.',
+    ' to stop the charge. Channels on their own key are unaffected.',
   sharedCapUnderBefore:
-    'Up to {count}/mo run on our shared AI model; past that, ',
+    'Up to {count}/mo run on our AI model; past that they bill at ${rate} per 1,000, or you can ',
   sharedCapUnderAfter:
-    " to keep default channels running. Only your assistant's replies count — incoming user messages are free.",
+    " instead. Only your assistant's replies count — incoming user messages are free.",
   messagesHintFree:
     "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance.",
   toastCheckoutSuccess: 'Subscription active — welcome to Pro!',
@@ -269,6 +271,7 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     manageBilling: 'Gestionar la facturación',
     opening: 'Abriendo…',
     usageMessages: 'Respuestas del asistente este mes',
+    usageSharedMessages: 'De esas, con nuestro modelo de IA',
     usageEmbedded: 'Contenido indexado (RAG)',
     usageStorage: 'Almacenamiento de archivos',
     usageProjects: 'Proyectos',
@@ -276,15 +279,16 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     usageIncluded: 'incluidos',
     usageOverage: '{amount} de más · se cobra a {rate}',
     sharedCapOverBefore:
-      'Ya usaste tus {count} mensajes incluidos de este mes. ',
+      'Ya usaste las {count} respuestas incluidas con nuestro modelo de IA este mes. ',
     sharedCapLink: 'conecta tu propio modelo',
-    sharedCapOverMiddle: 'Los canales sin modelo propio están pausados — ',
+    sharedCapOverMiddle:
+      'Los canales sin modelo propio siguen funcionando, con un cargo de ${rate} por cada 1.000 — ',
     sharedCapOverAfter:
-      ' para que sigan funcionando. Los canales con su propia clave no se ven afectados.',
+      ' para evitar ese cargo. Los canales con su propia clave no se ven afectados.',
     sharedCapUnderBefore:
-      'Hasta {count} al mes funcionan con nuestro modelo de IA compartido; después de eso, ',
+      'Hasta {count} al mes funcionan con nuestro modelo de IA; después de eso se cobran a ${rate} por cada 1.000, o puedes ',
     sharedCapUnderAfter:
-      ' para que los canales por defecto sigan funcionando. Solo cuentan las respuestas de tu asistente — los mensajes que entran son gratis.',
+      ' en su lugar. Solo cuentan las respuestas de tu asistente — los mensajes que entran son gratis.',
     messagesHintFree:
       'Aquí solo cuentan las respuestas de tu asistente. Los mensajes que te envían son gratis y no consumen tu cupo.',
     toastCheckoutSuccess: 'Suscripción activa — ¡bienvenido a Pro!',

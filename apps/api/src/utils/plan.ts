@@ -321,10 +321,16 @@ export type MessageCapResult = {
   plan: string;
   used: number;
   cap: number | null;
-  // How many messages this period may still run on the shared platform model.
-  // Once `used` reaches this, a channel with no own key must connect one (paid)
-  // or the org must upgrade (Free). `null` = unlimited shared-model use.
-  sharedKeyCap: number | null;
+  // Assistant turns this period that ran on the SHARED platform model. Only
+  // these count against the two shared thresholds below — own-key turns cost us
+  // no inference, so they must not draw down an allowance that bounds our bill.
+  sharedUsed: number;
+  // Shared turns included in the plan. Crossing it doesn't stop anything on a
+  // paid plan — it just moves those turns onto the shared overage rate. Free has
+  // no overage path, so its hard total cap is the same number and trips first.
+  includedSharedMessages: number;
+  // The abuse backstop. Unlike the line above, this one does stop the channel.
+  sharedKeyHardCap: number | null;
 };
 
 // Resolve the org's message budget for the current period, lazily resetting the
@@ -339,7 +345,6 @@ export const checkMessageCap = async (
   const plan = planFromSubscription(sub);
   const limits = limitsFor(plan);
   const cap = limits.monthlyMessageCap;
-  const sharedKeyCap = limits.sharedKeyMessageCap;
 
   const periodStart =
     plan !== constants.PLAN_FREE && sub.currentPeriodStart
@@ -347,6 +352,7 @@ export const checkMessageCap = async (
       : monthStartUtc(now);
 
   let used = sub.messageCount;
+  let sharedUsed = sub.sharedMessageCount;
   if (
     !sub.messagePeriodStart ||
     sub.messagePeriodStart.getTime() < periodStart.getTime()
@@ -355,28 +361,48 @@ export const checkMessageCap = async (
       .update(db.schema.subscription)
       .set({
         messageCount: 0,
+        // Both counters belong to the same period, so they roll over together.
+        sharedMessageCount: 0,
         messagePeriodStart: periodStart,
-        // New period → the meter overage clock restarts too.
+        // New period → every meter's overage clock restarts too.
         reportedMessageOverage: 0,
+        reportedSharedMessageOverage: 0,
         reportedEmbeddedOverageMb: 0
       })
       .where(eq(db.schema.subscription.id, sub.id));
     used = 0;
+    sharedUsed = 0;
   }
 
-  return { allowed: cap == null || used < cap, plan, used, cap, sharedKeyCap };
+  return {
+    allowed: cap == null || used < cap,
+    plan,
+    used,
+    cap,
+    sharedUsed,
+    includedSharedMessages: limits.includedSharedMessages,
+    sharedKeyHardCap: limits.sharedKeyHardCap
+  };
 };
 
-// Count one assistant turn against the org's monthly budget. Best-effort: a
-// failure here must never break message delivery.
+// Count one assistant turn against the org's monthly budget. `onSharedKey` marks
+// a turn that ran on OUR model — it bumps the shared sub-counter as well as the
+// total, in one statement so the two can never diverge. Best-effort: a failure
+// here must never break message delivery.
 export const incrementMessageUsage = async (
   executor: DbExecutor,
-  organizationId: string
+  organizationId: string,
+  onSharedKey = false
 ): Promise<void> => {
   await executor
     .update(db.schema.subscription)
     .set({
-      messageCount: sql`(${db.schema.subscription.messageCount}::int + 1)::int`
+      messageCount: sql`(${db.schema.subscription.messageCount}::int + 1)::int`,
+      ...(onSharedKey
+        ? {
+            sharedMessageCount: sql`(${db.schema.subscription.sharedMessageCount}::int + 1)::int`
+          }
+        : {})
     })
     .where(eq(db.schema.subscription.organizationId, organizationId));
 };
@@ -389,6 +415,12 @@ export type OrganizationUsage = {
   embeddedBytes: number;
   messagesUsed: number;
   messageCap: number | null;
+  // Shared-model consumption, surfaced so the billing dashboard can tell the
+  // owner they're into the shared overage rate and offer the cheaper path
+  // (connect your own key) — the runner can't, since its reply is read by
+  // whoever is chatting with the bot rather than by the owner.
+  sharedMessagesUsed: number;
+  includedSharedMessages: number;
 };
 
 export const getOrganizationUsage = async (
@@ -410,7 +442,9 @@ export const getOrganizationUsage = async (
     rawBytes,
     embeddedBytes,
     messagesUsed: cap.used,
-    messageCap: cap.cap
+    messageCap: cap.cap,
+    sharedMessagesUsed: cap.sharedUsed,
+    includedSharedMessages: cap.includedSharedMessages
   };
 };
 

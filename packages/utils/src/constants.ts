@@ -559,6 +559,14 @@ const LLM_PROVIDERS = [
 ];
 
 const DEFAULT_LLM_PROVIDER = LLM_PROVIDER_GOOGLE;
+// ⚠️ This is the SHARED platform model — every Free turn and every paid turn on
+// an org with no LLM of its own runs here, and WE pay that inference. The whole
+// plan economics rest on Flash-Lite's rate ($0.25/M in · $1.50/M out): the
+// planning figure of ~$0.004 per channel turn, Free's ~$0.41/month worst case,
+// and the shared-key overage rate all derive from it. Moving to Gemini 3 Flash
+// doubles every one of those; a Sonnet-class model is ~15×. Treat a change here
+// as a pricing change, not a config tweak — the plan rates have to be redone
+// alongside it.
 const DEFAULT_LLM_MODEL = 'gemini-3.1-flash-lite';
 const DEFAULT_LLM_SYSTEM_PROMPT =
   'You are a helpful assistant. Answer the user using the tools and resources provided to you whenever they are relevant, and prefer that information over your prior knowledge. Cite the resources you used when applicable. Be concise and accurate. If you cannot find a clear answer in the available context, say so honestly instead of guessing.';
@@ -622,6 +630,21 @@ const CHANNEL_HISTORY_LIMIT = 20;
 // above. Lower numbers also cut latency on the same path.
 const SHARED_KEY_HISTORY_LIMIT = 10;
 const SHARED_KEY_MAX_TOOL_LOOPS = 6;
+
+// Hard ceiling on how many tools a single channel turn exposes to the model.
+//
+// Tool count is the dominant input-token driver, and it is super-linear: our own
+// channel_message rows show a 5-tool artifact averaging 1,103 input tokens/turn
+// against 13,109 for a 12-tool one — 2.4× the tools, 12× the tokens, because
+// every schema is re-sent on every model call and a turn makes ~3. Uncapped, an
+// 80-tool artifact costs ~$21 per 1,000 turns, which is above the shared-key
+// overage rate; capped at 40 it tops out near $11 and stays profitable.
+//
+// This is also a quality control, not only a cost one — tool selection degrades
+// badly past a few dozen options. Applies to CHANNEL turns only: MCP-client
+// traffic pays its own token cost on the client's model, so it isn't capped
+// here.
+const CHANNEL_MAX_TOOLS = 40;
 
 // Message debounce — people type the way they talk, in bursts ("hey" / "quick
 // question" / "about the invoice"). Answering each fragment separately produces
@@ -1240,10 +1263,34 @@ const MB = 1024 * 1024;
 const GB = 1024 * 1024 * 1024;
 
 // Pricing numbers (kept in sync with apps/website/src/lib/pricing.ts).
-const PRICING_PRO_BASE_USD = 20;
+//
+// $29 rather than $20 is positioning, not margin — $20 is comfortably safe on
+// the cost model. Code hosting, a CLI and managed OAuth put this beside Zapier
+// Professional (~$30) and Pipedream (~$29); $20 anchors it as a tool, $29 as a
+// platform.
+const PRICING_PRO_BASE_USD = 29;
+// Total assistant turns included per month, of any kind.
 const PRICING_INCLUDED_MESSAGES = 3_000;
+// How many of those included turns may run on the SHARED platform model. Shared
+// turns draw from the total pool like any other, but only up to this sub-cap —
+// past it they meter at the shared rate below even if the org is still under its
+// 3,000. The sub-cap exists because these are the only turns we pay inference on.
+const PRICING_INCLUDED_SHARED_MESSAGES = 1_000;
 const PRICING_INCLUDED_EMBEDDED_GB = 5;
+// Two message rates, because the two kinds of turn cost us wildly different
+// amounts. A turn on the customer's own key costs us ~nothing — $2/1,000 is a
+// platform fee for running the loop and serving RAG. A turn on our model costs
+// ~$4/1,000 (up to ~$11 on a tool-rich artifact), so it's sold at $15/1,000: a
+// real margin rather than a subsidy. Selling it beats blocking — every Free→Pro
+// converter is on our key the day they convert, so forcing BYO breaks the bot
+// of every single upgrade.
 const PRICING_MESSAGE_PER_1K_USD = 2;
+const PRICING_SHARED_MESSAGE_PER_1K_USD = 15;
+// Abuse backstop on shared-model turns for paid plans — deliberately absurd as a
+// month of legitimate use (~3,300/day, and it would invoice five figures), so it
+// only ever catches a runaway loop or a stolen channel token. Raise it for an
+// Enterprise contract rather than treating it as a plan feature.
+const PRICING_SHARED_KEY_HARD_CAP = 100_000;
 const PRICING_EMBEDDED_PER_GB_USD = 0.5;
 const PRICING_CUSTOM_DOMAIN_USD = 15;
 
@@ -1258,13 +1305,18 @@ interface PlanLimits {
   // Hard monthly cap on assistant channel messages. Free is capped; paid plans
   // are `null` (metered, not blocked).
   monthlyMessageCap: number | null;
-  // Monthly cap on messages that may run on the SHARED platform model (our key,
-  // our inference bill). This is the included allowance: once it's reached, a
-  // channel with no org LLM configured must connect its own model to keep going.
-  // We never resell our model's inference at a flat rate beyond this — past the
-  // allowance you either bring your own key (paid plans) or upgrade (Free). Every
-  // plan sets a number here; `null` would mean unlimited shared-model use.
-  sharedKeyMessageCap: number | null;
+  // Monthly allowance of messages that may run on the SHARED platform model (our
+  // key, our inference bill). This is a BILLING threshold, not a block: past it,
+  // paid plans keep running and meter at the shared overage rate, which carries a
+  // real margin over what the inference costs us. Free has no overage path, so it
+  // simply stops — its hard total cap is set to the same number and trips first.
+  includedSharedMessages: number;
+  // Absolute stop on shared-model turns, regardless of billing. Not a pricing
+  // lever — an abuse backstop, set far above any legitimate month so no paying
+  // customer meets it. It bounds what a compromised or runaway channel can spend
+  // of our inference before someone notices, in the window where the charges are
+  // real but the payment hasn't settled. `null` = no backstop.
+  sharedKeyHardCap: number | null;
   canInvite: boolean;
   // Whether the org may configure its own LLM (bring-your-own-key). A paid-only
   // feature: Free orgs run on the shared platform model key (capped); connecting
@@ -1293,9 +1345,11 @@ const PLAN_LIMITS: Record<
     // for free can self-host (Apache-2.0). Cost per message is further bounded
     // by the tighter shared-key turn envelope (history + tool loops) below.
     monthlyMessageCap: 100,
-    // Free can't bring its own key, so the whole Free allowance runs on our
-    // model — the shared-key cap equals the hard cap.
-    sharedKeyMessageCap: 100,
+    // Free can't bring its own key, so its whole allowance runs on our model:
+    // every one of these three numbers is the same 100 turns seen from a
+    // different angle. There is no overage path off Free — you upgrade.
+    includedSharedMessages: 100,
+    sharedKeyHardCap: 100,
     canInvite: false,
     // Free orgs use the shared platform model only; bringing your own model is a
     // paid feature.
@@ -1311,10 +1365,12 @@ const PLAN_LIMITS: Record<
     maxRawStorageBytes: null,
     maxEmbeddedBytes: null,
     monthlyMessageCap: null,
-    // Pro has no hard message cap (own-key messages are unlimited and metered),
-    // but its use of OUR model is bounded to the included allowance. Past that,
-    // a channel must run on the org's own key — we don't flat-rate inference.
-    sharedKeyMessageCap: PRICING_INCLUDED_MESSAGES,
+    // Pro has no hard message cap: own-key turns are unlimited and metered, and
+    // shared turns keep running past the included allowance at the shared rate.
+    // A 1,000-turn shared buffer is ~33/day — a typical small-business bot's
+    // entire month — so most Pro customers never see the overage at all.
+    includedSharedMessages: PRICING_INCLUDED_SHARED_MESSAGES,
+    sharedKeyHardCap: PRICING_SHARED_KEY_HARD_CAP,
     canInvite: true,
     canUseCustomLlm: true,
     includedMessages: PRICING_INCLUDED_MESSAGES,
@@ -1328,7 +1384,8 @@ const PLAN_LIMITS: Record<
     maxRawStorageBytes: null,
     maxEmbeddedBytes: null,
     monthlyMessageCap: null,
-    sharedKeyMessageCap: PRICING_INCLUDED_MESSAGES,
+    includedSharedMessages: PRICING_INCLUDED_SHARED_MESSAGES,
+    sharedKeyHardCap: PRICING_SHARED_KEY_HARD_CAP,
     canInvite: true,
     canUseCustomLlm: true,
     includedMessages: PRICING_INCLUDED_MESSAGES,
@@ -1356,7 +1413,12 @@ const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
 // OVERAGE (usage above the plan's included allowance) to these meters; the
 // meters' prices on the subscription turn that into charges. Embedded storage
 // is reported in whole MB, messages as a raw count.
+//
+// Messages report to two separate meters because the two kinds of turn bill at
+// different rates — a turn on the org's own key is a platform fee, a turn on our
+// model is inference we bought. One meter can't price both.
 const STRIPE_METER_MESSAGES = 'ganju_channel_messages';
+const STRIPE_METER_SHARED_MESSAGES = 'ganju_shared_messages';
 const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
 
 // Legal documents a user accepts, and the version they're on. Bump the version
@@ -1444,6 +1506,9 @@ export const constants = {
   PLAN_LIMITS,
   PRICING_PRO_BASE_USD,
   PRICING_INCLUDED_MESSAGES,
+  PRICING_INCLUDED_SHARED_MESSAGES,
+  PRICING_SHARED_MESSAGE_PER_1K_USD,
+  PRICING_SHARED_KEY_HARD_CAP,
   PRICING_INCLUDED_EMBEDDED_GB,
   PRICING_MESSAGE_PER_1K_USD,
   PRICING_EMBEDDED_PER_GB_USD,
@@ -1460,6 +1525,7 @@ export const constants = {
   PLAN_FEATURE_MESSAGE,
   PLAN_LIMIT_ERROR_CODE,
   STRIPE_METER_MESSAGES,
+  STRIPE_METER_SHARED_MESSAGES,
   STRIPE_METER_EMBEDDED,
   CONSENT_DOCUMENT_TERMS,
   CONSENT_DOCUMENT_PRIVACY,
@@ -1688,6 +1754,7 @@ export const constants = {
   CHANNEL_HISTORY_LIMIT,
   SHARED_KEY_HISTORY_LIMIT,
   SHARED_KEY_MAX_TOOL_LOOPS,
+  CHANNEL_MAX_TOOLS,
   CHANNEL_DEBOUNCE_DEFAULT_MS,
   CHANNEL_DEBOUNCE_MIN_MS,
   CHANNEL_DEBOUNCE_MAX_MS,

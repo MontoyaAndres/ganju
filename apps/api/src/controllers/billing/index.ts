@@ -40,8 +40,10 @@ const getStatus = async (c: Context<AppEnv>) => {
     pricing: {
       proBaseUsd: constants.PRICING_PRO_BASE_USD,
       includedMessages: constants.PRICING_INCLUDED_MESSAGES,
+      includedSharedMessages: constants.PRICING_INCLUDED_SHARED_MESSAGES,
       includedEmbeddedGb: constants.PRICING_INCLUDED_EMBEDDED_GB,
       messagePer1kUsd: constants.PRICING_MESSAGE_PER_1K_USD,
+      sharedMessagePer1kUsd: constants.PRICING_SHARED_MESSAGE_PER_1K_USD,
       embeddedPerGbUsd: constants.PRICING_EMBEDDED_PER_GB_USD,
       customDomainUsd: constants.PRICING_CUSTOM_DOMAIN_USD
     }
@@ -113,6 +115,14 @@ const createCheckout = async (c: Context<AppEnv>) => {
   ];
   const messageOveragePrice = utils.getEnv(c, 'STRIPE_PRICE_MESSAGE_OVERAGE');
   if (messageOveragePrice) lineItems.push({ price: messageOveragePrice });
+  // Turns on our model bill at their own, higher rate — a separate price against
+  // a separate meter. Without this line item the metering cron still reports the
+  // usage but nothing prices it, so shared inference is served for free.
+  const sharedOveragePrice = utils.getEnv(
+    c,
+    'STRIPE_PRICE_SHARED_MESSAGE_OVERAGE'
+  );
+  if (sharedOveragePrice) lineItems.push({ price: sharedOveragePrice });
   const embeddedOveragePrice = utils.getEnv(c, 'STRIPE_PRICE_EMBEDDED_OVERAGE');
   if (embeddedOveragePrice) lineItems.push({ price: embeddedOveragePrice });
 

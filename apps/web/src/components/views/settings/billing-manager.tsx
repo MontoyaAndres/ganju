@@ -14,10 +14,10 @@ interface BillingLimits {
   maxRawStorageBytes: number | null;
   maxEmbeddedBytes: number | null;
   monthlyMessageCap: number | null;
-  // How many messages/mo may run on our shared AI model before a channel must
-  // connect its own key to continue. Present in the billing payload (full
-  // PlanLimits is serialized); used to warn the owner on the messages row.
-  sharedKeyMessageCap: number | null;
+  // How many messages/mo run on our shared AI model before the higher shared
+  // rate applies. Present in the billing payload (full PlanLimits is
+  // serialized); used for the note on the messages row.
+  includedSharedMessages: number;
   canInvite: boolean;
   includedMessages: number;
   includedEmbeddedBytes: number;
@@ -32,6 +32,8 @@ interface BillingStatus {
     embeddedBytes: number;
     messagesUsed: number;
     messageCap: number | null;
+    sharedMessagesUsed: number;
+    includedSharedMessages: number;
   };
   subscription: {
     status: string;
@@ -43,8 +45,10 @@ interface BillingStatus {
   pricing: {
     proBaseUsd: number;
     includedMessages: number;
+    includedSharedMessages: number;
     includedEmbeddedGb: number;
     messagePer1kUsd: number;
+    sharedMessagePer1kUsd: number;
     embeddedPerGbUsd: number;
     customDomainUsd: number;
   };
@@ -228,14 +232,14 @@ export const BillingManager = (props: BillingManagerProps) => {
       ? 'Pro'
       : 'Enterprise';
 
-  // Paid plans read as "unlimited messages, just pay overage" on the row below,
-  // but the runner actually stops a channel that has no own key once shared-model
-  // use hits this cap — and that block only surfaces in-channel, where the owner
-  // never looks. Surface the rule (and, once they're over it, the action) here.
-  // Free is pure-shared and already hard-capped, so this note is paid-only.
-  const sharedCap = status.limits.sharedKeyMessageCap;
-  const overSharedCap =
-    sharedCap != null && status.usage.messagesUsed >= sharedCap;
+  // Replies on our AI model bill at several times the own-key rate, so they get
+  // their own metered row rather than hiding inside the total. Without it the
+  // owner's first signal that they're on the expensive counter is the invoice.
+  //
+  // Free is pure-shared and hard-capped with no overage path — its messages row
+  // already IS this number — so the row and its note are paid-only.
+  const sharedCap = status.limits.includedSharedMessages;
+  const overSharedCap = status.usage.sharedMessagesUsed >= sharedCap;
   const connectModelLink = (
     <a
       href="#models"
@@ -250,25 +254,27 @@ export const BillingManager = (props: BillingManagerProps) => {
       {t('sharedCapLink')}
     </a>
   );
-  const messagesHint: ReactNode =
-    !isFree && sharedCap != null ? (
-      overSharedCap ? (
-        <>
-          {t('sharedCapOverBefore', { count: t.n(sharedCap) })}
-          {t('sharedCapOverMiddle')}
-          {connectModelLink}
-          {t('sharedCapOverAfter')}
-        </>
-      ) : (
-        <>
-          {t('sharedCapUnderBefore', { count: t.n(sharedCap) })}
-          {connectModelLink}
-          {t('sharedCapUnderAfter')}
-        </>
-      )
-    ) : (
-      t('messagesHintFree')
-    );
+  const sharedRate = status.pricing.sharedMessagePer1kUsd;
+  // Sits under the shared row, so it explains the rate rather than repeating the
+  // count the row already shows. Over the allowance it points at the cheaper
+  // path (connect your own key) instead of just announcing the charge.
+  const sharedHint: ReactNode = overSharedCap ? (
+    <>
+      {t('sharedCapOverBefore', { count: t.n(sharedCap) })}
+      {t('sharedCapOverMiddle', { rate: sharedRate })}
+      {connectModelLink}
+      {t('sharedCapOverAfter')}
+    </>
+  ) : (
+    <>
+      {t('sharedCapUnderBefore', {
+        count: t.n(sharedCap),
+        rate: sharedRate
+      })}
+      {connectModelLink}
+      {t('sharedCapUnderAfter')}
+    </>
+  );
 
   return (
     <>
@@ -333,8 +339,25 @@ export const BillingManager = (props: BillingManagerProps) => {
           overageRate={
             isFree ? undefined : `$${status.pricing.messagePer1kUsd}/1k`
           }
-          hint={messagesHint}
+          hint={t('messagesHintFree')}
         />
+        {/* The expensive subset of the row above: replies we paid inference for.
+            Free's total allowance is already all-shared, so this would just
+            duplicate its messages row. */}
+        {!isFree && (
+          <UsageRow
+            theme={theme}
+            unlimitedText={t('usageUnlimited')}
+            includedText={t('usageIncluded')}
+            overText={(amount, rate) => t('usageOverage', { amount, rate })}
+            label={t('usageSharedMessages')}
+            used={status.usage.sharedMessagesUsed}
+            limit={sharedCap}
+            render={t.n}
+            overageRate={`$${sharedRate}/1k`}
+            hint={sharedHint}
+          />
+        )}
         <UsageRow
           theme={theme}
           unlimitedText={t('usageUnlimited')}

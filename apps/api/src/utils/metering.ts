@@ -58,11 +58,29 @@ const meterOrganization = async (
 
   const limits = limitsFor(sub.plan);
 
-  // Messages: a monotonic per-period counter, so the overage only grows.
-  const messageOverage = Math.max(
+  // Messages: monotonic per-period counters, so the overage only grows.
+  //
+  // Each turn is billed exactly once, by whose key ran it. Shared turns draw
+  // from the same included pool as everything else, but only up to the shared
+  // sub-allowance — so they consume at most that much of the pool no matter how
+  // many there are, and the remainder of the pool stays available to own-key
+  // traffic. Beyond their sub-allowance, shared turns bill at the shared rate
+  // instead of the platform-fee rate, and never at both.
+  const sharedUsed = sub.sharedMessageCount;
+  const ownKeyUsed = Math.max(0, sub.messageCount - sharedUsed);
+
+  const sharedOverage = Math.max(
     0,
-    sub.messageCount - limits.includedMessages
+    sharedUsed - limits.includedSharedMessages
   );
+  const sharedDelta = sharedOverage - sub.reportedSharedMessageOverage;
+
+  const ownKeyIncluded = Math.max(
+    0,
+    limits.includedMessages -
+      Math.min(sharedUsed, limits.includedSharedMessages)
+  );
+  const messageOverage = Math.max(0, ownKeyUsed - ownKeyIncluded);
   const messageDelta = messageOverage - sub.reportedMessageOverage;
 
   // Embedded storage: a live level. We bill the high-water mark of the overage
@@ -82,6 +100,14 @@ const meterOrganization = async (
       messageDelta
     );
   }
+  if (sharedDelta > 0) {
+    await reportMeter(
+      stripe,
+      constants.STRIPE_METER_SHARED_MESSAGES,
+      sub.stripeCustomerId,
+      sharedDelta
+    );
+  }
   if (embeddedDelta > 0) {
     await reportMeter(
       stripe,
@@ -91,12 +117,16 @@ const meterOrganization = async (
     );
   }
 
-  if (messageDelta > 0 || embeddedDelta > 0) {
+  // Advance only the marks whose meter event actually went through, so a failure
+  // on one meter can't mark another's usage as billed.
+  if (messageDelta > 0 || sharedDelta > 0 || embeddedDelta > 0) {
     await executor
       .update(db.schema.subscription)
       .set({
         reportedMessageOverage:
           messageDelta > 0 ? messageOverage : sub.reportedMessageOverage,
+        reportedSharedMessageOverage:
+          sharedDelta > 0 ? sharedOverage : sub.reportedSharedMessageOverage,
         reportedEmbeddedOverageMb:
           embeddedDelta > 0 ? embeddedOverageMb : sub.reportedEmbeddedOverageMb
       })

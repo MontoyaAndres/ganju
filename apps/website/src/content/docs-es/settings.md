@@ -28,9 +28,9 @@ medidas contra las `3,000` incluidas.
 
 |                                     | **Gratis**                                    | **Pro**                                  | **Empresarial**       |
 | ----------------------------------- | --------------------------------------------- | ---------------------------------------- | --------------------- |
-| Precio                              | $0                                            | **$20 / mes**                            | A la medida           |
+| Precio                              | $0                                            | **$29 / mes**                            | A la medida           |
 | Respuestas del asistente incluidas  | **100 / mes**                                 | **3.000 / mes**                          | Ilimitadas            |
-| Pasadas las respuestas incluidas    | El asistente se pausa — mejora para continuar | Sigue con **tu propia llave de modelo**  | Condiciones a la medida |
+| Pasadas las respuestas incluidas    | El asistente se pausa — mejora para continuar | Sigue funcionando — se factura como consumo | Condiciones a la medida |
 | Contenido con embeddings (RAG)      | 5 MB                                          | 5 GB                                     | Ilimitado             |
 | Almacenamiento de archivos          | 30 MB                                         | Ilimitado                                | Ilimitado             |
 | Proyectos                           | 1                                             | Ilimitados                               | Ilimitados            |
@@ -59,21 +59,24 @@ _cuota_, no algo ilimitado:
 - **Gratis** — 100 respuestas al mes sobre el modelo compartido. Cuando llegas al
   tope, el asistente se pausa hasta el siguiente ciclo, o mejoras de plan. El plan
   Gratis no puede traer su propia llave de modelo.
-- **Pro** — 3.000 respuestas al mes sobre el modelo compartido, incluidas en la
-  base de $20. Pasadas las 3.000, un canal sigue respondiendo **solo si corre
-  sobre un modelo que hayas agregado en [Models](#models--trae-el-tuyo)** — tu
-  propia llave de proveedor. Esas respuestas con llave propia son ilimitadas.
+- **Pro** — 3.000 respuestas al mes incluidas, de las cuales hasta **1.000 pueden
+  correr sobre el modelo compartido**. Pasadas esas 1.000, las respuestas
+  compartidas siguen funcionando y se facturan a la tarifa compartida de abajo.
+  Agregar tu propia llave de proveedor en [Models](#models--trae-el-tuyo) las
+  mueve a la tarifa con llave propia, mucho más barata, que es lo que hace casi
+  todo el mundo al llegar a volumen real.
 
 ### Consumo adicional (Pro)
 
 Pro no suma nada a tu cuenta hasta que pasas de los montos incluidos:
 
-- **Respuestas adicionales** — $2 por cada 1.000, y solo para respuestas sobre **tu
-  propia llave de modelo**. Es una **tarifa de plataforma** por ejecutar las
-  herramientas y el cómputo de cada turno — _no_ una reventa de tokens del modelo
-  (a tu proveedor le pagas directo con tu llave). Ganju nunca cobra tarifa plana
-  por la inferencia de su propio modelo, y por eso el uso del modelo compartido se
-  detiene en la cuota incluida en lugar de facturar consumo adicional.
+- **Respuestas adicionales con tu propia llave de modelo** — $2 por cada 1.000. Es
+  una **tarifa de plataforma** por ejecutar las herramientas y el cómputo de cada
+  turno — _no_ una reventa de tokens del modelo (a tu proveedor le pagas directo
+  con tu llave).
+- **Respuestas adicionales con el modelo de Ganju** — $15 por cada 1.000 más allá
+  de las primeras 1.000. Es más alta porque Ganju compra esa inferencia por ti, así
+  que cubre un costo real y no solo el trabajo de plataforma.
 - **Contenido con embeddings (RAG) adicional** — $0,50 por GB más allá de los 5 GB
   incluidos.
 - **Dominio propio** — complemento de $15 / mes.

@@ -1,0 +1,1 @@
+ALTER TABLE "subscription" ADD COLUMN "reported_shared_message_overage" integer DEFAULT 0 NOT NULL;

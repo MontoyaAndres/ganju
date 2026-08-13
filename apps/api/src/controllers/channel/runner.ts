@@ -382,21 +382,26 @@ export const runChannelTurn = async (
     };
   }
 
-  // Shared-model allowance gate. A channel with no org LLM runs on OUR key and
-  // OUR inference bill; that's included only up to the plan's shared-key cap.
-  // Past it we don't flat-rate inference — the owner must connect their own AI
-  // model to keep this channel running (a paid feature). Own-key turns skip this
-  // entirely (they're metered as overage, not capped). Free never reaches here:
-  // its hard cap equals its shared-key cap, so `messageCap.allowed` fails first.
+  // Shared-model abuse backstop. A channel with no org LLM runs on OUR key and
+  // OUR inference bill. Going past the plan's INCLUDED shared allowance is not
+  // handled here — those turns keep running and meter at the shared overage
+  // rate, because a paying customer whose bot goes silent is worse for both of
+  // us than an invoice. This gate is only the far outer limit, set where the
+  // traffic can no longer be a real business using the product.
+  //
+  // Measured against `sharedUsed`, NOT the org total: own-key turns cost us no
+  // inference, so letting them count here would penalise a mixed org for traffic
+  // we never paid for. Free never reaches this line — its hard total cap is the
+  // same number, so `messageCap.allowed` fails first.
   //
   // The reply below is read by whoever is chatting with the bot — a stranger, not
   // the owner — so keep it neutral: no plan details, no billing instructions they
-  // can't act on. The actionable "connect your own model" prompt lives in the
-  // owner's billing dashboard (Settings › Billing) instead.
+  // can't act on. The actionable prompt lives in the owner's billing dashboard
+  // (Settings › Billing) instead.
   if (
     onSharedKey &&
-    messageCap.sharedKeyCap != null &&
-    messageCap.used >= messageCap.sharedKeyCap
+    messageCap.sharedKeyHardCap != null &&
+    messageCap.sharedUsed >= messageCap.sharedKeyHardCap
   ) {
     return {
       assistantText:
@@ -558,6 +563,36 @@ export const runChannelTurn = async (
         description: tool.description,
         inputSchema: tool.inputSchema || { type: 'object', properties: {} }
       }));
+
+      // Every tool's schema is re-sent on every model call, and a turn makes
+      // several — so the tool list, not the conversation, is what actually
+      // drives input tokens (see CHANNEL_MAX_TOOLS). Cap what a channel turn
+      // exposes: it bounds our per-turn cost on shared-key turns and improves
+      // tool selection, which degrades past a few dozen options anyway.
+      //
+      // The RAG core is pinned to the front rather than left to list order,
+      // because the runner intercepts those tools BY NAME below — dropping
+      // `send-resource` in particular would silently remove the only path that
+      // streams a file to the user. Everything else keeps its listTools order,
+      // which mirrors the artifact's own tool order, so the cut is predictable
+      // for the owner rather than arbitrary.
+      if (llmTools.length > utils.constants.CHANNEL_MAX_TOOLS) {
+        const core = llmTools.filter(t => RESOURCE_TOOL_KEYS.has(t.name));
+        const rest = llmTools.filter(t => !RESOURCE_TOOL_KEYS.has(t.name));
+        const kept = [...core, ...rest].slice(
+          0,
+          utils.constants.CHANNEL_MAX_TOOLS
+        );
+        // Never truncate silently — the owner sees a bot ignoring tools it has
+        // installed, and this log is the only thing that explains why.
+        console.warn(
+          `[channel] artifact ${artifactRow.slug}: ${llmTools.length} tools exceeds the ${utils.constants.CHANNEL_MAX_TOOLS}-tool channel cap; dropping ${llmTools
+            .filter(t => !kept.includes(t))
+            .map(t => t.name)
+            .join(', ')}`
+        );
+        llmTools = kept;
+      }
     } catch (error: any) {
       // -32601 = artifact has no tools registered; SDK never enabled tools/list
       if (error?.code !== -32601) throw error;
@@ -793,7 +828,8 @@ export const runChannelTurn = async (
   // Best-effort still: a metering failure must never break delivery.
   await Plan.incrementMessageUsage(
     dbInstance,
-    projectRow.organizationId
+    projectRow.organizationId,
+    onSharedKey
   ).catch(() => undefined);
 
   // Everything below is pure analytics — the usage/audit rows and the

@@ -87,13 +87,13 @@ of whoever holds the Owner role.
 
 | | Free | Pro | Enterprise |
 | --- | --- | --- | --- |
-| Price | $0 | **$20 / month** plus usage | Custom |
+| Price | $0 | **$29 / month** plus usage | Custom |
 | Organizations you own | 1 | Unlimited | Unlimited |
 | Projects | 1 | Unlimited | Unlimited |
 | Tools · prompts · channels per assistant | 7 · 3 · 1 | Unlimited | Unlimited |
 | File storage | 30 MB | Unlimited | Unlimited |
 | Embedded (searchable) content | 5 MB | 5 GB included | Custom |
-| Assistant replies included | 100 / month | 3,000 / month | Custom |
+| Assistant replies included | 100 / month | 3,000 / month, of which 1,000 on Ganju's model | Custom |
 | Invite teammates | — | ✓ | ✓ |
 | Bring your own model key | — | ✓ | ✓ |
 
@@ -109,15 +109,21 @@ whose inference we pay for. That allowance is not unlimited:
 
 - **On Free**, once the monthly cap is reached, your assistants stop replying until
   the next cycle or until you upgrade. Free cannot bring its own model key.
-- **On Pro**, once the shared-model allowance is spent, a channel keeps replying only
-  if it runs on a model key you've added. We do not flat-rate our own model's
-  inference beyond the included allowance.
+- **On Pro**, replies keep working once the shared-model allowance is spent — they
+  simply bill at the higher shared rate below. Adding your own model key moves them
+  to the lower rate instead.
 
-The reply counter is per organization and counts **all** replies, including those on
-your own key. Past the included amounts, Pro overage is **$2 per 1,000 replies** — a
-platform fee for running each turn, not a resale of model tokens, which you pay your
-provider for directly — and **$0.50 per GB** of embedded content beyond 5 GB. The
-custom-domain add-on is **$15 / month**.
+Replies are counted per organization, and separately by whose model ran them, because
+the two cost us very different amounts. Past the included amounts, Pro overage is:
+
+- **$2 per 1,000 replies** run on a model key you've added — a platform fee for
+  running each turn, not a resale of model tokens, which you pay your provider for
+  directly.
+- **$15 per 1,000 replies** beyond the first 1,000 run on Ganju's own model, which
+  covers the inference we buy on your behalf.
+- **$0.50 per GB** of embedded content beyond 5 GB.
+
+The custom-domain add-on is **$15 / month**.
 
 We reserve the right to apply fair-use limits to abnormally large contexts or request
 volumes that would make an account uneconomic to serve. We'll contact you before

@@ -262,7 +262,7 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     messagesLabel: 'How many messages will your bots send?',
     messagesUnit: '/mo',
     messagesHint:
-      'Every reply your bot sends on Telegram, Slack, WhatsApp, or Discord. The first {included} each month are included.',
+      'Every reply your bot sends on Telegram, Slack, WhatsApp, or Discord. The first {included} each month are included. This estimate assumes you connect your own AI model — replies on ours are included up to 1,000/mo, then $15 per 1,000.',
     storageLabel: 'How much can your AI search through?',
     storageUnit: ' GB',
     storageHint:
@@ -291,7 +291,7 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     messagesLabel: '¿Cuántos mensajes enviarán tus bots?',
     messagesUnit: '/mes',
     messagesHint:
-      'Cada respuesta que tu bot envía en Telegram, Slack, WhatsApp o Discord. Los primeros {included} de cada mes están incluidos.',
+      'Cada respuesta que tu bot envía en Telegram, Slack, WhatsApp o Discord. Los primeros {included} de cada mes están incluidos. Este estimado asume que conectas tu propio modelo de IA — con el nuestro van incluidas hasta 1.000/mes, y luego cuestan $15 por cada 1.000.',
     storageLabel: '¿Cuánto contenido puede buscar tu IA?',
     storageUnit: ' GB',
     storageHint:

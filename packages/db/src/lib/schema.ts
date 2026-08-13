@@ -377,8 +377,12 @@ export const subscription = pgTable(
     cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
     customDomain: boolean('custom_domain').notNull().default(false),
     messageCount: integer('message_count').notNull().default(0),
+    sharedMessageCount: integer('shared_message_count').notNull().default(0),
     messagePeriodStart: timestamp('message_period_start', { mode: 'date' }),
     reportedMessageOverage: integer('reported_message_overage')
+      .notNull()
+      .default(0),
+    reportedSharedMessageOverage: integer('reported_shared_message_overage')
       .notNull()
       .default(0),
     reportedEmbeddedOverageMb: bigint('reported_embedded_overage_mb', {

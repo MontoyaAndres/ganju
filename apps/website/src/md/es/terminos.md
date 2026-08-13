@@ -91,7 +91,7 @@ actuamos según las instrucciones de quien tenga el rol de Propietario.
 
 | | Gratis | Pro | Empresarial |
 | --- | --- | --- | --- |
-| Precio | $0 | **USD 20 / mes** más consumo | A convenir |
+| Precio | $0 | **USD 29 / mes** más consumo | A convenir |
 | Organizaciones propias | 1 | Ilimitadas | Ilimitadas |
 | Proyectos | 1 | Ilimitados | Ilimitados |
 | Herramientas · prompts · canales por asistente | 7 · 3 · 1 | Ilimitados | Ilimitados |
@@ -114,15 +114,21 @@ compartido de Ganju**, cuya inferencia pagamos nosotros. Ese cupo no es ilimitad
 
 - **En Gratis**, al alcanzar el tope mensual tus asistentes dejan de responder hasta
   el siguiente ciclo o hasta que actualices el plan. Gratis no puede usar llave propia.
-- **En Pro**, agotado el cupo del modelo compartido, un canal sigue respondiendo solo
-  si corre sobre una llave de modelo que hayas agregado. No ofrecemos tarifa plana
-  sobre la inferencia de nuestro modelo más allá del cupo incluido.
+- **En Pro**, agotado el cupo del modelo compartido las respuestas siguen
+  funcionando: simplemente se facturan a la tarifa compartida que se indica abajo.
+  Agregar tu propia llave de modelo las mueve a la tarifa más baja.
 
-El contador de respuestas es por organización y cuenta **todas** las respuestas,
-incluidas las que corren con tu propia llave. Superados los montos incluidos, el
-excedente en Pro es de **USD 2 por cada 1.000 respuestas** — una tarifa de plataforma
-por ejecutar cada turno, no una reventa de tokens del modelo, que pagas directamente a
-tu proveedor — y **USD 0,50 por GB** de contenido indexado adicional sobre los 5 GB.
+Las respuestas se cuentan por organización y por separado según qué modelo las
+ejecutó, porque cuestan cosas muy distintas. Superados los montos incluidos, el
+excedente en Pro es:
+
+- **USD 2 por cada 1.000 respuestas** ejecutadas con una llave de modelo que hayas
+  agregado — una tarifa de plataforma por ejecutar cada turno, no una reventa de
+  tokens del modelo, que pagas directamente a tu proveedor.
+- **USD 15 por cada 1.000 respuestas** que superen las primeras 1.000 ejecutadas con
+  el modelo propio de Ganju, que cubre la inferencia que compramos por ti.
+- **USD 0,50 por GB** de contenido indexado adicional sobre los 5 GB.
+
 El complemento de dominio personalizado cuesta **USD 15 / mes**.
 
 Nos reservamos el derecho de aplicar límites de uso justo a contextos anormalmente
