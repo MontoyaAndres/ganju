@@ -1286,15 +1286,17 @@ const PRICING_INCLUDED_MESSAGES = 3_000;
 // past it they meter at the shared rate below even if the org is still under its
 // 3,000. The sub-cap exists because these are the only turns we pay inference on.
 const PRICING_INCLUDED_SHARED_MESSAGES = 1_000;
-// Embedded content is the one unit that costs meaningfully more than it looks.
-// The billed figure is chunk TEXT, but each chunk also carries a 3072-dim
-// halfvec plus its HNSW entry — ~17 KB of fixed overhead per chunk against
-// ~1.5 KB of text. Measured on real data that's a **12.9× expansion**, so at
-// Neon's $0.35/GB-month a billed GB actually costs ~$4.52/GB-month.
+// Embedded content costs more than it looks. The billed figure is chunk TEXT,
+// but each chunk also carries its halfvec plus an HNSW index entry — fixed
+// overhead per chunk, regardless of how little text the chunk holds. At the
+// current 1536 dimensions that's a ~6.9x expansion, so at Neon's $0.35/GB-month
+// a billed GB costs us ~$2.41/GB-month. (It was ~12.9x and ~$4.51 at 3072
+// dimensions, which is what motivated both this allowance and EMBEDDING_DIMENSIONS.)
 //
-// 1 GB rather than 5: at 5 GB the included allowance alone could cost ~$22 of a
-// $29 plan. 1 GB is still ~500,000 pages of text — generous for the real use
-// case, and it caps the downside of a single heavy account.
+// 1 GB rather than 5: at 5 GB the included allowance alone would have cost ~$22
+// of a $29 plan on the old basis, and ~$12 on the current one. 1 GB is still
+// ~500,000 pages of text — generous for the real use case, and it caps the
+// downside of a single heavy account.
 const PRICING_INCLUDED_EMBEDDED_GB = 1;
 // Two message rates, because the two kinds of turn cost us wildly different
 // amounts. A turn on the customer's own key costs us ~nothing — $2/1,000 is a
@@ -1311,14 +1313,13 @@ const PRICING_SHARED_MESSAGE_PER_1K_USD = 15;
 // Enterprise contract rather than treating it as a plan feature.
 const PRICING_SHARED_KEY_HARD_CAP = 100_000;
 // $2, up from $0.50 — which was set believing storage cost us ~$0.50/GB and was
-// therefore "at cost". It isn't: see the expansion note above.
+// therefore "at cost". It wasn't: see the expansion note above.
 //
-// ⚠️ $2 does NOT reach the measured $4.52/GB cost. It is deliberately a partial
-// correction — a 4× rise is already steep for anyone repricing onto it, and the
-// remaining gap closes from the cost side rather than the price side: halving
-// the embedding to 1536 dimensions takes the true cost to ~$2.35/GB, at which
-// point this rate is roughly break-even. If that dimension change doesn't
-// happen, this number has to go to ~$5 instead.
+// This sat below cost when it was raised (~$4.51/GB at 3072 dimensions). The gap
+// was then closed from the COST side rather than by raising the price again:
+// halving the embedding to 1536 dimensions brought the real figure to ~$2.41/GB,
+// so $2 is now roughly break-even. Raising CHUNK_TARGET_CHARS would tip it
+// positive without touching this number.
 const PRICING_EMBEDDED_PER_GB_USD = 2;
 const PRICING_CUSTOM_DOMAIN_USD = 15;
 
