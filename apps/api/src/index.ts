@@ -443,6 +443,32 @@ app
     ArtifactController.removeTool
   )
 
+  .get(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/versions',
+    UserMiddleware.verify,
+    ArtifactController.listCustomCodeVersions
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version',
+    UserMiddleware.verify,
+    ArtifactController.createCustomCodeVersion
+  )
+  .put(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/bundle',
+    UserMiddleware.verify,
+    ArtifactController.uploadCustomCodeBundle
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/publish',
+    UserMiddleware.verify,
+    ArtifactController.publishCustomCodeVersion
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/rollback',
+    UserMiddleware.verify,
+    ArtifactController.rollbackCustomCodeVersion
+  )
+
   // Artifact Credential controller
   .get(
     '/organization/:organizationId/project/:projectId/artifact/credential',

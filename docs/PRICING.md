@@ -337,7 +337,7 @@ At list rates 80 GB alone would bill $581, so the negotiated $1,200 is comfortab
 | R2, queues, email, misc | $10 |
 | **Total** | **~$83/month** |
 
-Note that Workers for Platforms is the largest line and **isn't being paid yet** — it starts with Custom Tools Phase 2. Today's real fixed cost is closer to **$58**.
+Workers for Platforms is the largest line, and as of 14 Aug it **is** being paid — the add-on was enabled and both dispatch namespaces created for Custom Tools Phase 2. So the ~$83 above is now the real figure rather than a forecast, where it used to be ~$58. The $25 is a flat per-account fee covering 1,000 scripts; it does not scale with customers until well past that.
 
 The three Pro examples in Part 5 net $26.01, $29.10 and $32.22 — call it **~$29 blended**, because overage revenue rises alongside the usage that causes it:
 

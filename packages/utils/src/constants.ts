@@ -985,19 +985,27 @@ const CREDENTIAL_PROVIDER_HTTP_ENDPOINT = 'http-endpoint' as 'http-endpoint';
 // labelled in metadata, with no vendor to validate against. Same multi-row,
 // per-tool storage — kept out of API_KEY_PROVIDERS for the same reason.
 const CREDENTIAL_PROVIDER_MCP_PROXY = 'mcp-proxy' as 'mcp-proxy';
+// custom-code secrets are the `ctx.secret(name)` values a user script reads at
+// runtime. Same multi-row shape as the two above — many per artifact, labelled
+// in metadata, no vendor to validate — but the label is also the LOOKUP KEY the
+// script passes to ctx.secret(), not just a display string. The broker resolves
+// them; the secret value itself never reaches user code as a binding.
+const CREDENTIAL_PROVIDER_CUSTOM_CODE = 'custom-code' as 'custom-code';
 // Providers whose secrets are per-tool (many rows per artifact, deleted with the
 // tool that owns them) rather than one-per-provider. See createCredential /
 // removeTool in apps/api ArtifactController.
 const PER_TOOL_CREDENTIAL_PROVIDERS = [
   CREDENTIAL_PROVIDER_HTTP_ENDPOINT,
-  CREDENTIAL_PROVIDER_MCP_PROXY
+  CREDENTIAL_PROVIDER_MCP_PROXY,
+  CREDENTIAL_PROVIDER_CUSTOM_CODE
 ];
 // Every provider the generic credential create endpoint accepts.
 const CREDENTIAL_PROVIDERS = [
   API_KEY_PROVIDER_CALCOM,
   API_KEY_PROVIDER_TAVILY,
   CREDENTIAL_PROVIDER_HTTP_ENDPOINT,
-  CREDENTIAL_PROVIDER_MCP_PROXY
+  CREDENTIAL_PROVIDER_MCP_PROXY,
+  CREDENTIAL_PROVIDER_CUSTOM_CODE
 ];
 
 const CALCOM_API_BASE = 'https://api.cal.com/v2';
@@ -1127,6 +1135,66 @@ const MCP_PROXY_TOOL_NAME_SEP = '__';
 // Max length of the composed local tool name. Remote names are untrusted; the
 // cap matches the tool-name limit MCP clients (incl. the Anthropic API) enforce.
 const MCP_PROXY_TOOL_NAME_MAX = 64;
+
+// `custom-code` is the third proxied tool definition, and the only one whose
+// behaviour is USER CODE rather than user configuration: one artifact_tool row
+// per artifact, pointing at a Cloudflare Worker deployed to our Workers for
+// Platforms dispatch namespace. Like mcp-proxy, one row produces MANY MCP tools
+// — but the tool list comes from the manifest the user uploads rather than from
+// a remote round-trip, and it is versioned (artifact_tool_version) so code and
+// contract move together and a rollback restores both.
+//
+// The row's config holds only `activeVersionId` plus the egress/limit settings;
+// names and schemas live on the version. That's what keeps MCP boot off the
+// dispatcher — a slow or broken script must never break tools/list. See
+// docs/CUSTOM_TOOLS.md ("Boot contract").
+const TOOL_DEFINITION_KEY_CUSTOM_CODE = 'custom-code';
+
+// A version is uploaded as `draft`, becomes `published` when it is made active,
+// and is `archived` when a later version replaces it. Exactly one version per
+// tool is ever `published` — the one config.activeVersionId points at.
+const CUSTOM_CODE_VERSION_STATUS_DRAFT = 'draft' as 'draft';
+const CUSTOM_CODE_VERSION_STATUS_PUBLISHED = 'published' as 'published';
+const CUSTOM_CODE_VERSION_STATUS_ARCHIVED = 'archived' as 'archived';
+const CUSTOM_CODE_VERSION_STATUSES = [
+  CUSTOM_CODE_VERSION_STATUS_DRAFT,
+  CUSTOM_CODE_VERSION_STATUS_PUBLISHED,
+  CUSTOM_CODE_VERSION_STATUS_ARCHIVED
+];
+
+// WfP script name: `artifact_<artifactId>`. The id, never the slug — slugs are
+// user-editable and a rename would orphan the deployed script.
+const CUSTOM_CODE_SCRIPT_NAME_PREFIX = 'artifact_';
+
+// R2 prefix for uploaded bundles. Keyed by artifact + version so a rollback can
+// always find the exact source that produced the running script.
+const CUSTOM_CODE_SOURCE_KEY_PREFIX = 'custom-code';
+
+// How many MCP tools one script may declare. Deliberately tighter than
+// MCP_PROXY_MAX_TOOLS (100): a proxied vendor server is a fixed remote surface,
+// whereas a manifest is user-authored and tool count is the dominant input-token
+// driver on channel turns (see CHANNEL_MAX_TOOLS). A channel only ever sees 40
+// of them; this cap bounds the manifest itself, which every MCP client pays for.
+const CUSTOM_CODE_MAX_TOOLS = 50;
+// Max length of a declared tool name — the limit MCP clients (incl. the
+// Anthropic API) enforce, same ceiling as the composed mcp-proxy names.
+const CUSTOM_CODE_TOOL_NAME_MAX = 64;
+
+// Per-invocation dispatch timeout, clamped rather than rejected (same shape as
+// http-endpoint / mcp-proxy). This bounds how long apps/mcp waits on the
+// dispatcher; the per-script CPU ceiling on the namespace is a separate control
+// and is a Phase 2 item.
+const CUSTOM_CODE_DEFAULT_TIMEOUT_MS = 10_000;
+const CUSTOM_CODE_MAX_TIMEOUT_MS = 30_000;
+
+// Response body cap returned to the model; truncated past this with a marker
+// (same ceiling as the other two proxied definitions).
+const CUSTOM_CODE_MAX_RESPONSE_BYTES = 256 * 1024;
+
+// Hard ceiling on an uploaded bundle, checked before the body is streamed to R2.
+// Set well below Cloudflare's own script-size ceiling so a rejection happens
+// here — with a legible error — rather than at deploy time in Phase 2.
+const CUSTOM_CODE_MAX_BUNDLE_BYTES = 3 * 1024 * 1024;
 
 const MCP_REQUEST_METHOD_INITIALIZE = 'initialize' as 'initialize';
 const MCP_REQUEST_METHOD_PING = 'ping' as 'ping';
@@ -1878,6 +1946,7 @@ export const constants = {
   API_KEY_PROVIDERS,
   CREDENTIAL_PROVIDER_HTTP_ENDPOINT,
   CREDENTIAL_PROVIDER_MCP_PROXY,
+  CREDENTIAL_PROVIDER_CUSTOM_CODE,
   PER_TOOL_CREDENTIAL_PROVIDERS,
   CREDENTIAL_PROVIDERS,
   CALCOM_API_BASE,
@@ -1938,6 +2007,19 @@ export const constants = {
   MCP_PROXY_MAX_RESPONSE_BYTES,
   MCP_PROXY_TOOL_NAME_SEP,
   MCP_PROXY_TOOL_NAME_MAX,
+  TOOL_DEFINITION_KEY_CUSTOM_CODE,
+  CUSTOM_CODE_VERSION_STATUS_DRAFT,
+  CUSTOM_CODE_VERSION_STATUS_PUBLISHED,
+  CUSTOM_CODE_VERSION_STATUS_ARCHIVED,
+  CUSTOM_CODE_VERSION_STATUSES,
+  CUSTOM_CODE_SCRIPT_NAME_PREFIX,
+  CUSTOM_CODE_SOURCE_KEY_PREFIX,
+  CUSTOM_CODE_MAX_TOOLS,
+  CUSTOM_CODE_TOOL_NAME_MAX,
+  CUSTOM_CODE_DEFAULT_TIMEOUT_MS,
+  CUSTOM_CODE_MAX_TIMEOUT_MS,
+  CUSTOM_CODE_MAX_RESPONSE_BYTES,
+  CUSTOM_CODE_MAX_BUNDLE_BYTES,
   RESERVED_SLUGS,
   MCP_INTERNAL_HEADER,
   MCP_CHANNEL_ID_HEADER,

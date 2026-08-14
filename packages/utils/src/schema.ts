@@ -807,6 +807,123 @@ const MCP_PROXY_CONFIG = z.object({
     .transform(n => Math.min(n, constants.MCP_PROXY_MAX_TIMEOUT_MS))
 });
 
+// Validates one artifact_tool.config of definition `custom-code`. Unlike the two
+// definitions above, this config describes almost nothing about the tools — the
+// names and schemas live on the ACTIVE VERSION (artifact_tool_version.tools),
+// written at publish time. Everything here is the row-level envelope: which
+// version is live, and the limits that apply to whatever code that version runs.
+//
+// `activeVersionId` is nullable on purpose: a freshly installed row has an
+// uploaded draft but nothing published, and the MCP boot loop must treat that as
+// "this artifact contributes zero tools" rather than as an error.
+const CUSTOM_CODE_CONFIG = z.object({
+  activeVersionId: z.uuid().nullable().default(null),
+  // Egress allow-list, enforced by the outbound worker (Phase 2) — never in the
+  // SDK, which is user-editable and therefore not a control.
+  allowedHosts: z
+    .array(z.string().min(1).max(253).toLowerCase())
+    .max(50)
+    .optional(),
+  // Providers the script may request via ctx.connection(). The broker refuses
+  // anything not listed here, so widening it is an explicit, auditable edit.
+  connections: z.array(z.string().min(1).max(100)).max(50).optional(),
+  timeoutMs: z
+    .number()
+    .int()
+    .positive()
+    .default(constants.CUSTOM_CODE_DEFAULT_TIMEOUT_MS)
+    .transform(n => Math.min(n, constants.CUSTOM_CODE_MAX_TIMEOUT_MS))
+});
+
+// One tool entry in an uploaded manifest. This is the CONTRACT half of a
+// version: what apps/mcp registers at boot without ever calling the dispatcher.
+// `outputSchema` is optional — MCP allows a tool to declare structured output,
+// and a version that omits it just returns text.
+const CUSTOM_CODE_TOOL = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(constants.CUSTOM_CODE_TOOL_NAME_MAX)
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Tool name may only contain letters, digits, underscore or hyphen'
+    )
+    .refine(name => !constants.RESOURCE_TOOL_KEYS.includes(name), {
+      // The channel runner intercepts the RAG core BY NAME (see runner.ts), so a
+      // custom tool that shadows one of those names would silently capture the
+      // interception rather than run.
+      message: 'This tool name is reserved by the platform'
+    }),
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional(),
+  inputSchema: SCHEMA_DEFINITION.default({ type: 'object', properties: {} }),
+  outputSchema: SCHEMA_DEFINITION.optional()
+});
+
+// The manifest a `ganju deploy` (or the dashboard) uploads alongside a bundle.
+// Names must be unique within one script: apps/mcp registers them into a single
+// flat namespace, and a duplicate would silently register once and drop the rest.
+const CUSTOM_CODE_MANIFEST = z.object({
+  tools: z
+    .array(CUSTOM_CODE_TOOL)
+    .min(1, 'A version must declare at least one tool')
+    .max(
+      constants.CUSTOM_CODE_MAX_TOOLS,
+      `A script may declare at most ${constants.CUSTOM_CODE_MAX_TOOLS} tools`
+    )
+    .refine(tools => new Set(tools.map(t => t.name)).size === tools.length, {
+      message: 'Tool names must be unique within a version'
+    })
+});
+
+// Creates a draft version. Carries the manifest — the tool names and schemas the
+// MCP server will register from once this version is published — and optionally
+// the row-level config, since limits on how the code may run belong to the same
+// review as the code itself. The compiled bundle arrives separately.
+const ARTIFACT_CUSTOM_CODE_CREATE_VERSION = z.object({
+  manifest: CUSTOM_CODE_MANIFEST,
+  config: CUSTOM_CODE_CONFIG.optional(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Attaches the compiled script to a draft. Separate from the create above for
+// the same reason resource upload is separate from resource create: the bundle
+// is a raw binary body while the manifest is JSON, and one request carries one
+// body. Only the identifiers are validated here — the bytes are the body.
+const ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE = z.object({
+  versionId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Makes a draft the artifact's active version.
+const ARTIFACT_CUSTOM_CODE_PUBLISH = z.object({
+  versionId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Makes a previously published (now archived) version active again. The same
+// state transition as publish with a different intent, kept apart so the two are
+// distinguishable in logs and in the UI.
+const ARTIFACT_CUSTOM_CODE_ROLLBACK = z.object({
+  versionId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Reads the artifact's version history and which one is currently active.
+const ARTIFACT_CUSTOM_CODE_LIST_VERSIONS = z.object({
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
 const ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE = z.object({
   resourceId: z.uuid(),
   showSource: z.enum(constants.CHANNEL_STATUS),
@@ -986,7 +1103,15 @@ export const Schema = {
   CHANNEL_LIST_MESSAGES,
   ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE,
   HTTP_ENDPOINT_CONFIG,
-  MCP_PROXY_CONFIG
+  MCP_PROXY_CONFIG,
+  CUSTOM_CODE_CONFIG,
+  CUSTOM_CODE_TOOL,
+  CUSTOM_CODE_MANIFEST,
+  ARTIFACT_CUSTOM_CODE_CREATE_VERSION,
+  ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE,
+  ARTIFACT_CUSTOM_CODE_PUBLISH,
+  ARTIFACT_CUSTOM_CODE_ROLLBACK,
+  ARTIFACT_CUSTOM_CODE_LIST_VERSIONS
 };
 
 // Fully-resolved http-endpoint config (post-parse, defaults applied).
@@ -994,6 +1119,19 @@ export type HttpEndpointToolConfig = z.infer<typeof HTTP_ENDPOINT_CONFIG>;
 
 // Fully-resolved mcp-proxy config (post-parse, defaults applied).
 export type McpProxyToolConfig = z.infer<typeof MCP_PROXY_CONFIG>;
+
+// Fully-resolved custom-code config (post-parse, defaults applied). Holds the
+// pointer to the active version plus the row-level limits — never the tools.
+export type CustomCodeToolConfig = z.infer<typeof CUSTOM_CODE_CONFIG>;
+
+// One tool a custom-code version declares. Persisted verbatim on
+// artifact_tool_version.tools, which is what the MCP boot loop reads — the same
+// configure-time-discovery trick mcp-proxy uses, except the source of truth is
+// the user's manifest rather than a remote server.
+export type CustomCodeToolManifest = z.infer<typeof CUSTOM_CODE_TOOL>;
+
+// The full manifest uploaded with a bundle.
+export type CustomCodeManifest = z.infer<typeof CUSTOM_CODE_MANIFEST>;
 
 // One remote tool discovered from a proxied MCP server. Stored on
 // artifact_tool.metadata.discovery at configure-time so the stateless MCP boot

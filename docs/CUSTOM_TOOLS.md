@@ -209,19 +209,38 @@ Ordered so that nothing user-visible is removed before its replacement exists.
 
 ### Phase 0 — Prerequisites
 
-- [ ] Enable Workers for Platforms on the account; create dispatch namespaces `ganju-tools-development` / `ganju-tools-production`
-- [ ] Confirm current WfP pricing (platform fee + per-script/month + per-request) → feeds [Pricing](#pricing-impact)
+- [x] **Workers for Platforms enabled** on the account (14 Aug), and both dispatch namespaces created:
+
+  | Namespace | Id |
+  |---|---|
+  | `ganju-tools-development` | `8a9bdfa9-2f90-49c6-b193-86f76d5a5683` |
+  | `ganju-tools-production` | `ce1faf54-defd-4051-be55-24d3a174520d` |
+
+  Worth knowing if this is ever done again: the entitlement takes a few minutes to reach the API. `wrangler` kept returning `10121 You do not have access to dispatch namespaces` well after the dashboard showed the product as Active — an empty `[]` from `wrangler dispatch-namespace list` is the signal it has landed. Creating both namespaces up front costs nothing: the $25/mo is a per-account platform fee and namespaces aren't a billed unit, so the charge starts with the first script deployed into one, drawing on an account-wide 1,000-script allowance.
+- [x] Confirm current WfP pricing → verified August 2026 in [PRICING.md](PRICING.md#part-1--what-things-actually-cost-us): $25/mo including 1,000 scripts, then $0.02 per script per month
 - [ ] Decide: managed-only connections for v1, or managed + BYO app from the start
 - [ ] Decide: is the LLM-generates-the-tool flow in v1, or CLI + templates only
 
-### Phase 1 — Data model + publish API (no runtime)
+### Phase 1 — Data model + publish API (no runtime) ✅
 
-- [ ] `artifact_tool_version` table + Drizzle relation in [schema.ts](../packages/db/src/lib/schema.ts); update [DATA_MODEL.md](DATA_MODEL.md)
-- [ ] `custom-code` constants in [constants.ts](../packages/utils/src/constants.ts): `TOOL_DEFINITION_KEY_CUSTOM_CODE`, `CREDENTIAL_PROVIDER_CUSTOM_CODE` (add to `PER_TOOL_CREDENTIAL_PROVIDERS`), limits
-- [ ] `CUSTOM_CODE_CONFIG` zod schema in [schema.ts](../packages/utils/src/schema.ts)
-- [ ] Seed `tool_group` + `tool_definition` rows for `custom-code`
-- [ ] API: `POST …/artifact/custom-code/version` (upload bundle → R2, validate manifest, create draft), `POST …/publish`, `POST …/rollback`, `GET …/versions`
-- [ ] Server-side manifest validation: tool-name charset/length, schema compilation, per-plan tool cap
+- [x] `artifact_tool_version` table + Drizzle relation in [schema.ts](../packages/db/src/lib/schema.ts) ([migration 0064](../packages/db/drizzle/0064_careless_hellfire_club.sql)); [DATA_MODEL.md](DATA_MODEL.md) updated
+- [x] `custom-code` constants in [constants.ts](../packages/utils/src/constants.ts): `TOOL_DEFINITION_KEY_CUSTOM_CODE`, `CREDENTIAL_PROVIDER_CUSTOM_CODE` (in `PER_TOOL_CREDENTIAL_PROVIDERS`), version statuses, script/source-key prefixes, and the limits (`CUSTOM_CODE_MAX_TOOLS = 50`, timeouts, `CUSTOM_CODE_MAX_BUNDLE_BYTES = 3 MB`)
+- [x] `CUSTOM_CODE_CONFIG` zod schema in [schema.ts](../packages/utils/src/schema.ts), plus `CUSTOM_CODE_MANIFEST` and the four request schemas
+- [x] Seed `tool_group` + `tool_definition` rows for `custom-code` — [scripts/seed-custom-code.mjs](../scripts/seed-custom-code.mjs), idempotent, run on dev
+- [x] API: `POST …/artifact/custom-code/version`, `PUT …/version/:versionId/bundle`, `POST …/version/:versionId/publish`, `POST …/version/:versionId/rollback`, `GET …/versions` — handlers in [artifact/index.ts](../apps/api/src/controllers/artifact/index.ts), helpers in [artifact/customCode.ts](../apps/api/src/controllers/artifact/customCode.ts)
+- [x] Server-side manifest validation: tool-name charset/length, reserved-name check against `RESOURCE_TOOL_KEYS`, uniqueness, schema compilation via `jsonSchemaToZodShape`, per-plan tool cap
+
+Three things came out differently from the sketch above, all in [customCode.ts](../apps/api/src/controllers/artifact/customCode.ts):
+
+- **Bundle upload is its own endpoint.** One request carries one body, and the manifest is JSON while the bundle is binary — the same reason resource upload is split from resource create. Creating a version first also means a failed upload leaves a visible draft rather than nothing.
+- **The `artifact_tool` row is created on first use.** `ganju deploy` (Phase 7) is a thin client of these endpoints and has to work against a fresh artifact; the card that would otherwise install the row is Phase 6. The quota check and counter bump mirror `createTool`, so an install still costs a tool slot.
+- **`activeVersionId` is never accepted from a request.** Publish and rollback own it, because they're what check that a version belongs to this tool and actually has a bundle. A config edit through the generic tool route has its value overwritten with what's already stored.
+
+Also fixed while here: removing a custom-code tool now deletes its `provider = 'custom-code'` credentials. The generic cleanup in `removeTool` follows `config.auth.credentialId`, which custom-code secrets don't use — they're looked up by label from inside the script — so they would otherwise have been orphaned.
+
+**Verified end to end** against the dev database with a real session: create → upload → publish → second version → rollback, plus the guards (no bundle, wrong version state, unknown/foreign version id, reserved and duplicate tool names, uncompilable schema, over-cap manifest, over-quota plan, no session). Test rows were removed afterwards.
+
+One thing that surfaced and is worth knowing when adding endpoints here: `handleError` derives the response status from **keywords in the thrown message** ([errorHandler.ts](../packages/db/src/utils/errorHandler.ts)) — `not found` → 404, `already` → 409, `invalid`/`required`/`must be`/`exceeds` → 400. A message matching none of them becomes an opaque 500, which is what three of these guards did on the first run. They're worded to land on the right status now.
 
 ### Phase 2 — Runtime
 

@@ -1,8 +1,21 @@
 import { Context } from 'hono';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
+import {
+  resolveCustomCodeTool,
+  resolveCustomCodeToolReadOnly,
+  readCustomCodeConfig,
+  validateCustomCodeConfig,
+  validateCustomCodeManifest,
+  nextVersionNumber,
+  loadVersionForTool,
+  bundleSourceKey,
+  hashBundle,
+  activateVersion,
+  deleteCustomCodeSecrets
+} from './customCode';
 import {
   enqueueIndex,
   enqueueCrawlDiscover,
@@ -1091,7 +1104,9 @@ const createTool = async (c: Context<AppEnv>) => {
       ? proxyData.config
       : toolDef.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
         ? validateHttpEndpointConfig(currentValues.config)
-        : currentValues.config || null;
+        : toolDef.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+          ? validateCustomCodeConfig(currentValues.config, null)
+          : currentValues.config || null;
 
     Plan.assertToolQuota(
       await Plan.getEffectivePlan(tx, currentValues.organizationId),
@@ -1217,7 +1232,10 @@ const updateTool = async (c: Context<AppEnv>) => {
     // normalized server-side (same reasoning as createTool). mcp-proxy was
     // resolved + re-discovered above.
     const [existing] = await tx
-      .select({ key: db.schema.toolDefinition.key })
+      .select({
+        key: db.schema.toolDefinition.key,
+        config: db.schema.artifactTool.config
+      })
       .from(db.schema.artifactTool)
       .innerJoin(
         db.schema.toolDefinition,
@@ -1239,7 +1257,12 @@ const updateTool = async (c: Context<AppEnv>) => {
       ? proxyData.config
       : existing.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
         ? validateHttpEndpointConfig(currentValues.config)
-        : currentValues.config || null;
+        : existing.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+          ? validateCustomCodeConfig(
+              currentValues.config,
+              readCustomCodeConfig(existing).activeVersionId ?? null
+            )
+          : currentValues.config || null;
 
     const artifactTool = await tx
       .update(db.schema.artifactTool)
@@ -1521,6 +1544,252 @@ const startMcpProxyOauth = async (c: Context<AppEnv>) => {
   return c.json({ url });
 };
 
+const createCustomCodeVersion = async (c: Context<AppEnv>) => {
+  const body = await c.req.json();
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_CREATE_VERSION.parseAsync({
+      ...body,
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const dbInstance = db.create(c);
+
+  const result = await dbInstance.transaction(async tx => {
+    const { tool } = await resolveCustomCodeTool(
+      tx,
+      currentValues.organizationId,
+      currentValues.projectId
+    );
+
+    const { limits } = await Plan.getEffectivePlan(
+      tx,
+      currentValues.organizationId
+    );
+    validateCustomCodeManifest(currentValues.manifest, limits);
+
+    // Config edits (allowedHosts, connections, timeoutMs) ride along with a new
+    // version rather than getting their own endpoint — they describe how the
+    // uploaded code is allowed to run, so they belong to the same review as the
+    // code. activeVersionId is never taken from the client; only publish and
+    // rollback move it.
+    if (currentValues.config) {
+      await tx
+        .update(db.schema.artifactTool)
+        .set({
+          config: {
+            ...currentValues.config,
+            activeVersionId: readCustomCodeConfig(tool).activeVersionId ?? null
+          }
+        })
+        .where(eq(db.schema.artifactTool.id, tool.id));
+    }
+
+    const [version] = await tx
+      .insert(db.schema.artifactToolVersion)
+      .values({
+        artifactToolId: tool.id,
+        version: await nextVersionNumber(tx, tool.id),
+        status: utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT,
+        tools: currentValues.manifest.tools,
+        createdByUserId: currentValues.userId
+      })
+      .returning();
+
+    return version;
+  });
+
+  return c.json(result);
+};
+
+const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE.parseAsync({
+      versionId: c.req.param('versionId'),
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const contentLengthHeader = c.req.header('content-length');
+  if (!contentLengthHeader) {
+    throw new Error('content-length header is required');
+  }
+
+  const declaredSize = Number.parseInt(contentLengthHeader, 10);
+  if (!Number.isFinite(declaredSize) || declaredSize <= 0) {
+    throw new Error('Invalid content-length');
+  }
+
+  const bundleLimitMb =
+    utils.constants.CUSTOM_CODE_MAX_BUNDLE_BYTES / (1024 * 1024);
+  if (declaredSize > utils.constants.CUSTOM_CODE_MAX_BUNDLE_BYTES) {
+    throw new Error(`Bundle exceeds the ${bundleLimitMb}MB limit`);
+  }
+
+  // Buffered rather than streamed (unlike uploadResourceFile) because the hash
+  // has to cover exactly the bytes stored, and the cap above keeps this small.
+  // content-length is a claim, so the real length is re-checked here.
+  const bundle = await c.req.arrayBuffer();
+  if (bundle.byteLength === 0) {
+    throw new Error('Request body is required');
+  }
+  if (bundle.byteLength > utils.constants.CUSTOM_CODE_MAX_BUNDLE_BYTES) {
+    throw new Error(`Bundle exceeds the ${bundleLimitMb}MB limit`);
+  }
+
+  const sourceHash = await hashBundle(bundle);
+  const dbInstance = db.create(c);
+  const bucket = c.env.STORAGE_BUCKET;
+
+  const result = await dbInstance.transaction(async tx => {
+    const { artifact, tool } = await resolveCustomCodeTool(
+      tx,
+      currentValues.organizationId,
+      currentValues.projectId
+    );
+
+    const version = await loadVersionForTool(
+      tx,
+      tool.id,
+      currentValues.versionId
+    );
+
+    // A published version is what the MCP server is serving right now; swapping
+    // its bundle would change behaviour with no version history and nothing to
+    // roll back to. Upload a new draft instead.
+    if (version.status !== utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT) {
+      throw new Error(
+        'A bundle must be uploaded to a draft; this version is already published. Create a new version instead.'
+      );
+    }
+
+    const key = bundleSourceKey(
+      currentValues.organizationId,
+      currentValues.projectId,
+      artifact.id,
+      version.version
+    );
+
+    if (bucket) {
+      await bucket.put(key, bundle, {
+        httpMetadata: { contentType: 'application/javascript' }
+      });
+    }
+
+    const [updated] = await tx
+      .update(db.schema.artifactToolVersion)
+      .set({ sourceKey: key, sourceHash, error: null })
+      .where(eq(db.schema.artifactToolVersion.id, version.id))
+      .returning();
+
+    return updated;
+  });
+
+  return c.json(result);
+};
+
+// Publish and rollback share one state transition and differ only in which
+// versions they accept: publish promotes anything with a bundle, rollback
+// requires a version that has been live before. They stay separate endpoints so
+// the intent is legible in logs and in the UI.
+const activateCustomCodeVersion = async (
+  c: Context<AppEnv>,
+  requirePreviouslyPublished: boolean
+) => {
+  const schema = requirePreviouslyPublished
+    ? utils.Schema.ARTIFACT_CUSTOM_CODE_ROLLBACK
+    : utils.Schema.ARTIFACT_CUSTOM_CODE_PUBLISH;
+
+  const currentValues = await schema.parseAsync({
+    versionId: c.req.param('versionId'),
+    projectId: c.req.param('projectId'),
+    userId: c.get('user').id,
+    organizationId: c.req.param('organizationId')
+  });
+
+  const dbInstance = db.create(c);
+
+  const result = await dbInstance.transaction(async tx => {
+    const { tool } = await resolveCustomCodeTool(
+      tx,
+      currentValues.organizationId,
+      currentValues.projectId
+    );
+
+    const version = await loadVersionForTool(
+      tx,
+      tool.id,
+      currentValues.versionId
+    );
+
+    // Activating a version with no bundle would advertise its tools to every
+    // MCP client while there is nothing to dispatch to.
+    if (!version.sourceKey) {
+      throw new Error(
+        'A bundle is required before this version can be published.'
+      );
+    }
+
+    if (requirePreviouslyPublished && !version.publishedAt) {
+      throw new Error(
+        'A previously published version is required to roll back; this one is still a draft, so publish it instead.'
+      );
+    }
+
+    // Phase 2 inserts the deploy here: upload the bundle to the dispatch
+    // namespace as `artifact_<artifactId>`, smoke-test it, record the returned
+    // scriptTag, and only then flip the pointer below. Until that runtime
+    // exists, activating a version moves database state only — which is enough
+    // for the boot contract, since the MCP server reads the pointer and the
+    // version's tools, never the dispatcher.
+    return activateVersion(tx, tool, version);
+  });
+
+  return c.json(result);
+};
+
+const publishCustomCodeVersion = (c: Context<AppEnv>) =>
+  activateCustomCodeVersion(c, false);
+
+const rollbackCustomCodeVersion = (c: Context<AppEnv>) =>
+  activateCustomCodeVersion(c, true);
+
+const listCustomCodeVersions = async (c: Context<AppEnv>) => {
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_LIST_VERSIONS.parseAsync({
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const dbInstance = db.create(c);
+
+  // Read-only, so this doesn't install the tool row the way the write paths do:
+  // an artifact with no custom code has no versions, which is not an error.
+  const { tool } = await resolveCustomCodeToolReadOnly(
+    dbInstance,
+    currentValues.organizationId,
+    currentValues.projectId
+  );
+
+  if (!tool) {
+    return c.json({ activeVersionId: null, versions: [] });
+  }
+
+  const versions = await dbInstance
+    .select()
+    .from(db.schema.artifactToolVersion)
+    .where(eq(db.schema.artifactToolVersion.artifactToolId, tool.id))
+    .orderBy(desc(db.schema.artifactToolVersion.version));
+
+  return c.json({
+    activeVersionId: readCustomCodeConfig(tool).activeVersionId ?? null,
+    versions
+  });
+};
+
 const listTools = async (c: Context<AppEnv>) => {
   const currentValues = await utils.Schema.ARTIFACT_GET_TOOL.parseAsync({
     projectId: c.req.param('projectId'),
@@ -1667,6 +1936,32 @@ const removeTool = async (c: Context<AppEnv>) => {
             })
             .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
         }
+      }
+    }
+
+    // custom-code secrets are addressed by label from inside the script rather
+    // than by id from config, so the credentialId path above never sees them.
+    // Its versions go with the row via the FK cascade; the secrets need this.
+    const [removedDefinition] = await tx
+      .select({ key: db.schema.toolDefinition.key })
+      .from(db.schema.toolDefinition)
+      .where(eq(db.schema.toolDefinition.id, deleteTool[0].toolDefinitionId))
+      .limit(1);
+
+    if (
+      removedDefinition?.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+    ) {
+      const removedSecrets = await deleteCustomCodeSecrets(
+        tx,
+        currentArtifactByProject.id
+      );
+      if (removedSecrets > 0) {
+        await tx
+          .update(db.schema.artifact)
+          .set({
+            artifactCredentialCount: sql`greatest((${db.schema.artifact.artifactCredentialCount}::int - ${removedSecrets}), 0)::int`
+          })
+          .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
       }
     }
 
@@ -2248,6 +2543,11 @@ export const ArtifactController = {
   listTools,
   previewMcpProxy,
   startMcpProxyOauth,
+  createCustomCodeVersion,
+  uploadCustomCodeBundle,
+  publishCustomCodeVersion,
+  rollbackCustomCodeVersion,
+  listCustomCodeVersions,
   removeCredential,
   listCredentials,
   createCredential,

@@ -925,6 +925,54 @@ export const artifactTool = pgTable(
   ]
 );
 
+export const artifactToolVersion = pgTable(
+  'artifact_tool_version',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    artifactToolId: text('artifact_tool_id')
+      .notNull()
+      .references(() => artifactTool.id, { onDelete: 'cascade' }),
+    // Monotonic per artifact_tool, allocated server-side. Surfaced to the user
+    // as "v3" in the version list, so it must not be reused after a delete.
+    version: integer('version').notNull(),
+    status: text('status')
+      .notNull()
+      .default(utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT),
+    // Workers for Platforms script version tag, filled by the Phase 2 publish
+    // pipeline. Null while the runtime doesn't exist yet.
+    scriptTag: text('script_tag'),
+    // The manifest: [{ name, title, description, inputSchema, outputSchema? }].
+    // Validated against Schema.CUSTOM_CODE_MANIFEST before it is written.
+    tools: json('tools').notNull(),
+    // R2 key of the uploaded bundle, and its hash for dedupe/integrity. A
+    // rollback re-deploys from exactly this object.
+    sourceKey: text('source_key'),
+    sourceHash: text('source_hash'),
+    // Last publish/validation failure, surfaced in the dashboard rather than
+    // only in logs — a version that failed to deploy is the thing a user most
+    // needs to see.
+    error: text('error'),
+    publishedAt: timestamp('published_at', { mode: 'date' }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null'
+    }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    uniqueIndex('artifact_tool_version_tool_version_idx').on(
+      table.artifactToolId,
+      table.version
+    ),
+    index('artifact_tool_version_tool_idx').on(table.artifactToolId)
+  ]
+);
+
 export const artifactCredential = pgTable('artifact_credential', {
   id: text('id')
     .primaryKey()
@@ -1334,20 +1382,38 @@ export const toolDefinitionRelations = relations(
   })
 );
 
-export const artifactToolRelations = relations(artifactTool, ({ one }) => ({
-  artifact: one(artifact, {
-    fields: [artifactTool.artifactId],
-    references: [artifact.id]
-  }),
-  toolDefinition: one(toolDefinition, {
-    fields: [artifactTool.toolDefinitionId],
-    references: [toolDefinition.id]
-  }),
-  mcpServerCatalog: one(mcpServerCatalog, {
-    fields: [artifactTool.mcpServerCatalogId],
-    references: [mcpServerCatalog.id]
+export const artifactToolRelations = relations(
+  artifactTool,
+  ({ one, many }) => ({
+    artifact: one(artifact, {
+      fields: [artifactTool.artifactId],
+      references: [artifact.id]
+    }),
+    toolDefinition: one(toolDefinition, {
+      fields: [artifactTool.toolDefinitionId],
+      references: [toolDefinition.id]
+    }),
+    mcpServerCatalog: one(mcpServerCatalog, {
+      fields: [artifactTool.mcpServerCatalogId],
+      references: [mcpServerCatalog.id]
+    }),
+    versions: many(artifactToolVersion)
   })
-}));
+);
+
+export const artifactToolVersionRelations = relations(
+  artifactToolVersion,
+  ({ one }) => ({
+    artifactTool: one(artifactTool, {
+      fields: [artifactToolVersion.artifactToolId],
+      references: [artifactTool.id]
+    }),
+    createdBy: one(user, {
+      fields: [artifactToolVersion.createdByUserId],
+      references: [user.id]
+    })
+  })
+);
 
 export const mcpServerCatalogRelations = relations(
   mcpServerCatalog,

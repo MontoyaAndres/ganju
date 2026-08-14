@@ -2,6 +2,7 @@
 28/05/2026 - 5 USD Cloudflare
 28/06/2026 - 5 USD Cloudflare
 28/07/2026 - 5 USD Cloudflare
+15/08/2026 - 12.10 USD Cloudflare
 
 Paid tools:
 

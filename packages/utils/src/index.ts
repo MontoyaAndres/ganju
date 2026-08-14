@@ -5,7 +5,10 @@ import type {
   McpProxyDiscoveredTool,
   McpProxyDiscoveredResource,
   McpProxyDiscoveredPrompt,
-  McpProxyDiscovery
+  McpProxyDiscovery,
+  CustomCodeToolConfig,
+  CustomCodeToolManifest,
+  CustomCodeManifest
 } from './schema';
 import { getEnv } from './getEnv';
 import type { EnvSource } from './getEnv';
@@ -291,6 +294,9 @@ export type {
   McpProxyDiscoveredResource,
   McpProxyDiscoveredPrompt,
   McpProxyDiscovery,
+  CustomCodeToolConfig,
+  CustomCodeToolManifest,
+  CustomCodeManifest,
   PlanLimitDetails,
   PlanLimits
 };

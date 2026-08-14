@@ -449,6 +449,13 @@
       "when": 1786660877633,
       "tag": "0063_reflective_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1786740235929,
+      "tag": "0064_careless_hellfire_club",
+      "breakpoints": true
     }
   ]
 }

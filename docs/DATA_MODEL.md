@@ -27,8 +27,9 @@ The **artifact** is the unit that becomes an MCP server (one per project, addres
 artifact (slug, projectId, …counters)
  ├── artifactPrompt        title, messages[], optional input schema
  ├── artifactResource      a file / website / drive item (see Resources)
- │    └── artifactResourceChunk   embedded text chunk (halfvec[3072], HNSW cosine index)
+ │    └── artifactResourceChunk   embedded text chunk (halfvec[1536], HNSW cosine index)
  ├── artifactTool          an installed tool instance (→ toolDefinition, optional → mcpServerCatalog)
+ │    └── artifactToolVersion     a custom-code release (script + tool manifest)
  ├── artifactCredential    encrypted secret (OAuth tokens / API keys / per-tool secrets)
  ├── channel               a chat-platform bot binding (see Channels)
  ├── mcpSession            an MCP client session (+ mcpRequest per request)
@@ -39,7 +40,7 @@ artifact (slug, projectId, …counters)
 
 `artifactResource` carries `type` (`static` | `template`), `sourceType` (`FILE` | `WEBSITE` | `GOOGLE_DRIVE_FOLDER` | `ONE_DRIVE_FOLDER`), `status` (`PENDING`/`COMPLETED`/`FAILED`), mime type, and either inline `content`, an R2 `fileKey`, or a crawl/sync config. Folders and crawls are hierarchical via `parentResourceId` (self-reference) with a `childResourceCount`.
 
-Embeddable resources are chunked into `artifactResourceChunk` rows, each holding the chunk text and a 3072-dimension `halfvec` embedding indexed with HNSW cosine — this backs the `search-resources` tool.
+Embeddable resources are chunked into `artifactResourceChunk` rows, each holding the chunk text and a 1536-dimension `halfvec` embedding indexed with HNSW cosine — this backs the `search-resources` tool.
 
 ### Tools catalog
 
@@ -54,7 +55,18 @@ mcpServerCatalog (slug, url, authKind, verified)   curated remote MCP servers
  └── artifactTool.mcpServerCatalogId               an mcp-proxy install links here
 ```
 
-Two special definitions (`http-endpoint`, `mcp-proxy`) produce **many** MCP tools from one definition — their per-install `config` describes the actual tools. Full mechanics: [apps/mcp/src/tools/README.md](../apps/mcp/src/tools/README.md).
+Three special definitions (`http-endpoint`, `mcp-proxy`, `custom-code`) produce **many** MCP tools from one definition — their per-install `config` describes the actual tools. Full mechanics: [apps/mcp/src/tools/README.md](../apps/mcp/src/tools/README.md).
+
+### Custom-code versions
+
+`custom-code` is the one definition whose behaviour is user code rather than user configuration, so its tool list is versioned rather than living on the install row:
+
+```
+artifactTool (definition "custom-code", config.activeVersionId)
+ └── artifactToolVersion (version, status, tools[], sourceKey, sourceHash, scriptTag)
+```
+
+One row per release holds **both halves** — the deployed script and the manifest the MCP server registers from — so publish and rollback move code and schemas together. `config.activeVersionId` names the single `published` version; the MCP boot loop reads that version's `tools` and never calls the dispatcher, so a slow or failed deploy can't break `tools/list`. `status` is `draft` | `published` | `archived`, `version` is monotonic per tool (unique with `artifactToolId`), and `sourceKey` points at the bundle in R2.
 
 ### Channels (chat bots)
 
@@ -83,4 +95,4 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
 - **Timestamps** — most tables have `createdAt` / `updatedAt` (auto-updated); append-only audit tables have only `createdAt`.
 - **Counters** on `artifact` / `organization` / `project` are maintained in application code — keep them in sync when you add a create/delete path.
 - **Enums** are plain text columns validated against constant arrays in [`packages/utils/src/constants.ts`](../packages/utils/src/constants.ts) (e.g. `STATUS_*`, `CHANNEL_PLATFORMS`, `LLM_PROVIDERS`).
-- **Seeded data** — `toolGroup`, `toolDefinition`, and `mcpServerCatalog` rows are inserted out of band, not created through the app UI.
+- **Seeded data** — `toolGroup`, `toolDefinition`, and `mcpServerCatalog` rows are inserted out of band, not created through the app UI. The `custom-code` pair has a script: `node scripts/seed-custom-code.mjs [--prod]`.
