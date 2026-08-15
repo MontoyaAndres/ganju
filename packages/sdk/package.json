@@ -1,18 +1,14 @@
 {
-  "name": "@ganju/utils",
+  "name": "@ganju/sdk",
   "version": "0.0.1",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
-    },
-    "./constants": {
-      "types": "./dist/constants.d.ts",
-      "import": "./dist/constants.js",
-      "require": "./dist/constants.js"
     }
   },
   "scripts": {
@@ -20,11 +16,10 @@
     "clean": "rm -rf dist && rm -rf node_modules"
   },
   "dependencies": {
-    "@noble/ciphers": "^2.2.0",
-    "dayjs": "^1.11.21",
-    "zod": "^4.4.3"
+    "@ganju/utils": "*"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260611.1",
     "@ganju/tsconfig": "*",
     "typescript": "^6.0.3"
   }

@@ -28,6 +28,9 @@ import {
   readStoredMcpOauth,
   syncTelegramCommandsForArtifact,
   syncDiscordCommandsForArtifact,
+  deployCustomCodeScript,
+  smokeTestCustomCodeScript,
+  deleteCustomCodeScript,
   Plan
 } from '../../utils';
 
@@ -1711,41 +1714,85 @@ const activateCustomCodeVersion = async (
 
   const dbInstance = db.create(c);
 
-  const result = await dbInstance.transaction(async tx => {
-    const { tool } = await resolveCustomCodeTool(
-      tx,
-      currentValues.organizationId,
-      currentValues.projectId
+  // Read, deploy, then commit — in three steps rather than one transaction,
+  // because the deploy is a multi-second round trip to Cloudflare and a
+  // transaction held open across it would pin a Hyperdrive connection for the
+  // duration. The ordering is what matters for correctness: `activeVersionId`
+  // moves only after the script is live and has answered a health check, so
+  // there is never a window where MCP clients are offered tools that nothing can
+  // serve.
+  const { artifact, tool } = await resolveCustomCodeToolReadOnly(
+    dbInstance,
+    currentValues.organizationId,
+    currentValues.projectId
+  );
+
+  if (!tool) {
+    throw new Error('No custom code is installed on this artifact.');
+  }
+
+  const version = await loadVersionForTool(
+    dbInstance,
+    tool.id,
+    currentValues.versionId
+  );
+
+  // Activating a version with no bundle would advertise its tools to every
+  // MCP client while there is nothing to dispatch to.
+  if (!version.sourceKey) {
+    throw new Error(
+      'A bundle is required before this version can be published.'
     );
+  }
 
-    const version = await loadVersionForTool(
-      tx,
-      tool.id,
-      currentValues.versionId
+  if (requirePreviouslyPublished && !version.publishedAt) {
+    throw new Error(
+      'A previously published version is required to roll back; this one is still a draft, so publish it instead.'
     );
+  }
 
-    // Activating a version with no bundle would advertise its tools to every
-    // MCP client while there is nothing to dispatch to.
-    if (!version.sourceKey) {
-      throw new Error(
-        'A bundle is required before this version can be published.'
-      );
-    }
+  const bucket = c.env.STORAGE_BUCKET;
+  const object = bucket ? await bucket.get(version.sourceKey) : null;
+  if (!object) {
+    throw new Error(
+      'The bundle for this version is no longer in storage, so it cannot be published. Upload it again.'
+    );
+  }
 
-    if (requirePreviouslyPublished && !version.publishedAt) {
-      throw new Error(
-        'A previously published version is required to roll back; this one is still a draft, so publish it instead.'
-      );
-    }
+  // Every failure from here on is recorded on the version before it is
+  // rethrown. `error` is the column the dashboard reads, and a publish that
+  // fails with nothing written there is a version the user can only debug from
+  // our logs.
+  let deployed;
+  try {
+    deployed = await deployCustomCodeScript(c, {
+      artifactId: artifact.id,
+      versionId: version.id,
+      bundle: await object.arrayBuffer()
+    });
 
-    // Phase 2 inserts the deploy here: upload the bundle to the dispatch
-    // namespace as `artifact_<artifactId>`, smoke-test it, record the returned
-    // scriptTag, and only then flip the pointer below. Until that runtime
-    // exists, activating a version moves database state only — which is enough
-    // for the boot contract, since the MCP server reads the pointer and the
-    // version's tools, never the dispatcher.
-    return activateVersion(tx, tool, version);
-  });
+    await smokeTestCustomCodeScript(c, {
+      artifactId: artifact.id,
+      declaredTools: (version.tools as Array<{ name: string }>).map(
+        entry => entry.name
+      ),
+      allowedHosts: readCustomCodeConfig(tool).allowedHosts ?? []
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await dbInstance
+      .update(db.schema.artifactToolVersion)
+      .set({ error: message })
+      .where(eq(db.schema.artifactToolVersion.id, version.id));
+    throw error;
+  }
+
+  const result = await dbInstance.transaction(async tx =>
+    activateVersion(tx, tool, {
+      ...version,
+      scriptTag: deployed.scriptTag
+    })
+  );
 
   return c.json(result);
 };
@@ -1831,7 +1878,7 @@ const removeTool = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
 
-  const { artifactId, wasProxy } = await dbInstance.transaction(async tx => {
+  const removal = await dbInstance.transaction(async tx => {
     const [project] = await tx
       .select()
       .from(db.schema.project)
@@ -1969,9 +2016,31 @@ const removeTool = async (c: Context<AppEnv>) => {
     // this a proxy?" flag — used to decide whether proxied prompts changed.
     return {
       artifactId: currentArtifactByProject.id,
-      wasProxy: deleteTool[0].mcpServerCatalogId != null
+      wasProxy: deleteTool[0].mcpServerCatalogId != null,
+      wasCustomCode:
+        removedDefinition?.key ===
+        utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
     };
   });
+
+  // The deployed script outlives the row unless it is deleted explicitly — the
+  // dispatch namespace knows nothing about our database. Done after the
+  // transaction commits (a network call has no business inside one) and
+  // best-effort: the row is already gone, so failing the request here would
+  // leave the user unable to retry, with nothing left to retry against. An
+  // orphaned script is inert — nothing dispatches to it — and costs $0.02/mo.
+  const { artifactId, wasProxy, wasCustomCode } = removal;
+
+  if (wasCustomCode) {
+    try {
+      await deleteCustomCodeScript(c, artifactId);
+    } catch (error) {
+      console.error(
+        `Failed to remove the deployed custom-code script for artifact ${artifactId}`,
+        error
+      );
+    }
+  }
 
   // Removing an mcp-proxy install drops its proxied prompts; refresh the menu.
   if (wasProxy) {

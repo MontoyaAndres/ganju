@@ -70,6 +70,7 @@ import { webSearch, webExtract } from './web';
 import { listPrompts } from './prompts';
 import { httpEndpoint } from './httpEndpoint';
 import { mcpProxy } from './mcpProxy';
+import { customCode } from './customCode';
 
 // types
 import { ToolDefinition } from './types';
@@ -135,5 +136,6 @@ export const toolRegistry = new Map<string, ToolDefinition>([
   ['web-search', webSearch],
   ['web-extract', webExtract],
   ['http-endpoint', httpEndpoint],
-  ['mcp-proxy', mcpProxy]
+  ['mcp-proxy', mcpProxy],
+  ['custom-code', customCode]
 ]);

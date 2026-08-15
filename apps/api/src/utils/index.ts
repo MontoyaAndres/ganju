@@ -53,6 +53,11 @@ import { validateTavilyApiKey } from './tavily';
 import { discoverRemoteMcpTools } from './remoteMcpClient';
 import { refreshArtifactCredential } from './refreshArtifactCredential';
 import {
+  deployCustomCodeScript,
+  smokeTestCustomCodeScript,
+  deleteCustomCodeScript
+} from './customCodeDeploy';
+import {
   beginMcpProxyOauth,
   completeMcpProxyOauth,
   resolveMcpProxyOauthSecret,
@@ -136,6 +141,9 @@ export {
   validateTavilyApiKey,
   discoverRemoteMcpTools,
   refreshArtifactCredential,
+  deployCustomCodeScript,
+  smokeTestCustomCodeScript,
+  deleteCustomCodeScript,
   beginMcpProxyOauth,
   completeMcpProxyOauth,
   resolveMcpProxyOauthSecret,

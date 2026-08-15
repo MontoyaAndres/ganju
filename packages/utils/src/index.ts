@@ -90,6 +90,14 @@ import { toStringArray } from './coerce';
 import { validateMessageVariables } from './validateMessageVariables';
 import { JsonSchema, jsonSchemaToZodShape } from './jsonSchemaToZodShape';
 import { buildProxyToolName } from './mcpProxy';
+import {
+  mintCustomCodeToken,
+  verifyCustomCodeToken,
+  customCodeScriptName
+} from './customCodeToken';
+import type { CustomCodeTokenPayload } from './customCodeToken';
+import { oauthProviders } from './oauthProviders';
+import type { OAuthProviderConfig } from './oauthProviders';
 import { ipv4InPrivateRange, isBlockedHost } from './ssrf';
 import { formatRelative } from './formatRelative';
 import { formatRelativeTime } from './formatRelativeTime';
@@ -198,6 +206,10 @@ export const utils = {
   toStringArray,
   jsonSchemaToZodShape,
   buildProxyToolName,
+  mintCustomCodeToken,
+  verifyCustomCodeToken,
+  customCodeScriptName,
+  oauthProviders,
   ipv4InPrivateRange,
   isBlockedHost,
   validateMessageVariables,
@@ -297,6 +309,8 @@ export type {
   CustomCodeToolConfig,
   CustomCodeToolManifest,
   CustomCodeManifest,
+  CustomCodeTokenPayload,
+  OAuthProviderConfig,
   PlanLimitDetails,
   PlanLimits
 };

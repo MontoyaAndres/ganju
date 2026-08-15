@@ -6,7 +6,7 @@ import {
 import { StreamableHTTPTransport } from '@hono/mcp';
 import { JsonSchema, utils } from '@ganju/utils';
 import { db } from '@ganju/db';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import {
   toolRegistry,
@@ -17,6 +17,9 @@ import {
   executeMcpProxyCall,
   executeMcpProxyResourceRead,
   executeMcpProxyPromptGet,
+  parseCustomCodeConfig,
+  parseCustomCodeTools,
+  executeCustomCodeCall,
   type PromptInventoryItem
 } from '../../tools';
 import {
@@ -363,6 +366,37 @@ const business = async (c: Context<AppEnv>) => {
   // prompt names already claimed (native first, then earlier proxy installs) so a
   // duplicate is skipped instead of throwing and aborting the whole boot.
   const registeredResourceUris = new Set(exposedResources.map(r => r.uri));
+
+  // custom-code registers from the ACTIVE VERSION's manifest, which lives in its
+  // own table rather than on the install row. Fetched here, in one query for
+  // every custom-code row on the artifact, so boot costs a single extra round
+  // trip no matter how many tools the versions declare.
+  //
+  // This query is the whole boot contract: names, descriptions and schemas come
+  // from Postgres and the dispatcher is not called until an actual tools/call.
+  // A script that is slow, broken, or not deployed at all still lists correctly.
+  const activeVersionIds = artifact.artifactTools
+    .filter(
+      t =>
+        t.toolDefinition?.key ===
+        utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+    )
+    .map(t => parseCustomCodeConfig(t.config)?.activeVersionId)
+    .filter((id): id is string => !!id);
+
+  const versionToolsById = new Map<string, unknown>();
+  if (activeVersionIds.length > 0) {
+    const versions = await dbInstance
+      .select({
+        id: db.schema.artifactToolVersion.id,
+        tools: db.schema.artifactToolVersion.tools
+      })
+      .from(db.schema.artifactToolVersion)
+      .where(inArray(db.schema.artifactToolVersion.id, activeVersionIds));
+    for (const version of versions) {
+      versionToolsById.set(version.id, version.tools);
+    }
+  }
 
   for (const artifactTool of artifact.artifactTools) {
     const toolDef = artifactTool.toolDefinition;
@@ -718,6 +752,136 @@ const business = async (c: Context<AppEnv>) => {
       continue;
     }
 
+    // `custom-code` is the third proxied definition, and the only one whose
+    // behaviour is user code: one row per artifact, one script in the dispatch
+    // namespace, and one named tool per entry in the active version's manifest.
+    if (toolDef.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
+      const codeConfig = parseCustomCodeConfig(artifactTool.config);
+      // No published version yet is the ordinary state of a freshly installed
+      // tool, not an error — the artifact simply contributes no tools.
+      if (!codeConfig?.activeVersionId) continue;
+      const versionTools = versionToolsById.get(codeConfig.activeVersionId);
+      if (!versionTools) continue;
+
+      for (const entry of parseCustomCodeTools(versionTools)) {
+        if (registeredToolNames.has(entry.name)) continue;
+
+        // Schemas were compiled once at upload time, so a failure here means the
+        // row changed underneath us. Skip-and-log rather than abort, the same
+        // way a malformed proxied schema is handled.
+        let inputSchema;
+        let outputSchema;
+        try {
+          inputSchema = utils.jsonSchemaToZodShape(
+            (entry.inputSchema as JsonSchema) ?? {
+              type: 'object',
+              properties: {}
+            }
+          );
+          outputSchema = entry.outputSchema
+            ? utils.jsonSchemaToZodShape(entry.outputSchema as JsonSchema)
+            : undefined;
+        } catch (error) {
+          console.error(
+            `Skipping custom tool "${entry.name}" — invalid schema`,
+            error
+          );
+          continue;
+        }
+
+        try {
+          mcpServer.registerTool(
+            entry.name,
+            {
+              title: entry.title || entry.name,
+              description: entry.description || entry.name,
+              inputSchema,
+              ...(outputSchema ? { outputSchema } : {})
+            },
+            async args => {
+              const startedAt = Date.now();
+              const allowed = await allowProxyToolCall(c.env, artifactTool.id);
+              if (!allowed) {
+                const result = {
+                  content: [
+                    {
+                      type: 'text' as const,
+                      text: `Error: rate limit exceeded for "${entry.name}". Wait a moment before calling it again.`
+                    }
+                  ],
+                  isError: true
+                };
+                pendingRequests.push({
+                  method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
+                  toolName: entry.name,
+                  artifactToolId: artifactTool.id,
+                  input: args,
+                  output: result,
+                  latencyMs: Date.now() - startedAt,
+                  errorMessage: 'rate limit exceeded'
+                });
+                return result;
+              }
+
+              const { result, logs } = await executeCustomCodeCall(
+                c.env.DISPATCH,
+                codeConfig,
+                {
+                  artifactId: artifact.id,
+                  toolName: entry.name,
+                  args
+                }
+              );
+
+              // A tool that declares an outputSchema must return
+              // structuredContent or be marked as an error — the SDK refuses to
+              // serialize the result otherwise, which would turn a user's bad
+              // return value into a protocol failure for the whole call.
+              const shaped =
+                outputSchema && !result.structuredContent && !result.isError
+                  ? {
+                      ...result,
+                      isError: true,
+                      content: [
+                        {
+                          type: 'text' as const,
+                          text: `Error: "${entry.name}" declares an output schema but did not return an object.`
+                        }
+                      ]
+                    }
+                  : result;
+
+              pendingRequests.push({
+                method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
+                toolName: entry.name,
+                artifactToolId: artifactTool.id,
+                input: args,
+                // ctx.log() output is recorded alongside the result rather than
+                // returned to the model: it is the author's debugging channel
+                // (and what the Phase 6 test panel reads), not something the
+                // model should have to read past.
+                output: logs.length > 0 ? { ...shaped, logs } : shaped,
+                latencyMs: Date.now() - startedAt,
+                errorMessage: shaped.isError
+                  ? shaped.content[0]?.text
+                  : undefined
+              });
+
+              return shaped;
+            }
+          );
+          registeredToolNames.add(entry.name);
+        } catch (error) {
+          console.error(
+            `Failed to register custom tool "${entry.name}"`,
+            error
+          );
+        }
+      }
+
+      continue;
+    }
+
     // `http-endpoint` is a proxied definition: each installed row registers one
     // named tool derived from its config, dispatched against a user HTTP API.
     if (toolDef.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT) {
@@ -829,6 +993,12 @@ const business = async (c: Context<AppEnv>) => {
     registeredToolNames.add(toolDef.key);
 
     const schema = utils.jsonSchemaToZodShape(handler.schema);
+    // Native tools may declare structured output too. None do yet — they return
+    // prose — but the plumbing is the same one custom code uses, so keeping a
+    // single path means a native tool can opt in without touching this loop.
+    const nativeOutputSchema = handler.outputSchema
+      ? utils.jsonSchemaToZodShape(handler.outputSchema)
+      : undefined;
     const toolConfig = (artifactTool.config as Record<string, unknown>) || {};
     const provider = toolDef.group?.provider;
     const toolCredentials = provider
@@ -853,7 +1023,8 @@ const business = async (c: Context<AppEnv>) => {
       {
         title: toolDef.title || handler.title,
         description: toolDef.description || handler.description,
-        inputSchema: schema
+        inputSchema: schema,
+        ...(nativeOutputSchema ? { outputSchema: nativeOutputSchema } : {})
       },
       async args => {
         const startedAt = Date.now();

@@ -11,8 +11,7 @@ const PROMPT_TITLE = z
   .min(3)
   .max(200)
   .refine(
-    title =>
-      !constants.RESERVED_BOT_COMMANDS.includes(slugifyTitle(title)),
+    title => !constants.RESERVED_BOT_COMMANDS.includes(slugifyTitle(title)),
     { message: 'This title is reserved as a bot command' }
   );
 
@@ -924,6 +923,61 @@ const ARTIFACT_CUSTOM_CODE_LIST_VERSIONS = z.object({
   organizationId: z.uuid()
 });
 
+// What apps/mcp POSTs to a dispatched user script. Parsed inside the script by
+// @ganju/sdk, which routes on `tool` — one script exports many tools, so the
+// name is in the body rather than in the path.
+const CUSTOM_CODE_INVOKE_REQUEST = z.object({
+  tool: z.string().min(1).max(constants.CUSTOM_CODE_TOOL_NAME_MAX),
+  input: z.record(z.string(), z.unknown()).default({}),
+  // Correlates the dispatcher's mcp_request row with whatever the script logs.
+  // Opaque to user code.
+  requestId: z.string().max(100).optional()
+});
+
+// What the script returns. `output` is validated against the version's declared
+// outputSchema by the dispatcher, not here — this schema only establishes the
+// envelope, so a script that returns garbage produces a legible tool error
+// instead of an unhandled parse failure in the MCP worker.
+//
+// `error` is how a script reports a handled failure. It travels as a 200 with an
+// error field rather than an HTTP status, because a non-2xx from the dispatch
+// namespace is ambiguous — it could equally be the platform refusing to run the
+// script at all.
+const CUSTOM_CODE_INVOKE_RESPONSE = z.object({
+  output: z.unknown().optional(),
+  logs: z
+    .array(
+      z.object({
+        level: z.enum(['log', 'warn', 'error']).default('log'),
+        message: z.string().max(constants.CUSTOM_CODE_MAX_LOG_LENGTH)
+      })
+    )
+    .max(constants.CUSTOM_CODE_MAX_LOGS)
+    .default([]),
+  error: z.string().max(2000).optional()
+});
+
+// Broker request bodies. Every one of these is authenticated by the bearer token
+// alone — no body field names the artifact, because a script could lie about it.
+const CUSTOM_CODE_BROKER_CONNECTION = z.object({
+  provider: z.string().min(1).max(100)
+});
+
+const CUSTOM_CODE_BROKER_SECRET = z.object({
+  // The credential's label, which is the lookup key for custom-code secrets
+  // (they carry no id inside the script). See CREDENTIAL_PROVIDER_CUSTOM_CODE.
+  name: z.string().min(1).max(200)
+});
+
+const CUSTOM_CODE_BROKER_RESOURCE_SEARCH = z.object({
+  query: z.string().min(1).max(2000),
+  limit: z.number().int().positive().max(20).default(5)
+});
+
+const CUSTOM_CODE_BROKER_RESOURCE_READ = z.object({
+  uri: z.string().min(1).max(2000)
+});
+
 const ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE = z.object({
   resourceId: z.uuid(),
   showSource: z.enum(constants.CHANNEL_STATUS),
@@ -1111,7 +1165,13 @@ export const Schema = {
   ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE,
   ARTIFACT_CUSTOM_CODE_PUBLISH,
   ARTIFACT_CUSTOM_CODE_ROLLBACK,
-  ARTIFACT_CUSTOM_CODE_LIST_VERSIONS
+  ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,
+  CUSTOM_CODE_INVOKE_REQUEST,
+  CUSTOM_CODE_INVOKE_RESPONSE,
+  CUSTOM_CODE_BROKER_CONNECTION,
+  CUSTOM_CODE_BROKER_SECRET,
+  CUSTOM_CODE_BROKER_RESOURCE_SEARCH,
+  CUSTOM_CODE_BROKER_RESOURCE_READ
 };
 
 // Fully-resolved http-endpoint config (post-parse, defaults applied).

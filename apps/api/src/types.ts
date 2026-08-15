@@ -1,4 +1,5 @@
 import type {
+  DispatchNamespace,
   Fetcher,
   Hyperdrive,
   Queue,
@@ -50,6 +51,7 @@ export type Bindings = {
   API: Fetcher;
   SEND_EMAIL?: SendEmail;
   MCP: Fetcher;
+  DISPATCH?: DispatchNamespace;
   MCP_INTERNAL_SECRET?: string;
   BOT_OAUTH_CLIENT_ID?: string;
   BOT_OAUTH_CLIENT_SECRET?: string;

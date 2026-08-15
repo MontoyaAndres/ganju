@@ -57,6 +57,7 @@ export interface ToolDefinition {
   title: string;
   description: string;
   schema: JsonSchema;
+  outputSchema?: JsonSchema;
   configSchema?: JsonSchema;
   handler: (
     args: Record<string, unknown>,

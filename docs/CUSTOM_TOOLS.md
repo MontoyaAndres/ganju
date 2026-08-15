@@ -179,25 +179,33 @@ MCP supports `outputSchema` + `structuredContent`, but [`ToolDefinition`](../app
 }
 ```
 
-```ts
-import { defineTool } from '@ganju/sdk';
+**JavaScript and TypeScript only**, which is one language as far as we're concerned: a bundle is already compiled by the time it reaches the upload endpoint. Python Workers are a different upload shape (`index.py` main module, `python_workers` flag) and would need their own SDK to answer the health probe, so a Python bundle fails at publish rather than half-working. Not planned for v1.
 
-export default defineTool(async (input, ctx) => {
-  const { accessToken } = await ctx.connection('google-gmail');
-  const res = await fetch(`https://api.acme.com/orders/${input.orderId}`);
-  return { status: (await res.json()).status };
+One script serves every tool an artifact declares, so the deployed module's default export routes on the tool name. `defineTool` is there for inference — without it `input` and `ctx` are implicitly `any`, and typed `ctx` is most of the reason to use the SDK at all.
+
+```ts
+import { createHandler, defineTool } from '@ganju/sdk';
+
+export default createHandler({
+  'lookup-order': defineTool(async (input, ctx) => {
+    const { accessToken } = await ctx.connection('google-gmail');
+    const res = await fetch(`https://api.acme.com/orders/${input.orderId}`);
+    return { status: (await res.json()).status };
+  })
 });
 ```
 
+The keys must match the manifest's tool names — publish verifies that against what the bundle actually exports.
+
 | `ctx` member | Contract |
 |---|---|
-| `ctx.connection(provider)` | `{ accessToken, provider, expiresAt }`. Short-lived. **Never** the refresh token or client secret. |
-| `ctx.secret(name)` | Per-tool `artifact_credential` (provider `custom-code`), same orphan-cleanup as `http-endpoint`. |
-| `ctx.resources.search / read / list` | Reuses `embedQuery` + `readResourceContent`. |
-| `ctx.sendFile(opts)` | Broker → resource-handler container. |
-| `ctx.config`, `ctx.log(...)` | `log` output lands in `mcp_request` for the test panel. |
+| `ctx.connection(provider)` | `{ accessToken, provider, expiresAt }`. Short-lived. **Never** the refresh token or client secret. Throws when the provider isn't in the tool's declared `connections`. |
+| `ctx.secret(name)` | Per-tool `artifact_credential` (provider `custom-code`), addressed by label, same orphan-cleanup as `http-endpoint`. |
+| `ctx.resources.search / read / list` | Reuses the same embedding + resource read the native RAG tools use. Binary resources are refused rather than base64'd — that's what `sendFile` is for. |
+| `ctx.sendFile(opts)` | Broker → resource-handler container. **Phase 5**; returns 501 today. |
+| `ctx.log(...)` | Buffered in the isolate, returned with the result, recorded on `mcp_request`. Capped at 50 lines. |
 | `fetch` | Global, screened by the outbound worker. |
-| *not available* | `require`, `process`, `fs`, raw DB, other artifacts. |
+| *not available* | `require`, `process`, `fs`, raw DB, other artifacts. No `nodejs_compat` — user scripts get the plain Workers runtime. |
 
 The SDK is typed sugar over the binding. **The security lives in the binding**, not the package — a library that performed the token exchange itself would expose the client secret to user code.
 
@@ -242,19 +250,41 @@ Also fixed while here: removing a custom-code tool now deletes its `provider = '
 
 One thing that surfaced and is worth knowing when adding endpoints here: `handleError` derives the response status from **keywords in the thrown message** ([errorHandler.ts](../packages/db/src/utils/errorHandler.ts)) — `not found` → 404, `already` → 409, `invalid`/`required`/`must be`/`exceeds` → 400. A message matching none of them becomes an opaque 500, which is what three of these guards did on the first run. They're worded to land on the right status now.
 
-### Phase 2 — Runtime
+### Phase 2 — Runtime ✅
 
-- [ ] Broker worker (`apps/tool-broker`): token verification, `connection`, `secret`, `resources.*`, `sendFile`, `log`
-- [ ] Outbound worker: `isBlockedHost` + `allowedHosts` + rate limit
-- [ ] Publish pipeline: bundle → upload to dispatch namespace as `artifact_<id>` with `GANJU_TOOL_TOKEN` + broker service binding → smoke test → flip `activeVersionId`
-- [ ] `DISPATCH` binding in [apps/mcp/wrangler.toml](../apps/mcp/wrangler.toml). The dispatcher's own `[limits] cpu_ms` is now set (30s, matching `apps/api`); what's still needed is the much tighter **per-user-script** ceiling (~5s) on the dispatch namespace
+- [x] Broker worker ([apps/tool-broker](../apps/tool-broker)): token verification, `connection`, `secret`, `resources.*`. `sendFile` answers 501 — see below. `log` moved into the isolate, also below
+- [x] Outbound worker ([apps/tool-outbound](../apps/tool-outbound)): `isBlockedHost` + `allowedHosts` + per-artifact rate limit
+- [x] Publish pipeline ([customCodeDeploy.ts](../apps/api/src/utils/customCodeDeploy.ts)): bundle → upload to dispatch namespace as `artifact_<id>` with `GANJU_TOOL_TOKEN` + broker service binding → smoke test → flip `activeVersionId`
+- [x] `DISPATCH` binding in [apps/mcp/wrangler.toml](../apps/mcp/wrangler.toml) (and in `apps/api`, for the smoke test only). The per-user-script ceiling is now **5s**, set as `limits.cpu_ms` in the upload metadata — per script rather than per namespace, so it can be raised for one customer without raising it for all
+- [x] `@ganju/sdk` ([packages/sdk](../packages/sdk)) — pulled forward from Phase 7, because the invoke protocol has to have a client before any of the above is testable. Only the CLI stays in Phase 7
 
-### Phase 3 — MCP integration
+Five things worth knowing:
 
-- [ ] `custom-code` branch in the boot loop ([mcp/index.ts](../apps/mcp/src/controllers/mcp/index.ts)) — register one tool per entry in the active version's `tools`, dispatch on call, skip-and-log on parse failure
-- [ ] `outputSchema` support: extend [`ToolDefinition`](../apps/mcp/src/tools/types.ts), pass to `registerTool`, return `structuredContent` + text fallback
-- [ ] Record in `mcp_request` with `artifactToolId` + the specific `toolName`, matching the proxied convention
-- [ ] Reuse `allowProxyToolCall` for the per-artifact limit
+- **The tool token is signed, not stored.** `GANJU_TOOL_TOKEN` is an HMAC over `{artifactId, versionId}` ([customCodeToken.ts](../packages/utils/src/customCodeToken.ts)), not a row. The broker verifies the signature *and* that the version is still `config.activeVersionId` — a check it makes against the row it already reads for the connection allow-list. That is what makes "rotated on every publish" real: a superseded script's credential stops working the instant a newer version lands, with no token table to keep in step.
+- **`ctx.log` never touches the broker.** Log lines are buffered in the isolate and returned with the result, then recorded on the `mcp_request` row. A log call that cost a network round trip would be a log call nobody makes.
+- **Publish now fails when the runtime isn't configured**, rather than degrading to a database-only state change. A publish that moves the pointer without deploying advertises tools to every MCP client with nothing behind them — the same silent orphan the [removal checklist](#removal-checklist-calendar--calcom) warns about, self-inflicted. Missing env vars are named in the error.
+- **The smoke test earns its keep.** The manifest and the bundle arrive through different endpoints and nothing connects them until this: the reserved `__ganju_health` tool asks the deployed script which names it actually exports, and publish refuses when they don't cover what the manifest declares. `lookup-order` vs `lookupOrder` used to survive to the first customer call.
+- **`sendFile` is still Phase 5.** The route exists and returns 501. Implementing it means reproducing the multipart assembly the three native handlers own; doing that badly here is precisely what Phase 5 exists to avoid.
+
+Also: `apps/api`'s OAuth provider table moved to [@ganju/utils](../packages/utils/src/oauthProviders.ts). The broker needs the same client env names and token URLs to refresh a connection, and two copies would have drifted the first time a provider was added.
+
+### Phase 3 — MCP integration ✅
+
+- [x] `custom-code` branch in the boot loop ([mcp/index.ts](../apps/mcp/src/controllers/mcp/index.ts)) — one query loads every active version's manifest before the tool loop, registers one tool per entry, and skip-and-logs a schema that no longer compiles
+- [x] `outputSchema` support: added to [`ToolDefinition`](../apps/mcp/src/tools/types.ts), passed to `registerTool`, `structuredContent` returned with a text fallback. Native tools can opt in through the same path
+- [x] Record in `mcp_request` with `artifactToolId` + the specific `toolName`, matching the proxied convention
+- [x] Reuse `allowProxyToolCall` for the per-artifact limit — the broker shares the same key space, so a tool call that fans out into fifty connection lookups spends one budget, not two
+
+One trap found here: a tool that declares an `outputSchema` **must** return `structuredContent` or be flagged `isError`, or the MCP SDK refuses to serialize its own result. A user returning a bare string from a tool they declared an object output for would otherwise turn into a protocol failure for the whole call, so the dispatcher converts that case into an ordinary tool error.
+
+### Phase 2/3 — manual setup still outstanding
+
+Nothing below is code; all of it is account state this branch cannot create.
+
+1. **A Cloudflare API token** with `Workers Scripts:Edit` on the account, as `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID`. The publish pipeline uploads with it.
+2. **`CUSTOM_CODE_TOKEN_SECRET`** — any 32+ byte random string, set identically on `apps/api` and `apps/tool-broker`. They sign and verify the same tokens.
+3. **Deploy the two new workers before the first publish**: `ganju-tool-broker-*` and `ganju-tool-outbound-*`. The dispatcher's namespace binding names the outbound worker, so it must exist first.
+4. **Seed `custom-code`** on production ([scripts/seed-custom-code.mjs](../scripts/seed-custom-code.mjs)) — it has only been run on dev.
 
 ### Phase 4 — Channel runner
 
@@ -275,6 +305,8 @@ One thing that surfaced and is worth knowing when adding endpoints here: `handle
 - [ ] **Keep the catalog shape** — cards + Connect, where a card installs a template. An empty code editor as the Tools page will cost conversion.
 
 ### Phase 7 — CLI
+
+The SDK itself landed in Phase 2 — the runtime needed a client. What's left here is the CLI and publishing the package to npm.
 
 - [ ] `ganju login` (device-code flow against the existing `@better-auth/oauth-provider`), `init`, `deploy`, `test`, `logs`
 - [ ] Thin client of the Phase 1 API — never a second write path

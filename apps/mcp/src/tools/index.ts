@@ -8,6 +8,12 @@ export {
   executeMcpProxyPromptGet,
   type ResolvedProxyCredential
 } from './mcpProxy';
+export {
+  parseCustomCodeConfig,
+  parseCustomCodeTools,
+  executeCustomCodeCall,
+  type CustomCodeToolEntry
+} from './customCode';
 export type {
   ToolDefinition,
   PromptInventoryItem,

@@ -1,4 +1,5 @@
 import type {
+  DispatchNamespace,
   Fetcher,
   Hyperdrive,
   KVNamespace,
@@ -26,6 +27,7 @@ export type Bindings = {
   JWKS_CACHE: KVNamespace;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
   API: Fetcher;
+  DISPATCH?: DispatchNamespace;
   HTTP_ENDPOINT_RATE_LIMITER?: RateLimitBinding;
   DATABASE_URL?: string;
   NODE_ENV?: string;

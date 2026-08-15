@@ -1,8 +1,10 @@
-name = "ganju-mcp"
+name = "ganju-tool-broker"
 main = "dist/index.js"
 compatibility_date = "2025-11-17"
 
 compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
+workers_dev = false
+preview_urls = false
 
 [limits]
 cpu_ms = 30000
@@ -11,11 +13,9 @@ cpu_ms = 30000
 command = "npm run build"
 
 [env.development]
-name = "ganju-mcp-development"
-routes = [
-  { pattern = "development-mcp.vocesqueabrazan.com", custom_domain = true },
-  { pattern = "*.development-mcp.vocesqueabrazan.com/*", zone_name = "vocesqueabrazan.com" }
-]
+name = "ganju-tool-broker-development"
+workers_dev = false
+preview_urls = false
 [env.development.observability]
 enabled = true
 [env.development.observability.logs]
@@ -25,19 +25,12 @@ invocation_logs = true
 enabled = false
 [env.development.vars]
 NODE_ENV = "production"
-NEXT_PUBLIC_API_URL = "https://development-api.vocesqueabrazan.com"
-NEXT_PUBLIC_MCP_URL = "https://development-mcp.vocesqueabrazan.com"
-NEXT_PUBLIC_WEB_URL = "https://development-app.vocesqueabrazan.com"
-NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "bf3f371679734af2af0b11302b3cb971"
 [[env.development.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-development"
-[[env.development.kv_namespaces]]
-binding = "JWKS_CACHE"
-id = "566eeced11594b61b719b4782bccf10b"
 [[env.development.unsafe.bindings]]
 name = "HTTP_ENDPOINT_RATE_LIMITER"
 type = "ratelimit"
@@ -47,20 +40,11 @@ simple = { limit = 60, period = 60 }
 name = "RESOURCE_HANDLER"
 class_name = "ResourceHandler"
 script_name = "ganju-api-development"
-[[env.development.services]]
-binding = "API"
-service = "ganju-api-development"
-[[env.development.dispatch_namespaces]]
-binding = "DISPATCH"
-namespace = "ganju-tools-development"
-outbound = { service = "ganju-tool-outbound-development", parameters = ["artifactId", "allowedHosts"] }
 
 [env.production]
-name = "ganju-mcp-production"
-routes = [
-  { pattern = "mcp.ganju.ai", custom_domain = true },
-  { pattern = "*.mcp.ganju.ai/*", zone_name = "ganju.ai" }
-]
+name = "ganju-tool-broker-production"
+workers_dev = false
+preview_urls = false
 [env.production.observability]
 enabled = true
 [env.production.observability.logs]
@@ -70,19 +54,12 @@ invocation_logs = true
 enabled = false
 [env.production.vars]
 NODE_ENV = "production"
-NEXT_PUBLIC_API_URL = "https://api.ganju.ai"
-NEXT_PUBLIC_MCP_URL = "https://mcp.ganju.ai"
-NEXT_PUBLIC_WEB_URL = "https://app.ganju.ai"
-NEXT_PUBLIC_DOMAIN = "ganju.ai"
 [[env.production.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "c552a4fd338d4025b0442e4737a8635b"
 [[env.production.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-production"
-[[env.production.kv_namespaces]]
-binding = "JWKS_CACHE"
-id = "909add5eb9fe4b0ca094f11f3a5dd348"
 [[env.production.unsafe.bindings]]
 name = "HTTP_ENDPOINT_RATE_LIMITER"
 type = "ratelimit"
@@ -92,10 +69,3 @@ simple = { limit = 60, period = 60 }
 name = "RESOURCE_HANDLER"
 class_name = "ResourceHandler"
 script_name = "ganju-api-production"
-[[env.production.services]]
-binding = "API"
-service = "ganju-api-production"
-[[env.production.dispatch_namespaces]]
-binding = "DISPATCH"
-namespace = "ganju-tools-production"
-outbound = { service = "ganju-tool-outbound-production", parameters = ["artifactId", "allowedHosts"] }

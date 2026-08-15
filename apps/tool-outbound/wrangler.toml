@@ -1,0 +1,51 @@
+name = "ganju-tool-outbound"
+main = "dist/index.js"
+compatibility_date = "2025-11-17"
+
+compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
+workers_dev = false
+preview_urls = false
+
+[limits]
+cpu_ms = 30000
+
+[build]
+command = "npm run build"
+
+[env.development]
+name = "ganju-tool-outbound-development"
+workers_dev = false
+preview_urls = false
+[env.development.observability]
+enabled = true
+[env.development.observability.logs]
+enabled = true
+invocation_logs = true
+[env.development.observability.traces]
+enabled = false
+[env.development.vars]
+NODE_ENV = "production"
+[[env.development.unsafe.bindings]]
+name = "HTTP_ENDPOINT_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
+[env.production]
+name = "ganju-tool-outbound-production"
+workers_dev = false
+preview_urls = false
+[env.production.observability]
+enabled = true
+[env.production.observability.logs]
+enabled = true
+invocation_logs = true
+[env.production.observability.traces]
+enabled = false
+[env.production.vars]
+NODE_ENV = "production"
+[[env.production.unsafe.bindings]]
+name = "HTTP_ENDPOINT_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }

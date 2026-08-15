@@ -49,10 +49,15 @@ const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const SERVICE_NAME_API = 'api';
 const SERVICE_NAME_MCP = 'mcp';
 const SERVICE_NAME_RESOURCE_HANDLER = 'resource_handler';
+// The custom-code broker. Its own label rather than reusing 'mcp': a failure
+// here is a connection or secret that user code could not obtain, which is a
+// different thing to debug from an MCP request that went wrong.
+const SERVICE_NAME_TOOL_BROKER = 'tool_broker';
 const SERVICE_NAMES = [
   SERVICE_NAME_API,
   SERVICE_NAME_MCP,
-  SERVICE_NAME_RESOURCE_HANDLER
+  SERVICE_NAME_RESOURCE_HANDLER,
+  SERVICE_NAME_TOOL_BROKER
 ];
 
 const SOCIAL_PROVIDER_GOOGLE = 'google' as 'google';
@@ -1196,6 +1201,113 @@ const CUSTOM_CODE_MAX_RESPONSE_BYTES = 256 * 1024;
 // here — with a legible error — rather than at deploy time in Phase 2.
 const CUSTOM_CODE_MAX_BUNDLE_BYTES = 3 * 1024 * 1024;
 
+// Three hops have to agree on a wire shape, and none of them share a module
+// graph at runtime — apps/mcp dispatches, the user's script runs inside the
+// namespace, and apps/tool-broker serves its host capabilities. Keeping every
+// path, header and binding name below is what stops the three from drifting.
+
+// The dispatcher POSTs to the user script at this origin. The hostname is never
+// resolved: a dispatch-namespace `fetch` is routed by script name, so the URL
+// only has to be a well-formed absolute URL the user script can parse.
+const CUSTOM_CODE_INVOKE_ORIGIN = 'https://tool.ganju.internal';
+const CUSTOM_CODE_INVOKE_PATH = '/invoke';
+
+// A reserved tool name the SDK answers itself, without running user code. The
+// publish pipeline calls it once against the freshly uploaded script and expects
+// back the list of tool names the bundle actually exports — which is what turns
+// "the manifest declares lookup-order but the code exports lookupOrder" from a
+// call-time mystery into a publish-time error. Underscore-prefixed so it can
+// never collide with a declared name (CUSTOM_CODE_TOOL's charset allows leading
+// underscores, but this exact string is checked before user routing).
+const CUSTOM_CODE_HEALTH_TOOL = '__ganju_health';
+
+// Bindings injected into every user script at upload time. The token is a
+// secret_text binding rotated on each publish; the broker is a service binding.
+// Names are part of the SDK's contract with the script, so they can't be
+// renamed without breaking already-deployed code.
+const CUSTOM_CODE_BINDING_TOKEN = 'GANJU_TOOL_TOKEN';
+const CUSTOM_CODE_BINDING_BROKER = 'GANJU_BROKER';
+
+// Broker routes, called by user code through the service binding above with
+// `Authorization: Bearer <GANJU_TOOL_TOKEN>`. The origin is arbitrary for the
+// same reason as the invoke origin — a service binding ignores the hostname.
+const CUSTOM_CODE_BROKER_ORIGIN = 'https://broker.ganju.internal';
+const CUSTOM_CODE_BROKER_PATH_CONNECTION = '/connection';
+const CUSTOM_CODE_BROKER_PATH_SECRET = '/secret';
+const CUSTOM_CODE_BROKER_PATH_RESOURCES_SEARCH = '/resources/search';
+const CUSTOM_CODE_BROKER_PATH_RESOURCES_READ = '/resources/read';
+const CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST = '/resources/list';
+const CUSTOM_CODE_BROKER_PATH_SEND_FILE = '/send-file';
+
+// Outbound-worker parameters the dispatcher attaches to every `.get()`. The
+// outbound worker reads them from its own env to screen the script's `fetch`
+// calls — which is why egress control can't be bypassed by editing the script.
+const CUSTOM_CODE_OUTBOUND_PARAM_ARTIFACT_ID = 'artifactId' as 'artifactId';
+const CUSTOM_CODE_OUTBOUND_PARAM_ALLOWED_HOSTS =
+  'allowedHosts' as 'allowedHosts';
+
+// Hosts the outbound worker allows regardless of a tool's `allowedHosts`.
+//
+// The dispatch namespace routes every subrequest that originates inside it
+// through the outbound worker — including the ones the BROKER makes on the
+// script's behalf, which is not obvious until you watch it happen. Without this
+// list, `ctx.resources.search` breaks the moment a tool sets an allow-list
+// (the embedding call is a fetch to Gemini), and so does refreshing a
+// connection (a fetch to the provider's token endpoint).
+//
+// `allowedHosts` exists to bound where a tool's OWN code may reach, so the
+// platform's capabilities have no business being caught by it. Reaching these
+// hosts is not itself a capability: without our API key or client secret,
+// neither answers usefully.
+//
+// The SSRF screen still applies to these — this widens the allow-list, never
+// the private-address block.
+const CUSTOM_CODE_PLATFORM_HOSTS = [
+  // Embeddings for ctx.resources.search.
+  'generativelanguage.googleapis.com',
+  // Token endpoints the broker refreshes managed connections against. Kept in
+  // step with oauthProviders by hostname rather than by URL.
+  'oauth2.googleapis.com',
+  'login.microsoftonline.com',
+  'slack.com'
+];
+
+// `GANJU_TOOL_TOKEN` is `<base64url(payload)>.<base64url(hmac)>`, signed with
+// CUSTOM_CODE_TOKEN_SECRET. It carries the artifact and the version it was
+// minted for; the broker checks the signature AND that the version is still the
+// artifact's active one, so a superseded script's token stops working the moment
+// a newer version is published. Never accept an artifact id from a request body.
+const CUSTOM_CODE_TOKEN_SECRET_ENV = 'CUSTOM_CODE_TOKEN_SECRET';
+const CUSTOM_CODE_TOKEN_VERSION = 'v1';
+
+// Cloudflare credentials the publish pipeline needs to upload a script into the
+// dispatch namespace. Absent in local dev, where publish degrades to a database-
+// only state change (see deployCustomCodeScript).
+const CUSTOM_CODE_ACCOUNT_ID_ENV = 'CLOUDFLARE_ACCOUNT_ID';
+const CUSTOM_CODE_API_TOKEN_ENV = 'CLOUDFLARE_API_TOKEN';
+const CUSTOM_CODE_NAMESPACE_ENV = 'CUSTOM_CODE_DISPATCH_NAMESPACE';
+// The broker worker each uploaded script is service-bound to. An env var rather
+// than a constant because the name is environment-suffixed
+// (ganju-tool-broker-development / -production).
+const CUSTOM_CODE_BROKER_SERVICE_ENV = 'CUSTOM_CODE_BROKER_SERVICE';
+
+// Compatibility date pinned for every uploaded user script. Deliberately a
+// constant rather than "today": a script uploaded now and re-uploaded on
+// rollback months later must run identically both times.
+const CUSTOM_CODE_COMPATIBILITY_DATE = '2025-11-17';
+
+// Per-invocation CPU ceiling applied to each user script at upload time. Far
+// tighter than our own workers' 30s — this is the technical cap that bounds
+// what one adversarial call can cost us, so an infinite loop in a customer's
+// tool is billed as five seconds rather than as whatever it wanted.
+const CUSTOM_CODE_SCRIPT_CPU_MS = 5_000;
+
+// How many ctx.log() lines travel back with a result. Logs are buffered inside
+// the isolate and returned in the response rather than sent to the broker line
+// by line — a log call shouldn't cost a network round trip.
+const CUSTOM_CODE_MAX_LOGS = 50;
+const CUSTOM_CODE_MAX_LOG_LENGTH = 2_000;
+
 const MCP_REQUEST_METHOD_INITIALIZE = 'initialize' as 'initialize';
 const MCP_REQUEST_METHOD_PING = 'ping' as 'ping';
 const MCP_REQUEST_METHOD_TOOLS_LIST = 'tools/list' as 'tools/list';
@@ -1672,6 +1784,7 @@ export const constants = {
   SERVICE_NAME_API,
   SERVICE_NAME_MCP,
   SERVICE_NAME_RESOURCE_HANDLER,
+  SERVICE_NAME_TOOL_BROKER,
   SOCIAL_PROVIDER_GOOGLE,
   SOCIAL_PROVIDER_GITHUB,
   SOCIAL_PROVIDERS,
@@ -2020,6 +2133,31 @@ export const constants = {
   CUSTOM_CODE_MAX_TIMEOUT_MS,
   CUSTOM_CODE_MAX_RESPONSE_BYTES,
   CUSTOM_CODE_MAX_BUNDLE_BYTES,
+  CUSTOM_CODE_INVOKE_ORIGIN,
+  CUSTOM_CODE_INVOKE_PATH,
+  CUSTOM_CODE_HEALTH_TOOL,
+  CUSTOM_CODE_BINDING_TOKEN,
+  CUSTOM_CODE_BINDING_BROKER,
+  CUSTOM_CODE_BROKER_ORIGIN,
+  CUSTOM_CODE_BROKER_PATH_CONNECTION,
+  CUSTOM_CODE_BROKER_PATH_SECRET,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_SEARCH,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_READ,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST,
+  CUSTOM_CODE_BROKER_PATH_SEND_FILE,
+  CUSTOM_CODE_OUTBOUND_PARAM_ARTIFACT_ID,
+  CUSTOM_CODE_OUTBOUND_PARAM_ALLOWED_HOSTS,
+  CUSTOM_CODE_PLATFORM_HOSTS,
+  CUSTOM_CODE_TOKEN_SECRET_ENV,
+  CUSTOM_CODE_TOKEN_VERSION,
+  CUSTOM_CODE_ACCOUNT_ID_ENV,
+  CUSTOM_CODE_API_TOKEN_ENV,
+  CUSTOM_CODE_NAMESPACE_ENV,
+  CUSTOM_CODE_BROKER_SERVICE_ENV,
+  CUSTOM_CODE_COMPATIBILITY_DATE,
+  CUSTOM_CODE_SCRIPT_CPU_MS,
+  CUSTOM_CODE_MAX_LOGS,
+  CUSTOM_CODE_MAX_LOG_LENGTH,
   RESERVED_SLUGS,
   MCP_INTERNAL_HEADER,
   MCP_CHANNEL_ID_HEADER,

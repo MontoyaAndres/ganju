@@ -1,0 +1,23 @@
+{
+  "name": "tool-outbound",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "node esbuild.config.mjs && tsc --emitDeclarationOnly",
+    "dev": "../../scripts/wrangler-dev.sh apps/tool-outbound 8084",
+    "start": "node ./dist/index.js",
+    "clean": "rm -rf dist && rm -rf node_modules",
+    "deploy-dev": "wrangler deploy --env development",
+    "deploy-prod": "wrangler deploy --env production"
+  },
+  "dependencies": {
+    "@ganju/utils": "*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260611.1",
+    "@ganju/tsconfig": "*",
+    "@types/node": "^25.9.3",
+    "esbuild": "^0.28.0",
+    "fast-glob": "^3.3.3",
+    "typescript": "^6.0.3"
+  }
+}

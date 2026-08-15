@@ -31,6 +31,8 @@ NEXT_PUBLIC_API_URL = "https://development-api.vocesqueabrazan.com"
 NEXT_PUBLIC_MCP_URL = "https://development-mcp.vocesqueabrazan.com"
 NEXT_PUBLIC_WEB_URL = "https://development-app.vocesqueabrazan.com"
 NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
+CUSTOM_CODE_DISPATCH_NAMESPACE = "ganju-tools-development"
+CUSTOM_CODE_BROKER_SERVICE = "ganju-tool-broker-development"
 [[env.development.unsafe.bindings]]
 name = "CONTACT_RATE_LIMITER"
 type = "ratelimit"
@@ -57,6 +59,10 @@ service = "ganju-mcp-development"
 [[env.development.services]]
 binding = "API"
 service = "ganju-api-development"
+[[env.development.dispatch_namespaces]]
+binding = "DISPATCH"
+namespace = "ganju-tools-development"
+outbound = { service = "ganju-tool-outbound-development", parameters = ["artifactId", "allowedHosts"] }
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "bf3f371679734af2af0b11302b3cb971"
@@ -178,6 +184,8 @@ NEXT_PUBLIC_API_URL = "https://api.ganju.ai"
 NEXT_PUBLIC_MCP_URL = "https://mcp.ganju.ai"
 NEXT_PUBLIC_WEB_URL = "https://app.ganju.ai"
 NEXT_PUBLIC_DOMAIN = "ganju.ai"
+CUSTOM_CODE_DISPATCH_NAMESPACE = "ganju-tools-production"
+CUSTOM_CODE_BROKER_SERVICE = "ganju-tool-broker-production"
 [[env.production.unsafe.bindings]]
 name = "CONTACT_RATE_LIMITER"
 type = "ratelimit"
@@ -204,6 +212,10 @@ service = "ganju-mcp-production"
 [[env.production.services]]
 binding = "API"
 service = "ganju-api-production"
+[[env.production.dispatch_namespaces]]
+binding = "DISPATCH"
+namespace = "ganju-tools-production"
+outbound = { service = "ganju-tool-outbound-production", parameters = ["artifactId", "allowedHosts"] }
 [[env.production.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "c552a4fd338d4025b0442e4737a8635b"
