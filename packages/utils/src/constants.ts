@@ -1281,10 +1281,18 @@ const CUSTOM_CODE_TOKEN_SECRET_ENV = 'CUSTOM_CODE_TOKEN_SECRET';
 const CUSTOM_CODE_TOKEN_VERSION = 'v1';
 
 // Cloudflare credentials the publish pipeline needs to upload a script into the
-// dispatch namespace. Absent in local dev, where publish degrades to a database-
-// only state change (see deployCustomCodeScript).
+// dispatch namespace.
+//
+// The token deliberately does NOT use Cloudflare's own `CLOUDFLARE_API_TOKEN`
+// name. Wrangler reads that variable from the .env in its working directory and
+// authenticates with it instead of the developer's OAuth login — so putting our
+// token there silently reroutes every `wrangler deploy` through a token scoped
+// only to Workers Scripts, breaking any deploy that touches zone routes and
+// making `wrangler login` refuse to run. Ours is namespaced so the two can
+// coexist. `CLOUDFLARE_ACCOUNT_ID` keeps its standard name: wrangler reads it
+// too, but selecting the right account is the behaviour we want.
 const CUSTOM_CODE_ACCOUNT_ID_ENV = 'CLOUDFLARE_ACCOUNT_ID';
-const CUSTOM_CODE_API_TOKEN_ENV = 'CLOUDFLARE_API_TOKEN';
+const CUSTOM_CODE_API_TOKEN_ENV = 'CUSTOM_CODE_CF_API_TOKEN';
 const CUSTOM_CODE_NAMESPACE_ENV = 'CUSTOM_CODE_DISPATCH_NAMESPACE';
 // The broker worker each uploaded script is service-bound to. An env var rather
 // than a constant because the name is environment-suffixed
