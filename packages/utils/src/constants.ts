@@ -1221,6 +1221,54 @@ const CUSTOM_CODE_INVOKE_PATH = '/invoke';
 // underscores, but this exact string is checked before user routing).
 const CUSTOM_CODE_HEALTH_TOOL = '__ganju_health';
 
+// Reserved MCP tool names
+//
+// `http-endpoint` and `custom-code` let the user choose the MCP tool name, and
+// apps/mcp registers every tool on an artifact into ONE flat namespace. A
+// user-chosen name equal to a native tool's definition key is therefore a
+// collision, and both possible resolutions are bad: whichever registers second
+// is silently dropped, and the channel runner attributes the call to the other
+// one. Rejecting the name at the write path is the only place the user can be
+// told about it.
+//
+// Reserved by NAMESPACE, not by an enumerated list of the ~60 shipped keys.
+// A blocklist would answer "is this name taken today" — which is the wrong
+// question, because a name that is free at publish time is taken the moment
+// someone installs a native tool that uses it. Owning the prefix means a tool
+// added to any of these groups later can never collide with a name already
+// published, so this list only changes when a whole new group is added.
+//
+// mcp-proxy needs no entry: its names are always `<prefix>__<remote>`, and no
+// native key contains the separator.
+const RESERVED_TOOL_NAME_PREFIXES = [
+  'gmail-',
+  'outlook-',
+  'slack-',
+  CALENDAR_TOOL_KEY_PREFIX,
+  CALCOM_TOOL_KEY_PREFIX,
+  WEB_TOOL_KEY_PREFIX
+];
+
+// The keys that don't belong to a prefixed group: the RAG core the channel
+// runner intercepts by name, the smoke-test tool, the three proxied definition
+// keys (each registers under its own key when installed natively), and the
+// health tool the SDK answers before it routes to user code.
+const RESERVED_TOOL_NAMES = [
+  ...RESOURCE_TOOL_KEYS,
+  'greeting',
+  TOOL_DEFINITION_KEY_HTTP_ENDPOINT,
+  TOOL_DEFINITION_KEY_MCP_PROXY,
+  TOOL_DEFINITION_KEY_CUSTOM_CODE,
+  CUSTOM_CODE_HEALTH_TOOL
+];
+
+// Shared by both write paths so there is one string to translate. It has to
+// carry a word `matchStatus` recognises (errorHandler.ts), because the
+// http-endpoint path re-throws the issue message as a plain Error and anything
+// unrecognised becomes an opaque 500 instead of a 400.
+const RESERVED_TOOL_NAME_MESSAGE =
+  'Invalid tool name — reserved by the platform';
+
 // Bindings injected into every user script at upload time. The token is a
 // secret_text binding rotated on each publish; the broker is a service binding.
 // Names are part of the SDK's contract with the script, so they can't be
@@ -2144,6 +2192,9 @@ export const constants = {
   CUSTOM_CODE_INVOKE_ORIGIN,
   CUSTOM_CODE_INVOKE_PATH,
   CUSTOM_CODE_HEALTH_TOOL,
+  RESERVED_TOOL_NAME_PREFIXES,
+  RESERVED_TOOL_NAMES,
+  RESERVED_TOOL_NAME_MESSAGE,
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
   CUSTOM_CODE_BROKER_ORIGIN,

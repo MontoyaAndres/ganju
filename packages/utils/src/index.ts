@@ -21,6 +21,7 @@ import {
   isReservedSlug,
   isValidSlugFormat
 } from './slug';
+import { isReservedToolName } from './reservedToolName';
 import {
   encryptString,
   decryptString,
@@ -177,6 +178,7 @@ export const utils = {
   generateRandomToken,
   isReservedSlug,
   isValidSlugFormat,
+  isReservedToolName,
   encryptString,
   decryptString,
   getCredentialEncryptionKey,

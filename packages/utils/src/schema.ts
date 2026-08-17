@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { constants } from './constants';
 import { isReservedSlug, isValidSlugFormat } from './slug';
+import { isReservedToolName } from './reservedToolName';
 import { slugifyTitle } from './slugifyTitle';
 
 // A prompt title becomes a slash command; it must not collide with a command
@@ -745,6 +746,26 @@ const HTTP_ENDPOINT_CONFIG = z
       `Call the configured ${cfg.method} ${cfg.url} endpoint.`
   }));
 
+// The same config, plus the rule that its `name` must not be one the platform
+// owns — `name` becomes the MCP tool key, in the same flat namespace the native
+// tools register into. Split from the schema above rather than folded into it
+// because that one is also how apps/mcp READS a stored row at boot: an install
+// that predates this rule, or predates a group being added to it, has to keep
+// registering. It loses the name to the native tool (apps/mcp registers those
+// first) instead of vanishing.
+//
+// Every path that accepts a config from a user validates with this one.
+const HTTP_ENDPOINT_CONFIG_WRITE = HTTP_ENDPOINT_CONFIG.superRefine(
+  (cfg, ctx) => {
+    if (!isReservedToolName(cfg.name)) return;
+    ctx.addIssue({
+      code: 'custom',
+      path: ['name'],
+      message: constants.RESERVED_TOOL_NAME_MESSAGE
+    });
+  }
+);
+
 // Validates one artifact_tool.config of definition `mcp-proxy`. Each row of this
 // kind connects a remote MCP server (a vendor's official server) and registers
 // one local MCP tool per discovered remote tool at boot. `url`/`transport` are
@@ -838,6 +859,12 @@ const CUSTOM_CODE_CONFIG = z.object({
 // version: what apps/mcp registers at boot without ever calling the dispatcher.
 // `outputSchema` is optional — MCP allows a tool to declare structured output,
 // and a version that omits it just returns text.
+//
+// This is the shape used to READ a stored version back, so it carries no
+// reserved-name rule: a rule tightened after a version was published would stop
+// that version registering, and the owner would see tools quietly disappear with
+// only a log line to explain it. Reservation belongs to the manifest below,
+// which is the write path.
 const CUSTOM_CODE_TOOL = z.object({
   name: z
     .string()
@@ -846,13 +873,7 @@ const CUSTOM_CODE_TOOL = z.object({
     .regex(
       /^[a-zA-Z0-9_-]+$/,
       'Tool name may only contain letters, digits, underscore or hyphen'
-    )
-    .refine(name => !constants.RESOURCE_TOOL_KEYS.includes(name), {
-      // The channel runner intercepts the RAG core BY NAME (see runner.ts), so a
-      // custom tool that shadows one of those names would silently capture the
-      // interception rather than run.
-      message: 'This tool name is reserved by the platform'
-    }),
+    ),
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
   inputSchema: SCHEMA_DEFINITION.default({ type: 'object', properties: {} }),
@@ -862,6 +883,13 @@ const CUSTOM_CODE_TOOL = z.object({
 // The manifest a `ganju deploy` (or the dashboard) uploads alongside a bundle.
 // Names must be unique within one script: apps/mcp registers them into a single
 // flat namespace, and a duplicate would silently register once and drop the rest.
+// For the same reason a name may not be one the platform owns — see
+// isReservedToolName.
+//
+// The offending entry is identified by `path` (`tools.3.name`) rather than by
+// quoting the name into the message: a manifest can declare 50 tools, so "one
+// of them is reserved" would not be actionable, but an interpolated message can
+// never be localized — localizeZodIssue keys on the exact English string.
 const CUSTOM_CODE_MANIFEST = z.object({
   tools: z
     .array(CUSTOM_CODE_TOOL)
@@ -872,6 +900,16 @@ const CUSTOM_CODE_MANIFEST = z.object({
     )
     .refine(tools => new Set(tools.map(t => t.name)).size === tools.length, {
       message: 'Tool names must be unique within a version'
+    })
+    .superRefine((tools, ctx) => {
+      tools.forEach((tool, index) => {
+        if (!isReservedToolName(tool.name)) return;
+        ctx.addIssue({
+          code: 'custom',
+          path: [index, 'name'],
+          message: constants.RESERVED_TOOL_NAME_MESSAGE
+        });
+      });
     })
 });
 
@@ -1157,6 +1195,7 @@ export const Schema = {
   CHANNEL_LIST_MESSAGES,
   ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE,
   HTTP_ENDPOINT_CONFIG,
+  HTTP_ENDPOINT_CONFIG_WRITE,
   MCP_PROXY_CONFIG,
   CUSTOM_CODE_CONFIG,
   CUSTOM_CODE_TOOL,

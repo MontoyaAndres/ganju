@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { eq, sql, and, InferSelectModel } from 'drizzle-orm';
+import { eq, sql, and, inArray, InferSelectModel } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
@@ -416,24 +416,58 @@ export const runChannelTurn = async (
     };
   }
 
+  // custom-code registers one MCP tool per entry in its ACTIVE VERSION's
+  // manifest, and that manifest lives in its own table rather than on the
+  // install row — so unlike the other two proxied definitions, its call-names
+  // can't be derived from the rows already loaded. An artifact with no
+  // published custom code issues no query at all.
+  const customCodeVersionIds = artifactTools
+    .filter(t => t.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE)
+    .map(
+      t => (t.config as { activeVersionId?: unknown } | null)?.activeVersionId
+    )
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
   // Loaded after the user-message insert so it reflects this turn, matching the
   // prior ordering — but the rows just written are excluded, because they're
   // already the user turn appended below. Without that a debounced batch would
   // reach the model twice: once as history, once as the question.
-  const history = await loadRecentHistory(
-    dbInstance,
-    conversation.id,
-    historyLimit,
-    new Set(userMessageRows.map(row => row.id))
+  //
+  // Paired with the manifest read above, which the turn would otherwise wait on
+  // separately: history is on the critical path either way, so attribution for
+  // custom tools costs no extra latency.
+  const [history, customCodeVersions] = await Promise.all([
+    loadRecentHistory(
+      dbInstance,
+      conversation.id,
+      historyLimit,
+      new Set(userMessageRows.map(row => row.id))
+    ),
+    customCodeVersionIds.length > 0
+      ? dbInstance
+          .select({
+            id: db.schema.artifactToolVersion.id,
+            tools: db.schema.artifactToolVersion.tools
+          })
+          .from(db.schema.artifactToolVersion)
+          .where(
+            inArray(db.schema.artifactToolVersion.id, customCodeVersionIds)
+          )
+      : Promise.resolve([] as Array<{ id: string; tools: unknown }>)
+  ]);
+
+  const customCodeToolsByVersionId = new Map(
+    customCodeVersions.map(v => [v.id, v.tools])
   );
 
   // Native tools call by their definition key, so key → install id resolves the
-  // usage FK. Proxied definitions (http-endpoint, mcp-proxy) register MANY MCP
-  // tools per row under names that aren't the definition key — `lookup-order`,
-  // `github__search_repositories` — so we also map every derived call-name back
-  // to its parent install. Without this those calls record artifactToolId=null
-  // and the "Open in Tools" link can't navigate. Mirrors the MCP boot loop's
-  // naming so the map matches what the model actually calls.
+  // usage FK. Proxied definitions (http-endpoint, mcp-proxy, custom-code)
+  // register MANY MCP tools per row under names that aren't the definition
+  // key — `lookup-order`, `github__search_repositories` — so we also map every
+  // derived call-name back to its parent install. Without this those calls
+  // record artifactToolId=null and the "Open in Tools" link can't navigate.
+  // Mirrors the MCP boot loop's naming so the map matches what the model
+  // actually calls.
   const artifactToolIdByCallName = new Map<string, string>(
     artifactTools.map(t => [t.key, t.id])
   );
@@ -469,6 +503,23 @@ export const runChannelTurn = async (
         if (allowed && !allowed.has(remote.name)) continue;
         const localName = utils.buildProxyToolName(prefix, remote.name);
         if (localName) claimCallName(localName, t.id);
+      }
+    } else if (t.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
+      // The manifest is the same row the MCP boot loop registers from, so the
+      // names here are exactly the ones exposed — no prefixing or derivation.
+      // A row whose active version was rolled back or deleted between boot and
+      // now simply contributes nothing, the same as an install with no
+      // published version.
+      const cfg = t.config as { activeVersionId?: unknown } | null;
+      const versionId =
+        typeof cfg?.activeVersionId === 'string' ? cfg.activeVersionId : null;
+      const manifest = versionId
+        ? customCodeToolsByVersionId.get(versionId)
+        : null;
+      if (!Array.isArray(manifest)) continue;
+      for (const entry of manifest) {
+        const name = (entry as { name?: unknown } | null)?.name;
+        if (typeof name === 'string' && name) claimCallName(name, t.id);
       }
     }
   }

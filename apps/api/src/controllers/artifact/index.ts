@@ -41,7 +41,9 @@ import type { ReadableStream as WorkersReadableStream } from '@cloudflare/worker
 const validateHttpEndpointConfig = (
   config: unknown
 ): Record<string, unknown> => {
-  const parsed = utils.Schema.HTTP_ENDPOINT_CONFIG.safeParse(config ?? {});
+  const parsed = utils.Schema.HTTP_ENDPOINT_CONFIG_WRITE.safeParse(
+    config ?? {}
+  );
   if (!parsed.success) {
     throw new Error(
       parsed.error.issues[0]?.message || 'Invalid HTTP endpoint configuration'

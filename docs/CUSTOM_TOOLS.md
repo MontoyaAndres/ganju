@@ -286,10 +286,52 @@ Nothing below is code; all of it is account state this branch cannot create.
 3. **Deploy the two new workers before the first publish**: `ganju-tool-broker-*` and `ganju-tool-outbound-*`. The dispatcher's namespace binding names the outbound worker, so it must exist first.
 4. **Seed `custom-code`** on production ([scripts/seed-custom-code.mjs](../scripts/seed-custom-code.mjs)) — it has only been run on dev.
 
-### Phase 4 — Channel runner
+### Phase 4 — Channel runner ✅
 
-- [ ] Map custom-code call-names back to their parent `artifact_tool` id (see the `http-endpoint` / `mcp-proxy` branches at [runner.ts:443-465](../apps/api/src/controllers/channel/runner.ts#L443-L465)) so `channel_message_usage.artifactToolId` populates and "Open in Tools" navigates
+- [x] Map custom-code call-names back to their parent `artifact_tool` id — the third branch alongside `http-endpoint` / `mcp-proxy` at [runner.ts:507-524](../apps/api/src/controllers/channel/runner.ts#L507-L524), so `channel_message_usage.artifactToolId` populates and "Open in Tools" navigates
 - [x] Confirm the tool-list size guard: unlimited user tools × schema-per-turn is a real token cost — `CHANNEL_MAX_TOOLS = 40`, enforced in the runner
+
+Nothing else was needed to make custom tools work in a channel: the runner takes its tool list from `mcp.client.listTools()`, so Phase 3's boot registration already exposes them. Only attribution was missing.
+
+**This is the one call-name source that needs a second query.** `http-endpoint` and `mcp-proxy` derive their names from the install row the runner already loaded; custom-code's live on the active version, in another table. That read is issued [alongside `loadRecentHistory`](../apps/api/src/controllers/channel/runner.ts#L439) — the turn waits on history regardless, so attribution costs no latency — and is skipped entirely when no install has a published version, which is every artifact today.
+
+**Verified against the dev database**: a custom-code install with a published two-tool version plus a superseded one, on a real artifact with native tools. Both active names resolve to the install, a superseded version's names resolve to nothing, an active-version pointer of `null` issues no query, and a manifest entry named after an installed native tool does not take that name. Also exercised end to end below.
+
+### The tool-name namespace ✅
+
+Writing the mapping above surfaced the question it depends on: what happens when a user-chosen name equals a native tool's key? Every tool on an artifact registers into **one flat namespace**, so `gmail-send-email` as a custom tool name is a genuine collision — and both resolutions were bad. Whichever registered second was silently dropped ([mcp/index.ts](../apps/mcp/src/controllers/mcp/index.ts) skips a claimed name), and the runner attributed the call to the other one. Worse, the winner wasn't stable: the relational query that loads `artifactTools` has no `ORDER BY`.
+
+Only `RESOURCE_TOOL_KEYS` was reserved, on custom-code manifests. `http-endpoint`'s `name` — shipped, and the Free tier's custom tool — had no check at all, so it could take `send-resource` and shadow the RAG core the channel runner intercepts by name.
+
+Closed in three parts:
+
+- **Reserved by namespace, not by blocklist.** [`isReservedToolName`](../packages/utils/src/reservedToolName.ts) owns the group prefixes (`gmail-`, `outlook-`, `slack-`, `calendar-`, `calcom-`, `web-`) plus the unprefixed keys. A list of the ~60 shipped keys would answer the wrong question: a name that is free at publish time is taken the moment someone installs a native tool using it. Owning the prefix means a tool added to any of those groups later can never collide with a name already published. `mcp-proxy` needs no entry — its names are always `<prefix>__<remote>`, and no native key contains the separator.
+- **Enforced on the write path only.** `CUSTOM_CODE_MANIFEST` and the new `HTTP_ENDPOINT_CONFIG_WRITE` carry the rule; the schemas apps/mcp reads a stored row with do not. Tightening a rule must never stop an already-installed tool from registering — that failure is invisible to the owner, and it's the same silent orphan the [removal checklist](#removal-checklist-calendar--calcom) warns about. There are no custom-code installs anywhere yet, but `http-endpoint` installs on production can't be checked from here, so the permissive read path is what makes this safe to ship.
+- **Registration order made deterministic.** apps/mcp now sorts natives ahead of the three proxied definitions, ties broken by id. A legacy name that is reserved today keeps working and simply loses the tie to the native tool — which is also how the runner attributes it, so the tool that runs and the tool the usage row points at are finally the same one.
+
+One thing worth knowing: the message is a fixed string in constants rather than one that quotes the offending name, because [`localizeZodIssue`](../packages/utils/src/localizeZodIssue.ts) keys its translations on the exact English text. A 50-tool manifest still pinpoints the entry — through the issue `path` (`tools.3.name`), not the message. It also had to contain a word `matchStatus` recognises, or the http-endpoint path, which re-throws the issue message as a plain `Error`, would have answered 500 instead of 400.
+
+### Verified on dev, end to end
+
+Both workers running locally against the dev database, driven through the real HTTP surface with a real signed session cookie — not the schemas in isolation:
+
+| | |
+|---|---|
+| `POST …/custom-code/version` with `gmail-send-email` | 400, `{ path: 'manifest.tools.1.name' }` — the entry, not just the request |
+| …with `gmail-a-tool-we-have-not-shipped-yet` | 400 — the namespace holds, not just today's keys |
+| …with ordinary names | 200 |
+| `POST …/artifact/tool` naming an endpoint `send-resource` | 400, with the reason — not the opaque 500 the old wording would have produced |
+| …named `acme-ping` | 200 |
+| `tools/list` on the artifact | both custom tools registered from the active version |
+| a stored manifest entry named `greeting`, alongside the native install | native handler wins, squatter dropped, artifact otherwise intact |
+| five consecutive boots | identical tool list every time |
+| call-name → install mapping | custom names → the custom-code row, `greeting` → the native row, `acme-ping` → the http-endpoint row |
+
+The ordering change is load-bearing, confirmed by reverting it: with the loop back on the unordered query the squatter won and shadowed the native handler, exactly the failure the sort exists to prevent.
+
+Two notes on running this again. Publishing can't be exercised locally — it needs the Cloudflare credentials in the manual-setup list — so `config.activeVersionId` was moved directly, which is the only thing boot reads. And the developer's own org is FREE and already past its tool cap, so every create 402s; the run scaffolds a throwaway PRO org rather than raising the plan on live data. Everything it created was removed afterwards.
+
+**Verified**: every group prefix and unprefixed key rejected, case-insensitively; near-misses (`webhook-notify`, `gmailer`, `my-greeting`, a proxied `github__…`) accepted; the manifest issue carrying the right path and message; both read paths still accepting a name the write paths now refuse; the message mapping to 400 and translating in `es`; and the boot ordering landing natives-first regardless of input order.
 
 ### Phase 5 — Connections + `sendFile`
 

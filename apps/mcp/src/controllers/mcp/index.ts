@@ -40,6 +40,15 @@ import {
 // types
 import { AppEnv } from '../../types';
 
+// The definitions that register MANY tools per installed row, under names the
+// row's config or manifest supplies rather than the definition key. They sort
+// after the natives — see orderedArtifactTools below.
+const PROXIED_TOOL_KEYS = new Set([
+  utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT,
+  utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY,
+  utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+]);
+
 const business = async (c: Context<AppEnv>) => {
   const slug = c.req.param('slug') ?? resolveArtifactSlug(c.req.raw);
 
@@ -375,7 +384,27 @@ const business = async (c: Context<AppEnv>) => {
   // This query is the whole boot contract: names, descriptions and schemas come
   // from Postgres and the dispatcher is not called until an actual tools/call.
   // A script that is slow, broken, or not deployed at all still lists correctly.
-  const activeVersionIds = artifact.artifactTools
+  // Registration order decides who wins a name collision: every tool on an
+  // artifact lands in ONE flat namespace, and `registeredToolNames` skips the
+  // second claimant. The relational query above has no ORDER BY, so left alone
+  // the winner varies from boot to boot — the same install could register today
+  // and silently vanish tomorrow.
+  //
+  // Natives first, then the proxied definitions whose names the user chooses.
+  // A reserved name is rejected at the write path now, so a fresh collision
+  // can't be created; what this ordering settles is the installs that predate
+  // that rule. It also matches how the channel runner attributes a call — it
+  // seeds its map with native definition keys before any derived name — so the
+  // tool that runs and the tool the usage row points at are the same one.
+  // Ties break on id, which is uuidv7 and therefore creation-ordered.
+  const orderedArtifactTools = [...artifact.artifactTools].sort((a, b) => {
+    const aProxied = PROXIED_TOOL_KEYS.has(a.toolDefinition?.key || '') ? 1 : 0;
+    const bProxied = PROXIED_TOOL_KEYS.has(b.toolDefinition?.key || '') ? 1 : 0;
+    if (aProxied !== bProxied) return aProxied - bProxied;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+
+  const activeVersionIds = orderedArtifactTools
     .filter(
       t =>
         t.toolDefinition?.key ===
@@ -398,7 +427,7 @@ const business = async (c: Context<AppEnv>) => {
     }
   }
 
-  for (const artifactTool of artifact.artifactTools) {
+  for (const artifactTool of orderedArtifactTools) {
     const toolDef = artifactTool.toolDefinition;
     if (!toolDef) continue;
 

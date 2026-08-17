@@ -378,7 +378,7 @@ export const HttpEndpointModal = ({
     } catch {
       return setError('Invalid JSON.');
     }
-    const result = utils.Schema.HTTP_ENDPOINT_CONFIG.safeParse(parsed);
+    const result = utils.Schema.HTTP_ENDPOINT_CONFIG_WRITE.safeParse(parsed);
     if (!result.success) {
       return setError(
         result.error.issues[0]?.message || 'Invalid configuration.'
@@ -428,7 +428,7 @@ export const HttpEndpointModal = ({
         credentialId = created.id;
       }
 
-      const result = utils.Schema.HTTP_ENDPOINT_CONFIG.safeParse(
+      const result = utils.Schema.HTTP_ENDPOINT_CONFIG_WRITE.safeParse(
         buildConfig(credentialId)
       );
       if (!result.success) {

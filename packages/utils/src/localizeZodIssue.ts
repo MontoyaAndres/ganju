@@ -56,6 +56,9 @@ const CUSTOM_MESSAGES: Record<string, Record<string, string>> = {
   },
   'Slug is reserved': {
     es: 'Ese slug está reservado'
+  },
+  [constants.RESERVED_TOOL_NAME_MESSAGE]: {
+    es: 'Nombre de herramienta no válido — reservado por la plataforma'
   }
 };
 
