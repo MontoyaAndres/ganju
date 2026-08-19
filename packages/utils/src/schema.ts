@@ -536,6 +536,16 @@ const ARTIFACT_REMOVE_CREDENTIAL = z.object({
   organizationId: z.uuid()
 });
 
+// Reads every managed OAuth provider and where the artifact stands with it.
+// Same fields as the credential read above, kept separate because the two answer
+// different questions — one lists stored secrets, the other lists connections
+// whether or not one exists yet.
+const ARTIFACT_LIST_CONNECTIONS = z.object({
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
 const ARTIFACT_CREATE_CREDENTIAL = z.object({
   provider: z.enum(constants.CREDENTIAL_PROVIDERS),
   apiKey: z.string().min(1),
@@ -844,8 +854,14 @@ const CUSTOM_CODE_CONFIG = z.object({
     .array(z.string().min(1).max(253).toLowerCase())
     .max(50)
     .optional(),
-  // Providers the script may request via ctx.connection(). The broker refuses
-  // anything not listed here, so widening it is an explicit, auditable edit.
+  // Providers the script may request via ctx.connection(), and — for the three
+  // that have one — send files as. The broker refuses anything not listed here,
+  // so widening it is an explicit, auditable edit.
+  //
+  // Left as a free string on this READ shape: the connectable set grows and
+  // shrinks as providers are added and retired, and a stored row naming a
+  // provider we no longer offer has to keep parsing or the whole install stops
+  // registering. CUSTOM_CODE_CONFIG_WRITE below is where a name is checked.
   connections: z.array(z.string().min(1).max(100)).max(50).optional(),
   timeoutMs: z
     .number()
@@ -853,6 +869,27 @@ const CUSTOM_CODE_CONFIG = z.object({
     .positive()
     .default(constants.CUSTOM_CODE_DEFAULT_TIMEOUT_MS)
     .transform(n => Math.min(n, constants.CUSTOM_CODE_MAX_TIMEOUT_MS))
+});
+
+// The same config, plus the rule that every declared connection names a provider
+// we actually run a managed OAuth app for.
+//
+// Without this a typo is invisible until a customer's tool call fails: the
+// broker answers 403 "not one of this tool's declared connections" for
+// `google_gmail`, which is true and useless, because the entry IS in the list —
+// it just doesn't name anything. Same split as HTTP_ENDPOINT_CONFIG_WRITE, and
+// for the same reason: only the write path may tighten.
+const CUSTOM_CODE_CONFIG_WRITE = CUSTOM_CODE_CONFIG.superRefine((cfg, ctx) => {
+  cfg.connections?.forEach((provider, index) => {
+    if ((constants.OAUTH_PROVIDERS as readonly string[]).includes(provider)) {
+      return;
+    }
+    ctx.addIssue({
+      code: 'custom',
+      path: ['connections', index],
+      message: constants.CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE
+    });
+  });
 });
 
 // One tool entry in an uploaded manifest. This is the CONTRACT half of a
@@ -919,7 +956,7 @@ const CUSTOM_CODE_MANIFEST = z.object({
 // review as the code itself. The compiled bundle arrives separately.
 const ARTIFACT_CUSTOM_CODE_CREATE_VERSION = z.object({
   manifest: CUSTOM_CODE_MANIFEST,
-  config: CUSTOM_CODE_CONFIG.optional(),
+  config: CUSTOM_CODE_CONFIG_WRITE.optional(),
   projectId: z.uuid(),
   userId: z.uuid(),
   organizationId: z.uuid()
@@ -1015,6 +1052,84 @@ const CUSTOM_CODE_BROKER_RESOURCE_SEARCH = z.object({
 const CUSTOM_CODE_BROKER_RESOURCE_READ = z.object({
   uri: z.string().min(1).max(2000)
 });
+
+// The resources to deliver. Named by URI rather than by id because a URI is what
+// every other resource surface a script can see hands back — ctx.resources.list
+// and .search both return one, and neither returns a row id.
+const CUSTOM_CODE_SEND_FILE_URIS = z
+  .array(z.string().min(1).max(2000))
+  .min(1, 'At least one resource uri is required')
+  .max(
+    constants.CUSTOM_CODE_SEND_FILE_MAX_URIS,
+    `At most ${constants.CUSTOM_CODE_SEND_FILE_MAX_URIS} resources can be sent in one call`
+  );
+
+const CUSTOM_CODE_SEND_FILE_BODY = z.string().max(100_000);
+const CUSTOM_CODE_SEND_FILE_RECIPIENTS = z.string().min(1).max(2000);
+
+// What ctx.sendFile posts to the broker.
+//
+// Discriminated on `to` because the three destinations genuinely disagree about
+// what a send is: two are mail with recipients and a subject, one is a channel
+// upload with a comment. A single flat shape with everything optional would
+// accept `{ to: 'slack', subject: '…' }` and drop the subject silently.
+//
+// Each variant deliberately covers ONE operation — a new mail, a new upload.
+// The container routes behind them can also reply, forward, and update drafts,
+// but sendFile exists to move bytes a script cannot hold, not to be a mail
+// client: anything else a script wants from these APIs it can do itself with
+// ctx.connection() and a fetch, where its own allow-list applies.
+const CUSTOM_CODE_SEND_FILE = z.discriminatedUnion('to', [
+  z.object({
+    to: z.literal(constants.CUSTOM_CODE_SEND_FILE_TARGET_GMAIL),
+    uris: CUSTOM_CODE_SEND_FILE_URIS,
+    message: z.object({
+      // Gmail's own field name for the recipient; the destination lives on `to`
+      // one level up.
+      to: CUSTOM_CODE_SEND_FILE_RECIPIENTS,
+      subject: z.string().max(2000).optional(),
+      body: CUSTOM_CODE_SEND_FILE_BODY.default(''),
+      cc: z.string().max(2000).optional(),
+      bcc: z.string().max(2000).optional(),
+      contentType: z.enum(['text/html', 'text/plain']).optional(),
+      // Threads an attachment onto an existing conversation, which a script
+      // typically got from a gmail- tool call earlier in the same turn.
+      threadId: z.string().max(200).optional()
+    })
+  }),
+  z.object({
+    to: z.literal(constants.CUSTOM_CODE_SEND_FILE_TARGET_OUTLOOK),
+    uris: CUSTOM_CODE_SEND_FILE_URIS,
+    message: z.object({
+      to: CUSTOM_CODE_SEND_FILE_RECIPIENTS,
+      subject: z.string().max(2000).optional(),
+      body: CUSTOM_CODE_SEND_FILE_BODY.default(''),
+      cc: z.string().max(2000).optional(),
+      bcc: z.string().max(2000).optional(),
+      // Graph's vocabulary, not a MIME type — the container passes it straight
+      // through to the message payload.
+      contentType: z.enum(['html', 'text']).optional()
+    })
+  }),
+  z.object({
+    to: z.literal(constants.CUSTOM_CODE_SEND_FILE_TARGET_SLACK),
+    // Exactly one, unlike the two mail destinations. Slack's external-upload
+    // flow moves a single file per call — three round trips per file — and the
+    // container route behind it reads one `attachment` field. Accepting a list
+    // here would take ten and deliver the first, silently. A script sending
+    // several files calls sendFile several times.
+    uris: CUSTOM_CODE_SEND_FILE_URIS.length(
+      1,
+      'Slack delivers one file per call'
+    ),
+    message: z.object({
+      channel: z.string().min(1).max(200),
+      title: z.string().max(200).optional(),
+      initialComment: z.string().max(4000).optional(),
+      threadTs: z.string().max(100).optional()
+    })
+  })
+]);
 
 const ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE = z.object({
   resourceId: z.uuid(),
@@ -1173,6 +1288,7 @@ export const Schema = {
   ARTIFACT_GET_TOOL,
   ARTIFACT_REMOVE_TOOL,
   ARTIFACT_GET_CREDENTIAL,
+  ARTIFACT_LIST_CONNECTIONS,
   ARTIFACT_REMOVE_CREDENTIAL,
   ARTIFACT_CREATE_CREDENTIAL,
   ARTIFACT_GET,
@@ -1198,6 +1314,7 @@ export const Schema = {
   HTTP_ENDPOINT_CONFIG_WRITE,
   MCP_PROXY_CONFIG,
   CUSTOM_CODE_CONFIG,
+  CUSTOM_CODE_CONFIG_WRITE,
   CUSTOM_CODE_TOOL,
   CUSTOM_CODE_MANIFEST,
   ARTIFACT_CUSTOM_CODE_CREATE_VERSION,
@@ -1210,7 +1327,8 @@ export const Schema = {
   CUSTOM_CODE_BROKER_CONNECTION,
   CUSTOM_CODE_BROKER_SECRET,
   CUSTOM_CODE_BROKER_RESOURCE_SEARCH,
-  CUSTOM_CODE_BROKER_RESOURCE_READ
+  CUSTOM_CODE_BROKER_RESOURCE_READ,
+  CUSTOM_CODE_SEND_FILE
 };
 
 // Fully-resolved http-endpoint config (post-parse, defaults applied).
@@ -1231,6 +1349,12 @@ export type CustomCodeToolManifest = z.infer<typeof CUSTOM_CODE_TOOL>;
 
 // The full manifest uploaded with a bundle.
 export type CustomCodeManifest = z.infer<typeof CUSTOM_CODE_MANIFEST>;
+
+// One ctx.sendFile call, after parsing. The SDK's SendFileOptions is the same
+// union written by hand — it can't import this one, because @ganju/sdk is
+// bundled into every uploaded script and reaching the barrel would ship zod
+// with it.
+export type CustomCodeSendFile = z.infer<typeof CUSTOM_CODE_SEND_FILE>;
 
 // One remote tool discovered from a proxied MCP server. Stored on
 // artifact_tool.metadata.discovery at configure-time so the stateless MCP boot

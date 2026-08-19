@@ -8,7 +8,8 @@ import type {
   McpProxyDiscovery,
   CustomCodeToolConfig,
   CustomCodeToolManifest,
-  CustomCodeManifest
+  CustomCodeManifest,
+  CustomCodeSendFile
 } from './schema';
 import { getEnv } from './getEnv';
 import type { EnvSource } from './getEnv';
@@ -99,6 +100,12 @@ import {
 import type { CustomCodeTokenPayload } from './customCodeToken';
 import { oauthProviders } from './oauthProviders';
 import type { OAuthProviderConfig } from './oauthProviders';
+import { resolveAttachment } from './attachment';
+import type {
+  AttachmentResource,
+  ResolvedAttachment,
+  ResolveAttachmentResult
+} from './attachment';
 import { ipv4InPrivateRange, isBlockedHost } from './ssrf';
 import { formatRelative } from './formatRelative';
 import { formatRelativeTime } from './formatRelativeTime';
@@ -212,6 +219,7 @@ export const utils = {
   verifyCustomCodeToken,
   customCodeScriptName,
   oauthProviders,
+  resolveAttachment,
   ipv4InPrivateRange,
   isBlockedHost,
   validateMessageVariables,
@@ -311,8 +319,12 @@ export type {
   CustomCodeToolConfig,
   CustomCodeToolManifest,
   CustomCodeManifest,
+  CustomCodeSendFile,
   CustomCodeTokenPayload,
   OAuthProviderConfig,
+  AttachmentResource,
+  ResolvedAttachment,
+  ResolveAttachmentResult,
   PlanLimitDetails,
   PlanLimits
 };

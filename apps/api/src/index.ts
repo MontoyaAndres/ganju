@@ -485,6 +485,11 @@ app
     UserMiddleware.verify,
     ArtifactController.removeCredential
   )
+  .get(
+    '/organization/:organizationId/project/:projectId/artifact/connections',
+    UserMiddleware.verify,
+    ArtifactController.listConnections
+  )
 
   // Tool catalog controller
   .get('/catalog/tools', UserMiddleware.verify, CatalogController.listGroups)

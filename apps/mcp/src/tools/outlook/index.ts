@@ -124,55 +124,23 @@ const sendViaContainer = async (
     const resource = context.resources.find(r => r.uri === uri);
     if (!resource) return { ok: false, error: `Resource not found: ${uri}` };
 
-    let arrayBuffer: ArrayBuffer;
-    let mimeType: string;
-    let filename: string;
+    const resolved = await utils.resolveAttachment(resource, async key => {
+      const obj = await context.bucket.get(key);
+      return obj ? await obj.arrayBuffer() : null;
+    });
+    if (!resolved.ok) return { ok: false, error: resolved.error };
 
-    if (resource.fileKey) {
-      const obj = await context.bucket.get(resource.fileKey);
-      if (!obj) {
-        return {
-          ok: false,
-          error: `Resource bytes missing in storage for ${uri} (fileKey: ${resource.fileKey})`
-        };
-      }
-      arrayBuffer = await obj.arrayBuffer();
-      mimeType =
-        resource.mimeType || utils.constants.MIMETYPE_APPLICATION_OCTET_STREAM;
-      filename =
-        resource.fileName ||
-        resource.title ||
-        uri.split('/').pop() ||
-        'attachment';
-    } else if (resource.content !== null && resource.content !== undefined) {
-      const bytes = new TextEncoder().encode(resource.content);
-      arrayBuffer = bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength
-      ) as ArrayBuffer;
-      mimeType = resource.mimeType || 'text/plain';
-      const base = resource.fileName || resource.title || 'attachment';
-      filename = /\.[a-z0-9]+$/i.test(base) ? base : `${base}.txt`;
-    } else {
-      return {
-        ok: false,
-        error: `Resource ${uri} has no inline content and no file in storage; cannot attach.`
-      };
-    }
+    const { bytes, mimeType, filename } = resolved.attachment;
 
-    totalRaw += arrayBuffer.byteLength;
-    if (arrayBuffer.byteLength > utils.constants.OUTLOOK_MAX_ATTACHMENT_BYTES) {
+    totalRaw += bytes.byteLength;
+    if (bytes.byteLength > utils.constants.OUTLOOK_MAX_ATTACHMENT_BYTES) {
       return {
         ok: false,
         error: `Attachment ${filename} exceeds Outlook's ${Math.round(utils.constants.OUTLOOK_MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB per-file cap.`
       };
     }
 
-    form.append(
-      'attachment',
-      new Blob([arrayBuffer], { type: mimeType }),
-      filename
-    );
+    form.append('attachment', new Blob([bytes], { type: mimeType }), filename);
   }
 
   // Outlook's practical per-message cap. Graph rejects combined >150MB.

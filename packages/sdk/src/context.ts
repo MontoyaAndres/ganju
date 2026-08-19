@@ -11,6 +11,7 @@ import type {
   ResourceMatch,
   ResourceSummary,
   SendFileOptions,
+  SendFileReceipt,
   ToolContext,
   ToolEnv
 } from './types';
@@ -116,8 +117,13 @@ export const createContext = (env: ToolEnv) => {
       }
     },
 
-    sendFile: (options: SendFileOptions) =>
-      call<unknown>(constants.CUSTOM_CODE_BROKER_PATH_SEND_FILE, options),
+    sendFile: async (options: SendFileOptions) => {
+      const { result } = await call<{ result: SendFileReceipt }>(
+        constants.CUSTOM_CODE_BROKER_PATH_SEND_FILE,
+        options
+      );
+      return result;
+    },
 
     log: (...values: unknown[]) => logs.push('log', values)
   };

@@ -81,6 +81,21 @@ interface ArtifactCredential {
   metadata?: { needsReauth?: boolean; reauthReason?: string } | null;
 }
 
+// One managed OAuth provider and where this artifact stands with it. Reported
+// for every provider, connected or not — which is what separates it from the
+// credential list above, and why an http-endpoint can offer a connection to
+// borrow without first guessing which ones exist.
+interface ArtifactConnection {
+  provider: string;
+  credentialId: string | null;
+  connected: boolean;
+  needsReauth: boolean;
+  expiresAt: string | null;
+  scopes: string | null;
+  configured: boolean;
+  app: 'managed';
+}
+
 const EXPANDED_GROUP_KEY = 'ganju:expandedToolGroupId';
 
 const SEND_UPDATES_OPTIONS = [
@@ -116,6 +131,7 @@ export const Tools = () => {
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [installed, setInstalled] = useState<ArtifactTool[]>([]);
   const [credentials, setCredentials] = useState<ArtifactCredential[]>([]);
+  const [connections, setConnections] = useState<ArtifactConnection[]>([]);
   const [search, setSearch] = useState('');
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [expandedInstalled, setExpandedInstalled] = useState<Set<string>>(
@@ -180,35 +196,48 @@ export const Tools = () => {
   const apiBase = `/organization/${organizationId}/project/${projectId}/artifact`;
   const toolApiBase = `${apiBase}/tool`;
   const credentialApiBase = `${apiBase}/credential`;
+  const connectionApiBase = `${apiBase}/connections`;
 
   const fetchAll = async (signal?: AbortSignal) => {
     if (!organizationId || !projectId) return;
     setStatus('pending');
     try {
-      const [catalogData, mcpServerData, installedData, credentialData] =
-        await Promise.all([
-          utils.fetcher({
-            url: '/catalog/tools',
-            config: { credentials: 'include', signal }
-          }),
-          utils.fetcher({
-            url: '/catalog/mcp-servers',
-            config: { credentials: 'include', signal }
-          }),
-          utils.fetcher({
-            url: toolApiBase,
-            config: { credentials: 'include', signal }
-          }),
-          utils.fetcher({
-            url: credentialApiBase,
-            config: { credentials: 'include', signal }
-          })
-        ]);
+      const [
+        catalogData,
+        mcpServerData,
+        installedData,
+        credentialData,
+        connectionData
+      ] = await Promise.all([
+        utils.fetcher({
+          url: '/catalog/tools',
+          config: { credentials: 'include', signal }
+        }),
+        utils.fetcher({
+          url: '/catalog/mcp-servers',
+          config: { credentials: 'include', signal }
+        }),
+        utils.fetcher({
+          url: toolApiBase,
+          config: { credentials: 'include', signal }
+        }),
+        utils.fetcher({
+          url: credentialApiBase,
+          config: { credentials: 'include', signal }
+        }),
+        utils.fetcher({
+          url: connectionApiBase,
+          config: { credentials: 'include', signal }
+        })
+      ]);
       if (signal?.aborted) return;
       if (Array.isArray(catalogData)) setCatalog(catalogData);
       if (Array.isArray(mcpServerData)) setMcpServers(mcpServerData);
       if (Array.isArray(installedData)) setInstalled(installedData);
       if (Array.isArray(credentialData)) setCredentials(credentialData);
+      if (Array.isArray(connectionData?.connections)) {
+        setConnections(connectionData.connections);
+      }
       setStatus('resolved');
     } catch {
       if (!signal?.aborted) setStatus('rejected');
@@ -1253,8 +1282,7 @@ export const Tools = () => {
                                     s.id ===
                                     (t.mcpServerCatalogId ||
                                       (t.config?.curatedServerId as
-                                        | string
-                                        | undefined))
+                                        string | undefined))
                                 )?.name
                               : undefined;
                             const configKeys = t.config
@@ -1941,8 +1969,10 @@ export const Tools = () => {
           tool={httpEndpointEditor.tool}
           toolDefinitionId={httpEndpointDef.id}
           credentials={credentials}
+          connections={connections}
           toolApiBase={toolApiBase}
           credentialApiBase={credentialApiBase}
+          getProviderLabel={getProviderLabel}
           snackbar={snackbar}
           onClose={() => setHttpEndpointEditor(null)}
           onSaved={fetchAll}

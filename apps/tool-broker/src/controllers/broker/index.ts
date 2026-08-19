@@ -6,70 +6,112 @@ import { utils } from '@ganju/utils';
 import {
   resolveConnection,
   resolveSecret,
-  generateEmbedding
+  generateEmbedding,
+  sendFile as deliverFile
 } from '../../utils';
 
 // types
+import type { Database } from '@ganju/db';
+import type { ResolvedConnection } from '../../utils';
 import type { AppEnv } from '../../types';
 
 /**
- * Mint a short-lived access token for one of the artifact's managed connections.
+ * Resolve one of the artifact's managed connections for the calling script, or
+ * return the response explaining why it can't be.
  *
  * Two gates, in this order: the provider must be listed in the tool's
  * `config.connections`, and the artifact must actually hold that credential.
- * The allow-list is checked first so a script cannot use this route to probe
- * which providers an artifact has connected — an unlisted provider and a listed
- * one that isn't connected must be indistinguishable from inside the isolate.
+ * The allow-list is checked first so a script cannot use this to probe which
+ * providers an artifact has connected — an unlisted provider and a listed one
+ * that isn't connected must be indistinguishable from inside the isolate.
+ *
+ * Shared by `connection` and `sendFile`: a send spends the artifact's credential
+ * just as directly as reading its token does, so it passes the same gates. A
+ * script barred from the Gmail token must not be able to send mail as that
+ * account by naming a different capability.
+ */
+const requireConnection = async (
+  c: Context<AppEnv>,
+  dbInstance: Database,
+  provider: string
+): Promise<
+  | { ok: true; connection: ResolvedConnection }
+  | { ok: false; response: Response }
+> => {
+  const tool = c.get('tool');
+  const allowed = tool.config.connections || [];
+
+  if (!allowed.includes(provider)) {
+    return {
+      ok: false,
+      response: c.json(
+        {
+          error: `"${provider}" is not one of this tool's declared connections. Add it to the tool's connections and publish a new version.`
+        },
+        403
+      )
+    };
+  }
+
+  const resolved = await resolveConnection(
+    c,
+    dbInstance,
+    tool.artifactId,
+    provider
+  );
+
+  if (!resolved) {
+    return {
+      ok: false,
+      response: c.json(
+        {
+          error: `"${provider}" is not connected on this artifact. Connect it on the Tools page.`
+        },
+        404
+      )
+    };
+  }
+
+  if (resolved.needsReauth) {
+    return {
+      ok: false,
+      response: c.json(
+        {
+          error: `The "${provider}" connection needs to be re-authorized. Open the Tools page and re-link it.`
+        },
+        409
+      )
+    };
+  }
+
+  return { ok: true, connection: resolved };
+};
+
+/**
+ * Mint a short-lived access token for one of the artifact's managed connections.
  */
 const connection = async (c: Context<AppEnv>) => {
-  const tool = c.get('tool');
   const body = await c.req.json().catch(() => ({}));
   const parsed = utils.Schema.CUSTOM_CODE_BROKER_CONNECTION.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: 'A provider is required' }, 400);
   }
 
-  const allowed = tool.config.connections || [];
-  if (!allowed.includes(parsed.data.provider)) {
-    return c.json(
-      {
-        error: `"${parsed.data.provider}" is not one of this tool's declared connections. Add it to the tool's connections and publish a new version.`
-      },
-      403
-    );
-  }
-
-  const resolved = await resolveConnection(
+  const resolved = await requireConnection(
     c,
     db.create(c),
-    tool.artifactId,
     parsed.data.provider
   );
-
-  if (!resolved) {
-    return c.json(
-      {
-        error: `"${parsed.data.provider}" is not connected on this artifact. Connect it on the Tools page.`
-      },
-      404
-    );
-  }
-
-  if (resolved.needsReauth) {
-    return c.json(
-      {
-        error: `The "${parsed.data.provider}" connection needs to be re-authorized. Open the Tools page and re-link it.`
-      },
-      409
-    );
-  }
+  if (!resolved.ok) return resolved.response;
 
   // Only the access token crosses this line. The refresh token and the client
   // secret stay in the broker by construction — see resolveConnection.
   return c.json({
-    provider: resolved.provider,
-    accessToken: resolved.accessToken,
-    expiresAt: resolved.expiresAt ? resolved.expiresAt.toISOString() : null
+    provider: resolved.connection.provider,
+    accessToken: resolved.connection.accessToken,
+    expiresAt: resolved.connection.expiresAt
+      ? resolved.connection.expiresAt.toISOString()
+      : null
   });
 };
 
@@ -262,23 +304,52 @@ const readResource = async (c: Context<AppEnv>) => {
 };
 
 /**
- * Deliver a resource as a file through the resource-handler container.
+ * Deliver one or more of the artifact's resources as files, to a destination the
+ * artifact has connected.
  *
- * Not yet implemented. The route exists now so the seam is visible and the SDK
- * can name the capability: the native gmail/outlook/slack handlers own the
- * multipart assembly today, and building a second, worse copy of it here to hit
- * the same container routes is exactly what the file-delivery work is meant to
- * replace. 501 rather than 404 so a caller can tell "not built yet" from
- * "wrong path".
+ * The one host capability a user script genuinely cannot reproduce: it is capped
+ * at 128MiB, holds no R2 binding, and has no path to the resource-handler
+ * container. Here the bytes go R2 → broker → container and never enter the
+ * isolate that asked for them, so a script can deliver a 40MB attachment it
+ * could not have held.
+ *
+ * The destination is named by `to` and resolves to a managed connection, which
+ * passes the same allow-list gate ctx.connection() does.
  */
-const sendFile = async (c: Context<AppEnv>) =>
-  c.json(
-    {
-      error:
-        'sendFile is not available yet. Until it ships, deliver files with the native gmail, outlook or slack tools.'
-    },
-    501
-  );
+const sendFile = async (c: Context<AppEnv>) => {
+  const tool = c.get('tool');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = utils.Schema.CUSTOM_CODE_SEND_FILE.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        error:
+          parsed.error.issues[0]?.message ||
+          `sendFile needs a destination (${utils.constants.CUSTOM_CODE_SEND_FILE_TARGETS.join(', ')}), the resource uris to send, and a message.`
+      },
+      400
+    );
+  }
+
+  const dbInstance = db.create(c);
+  const provider =
+    utils.constants.CUSTOM_CODE_SEND_FILE_PROVIDERS[parsed.data.to];
+
+  const resolved = await requireConnection(c, dbInstance, provider);
+  if (!resolved.ok) return resolved.response;
+
+  const sent = await deliverFile(c, dbInstance, {
+    artifactId: tool.artifactId,
+    accessToken: resolved.connection.accessToken,
+    request: parsed.data
+  });
+
+  if (!sent.ok) {
+    return c.json({ error: sent.error }, sent.status);
+  }
+
+  return c.json({ result: sent.result });
+};
 
 export const BrokerController = {
   connection,

@@ -91,5 +91,10 @@ export type {
   ResourceContent,
   ResourceMatch,
   ResourceSummary,
-  SendFileOptions
+  SendFileOptions,
+  SendFileTarget,
+  SendFileGmail,
+  SendFileOutlook,
+  SendFileSlack,
+  SendFileReceipt
 } from './types';

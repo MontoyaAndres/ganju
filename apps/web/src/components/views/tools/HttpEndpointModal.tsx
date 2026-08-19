@@ -28,14 +28,28 @@ interface ArtifactCredential {
   metadata?: Record<string, unknown> | null;
 }
 
+interface ArtifactConnection {
+  provider: string;
+  credentialId: string | null;
+  connected: boolean;
+  needsReauth: boolean;
+}
+
 interface Props {
   // null = create a new endpoint; otherwise edit this instance.
   tool: ArtifactTool | null;
   // The http-endpoint tool_definition id (needed to create a new instance).
   toolDefinitionId: string;
   credentials: ArtifactCredential[];
+  // Managed OAuth providers, for the `oauth` auth kind. An endpoint calling a
+  // vendor the artifact has already connected borrows that connection instead of
+  // asking the user to paste a token that expires in an hour.
+  connections: ArtifactConnection[];
   toolApiBase: string;
   credentialApiBase: string;
+  // Reuses the tools view's own provider naming so a connection reads the same
+  // here as it does on the card that established it.
+  getProviderLabel: (provider: string) => string;
   snackbar: { success: (m: string) => void; error: (m: string) => void };
   onClose: () => void;
   onSaved: () => void;
@@ -75,8 +89,11 @@ const CONTENT_TYPE_OPTIONS = [
     label: 'Text'
   }
 ];
-// oauth is intentionally omitted — it binds to a real OAuth credential, which
-// this generic form doesn't manage. bearer/basic/api-key cover stored secrets.
+// `oauth` sends the access token of a connection the artifact already holds,
+// refreshed on the server before every call. It is listed apart from the three
+// stored-secret kinds because the user picks a *provider* rather than pasting a
+// value, and because there is nothing to add inline when none is connected —
+// connecting happens on the Tools page.
 const AUTH_KIND_OPTIONS = [
   { value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE, label: 'None' },
   {
@@ -87,7 +104,11 @@ const AUTH_KIND_OPTIONS = [
     value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_BASIC,
     label: 'Basic (user:pass)'
   },
-  { value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_API_KEY, label: 'API key' }
+  { value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_API_KEY, label: 'API key' },
+  {
+    value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_OAUTH,
+    label: 'Connected account'
+  }
 ];
 const ARG_TYPE_OPTIONS = [
   { value: 'string', label: 'String' },
@@ -130,8 +151,10 @@ export const HttpEndpointModal = ({
   tool,
   toolDefinitionId,
   credentials,
+  connections,
   toolApiBase,
   credentialApiBase,
+  getProviderLabel,
   snackbar,
   onClose,
   onSaved
@@ -213,7 +236,7 @@ export const HttpEndpointModal = ({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const credentialOptions = useMemo(
+  const secretOptions = useMemo(
     () =>
       credentials
         .filter(
@@ -227,6 +250,27 @@ export const HttpEndpointModal = ({
         })),
     [credentials]
   );
+
+  // Only connections that actually resolved to a credential can be referenced —
+  // `auth.credentialId` has to name a row. One needing re-authorization is still
+  // offered, flagged: the endpoint will be correct again the moment it is
+  // re-linked, and hiding it would read as "this connection is gone".
+  const connectionOptions = useMemo(
+    () =>
+      connections
+        .filter(c => c.connected && c.credentialId)
+        .map(c => ({
+          value: c.credentialId as string,
+          label: c.needsReauth
+            ? `${getProviderLabel(c.provider)} — needs re-authorization`
+            : getProviderLabel(c.provider)
+        })),
+    [connections, getProviderLabel]
+  );
+
+  const usesConnection =
+    authKind === utils.constants.HTTP_ENDPOINT_AUTH_KIND_OAUTH;
+  const credentialOptions = usesConnection ? connectionOptions : secretOptions;
 
   const needsCredential =
     authKind !== utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE;
@@ -398,7 +442,11 @@ export const HttpEndpointModal = ({
     if (!name.trim()) return setError('Tool name is required.');
     if (!url.trim()) return setError('URL is required.');
     if (needsCredential && !addingSecret && !credChoice) {
-      return setError('Select an existing secret or add a new one.');
+      return setError(
+        usesConnection
+          ? 'Select a connected account.'
+          : 'Select an existing secret or add a new one.'
+      );
     }
     if (needsCredential && addingSecret && !newSecret.trim()) {
       return setError('Enter the secret value.');
@@ -493,7 +541,8 @@ export const HttpEndpointModal = ({
                 <p className="tools-configure-help">
                   Edit the full endpoint configuration as JSON. Switch back to{' '}
                   <strong>Form</strong> to use the guided editor. To use a saved
-                  secret, set <code>auth.credentialId</code> to its id.
+                  secret or a connected account, set{' '}
+                  <code>auth.credentialId</code> to its id.
                 </p>
                 <UI.Input
                   label="Configuration (JSON)"
@@ -760,7 +809,16 @@ export const HttpEndpointModal = ({
                     value={authKind}
                     options={AUTH_KIND_OPTIONS}
                     disabled={submitting}
-                    onChange={e => setAuthKind(e.target.value)}
+                    onChange={e => {
+                      // A credential id chosen for one kind never carries to
+                      // another: stored secrets and connections are separate
+                      // sets of rows, so keeping the old id would leave the
+                      // field looking filled while pointing at nothing the new
+                      // picker lists.
+                      setAuthKind(e.target.value);
+                      setCredChoice('');
+                      setAddingSecret(false);
+                    }}
                   />
                   {authKind ===
                     utils.constants.HTTP_ENDPOINT_AUTH_KIND_API_KEY && (
@@ -788,35 +846,43 @@ export const HttpEndpointModal = ({
                   {needsCredential && !addingSecret && (
                     <>
                       <UI.Select
-                        label="Secret"
+                        label={usesConnection ? 'Connection' : 'Secret'}
                         value={credChoice}
                         options={credentialOptions}
                         disabled={submitting || credentialOptions.length === 0}
                         helperText={
                           credentialOptions.length === 0
-                            ? 'No saved secrets yet — add one below.'
-                            : authKind ===
-                                utils.constants.HTTP_ENDPOINT_AUTH_KIND_BASIC
-                              ? 'Stored value should be "username:password".'
-                              : 'The stored secret is sent with each request.'
+                            ? usesConnection
+                              ? 'No connected accounts yet — connect one from the tool catalog first.'
+                              : 'No saved secrets yet — add one below.'
+                            : usesConnection
+                              ? 'Its access token is refreshed and sent as a Bearer header on every call.'
+                              : authKind ===
+                                  utils.constants.HTTP_ENDPOINT_AUTH_KIND_BASIC
+                                ? 'Stored value should be "username:password".'
+                                : 'The stored secret is sent with each request.'
                         }
                         onChange={e => setCredChoice(e.target.value)}
                       />
-                      <UI.Button
-                        size="small"
-                        className="http-endpoint-add-secret"
-                        disabled={submitting}
-                        onClick={() => {
-                          setAddingSecret(true);
-                          setCredChoice('');
-                        }}
-                      >
-                        <Add fontSize="small" />
-                        <span className="button-text">Add new secret</span>
-                      </UI.Button>
+                      {/* A connection is established by an OAuth redirect from
+                          the catalog card, so there is nothing to add inline. */}
+                      {!usesConnection && (
+                        <UI.Button
+                          size="small"
+                          className="http-endpoint-add-secret"
+                          disabled={submitting}
+                          onClick={() => {
+                            setAddingSecret(true);
+                            setCredChoice('');
+                          }}
+                        >
+                          <Add fontSize="small" />
+                          <span className="button-text">Add new secret</span>
+                        </UI.Button>
+                      )}
                     </>
                   )}
-                  {needsCredential && addingSecret && (
+                  {needsCredential && !usesConnection && addingSecret && (
                     <div className="http-endpoint-new-secret">
                       <UI.Input
                         label="Label"

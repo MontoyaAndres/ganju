@@ -59,6 +59,9 @@ const CUSTOM_MESSAGES: Record<string, Record<string, string>> = {
   },
   [constants.RESERVED_TOOL_NAME_MESSAGE]: {
     es: 'Nombre de herramienta no válido — reservado por la plataforma'
+  },
+  [constants.CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE]: {
+    es: 'Conexión no válida — no existe un proveedor gestionado con ese nombre'
   }
 };
 

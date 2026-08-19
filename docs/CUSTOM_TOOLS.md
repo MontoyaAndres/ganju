@@ -108,10 +108,14 @@ Enforce here, **not** in the SDK — anything in the isolate is user-editable an
 The one thing user code genuinely cannot do: a user Worker is capped at 128MiB, has no R2 binding, and no path to `RESOURCE_HANDLER`. So attachments and large uploads stay a **host capability**:
 
 ```ts
-await ganju.sendFile({ resourceId, to: 'gmail', ... })
+await ctx.sendFile({
+  to: 'gmail',
+  uris: ['resource://invoices/2026-q3.pdf'],
+  message: { to: 'ap@acme.com', subject: 'Q3 invoice', body: 'Attached.' }
+});
 ```
 
-The broker forwards to the resource-handler container exactly as the native handlers do today. Those three handlers are the reference implementation — **do not delete them before this is built.**
+The broker forwards to the resource-handler container exactly as the native handlers do today — and since Phase 5 they share the resource→bytes step, [`resolveAttachment`](../packages/utils/src/attachment.ts). Those three handlers are still the reference implementation for everything downstream of it (MIME assembly, Graph upload sessions, Slack's external-upload flow), so **do not delete them.**
 
 ### Boot contract
 
@@ -202,7 +206,7 @@ The keys must match the manifest's tool names — publish verifies that against 
 | `ctx.connection(provider)` | `{ accessToken, provider, expiresAt }`. Short-lived. **Never** the refresh token or client secret. Throws when the provider isn't in the tool's declared `connections`. |
 | `ctx.secret(name)` | Per-tool `artifact_credential` (provider `custom-code`), addressed by label, same orphan-cleanup as `http-endpoint`. |
 | `ctx.resources.search / read / list` | Reuses the same embedding + resource read the native RAG tools use. Binary resources are refused rather than base64'd — that's what `sendFile` is for. |
-| `ctx.sendFile(opts)` | Broker → resource-handler container. **Phase 5**; returns 501 today. |
+| `ctx.sendFile(opts)` | Broker → resource-handler container. Destination is `gmail`, `outlook` or `slack`, and must be in the tool's declared `connections` — sending as an account is the same privilege as reading its token. Bytes never enter the isolate. |
 | `ctx.log(...)` | Buffered in the isolate, returned with the result, recorded on `mcp_request`. Capped at 50 lines. |
 | `fetch` | Global, screened by the outbound worker. |
 | *not available* | `require`, `process`, `fs`, raw DB, other artifacts. No `nodejs_compat` — user scripts get the plain Workers runtime. |
@@ -226,7 +230,7 @@ Ordered so that nothing user-visible is removed before its replacement exists.
 
   Worth knowing if this is ever done again: the entitlement takes a few minutes to reach the API. `wrangler` kept returning `10121 You do not have access to dispatch namespaces` well after the dashboard showed the product as Active — an empty `[]` from `wrangler dispatch-namespace list` is the signal it has landed. Creating both namespaces up front costs nothing: the $25/mo is a per-account platform fee and namespaces aren't a billed unit, so the charge starts with the first script deployed into one, drawing on an account-wide 1,000-script allowance.
 - [x] Confirm current WfP pricing → verified August 2026 in [PRICING.md](PRICING.md#part-1--what-things-actually-cost-us): $25/mo including 1,000 scripts, then $0.02 per script per month
-- [ ] Decide: managed-only connections for v1, or managed + BYO app from the start
+- [x] Decide: managed-only connections for v1, or managed + BYO app from the start → **managed-only**, BYO deferred (Phase 5)
 - [ ] Decide: is the LLM-generates-the-tool flow in v1, or CLI + templates only
 
 ### Phase 1 — Data model + publish API (no runtime) ✅
@@ -264,7 +268,7 @@ Five things worth knowing:
 - **`ctx.log` never touches the broker.** Log lines are buffered in the isolate and returned with the result, then recorded on the `mcp_request` row. A log call that cost a network round trip would be a log call nobody makes.
 - **Publish now fails when the runtime isn't configured**, rather than degrading to a database-only state change. A publish that moves the pointer without deploying advertises tools to every MCP client with nothing behind them — the same silent orphan the [removal checklist](#removal-checklist-calendar--calcom) warns about, self-inflicted. Missing env vars are named in the error.
 - **The smoke test earns its keep.** The manifest and the bundle arrive through different endpoints and nothing connects them until this: the reserved `__ganju_health` tool asks the deployed script which names it actually exports, and publish refuses when they don't cover what the manifest declares. `lookup-order` vs `lookupOrder` used to survive to the first customer call.
-- **`sendFile` is still Phase 5.** The route exists and returns 501. Implementing it means reproducing the multipart assembly the three native handlers own; doing that badly here is precisely what Phase 5 exists to avoid.
+- **`sendFile` was still Phase 5 at this point.** The route existed and returned 501; it landed in Phase 5 below.
 
 Also: `apps/api`'s OAuth provider table moved to [@ganju/utils](../packages/utils/src/oauthProviders.ts). The broker needs the same client env names and token URLs to refresh a connection, and two copies would have drifted the first time a provider was added.
 
@@ -333,12 +337,50 @@ Two notes on running this again. Publishing can't be exercised locally — it ne
 
 **Verified**: every group prefix and unprefixed key rejected, case-insensitively; near-misses (`webhook-notify`, `gmailer`, `my-greeting`, a proxied `github__…`) accepted; the manifest issue carrying the right path and message; both read paths still accepting a name the write paths now refuse; the message mapping to 400 and translating in `es`; and the boot ordering landing natives-first regardless of input order.
 
-### Phase 5 — Connections + `sendFile`
+### Phase 5 — Connections + `sendFile` ✅ (managed-only)
 
-- [ ] Promote `artifact_credential` + [providers.ts](../apps/api/src/utils/providers.ts) into a **Connections** surface, consumable by `custom-code` and `http-endpoint`
-- [ ] Let `http-endpoint`'s existing `auth.kind: 'oauth'` reference a *shared* managed credential (plumbing exists; the picker doesn't)
-- [ ] BYO-app mode: per-org client id/secret, so new vendors need no verification project from us
-- [ ] `sendFile` in the broker, forwarding to the resource-handler container
+- [x] **Connections surface** — `GET …/artifact/connections` ([connections.ts](../apps/api/src/controllers/artifact/connections.ts)) reports every managed provider and where the artifact stands with it: `connected`, `needsReauth`, `credentialId`, `expiresAt`, `scopes`, and `configured`
+- [x] **`http-endpoint`'s `auth.kind: 'oauth'`** now has its picker. The dispatch plumbing really was already there — apps/mcp resolves `auth.credentialId` against the artifact's *refreshed* credentials, so a managed row worked the moment one could be selected
+- [x] **`sendFile` in the broker** ([sendFile.ts](../apps/tool-broker/src/utils/sendFile.ts)) — `gmail`, `outlook`, `slack`, forwarding to the container routes the native handlers already drive
+- [ ] BYO-app mode: per-org client id/secret — **deferred**, see [open question 1](#open-questions)
+
+Five things worth knowing:
+
+- **`sendFile` passes the connection allow-list, not a separate one.** Sending as an account is the same privilege as reading its token, so a destination resolves to a provider (`gmail` → `google-gmail`) and goes through the identical gate `ctx.connection()` does. Without that, a tool denied the Gmail token could still send mail as that account by naming a different capability. The gate is now one function both routes call.
+- **Slack takes exactly one file per call.** Gmail and Outlook's container routes read `form.getAll('attachment')`; Slack's reads `form.get('attachment')`, because its external-upload flow is three round trips *per file*. A uniform "up to 10" would have accepted ten and delivered the first, silently — so the Slack variant is typed to one and rejects more.
+- **A vendor failure comes back as 502, whatever the vendor said.** Passing Gmail's 401 through would read inside the isolate as "your broker token is bad" when it means the artifact's connection was revoked.
+- **Resource → attachment bytes is now one implementation.** [`resolveAttachment`](../packages/utils/src/attachment.ts) — R2 object or inline text, mime type, filename, and the `.txt` fallback for a title with no extension. It had been copied three times; the broker would have been the fourth. Size caps stay at the call sites, because each destination's are genuinely different (Gmail caps the combined raw size, Outlook caps per-file *and* combined, Slack caps per-file).
+- **Declared connections are validated on write.** `config.connections` was a free string array, so `google_gmail` surfaced only as a runtime 403 saying the provider wasn't declared — true, and useless, because it *was* in the list. `CUSTOM_CODE_CONFIG_WRITE` checks each entry against the provider table; the read shape still doesn't, so a stored row naming a retired provider keeps registering. Same split, same reason, as the reserved-name rule.
+
+**Verified**: the destination union (multi-attachment Gmail accepted, two-file Slack rejected, unknown destination, empty and over-cap uri lists, missing Slack channel); both connection-validation paths and the issue path pinpointing the offending entry; the message mapping to 400 and translating in `es`; and `resolveAttachment` across stored files, inline text, a missing R2 object, an empty resource, the `attach`/`upload` verb switch, and empty-string content still counting as content. The three native handlers were re-pointed at the shared helper with their error strings and caps unchanged.
+
+**Not verified from here**: the broker's call into the resource-handler container. It needs both deployed, and the outbound worker's behaviour toward a container binding can only be confirmed live — global `fetch` from the broker is screened (which is why the embedding host is exempted), while bindings like Hyperdrive are not, and the container stub should be in the second class. Worth watching on the first real send.
+
+### Phase 5b — `ctx.resources.create` (not started)
+
+`sendFile` takes resource **URIs, never bytes**, and `ctx.resources` is read-only — `search`, `read`, `list`. So a script can deliver a file that is already on the artifact, and cannot produce one.
+
+| | |
+|---|---|
+| Send a file already in the artifact's resources | ✅ |
+| Send tool-generated text as the mail *body* | ✅ |
+| Generate a PDF/CSV in the tool and attach it | ❌ |
+| Fetch a file from an external API and attach it | ❌ |
+| Save anything back as a resource for later | ❌ |
+
+Which means the flow a tool author reaches for first — *"build the report, then email it"* — doesn't work. Resources are created through the dashboard, [createResource / uploadResourceFile](../apps/api/src/index.ts#L333-L353), or crawling; none of it is reachable from a script.
+
+- [ ] `ctx.resources.create({ title, mimeType, content | bytes })` — broker route + SDK surface
+- [ ] Move the storage-quota helpers somewhere the broker can enforce them
+- [ ] Provenance marker so a script can never overwrite a user's document
+- [ ] Decide the indexing story
+
+Four decisions, with what the groundwork already says about each:
+
+- **Indexing: recommend NO in v1.** Leaving script output out of the RAG corpus drops three problems at once — the broker needs no `INDEX_QUEUE` binding, `assertEmbeddedStorageQuota` doesn't enter the picture, and there is no unbounded write path from untrusted code into the corpus the channel runner answers from. Script-created resources would still appear in `ctx.resources.list()` and in MCP `resources/list`; they just wouldn't be searchable. If indexing is wanted later it should be an explicit opt-in flag, not the default.
+- **Raw-storage quota: must be enforced, and the helpers are in the wrong place.** Inline `content` sets `size`, so both the text and byte paths count toward `sumRawStorage`. The blocker is that `assertRawStorageQuota` lives in [plan.ts](../apps/api/src/utils/plan.ts), which the broker cannot import. It only depends on `@ganju/db` and `@ganju/utils`, so the storage subset (`getEffectivePlan`, `sumRawStorage`, `sumEmbeddedStorage`, and the two asserts) moves cleanly into `@ganju/db` with apps/api re-exporting it — the same move, for the same reason, as [oauthProviders](../packages/utils/src/oauthProviders.ts). Tool counts, message caps and the Stripe-facing parts stay put. Note the broker holds `artifactId` but not `organizationId`; it's one join through `project`.
+- **Overwrite: scope it by provenance, not by URI.** A script re-running a daily report needs to replace its own output, and must *never* be able to replace a document a customer uploaded. That needs a marker on the row — a new `RESOURCE_SOURCE_TYPE_CUSTOM_CODE` is the natural one, with overwrite permitted only on rows carrying it. Budget an audit when adding it: `sourceType` is branched on in the [resources view](../apps/web/src/components/views/resources/index.tsx), the channels view, [sources.ts](../packages/utils/src/sources.ts), and the MCP boot loop's `exposedResources` filter.
+- **`content` vs `bytes`.** Inline text needs no R2 write and covers the generate-a-report case outright. A base64 `bytes` path is what closes "fetch a file and save it", but the bytes do transit the isolate there — unavoidable, since the script is holding them — so it wants a cap far below the 128MiB ceiling, and it is explicitly *not* the no-transit guarantee `sendFile` makes.
 
 ### Phase 6 — Dashboard
 
@@ -496,6 +538,6 @@ Two consequences: MCP clients degrade past ~50-80 tools, and the channel runner 
 
 ## Open questions
 
-1. Managed-only connections for v1, or managed + BYO app from the start?
+1. ~~Managed-only connections for v1, or managed + BYO app from the start?~~ **Decided: managed-only for v1.** The connections surface reports `app: 'managed'` on every row, so a per-organization app can be reported through the same shape rather than forcing every consumer to learn a new one. Still open is *when* BYO lands — it's the pressure valve for the OAuth-liability risk below, so it should not drift indefinitely.
 2. Is the LLM-generates-the-tool flow in v1, or is CLI + templates the launch surface? (`organizationLlm` already exists, so the plumbing is there.)
 3. Are there real production installs of the calendar/calcom tools — i.e. how much migration does Phase 9 warrant?

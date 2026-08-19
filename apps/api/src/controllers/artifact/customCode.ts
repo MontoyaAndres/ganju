@@ -189,7 +189,7 @@ export const validateCustomCodeConfig = (
   config: unknown,
   currentActiveVersionId: string | null
 ): Record<string, unknown> => {
-  const parsed = utils.Schema.CUSTOM_CODE_CONFIG.safeParse(config ?? {});
+  const parsed = utils.Schema.CUSTOM_CODE_CONFIG_WRITE.safeParse(config ?? {});
   if (!parsed.success) {
     throw new Error(
       parsed.error.issues[0]?.message || 'Invalid custom code configuration'

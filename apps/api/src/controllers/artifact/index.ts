@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
+import { buildArtifactConnections } from './connections';
 import {
   resolveCustomCodeTool,
   resolveCustomCodeToolReadOnly,
@@ -2197,6 +2198,56 @@ const listCredentials = async (c: Context<AppEnv>) => {
   );
 };
 
+/**
+ * Every managed OAuth provider, and where this artifact stands with each.
+ *
+ * The read side of connections as a first-class concept. Two callers want it and
+ * neither can be served by listCredentials: the http-endpoint form needs the
+ * credential id of a connection it can borrow, and the custom-code config needs
+ * the provider names it may declare. Both also need to know which providers
+ * exist but are NOT connected, which a list of stored rows cannot say.
+ */
+const listConnections = async (c: Context<AppEnv>) => {
+  const currentValues = await utils.Schema.ARTIFACT_LIST_CONNECTIONS.parseAsync(
+    {
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    }
+  );
+
+  const dbInstance = db.create(c);
+
+  const [project] = await dbInstance
+    .select({ id: db.schema.project.id })
+    .from(db.schema.project)
+    .where(
+      and(
+        eq(db.schema.project.id, currentValues.projectId),
+        eq(db.schema.project.organizationId, currentValues.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
+  const artifact = await dbInstance.query.artifact.findFirst({
+    where: eq(db.schema.artifact.projectId, currentValues.projectId),
+    with: { artifactCredentials: true }
+  });
+
+  if (!artifact) {
+    throw new Error('Artifact not found for the project');
+  }
+
+  // Only the connection view is returned — never a token, encrypted or not.
+  return c.json({
+    connections: buildArtifactConnections(c, artifact.artifactCredentials)
+  });
+};
+
 const removeCredential = async (c: Context<AppEnv>) => {
   const currentValues =
     await utils.Schema.ARTIFACT_REMOVE_CREDENTIAL.parseAsync({
@@ -2619,6 +2670,7 @@ export const ArtifactController = {
   publishCustomCodeVersion,
   rollbackCustomCodeVersion,
   listCustomCodeVersions,
+  listConnections,
   removeCredential,
   listCredentials,
   createCredential,

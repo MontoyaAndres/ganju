@@ -1269,6 +1269,15 @@ const RESERVED_TOOL_NAMES = [
 const RESERVED_TOOL_NAME_MESSAGE =
   'Invalid tool name — reserved by the platform';
 
+// A declared connection that names no managed provider. Fixed string for the
+// same two reasons as the message above: localizeZodIssue keys on the exact
+// English text, and the value has to carry a word matchStatus recognises or the
+// custom-code config path — which rethrows the issue message as a plain Error —
+// answers 500 where it means 400. The offending entry is pinpointed by the issue
+// path (`connections.2`), not by the message.
+const CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE =
+  'Invalid connection — no managed provider by that name';
+
 // Bindings injected into every user script at upload time. The token is a
 // secret_text binding rotated on each publish; the broker is a service binding.
 // Names are part of the SDK's contract with the script, so they can't be
@@ -1363,6 +1372,52 @@ const CUSTOM_CODE_SCRIPT_CPU_MS = 5_000;
 // by line — a log call shouldn't cost a network round trip.
 const CUSTOM_CODE_MAX_LOGS = 50;
 const CUSTOM_CODE_MAX_LOG_LENGTH = 2_000;
+
+// ctx.sendFile destinations.
+//
+// The one capability a user script genuinely cannot reproduce: a script is
+// capped at 128MiB, holds no R2 binding, and has no path to the resource-handler
+// container. So the bytes never enter the isolate — the script names a resource
+// and a destination, and the broker does the read and the multipart assembly on
+// its behalf.
+//
+// Each destination maps onto a container route the native handlers already
+// drive, which is why the list is these three and not every provider we hold a
+// connection for: a destination here means a send path that has already solved
+// chunked uploads and MIME assembly for that vendor.
+const CUSTOM_CODE_SEND_FILE_TARGET_GMAIL = 'gmail' as 'gmail';
+const CUSTOM_CODE_SEND_FILE_TARGET_OUTLOOK = 'outlook' as 'outlook';
+const CUSTOM_CODE_SEND_FILE_TARGET_SLACK = 'slack' as 'slack';
+const CUSTOM_CODE_SEND_FILE_TARGETS = [
+  CUSTOM_CODE_SEND_FILE_TARGET_GMAIL,
+  CUSTOM_CODE_SEND_FILE_TARGET_OUTLOOK,
+  CUSTOM_CODE_SEND_FILE_TARGET_SLACK
+];
+
+// Which managed connection each destination sends as. sendFile spends the
+// artifact's credential, so it passes through the SAME `connections` allow-list
+// ctx.connection() does — a script that may not read the Gmail token must not be
+// able to send mail as that account by naming a different capability.
+const CUSTOM_CODE_SEND_FILE_PROVIDERS: Record<string, string> = {
+  [CUSTOM_CODE_SEND_FILE_TARGET_GMAIL]: OAUTH_PROVIDER_GOOGLE_GMAIL,
+  [CUSTOM_CODE_SEND_FILE_TARGET_OUTLOOK]: OAUTH_PROVIDER_MICROSOFT_OUTLOOK,
+  [CUSTOM_CODE_SEND_FILE_TARGET_SLACK]: OAUTH_PROVIDER_SLACK
+};
+
+// The resource-handler container route each destination posts to. These are the
+// routes the native handlers use, unchanged — the container is where MIME
+// assembly and chunked upload already live, and a second implementation in the
+// broker is exactly what this indirection avoids.
+const CUSTOM_CODE_SEND_FILE_PATHS: Record<string, string> = {
+  [CUSTOM_CODE_SEND_FILE_TARGET_GMAIL]: '/gmail/send',
+  [CUSTOM_CODE_SEND_FILE_TARGET_OUTLOOK]: '/outlook/send',
+  [CUSTOM_CODE_SEND_FILE_TARGET_SLACK]: '/slack/send'
+};
+
+// How many resources one sendFile call may carry. Bounded because each one is
+// read out of R2 into the broker's 128MiB isolate before it is streamed on; the
+// per-destination byte caps below bound total size, this bounds the read fan-out.
+const CUSTOM_CODE_SEND_FILE_MAX_URIS = 10;
 
 const MCP_REQUEST_METHOD_INITIALIZE = 'initialize' as 'initialize';
 const MCP_REQUEST_METHOD_PING = 'ping' as 'ping';
@@ -2195,6 +2250,7 @@ export const constants = {
   RESERVED_TOOL_NAME_PREFIXES,
   RESERVED_TOOL_NAMES,
   RESERVED_TOOL_NAME_MESSAGE,
+  CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE,
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
   CUSTOM_CODE_BROKER_ORIGIN,
@@ -2217,6 +2273,13 @@ export const constants = {
   CUSTOM_CODE_SCRIPT_CPU_MS,
   CUSTOM_CODE_MAX_LOGS,
   CUSTOM_CODE_MAX_LOG_LENGTH,
+  CUSTOM_CODE_SEND_FILE_TARGET_GMAIL,
+  CUSTOM_CODE_SEND_FILE_TARGET_OUTLOOK,
+  CUSTOM_CODE_SEND_FILE_TARGET_SLACK,
+  CUSTOM_CODE_SEND_FILE_TARGETS,
+  CUSTOM_CODE_SEND_FILE_PROVIDERS,
+  CUSTOM_CODE_SEND_FILE_PATHS,
+  CUSTOM_CODE_SEND_FILE_MAX_URIS,
   RESERVED_SLUGS,
   MCP_INTERNAL_HEADER,
   MCP_CHANNEL_ID_HEADER,

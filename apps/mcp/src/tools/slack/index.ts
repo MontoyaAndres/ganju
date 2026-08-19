@@ -116,54 +116,26 @@ const sendViaContainer = async (
       return { ok: false, error: `Resource not found: ${attachmentUri}` };
     }
 
-    let arrayBuffer: ArrayBuffer;
-    let mimeType: string;
-    let filename: string;
+    const resolved = await utils.resolveAttachment(
+      resource,
+      async key => {
+        const obj = await context.bucket.get(key);
+        return obj ? await obj.arrayBuffer() : null;
+      },
+      'upload'
+    );
+    if (!resolved.ok) return { ok: false, error: resolved.error };
 
-    if (resource.fileKey) {
-      const obj = await context.bucket.get(resource.fileKey);
-      if (!obj) {
-        return {
-          ok: false,
-          error: `Resource bytes missing in storage for ${attachmentUri} (fileKey: ${resource.fileKey})`
-        };
-      }
-      arrayBuffer = await obj.arrayBuffer();
-      mimeType =
-        resource.mimeType || utils.constants.MIMETYPE_APPLICATION_OCTET_STREAM;
-      filename =
-        resource.fileName ||
-        resource.title ||
-        attachmentUri.split('/').pop() ||
-        'attachment';
-    } else if (resource.content !== null && resource.content !== undefined) {
-      const bytes = new TextEncoder().encode(resource.content);
-      arrayBuffer = bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength
-      ) as ArrayBuffer;
-      mimeType = resource.mimeType || 'text/plain';
-      const base = resource.fileName || resource.title || 'attachment';
-      filename = /\.[a-z0-9]+$/i.test(base) ? base : `${base}.txt`;
-    } else {
-      return {
-        ok: false,
-        error: `Resource ${attachmentUri} has no inline content and no file in storage; cannot upload.`
-      };
-    }
+    const { bytes, mimeType, filename } = resolved.attachment;
 
-    if (arrayBuffer.byteLength > utils.constants.SLACK_MAX_UPLOAD_BYTES) {
+    if (bytes.byteLength > utils.constants.SLACK_MAX_UPLOAD_BYTES) {
       return {
         ok: false,
         error: `Attachment ${filename} exceeds Slack's ${Math.round(utils.constants.SLACK_MAX_UPLOAD_BYTES / (1024 * 1024))}MB upload cap.`
       };
     }
 
-    form.append(
-      'attachment',
-      new Blob([arrayBuffer], { type: mimeType }),
-      filename
-    );
+    form.append('attachment', new Blob([bytes], { type: mimeType }), filename);
   }
 
   const handler = getResourceHandler(context.env);
