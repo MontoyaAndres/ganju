@@ -106,28 +106,14 @@ const business = async (c: Context<AppEnv>) => {
     return c.json({ error: 'You do not have access to this artifact' }, 403);
   }
 
-  // Folders aren't queryable resources: website parents collide with their
-  // seed page indexed as a child, and Google Drive folders are pure
-  // references whose content lives in their children. Hide both from MCP.
-  const exposedResources = artifact.artifactResources.filter(r => {
-    if (
-      r.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE &&
-      !r.parentResourceId
-    ) {
-      return false;
-    }
-    if (
-      r.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER
-    ) {
-      return false;
-    }
-    if (
-      r.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER
-    ) {
-      return false;
-    }
-    return true;
-  });
+  // Folders and crawl seeds aren't queryable resources. The rule is shared with
+  // apps/tool-broker, which serves the same artifact's resources to custom code:
+  // a website seed carries the SAME uri as the page indexed beneath it, so a
+  // surface that filters and one that doesn't will disagree about what that uri
+  // resolves to.
+  const exposedResources = artifact.artifactResources.filter(r =>
+    utils.isExposedResource(r)
+  );
 
   const refreshedCredentials = await Promise.all(
     artifact.artifactCredentials.map(cred => refreshCredentialIfNeeded(c, cred))

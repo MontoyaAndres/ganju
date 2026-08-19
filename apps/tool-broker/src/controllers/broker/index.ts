@@ -220,13 +220,15 @@ const listResources = async (c: Context<AppEnv>) => {
       uri: db.schema.artifactResource.uri,
       title: db.schema.artifactResource.title,
       description: db.schema.artifactResource.description,
-      mimeType: db.schema.artifactResource.mimeType
+      mimeType: db.schema.artifactResource.mimeType,
+      sourceType: db.schema.artifactResource.sourceType,
+      parentResourceId: db.schema.artifactResource.parentResourceId
     })
     .from(db.schema.artifactResource)
     .where(eq(db.schema.artifactResource.artifactId, tool.artifactId));
 
   return c.json({
-    resources: rows.map(row => ({
+    resources: rows.filter(utils.isExposedResource).map(row => ({
       uri: row.uri,
       title: row.title,
       description: row.description || undefined,
@@ -250,7 +252,10 @@ const readResource = async (c: Context<AppEnv>) => {
     return c.json({ error: 'A resource uri is required' }, 400);
   }
 
-  const [resource] = await db
+  // No .limit(1): a website seed and the page indexed beneath it share a uri,
+  // and taking whichever row came back first is how the same uri answered with
+  // text on one surface and "no content" on another. Filter, then take one.
+  const matches = await db
     .create(c)
     .select()
     .from(db.schema.artifactResource)
@@ -259,8 +264,9 @@ const readResource = async (c: Context<AppEnv>) => {
         eq(db.schema.artifactResource.artifactId, tool.artifactId),
         eq(db.schema.artifactResource.uri, parsed.data.uri)
       )
-    )
-    .limit(1);
+    );
+
+  const resource = matches.find(row => utils.isExposedResource(row));
 
   if (!resource) {
     return c.json({ error: `Resource not found: ${parsed.data.uri}` }, 404);

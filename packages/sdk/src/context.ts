@@ -23,9 +23,16 @@ import type {
 
 const readError = async (response: Response): Promise<string> => {
   const body = (await response.json().catch(() => null)) as {
-    error?: string;
+    error?: unknown;
   } | null;
-  return body?.error || `the broker returned ${response.status}`;
+  const error = body?.error;
+  if (typeof error === 'string' && error) return error;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) return message;
+    return JSON.stringify(error).slice(0, 500);
+  }
+  return `the broker returned ${response.status}`;
 };
 
 const createLogBuffer = () => {
@@ -55,7 +62,8 @@ export const createContext = (env: ToolEnv) => {
       | { fetch: (url: string, init: RequestInit) => Promise<Response> }
       | undefined;
     const token = env[constants.CUSTOM_CODE_BINDING_TOKEN] as
-      string | undefined;
+      | string
+      | undefined;
 
     if (!broker || !token) {
       throw new Error(

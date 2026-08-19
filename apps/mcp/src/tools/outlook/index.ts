@@ -158,12 +158,13 @@ const sendViaContainer = async (
   });
 
   if (!response.ok) {
-    const errBody = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
+    const errBody = await response.json().catch(() => null);
     return {
       ok: false,
-      error: errBody.error || `Outlook send failed (${response.status})`
+      error: utils.describeVendorError(
+        errBody,
+        `Outlook send failed (${response.status})`
+      )
     };
   }
 

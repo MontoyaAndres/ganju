@@ -101,6 +101,9 @@ import type { CustomCodeTokenPayload } from './customCodeToken';
 import { oauthProviders } from './oauthProviders';
 import type { OAuthProviderConfig } from './oauthProviders';
 import { resolveAttachment } from './attachment';
+import { isExposedResource } from './exposedResource';
+import type { ExposableResource } from './exposedResource';
+import { describeVendorError } from './vendorError';
 import type {
   AttachmentResource,
   ResolvedAttachment,
@@ -220,6 +223,8 @@ export const utils = {
   customCodeScriptName,
   oauthProviders,
   resolveAttachment,
+  isExposedResource,
+  describeVendorError,
   ipv4InPrivateRange,
   isBlockedHost,
   validateMessageVariables,
@@ -325,6 +330,7 @@ export type {
   AttachmentResource,
   ResolvedAttachment,
   ResolveAttachmentResult,
+  ExposableResource,
   PlanLimitDetails,
   PlanLimits
 };

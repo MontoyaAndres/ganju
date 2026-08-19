@@ -132,7 +132,15 @@ export const sendFile = async (
   // Indexed and then walked in the caller's order: attachments arrive in the
   // order a mail client lists them, and a script that sends a cover page first
   // means it.
-  const byUri = new Map(rows.map(row => [row.uri, row]));
+  //
+  // Filtered first, and it matters: a website seed shares its page's uri and
+  // carries no bytes, so an unfiltered map keyed by uri would resolve roughly
+  // half of all crawled urls to the empty row and refuse to send a file that is
+  // plainly there. Building the map from exposed rows only also makes the answer
+  // the same one ctx.resources.read gives.
+  const byUri = new Map(
+    rows.filter(row => utils.isExposedResource(row)).map(row => [row.uri, row])
+  );
   const missing = request.uris.filter(uri => !byUri.has(uri));
   if (missing.length > 0) {
     return {
@@ -199,9 +207,7 @@ export const sendFile = async (
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
+    const body = await response.json().catch(() => null);
     return {
       ok: false,
       // 502 regardless of what the vendor said: the script asked us to send, and
@@ -209,8 +215,10 @@ export const sendFile = async (
       // read inside the isolate as "your broker token is bad" when it means the
       // artifact's Gmail connection was revoked.
       status: 502,
-      error:
-        body.error || `${limits.label} rejected the send (${response.status})`
+      error: utils.describeVendorError(
+        body,
+        `${limits.label} rejected the send (${response.status})`
+      )
     };
   }
 
