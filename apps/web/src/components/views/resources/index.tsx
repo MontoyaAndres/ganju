@@ -198,7 +198,8 @@ const SOURCE_TYPE_KEY = {
   [utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE]: 'sourceTypeWebsite',
   [utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER]:
     'sourceTypeGoogleDrive',
-  [utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER]: 'sourceTypeOneDrive'
+  [utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER]: 'sourceTypeOneDrive',
+  [utils.constants.RESOURCE_SOURCE_TYPE_CUSTOM_CODE]: 'sourceTypeCustomCode'
 } as const satisfies Record<string, keyof (typeof i18n.copy.RESOURCES)['en']>;
 
 const TYPE_KEY = {
@@ -342,7 +343,9 @@ export const Resources = () => {
     () =>
       resources.filter(
         r =>
-          r.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_FILE &&
+          (r.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_FILE ||
+            r.sourceType ===
+              utils.constants.RESOURCE_SOURCE_TYPE_CUSTOM_CODE) &&
           !isGoogleDriveResource(r) &&
           !isOneDriveResource(r)
       ),
@@ -1161,11 +1164,7 @@ export const Resources = () => {
 
   const isImageMime = (mime: string) => mime.startsWith('image/');
 
-  const titleToUri = (title: string) =>
-    `resource://${title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')}`;
+  const titleToUri = utils.resourceUriFromTitle;
 
   // Its own B→GB ladder rather than `t.bytes`, which floors at MB, and its own
   // `B`/`KB` rather than CLDR's `byte`/`kB` — the same call `overview` makes.

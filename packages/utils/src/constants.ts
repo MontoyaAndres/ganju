@@ -235,11 +235,18 @@ const RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER =
   'GOOGLE_DRIVE_FOLDER' as 'GOOGLE_DRIVE_FOLDER';
 const RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER =
   'ONE_DRIVE_FOLDER' as 'ONE_DRIVE_FOLDER';
+// Written by a user script through the broker, and by nothing else. This is a
+// provenance marker before it is a category: a script may replace a resource
+// carrying it and may not touch any other row, which is what stops a tool from
+// overwriting a document its owner uploaded. Nothing in the dashboard or the
+// upload paths ever sets it.
+const RESOURCE_SOURCE_TYPE_CUSTOM_CODE = 'CUSTOM_CODE' as 'CUSTOM_CODE';
 const RESOURCE_SOURCE_TYPES = [
   RESOURCE_SOURCE_TYPE_FILE,
   RESOURCE_SOURCE_TYPE_WEBSITE,
   RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER,
-  RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER
+  RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER,
+  RESOURCE_SOURCE_TYPE_CUSTOM_CODE
 ];
 
 const CRAWL_RENDERER_CHEERIO = 'cheerio' as 'cheerio';
@@ -1294,6 +1301,8 @@ const CUSTOM_CODE_BROKER_PATH_SECRET = '/secret';
 const CUSTOM_CODE_BROKER_PATH_RESOURCES_SEARCH = '/resources/search';
 const CUSTOM_CODE_BROKER_PATH_RESOURCES_READ = '/resources/read';
 const CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST = '/resources/list';
+const CUSTOM_CODE_BROKER_PATH_RESOURCES_CREATE = '/resources/create';
+const CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE = '/resources/delete';
 const CUSTOM_CODE_BROKER_PATH_SEND_FILE = '/send-file';
 
 // Outbound-worker parameters the dispatcher attaches to every `.get()`. The
@@ -1418,6 +1427,76 @@ const CUSTOM_CODE_SEND_FILE_PATHS: Record<string, string> = {
 // read out of R2 into the broker's 128MiB isolate before it is streamed on; the
 // per-destination byte caps below bound total size, this bounds the read fan-out.
 const CUSTOM_CODE_SEND_FILE_MAX_URIS = 10;
+
+// Ceilings on what one ctx.resources.create call may write.
+//
+// Two numbers rather than one, because the two payloads land in different
+// places. Inline text becomes a Postgres column on a row every resource listing
+// reads, so it stays small; bytes become an R2 object nothing reads until it is
+// sent, so it can be larger.
+//
+// Both are far below the 128MiB isolate ceiling, and deliberately so: unlike
+// sendFile, this payload DOES transit user code — the script is holding it —
+// and it is then carried again as base64 in the broker request, so the real
+// footprint is roughly 2.3x the number here. The file ceiling is also under
+// every destination's attachment cap, so anything a script can create it can
+// also send.
+const CUSTOM_CODE_MAX_RESOURCE_TEXT_BYTES = 1024 * 1024;
+const CUSTOM_CODE_MAX_RESOURCE_FILE_BYTES = 10 * 1024 * 1024;
+
+// Default URI scheme for a script-created resource, matching what the dashboard
+// generates for an uploaded file — a resource a tool wrote should be addressable
+// exactly like one a person uploaded, including by sendFile.
+const CUSTOM_CODE_RESOURCE_URI_PREFIX = 'resource://';
+
+// How far a script's resource writes reach, declared per tool rather than
+// assumed.
+//
+// `own` — the default — lets a script replace and delete only what a script
+// created. It is the safe floor: a tool cannot touch a document its owner
+// uploaded or a page the crawler indexed, so a buggy or model-generated tool has
+// nothing of the customer's to destroy.
+//
+// `all` lifts that, which is what a tool whose job is to prune a stale crawl or
+// retire an imported folder actually needs. It is declared in the tool's config
+// and enforced by the broker, so it cannot be granted from inside the script —
+// the same shape as allowedHosts and connections, and for the same reason: a
+// capability the code can widen is not a capability, it is a comment.
+const CUSTOM_CODE_RESOURCE_ACCESS_OWN = 'own' as 'own';
+const CUSTOM_CODE_RESOURCE_ACCESS_ALL = 'all' as 'all';
+const CUSTOM_CODE_RESOURCE_ACCESS_VALUES = [
+  CUSTOM_CODE_RESOURCE_ACCESS_OWN,
+  CUSTOM_CODE_RESOURCE_ACCESS_ALL
+];
+
+// Refusing to touch a row a script does not own. Two messages rather than one
+// because the two calls leave the reader in different positions: the fix for a
+// create is a different uri, and there is no fix for a delete — the resource
+// simply is not the script's to remove. Both are phrased for the model that
+// will read them, which needs to do something else rather than retry.
+const CUSTOM_CODE_RESOURCE_NOT_OWNED_MESSAGE =
+  'A resource with this uri already exists on this artifact and was not created by a tool, so it cannot be replaced. Choose a different uri.';
+const CUSTOM_CODE_RESOURCE_NOT_DELETABLE_MESSAGE =
+  'This resource was not created by a tool, so it cannot be deleted from one. Set this tool\'s resource access to "all" to allow it, or remove it from the Resources page.';
+
+// Deleting a parent without saying so would take its children with it through
+// the FK cascade — silently, and leaving the artifact's counters describing rows
+// that no longer exist. Refused instead, naming the flag that means it.
+const CUSTOM_CODE_RESOURCE_HAS_CHILDREN_MESSAGE =
+  'This resource has children, which would be removed with it. Pass { children: true } to confirm.';
+
+// Indexing a payload nothing can extract text from produces zero chunks and a
+// resource that looks indexed and never matches anything. Refused up front.
+const CUSTOM_CODE_RESOURCE_NOT_EMBEDDABLE_MESSAGE =
+  'This file type cannot be indexed for search. Create it without index, or pass the text as content.';
+
+// Validation messages for ctx.resources.create. Constants rather than inline
+// strings because localizeZodIssue keys its translations on the exact English
+// text, so the two files have to name the same value.
+const CUSTOM_CODE_RESOURCE_PAYLOAD_MESSAGE =
+  'Pass exactly one of content (text) or bytes (base64)';
+const CUSTOM_CODE_RESOURCE_TEXT_TOO_LARGE_MESSAGE = `Inline content exceeds the ${CUSTOM_CODE_MAX_RESOURCE_TEXT_BYTES / (1024 * 1024)}MB limit`;
+const CUSTOM_CODE_RESOURCE_FILE_TOO_LARGE_MESSAGE = `File bytes exceed the ${CUSTOM_CODE_MAX_RESOURCE_FILE_BYTES / (1024 * 1024)}MB limit`;
 
 const MCP_REQUEST_METHOD_INITIALIZE = 'initialize' as 'initialize';
 const MCP_REQUEST_METHOD_PING = 'ping' as 'ping';
@@ -2020,6 +2099,7 @@ export const constants = {
   RESOURCE_SOURCE_TYPE_WEBSITE,
   RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER,
   RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER,
+  RESOURCE_SOURCE_TYPE_CUSTOM_CODE,
   RESOURCE_SOURCE_TYPES,
   CRAWL_RENDERER_CHEERIO,
   CRAWL_RENDERER_PLAYWRIGHT,
@@ -2259,6 +2339,8 @@ export const constants = {
   CUSTOM_CODE_BROKER_PATH_RESOURCES_SEARCH,
   CUSTOM_CODE_BROKER_PATH_RESOURCES_READ,
   CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_CREATE,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE,
   CUSTOM_CODE_BROKER_PATH_SEND_FILE,
   CUSTOM_CODE_OUTBOUND_PARAM_ARTIFACT_ID,
   CUSTOM_CODE_OUTBOUND_PARAM_ALLOWED_HOSTS,
@@ -2280,6 +2362,19 @@ export const constants = {
   CUSTOM_CODE_SEND_FILE_PROVIDERS,
   CUSTOM_CODE_SEND_FILE_PATHS,
   CUSTOM_CODE_SEND_FILE_MAX_URIS,
+  CUSTOM_CODE_MAX_RESOURCE_TEXT_BYTES,
+  CUSTOM_CODE_MAX_RESOURCE_FILE_BYTES,
+  CUSTOM_CODE_RESOURCE_URI_PREFIX,
+  CUSTOM_CODE_RESOURCE_NOT_OWNED_MESSAGE,
+  CUSTOM_CODE_RESOURCE_NOT_DELETABLE_MESSAGE,
+  CUSTOM_CODE_RESOURCE_HAS_CHILDREN_MESSAGE,
+  CUSTOM_CODE_RESOURCE_NOT_EMBEDDABLE_MESSAGE,
+  CUSTOM_CODE_RESOURCE_ACCESS_OWN,
+  CUSTOM_CODE_RESOURCE_ACCESS_ALL,
+  CUSTOM_CODE_RESOURCE_ACCESS_VALUES,
+  CUSTOM_CODE_RESOURCE_PAYLOAD_MESSAGE,
+  CUSTOM_CODE_RESOURCE_TEXT_TOO_LARGE_MESSAGE,
+  CUSTOM_CODE_RESOURCE_FILE_TOO_LARGE_MESSAGE,
   RESERVED_SLUGS,
   MCP_INTERNAL_HEADER,
   MCP_CHANNEL_ID_HEADER,

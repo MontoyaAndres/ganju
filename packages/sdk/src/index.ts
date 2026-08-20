@@ -88,6 +88,10 @@ const json = (body: unknown, status = 200): Response =>
 export type { ToolContext, ToolEnv, ToolHandler };
 export type {
   Connection,
+  CreateResourceOptions,
+  CreatedResource,
+  DeletedResource,
+  DeleteResourceOptions,
   ResourceContent,
   ResourceMatch,
   ResourceSummary,

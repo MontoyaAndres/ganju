@@ -3,9 +3,17 @@
 // package is bundled into every customer's uploaded script, so reaching the
 // barrel would ship zod, dayjs and the cipher suite inside each of them.
 import { constants } from '@ganju/utils/constants';
+// Same reasoning as the constants import above: a subpath, because the barrel
+// would ship zod and the cipher suite inside every customer's bundle. base64.ts
+// imports nothing at all, so this costs the script twenty lines.
+import { bytesToBase64 } from '@ganju/utils/base64';
 
 import type {
   Connection,
+  CreatedResource,
+  CreateResourceOptions,
+  DeletedResource,
+  DeleteResourceOptions,
   LogEntry,
   ResourceContent,
   ResourceMatch,
@@ -35,6 +43,9 @@ const readError = async (response: Response): Promise<string> => {
   return `the broker returned ${response.status}`;
 };
 
+const toBase64 = (bytes: ArrayBuffer | Uint8Array): string =>
+  bytesToBase64(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+
 const createLogBuffer = () => {
   const entries: LogEntry[] = [];
   const push = (level: LogEntry['level'], values: unknown[]) => {
@@ -62,8 +73,7 @@ export const createContext = (env: ToolEnv) => {
       | { fetch: (url: string, init: RequestInit) => Promise<Response> }
       | undefined;
     const token = env[constants.CUSTOM_CODE_BINDING_TOKEN] as
-      | string
-      | undefined;
+      string | undefined;
 
     if (!broker || !token) {
       throw new Error(
@@ -122,6 +132,33 @@ export const createContext = (env: ToolEnv) => {
           constants.CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST
         );
         return result.resources;
+      },
+      create: async (options: CreateResourceOptions) => {
+        // `bytes` is accepted as binary because that is what a script actually
+        // holds — a fetched response body, an encoded document — and making
+        // every caller base64 it themselves would be a step nobody gets right
+        // the first time. A string is passed through as already-encoded.
+        const { bytes, ...rest } = options;
+        const body =
+          bytes === undefined
+            ? rest
+            : {
+                ...rest,
+                bytes: typeof bytes === 'string' ? bytes : toBase64(bytes)
+              };
+
+        const result = await call<{ resource: CreatedResource }>(
+          constants.CUSTOM_CODE_BROKER_PATH_RESOURCES_CREATE,
+          body
+        );
+        return result.resource;
+      },
+      delete: async (uri: string, options?: DeleteResourceOptions) => {
+        const result = await call<{ resource: DeletedResource }>(
+          constants.CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE,
+          { uri, children: options?.children ?? false }
+        );
+        return result.resource;
       }
     },
 

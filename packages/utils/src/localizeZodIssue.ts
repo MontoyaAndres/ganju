@@ -62,6 +62,15 @@ const CUSTOM_MESSAGES: Record<string, Record<string, string>> = {
   },
   [constants.CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE]: {
     es: 'Conexión no válida — no existe un proveedor gestionado con ese nombre'
+  },
+  [constants.CUSTOM_CODE_RESOURCE_PAYLOAD_MESSAGE]: {
+    es: 'Envía exactamente uno de content (texto) o bytes (base64)'
+  },
+  [constants.CUSTOM_CODE_RESOURCE_TEXT_TOO_LARGE_MESSAGE]: {
+    es: `El contenido en línea supera el límite de ${constants.CUSTOM_CODE_MAX_RESOURCE_TEXT_BYTES / (1024 * 1024)}MB`
+  },
+  [constants.CUSTOM_CODE_RESOURCE_FILE_TOO_LARGE_MESSAGE]: {
+    es: `Los bytes del archivo superan el límite de ${constants.CUSTOM_CODE_MAX_RESOURCE_FILE_BYTES / (1024 * 1024)}MB`
   }
 };
 

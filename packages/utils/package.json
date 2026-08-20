@@ -13,6 +13,11 @@
       "types": "./dist/constants.d.ts",
       "import": "./dist/constants.js",
       "require": "./dist/constants.js"
+    },
+    "./base64": {
+      "types": "./dist/base64.d.ts",
+      "import": "./dist/base64.js",
+      "require": "./dist/base64.js"
     }
   },
   "scripts": {

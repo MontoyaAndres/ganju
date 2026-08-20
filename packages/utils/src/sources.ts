@@ -4,7 +4,7 @@ export interface Source {
   resourceId: string;
   uri: string;
   title: string;
-  sourceType: 'FILE' | 'WEBSITE';
+  sourceType: 'FILE' | 'WEBSITE' | 'CUSTOM_CODE';
   mimeType: string;
   fileName: string | null;
   pageNumber?: number;
@@ -18,6 +18,21 @@ export interface ResourceUrlContext {
   organizationId: string;
   projectId: string;
 }
+
+/**
+ * Does this source resolve to bytes we serve, rather than to a URL a reader can
+ * open?
+ *
+ * The distinction the two formatters below need is "download link or web link",
+ * and for a long time that was the same question as "is it a FILE". It stopped
+ * being once a tool could write a resource: a script-created one holds bytes
+ * exactly as an upload does, and its uri is a `resource://` address that means
+ * nothing to a browser. Formatting it as a web link produced a dead button in
+ * whichever channel the answer went to.
+ */
+export const isDownloadableSource = (sourceType: Source['sourceType']): boolean =>
+  sourceType === constants.RESOURCE_SOURCE_TYPE_FILE ||
+  sourceType === constants.RESOURCE_SOURCE_TYPE_CUSTOM_CODE;
 
 export const isResourceSourceEnabled = (
   resource: { showSource?: string | null } | null | undefined
@@ -55,7 +70,7 @@ export const formatSourcesAsButtons = (
   const maxLabelLength = options?.maxLabelLength ?? 60;
   return sources.map((source, index) => {
     const position = index + 1;
-    if (source.sourceType === constants.RESOURCE_SOURCE_TYPE_FILE) {
+    if (isDownloadableSource(source.sourceType)) {
       const label = source.fileName || source.title;
       const pageSuffix = source.pageNumber ? ` · p.${source.pageNumber}` : '';
       const url = buildResourceDownloadUrl(
@@ -84,7 +99,7 @@ export const formatSourcesAsMarkdown = (
   if (sources.length === 0) return '';
   const lines = sources.map((source, index) => {
     const position = index + 1;
-    if (source.sourceType === constants.RESOURCE_SOURCE_TYPE_FILE) {
+    if (isDownloadableSource(source.sourceType)) {
       const label = source.fileName || source.title;
       const pageSuffix = source.pageNumber ? ` · p. ${source.pageNumber}` : '';
       const url = buildResourceDownloadUrl(

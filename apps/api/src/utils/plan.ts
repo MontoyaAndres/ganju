@@ -1,47 +1,31 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
-import type { DbExecutor } from '@ganju/db';
+import type { DbExecutor, EffectivePlan } from '@ganju/db';
 import { utils } from '@ganju/utils';
-import type { PlanLimits } from '@ganju/utils';
 
 const { constants, PlanLimitError } = utils;
 
-export type EffectivePlan = {
-  plan: string;
-  limits: PlanLimits;
-  subscription: typeof db.schema.subscription.$inferSelect | null;
-};
+// The plan resolver and the storage quotas live in @ganju/db, because
+// apps/tool-broker enforces the same storage rules and cannot import from here.
+// They are re-exported through this module's `Plan` object unchanged, so every
+// call site in apps/api still reads the same.
+const {
+  limitsFor,
+  isEntitled,
+  planFromSubscription,
+  getEffectivePlan,
+  sumRawStorage,
+  sumEmbeddedStorage,
+  assertRawStorageQuota,
+  assertEmbeddedStorageQuota
+} = db.plan;
 
-const limitsFor = (plan: string): PlanLimits =>
-  (constants.PLAN_LIMITS as Record<string, PlanLimits>)[plan] ??
-  constants.PLAN_LIMITS.FREE;
-
-const isEntitled = (status: string): boolean =>
-  (constants.SUBSCRIPTION_ENTITLED_STATUSES as readonly string[]).includes(
-    status
-  );
-
-// A subscription only confers its paid plan while its status is entitled;
-// otherwise (canceled, unpaid, …) the org falls back to Free limits.
-const planFromSubscription = (
-  sub: typeof db.schema.subscription.$inferSelect | null
-): string => {
-  if (!sub) return constants.PLAN_FREE;
-  return isEntitled(sub.status) ? sub.plan : constants.PLAN_FREE;
-};
-
-export const getEffectivePlan = async (
-  executor: DbExecutor,
-  organizationId: string
-): Promise<EffectivePlan> => {
-  const [sub] = await executor
-    .select()
-    .from(db.schema.subscription)
-    .where(eq(db.schema.subscription.organizationId, organizationId))
-    .limit(1);
-
-  const plan = planFromSubscription(sub ?? null);
-  return { plan, limits: limitsFor(plan), subscription: sub ?? null };
+export type { EffectivePlan };
+export {
+  getEffectivePlan,
+  sumEmbeddedStorage,
+  assertRawStorageQuota,
+  assertEmbeddedStorageQuota
 };
 
 // Create the Free subscription row that backs a new organization. Idempotent so
@@ -196,94 +180,6 @@ export const assertOrganizationCreation = async (
         plan: constants.PLAN_FREE,
         limit: 1,
         used: owned.length
-      }
-    );
-  }
-};
-
-// storage quotas
-
-// Sum of raw file bytes across every artifact in the org.
-const sumRawStorage = async (
-  executor: DbExecutor,
-  organizationId: string
-): Promise<number> => {
-  const [{ total }] = await executor
-    .select({
-      total: sql<number>`coalesce(sum(${db.schema.artifactResource.size}), 0)::bigint`
-    })
-    .from(db.schema.artifactResource)
-    .innerJoin(
-      db.schema.artifact,
-      eq(db.schema.artifact.id, db.schema.artifactResource.artifactId)
-    )
-    .innerJoin(
-      db.schema.project,
-      eq(db.schema.project.id, db.schema.artifact.projectId)
-    )
-    .where(eq(db.schema.project.organizationId, organizationId));
-  return Number(total) || 0;
-};
-
-// Sum of embedded/RAG bytes (the metered storage unit) across the org.
-export const sumEmbeddedStorage = async (
-  executor: DbExecutor,
-  organizationId: string
-): Promise<number> => {
-  const [{ total }] = await executor
-    .select({
-      total: sql<number>`coalesce(sum(${db.schema.artifact.artifactResourceEmbeddedSize}), 0)::bigint`
-    })
-    .from(db.schema.artifact)
-    .innerJoin(
-      db.schema.project,
-      eq(db.schema.project.id, db.schema.artifact.projectId)
-    )
-    .where(eq(db.schema.project.organizationId, organizationId));
-  return Number(total) || 0;
-};
-
-export const assertRawStorageQuota = async (
-  executor: DbExecutor,
-  organizationId: string,
-  addBytes: number
-): Promise<void> => {
-  const { plan, limits } = await getEffectivePlan(executor, organizationId);
-  if (limits.maxRawStorageBytes == null) return;
-
-  const used = await sumRawStorage(executor, organizationId);
-  if (used + Math.max(0, addBytes) > limits.maxRawStorageBytes) {
-    throw new PlanLimitError(
-      'This organization has reached its Free file-storage limit. Upgrade to Pro for more storage.',
-      {
-        feature: constants.PLAN_FEATURE_RAW_STORAGE,
-        plan,
-        limit: limits.maxRawStorageBytes,
-        used
-      }
-    );
-  }
-};
-
-// Pre-check: block creating a new resource once the org is already at/over its
-// embedded-content cap. (Embedded size for the new resource is only known after
-// indexing, so this is an approximate "you're full" gate, not byte-exact.)
-export const assertEmbeddedStorageQuota = async (
-  executor: DbExecutor,
-  organizationId: string
-): Promise<void> => {
-  const { plan, limits } = await getEffectivePlan(executor, organizationId);
-  if (limits.maxEmbeddedBytes == null) return;
-
-  const used = await sumEmbeddedStorage(executor, organizationId);
-  if (used >= limits.maxEmbeddedBytes) {
-    throw new PlanLimitError(
-      'This organization has reached its Free embedded-content (RAG) limit. Upgrade to Pro for more.',
-      {
-        feature: constants.PLAN_FEATURE_EMBEDDED_STORAGE,
-        plan,
-        limit: limits.maxEmbeddedBytes,
-        used
       }
     );
   }

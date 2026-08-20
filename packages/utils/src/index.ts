@@ -9,7 +9,8 @@ import type {
   CustomCodeToolConfig,
   CustomCodeToolManifest,
   CustomCodeManifest,
-  CustomCodeSendFile
+  CustomCodeSendFile,
+  CustomCodeCreateResource
 } from './schema';
 import { getEnv } from './getEnv';
 import type { EnvSource } from './getEnv';
@@ -115,6 +116,7 @@ import { formatRelativeTime } from './formatRelativeTime';
 import { languageCookieDomain } from './languageCookieDomain';
 import { localizeZodIssue, languageFromHeader } from './localizeZodIssue';
 import { slugifyTitle } from './slugifyTitle';
+import { resourceUriFromTitle } from './resourceUri';
 import { tallyUsageKinds } from './tallyUsageKinds';
 import { formatFilename } from './formatFilename';
 import {
@@ -161,6 +163,7 @@ import type {
 } from './channelDebounce';
 import {
   isResourceSourceEnabled,
+  isDownloadableSource,
   safeHostname,
   buildResourceDownloadUrl,
   formatSourcesAsMarkdown,
@@ -234,6 +237,7 @@ export const utils = {
   localizeZodIssue,
   languageFromHeader,
   slugifyTitle,
+  resourceUriFromTitle,
   tallyUsageKinds,
   formatFilename,
   decodeEntities,
@@ -257,6 +261,7 @@ export const utils = {
   channelBufferKey,
   joinBufferedMessages,
   isResourceSourceEnabled,
+  isDownloadableSource,
   safeHostname,
   buildResourceDownloadUrl,
   formatSourcesAsMarkdown,
@@ -325,6 +330,7 @@ export type {
   CustomCodeToolManifest,
   CustomCodeManifest,
   CustomCodeSendFile,
+  CustomCodeCreateResource,
   CustomCodeTokenPayload,
   OAuthProviderConfig,
   AttachmentResource,

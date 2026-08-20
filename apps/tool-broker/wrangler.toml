@@ -31,6 +31,9 @@ id = "bf3f371679734af2af0b11302b3cb971"
 [[env.development.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-development"
+[[env.development.queues.producers]]
+binding = "INDEX_QUEUE"
+queue = "ganju-index-development"
 [[env.development.unsafe.bindings]]
 name = "HTTP_ENDPOINT_RATE_LIMITER"
 type = "ratelimit"
@@ -60,6 +63,9 @@ id = "c552a4fd338d4025b0442e4737a8635b"
 [[env.production.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-production"
+[[env.production.queues.producers]]
+binding = "INDEX_QUEUE"
+queue = "ganju-index-production"
 [[env.production.unsafe.bindings]]
 name = "HTTP_ENDPOINT_RATE_LIMITER"
 type = "ratelimit"

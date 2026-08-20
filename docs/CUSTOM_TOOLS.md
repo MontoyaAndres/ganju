@@ -69,7 +69,7 @@ sequenceDiagram
   MCP->>MCP: resolve artifact + active version (Postgres)
   MCP->>D: DISPATCH.get("artifact_<id>").fetch({tool, input})
   D->>U: run
-  U->>B: connection('google-gmail') / sendFile / resources.search
+  U->>B: connection('google-gmail') / resources.* / sendFile
   B-->>U: short-lived access token / result
   U->>OB: fetch(https://api.acme.com)
   OB->>OB: isBlockedHost + allowedHosts + rate limit
@@ -136,6 +136,7 @@ One `artifact_tool` row of key `custom-code` per artifact (many MCP tools from o
   allowedHosts?: string[];
   connections?: string[];           // providers this script may request
   timeoutMs?: number;               // default 10_000, cap 30_000
+  resourceAccess?: 'own' | 'all';   // default 'own' — see Phase 5b
 }
 ```
 
@@ -206,6 +207,9 @@ The keys must match the manifest's tool names — publish verifies that against 
 | `ctx.connection(provider)` | `{ accessToken, provider, expiresAt }`. Short-lived. **Never** the refresh token or client secret. Throws when the provider isn't in the tool's declared `connections`. |
 | `ctx.secret(name)` | Per-tool `artifact_credential` (provider `custom-code`), addressed by label, same orphan-cleanup as `http-endpoint`. |
 | `ctx.resources.search / read / list` | Reuses the same embedding + resource read the native RAG tools use. Binary resources are refused rather than base64'd — that's what `sendFile` is for. |
+| `ctx.resources.create(opts)` | Writes a resource on the artifact — inline text or file bytes. Not indexed unless `index: true`, so script output stays out of the corpus by default: listable and sendable, searchable only on request. |
+| `ctx.resources.delete(uri, opts)` | Removes a resource, and with `children: true` everything beneath it. Idempotent — a uri with nothing behind it answers `deleted: false` rather than throwing. |
+| *resource access* | How far `create` and `delete` reach is the tool's `config.resourceAccess`: `own` (default) confines them to what a script wrote; `all` lets the tool replace and remove uploaded and crawled resources. Granted at publish time, enforced by the broker. |
 | `ctx.sendFile(opts)` | Broker → resource-handler container. Destination is `gmail`, `outlook` or `slack`, and must be in the tool's declared `connections` — sending as an account is the same privilege as reading its token. Bytes never enter the isolate. |
 | `ctx.log(...)` | Buffered in the isolate, returned with the result, recorded on `mcp_request`. Capped at 50 lines. |
 | `fetch` | Global, screened by the outbound worker. |
@@ -287,7 +291,7 @@ Nothing below is code; all of it is account state this branch cannot create.
 
 1. **A Cloudflare API token** with `Workers Scripts:Edit` on the account, as `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID`. The publish pipeline uploads with it.
 2. **`CUSTOM_CODE_TOKEN_SECRET`** — any 32+ byte random string, set identically on `apps/api` and `apps/tool-broker`. They sign and verify the same tokens.
-3. **Deploy the two new workers before the first publish**: `ganju-tool-broker-*` and `ganju-tool-outbound-*`. The dispatcher's namespace binding names the outbound worker, so it must exist first.
+3. **Deploy the two new workers before the first publish**: `ganju-tool-broker-*` and `ganju-tool-outbound-*`. The dispatcher's namespace binding names the outbound worker, so it must exist first. The broker also produces to `ganju-index-*` now (for `ctx.resources.create({ index: true })`) — the queue already exists for apps/api, so this is a redeploy rather than new infrastructure, but a broker deployed without it refuses `index: true` instead of silently dropping it.
 4. **Seed `custom-code`** on production ([scripts/seed-custom-code.mjs](../scripts/seed-custom-code.mjs)) — it has only been run on dev.
 
 ### Phase 4 — Channel runner ✅
@@ -365,31 +369,67 @@ Two bugs surfaced only because this ran against a real vendor, and both were fix
 
 Re-verified after the fix: the script's resource view dropped from 108 to 106, matching what MCP exposes exactly, with no duplicate uris; the previously-ambiguous uri read the same on three consecutive calls; and a `sendFile` naming it reached Gmail exactly as a uniquely-named resource does.
 
-### Phase 5b — `ctx.resources.create` (not started)
+### Phase 5b — `ctx.resources.create` / `.delete` ✅
 
-`sendFile` takes resource **URIs, never bytes**, and `ctx.resources` is read-only — `search`, `read`, `list`. So a script can deliver a file that is already on the artifact, and cannot produce one.
+`sendFile` takes resource **URIs, never bytes**, and `ctx.resources` was read-only — `search`, `read`, `list`. So a script could deliver a file already on the artifact and could not produce one, which meant the flow a tool author reaches for first — *"build the report, then email it"* — didn't work.
 
-| | |
-|---|---|
-| Send a file already in the artifact's resources | ✅ |
-| Send tool-generated text as the mail *body* | ✅ |
-| Generate a PDF/CSV in the tool and attach it | ❌ |
-| Fetch a file from an external API and attach it | ❌ |
-| Save anything back as a resource for later | ❌ |
+| | before | now |
+|---|---|---|
+| Send a file already in the artifact's resources | ✅ | ✅ |
+| Send tool-generated text as the mail *body* | ✅ | ✅ |
+| Generate a PDF/CSV in the tool and attach it | ❌ | ✅ |
+| Fetch a file from an external API and attach it | ❌ | ✅ |
+| Save anything back as a resource for later | ❌ | ✅ |
 
-Which means the flow a tool author reaches for first — *"build the report, then email it"* — doesn't work. Resources are created through the dashboard, [createResource / uploadResourceFile](../apps/api/src/index.ts#L333-L353), or crawling; none of it is reachable from a script.
+- [x] `ctx.resources.create({ title, content | bytes, mimeType?, uri?, description?, fileName? })` — broker route + SDK surface ([createResource.ts](../apps/tool-broker/src/utils/createResource.ts))
+- [x] Storage-quota helpers moved to [@ganju/db](../packages/db/src/lib/plan.ts), with apps/api re-exporting them through its own `Plan`
+- [x] `RESOURCE_SOURCE_TYPE_CUSTOM_CODE` as the provenance marker; a script may replace only rows carrying it
+- [x] Indexing: **off by default**, behind an explicit flag — see below
+- [x] `ctx.resources.delete(uri, { children })` — the same access rule, idempotent, cascade opt-in
+- [x] `config.resourceAccess: 'own' | 'all'` — the capability that lets a tool prune what it did not write
+- [x] `index: true` on create — opt-in entry into the search corpus, on the queue apps/api already owns
 
-- [ ] `ctx.resources.create({ title, mimeType, content | bytes })` — broker route + SDK surface
-- [ ] Move the storage-quota helpers somewhere the broker can enforce them
-- [ ] Provenance marker so a script can never overwrite a user's document
-- [ ] Decide the indexing story
+All four decisions landed as the groundwork predicted, and each is worth restating with what actually shipped:
 
-Four decisions, with what the groundwork already says about each:
+- **Indexing is off by default, and that default is the load-bearing part.** Content in the corpus is content the assistant will answer *other people's* questions from, so it has to be a decision rather than a side effect of writing a file. `index: true` puts a resource in, on the same `INDEX_QUEUE` apps/api already produces to, and spends the embedded-content quota — a separate and far more expensive budget than raw storage, so only indexing is gated on it. Two refusals rather than silent no-ops: a deployment with no queue binding, and a file whose type no extractor can read (which would index to nothing and look like it had worked). An unindexed row is written `COMPLETED` because nothing is coming for it; an indexed one is genuinely `PENDING` until the job flips it.
+- **The quota is charged on the delta.** Inline `content` sets `size`, so both payload shapes count toward `sumRawStorage`. What's charged is `size - previous.size`, which is what lets a daily job replace yesterday's 2MB report without eventually failing against its own history. The broker holds `artifactId` and not `organizationId`, so every write costs one join through `project` to find out whose budget it spends.
+- **Provenance is a declared capability, not a fixed rule.** `RESOURCE_SOURCE_TYPE_CUSTOM_CODE` marks what a script wrote, and `config.resourceAccess` decides what that buys: `own` — the default and the safe floor — confines a tool to those rows, so a buggy or model-generated tool has none of the customer's documents to destroy. `all` lifts it, which is what a tool whose job is to prune a stale crawl actually needs. It is declared in the tool's config and enforced by the broker, so a script cannot grant it to itself — the same shape as `allowedHosts` and `connections`, and for the same reason: a capability the code can widen is not a capability, it is a comment. The check runs against **every** row at the uri, not the addressable one, because a crawl seed shares its page's uri and belongs to the crawler either way.
+- **`bytes` transits the isolate, and says so.** Inline text is capped at 1MB (it becomes a column every resource listing reads); bytes at 10MB (an R2 object nothing reads until it is sent). The file ceiling sits under every destination's attachment cap, so anything a script can create it can also send. This is explicitly **not** the no-transit guarantee `sendFile` makes: the script is holding these bytes, and the SDK carries them again as base64, so the real footprint is roughly 2.3× the declared cap. The SDK accepts an `ArrayBuffer`/`Uint8Array` directly and encodes for the wire, because a caller handed a base64-only API gets it wrong the first time.
 
-- **Indexing: recommend NO in v1.** Leaving script output out of the RAG corpus drops three problems at once — the broker needs no `INDEX_QUEUE` binding, `assertEmbeddedStorageQuota` doesn't enter the picture, and there is no unbounded write path from untrusted code into the corpus the channel runner answers from. Script-created resources would still appear in `ctx.resources.list()` and in MCP `resources/list`; they just wouldn't be searchable. If indexing is wanted later it should be an explicit opt-in flag, not the default.
-- **Raw-storage quota: must be enforced, and the helpers are in the wrong place.** Inline `content` sets `size`, so both the text and byte paths count toward `sumRawStorage`. The blocker is that `assertRawStorageQuota` lives in [plan.ts](../apps/api/src/utils/plan.ts), which the broker cannot import. It only depends on `@ganju/db` and `@ganju/utils`, so the storage subset (`getEffectivePlan`, `sumRawStorage`, `sumEmbeddedStorage`, and the two asserts) moves cleanly into `@ganju/db` with apps/api re-exporting it — the same move, for the same reason, as [oauthProviders](../packages/utils/src/oauthProviders.ts). Tool counts, message caps and the Stripe-facing parts stay put. Note the broker holds `artifactId` but not `organizationId`; it's one join through `project`.
-- **Overwrite: scope it by provenance, not by URI.** A script re-running a daily report needs to replace its own output, and must *never* be able to replace a document a customer uploaded. That needs a marker on the row — a new `RESOURCE_SOURCE_TYPE_CUSTOM_CODE` is the natural one, with overwrite permitted only on rows carrying it. Budget an audit when adding it: `sourceType` is branched on in the [resources view](../apps/web/src/components/views/resources/index.tsx), the channels view, [sources.ts](../packages/utils/src/sources.ts), and the MCP boot loop's `exposedResources` filter.
-- **`content` vs `bytes`.** Inline text needs no R2 write and covers the generate-a-report case outright. A base64 `bytes` path is what closes "fetch a file and save it", but the bytes do transit the isolate there — unavoidable, since the script is holding them — so it wants a cap far below the 128MiB ceiling, and it is explicitly *not* the no-transit guarantee `sendFile` makes.
+Two things surfaced while auditing `sourceType`, which the groundwork correctly flagged as needing one:
+
+- **A script-created resource could produce a dead link in a channel.** [collectSources](../apps/api/src/controllers/channel/sources.ts) builds a source from a `read-resource` call, not only from a search hit — and a created resource *is* readable — so the model could cite one in a channel turn. Both formatters then branched on `sourceType === 'FILE'` to choose a download link over a web link, and anything else fell through to the web branch, emitting a button pointing at `resource://q3-report`. The predicate was never really "is it a FILE"; it is "does this resolve to bytes we serve". `isDownloadableSource` now owns it, applied in both formatters and in the channels view.
+- **It would have been invisible in the dashboard's default view.** The Files folder is built from `sourceType === 'FILE'`, so a created resource appeared only under *All*. It now sits with uploaded files — it is a file, and the badge already says where it came from — rather than getting a folder of its own that most artifacts would render empty.
+
+Also folded in: the dashboard's title→uri derivation and the broker's now share [resourceUriFromTitle](../packages/utils/src/resourceUri.ts). They have to agree, or a script asked to replace "the Q3 report" can't address the row the dashboard made.
+
+**Verified against the dev database** by [scripts/verify-custom-code-resources.mjs](../scripts/verify-custom-code-resources.mjs), which bundles the real broker module and drives it rather than re-implementing its SQL — 125 checks, all passing. It scaffolds a throwaway PRO org → project → artifact and removes everything it created.
+
+What it covers:
+
+- **Creating** — text and bytes; replacement in both shapes, including that the superseded R2 object is deleted and only after the row stops pointing at it; the resource counter incrementing on insert and not on replace; explicit uris; and that no chunks are ever written, which is the "not indexed" promise.
+- **Deleting** — that the stored object goes with the row; that a second delete is a no-op which does not decrement the counter twice; that a uri which never existed is not an error; and that the freed bytes come back into the quota.
+- **Access** — an uploaded document and a real crawl (seed, the page sharing its uri, and a page below it) refused by both calls on `own`, and replaceable and removable on `all`.
+- **Cascade** — a parent refused without `children: true`; `children: true` *not* bypassing the access floor; the whole three-row tree going at once; the counter dropping by three rather than one; the chunks cascading and the embedded total coming down with them; and a surviving parent's child count decremented.
+- **Indexing** — off by default with nothing queued and the row `COMPLETED`; `index: true` queueing exactly the row just written and leaving it `PENDING`; refused with no queue binding and refused for a file type no extractor can read; and a replacement without `index` dropping the stale chunks and crediting the embedded total back.
+- **Quota** — the Free raw ceiling tripping as a 402 with nothing written; the delta rule shown sharply (on 300 bytes of headroom, rewriting a 1,000-byte resource in place fits while a new resource of exactly those bytes does not); and the embedded ceiling refusing an indexed write while an unindexed one still succeeds, which is what proves the two budgets are separate.
+- **The request schemas** — both payload shapes, neither, both, the byte-measured text cap (an emoji string that fits by character count and not by bytes), the base64 cap, mime and title bounds, the `index` and `children` defaults, `resourceAccess` defaulting to `own` and rejecting anything outside the pair, the issue paths, and all three messages translating in `es`.
+
+The fixture inserts its crawl rows the way the platform does — moving `artifact_resource_count` with them — which is the difference between the counter checks asserting something and the `greatest(0, …)` floors quietly absorbing an off-by-one.
+
+#### `delete`, cascade, and idempotency
+
+Create and replace alone would leave a tool that generates per-run output accumulating rows until someone cleared them from the dashboard, so `ctx.resources.delete(uri, { children })` closes the loop. It runs on the same declared access `create` does, with its own message, because the two leave the reader in different positions: the fix for a create is a different uri, and the fix for a delete is either the config flag or the Resources page.
+
+**A uri with nothing behind it answers `deleted: false` rather than 404.** Delete is the one call a script makes to reach a state rather than to cause an effect — *"make sure last week's report is gone"* — and a cleanup loop that throws on its second run is a cleanup loop nobody writes twice. Naming a resource the tool may not touch is still an error; that is a script doing the wrong thing, not a script arriving somewhere it already was.
+
+**Children are opt-in, and they have to be.** The FK cascades whether or not the caller asked, so a plain delete on a crawl seed would quietly take four hundred pages with it *and* leave the artifact's counters describing rows that no longer exist. Naming a resource that has children without `children: true` is refused instead. The tree walk runs either way — it is how we know whether to refuse, and once cascading it is how the storage keys get collected, since Postgres knows nothing about R2. `children: true` grants nothing on its own: the access floor is re-checked against the whole tree, so a script on `own` cannot reach a crawled page by naming something above it.
+
+Cascading is also where the bookkeeping stops being trivial. Under `own` nothing deleted was ever indexed, but under `all` a pruned crawl frees a great deal, so the delete path drops the chunks, credits `artifactResourceEmbeddedSize` back, decrements `artifactResourceCount` by the whole tree, and brings down the `childResourceCount` of any parent that survives — each with a `greatest(0, …)` floor, because these are denormalised totals and a delete must never be the thing that drives one negative. Raw storage needs none of that: it is a live sum over `size`, so dropping the row frees the quota by itself.
+
+One consequence worth naming: replacing a resource under `all` sets its source type to `CUSTOM_CODE`, because a tool did write its content. That means a later version running on `own` can delete it. Not an escalation — the version that converted it could already delete anything — but it is a one-way door, and it is the reason `all` should be granted to the tool that needs it rather than to every tool in an artifact.
+
+**Still open**: nothing in this phase. The dashboard has no filter for tool-written resources and no editor for `resourceAccess` yet — both Phase 6's problem rather than this one's. Created resources carry a *Tool* badge and sit with uploaded files today, and `resourceAccess` is set through the version-create endpoint's `config` like every other custom-code setting.
 
 ### Phase 6 — Dashboard
 

@@ -1813,9 +1813,9 @@ export const Channels = () => {
                             <div className="panel-source-pills">
                               {msg.metadata.sources.map(
                                 (source, sourceIndex) => {
-                                  const isFile =
-                                    source.sourceType ===
-                                    utils.constants.RESOURCE_SOURCE_TYPE_FILE;
+                                  const isFile = utils.isDownloadableSource(
+                                    source.sourceType
+                                  );
                                   const apiUrl =
                                     process.env.NEXT_PUBLIC_API_URL || '';
                                   const href = isFile

@@ -868,7 +868,14 @@ const CUSTOM_CODE_CONFIG = z.object({
     .int()
     .positive()
     .default(constants.CUSTOM_CODE_DEFAULT_TIMEOUT_MS)
-    .transform(n => Math.min(n, constants.CUSTOM_CODE_MAX_TIMEOUT_MS))
+    .transform(n => Math.min(n, constants.CUSTOM_CODE_MAX_TIMEOUT_MS)),
+  // How far ctx.resources.create and .delete reach. `own` is the default and
+  // the safe floor; `all` lets the script replace and remove resources it did
+  // not write, which is what a tool that prunes a stale crawl needs. Declared
+  // here so the owner grants it at publish time and the script cannot.
+  resourceAccess: z
+    .enum(constants.CUSTOM_CODE_RESOURCE_ACCESS_VALUES)
+    .default(constants.CUSTOM_CODE_RESOURCE_ACCESS_OWN)
 });
 
 // The same config, plus the rule that every declared connection names a provider
@@ -1052,6 +1059,90 @@ const CUSTOM_CODE_BROKER_RESOURCE_SEARCH = z.object({
 const CUSTOM_CODE_BROKER_RESOURCE_READ = z.object({
   uri: z.string().min(1).max(2000)
 });
+
+// One ctx.resources.delete call. Same shape as a read — a uri is the only thing
+// a script holds — but its own schema so the two can diverge without one
+// quietly accepting what the other meant.
+const CUSTOM_CODE_BROKER_RESOURCE_DELETE = z.object({
+  uri: z.string().min(1).max(2000),
+  // Opt-in rather than implied. The FK cascades regardless, so a delete that
+  // took children silently would be the difference between removing one page
+  // and removing a 400-page crawl — a distinction the caller has to make on
+  // purpose.
+  children: z.boolean().default(false)
+});
+
+// One ctx.resources.create call.
+//
+// `content` and `bytes` are the two payload shapes and exactly one is required:
+// text goes inline on the row, bytes (base64) go to storage. Requiring one and
+// refusing both is what keeps the row's meaning unambiguous — a resource with
+// inline text AND a stored object has two answers to "what is in it", and every
+// reader would have to pick.
+//
+// `mimeType` is constrained to the same list an uploaded file is, so a script
+// cannot introduce a type no other surface knows how to render or attach.
+const CUSTOM_CODE_BROKER_RESOURCE_CREATE = z
+  .object({
+    title: z.string().min(1).max(200),
+    // Optional: derived from the title when omitted. A script that re-runs and
+    // wants to replace its previous output passes the same one.
+    uri: z.string().min(1).max(2000).optional(),
+    description: z.string().max(1000).optional(),
+    mimeType: z
+      .enum(constants.MIMETYPES, { message: 'Unsupported mime type' })
+      .optional(),
+    content: z.string().optional(),
+    bytes: z.string().optional(),
+    // Only meaningful for the bytes path; drives the stored object's name and
+    // the filename an attachment arrives under.
+    fileName: z.string().min(1).max(255).optional(),
+    // Put this resource in the artifact's search corpus. Off by default: script
+    // output that lands in the corpus is content the assistant will answer other
+    // people's questions from, and that should be a decision rather than a
+    // side effect of writing a file.
+    index: z.boolean().default(false)
+  })
+  .superRefine((value, ctx) => {
+    const hasContent = value.content !== undefined;
+    const hasBytes = value.bytes !== undefined;
+
+    if (hasContent === hasBytes) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [hasContent ? 'bytes' : 'content'],
+        message: constants.CUSTOM_CODE_RESOURCE_PAYLOAD_MESSAGE
+      });
+      return;
+    }
+
+    // Measured in bytes rather than characters: the cap exists to bound what is
+    // stored, and a string of emoji is four times its length on the way to
+    // Postgres.
+    if (hasContent) {
+      const size = new TextEncoder().encode(value.content).byteLength;
+      if (size > constants.CUSTOM_CODE_MAX_RESOURCE_TEXT_BYTES) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['content'],
+          message: constants.CUSTOM_CODE_RESOURCE_TEXT_TOO_LARGE_MESSAGE
+        });
+      }
+      return;
+    }
+
+    // The base64 length bounds the decoded length, so this rejects an oversized
+    // payload without decoding it first — the decode is what would actually cost
+    // the memory being defended.
+    const decodedSize = Math.floor((value.bytes!.length * 3) / 4);
+    if (decodedSize > constants.CUSTOM_CODE_MAX_RESOURCE_FILE_BYTES) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['bytes'],
+        message: constants.CUSTOM_CODE_RESOURCE_FILE_TOO_LARGE_MESSAGE
+      });
+    }
+  });
 
 // The resources to deliver. Named by URI rather than by id because a URI is what
 // every other resource surface a script can see hands back — ctx.resources.list
@@ -1328,6 +1419,8 @@ export const Schema = {
   CUSTOM_CODE_BROKER_SECRET,
   CUSTOM_CODE_BROKER_RESOURCE_SEARCH,
   CUSTOM_CODE_BROKER_RESOURCE_READ,
+  CUSTOM_CODE_BROKER_RESOURCE_CREATE,
+  CUSTOM_CODE_BROKER_RESOURCE_DELETE,
   CUSTOM_CODE_SEND_FILE
 };
 
@@ -1355,6 +1448,12 @@ export type CustomCodeManifest = z.infer<typeof CUSTOM_CODE_MANIFEST>;
 // bundled into every uploaded script and reaching the barrel would ship zod
 // with it.
 export type CustomCodeSendFile = z.infer<typeof CUSTOM_CODE_SEND_FILE>;
+
+// One ctx.resources.create call, after parsing. Same split as above: the SDK
+// declares the input shape by hand so it never has to import zod.
+export type CustomCodeCreateResource = z.infer<
+  typeof CUSTOM_CODE_BROKER_RESOURCE_CREATE
+>;
 
 // One remote tool discovered from a proxied MCP server. Stored on
 // artifact_tool.metadata.discovery at configure-time so the stateless MCP boot

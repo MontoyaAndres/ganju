@@ -1,13 +1,14 @@
-import { create, schema, incrementArtifactUsage } from './lib';
+import { create, schema, incrementArtifactUsage, plan } from './lib';
 import { handleError } from './utils';
 
 export const db = {
   create,
   schema,
-  incrementArtifactUsage
+  incrementArtifactUsage,
+  plan
 };
 export const utils = {
   handleError
 };
 
-export type { Database, DbExecutor, UsageCounts } from './lib';
+export type { Database, DbExecutor, UsageCounts, EffectivePlan } from './lib';

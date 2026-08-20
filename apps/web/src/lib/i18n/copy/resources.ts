@@ -120,6 +120,7 @@ const en = {
   sourceTypeWebsite: 'Website',
   sourceTypeGoogleDrive: 'Google Drive',
   sourceTypeOneDrive: 'OneDrive',
+  sourceTypeCustomCode: 'Tool',
   typeStaticBadge: 'Static',
   typeTemplateBadge: 'Template',
 
@@ -340,6 +341,7 @@ export const RESOURCES: Catalog<ResourcesCopy> = {
     sourceTypeWebsite: 'Sitio web',
     sourceTypeGoogleDrive: 'Google Drive',
     sourceTypeOneDrive: 'OneDrive',
+    sourceTypeCustomCode: 'Herramienta',
     typeStaticBadge: 'Estático',
     typeTemplateBadge: 'Plantilla',
 

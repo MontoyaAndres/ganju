@@ -1,4 +1,4 @@
-import type { Hyperdrive, R2Bucket } from '@cloudflare/workers-types';
+import type { Hyperdrive, Queue, R2Bucket } from '@cloudflare/workers-types';
 import type { ResourceHandler } from '@ganju/containers';
 import type { CustomCodeToolConfig } from '@ganju/utils';
 
@@ -23,6 +23,7 @@ export interface RateLimitBinding {
 export type Bindings = {
   HYPERDRIVE: Hyperdrive;
   STORAGE_BUCKET: R2Bucket;
+  INDEX_QUEUE?: Queue<{ resourceId: string }>;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
   HTTP_ENDPOINT_RATE_LIMITER?: RateLimitBinding;
   DATABASE_URL?: string;

@@ -83,7 +83,7 @@ export interface DeployedScript {
  *    version is the artifact's active one, so the previous script's credential
  *    dies with the publish rather than outliving the code it belonged to.
  *  - `GANJU_BROKER`, a service binding. It is the only way out of the isolate
- *    that isn't screened by the outbound worker, and it exposes six routes.
+ *    that isn't screened by the outbound worker, and it exposes eight routes.
  *
  * `limits.cpu_ms` is set per script rather than per namespace because it is the
  * technical ceiling that bounds adversarial cost, and because a ceiling set per

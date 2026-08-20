@@ -6,6 +6,8 @@ import { utils } from '@ganju/utils';
 import {
   resolveConnection,
   resolveSecret,
+  createResource as writeResource,
+  deleteResource as removeResource,
   generateEmbedding,
   sendFile as deliverFile
 } from '../../utils';
@@ -310,6 +312,93 @@ const readResource = async (c: Context<AppEnv>) => {
 };
 
 /**
+ * Write a resource on the artifact from inside a running script.
+ *
+ * The counterpart to sendFile, and the reason it is worth having: sendFile takes
+ * URIs and never bytes, so without this a tool could only deliver a file that
+ * already existed. "Build the report, then email it" is the flow a tool author
+ * reaches for first, and it needs a way to produce the report.
+ *
+ * No connection allow-list here — this writes to the artifact's own resources,
+ * which the artifact scope already bounds. What it is gated on instead is the
+ * tool's declared `resourceAccess`: `own` (the default) confines it to what a
+ * script wrote, `all` lets it replace anything on the artifact.
+ *
+ * `index: true` puts the result in the search corpus. Off by default, because
+ * content the assistant answers other people's questions from should be a
+ * decision rather than a side effect of writing a file.
+ */
+const createResource = async (c: Context<AppEnv>) => {
+  const tool = c.get('tool');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed =
+    utils.Schema.CUSTOM_CODE_BROKER_RESOURCE_CREATE.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        error:
+          parsed.error.issues[0]?.message ||
+          'A title and either content or bytes are required'
+      },
+      400
+    );
+  }
+
+  const written = await writeResource(c, db.create(c), {
+    artifactId: tool.artifactId,
+    request: parsed.data,
+    // From the authenticated tool row, never from the request — a script that
+    // could name its own access level would not have one.
+    access: tool.config.resourceAccess,
+    canIndex: !!c.env.INDEX_QUEUE
+  });
+
+  if (!written.ok) {
+    return c.json({ error: written.error }, written.status);
+  }
+
+  // After the row is committed, so the job can never arrive before the resource
+  // it names exists. Failing to enqueue leaves a PENDING row rather than losing
+  // the content, which the owner can re-index from the dashboard.
+  if (written.indexResourceId && c.env.INDEX_QUEUE) {
+    await c.env.INDEX_QUEUE.send({ resourceId: written.indexResourceId });
+  }
+
+  return c.json({ resource: written.resource });
+};
+
+/**
+ * Remove a resource a script created.
+ *
+ * Gated on the same declared access the write path uses, and idempotent: a uri
+ * with nothing behind it answers `deleted: false` rather than an error, so a
+ * cleanup that runs twice does not fail the second time. Removing a resource's
+ * children is opt-in — see deleteResource for why it cannot be implied.
+ */
+const deleteResource = async (c: Context<AppEnv>) => {
+  const tool = c.get('tool');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed =
+    utils.Schema.CUSTOM_CODE_BROKER_RESOURCE_DELETE.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'A resource uri is required' }, 400);
+  }
+
+  const removed = await removeResource(c, db.create(c), {
+    artifactId: tool.artifactId,
+    uri: parsed.data.uri,
+    children: parsed.data.children,
+    access: tool.config.resourceAccess
+  });
+
+  if (!removed.ok) {
+    return c.json({ error: removed.error }, removed.status);
+  }
+
+  return c.json({ resource: removed.resource });
+};
+
+/**
  * Deliver one or more of the artifact's resources as files, to a destination the
  * artifact has connected.
  *
@@ -363,5 +452,7 @@ export const BrokerController = {
   searchResources,
   listResources,
   readResource,
+  createResource,
+  deleteResource,
   sendFile
 };

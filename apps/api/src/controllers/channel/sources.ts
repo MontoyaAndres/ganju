@@ -126,7 +126,7 @@ export const collectSources = async (
       resourceId: resource.id,
       uri: resource.uri,
       title: resource.title,
-      sourceType: resource.sourceType as 'FILE' | 'WEBSITE',
+      sourceType: resource.sourceType as Source['sourceType'],
       mimeType: resource.mimeType,
       fileName: resource.fileName,
       pageNumber,
