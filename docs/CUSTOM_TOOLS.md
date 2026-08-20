@@ -417,6 +417,15 @@ What it covers:
 
 The fixture inserts its crawl rows the way the platform does — moving `artifact_resource_count` with them — which is the difference between the counter checks asserting something and the `greatest(0, …)` floors quietly absorbing an off-by-one.
 
+**Verified on the deployed dev environment** by [scripts/probe-custom-code-resources.mjs](../scripts/probe-custom-code-resources.mjs) — 37 checks, all passing, first run. The verify script above calls the broker module directly, so everything between an MCP client and that module was unexercised: the dispatcher, the user script, the service binding, real R2 and Postgres, the index queue, and the indexer consuming it. This probe publishes a throwaway artifact's script into the dispatch namespace, drives its tools over the real MCP endpoint, asserts against the database, and removes the script and every row afterwards.
+
+What only a deployed run could show:
+
+- **The queue really delivers.** `index: true` wrote the row `PENDING`, the indexer picked it up, produced a chunk, flipped it to `COMPLETED`, and credited the artifact's embedded total — the one path the local run stubs out entirely.
+- **The corpus boundary holds both ways.** Semantic search found the indexed resource (score 0.65) and did *not* return the unindexed one written moments earlier. Writing a file does not put it in the knowledge base; asking for it does.
+- **`resourceAccess` is read per call from the stored row.** Granting `all` took effect on the next tool call with no redeploy and no new token — the config edit alone, which is the point of the capability living there rather than in the bundle.
+- **The seed filter survives the round trip.** `ctx.resources.list()` returned the crawled page once, not twice, from inside a real isolate.
+
 #### `delete`, cascade, and idempotency
 
 Create and replace alone would leave a tool that generates per-run output accumulating rows until someone cleared them from the dashboard, so `ctx.resources.delete(uri, { children })` closes the loop. It runs on the same declared access `create` does, with its own message, because the two leave the reader in different positions: the fix for a create is a different uri, and the fix for a delete is either the config flag or the Resources page.
