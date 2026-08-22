@@ -54,6 +54,7 @@ service = "ganju-api-development"
 binding = "DISPATCH"
 namespace = "ganju-tools-development"
 outbound = { service = "ganju-tool-outbound-development", parameters = ["artifactId", "allowedHosts"] }
+remote = true
 
 [env.production]
 name = "ganju-mcp-production"

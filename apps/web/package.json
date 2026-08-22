@@ -2,8 +2,8 @@
   "name": "web",
   "version": "0.0.1",
   "scripts": {
-    "build": "next build",
-    "dev": "dotenv -e ../../.env next dev",
+    "build": "node scripts/copy-monaco.mjs && next build",
+    "dev": "node scripts/copy-monaco.mjs && dotenv -e ../../.env next dev",
     "start": "next start",
     "clean": "rm -rf .next && rm -rf .open-next && rm -rf node_modules",
     "cf-build": "opennextjs-cloudflare build",
@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@better-auth/oauth-provider": "^1.6.25",
+    "@ganju/sdk": "*",
     "@ganju/ui": "*",
     "@ganju/utils": "*",
+    "@monaco-editor/react": "^4.7.0",
     "better-auth": "^1.6.25",
     "chart.js": "^4.5.1",
     "next": "^16.2.9",
@@ -29,6 +31,7 @@
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "monaco-editor": "^0.54.0",
     "typescript": "^6.0.3"
   }
 }

@@ -1,0 +1,25 @@
+# Generated output. Nothing here is written by hand, and formatting it would
+# only make builds produce diffs.
+dist
+.next
+.open-next
+.turbo
+build
+coverage
+package-lock.json
+
+# Monaco's runtime, copied out of node_modules by apps/web's prebuild step.
+apps/web/public/monaco
+
+# Written by `next build`, and it says so in a comment at the top.
+next-env.d.ts
+
+# Drizzle's journal and snapshots — machine-authored, and the snapshots are
+# enormous. The .sql migrations beside them are hand-written, so they stay.
+packages/db/drizzle/meta
+
+# Markdown. The docs are hand-formatted prose with a consistent house style —
+# `*emphasis*`, unpadded tables — and prettier's markdown rules would rewrite
+# every one of them to say the same thing differently. The formatter is here for
+# code.
+*.md

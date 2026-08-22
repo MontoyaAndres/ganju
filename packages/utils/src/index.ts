@@ -91,12 +91,18 @@ import { parseHttpErrorMessage } from './parseHttpError';
 import { isApiError, getApiErrorMessage } from './apiError';
 import { toStringArray } from './coerce';
 import { validateMessageVariables } from './validateMessageVariables';
-import { JsonSchema, jsonSchemaToZodShape } from './jsonSchemaToZodShape';
+import {
+  JsonSchema,
+  jsonSchemaToZodShape,
+  validateAgainstJsonSchema
+} from './jsonSchemaToZodShape';
+import type { SchemaViolation } from './jsonSchemaToZodShape';
 import { buildProxyToolName } from './mcpProxy';
 import {
   mintCustomCodeToken,
   verifyCustomCodeToken,
-  customCodeScriptName
+  customCodeScriptName,
+  customCodePreviewScriptName
 } from './customCodeToken';
 import type { CustomCodeTokenPayload } from './customCodeToken';
 import { oauthProviders } from './oauthProviders';
@@ -105,6 +111,14 @@ import { resolveAttachment } from './attachment';
 import { isExposedResource } from './exposedResource';
 import type { ExposableResource } from './exposedResource';
 import { describeVendorError } from './vendorError';
+import { withDeadline, isDeadlineError } from './deadline';
+import {
+  CUSTOM_CODE_PROJECT_MARKER,
+  encodeProject,
+  decodeProject,
+  validateProjectFiles
+} from './customCodeProject';
+import type { CustomCodeProject } from './customCodeProject';
 import type {
   AttachmentResource,
   ResolvedAttachment,
@@ -117,6 +131,21 @@ import { languageCookieDomain } from './languageCookieDomain';
 import { localizeZodIssue, languageFromHeader } from './localizeZodIssue';
 import { slugifyTitle } from './slugifyTitle';
 import { resourceUriFromTitle } from './resourceUri';
+import {
+  TOOL_CATALOG,
+  TOOL_KEYS,
+  describeCatalogTool,
+  findCatalogGroup,
+  findCatalogTool,
+  isToolKey
+} from './toolCatalog';
+import type {
+  CatalogGroup,
+  CatalogTool,
+  CatalogToolDescriptor,
+  ToolGroupKey,
+  ToolKey
+} from './toolCatalog';
 import { tallyUsageKinds } from './tallyUsageKinds';
 import { formatFilename } from './formatFilename';
 import {
@@ -220,14 +249,22 @@ export const utils = {
   getApiErrorMessage,
   toStringArray,
   jsonSchemaToZodShape,
+  validateAgainstJsonSchema,
   buildProxyToolName,
   mintCustomCodeToken,
   verifyCustomCodeToken,
   customCodeScriptName,
+  customCodePreviewScriptName,
   oauthProviders,
   resolveAttachment,
   isExposedResource,
   describeVendorError,
+  withDeadline,
+  isDeadlineError,
+  CUSTOM_CODE_PROJECT_MARKER,
+  encodeProject,
+  decodeProject,
+  validateProjectFiles,
   ipv4InPrivateRange,
   isBlockedHost,
   validateMessageVariables,
@@ -238,6 +275,12 @@ export const utils = {
   languageFromHeader,
   slugifyTitle,
   resourceUriFromTitle,
+  TOOL_CATALOG,
+  TOOL_KEYS,
+  describeCatalogTool,
+  findCatalogGroup,
+  findCatalogTool,
+  isToolKey,
   tallyUsageKinds,
   formatFilename,
   decodeEntities,
@@ -276,8 +319,15 @@ export const utils = {
 };
 
 export type {
+  CustomCodeProject,
+  CatalogGroup,
+  CatalogTool,
+  CatalogToolDescriptor,
+  ToolGroupKey,
+  ToolKey,
   CalendarConfigField,
   JsonSchema,
+  SchemaViolation,
   MimeAttachment,
   MimeMessageInput,
   GmailOperation,

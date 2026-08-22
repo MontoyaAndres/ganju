@@ -63,6 +63,9 @@ const CUSTOM_MESSAGES: Record<string, Record<string, string>> = {
   [constants.CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE]: {
     es: 'Conexión no válida — no existe un proveedor gestionado con ese nombre'
   },
+  [constants.OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE]: {
+    es: 'Esquema de salida no válido — debe describir un objeto'
+  },
   [constants.CUSTOM_CODE_RESOURCE_PAYLOAD_MESSAGE]: {
     es: 'Envía exactamente uno de content (texto) o bytes (base64)'
   },

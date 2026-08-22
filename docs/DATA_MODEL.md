@@ -95,4 +95,4 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
 - **Timestamps** — most tables have `createdAt` / `updatedAt` (auto-updated); append-only audit tables have only `createdAt`.
 - **Counters** on `artifact` / `organization` / `project` are maintained in application code — keep them in sync when you add a create/delete path.
 - **Enums** are plain text columns validated against constant arrays in [`packages/utils/src/constants.ts`](../packages/utils/src/constants.ts) (e.g. `STATUS_*`, `CHANNEL_PLATFORMS`, `LLM_PROVIDERS`).
-- **Seeded data** — `toolGroup`, `toolDefinition`, and `mcpServerCatalog` rows are inserted out of band, not created through the app UI. The `custom-code` pair has a script: `node scripts/seed-custom-code.mjs [--prod]`.
+- **Seeded data** — `mcpServerCatalog` rows are inserted out of band, not created through the app UI. `toolGroup` and `toolDefinition` no longer exist: the shipped tool catalog is `TOOL_CATALOG` in [@ganju/utils](../packages/utils/src/toolCatalog.ts), and `artifact_tool.tool_key` names an entry in it.

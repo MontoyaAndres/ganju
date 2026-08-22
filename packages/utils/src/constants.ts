@@ -1,3 +1,20 @@
+import {
+  CUSTOM_CODE_BINDING_TOKEN,
+  CUSTOM_CODE_BINDING_BROKER,
+  CUSTOM_CODE_BROKER_ORIGIN,
+  CUSTOM_CODE_BROKER_PATH_CONNECTION,
+  CUSTOM_CODE_BROKER_PATH_SECRET,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_SEARCH,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_READ,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_CREATE,
+  CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE,
+  CUSTOM_CODE_BROKER_PATH_SEND_FILE,
+  CUSTOM_CODE_HEALTH_TOOL,
+  CUSTOM_CODE_MAX_LOGS,
+  CUSTOM_CODE_MAX_LOG_LENGTH
+} from './sdkConstants';
+
 const USER_ROLE_ADMIN = 'ADMIN';
 const USER_ROLES = [USER_ROLE_ADMIN];
 
@@ -1174,9 +1191,69 @@ const CUSTOM_CODE_VERSION_STATUSES = [
   CUSTOM_CODE_VERSION_STATUS_ARCHIVED
 ];
 
+// Where a version's stored source came from, which decides whether it can be
+// opened in the dashboard editor.
+//
+// 'editor' — the bytes at sourceKey are exactly what a person typed. They are
+// the deployed module too: dashboard code imports the SDK from a sibling module
+// the upload always attaches, so there is no build step between the text box and
+// the running Worker, and no second copy that can drift from it.
+//
+// 'bundle' — the CLI compiled and uploaded it. Deployable, but minified and
+// machine-shaped; the editor shows it read-only rather than inviting someone to
+// overwrite a real build with the contents of a text box. It is the default
+// because every version that predates the editor arrived this way.
+const CUSTOM_CODE_SOURCE_KIND_EDITOR = 'editor' as 'editor';
+const CUSTOM_CODE_SOURCE_KIND_BUNDLE = 'bundle' as 'bundle';
+const CUSTOM_CODE_SOURCE_KINDS = [
+  CUSTOM_CODE_SOURCE_KIND_EDITOR,
+  CUSTOM_CODE_SOURCE_KIND_BUNDLE
+];
+
+// The SDK, shipped as a second ES module beside every uploaded script rather
+// than bundled into it. Attached on every deploy, including CLI ones: a bundle
+// that inlined the SDK simply never imports it, and one extra module costs less
+// than a branch in the deploy path that has to know which kind it is holding.
+const CUSTOM_CODE_SDK_MODULE = 'ganju-sdk.js';
+
+// The module the dispatcher calls. Every other file in a project is reached only
+// by being imported from it, directly or otherwise.
+const CUSTOM_CODE_MAIN_MODULE = 'index.js';
+
+// How many files one script may hold, and how long a path may be. Neither is a
+// runtime limit — a Worker takes far more — they bound what one editor session
+// can produce, and keep the stored envelope small enough to stay a single R2
+// object read on every deploy.
+const CUSTOM_CODE_MAX_FILES = 25;
+const CUSTOM_CODE_MAX_FILE_PATH = 100;
+const CUSTOM_CODE_SDK_SPECIFIER = './ganju-sdk.js';
+
 // WfP script name: `artifact_<artifactId>`. The id, never the slug — slugs are
 // user-editable and a rename would orphan the deployed script.
 const CUSTOM_CODE_SCRIPT_NAME_PREFIX = 'artifact_';
+
+// A second script per artifact, `artifact_<id>_preview`, that the Test panel
+// deploys a draft into and calls.
+//
+// Separate from the live script and not a mode of it: testing must never disturb
+// what MCP clients are being served, and the only way to be sure of that is for
+// the test to run somewhere else entirely. It is overwritten by the next test
+// and deleted after each run.
+const CUSTOM_CODE_PREVIEW_SCRIPT_SUFFIX = '_preview';
+
+// How long a preview token stays valid.
+//
+// The live token needs no expiry — the broker refuses any token whose version is
+// not the active one, so publishing rotates it. A preview token has no such
+// anchor: its whole purpose is to work for a version that is NOT active, so
+// something else has to end it. Ten minutes is longer than any test run and far
+// shorter than the life of a script that failed to delete.
+const CUSTOM_CODE_PREVIEW_TOKEN_TTL_MS = 10 * 60 * 1_000;
+
+// How long a single test run may take before the API gives up on it. Shorter
+// than the script's own CPU ceiling is not the point — this bounds the wait of
+// someone watching a spinner.
+const CUSTOM_CODE_TEST_TIMEOUT_MS = 30_000;
 
 // R2 prefix for uploaded bundles. Keyed by artifact + version so a rollback can
 // always find the exact source that produced the running script.
@@ -1221,12 +1298,9 @@ const CUSTOM_CODE_INVOKE_PATH = '/invoke';
 
 // A reserved tool name the SDK answers itself, without running user code. The
 // publish pipeline calls it once against the freshly uploaded script and expects
-// back the list of tool names the bundle actually exports — which is what turns
-// "the manifest declares lookup-order but the code exports lookupOrder" from a
-// call-time mystery into a publish-time error. Underscore-prefixed so it can
-// never collide with a declared name (CUSTOM_CODE_TOOL's charset allows leading
-// underscores, but this exact string is checked before user routing).
-const CUSTOM_CODE_HEALTH_TOOL = '__ganju_health';
+// back the list of tool names the bundle actually exports. Declared in
+// ./sdkConstants — it is one of the few values that ships inside every deployed
+// script — and re-exported below with the rest.
 
 // Reserved MCP tool names
 //
@@ -1285,25 +1359,20 @@ const RESERVED_TOOL_NAME_MESSAGE =
 const CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE =
   'Invalid connection — no managed provider by that name';
 
-// Bindings injected into every user script at upload time. The token is a
-// secret_text binding rotated on each publish; the broker is a service binding.
-// Names are part of the SDK's contract with the script, so they can't be
-// renamed without breaking already-deployed code.
-const CUSTOM_CODE_BINDING_TOKEN = 'GANJU_TOOL_TOKEN';
-const CUSTOM_CODE_BINDING_BROKER = 'GANJU_BROKER';
+// An output schema has to describe an object, because that is what MCP's
+// `structuredContent` is. A schema of any other type compiles to an empty shape
+// and can never be satisfied, so the tool would declare structured output and
+// then report every call as a failure to produce it.
+//
+// A fixed string rather than one that names the offending type: localizeZodIssue
+// keys its translations on the exact English text. The issue `path` says which
+// entry, which is what a 50-tool manifest needs anyway.
+const OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE =
+  'Invalid output schema — it must describe an object';
 
-// Broker routes, called by user code through the service binding above with
-// `Authorization: Bearer <GANJU_TOOL_TOKEN>`. The origin is arbitrary for the
-// same reason as the invoke origin — a service binding ignores the hostname.
-const CUSTOM_CODE_BROKER_ORIGIN = 'https://broker.ganju.internal';
-const CUSTOM_CODE_BROKER_PATH_CONNECTION = '/connection';
-const CUSTOM_CODE_BROKER_PATH_SECRET = '/secret';
-const CUSTOM_CODE_BROKER_PATH_RESOURCES_SEARCH = '/resources/search';
-const CUSTOM_CODE_BROKER_PATH_RESOURCES_READ = '/resources/read';
-const CUSTOM_CODE_BROKER_PATH_RESOURCES_LIST = '/resources/list';
-const CUSTOM_CODE_BROKER_PATH_RESOURCES_CREATE = '/resources/create';
-const CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE = '/resources/delete';
-const CUSTOM_CODE_BROKER_PATH_SEND_FILE = '/send-file';
+// The script bindings and the broker routes they call live in ./sdkConstants:
+// they are the SDK's runtime contract, so they are bundled into every deployed
+// script and must not drag this module in with them.
 
 // Outbound-worker parameters the dispatcher attaches to every `.get()`. The
 // outbound worker reads them from its own env to screen the script's `fetch`
@@ -1376,11 +1445,8 @@ const CUSTOM_CODE_COMPATIBILITY_DATE = '2025-11-17';
 // tool is billed as five seconds rather than as whatever it wanted.
 const CUSTOM_CODE_SCRIPT_CPU_MS = 5_000;
 
-// How many ctx.log() lines travel back with a result. Logs are buffered inside
-// the isolate and returned in the response rather than sent to the broker line
-// by line — a log call shouldn't cost a network round trip.
-const CUSTOM_CODE_MAX_LOGS = 50;
-const CUSTOM_CODE_MAX_LOG_LENGTH = 2_000;
+// The ctx.log() caps also live in ./sdkConstants — the buffer that enforces them
+// runs inside the isolate.
 
 // ctx.sendFile destinations.
 //
@@ -1722,6 +1788,18 @@ interface PlanLimits {
   // a private model — which lets the org run its own inference past the shared
   // allowance — requires upgrading.
   canUseCustomLlm: boolean;
+  // Whether the org may write tools as code and deploy them. Paid-only, and for
+  // a different reason than the flags above: this one runs the customer's own
+  // code on infrastructure we pay for, which is the first cost axis a user can
+  // turn against us. Free's escape hatch is `http-endpoint`, which already gives
+  // a custom name, description and input schema against their own backend — at
+  // no compute cost to us, because we make one screened request.
+  canUseCustomCode: boolean;
+  // How many `http-endpoint` tools one artifact may hold. Free gets a handful
+  // rather than none: it IS the free tier's custom tool, and capping it is what
+  // keeps that from becoming an unbounded tool list on the plan that runs on our
+  // model key. `null` = no limit.
+  maxHttpEndpointsPerArtifact: number | null;
   // Display-only allowances included in the plan (what overage is measured
   // against). Not used for blocking.
   includedMessages: number;
@@ -1753,6 +1831,8 @@ const PLAN_LIMITS: Record<
     // Free orgs use the shared platform model only; bringing your own model is a
     // paid feature.
     canUseCustomLlm: false,
+    canUseCustomCode: false,
+    maxHttpEndpointsPerArtifact: 3,
     includedMessages: 100,
     includedEmbeddedBytes: 5 * MB
   },
@@ -1772,6 +1852,8 @@ const PLAN_LIMITS: Record<
     sharedKeyHardCap: PRICING_SHARED_KEY_HARD_CAP,
     canInvite: true,
     canUseCustomLlm: true,
+    canUseCustomCode: true,
+    maxHttpEndpointsPerArtifact: null,
     includedMessages: PRICING_INCLUDED_MESSAGES,
     includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
   },
@@ -1787,6 +1869,8 @@ const PLAN_LIMITS: Record<
     sharedKeyHardCap: PRICING_SHARED_KEY_HARD_CAP,
     canInvite: true,
     canUseCustomLlm: true,
+    canUseCustomCode: true,
+    maxHttpEndpointsPerArtifact: null,
     includedMessages: PRICING_INCLUDED_MESSAGES,
     includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
   }
@@ -1801,6 +1885,8 @@ const PLAN_FEATURE_PROMPT = 'prompt' as 'prompt';
 const PLAN_FEATURE_CHANNEL = 'channel' as 'channel';
 const PLAN_FEATURE_INVITE = 'invite' as 'invite';
 const PLAN_FEATURE_LLM = 'llm' as 'llm';
+const PLAN_FEATURE_CUSTOM_CODE = 'customCode' as 'customCode';
+const PLAN_FEATURE_HTTP_ENDPOINT = 'httpEndpoint' as 'httpEndpoint';
 const PLAN_FEATURE_RAW_STORAGE = 'rawStorage' as 'rawStorage';
 const PLAN_FEATURE_EMBEDDED_STORAGE = 'embeddedStorage' as 'embeddedStorage';
 const PLAN_FEATURE_MESSAGE = 'message' as 'message';
@@ -1919,6 +2005,8 @@ export const constants = {
   PLAN_FEATURE_CHANNEL,
   PLAN_FEATURE_INVITE,
   PLAN_FEATURE_LLM,
+  PLAN_FEATURE_CUSTOM_CODE,
+  PLAN_FEATURE_HTTP_ENDPOINT,
   PLAN_FEATURE_RAW_STORAGE,
   PLAN_FEATURE_EMBEDDED_STORAGE,
   PLAN_FEATURE_MESSAGE,
@@ -2315,8 +2403,19 @@ export const constants = {
   CUSTOM_CODE_VERSION_STATUS_DRAFT,
   CUSTOM_CODE_VERSION_STATUS_PUBLISHED,
   CUSTOM_CODE_VERSION_STATUS_ARCHIVED,
+  CUSTOM_CODE_SOURCE_KIND_EDITOR,
+  CUSTOM_CODE_SOURCE_KIND_BUNDLE,
+  CUSTOM_CODE_SOURCE_KINDS,
+  CUSTOM_CODE_SDK_MODULE,
+  CUSTOM_CODE_SDK_SPECIFIER,
+  CUSTOM_CODE_MAIN_MODULE,
+  CUSTOM_CODE_MAX_FILES,
+  CUSTOM_CODE_MAX_FILE_PATH,
   CUSTOM_CODE_VERSION_STATUSES,
   CUSTOM_CODE_SCRIPT_NAME_PREFIX,
+  CUSTOM_CODE_PREVIEW_SCRIPT_SUFFIX,
+  CUSTOM_CODE_PREVIEW_TOKEN_TTL_MS,
+  CUSTOM_CODE_TEST_TIMEOUT_MS,
   CUSTOM_CODE_SOURCE_KEY_PREFIX,
   CUSTOM_CODE_MAX_TOOLS,
   CUSTOM_CODE_TOOL_NAME_MAX,
@@ -2331,6 +2430,7 @@ export const constants = {
   RESERVED_TOOL_NAMES,
   RESERVED_TOOL_NAME_MESSAGE,
   CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE,
+  OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE,
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
   CUSTOM_CODE_BROKER_ORIGIN,

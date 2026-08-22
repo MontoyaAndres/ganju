@@ -23,6 +23,11 @@ import type { AppEnv } from '../types';
  * rollback would leave the version it rolled away from still able to read the
  * artifact's connections.
  *
+ * A PREVIEW token — minted for a dashboard test run — swaps (3) for "the version
+ * belongs to this tool", because a test exists precisely to run a version that
+ * is not active. What replaces the rotation is an expiry on the token itself,
+ * checked during verification.
+ *
  * Every failure is the same 401 with no detail: a script that guesses at tokens
  * must not be able to tell a bad signature from a stale version.
  */
@@ -53,15 +58,11 @@ const verify = async (c: Context<AppEnv>, next: Next) => {
   const [row] = await dbInstance
     .select({ artifactTool: db.schema.artifactTool })
     .from(db.schema.artifactTool)
-    .innerJoin(
-      db.schema.toolDefinition,
-      eq(db.schema.toolDefinition.id, db.schema.artifactTool.toolDefinitionId)
-    )
     .where(
       and(
         eq(db.schema.artifactTool.artifactId, payload.artifactId),
         eq(
-          db.schema.toolDefinition.key,
+          db.schema.artifactTool.toolKey,
           utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
         )
       )
@@ -75,7 +76,35 @@ const verify = async (c: Context<AppEnv>, next: Next) => {
   const parsed = utils.Schema.CUSTOM_CODE_CONFIG.safeParse(
     row.artifactTool.config ?? {}
   );
-  if (!parsed.success || parsed.data.activeVersionId !== payload.versionId) {
+  if (!parsed.success) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  if (payload.preview) {
+    // A test run, deployed to `artifact_<id>_preview` from the dashboard. It is
+    // by definition NOT the active version, so (3) cannot apply — what stands in
+    // for it is that the version is one of THIS tool's, plus the expiry the
+    // token carries and verify already enforced.
+    //
+    // The capability is the same as a live token's on purpose: the person who
+    // asked for the test is an authenticated member of the org who could publish
+    // this exact code instead, and a test that couldn't reach the artifact's own
+    // connections and resources would only be a test of code nobody writes.
+    const [version] = await dbInstance
+      .select({ id: db.schema.artifactToolVersion.id })
+      .from(db.schema.artifactToolVersion)
+      .where(
+        and(
+          eq(db.schema.artifactToolVersion.id, payload.versionId),
+          eq(db.schema.artifactToolVersion.artifactToolId, row.artifactTool.id)
+        )
+      )
+      .limit(1);
+
+    if (!version) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+  } else if (parsed.data.activeVersionId !== payload.versionId) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 

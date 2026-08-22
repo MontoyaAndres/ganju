@@ -78,6 +78,9 @@ web_modules/
 .next
 out
 
+# Monaco's runtime, copied out of node_modules by apps/web's prebuild step
+apps/web/public/monaco
+
 # Nuxt.js build / generate output
 .nuxt
 dist

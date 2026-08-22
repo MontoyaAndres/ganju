@@ -66,30 +66,20 @@ const create = async (c: Context<AppEnv>) => {
       projectId: project.id
     });
 
-    const defaultTools = await tx
-      .select({ id: db.schema.toolDefinition.id })
-      .from(db.schema.toolDefinition)
-      .where(
-        inArray(
-          db.schema.toolDefinition.key,
-          utils.constants.RESOURCE_TOOL_KEYS
-        )
-      );
+    const defaultTools = utils.constants.RESOURCE_TOOL_KEYS;
 
-    if (defaultTools.length > 0) {
-      await tx.insert(db.schema.artifactTool).values(
-        defaultTools.map(t => ({
-          toolDefinitionId: t.id,
-          artifactId
-        }))
-      );
-      await tx
-        .update(db.schema.artifact)
-        .set({
-          artifactToolCount: sql`(${db.schema.artifact.artifactToolCount}::int + ${defaultTools.length})::int`
-        })
-        .where(eq(db.schema.artifact.id, artifactId));
-    }
+    await tx.insert(db.schema.artifactTool).values(
+      defaultTools.map(toolKey => ({
+        toolKey,
+        artifactId
+      }))
+    );
+    await tx
+      .update(db.schema.artifact)
+      .set({
+        artifactToolCount: sql`(${db.schema.artifact.artifactToolCount}::int + ${defaultTools.length})::int`
+      })
+      .where(eq(db.schema.artifact.id, artifactId));
 
     return { organization: org, project };
   });

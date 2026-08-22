@@ -485,7 +485,7 @@ const listMessages = async (c: Context<AppEnv>) => {
       },
       usages: {
         with: {
-          artifactTool: { with: { toolDefinition: true } },
+          artifactTool: true,
           artifactResource: true,
           artifactPrompt: true
         }
@@ -493,7 +493,22 @@ const listMessages = async (c: Context<AppEnv>) => {
     }
   });
 
-  return c.json(messages);
+  return c.json(
+    messages.map(message => ({
+      ...message,
+      usages: message.usages.map(usage => ({
+        ...usage,
+        artifactTool: usage.artifactTool
+          ? {
+              ...usage.artifactTool,
+              toolDefinition: utils.describeCatalogTool(
+                usage.artifactTool.toolKey
+              )
+            }
+          : null
+      }))
+    }))
+  );
 };
 
 const webhook = async (c: Context<AppEnv>) => {

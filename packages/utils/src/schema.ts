@@ -493,7 +493,7 @@ const ARTIFACT_DOWNLOAD_RESOURCE_FILE = z.object({
 });
 
 const ARTIFACT_CREATE_TOOL = z.object({
-  toolDefinitionId: z.uuid(),
+  toolKey: z.string().min(1).max(64),
   config: z.record(z.string(), z.any()).optional(),
   metadata: z.record(z.string(), z.any()).optional(),
   projectId: z.uuid(),
@@ -518,6 +518,18 @@ const ARTIFACT_GET_TOOL = z.object({
 
 const ARTIFACT_REMOVE_TOOL = z.object({
   toolId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Turning one tool on or off. Deliberately its own route rather than a field on
+// ARTIFACT_UPDATE_TOOL: that path re-validates config and, for mcp-proxy,
+// re-runs remote discovery — a network round trip nobody should pay to flip a
+// switch, and one that would fail the toggle whenever the remote is down.
+const ARTIFACT_SET_TOOL_ENABLED = z.object({
+  toolId: z.uuid(),
+  enabled: z.boolean(),
   projectId: z.uuid(),
   userId: z.uuid(),
   organizationId: z.uuid()
@@ -703,6 +715,15 @@ const HTTP_ENDPOINT_CONFIG = z
       type: 'object',
       properties: {}
     }),
+    // What the tool promises to return, and the last asymmetry between the two
+    // user-authored tool shapes — `custom-code` has carried one since the
+    // manifest existed.
+    //
+    // Optional, and absent on every endpoint that predates it: declaring one
+    // turns the response into MCP `structuredContent`, and a client that asked
+    // for structure gets an object instead of a wall of text. Leaving it out
+    // keeps the text behaviour exactly as it was.
+    outputSchema: SCHEMA_DEFINITION.optional(),
     // Response handling.
     response: z
       .object({
@@ -767,12 +788,23 @@ const HTTP_ENDPOINT_CONFIG = z
 // Every path that accepts a config from a user validates with this one.
 const HTTP_ENDPOINT_CONFIG_WRITE = HTTP_ENDPOINT_CONFIG.superRefine(
   (cfg, ctx) => {
-    if (!isReservedToolName(cfg.name)) return;
-    ctx.addIssue({
-      code: 'custom',
-      path: ['name'],
-      message: constants.RESERVED_TOOL_NAME_MESSAGE
-    });
+    if (isReservedToolName(cfg.name)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['name'],
+        message: constants.RESERVED_TOOL_NAME_MESSAGE
+      });
+    }
+    // On the write path only, like the rule above: no stored row can have one
+    // yet, but the read shape must stay permissive on principle — a rule
+    // tightened later must never stop an installed tool from registering.
+    if (cfg.outputSchema && cfg.outputSchema.type !== 'object') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['outputSchema', 'type'],
+        message: constants.OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE
+      });
+    }
   }
 );
 
@@ -848,6 +880,23 @@ const MCP_PROXY_CONFIG = z.object({
 // "this artifact contributes zero tools" rather than as an error.
 const CUSTOM_CODE_CONFIG = z.object({
   activeVersionId: z.uuid().nullable().default(null),
+  // Which of the active version's tools are exposed. Absent or empty means all
+  // of them — the same convention `mcp-proxy` uses for its remote tools, and
+  // reused rather than reinvented so one row of many tools behaves the same way
+  // whichever kind of row it is.
+  //
+  // It lives on the row's config and not in the version, because it answers a
+  // different question. The manifest is what this code CAN do and moves only by
+  // deploying; this is what the server currently offers, and turning one tool
+  // off to shorten a bloated tool list must not require a redeploy or leave the
+  // author's manifest disagreeing with their own file.
+  //
+  // Names that no longer appear in the active manifest are simply never matched,
+  // so a version that drops a tool leaves nothing to clean up here.
+  allowedTools: z
+    .array(z.string().min(1).max(constants.CUSTOM_CODE_TOOL_NAME_MAX))
+    .max(constants.CUSTOM_CODE_MAX_TOOLS)
+    .optional(),
   // Egress allow-list, enforced by the outbound worker (Phase 2) — never in the
   // SDK, which is user-editable and therefore not a control.
   allowedHosts: z
@@ -947,12 +996,23 @@ const CUSTOM_CODE_MANIFEST = z.object({
     })
     .superRefine((tools, ctx) => {
       tools.forEach((tool, index) => {
-        if (!isReservedToolName(tool.name)) return;
-        ctx.addIssue({
-          code: 'custom',
-          path: [index, 'name'],
-          message: constants.RESERVED_TOOL_NAME_MESSAGE
-        });
+        if (isReservedToolName(tool.name)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [index, 'name'],
+            message: constants.RESERVED_TOOL_NAME_MESSAGE
+          });
+        }
+        // Same rule as http-endpoint's write path, and here for the same
+        // reason: `structuredContent` is an object, so a schema of any other
+        // type promises something the tool can never return.
+        if (tool.outputSchema && tool.outputSchema.type !== 'object') {
+          ctx.addIssue({
+            code: 'custom',
+            path: [index, 'outputSchema', 'type'],
+            message: constants.OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE
+          });
+        }
       });
     })
 });
@@ -974,6 +1034,40 @@ const ARTIFACT_CUSTOM_CODE_CREATE_VERSION = z.object({
 // is a raw binary body while the manifest is JSON, and one request carries one
 // body. Only the identifiers are validated here — the bytes are the body.
 const ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE = z.object({
+  versionId: z.uuid(),
+  // Whether these bytes are readable source or a compiled artifact. Defaults to
+  // 'bundle' because the CLI — which sends no such flag — is uploading one, and
+  // because the safe answer for anything unknown is "do not offer this in a text
+  // box".
+  sourceKind: z
+    .enum(constants.CUSTOM_CODE_SOURCE_KINDS)
+    .default(constants.CUSTOM_CODE_SOURCE_KIND_BUNDLE),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Runs ONE tool of ONE version against a sample input, without publishing it.
+//
+// The version is named rather than assumed to be the draft: a test that could
+// only run the newest version would be useless the moment someone wanted to
+// check what the live one actually does. `input` is whatever the tool's own
+// input schema accepts, and is checked against it before anything is deployed.
+const ARTIFACT_CUSTOM_CODE_TEST_VERSION = z.object({
+  versionId: z.uuid(),
+  tool: z
+    .string()
+    .min(1)
+    .max(constants.CUSTOM_CODE_TOOL_NAME_MAX)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Tool name is not valid'),
+  input: z.record(z.string(), z.any()).default({}),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// Reads one version's stored source back for the editor.
+const ARTIFACT_CUSTOM_CODE_GET_SOURCE = z.object({
   versionId: z.uuid(),
   projectId: z.uuid(),
   userId: z.uuid(),
@@ -1378,6 +1472,7 @@ export const Schema = {
   ARTIFACT_UPDATE_TOOL,
   ARTIFACT_GET_TOOL,
   ARTIFACT_REMOVE_TOOL,
+  ARTIFACT_SET_TOOL_ENABLED,
   ARTIFACT_GET_CREDENTIAL,
   ARTIFACT_LIST_CONNECTIONS,
   ARTIFACT_REMOVE_CREDENTIAL,
@@ -1410,6 +1505,8 @@ export const Schema = {
   CUSTOM_CODE_MANIFEST,
   ARTIFACT_CUSTOM_CODE_CREATE_VERSION,
   ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE,
+  ARTIFACT_CUSTOM_CODE_GET_SOURCE,
+  ARTIFACT_CUSTOM_CODE_TEST_VERSION,
   ARTIFACT_CUSTOM_CODE_PUBLISH,
   ARTIFACT_CUSTOM_CODE_ROLLBACK,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,

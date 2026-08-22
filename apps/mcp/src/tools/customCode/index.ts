@@ -1,8 +1,5 @@
 import { CustomCodeToolConfig, utils } from '@ganju/utils';
-import type {
-  AbortSignal as WorkersAbortSignal,
-  DispatchNamespace
-} from '@cloudflare/workers-types';
+import type { DispatchNamespace } from '@cloudflare/workers-types';
 
 import { ToolDefinition } from '../types';
 
@@ -131,26 +128,25 @@ export const executeCustomCodeCall = async (
     };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), config.timeoutMs);
-
   let response;
   try {
-    response = await script.fetch(
-      `${utils.constants.CUSTOM_CODE_INVOKE_ORIGIN}${utils.constants.CUSTOM_CODE_INVOKE_PATH}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ tool: input.toolName, input: input.args }),
-        // One AbortSignal at runtime, two incompatible declarations: the global
-        // AbortController is typed against the DOM lib while a dispatched
-        // Fetcher takes the Workers one.
-        signal: controller.signal as unknown as WorkersAbortSignal
-      }
+    // Raced, not aborted. An AbortSignal cannot cross a dispatch-namespace
+    // binding that is being proxied to the account, which is what every local
+    // `wrangler dev` does — see withDeadline. The per-script CPU ceiling is what
+    // actually stops a runaway isolate; this only bounds the wait.
+    response = await utils.withDeadline(
+      script.fetch(
+        `${utils.constants.CUSTOM_CODE_INVOKE_ORIGIN}${utils.constants.CUSTOM_CODE_INVOKE_PATH}`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tool: input.toolName, input: input.args })
+        }
+      ),
+      config.timeoutMs
     );
   } catch (error) {
-    clearTimeout(timer);
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (utils.isDeadlineError(error)) {
       return {
         result: text(
           `Error: "${input.toolName}" timed out after ${config.timeoutMs}ms.`
@@ -167,7 +163,6 @@ export const executeCustomCodeCall = async (
       logs: []
     };
   }
-  clearTimeout(timer);
 
   const raw = capBytes(
     await response.arrayBuffer(),

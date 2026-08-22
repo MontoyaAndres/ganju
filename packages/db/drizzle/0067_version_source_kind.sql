@@ -1,0 +1,12 @@
+-- Records whether a version's stored source can be read back and edited.
+--
+-- Until now `source_key` always pointed at a compiled bundle, because the CLI
+-- was the only way to upload one. The dashboard editor writes something
+-- different: the exact bytes a person typed, deployed as-is beside a prebuilt
+-- SDK module, with no build step in between. Those two are both deployable and
+-- only one of them is editable.
+--
+-- Defaults to 'bundle', which is what every version that predates the editor
+-- actually is. Opening one of those shows it read-only rather than inviting
+-- someone to overwrite a real build with the contents of a text box.
+ALTER TABLE "artifact_tool_version" ADD COLUMN "source_kind" text DEFAULT 'bundle' NOT NULL;

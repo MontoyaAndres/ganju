@@ -842,40 +842,6 @@ export const artifactPrompt = pgTable('artifact_prompt', {
     .$onUpdate(() => new Date())
 });
 
-export const toolGroup = pgTable('tool_group', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => uuid()),
-  key: text('key').notNull().unique(),
-  title: text('title').notNull(),
-  description: text('description'),
-  icon: text('icon'),
-  provider: text('provider'),
-  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date())
-});
-
-export const toolDefinition = pgTable('tool_definition', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => uuid()),
-  key: text('key').notNull().unique(),
-  title: text('title').notNull(),
-  description: text('description'),
-  requiredScopes: text('required_scopes'),
-  groupId: text('group_id')
-    .notNull()
-    .references(() => toolGroup.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date())
-});
-
 export const mcpServerCatalog = pgTable('mcp_server_catalog', {
   id: text('id')
     .primaryKey()
@@ -904,9 +870,8 @@ export const artifactTool = pgTable(
       .$defaultFn(() => uuid()),
     config: json('config'),
     metadata: json('metadata'),
-    toolDefinitionId: text('tool_definition_id')
-      .notNull()
-      .references(() => toolDefinition.id, { onDelete: 'cascade' }),
+    toolKey: text('tool_key').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
     mcpServerCatalogId: text('mcp_server_catalog_id').references(
       () => mcpServerCatalog.id,
       { onDelete: 'set null' }
@@ -940,8 +905,8 @@ export const artifactToolVersion = pgTable(
     status: text('status')
       .notNull()
       .default(utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT),
-    // Workers for Platforms script version tag, filled by the Phase 2 publish
-    // pipeline. Null while the runtime doesn't exist yet.
+    // Workers for Platforms script version tag, filled by the publish pipeline.
+    // Null while nothing has been deployed for this version yet.
     scriptTag: text('script_tag'),
     // The manifest: [{ name, title, description, inputSchema, outputSchema? }].
     // Validated against Schema.CUSTOM_CODE_MANIFEST before it is written.
@@ -950,6 +915,17 @@ export const artifactToolVersion = pgTable(
     // rollback re-deploys from exactly this object.
     sourceKey: text('source_key'),
     sourceHash: text('source_hash'),
+    // Whether what sits at `sourceKey` is something a person can read back.
+    //
+    // 'editor' means the dashboard wrote it: the stored bytes are exactly what
+    // the author typed, so the editor can reopen and re-save them. 'bundle'
+    // means the CLI uploaded a compiled artifact — deployable, but minified and
+    // machine-shaped, and putting it in a text box would invite someone to
+    // overwrite real work with whatever the box held. The editor opens the
+    // first and refuses the second.
+    sourceKind: text('source_kind')
+      .notNull()
+      .default(utils.constants.CUSTOM_CODE_SOURCE_KIND_BUNDLE),
     // Last publish/validation failure, surfaced in the dashboard rather than
     // only in logs — a version that failed to deploy is the thing a user most
     // needs to see.
@@ -1367,31 +1343,12 @@ export const artifactPromptRelations = relations(artifactPrompt, ({ one }) => ({
   })
 }));
 
-export const toolGroupRelations = relations(toolGroup, ({ many }) => ({
-  toolDefinitions: many(toolDefinition)
-}));
-
-export const toolDefinitionRelations = relations(
-  toolDefinition,
-  ({ one, many }) => ({
-    group: one(toolGroup, {
-      fields: [toolDefinition.groupId],
-      references: [toolGroup.id]
-    }),
-    artifactTools: many(artifactTool)
-  })
-);
-
 export const artifactToolRelations = relations(
   artifactTool,
   ({ one, many }) => ({
     artifact: one(artifact, {
       fields: [artifactTool.artifactId],
       references: [artifact.id]
-    }),
-    toolDefinition: one(toolDefinition, {
-      fields: [artifactTool.toolDefinitionId],
-      references: [toolDefinition.id]
     }),
     mcpServerCatalog: one(mcpServerCatalog, {
       fields: [artifactTool.mcpServerCatalogId],

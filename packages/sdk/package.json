@@ -9,10 +9,20 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
+    },
+    "./workerModule": {
+      "types": "./dist/workerModule.d.ts",
+      "import": "./dist/workerModule.js",
+      "require": "./dist/workerModule.js"
+    },
+    "./editorTypes": {
+      "types": "./dist/editorTypes.d.ts",
+      "import": "./dist/editorTypes.js",
+      "require": "./dist/editorTypes.js"
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/build-worker-module.mjs && node scripts/build-editor-types.mjs",
     "clean": "rm -rf dist && rm -rf node_modules"
   },
   "dependencies": {
@@ -21,6 +31,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260611.1",
     "@ganju/tsconfig": "*",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "esbuild": "^0.25.0"
   }
 }

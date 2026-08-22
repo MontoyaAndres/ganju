@@ -285,14 +285,18 @@ Also: `apps/api`'s OAuth provider table moved to [@ganju/utils](../packages/util
 
 One trap found here: a tool that declares an `outputSchema` **must** return `structuredContent` or be flagged `isError`, or the MCP SDK refuses to serialize its own result. A user returning a bare string from a tool they declared an object output for would otherwise turn into a protocol failure for the whole call, so the dispatcher converts that case into an ordinary tool error.
 
-### Phase 2/3 — manual setup still outstanding
+### Phase 2/3 — manual setup ✅ (development)
 
-Nothing below is code; all of it is account state this branch cannot create.
+None of this is code; all of it was account state this branch could not create. Checked against Cloudflare on 22 Aug, not against memory:
 
-1. **A Cloudflare API token** with `Workers Scripts:Edit` on the account, as `CLOUDFLARE_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID`. The publish pipeline uploads with it.
-2. **`CUSTOM_CODE_TOKEN_SECRET`** — any 32+ byte random string, set identically on `apps/api` and `apps/tool-broker`. They sign and verify the same tokens.
-3. **Deploy the two new workers before the first publish**: `ganju-tool-broker-*` and `ganju-tool-outbound-*`. The dispatcher's namespace binding names the outbound worker, so it must exist first. The broker also produces to `ganju-index-*` now (for `ctx.resources.create({ index: true })`) — the queue already exists for apps/api, so this is a redeploy rather than new infrastructure, but a broker deployed without it refuses `index: true` instead of silently dropping it.
-4. **Seed `custom-code`** on production ([scripts/seed-custom-code.mjs](../scripts/seed-custom-code.mjs)) — it has only been run on dev.
+1. **A Cloudflare API token** with `Workers Scripts:Edit`, as `CUSTOM_CODE_CF_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` — both set on `ganju-api-development`.
+2. **`CUSTOM_CODE_TOKEN_SECRET`** — set on `ganju-api-development` and `ganju-tool-broker-development`. Secrets cannot be read back, so that they hold the *same* value is the one thing here only a real publish proves.
+3. **Both workers deployed** — `ganju-tool-broker-development` and `ganju-tool-outbound-development` are live, and the `ganju-tools-development` dispatch namespace exists.
+4. ~~Seed `custom-code` on production~~ — obsolete. The catalog is code now, so there is nothing to seed; see [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md).
+
+Production has none of it, and is a separate exercise.
+
+What remains is a deploy rather than a setting: every deployed development worker predates the dashboard branch, while the development database is already migrated past it. See [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md#operational-state).
 
 ### Phase 4 — Channel runner ✅
 
@@ -440,11 +444,13 @@ One consequence worth naming: replacing a resource under `all` sets its source t
 
 **Still open**: nothing in this phase. The dashboard has no filter for tool-written resources and no editor for `resourceAccess` yet — both Phase 6's problem rather than this one's. Created resources carry a *Tool* badge and sit with uploaded files today, and `resourceAccess` is set through the version-create endpoint's `config` like every other custom-code setting.
 
-### Phase 6 — Dashboard
+### Phase 6 — Dashboard ✅
 
-- [ ] Code editor + version list + rollback in [tools/](../apps/web/src/components/views/tools/)
-- [ ] Test panel: run a draft against sample input, show `ctx.log` output and validation errors
-- [ ] **Keep the catalog shape** — cards + Connect, where a card installs a template. An empty code editor as the Tools page will cost conversion.
+- [x] Code editor + version list + rollback in [tools/](../apps/web/src/components/views/tools/) — Monaco, the SDK's own declarations feeding its completion, draft and deploy as separate acts
+- [x] Test panel: run a draft against sample input, show `ctx.log` output and validation errors — through a preview script nothing dispatches to, so the live version keeps serving while a draft is tried
+- [x] **Keep the catalog shape** — cards + Connect survive; what changed is that the page grew two tabs beside the catalog rather than replacing it with an editor
+
+Full account in [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md), including four platform changes this needed that were not in this plan: the tool catalog moving from Postgres into code, `artifact_tool.enabled` so turning a tool off stops deleting it, the per-plan custom-code gate (which is most of Phase 10), and `allowedTools` on a custom-code row so one function can be turned off without a redeploy.
 
 ### Phase 7 — CLI
 
@@ -465,7 +471,7 @@ Only after Phase 8. Deleting first fails *silently*: [mcp/index.ts:826-827](../a
 
 ### Phase 10 — Plans, quotas, abuse
 
-- [ ] `PLAN_FEATURE_CUSTOM_CODE` in [plan.ts](../apps/api/src/utils/plan.ts); Free = `http-endpoint` only
+- [x] `PLAN_FEATURE_CUSTOM_CODE` in [plan.ts](../apps/api/src/utils/plan.ts); Free = `http-endpoint` only, capped at 3 — see [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md)
 - [ ] Meter custom-tool invocations / CPU-ms (the `mcp_request` counter already exists)
 - [ ] Abuse response process — see [Risks](#risks)
 

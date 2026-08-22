@@ -3,10 +3,27 @@ import { HttpEndpointToolConfig, utils } from '@ganju/utils';
 import { interpolate } from '../../utils/interpolate';
 import { ToolDefinition } from '../types';
 
-type ToolResult = { content: Array<{ type: 'text'; text: string }> };
+type ToolResult = {
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+};
 
 const text = (value: string): ToolResult => ({
   content: [{ type: 'text', text: value }]
+});
+
+// A failure the tool handled: the model reads the text, and a client that
+// distinguishes error results renders it as one.
+//
+// These used to come back as ordinary text. Marking them is what the two other
+// proxied definitions already do — custom-code sets it, mcp-proxy forwards it —
+// and it is what makes a declared outputSchema workable: without it, every HTTP
+// failure would trip the "declared an output schema but returned no object"
+// guard in the boot loop and be reported as the wrong problem.
+const fail = (value: string): ToolResult => ({
+  content: [{ type: 'text', text: value }],
+  isError: true
 });
 
 // The resolved (decrypted) credential the controller hands to the dispatcher.
@@ -72,12 +89,12 @@ export const executeHttpEndpoint = async (
   // Auth precondition
   if (config.auth.kind !== utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE) {
     if (!credential) {
-      return text(
+      return fail(
         `Error: "${config.name}" is not connected. Add its credential on the Tools page.`
       );
     }
     if (credential.needsReauth) {
-      return text(
+      return fail(
         `Error: the credential for "${config.name}" needs to be re-authorized. Open the Tools page and re-link it.`
       );
     }
@@ -88,10 +105,10 @@ export const executeHttpEndpoint = async (
   try {
     url = new URL(interpolate(config.url, args, 'url'));
   } catch {
-    return text('Error: the configured URL is invalid after interpolation.');
+    return fail('Error: the configured URL is invalid after interpolation.');
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    return text('Error: only http and https URLs are allowed.');
+    return fail('Error: only http and https URLs are allowed.');
   }
   for (const q of config.query) {
     url.searchParams.append(q.name, interpolate(q.value, args, 'raw'));
@@ -100,10 +117,10 @@ export const executeHttpEndpoint = async (
   // SSRF screen the final host. allowedHosts (if set) takes precedence, and
   // private/loopback ranges are rejected regardless.
   if (!hostAllowed(url.hostname, config.allowedHosts)) {
-    return text(`Error: host "${url.hostname}" is not in the allowed list.`);
+    return fail(`Error: host "${url.hostname}" is not in the allowed list.`);
   }
   if (utils.isBlockedHost(url.hostname)) {
-    return text(
+    return fail(
       `Error: host "${url.hostname}" is not allowed (private or loopback address).`
     );
   }
@@ -144,7 +161,7 @@ export const executeHttpEndpoint = async (
       try {
         JSON.parse(body);
       } catch {
-        return text('Error: the request body template is not valid JSON.');
+        return fail('Error: the request body template is not valid JSON.');
       }
       if (!headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
@@ -166,7 +183,7 @@ export const executeHttpEndpoint = async (
       new TextEncoder().encode(body).byteLength >
       utils.constants.HTTP_ENDPOINT_MAX_REQUEST_BYTES
     ) {
-      return text('Error: the request body exceeds the 1MB limit.');
+      return fail('Error: the request body exceeds the 1MB limit.');
     }
   }
 
@@ -185,9 +202,9 @@ export const executeHttpEndpoint = async (
   } catch (error) {
     clearTimeout(timer);
     if (error instanceof Error && error.name === 'AbortError') {
-      return text(`Error: request timed out after ${config.timeoutMs}ms.`);
+      return fail(`Error: request timed out after ${config.timeoutMs}ms.`);
     }
-    return text(
+    return fail(
       `Error: request failed — ${
         error instanceof Error ? error.message : String(error)
       }`
@@ -204,7 +221,7 @@ export const executeHttpEndpoint = async (
     ? config.response.successStatus.includes(response.status)
     : response.status >= 200 && response.status < 300;
   if (!isSuccess) {
-    return text(`Error: HTTP ${response.status} — ${rawText}`);
+    return fail(`Error: HTTP ${response.status} — ${rawText}`);
   }
 
   // Shape the response
@@ -222,15 +239,32 @@ export const executeHttpEndpoint = async (
         ? getByPath(parsed, config.response.jsonPath)
         : parsed;
       if (extracted === undefined) {
-        return text(
+        return fail(
           `No data found at path "${config.response.jsonPath}". Full response:\n${rawText}`
         );
       }
-      return text(
-        typeof extracted === 'string'
-          ? extracted
-          : JSON.stringify(extracted, null, 2)
-      );
+      // structuredContent only when the endpoint declared an output schema.
+      // MCP pairs the two, and attaching it to an endpoint that promised
+      // nothing would hand every existing install a second representation of
+      // its response that nothing asked for. An array or a scalar still
+      // reaches the model as text — `structuredContent` is defined as an
+      // object.
+      const structured =
+        config.outputSchema &&
+        extracted &&
+        typeof extracted === 'object' &&
+        !Array.isArray(extracted)
+          ? (extracted as Record<string, unknown>)
+          : undefined;
+
+      return {
+        ...text(
+          typeof extracted === 'string'
+            ? extracted
+            : JSON.stringify(extracted, null, 2)
+        ),
+        ...(structured ? { structuredContent: structured } : {})
+      };
     } catch {
       // Fall through to raw text if the body wasn't valid JSON after all.
     }

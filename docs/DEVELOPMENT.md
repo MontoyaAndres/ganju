@@ -102,6 +102,16 @@ npm run dev
 | `apps/resource-handler` | http://localhost:8082 | Container started by Wrangler/Docker                                                           |
 | `apps/web`              | http://localhost:3000 | `next dev`                                                                                     |
 
+**The dispatch namespace runs remotely, always.** There is no local emulation of
+Workers for Platforms, so `DISPATCH` is marked `remote = true` in both
+`apps/api` and `apps/mcp` — without it miniflare refuses the binding outright
+(`Binding DISPATCH needs to be run remotely`) and every publish, test run and
+custom-tool call fails locally. With it, `wrangler dev` proxies to the real
+`ganju-tools-development` namespace, which means two things worth knowing: the
+account has to be authenticated (`wrangler login`, or `CLOUDFLARE_API_TOKEN` in
+the environment), and a local test run really does deploy a preview script into
+the shared development namespace — the same one the deployed environment uses.
+
 To run a single app, use the workspace filter, e.g.:
 
 ```bash

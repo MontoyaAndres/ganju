@@ -1,11 +1,10 @@
-// Imported from the constants module rather than the @ganju/utils barrel, and
-// this is the one place in the repo where that distinction earns its keep: this
-// package is bundled into every customer's uploaded script, so reaching the
-// barrel would ship zod, dayjs and the cipher suite inside each of them.
-import { constants } from '@ganju/utils/constants';
-// Same reasoning as the constants import above: a subpath, because the barrel
-// would ship zod and the cipher suite inside every customer's bundle. base64.ts
-// imports nothing at all, so this costs the script twenty lines.
+// Both imports are narrow subpaths, and this is the one package in the repo
+// where that matters: it is bundled into every customer's deployed script.
+// The @ganju/utils barrel would ship zod, dayjs and the cipher suite inside each
+// of them, and even the constants module — one large object literal a bundler
+// cannot tree-shake — cost ~70KB to reach fourteen strings. sdkConstants holds
+// exactly those, and base64.ts imports nothing at all.
+import * as constants from '@ganju/utils/sdkConstants';
 import { bytesToBase64 } from '@ganju/utils/base64';
 
 import type {
@@ -73,7 +72,8 @@ export const createContext = (env: ToolEnv) => {
       | { fetch: (url: string, init: RequestInit) => Promise<Response> }
       | undefined;
     const token = env[constants.CUSTOM_CODE_BINDING_TOKEN] as
-      string | undefined;
+      | string
+      | undefined;
 
     if (!broker || !token) {
       throw new Error(

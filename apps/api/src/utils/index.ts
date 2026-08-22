@@ -55,6 +55,7 @@ import { refreshArtifactCredential } from './refreshArtifactCredential';
 import {
   deployCustomCodeScript,
   smokeTestCustomCodeScript,
+  invokeCustomCodeScript,
   deleteCustomCodeScript
 } from './customCodeDeploy';
 import {
@@ -143,6 +144,7 @@ export {
   refreshArtifactCredential,
   deployCustomCodeScript,
   smokeTestCustomCodeScript,
+  invokeCustomCodeScript,
   deleteCustomCodeScript,
   beginMcpProxyOauth,
   completeMcpProxyOauth,

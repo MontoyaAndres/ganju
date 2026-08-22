@@ -33,6 +33,16 @@ export interface CustomCodeTokenPayload {
   // lifetime — but it makes two tokens for the same version distinguishable in
   // logs, and gives an operator something to reason about.
   iat: number;
+  // Minted for a test run rather than for a published version.
+  //
+  // The distinction matters to the broker and nowhere else: a preview token
+  // names a version that is deliberately NOT the active one, so the check that
+  // gives a live token its lifetime cannot apply to it. In exchange it carries
+  // an expiry, which a live token does not need.
+  preview?: boolean;
+  // Expiry, seconds. Present on preview tokens, absent on live ones. Checked
+  // whenever present, so adding it to live tokens later needs no broker change.
+  exp?: number;
 }
 
 const encoder = new TextEncoder();
@@ -65,7 +75,9 @@ const signPayload = async (
  * it never appears in the bundle the user can read back.
  */
 export const mintCustomCodeToken = async (
-  payload: Omit<CustomCodeTokenPayload, 'v' | 'iat'>,
+  payload: Omit<CustomCodeTokenPayload, 'v' | 'iat' | 'exp'> & {
+    ttlMs?: number;
+  },
   secret: string,
   issuedAt: number = Date.now()
 ): Promise<string> => {
@@ -73,7 +85,14 @@ export const mintCustomCodeToken = async (
     v: constants.CUSTOM_CODE_TOKEN_VERSION,
     artifactId: payload.artifactId,
     versionId: payload.versionId,
-    iat: Math.floor(issuedAt / 1000)
+    iat: Math.floor(issuedAt / 1000),
+    ...(payload.preview ? { preview: true } : {}),
+    // Rounded up, not down: `exp` is in seconds, and truncating would make a
+    // stated ten-minute lifetime end up to a second early. A ceiling means the
+    // TTL is a floor, which is what the caller asked for.
+    ...(payload.ttlMs
+      ? { exp: Math.ceil((issuedAt + payload.ttlMs) / 1000) }
+      : {})
   };
   const encodedPayload = toBase64Url(
     bytesToBase64(encoder.encode(JSON.stringify(body)))
@@ -92,7 +111,8 @@ export const mintCustomCodeToken = async (
  */
 export const verifyCustomCodeToken = async (
   token: string,
-  secret: string
+  secret: string,
+  now?: number
 ): Promise<CustomCodeTokenPayload | null> => {
   const separator = token.lastIndexOf('.');
   if (separator <= 0) return null;
@@ -139,11 +159,22 @@ export const verifyCustomCodeToken = async (
     return null;
   }
 
+  // Checked here rather than in the broker so every caller gets it: a token past
+  // its expiry is as good as unsigned.
+  if (
+    typeof candidate.exp === 'number' &&
+    candidate.exp * 1000 <= (now ?? Date.now())
+  ) {
+    return null;
+  }
+
   return {
     v: candidate.v,
     artifactId: candidate.artifactId,
     versionId: candidate.versionId,
-    iat: typeof candidate.iat === 'number' ? candidate.iat : 0
+    iat: typeof candidate.iat === 'number' ? candidate.iat : 0,
+    ...(candidate.preview === true ? { preview: true } : {}),
+    ...(typeof candidate.exp === 'number' ? { exp: candidate.exp } : {})
   };
 };
 
@@ -155,3 +186,13 @@ export const verifyCustomCodeToken = async (
  */
 export const customCodeScriptName = (artifactId: string): string =>
   `${constants.CUSTOM_CODE_SCRIPT_NAME_PREFIX}${artifactId}`;
+
+/**
+ * The script name a test run deploys into: `artifact_<id>_preview`.
+ *
+ * A second script rather than a second version of the live one, because a test
+ * must not be able to disturb what MCP clients are being served — and the only
+ * way to be certain of that is for it to run under a name nothing dispatches to.
+ */
+export const customCodePreviewScriptName = (artifactId: string): string =>
+  `${customCodeScriptName(artifactId)}${constants.CUSTOM_CODE_PREVIEW_SCRIPT_SUFFIX}`;

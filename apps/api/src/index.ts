@@ -437,6 +437,11 @@ app
     UserMiddleware.verify,
     ArtifactController.updateTool
   )
+  .patch(
+    '/organization/:organizationId/project/:projectId/artifact/tool/:toolId/enabled',
+    UserMiddleware.verify,
+    ArtifactController.setToolEnabled
+  )
   .delete(
     '/organization/:organizationId/project/:projectId/artifact/tool/:toolId',
     UserMiddleware.verify,
@@ -447,6 +452,16 @@ app
     '/organization/:organizationId/project/:projectId/artifact/custom-code/versions',
     UserMiddleware.verify,
     ArtifactController.listCustomCodeVersions
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/source',
+    UserMiddleware.verify,
+    ArtifactController.getCustomCodeVersionSource
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/test',
+    UserMiddleware.verify,
+    ArtifactController.testCustomCodeVersion
   )
   .post(
     '/organization/:organizationId/project/:projectId/artifact/custom-code/version',

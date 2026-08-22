@@ -1,0 +1,13 @@
+-- Lets a tool be turned off without being destroyed.
+--
+-- Until now "off" meant deleting the artifact_tool row, which took its config
+-- with it: the calendar a tool was pointed at, the credential it referenced, the
+-- endpoint someone wrote by hand. That was tolerable while every tool was a
+-- native one with a field or two of config, and it stops being tolerable for the
+-- ones the user authors — turning a function off to debug a bloated tool list
+-- must not delete the function.
+--
+-- Defaults to true, so every existing install stays exactly as it is. The plan's
+-- tool quota counts enabled tools from here on, which is also what the number
+-- means to the person reading it: how many tools this server exposes.
+ALTER TABLE "artifact_tool" ADD COLUMN "enabled" boolean DEFAULT true NOT NULL;

@@ -15,12 +15,14 @@ import {
   Link as LinkIcon,
   Search,
   Warning,
-  ExtensionOutlined,
   ArrowBack,
-  ExpandMore,
-  Add
+  Add,
+  LockOutlined,
+  ApiOutlined
 } from '@mui/icons-material';
 
+import { FunctionsPanel } from './FunctionsPanel';
+import type { CustomCodeVersion } from './FunctionsPanel';
 import { HttpEndpointModal } from './HttpEndpointModal';
 import { McpProxyModal } from './McpProxyModal';
 import { ModalDialog, ModalOverlay, Wrapper } from './styles';
@@ -37,36 +39,34 @@ interface McpServer {
 }
 
 interface ToolDefinition {
-  id: string;
   key: string;
   title: string;
   description: string | null;
   requiredScopes: string | null;
-  groupId: string;
 }
 
 interface ToolGroup {
-  id: string;
   key: string;
   title: string;
   description: string | null;
   icon: string | null;
   provider: string | null;
-  toolDefinitions: ToolDefinition[];
+  tools: ToolDefinition[];
 }
 
 interface ArtifactTool {
   id: string;
   config: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
-  toolDefinitionId: string;
+  toolKey: string;
+  // Off keeps the row and its config; only delete removes it. So a tool can be
+  // present here and not exposed on the server.
+  enabled: boolean;
   mcpServerCatalogId?: string | null;
   artifactId: string;
   createdAt: string;
   updatedAt: string;
-  toolDefinition?: ToolDefinition & {
-    group?: ToolGroup;
-  };
+  toolDefinition?: (ToolDefinition & { group: ToolGroup }) | null;
 }
 
 interface ArtifactCredential {
@@ -96,7 +96,7 @@ interface ArtifactConnection {
   app: 'managed';
 }
 
-const EXPANDED_GROUP_KEY = 'ganju:expandedToolGroupId';
+const EXPANDED_GROUP_KEY = 'ganju:expandedToolGroupKey';
 
 const SEND_UPDATES_OPTIONS = [
   {
@@ -123,24 +123,83 @@ const WEEKDAYS: { value: number; label: string }[] = [
   { value: 0, label: 'Sun' }
 ];
 
+// The three things a user can put on their MCP server, in the order they matter
+// to the product: code they wrote, HTTP endpoints they pointed at, and the
+// integrations we ship.
+const TAB_FUNCTIONS = 'functions' as const;
+const TAB_HTTP = 'http' as const;
+const TAB_CATALOG = 'catalog' as const;
+type ToolsTab = typeof TAB_FUNCTIONS | typeof TAB_HTTP | typeof TAB_CATALOG;
+
+// Only the fields this view acts on. The billing endpoint returns the whole
+// PlanLimits object; naming the two we use keeps the dependency legible.
+interface PlanLimits {
+  canUseCustomCode: boolean;
+  maxHttpEndpointsPerArtifact: number | null;
+}
+
+interface CustomCodeState {
+  activeVersionId: string | null;
+  versions: CustomCodeVersion[];
+}
+
+const FILTER_ALL = 'all' as const;
+const FILTER_ON = 'on' as const;
+const FILTER_OFF = 'off' as const;
+const FILTER_NEEDS_CONNECTION = 'needs-connection' as const;
+type CatalogFilter =
+  | typeof FILTER_ALL
+  | typeof FILTER_ON
+  | typeof FILTER_OFF
+  | typeof FILTER_NEEDS_CONNECTION;
+
+const CATALOG_FILTERS: { value: CatalogFilter; label: string }[] = [
+  { value: FILTER_ALL, label: 'All' },
+  { value: FILTER_ON, label: 'On' },
+  { value: FILTER_OFF, label: 'Off' },
+  { value: FILTER_NEEDS_CONNECTION, label: 'Needs connection' }
+];
+
+// Which tab holds a given install. The three kinds of tool now live in three
+// places, so anything that deep-links to one row has to answer this first.
+const tabForToolKey = (toolKey: string): ToolsTab => {
+  if (toolKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
+    return TAB_FUNCTIONS;
+  }
+  if (toolKey === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT) {
+    return TAB_HTTP;
+  }
+  return TAB_CATALOG;
+};
+
 export const Tools = () => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
-  const [tab, setTab] = useState<'installed' | 'catalog'>('installed');
+  // Fixed order on every plan — Functions, HTTP, Catalog. Only which one opens
+  // first changes with the plan, so upgrading doesn't rearrange the page under
+  // someone who has learned where things are.
+  const [tab, setTab] = useState<ToolsTab>(TAB_CATALOG);
+  // Set once, when the plan resolves: a Free org lands on the catalog, a paid
+  // one on its own code. Guarded so it never yanks the tab out from under a
+  // user who has already clicked somewhere.
+  const [tabPinned, setTabPinned] = useState(false);
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
+  const [customCode, setCustomCode] = useState<CustomCodeState>({
+    activeVersionId: null,
+    versions: []
+  });
   const [catalog, setCatalog] = useState<ToolGroup[]>([]);
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [installed, setInstalled] = useState<ArtifactTool[]>([]);
   const [credentials, setCredentials] = useState<ArtifactCredential[]>([]);
   const [connections, setConnections] = useState<ArtifactConnection[]>([]);
   const [search, setSearch] = useState('');
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-  const [expandedInstalled, setExpandedInstalled] = useState<Set<string>>(
-    new Set()
-  );
+  const [filter, setFilter] = useState<CatalogFilter>(FILTER_ALL);
+  const [expandedGroupKey, setExpandedGroupKey] = useState<string | null>(null);
   const [status, setStatus] = useState<
     'idle' | 'pending' | 'resolved' | 'rejected'
   >('idle');
-  const [togglingDefId, setTogglingDefId] = useState<string | null>(null);
+  const [togglingToolKey, setTogglingToolKey] = useState<string | null>(null);
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
     null
   );
@@ -197,6 +256,8 @@ export const Tools = () => {
   const toolApiBase = `${apiBase}/tool`;
   const credentialApiBase = `${apiBase}/credential`;
   const connectionApiBase = `${apiBase}/connections`;
+  const customCodeApiBase = `${apiBase}/custom-code`;
+  const billingApiBase = `/organization/${organizationId}/billing`;
 
   const fetchAll = async (signal?: AbortSignal) => {
     if (!organizationId || !projectId) return;
@@ -207,7 +268,9 @@ export const Tools = () => {
         mcpServerData,
         installedData,
         credentialData,
-        connectionData
+        connectionData,
+        billingData,
+        customCodeData
       ] = await Promise.all([
         utils.fetcher({
           url: '/catalog/tools',
@@ -228,6 +291,16 @@ export const Tools = () => {
         utils.fetcher({
           url: connectionApiBase,
           config: { credentials: 'include', signal }
+        }),
+        // What the org's plan allows — whether it may write tools in code, and
+        // how many HTTP endpoints it may hold. The tab bar reads both.
+        utils.fetcher({
+          url: billingApiBase,
+          config: { credentials: 'include', signal }
+        }),
+        utils.fetcher({
+          url: `${customCodeApiBase}/versions`,
+          config: { credentials: 'include', signal }
         })
       ]);
       if (signal?.aborted) return;
@@ -238,9 +311,39 @@ export const Tools = () => {
       if (Array.isArray(connectionData?.connections)) {
         setConnections(connectionData.connections);
       }
+      if (billingData?.limits) setPlanLimits(billingData.limits);
+      if (Array.isArray(customCodeData?.versions)) {
+        setCustomCode({
+          activeVersionId: customCodeData.activeVersionId ?? null,
+          versions: customCodeData.versions
+        });
+      }
       setStatus('resolved');
     } catch {
       if (!signal?.aborted) setStatus('rejected');
+    }
+  };
+
+  /**
+   * Reload the custom-code versions, and nothing else.
+   *
+   * Saving a draft changes exactly one thing on this page — the version list —
+   * so it must not run `fetchAll`: that is seven requests, and it moves `status`
+   * to pending, which unmounts the Functions tab and takes the editor, the open
+   * function and any unsaved sample input with it. Someone pressing ⌘S every
+   * minute should not watch the page reload every minute.
+   */
+  const fetchCustomCode = async () => {
+    if (!organizationId || !projectId) return;
+    const data = await utils.fetcher({
+      url: `${customCodeApiBase}/versions`,
+      config: { credentials: 'include' }
+    });
+    if (Array.isArray(data?.versions)) {
+      setCustomCode({
+        activeVersionId: data.activeVersionId ?? null,
+        versions: data.versions
+      });
     }
   };
 
@@ -298,7 +401,7 @@ export const Tools = () => {
     const controller = new AbortController();
     fetchCalendars(controller.signal);
     return () => controller.abort();
-  }, [expandedGroupId, credentials, catalog]);
+  }, [expandedGroupKey, credentials, catalog]);
 
   // Load Cal.com event types when the Cal.com group is open and connected —
   // populates the default-event-type dropdown.
@@ -312,7 +415,7 @@ export const Tools = () => {
     const controller = new AbortController();
     fetchEventTypes(controller.signal);
     return () => controller.abort();
-  }, [expandedGroupId, credentials, catalog]);
+  }, [expandedGroupKey, credentials, catalog]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -345,68 +448,171 @@ export const Tools = () => {
     setMcpProxyEditor({ server, existingTool: install });
   }, [pendingMcpServerSlug, mcpServers, installed]);
 
+  // Which tab opens first, decided once the plan is known. A paid org lands on
+  // its own code because that is what it came for; a Free org lands on the
+  // catalog, because Functions is locked for it and an upgrade wall is a poor
+  // first screen. Pinned after the first run and after any manual click, so the
+  // page never moves under someone mid-task.
+  useEffect(() => {
+    if (tabPinned || !planLimits) return;
+    setTabPinned(true);
+    if (planLimits.canUseCustomCode) setTab(TAB_FUNCTIONS);
+  }, [planLimits, tabPinned]);
+
+  const selectTab = (next: ToolsTab) => {
+    setTabPinned(true);
+    setTab(next);
+  };
+
+  // Optimistic until the plan resolves: assume allowed rather than flashing a
+  // lock on a paid org's own page for the length of one request. The server
+  // refuses either way, so the worst case here is a tab that looks open for a
+  // moment and then locks.
+  const canUseCustomCode = planLimits?.canUseCustomCode !== false;
+  const httpEndpointCap = planLimits?.maxHttpEndpointsPerArtifact ?? null;
+
+  const httpEndpoints = useMemo(
+    () =>
+      installed.filter(
+        t => t.toolKey === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
+      ),
+    [installed]
+  );
+
+  // The manifest of whatever version is live — the tools this artifact's script
+  // actually exposes. A draft that has never been published contributes nothing,
+  // which is the same thing the MCP boot loop believes.
+  const activeVersion = useMemo(
+    () =>
+      customCode.versions.find(v => v.id === customCode.activeVersionId) ||
+      null,
+    [customCode]
+  );
+  const activeFunctions = activeVersion?.tools || [];
+
+  const customCodeTool = useMemo(
+    () =>
+      installed.find(
+        t => t.toolKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+      ) || null,
+    [installed]
+  );
+
+  // The enabled subset of the live version's functions. Absent or empty means
+  // all of them, exactly as the boot loop and mcp-proxy read it.
+  const customCodeAllowedTools = useMemo(() => {
+    const allow = (customCodeTool?.config as { allowedTools?: unknown } | null)
+      ?.allowedTools;
+    return Array.isArray(allow) ? (allow as string[]) : null;
+  }, [customCodeTool]);
+
+  const exposedFunctions = useMemo(() => {
+    if (!customCodeAllowedTools || customCodeAllowedTools.length === 0) {
+      return activeFunctions;
+    }
+    return activeFunctions.filter(fn =>
+      customCodeAllowedTools.includes(fn.name)
+    );
+  }, [activeFunctions, customCodeAllowedTools]);
+
+  /**
+   * Write the custom-code row's allow-list.
+   *
+   * Through the generic tool route, which replaces the whole config — so the
+   * stored one is spread first. `activeVersionId` travels with it and is
+   * overwritten server-side by what is actually stored, since only publish and
+   * rollback may move that pointer.
+   */
+  const setCustomCodeAllowedTools = async (next: string[] | null) => {
+    if (!customCodeTool) return;
+    const config = {
+      ...((customCodeTool.config as Record<string, unknown>) || {}),
+      ...(next ? { allowedTools: next } : { allowedTools: [] })
+    };
+    try {
+      const data = await utils.fetcher({
+        url: `${toolApiBase}/${customCodeTool.id}`,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ config })
+        }
+      });
+      if (data?.error) {
+        snackbar.error(data.error);
+        return;
+      }
+      await fetchAll();
+    } catch {
+      snackbar.error('Failed to update this function');
+    }
+  };
+
+  /**
+   * How many tools this server actually puts in front of a model.
+   *
+   * Not a row count: a `custom-code` row contributes one tool per entry in its
+   * live manifest, and an `mcp-proxy` row contributes one per remote tool it
+   * allows — so the three kinds have to be counted differently to arrive at the
+   * number a client will see. This is the figure the ~40-tool ceiling applies
+   * to, and the reason it is worth showing: an artifact with 5 tools averages
+   * ~1.1k input tokens a turn and one with 12 averages ~13k.
+   */
+  const exposedToolCount = useMemo(() => {
+    let total = 0;
+    for (const t of installed) {
+      if (!t.enabled) continue;
+      if (t.toolKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
+        total += exposedFunctions.length;
+        continue;
+      }
+      if (t.toolKey === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY) {
+        const allow = (t.config as { allowedTools?: unknown } | null)
+          ?.allowedTools;
+        if (Array.isArray(allow) && allow.length > 0) {
+          total += allow.length;
+          continue;
+        }
+        // Absent or empty means every discovered tool is on — the boot loop
+        // reads it the same way.
+        const discovery = (
+          t.metadata as { discovery?: { tools?: unknown[] } } | null
+        )?.discovery;
+        total += discovery?.tools?.length || 0;
+        continue;
+      }
+      total += 1;
+    }
+    return total;
+  }, [installed, exposedFunctions]);
+
   useEffect(() => {
     if (status !== 'resolved') return;
     if (typeof window === 'undefined') return;
-    const pendingId = sessionStorage.getItem(EXPANDED_GROUP_KEY);
-    if (!pendingId) return;
+    const pendingKey = sessionStorage.getItem(EXPANDED_GROUP_KEY);
+    if (!pendingKey) return;
     sessionStorage.removeItem(EXPANDED_GROUP_KEY);
-    if (catalog.some(g => g.id === pendingId)) {
-      setExpandedGroupId(pendingId);
+    if (catalog.some(g => g.key === pendingKey)) {
+      setExpandedGroupKey(pendingKey);
       setTab('catalog');
     }
   }, [status]);
-
-  useEffect(() => {
-    if (installed.length === 0) return;
-    setExpandedInstalled(prev => {
-      if (prev.size > 0) return prev;
-      const group = installed[0]?.toolDefinition?.group;
-      const first = group?.provider || group?.id || 'none';
-      return new Set([first]);
-    });
-  }, [installed]);
 
   useEffect(() => {
     const requestedId = router.query.selected;
     if (typeof requestedId !== 'string' || installed.length === 0) return;
     const match = installed.find(t => t.id === requestedId);
     if (!match || editTool?.id === match.id) return;
-    setTab('installed');
-    const group = match.toolDefinition?.group;
-    const bucket = group?.provider || group?.id || 'none';
-    setExpandedInstalled(prev => {
-      if (prev.has(bucket)) return prev;
-      const next = new Set(prev);
-      next.add(bucket);
-      return next;
-    });
+    // "Open in Tools" from a channel arrives with an artifact_tool id, which now
+    // has to resolve to a tab as well as a row — the three kinds live in
+    // different places.
+    selectTab(tabForToolKey(match.toolKey));
     openEditor(match);
   }, [router.query.selected, installed]);
 
-  const toggleInstalledProvider = (provider: string) => {
-    setExpandedInstalled(prev => {
-      const next = new Set(prev);
-      if (next.has(provider)) next.delete(provider);
-      else next.add(provider);
-      return next;
-    });
-  };
-
-  const installedByDefId = useMemo(() => {
+  const installedByToolKey = useMemo(() => {
     const map = new Map<string, ArtifactTool>();
-    for (const t of installed) map.set(t.toolDefinitionId, t);
-    return map;
-  }, [installed]);
-
-  const installedByBucket = useMemo(() => {
-    const map = new Map<string, ArtifactTool[]>();
-    for (const t of installed) {
-      const group = t.toolDefinition?.group;
-      const key = group?.provider || group?.id || 'none';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(t);
-    }
+    for (const t of installed) map.set(t.toolKey, t);
     return map;
   }, [installed]);
 
@@ -419,28 +625,73 @@ export const Tools = () => {
     return map;
   }, [credentials]);
 
+  // Declared here, above the memos that call them: both are plain `const`
+  // arrows, and a useMemo factory runs during the same render pass — so a call
+  // from a memo defined earlier in the file hits the temporal dead zone rather
+  // than the function.
+  const isGroupConnected = (group: ToolGroup) =>
+    !group.provider || credentialByProvider.has(group.provider);
+
+  const isProviderExpired = (provider: string | null) => {
+    if (!provider) return false;
+    const creds = credentialByProvider.get(provider) || [];
+    if (creds.length === 0) return false;
+    return creds.every(
+      c =>
+        c.metadata?.needsReauth === true ||
+        (!c.hasRefreshToken &&
+          c.expiresAt &&
+          new Date(c.expiresAt) < new Date())
+    );
+  };
+
+  // How many tools this artifact enables in one group. The number the card
+  // shows, and what the On/Off filters sort on.
+  const enabledInGroup = (group: ToolGroup): number =>
+    group.tools.filter(d => installedByToolKey.get(d.key)?.enabled).length;
+
   const filteredCatalog = useMemo(() => {
     // The mcp-proxy group is hidden — its servers render as their own cards.
+    // Functions and HTTP endpoints are hidden too: they have their own tabs, and
+    // a card here would be a second way to reach the same thing.
     const visible = catalog.filter(
       g =>
-        !g.toolDefinitions.some(
-          d => d.key === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY
+        !g.tools.some(
+          d =>
+            d.key === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY ||
+            d.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT ||
+            d.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
         )
     );
+
+    const matched = visible.filter(g => {
+      if (filter === FILTER_ON && enabledInGroup(g) === 0) return false;
+      if (filter === FILTER_OFF && enabledInGroup(g) > 0) return false;
+      // Only groups that actually need an OAuth connection can be missing one;
+      // a group with no provider is never "waiting" on anything.
+      if (
+        filter === FILTER_NEEDS_CONNECTION &&
+        (!g.provider || isGroupConnected(g))
+      ) {
+        return false;
+      }
+      return true;
+    });
+
     const q = search.trim().toLowerCase();
-    if (!q) return visible;
-    return visible.filter(
+    if (!q) return matched;
+    return matched.filter(
       g =>
         g.title.toLowerCase().includes(q) ||
         (g.description || '').toLowerCase().includes(q) ||
-        g.toolDefinitions.some(d => d.title.toLowerCase().includes(q))
+        g.tools.some(d => d.title.toLowerCase().includes(q))
     );
-  }, [catalog, search]);
+  }, [catalog, search, filter, installedByToolKey, credentials, connections]);
 
   const expandedGroup = useMemo(
     () =>
-      expandedGroupId ? catalog.find(g => g.id === expandedGroupId) : null,
-    [catalog, expandedGroupId]
+      expandedGroupKey ? catalog.find(g => g.key === expandedGroupKey) : null,
+    [catalog, expandedGroupKey]
   );
 
   const isCalendarGroup =
@@ -457,17 +708,12 @@ export const Tools = () => {
   const httpEndpointDef = useMemo(
     () =>
       catalog
-        .flatMap(g => g.toolDefinitions)
+        .flatMap(g => g.tools)
         .find(
           d => d.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
         ) || null,
     [catalog]
   );
-  const isHttpEndpointGroup = (group: ToolGroup | null | undefined): boolean =>
-    !!group &&
-    group.toolDefinitions.some(
-      d => d.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
-    );
 
   // The mcp-proxy definition is plumbing: each curated server installs against
   // it, but we present the servers themselves as cards (from mcp_server_catalog)
@@ -475,7 +721,7 @@ export const Tools = () => {
   const mcpProxyDef = useMemo(
     () =>
       catalog
-        .flatMap(g => g.toolDefinitions)
+        .flatMap(g => g.tools)
         .find(d => d.key === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY) ||
       null,
     [catalog]
@@ -498,30 +744,32 @@ export const Tools = () => {
   }, [installed]);
 
   const filteredMcpServers = useMemo(() => {
+    // Remote servers answer the same filters as the native groups, just from a
+    // different fact: a server is on when it has an enabled install, and it
+    // "needs connection" when it has none at all.
+    const matched = mcpServers.filter(s => {
+      const install = installedByServerId.get(s.id);
+      if (filter === FILTER_ON) return !!install?.enabled;
+      if (filter === FILTER_OFF) return !!install && !install.enabled;
+      if (filter === FILTER_NEEDS_CONNECTION) return !install;
+      return true;
+    });
+
     const q = search.trim().toLowerCase();
-    if (!q) return mcpServers;
-    return mcpServers.filter(
+    if (!q) return matched;
+    return matched.filter(
       s =>
         s.name.toLowerCase().includes(q) ||
         (s.description || '').toLowerCase().includes(q)
     );
-  }, [mcpServers, search]);
-  const httpEndpointInstances = useMemo(
-    () =>
-      installed.filter(
-        t =>
-          t.toolDefinition?.key ===
-          utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
-      ),
-    [installed]
-  );
+  }, [mcpServers, search, filter, installedByServerId]);
 
   // Installed tools belonging to the open group — the fan-out targets for the
   // group-level defaults.
   const expandedGroupInstalledTools = useMemo(() => {
     if (!expandedGroup) return [] as ArtifactTool[];
-    const defIds = new Set(expandedGroup.toolDefinitions.map(d => d.id));
-    return installed.filter(t => defIds.has(t.toolDefinitionId));
+    const defKeys = new Set(expandedGroup.tools.map(d => d.key));
+    return installed.filter(t => defKeys.has(t.toolKey));
   }, [expandedGroup, installed]);
 
   // The default calendar is stored on each calendar tool's config; read it back
@@ -645,7 +893,7 @@ export const Tools = () => {
     if (!group.provider || connectingProvider) return;
     setConnectingProvider(group.provider);
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem(EXPANDED_GROUP_KEY, group.id);
+      sessionStorage.setItem(EXPANDED_GROUP_KEY, group.key);
     }
     try {
       const data = await utils.fetcher({
@@ -770,10 +1018,43 @@ export const Tools = () => {
     }
   };
 
+  /**
+   * Turn one already-installed row on or off.
+   *
+   * Distinct from handleToggleTool, which works from a CATALOG entry and may
+   * have to install the row first. Rows the user authored — functions, HTTP
+   * endpoints — always exist by the time they can be toggled, and their config
+   * is the thing being protected, so this path never creates and never deletes.
+   */
+  const handleToggleInstalled = async (
+    tool: ArtifactTool,
+    enabled: boolean
+  ) => {
+    if (togglingToolKey) return;
+    setTogglingToolKey(tool.id);
+    try {
+      const data = await utils.fetcher({
+        url: `${toolApiBase}/${tool.id}/enabled`,
+        config: {
+          method: 'PATCH',
+          credentials: 'include',
+          body: JSON.stringify({ enabled })
+        }
+      });
+      if (data?.error) snackbar.error(data.error);
+      else snackbar.success(enabled ? 'Tool enabled' : 'Tool disabled');
+      await fetchAll();
+    } catch {
+      snackbar.error('Failed to update tool');
+    } finally {
+      setTogglingToolKey(null);
+    }
+  };
+
   const handleToggleTool = async (def: ToolDefinition, enabled: boolean) => {
-    if (togglingDefId) return;
-    const existing = installedByDefId.get(def.id);
-    if (enabled && !existing) {
+    if (togglingToolKey) return;
+    const existing = installedByToolKey.get(def.key);
+    if (enabled && !existing?.enabled) {
       const provider = expandedGroup?.provider || null;
       const missing = getMissingScopes(def, provider);
       if (missing.length > 0 && provider && expandedGroup) {
@@ -781,10 +1062,22 @@ export const Tools = () => {
         return;
       }
     }
-    setTogglingDefId(def.id);
+    setTogglingToolKey(def.key);
     try {
       let data: { error?: string } | undefined;
-      if (enabled && !existing) {
+      // Three cases, not two: a tool that was turned off still has its row, so
+      // turning it back on is a flag flip rather than a fresh install. Only a
+      // tool that was never installed needs its group's defaults inherited.
+      if (existing) {
+        data = await utils.fetcher({
+          url: `${toolApiBase}/${existing.id}/enabled`,
+          config: {
+            method: 'PATCH',
+            credentials: 'include',
+            body: JSON.stringify({ enabled })
+          }
+        });
+      } else if (enabled) {
         // A new tool inherits the group's already-chosen defaults so every tool
         // in the group stays pointed at the same calendar / event type / zone.
         const inheritedConfig: Record<string, unknown> = {};
@@ -815,15 +1108,10 @@ export const Tools = () => {
             method: 'POST',
             credentials: 'include',
             body: JSON.stringify({
-              toolDefinitionId: def.id,
+              toolKey: def.key,
               config: inheritedConfig
             })
           }
-        });
-      } else if (!enabled && existing) {
-        data = await utils.fetcher({
-          url: `${toolApiBase}/${existing.id}`,
-          config: { method: 'DELETE', credentials: 'include' }
         });
       }
       if (data && data.error) {
@@ -835,7 +1123,7 @@ export const Tools = () => {
     } catch {
       snackbar.error('Failed to update tool');
     } finally {
-      setTogglingDefId(null);
+      setTogglingToolKey(null);
     }
   };
 
@@ -1106,22 +1394,6 @@ export const Tools = () => {
     }
   };
 
-  const isGroupConnected = (group: ToolGroup) =>
-    !group.provider || credentialByProvider.has(group.provider);
-
-  const isProviderExpired = (provider: string | null) => {
-    if (!provider) return false;
-    const creds = credentialByProvider.get(provider) || [];
-    if (creds.length === 0) return false;
-    return creds.every(
-      c =>
-        c.metadata?.needsReauth === true ||
-        (!c.hasRefreshToken &&
-          c.expiresAt &&
-          new Date(c.expiresAt) < new Date())
-    );
-  };
-
   return (
     <Wrapper>
       <div className="tools-container">
@@ -1149,199 +1421,236 @@ export const Tools = () => {
         <div className="tools-tabs">
           <button
             type="button"
-            className={`tools-tab ${tab === 'installed' ? 'active' : ''}`}
-            onClick={() => setTab('installed')}
+            className={`tools-tab ${tab === TAB_FUNCTIONS ? 'active' : ''} ${
+              canUseCustomCode ? '' : 'locked'
+            }`}
+            onClick={() => selectTab(TAB_FUNCTIONS)}
           >
-            Installed
-            <span className="tools-tab-count">{installed.length}</span>
+            {!canUseCustomCode && <LockOutlined fontSize="small" />}
+            Functions
+            {canUseCustomCode && exposedFunctions.length > 0 && (
+              <span className="tools-tab-count">{exposedFunctions.length}</span>
+            )}
           </button>
           <button
             type="button"
-            className={`tools-tab ${tab === 'catalog' ? 'active' : ''}`}
-            onClick={() => setTab('catalog')}
+            className={`tools-tab ${tab === TAB_HTTP ? 'active' : ''}`}
+            onClick={() => selectTab(TAB_HTTP)}
+          >
+            HTTP Endpoints
+            {httpEndpoints.length > 0 && (
+              <span className="tools-tab-count">{httpEndpoints.length}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`tools-tab ${tab === TAB_CATALOG ? 'active' : ''}`}
+            onClick={() => selectTab(TAB_CATALOG)}
           >
             Catalog
           </button>
         </div>
-        {tab === 'installed' && (
-          <div className="tools-installed">
-            {status === 'pending' && installed.length === 0 && (
-              <div className="tools-installed-skeleton">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="tools-accordion">
-                    <div className="tools-accordion-header">
-                      <div className="tools-accordion-header-info">
-                        <UI.Skeleton variant="rounded" width={44} height={44} />
-                        <div className="tools-accordion-header-texts">
-                          <UI.Skeleton variant="text" width={140} height={18} />
-                          <UI.Skeleton variant="text" width={80} height={12} />
+
+        {tab === TAB_FUNCTIONS && !canUseCustomCode && (
+          <div className="tools-locked">
+            <div className="tools-locked-badge">
+              <LockOutlined fontSize="small" />
+              <span>Pro</span>
+            </div>
+            <h3>Write your own tools</h3>
+            <p>
+              Define a tool in TypeScript, deploy it to this MCP server, and
+              call it from any client. Your code gets the integrations you have
+              already connected — without ever touching a token.
+            </p>
+            {/* The real thing, rendered inert. An empty upgrade wall says what
+                you cannot do; this says what you would get. */}
+            <div className="tools-locked-preview" aria-hidden="true">
+              <div className="tools-locked-preview-bar">
+                <span className="tools-locked-preview-dot" />
+                <span className="tools-locked-preview-dot" />
+                <span className="tools-locked-preview-dot" />
+                <span className="tools-locked-preview-file">index.ts</span>
+              </div>
+              <pre className="tools-locked-preview-code">
+                {`import { createHandler, defineTool } from '@ganju/sdk';
+
+export default createHandler({
+  'lookup-order': defineTool(async (input, ctx) => {
+    const { accessToken } = await ctx.connection('google-gmail');
+    const res = await fetch(\`https://api.acme.com/orders/\${input.orderId}\`);
+    return { status: (await res.json()).status };
+  })
+});`}
+              </pre>
+            </div>
+            <UI.Button
+              variant="contained"
+              onClick={() => router.push(`/${organizationId}/settings/billing`)}
+            >
+              <span className="button-text">Upgrade to Pro</span>
+            </UI.Button>
+          </div>
+        )}
+
+        {tab === TAB_FUNCTIONS && canUseCustomCode && (
+          <FunctionsPanel
+            apiBase={apiBase}
+            activeVersionId={customCode.activeVersionId}
+            versions={customCode.versions}
+            allowedTools={customCodeAllowedTools}
+            onSetAllowedTools={setCustomCodeAllowedTools}
+            onVersionsChanged={fetchCustomCode}
+            onChanged={fetchAll}
+          />
+        )}
+
+        {tab === TAB_HTTP && (
+          <div className="tools-http">
+            <div className="tools-section-header">
+              <div>
+                <h2 className="tools-section-title">HTTP Endpoints</h2>
+                <p className="tools-section-subtitle">
+                  Expose your own HTTP APIs to the agent as named tools.
+                  {httpEndpointCap !== null &&
+                    ` ${httpEndpoints.length} of ${httpEndpointCap} used.`}
+                </p>
+              </div>
+              <UI.Button
+                variant="contained"
+                size="small"
+                disabled={
+                  !httpEndpointDef ||
+                  (httpEndpointCap !== null &&
+                    httpEndpoints.length >= httpEndpointCap)
+                }
+                onClick={() => setHttpEndpointEditor({ tool: null })}
+              >
+                <Add />
+                <span className="button-text">New endpoint</span>
+              </UI.Button>
+            </div>
+
+            {httpEndpoints.length === 0 ? (
+              <div className="tools-empty-state">
+                <ApiOutlined />
+                <h3>No endpoints yet</h3>
+                <p>
+                  Point the agent at an API you already run. Each endpoint
+                  becomes a tool it can call by name.
+                </p>
+              </div>
+            ) : (
+              <div className="tools-function-list">
+                {httpEndpoints.map(tool => {
+                  const config = (tool.config || {}) as {
+                    name?: string;
+                    description?: string;
+                    method?: string;
+                    url?: string;
+                  };
+                  return (
+                    <div key={tool.id} className="tools-function-item">
+                      <div className="tools-function-item-row">
+                        <div className="tools-function-item-main">
+                          <p className="tools-function-item-title">
+                            {config.name || 'Untitled endpoint'}
+                          </p>
+                          {config.description && (
+                            <p className="tools-function-item-description">
+                              {config.description}
+                            </p>
+                          )}
+                          <span className="tools-function-item-tags">
+                            <code className="tools-function-item-id">
+                              {config.method || 'GET'} {config.url || ''}
+                            </code>
+                            {!tool.enabled && (
+                              <span className="tools-state-chip">
+                                Off · settings kept
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="tools-function-item-actions">
+                          <Tooltip
+                            title={
+                              tool.enabled
+                                ? 'Turn off — keeps this endpoint and its settings'
+                                : 'Turn on'
+                            }
+                          >
+                            <span>
+                              <Switch
+                                size="small"
+                                checked={tool.enabled}
+                                disabled={togglingToolKey !== null}
+                                onChange={(_, checked) =>
+                                  handleToggleInstalled(tool, checked)
+                                }
+                              />
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={() => setHttpEndpointEditor({ tool })}
+                            >
+                              <EditOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Remove — deletes this endpoint and its settings">
+                            <IconButton
+                              size="small"
+                              onClick={() => setRemoveAlert(tool)}
+                            >
+                              <DeleteOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            )}
-            {status === 'resolved' && installed.length === 0 && (
-              <div className="tools-empty-state">
-                <ExtensionOutlined />
-                <h3>No tools installed</h3>
-                <p>Browse the catalog to add tools to this project.</p>
-                <UI.Button
-                  variant="contained"
-                  size="small"
-                  onClick={() => setTab('catalog')}
-                >
-                  <span className="button-text">Browse catalog</span>
-                </UI.Button>
-              </div>
-            )}
-            {Array.from(installedByBucket.entries()).map(
-              ([bucketKey, tools]) => {
-                const group = tools[0]?.toolDefinition?.group;
-                const provider = group?.provider || null;
-                const creds = provider
-                  ? credentialByProvider.get(provider) || []
-                  : [];
-                const groupTitle = group?.title || 'Other';
-                const expired = isProviderExpired(provider);
-                const isExpanded = expandedInstalled.has(bucketKey);
-
-                return (
-                  <div
-                    key={bucketKey}
-                    className={`tools-accordion ${isExpanded ? 'expanded' : ''}`}
-                  >
-                    <button
-                      type="button"
-                      className="tools-accordion-header"
-                      onClick={() => toggleInstalledProvider(bucketKey)}
-                      aria-expanded={isExpanded}
-                    >
-                      <div className="tools-accordion-header-info">
-                        <div className="tools-group-icon">
-                          {group
-                            ? renderGroupIcon(group)
-                            : groupTitle.charAt(0)}
-                        </div>
-                        <div className="tools-accordion-header-texts">
-                          <p className="tools-group-title">{groupTitle}</p>
-                          <p className="tools-group-meta">
-                            {tools.length} tool{tools.length === 1 ? '' : 's'}
-                            {creds.length > 0 &&
-                              ` · ${creds.length} credential${creds.length === 1 ? '' : 's'} connected`}
-                          </p>
-                        </div>
-                        <span className="tools-accordion-chevron-wrap inline">
-                          <ExpandMore className="tools-accordion-chevron" />
-                        </span>
-                      </div>
-                      {provider && (
-                        <div className="tools-accordion-header-actions">
-                          {creds.length > 0 && (
-                            <UI.Button
-                              size="small"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setDisconnectAlert({
-                                  provider,
-                                  affected: tools.length
-                                });
-                              }}
-                            >
-                              <LinkOff />
-                              <span className="button-text">Disconnect</span>
-                            </UI.Button>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                    {isExpanded && (
-                      <div className="tools-accordion-body">
-                        {expired && (
-                          <div className="tools-banner tools-banner-warning">
-                            <Warning />
-                            <span>
-                              Credential expired. Reconnect to keep these tools
-                              working.
-                            </span>
-                          </div>
-                        )}
-                        <div className="tools-installed-list">
-                          {tools.map(t => {
-                            const def = t.toolDefinition;
-                            const isHttpEndpoint =
-                              def?.key ===
-                              utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT;
-                            const isMcpProxy =
-                              def?.key ===
-                              utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY;
-                            const mcpServerName = isMcpProxy
-                              ? mcpServers.find(
-                                  s =>
-                                    s.id ===
-                                    (t.mcpServerCatalogId ||
-                                      (t.config?.curatedServerId as
-                                        string | undefined))
-                                )?.name
-                              : undefined;
-                            const configKeys = t.config
-                              ? Object.keys(t.config).length
-                              : 0;
-                            return (
-                              <div key={t.id} className="tools-installed-item">
-                                <div className="tools-installed-item-main">
-                                  <p className="tools-installed-item-title">
-                                    {isHttpEndpoint
-                                      ? (t.config?.name as string) ||
-                                        'HTTP endpoint'
-                                      : isMcpProxy
-                                        ? mcpServerName || 'MCP server'
-                                        : def?.title || t.toolDefinitionId}
-                                  </p>
-                                  {def?.description && (
-                                    <p className="tools-installed-item-description">
-                                      {def.description}
-                                    </p>
-                                  )}
-                                  <p className="tools-installed-item-meta">
-                                    {configKeys > 0
-                                      ? `${configKeys} config field${configKeys > 1 ? 's' : ''}`
-                                      : 'No custom config'}
-                                  </p>
-                                </div>
-                                <div className="tools-installed-item-actions">
-                                  <Tooltip title="Edit config">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleEdit(t)}
-                                    >
-                                      <EditOutlined />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Remove">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => setRemoveAlert(t)}
-                                    >
-                                      <DeleteOutlined />
-                                    </IconButton>
-                                  </Tooltip>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              }
             )}
           </div>
         )}
-        {tab === 'catalog' && !expandedGroup && (
+
+        {tab === TAB_CATALOG && !expandedGroup && (
           <div className="tools-catalog">
+            {/* What this server currently exposes, against the ceiling an MCP
+                client will actually tolerate. Every enabled tool re-sends its
+                schema on every model call, so this is the page's real budget —
+                and it belongs next to the switches that spend it. */}
+            <div
+              className={`tools-budget ${
+                exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
+                  ? 'over'
+                  : ''
+              }`}
+            >
+              <div className="tools-budget-text">
+                <strong>{exposedToolCount}</strong> of{' '}
+                {utils.constants.CHANNEL_MAX_TOOLS} tools exposed
+                <span className="tools-budget-hint">
+                  {exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
+                    ? 'Past this, channels stop sending the extras and clients start to degrade.'
+                    : 'Each one is re-sent to the model on every turn.'}
+                </span>
+              </div>
+              <div className="tools-budget-bar">
+                <span
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (exposedToolCount / utils.constants.CHANNEL_MAX_TOOLS) *
+                        100
+                    )}%`
+                  }}
+                />
+              </div>
+            </div>
             <div className="tools-catalog-controls">
               <div className="tools-search">
                 <Search />
@@ -1351,6 +1660,21 @@ export const Tools = () => {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
+              </div>
+              {/* Filters rather than tabs. "Installed" was never a thing a user
+                  wanted to see on its own — what they want is one list they can
+                  narrow. */}
+              <div className="tools-filters">
+                {CATALOG_FILTERS.map(f => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    className={`tools-filter ${filter === f.value ? 'active' : ''}`}
+                    onClick={() => setFilter(f.value)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
             </div>
             {status === 'pending' && catalog.length === 0 && (
@@ -1371,22 +1695,26 @@ export const Tools = () => {
               filteredMcpServers.length === 0 &&
               status === 'resolved' && (
                 <p className="tools-empty">
-                  No integrations match your search.
+                  {filter === FILTER_ALL
+                    ? 'No integrations match your search.'
+                    : `No integrations match this filter${
+                        search.trim() ? ' and search' : ''
+                      }.`}
                 </p>
               )}
             <div className="tools-catalog-groups">
               {filteredCatalog.map(group => {
-                const installedCount = group.toolDefinitions.filter(d =>
-                  installedByDefId.has(d.id)
+                const installedCount = group.tools.filter(
+                  d => installedByToolKey.get(d.key)?.enabled
                 ).length;
                 const connected = isGroupConnected(group);
                 const expired = isProviderExpired(group.provider);
                 return (
                   <button
                     type="button"
-                    key={group.id}
+                    key={group.key}
                     className="tools-catalog-group-card"
-                    onClick={() => setExpandedGroupId(group.id)}
+                    onClick={() => setExpandedGroupKey(group.key)}
                   >
                     <div className="tools-catalog-group-icon">
                       {renderGroupIcon(group)}
@@ -1416,8 +1744,7 @@ export const Tools = () => {
                         </p>
                       )}
                       <p className="tools-catalog-group-meta">
-                        {installedCount}/{group.toolDefinitions.length} tools
-                        enabled
+                        {installedCount}/{group.tools.length} tools enabled
                       </p>
                     </div>
                   </button>
@@ -1457,11 +1784,14 @@ export const Tools = () => {
                     <div className="tools-catalog-group-body">
                       <div className="tools-catalog-group-title-row">
                         <p className="tools-catalog-group-title">{s.name}</p>
-                        {install && (
+                        {install && install.enabled && (
                           <span className="tools-catalog-group-connected">
                             <CheckCircle />
                             Connected
                           </span>
+                        )}
+                        {install && !install.enabled && (
+                          <span className="tools-state-chip">Off</span>
                         )}
                       </div>
                       {s.description && (
@@ -1470,9 +1800,11 @@ export const Tools = () => {
                         </p>
                       )}
                       <p className="tools-catalog-group-meta">
-                        {install
-                          ? `${enabledCount} tool${enabledCount === 1 ? '' : 's'} enabled`
-                          : 'Remote MCP server · connect to enable tools'}
+                        {!install
+                          ? 'Remote MCP server · connect to enable tools'
+                          : install.enabled
+                            ? `${enabledCount} tool${enabledCount === 1 ? '' : 's'} enabled`
+                            : `${enabledCount} tool${enabledCount === 1 ? '' : 's'} · turned off`}
                       </p>
                     </div>
                   </button>
@@ -1486,7 +1818,7 @@ export const Tools = () => {
             <button
               type="button"
               className="tools-group-detail-back"
-              onClick={() => setExpandedGroupId(null)}
+              onClick={() => setExpandedGroupKey(null)}
             >
               <ArrowBack />
               Back to catalog
@@ -1536,8 +1868,8 @@ export const Tools = () => {
                         onClick={() =>
                           setDisconnectAlert({
                             provider: expandedGroup.provider!,
-                            affected: expandedGroup.toolDefinitions.filter(d =>
-                              installedByDefId.has(d.id)
+                            affected: expandedGroup.tools.filter(
+                              d => installedByToolKey.get(d.key)?.enabled
                             ).length
                           })
                         }
@@ -1700,122 +2032,99 @@ export const Tools = () => {
                 )}
               </div>
             )}
-            {isHttpEndpointGroup(expandedGroup) ? (
-              <div className="tools-http-endpoints">
-                <div className="tools-http-endpoints-head">
-                  <p className="tools-http-endpoints-hint">
-                    Each endpoint becomes its own named tool the assistant can
-                    call. Add as many as you need.
-                  </p>
-                  <UI.Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => setHttpEndpointEditor({ tool: null })}
+            <div className="tools-group-detail-list">
+              {expandedGroup.tools.map(def => {
+                const install = installedByToolKey.get(def.key);
+                const isInstalled = !!install?.enabled;
+                const connected = isGroupConnected(expandedGroup);
+                const disabled =
+                  !connected ||
+                  (togglingToolKey !== null && togglingToolKey !== def.key);
+                // Some tools carry settings — which calendar to write to,
+                // which event type to book. That used to be reachable only
+                // from the separate Installed tab; with one list it has to
+                // live on the row itself.
+                const configurable =
+                  !!install && !!utils.constants.CALENDAR_TOOL_FIELDS[def.key];
+                return (
+                  <div
+                    key={def.key}
+                    className={`tools-group-detail-item ${!connected ? 'disabled' : ''}`}
                   >
-                    <Add fontSize="small" />
-                    <span className="button-text">Add endpoint</span>
-                  </UI.Button>
-                </div>
-                {httpEndpointInstances.length === 0 ? (
-                  <p className="tools-empty">
-                    No endpoints yet. Add one to expose an HTTP API to the
-                    assistant.
-                  </p>
-                ) : (
-                  <div className="tools-http-endpoints-list">
-                    {httpEndpointInstances.map(t => {
-                      const c = (t.config || {}) as {
-                        name?: string;
-                        method?: string;
-                        url?: string;
-                        description?: string;
-                      };
-                      return (
-                        <div key={t.id} className="tools-http-endpoint-item">
-                          <div className="tools-http-endpoint-item-main">
-                            <p className="tools-http-endpoint-item-title">
-                              {c.name || 'Untitled endpoint'}
-                            </p>
-                            <p className="tools-http-endpoint-item-url">
-                              <span className="tools-http-endpoint-method">
-                                {c.method || 'GET'}
-                              </span>
-                              {c.url || ''}
-                            </p>
-                            {c.description && (
-                              <p className="tools-http-endpoint-item-description">
-                                {c.description}
-                              </p>
-                            )}
-                          </div>
-                          <div className="tools-installed-item-actions">
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  setHttpEndpointEditor({ tool: t })
-                                }
-                              >
-                                <EditOutlined />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Remove">
-                              <IconButton
-                                size="small"
-                                onClick={() => setRemoveAlert(t)}
-                              >
-                                <DeleteOutlined />
-                              </IconButton>
-                            </Tooltip>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="tools-group-detail-list">
-                {expandedGroup.toolDefinitions.map(def => {
-                  const isInstalled = installedByDefId.has(def.id);
-                  const connected = isGroupConnected(expandedGroup);
-                  const disabled =
-                    !connected ||
-                    (togglingDefId !== null && togglingDefId !== def.id);
-                  return (
-                    <div
-                      key={def.id}
-                      className={`tools-group-detail-item ${!connected ? 'disabled' : ''}`}
-                    >
-                      <div className="tools-group-detail-item-main">
-                        <p className="tools-group-detail-item-title">
-                          {def.title}
+                    <div className="tools-group-detail-item-main">
+                      <p className="tools-group-detail-item-title">
+                        {def.title}
+                      </p>
+                      {def.description && (
+                        <p className="tools-group-detail-item-description">
+                          {def.description}
                         </p>
-                        {def.description && (
-                          <p className="tools-group-detail-item-description">
-                            {def.description}
-                          </p>
-                        )}
-                        {def.requiredScopes && (
-                          <Tooltip
-                            title={`Required scopes: ${def.requiredScopes}`}
-                          >
-                            <span className="tools-group-detail-item-scopes">
-                              Scopes
-                            </span>
-                          </Tooltip>
-                        )}
-                      </div>
-                      <Switch
-                        checked={isInstalled}
-                        disabled={disabled}
-                        onChange={e => handleToggleTool(def, e.target.checked)}
-                      />
+                      )}
+                      {def.requiredScopes && (
+                        <Tooltip
+                          title={`Required scopes: ${def.requiredScopes}`}
+                        >
+                          <span className="tools-group-detail-item-scopes">
+                            Scopes
+                          </span>
+                        </Tooltip>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    <div className="tools-group-detail-item-actions">
+                      {/* Off and never-installed look identical on a switch, and
+                          they are not the same thing: one is holding a
+                          configuration the user chose. Say so. */}
+                      {install && !install.enabled && (
+                        <span className="tools-state-chip">
+                          Off · settings kept
+                        </span>
+                      )}
+                      {configurable && (
+                        <Tooltip title="Configure">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(install!)}
+                          >
+                            <EditOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip
+                        title={
+                          isInstalled
+                            ? 'Turn off — keeps its settings'
+                            : 'Turn on'
+                        }
+                      >
+                        <span>
+                          <Switch
+                            checked={isInstalled}
+                            disabled={disabled}
+                            onChange={e =>
+                              handleToggleTool(def, e.target.checked)
+                            }
+                          />
+                        </span>
+                      </Tooltip>
+                      {/* Only for a row that exists. Turning a tool off leaves
+                          one behind, and without this the only way to be rid of
+                          it — and of the settings it holds — was to never
+                          install it. */}
+                      {install && (
+                        <Tooltip title="Remove — deletes this tool and its settings">
+                          <IconButton
+                            size="small"
+                            onClick={() => setRemoveAlert(install)}
+                          >
+                            <DeleteOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -1967,7 +2276,7 @@ export const Tools = () => {
       {httpEndpointEditor && httpEndpointDef && (
         <HttpEndpointModal
           tool={httpEndpointEditor.tool}
-          toolDefinitionId={httpEndpointDef.id}
+          toolKey={httpEndpointDef.key}
           credentials={credentials}
           connections={connections}
           toolApiBase={toolApiBase}
@@ -1981,7 +2290,7 @@ export const Tools = () => {
       {mcpProxyEditor && mcpProxyDef && (
         <McpProxyModal
           server={mcpProxyEditor.server}
-          toolDefinitionId={mcpProxyDef.id}
+          toolKey={mcpProxyDef.key}
           existingTool={mcpProxyEditor.existingTool}
           apiBase={apiBase}
           toolApiBase={toolApiBase}
@@ -1994,7 +2303,10 @@ export const Tools = () => {
       <UI.Alert
         open={!!removeAlert}
         title="Remove tool"
-        description={`Remove "${removeAlert?.toolDefinition?.title || 'this tool'}" from the server? You can add it back anytime from the catalog.`}
+        // Now that off exists, remove has to say what it does that off doesn't:
+        // it takes the configuration with it. Somebody reaching for this to
+        // shorten their tool list wants the other button.
+        description={`Remove "${removeAlert?.toolDefinition?.title || (removeAlert?.config as { name?: string } | null)?.name || 'this tool'}" and everything configured on it? To take it off your MCP server without losing its settings, turn it off instead.`}
         confirmText="Remove"
         cancelText="Cancel"
         loading={submitting}

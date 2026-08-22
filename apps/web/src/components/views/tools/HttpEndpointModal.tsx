@@ -14,12 +14,13 @@ import {
   ExpandLess
 } from '@mui/icons-material';
 
+import { JsonEditor, SCHEMA_META_SCHEMA } from './JsonEditor';
 import { ModalDialog, ModalOverlay } from './styles';
 
 interface ArtifactTool {
   id: string;
   config: Record<string, unknown> | null;
-  toolDefinitionId: string;
+  toolKey: string;
 }
 
 interface ArtifactCredential {
@@ -39,7 +40,7 @@ interface Props {
   // null = create a new endpoint; otherwise edit this instance.
   tool: ArtifactTool | null;
   // The http-endpoint tool_definition id (needed to create a new instance).
-  toolDefinitionId: string;
+  toolKey: string;
   credentials: ArtifactCredential[];
   // Managed OAuth providers, for the `oauth` auth kind. An endpoint calling a
   // vendor the artifact has already connected borrows that connection instead of
@@ -149,7 +150,7 @@ const schemaToArgs = (schema: unknown): SchemaArg[] => {
 
 export const HttpEndpointModal = ({
   tool,
-  toolDefinitionId,
+  toolKey,
   credentials,
   connections,
   toolApiBase,
@@ -220,6 +221,13 @@ export const HttpEndpointModal = ({
   );
   const [jsonPath, setJsonPath] = useState<string>(
     initial.response?.jsonPath || ''
+  );
+  // Raw JSON rather than the arg builder the input schema uses. An output
+  // schema describes someone else's response, which is nested in ways a
+  // two-column builder cannot express — and the same field on the Functions tab
+  // is a JSON box, so the two tool shapes now ask for it the same way.
+  const [outputSchema, setOutputSchema] = useState<string>(
+    initial.outputSchema ? JSON.stringify(initial.outputSchema, null, 2) : ''
   );
   const [successStatus, setSuccessStatus] = useState<string>(
     Array.isArray(initial.response?.successStatus)
@@ -331,6 +339,9 @@ export const HttpEndpointModal = ({
       query: query.filter(q => q.name.trim()),
       body: { kind: bodyKind, template: bodyTemplate },
       inputSchema: buildInputSchema(),
+      ...(outputSchema.trim()
+        ? { outputSchema: JSON.parse(outputSchema) }
+        : {}),
       response: {
         contentType,
         ...(jsonPath.trim() ? { jsonPath: jsonPath.trim() } : {}),
@@ -355,6 +366,9 @@ export const HttpEndpointModal = ({
     setBodyKind(cfg.body?.kind || utils.constants.HTTP_ENDPOINT_BODY_KIND_NONE);
     setBodyTemplate(cfg.body?.template || '');
     setArgs(schemaToArgs(cfg.inputSchema));
+    setOutputSchema(
+      cfg.outputSchema ? JSON.stringify(cfg.outputSchema, null, 2) : ''
+    );
     setAuthKind(cfg.auth?.kind || utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE);
     setApiKeyIn(cfg.auth?.in || 'header');
     setApiKeyName(cfg.auth?.name || 'X-API-Key');
@@ -403,7 +417,7 @@ export const HttpEndpointModal = ({
       config: {
         method: tool ? 'PUT' : 'POST',
         credentials: 'include',
-        body: JSON.stringify(tool ? { config } : { toolDefinitionId, config })
+        body: JSON.stringify(tool ? { config } : { toolKey, config })
       }
     });
     if (data && !data.error) {
@@ -441,6 +455,19 @@ export const HttpEndpointModal = ({
   const saveForm = async () => {
     if (!name.trim()) return setError('Tool name is required.');
     if (!url.trim()) return setError('URL is required.');
+    // Checked here rather than left to buildConfig, which runs after a
+    // credential may already have been created — a typo in this box must not
+    // leave a secret behind.
+    if (outputSchema.trim()) {
+      try {
+        const parsed = JSON.parse(outputSchema);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return setError('Output schema must be a JSON object.');
+        }
+      } catch {
+        return setError('Output schema is not valid JSON.');
+      }
+    }
     if (needsCredential && !addingSecret && !credChoice) {
       return setError(
         usesConnection
@@ -544,14 +571,14 @@ export const HttpEndpointModal = ({
                   secret or a connected account, set{' '}
                   <code>auth.credentialId</code> to its id.
                 </p>
-                <UI.Input
+                <JsonEditor
+                  id="endpoint-config"
                   label="Configuration (JSON)"
-                  multiline
-                  rows={20}
+                  height="420px"
+                  readOnly={submitting}
                   value={configJson}
-                  disabled={submitting}
-                  onChange={e => {
-                    setConfigJson(e.target.value);
+                  onChange={next => {
+                    setConfigJson(next);
                     if (error) setError(null);
                   }}
                 />
@@ -699,14 +726,19 @@ export const HttpEndpointModal = ({
                     </div>
                     {bodyKind !==
                       utils.constants.HTTP_ENDPOINT_BODY_KIND_NONE && (
-                      <UI.Input
+                      // Highlighting and bracket matching, but no validation:
+                      // a template is JSON-shaped and not JSON — `{{orderId}}`
+                      // where a number goes is legal here and only has to parse
+                      // once the arguments are substituted in.
+                      <JsonEditor
+                        id="endpoint-body-template"
                         label="Body template"
-                        multiline
-                        rows={5}
+                        height="140px"
+                        readOnly={submitting}
+                        validate={false}
                         value={bodyTemplate}
-                        disabled={submitting}
-                        helperText='Supports {{arg}}. For JSON it must parse, e.g. {"id":"{{orderId}}"}'
-                        onChange={e => setBodyTemplate(e.target.value)}
+                        onChange={setBodyTemplate}
+                        help='Supports {{arg}}. For JSON it must parse once the arguments are filled in, e.g. {"id":"{{orderId}}"}'
                       />
                     )}
                   </div>
@@ -951,6 +983,16 @@ export const HttpEndpointModal = ({
                           onChange={e => setJsonPath(e.target.value)}
                         />
                       </div>
+                      <JsonEditor
+                        id="endpoint-output-schema"
+                        label="Output schema — optional"
+                        height="150px"
+                        readOnly={submitting}
+                        schema={SCHEMA_META_SCHEMA}
+                        value={outputSchema}
+                        onChange={setOutputSchema}
+                        help="Declare one and a JSON response comes back as structured output instead of text. The response must then be a JSON object, or the call is reported as an error."
+                      />
                       <div className="http-endpoint-row">
                         <UI.Input
                           label="Success statuses"

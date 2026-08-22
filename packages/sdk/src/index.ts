@@ -1,4 +1,4 @@
-import { constants } from '@ganju/utils/constants';
+import * as constants from '@ganju/utils/sdkConstants';
 
 import { createContext } from './context';
 import type { ToolContext, ToolEnv, ToolHandler } from './types';

@@ -16,6 +16,8 @@
     "start": "turbo run start",
     "clean": "turbo run clean && rm -r node_modules",
     "generate": "turbo run generate",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "migrate-dev": "turbo run generate && turbo run migrate-dev",
     "migrate-prod": "turbo run generate && turbo run migrate-prod",
     "deploy-dev": "turbo run deploy-dev --ui=stream < /dev/null",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",
+    "prettier": "3.6.2",
     "wrangler": "^4.100.0"
   }
 }

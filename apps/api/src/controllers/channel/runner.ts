@@ -290,15 +290,11 @@ export const runChannelTurn = async (
     dbInstance
       .select({
         id: db.schema.artifactTool.id,
-        key: db.schema.toolDefinition.key,
+        key: db.schema.artifactTool.toolKey,
         config: db.schema.artifactTool.config,
         metadata: db.schema.artifactTool.metadata
       })
       .from(db.schema.artifactTool)
-      .innerJoin(
-        db.schema.toolDefinition,
-        eq(db.schema.artifactTool.toolDefinitionId, db.schema.toolDefinition.id)
-      )
       .where(eq(db.schema.artifactTool.artifactId, artifactRow.id)),
     dbInstance
       .select()

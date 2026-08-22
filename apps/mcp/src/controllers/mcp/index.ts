@@ -74,15 +74,7 @@ const business = async (c: Context<AppEnv>) => {
     with: {
       artifactPrompts: true,
       artifactResources: true,
-      artifactTools: {
-        with: {
-          toolDefinition: {
-            with: {
-              group: true
-            }
-          }
-        }
-      },
+      artifactTools: true,
       artifactCredentials: true,
       project: {
         with: {
@@ -383,19 +375,22 @@ const business = async (c: Context<AppEnv>) => {
   // seeds its map with native definition keys before any derived name — so the
   // tool that runs and the tool the usage row points at are the same one.
   // Ties break on id, which is uuidv7 and therefore creation-ordered.
-  const orderedArtifactTools = [...artifact.artifactTools].sort((a, b) => {
-    const aProxied = PROXIED_TOOL_KEYS.has(a.toolDefinition?.key || '') ? 1 : 0;
-    const bProxied = PROXIED_TOOL_KEYS.has(b.toolDefinition?.key || '') ? 1 : 0;
-    if (aProxied !== bProxied) return aProxied - bProxied;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
+  //
+  // Disabled rows are dropped before any of that. A tool the owner turned off
+  // keeps its row and its config — that is the whole point of the flag — but it
+  // must not register, must not claim its name against another install, and
+  // must not cost the model a schema on every turn.
+  const orderedArtifactTools = artifact.artifactTools
+    .filter(t => t.enabled)
+    .sort((a, b) => {
+      const aProxied = PROXIED_TOOL_KEYS.has(a.toolKey) ? 1 : 0;
+      const bProxied = PROXIED_TOOL_KEYS.has(b.toolKey) ? 1 : 0;
+      if (aProxied !== bProxied) return aProxied - bProxied;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
 
   const activeVersionIds = orderedArtifactTools
-    .filter(
-      t =>
-        t.toolDefinition?.key ===
-        utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
-    )
+    .filter(t => t.toolKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE)
     .map(t => parseCustomCodeConfig(t.config)?.activeVersionId)
     .filter((id): id is string => !!id);
 
@@ -414,7 +409,10 @@ const business = async (c: Context<AppEnv>) => {
   }
 
   for (const artifactTool of orderedArtifactTools) {
-    const toolDef = artifactTool.toolDefinition;
+    // Resolved from the shipped catalog rather than a join. Null means the row
+    // names a tool this build no longer offers — skip it, exactly as a missing
+    // handler is skipped below, rather than failing the whole artifact.
+    const toolDef = utils.describeCatalogTool(artifactTool.toolKey);
     if (!toolDef) continue;
 
     // `mcp-proxy` is a proxied definition: each installed row connects a remote
@@ -778,7 +776,18 @@ const business = async (c: Context<AppEnv>) => {
       const versionTools = versionToolsById.get(codeConfig.activeVersionId);
       if (!versionTools) continue;
 
+      // The enabled subset, absent/empty meaning all of them — read exactly the
+      // way the mcp-proxy branch above reads its own allow-list. A tool turned
+      // off here doesn't register, so it costs the model no schema and claims no
+      // name, while the code that implements it stays deployed and one config
+      // edit away from coming back.
+      const allowedCodeTools =
+        codeConfig.allowedTools && codeConfig.allowedTools.length > 0
+          ? new Set(codeConfig.allowedTools)
+          : null;
+
       for (const entry of parseCustomCodeTools(versionTools)) {
+        if (allowedCodeTools && !allowedCodeTools.has(entry.name)) continue;
         if (registeredToolNames.has(entry.name)) continue;
 
         // Schemas were compiled once at upload time, so a failure here means the
@@ -908,6 +917,26 @@ const business = async (c: Context<AppEnv>) => {
       const endpointSchema = utils.jsonSchemaToZodShape(
         endpointConfig.inputSchema as JsonSchema
       );
+      // Optional and absent on every endpoint that predates it. Declaring one
+      // is what turns a JSON response into structuredContent for the client.
+      let endpointOutputSchema:
+        | ReturnType<typeof utils.jsonSchemaToZodShape>
+        | undefined;
+      try {
+        endpointOutputSchema = endpointConfig.outputSchema
+          ? utils.jsonSchemaToZodShape(
+              endpointConfig.outputSchema as JsonSchema
+            )
+          : undefined;
+      } catch (error) {
+        // Skip-and-log the schema, not the tool: an endpoint whose output
+        // schema no longer compiles should keep answering as text rather than
+        // disappear from the customer's server.
+        console.error(
+          `Ignoring the output schema on "${endpointConfig.name}" — it no longer compiles`,
+          error
+        );
+      }
       const credentialId =
         endpointConfig.auth.kind !==
         utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE
@@ -928,7 +957,10 @@ const business = async (c: Context<AppEnv>) => {
         {
           title: endpointConfig.title,
           description: endpointConfig.description,
-          inputSchema: endpointSchema
+          inputSchema: endpointSchema,
+          ...(endpointOutputSchema
+            ? { outputSchema: endpointOutputSchema }
+            : {})
         },
         async args => {
           const startedAt = Date.now();
@@ -962,15 +994,39 @@ const business = async (c: Context<AppEnv>) => {
               args,
               resolvedCredential
             );
+
+            // Same trap as custom-code: a tool that declares an outputSchema
+            // must return structuredContent or be marked as an error, or the
+            // MCP SDK refuses to serialize its own result — turning a response
+            // that didn't match into a protocol failure for the whole call.
+            // Most often it means the endpoint answered with text, or with an
+            // array, where the schema promised an object.
+            const shaped =
+              endpointOutputSchema &&
+              !result.structuredContent &&
+              !result.isError
+                ? {
+                    ...result,
+                    isError: true,
+                    content: [
+                      {
+                        type: 'text' as const,
+                        text: `Error: "${endpointConfig.name}" declares an output schema but the response was not a JSON object.`
+                      }
+                    ]
+                  }
+                : result;
+
             pendingRequests.push({
               method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
               toolName: endpointConfig.name,
               artifactToolId: artifactTool.id,
               input: args,
-              output: result,
-              latencyMs: Date.now() - startedAt
+              output: shaped,
+              latencyMs: Date.now() - startedAt,
+              errorMessage: shaped.isError ? shaped.content[0]?.text : undefined
             });
-            return result;
+            return shaped;
           } catch (error) {
             // executeHttpEndpoint returns expected failures as text; this only
             // fires on an unexpected throw. Surface it as text too (the tool
@@ -1015,7 +1071,7 @@ const business = async (c: Context<AppEnv>) => {
       ? utils.jsonSchemaToZodShape(handler.outputSchema)
       : undefined;
     const toolConfig = (artifactTool.config as Record<string, unknown>) || {};
-    const provider = toolDef.group?.provider;
+    const provider = toolDef.group.provider;
     const toolCredentials = provider
       ? refreshedCredentials
           .filter(cred => cred.provider === provider)

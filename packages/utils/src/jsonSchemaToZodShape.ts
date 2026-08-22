@@ -77,3 +77,35 @@ export const jsonSchemaToZodShape = (
 
   return shape;
 };
+
+export interface SchemaViolation {
+  // Dotted path to the offending field, empty for the value as a whole.
+  path: string;
+  message: string;
+}
+
+/**
+ * Check a value against a declared JSON schema, returning the violations.
+ *
+ * The same compiler the MCP boot loop registers tools with, pointed at a value
+ * instead of at a tool definition — so what the dashboard's Test panel calls
+ * invalid is exactly what an MCP client would have refused to send. Written here
+ * rather than in apps/api because zod lives here, and a second copy of this
+ * would be a second opinion about what "valid" means.
+ *
+ * Unknown keys are allowed through: a JSON Schema without
+ * `additionalProperties: false` does not forbid them, and refusing an extra
+ * field on a test input that a real client would have passed along would make
+ * the panel lie.
+ */
+export const validateAgainstJsonSchema = (
+  schema: JsonSchema,
+  value: unknown
+): SchemaViolation[] => {
+  const result = z.object(jsonSchemaToZodShape(schema)).safeParse(value ?? {});
+  if (result.success) return [];
+  return result.error.issues.map(issue => ({
+    path: issue.path.join('.'),
+    message: issue.message
+  }));
+};

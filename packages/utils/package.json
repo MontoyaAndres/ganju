@@ -18,6 +18,16 @@
       "types": "./dist/base64.d.ts",
       "import": "./dist/base64.js",
       "require": "./dist/base64.js"
+    },
+    "./toolCatalog": {
+      "types": "./dist/toolCatalog.d.ts",
+      "import": "./dist/toolCatalog.js",
+      "require": "./dist/toolCatalog.js"
+    },
+    "./sdkConstants": {
+      "types": "./dist/sdkConstants.d.ts",
+      "import": "./dist/sdkConstants.js",
+      "require": "./dist/sdkConstants.js"
     }
   },
   "scripts": {

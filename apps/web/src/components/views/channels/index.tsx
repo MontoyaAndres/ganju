@@ -109,7 +109,8 @@ interface UsageResource {
 
 interface UsageTool {
   id: string;
-  toolDefinition: { id: string; key: string; title: string } | null;
+  toolKey: string;
+  toolDefinition: { key: string; title: string } | null;
 }
 
 interface UsagePrompt {
@@ -269,7 +270,7 @@ const usageLabel = (u: MessageUsage, t: ChannelsT): string => {
       (proxied ? u.toolName : def?.title) ||
       u.toolName ||
       def?.title ||
-      def?.key ||
+      u.artifactTool?.toolKey ||
       (typeof u.input?.name === 'string'
         ? (u.input.name as string)
         : t('fallbackTool'))
@@ -281,7 +282,7 @@ const usageLabel = (u: MessageUsage, t: ChannelsT): string => {
       u.artifactResource?.uri ||
       u.artifactTool?.toolDefinition?.title ||
       u.toolName ||
-      u.artifactTool?.toolDefinition?.key ||
+      u.artifactTool?.toolKey ||
       (typeof u.input?.uri === 'string'
         ? (u.input.uri as string)
         : typeof u.input?.name === 'string'

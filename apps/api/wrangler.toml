@@ -63,6 +63,7 @@ service = "ganju-api-development"
 binding = "DISPATCH"
 namespace = "ganju-tools-development"
 outbound = { service = "ganju-tool-outbound-development", parameters = ["artifactId", "allowedHosts"] }
+remote = true
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "bf3f371679734af2af0b11302b3cb971"

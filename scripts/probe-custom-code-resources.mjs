@@ -270,14 +270,12 @@ try {
   await sql`insert into project ${sql({ id: projectId, name: 'probe', created_by_id: owner.id, organization_id: orgId })}`;
   await sql`insert into artifact ${sql({ id: artifactId, slug, project_id: projectId })}`;
 
-  const [toolDef] =
-    await sql`select id from tool_definition where key = 'custom-code' limit 1`;
-  if (!toolDef) throw new Error('custom-code is not seeded on this database');
-
+  // The key itself, not an id resolved through a lookup table: the catalog is
+  // code now, so there is no row to find and nothing to be unseeded.
   const artifactToolId = uuid();
   await sql`insert into artifact_tool ${sql({
     id: artifactToolId,
-    tool_definition_id: toolDef.id,
+    tool_key: 'custom-code',
     artifact_id: artifactId,
     config: JSON.stringify({
       activeVersionId: null,

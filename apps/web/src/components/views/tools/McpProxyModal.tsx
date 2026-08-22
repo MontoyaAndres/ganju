@@ -21,7 +21,10 @@ interface ArtifactTool {
   id: string;
   config: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
-  toolDefinitionId: string;
+  toolKey: string;
+  // Off keeps the install, its credential and its allow-list; only Disconnect
+  // deletes them.
+  enabled: boolean;
 }
 
 interface DiscoveredTool {
@@ -49,7 +52,7 @@ interface Discovery {
 interface Props {
   server: McpServer;
   // The mcp-proxy tool_definition id (needed to create a new install).
-  toolDefinitionId: string;
+  toolKey: string;
   // The installed artifact_tool for this server, or null to connect fresh.
   existingTool: ArtifactTool | null;
   apiBase: string;
@@ -82,7 +85,7 @@ const readDiscovery = (metadata: unknown): Discovery => {
 
 export const McpProxyModal = ({
   server,
-  toolDefinitionId,
+  toolKey,
   existingTool,
   apiBase,
   toolApiBase,
@@ -376,9 +379,7 @@ export const McpProxyModal = ({
         config: {
           method: editing ? 'PUT' : 'POST',
           credentials: 'include',
-          body: JSON.stringify(
-            editing ? { config } : { toolDefinitionId, config }
-          )
+          body: JSON.stringify(editing ? { config } : { toolKey, config })
         }
       });
       if (data && !data.error) {
@@ -414,6 +415,43 @@ export const McpProxyModal = ({
       }
     } catch {
       setError('Failed to disconnect.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Turn the whole server off without disconnecting it.
+   *
+   * Disconnect deletes the install — the credential, the allow-list, the
+   * discovery snapshot. Off keeps all of it and simply stops the boot loop
+   * registering these tools, which is what someone reaching for a shorter tool
+   * list actually wants: the way back is one switch, not another OAuth round
+   * trip.
+   */
+  const handleToggleEnabled = async (enabled: boolean) => {
+    if (busy || !existingTool) return;
+    setBusy(true);
+    try {
+      const data = await utils.fetcher({
+        url: `${toolApiBase}/${existingTool.id}/enabled`,
+        config: {
+          method: 'PATCH',
+          credentials: 'include',
+          body: JSON.stringify({ enabled })
+        }
+      });
+      if (data && !data.error) {
+        snackbar.success(
+          enabled ? `${server.name} enabled` : `${server.name} turned off`
+        );
+        onSaved();
+        onClose();
+      } else {
+        setError(data?.error || 'Failed to update.');
+      }
+    } catch {
+      setError('Failed to update.');
     } finally {
       setBusy(false);
     }
@@ -626,6 +664,24 @@ export const McpProxyModal = ({
             {error && <p className="http-endpoint-error">{error}</p>}
           </div>
           <div className="tools-modal-actions">
+            {editing && existingTool && (
+              <label className="tools-modal-toggle">
+                <Switch
+                  size="small"
+                  checked={existingTool.enabled}
+                  disabled={busy}
+                  onChange={(_, checked) => handleToggleEnabled(checked)}
+                />
+                <span>
+                  {existingTool.enabled ? 'Exposed' : 'Off'}
+                  <small>
+                    {existingTool.enabled
+                      ? 'These tools are on your MCP server'
+                      : 'Kept, but not on your MCP server'}
+                  </small>
+                </span>
+              </label>
+            )}
             {editing && (
               <UI.Button
                 size="small"

@@ -27,17 +27,14 @@ export const loadProxiedPrompts = async (
       metadata: db.schema.artifactTool.metadata
     })
     .from(db.schema.artifactTool)
-    .innerJoin(
-      db.schema.toolDefinition,
-      eq(db.schema.artifactTool.toolDefinitionId, db.schema.toolDefinition.id)
-    )
     .where(
       and(
         eq(db.schema.artifactTool.artifactId, artifactId),
         eq(
-          db.schema.toolDefinition.key,
+          db.schema.artifactTool.toolKey,
           utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY
-        )
+        ),
+        eq(db.schema.artifactTool.enabled, true)
       )
     );
 

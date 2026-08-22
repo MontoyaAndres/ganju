@@ -120,6 +120,42 @@ export const assertCustomLlmAllowed = ({
   }
 };
 
+// Writing tools as code is a paid feature, and the only one on this list where
+// the reason is cost rather than packaging: a custom tool runs the customer's
+// own code on infrastructure we pay for. Free's escape hatch is `http-endpoint`,
+// which gives a custom name, description and input schema against the user's own
+// backend and costs us one screened request.
+//
+// Enforced on every write path that can produce a running script — not only in
+// the dashboard, which is one client of several and the easiest to bypass.
+export const assertCustomCodeAllowed = ({
+  plan,
+  limits
+}: Pick<EffectivePlan, 'plan' | 'limits'>): void => {
+  if (!limits.canUseCustomCode) {
+    throw new PlanLimitError(
+      'Writing your own tools in code is a Pro feature. Upgrade this organization to deploy custom tools.',
+      { feature: constants.PLAN_FEATURE_CUSTOM_CODE, plan }
+    );
+  }
+};
+
+// How many http-endpoint tools one artifact may hold. Free is capped rather than
+// blocked: this IS its custom tool, and the cap is what keeps the tool list —
+// and therefore the per-turn token cost on our own model key — bounded.
+export const assertHttpEndpointQuota = (
+  { plan, limits }: Pick<EffectivePlan, 'plan' | 'limits'>,
+  currentCount: number
+): void => {
+  const max = limits.maxHttpEndpointsPerArtifact;
+  if (max !== null && currentCount >= max) {
+    throw new PlanLimitError(
+      `The ${plan} plan allows ${max} HTTP endpoint${max === 1 ? '' : 's'} per server. Upgrade to add more.`,
+      { feature: constants.PLAN_FEATURE_HTTP_ENDPOINT, plan, limit: max }
+    );
+  }
+};
+
 // org & project quotas (need a count query)
 
 export const assertProjectQuota = async (
@@ -352,6 +388,8 @@ export const Plan = {
   assertChannelQuota,
   assertInviteAllowed,
   assertCustomLlmAllowed,
+  assertCustomCodeAllowed,
+  assertHttpEndpointQuota,
   assertProjectQuota,
   assertOrganizationCreation,
   assertRawStorageQuota,

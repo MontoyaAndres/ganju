@@ -68,15 +68,11 @@ export const findCustomCodeTool = async (
   const [row] = await executor
     .select({ artifact_tool: db.schema.artifactTool })
     .from(db.schema.artifactTool)
-    .innerJoin(
-      db.schema.toolDefinition,
-      eq(db.schema.toolDefinition.id, db.schema.artifactTool.toolDefinitionId)
-    )
     .where(
       and(
         eq(db.schema.artifactTool.artifactId, artifactId),
         eq(
-          db.schema.toolDefinition.key,
+          db.schema.artifactTool.toolKey,
           utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
         )
       )
@@ -89,11 +85,11 @@ export const findCustomCodeTool = async (
 // Resolve the artifact and its single `custom-code` tool row, creating that row
 // on first use.
 //
-// Auto-creating matters because the CLI (`ganju deploy`, Phase 7) is a thin
-// client of these endpoints and has to work against a fresh artifact — the
-// dashboard card that would otherwise install the row is Phase 6. The quota
-// check and the counter bump mirror createTool exactly, so an install still
-// costs a tool slot however it was created.
+// Auto-creating matters because the CLI (`ganju deploy`) is a thin client of
+// these endpoints and has to work against a fresh artifact, before any dashboard
+// card has installed the row. The quota check and the counter bump mirror
+// createTool exactly, so an install still costs a tool slot however it was
+// created.
 //
 // Takes a transaction rather than the db instance: the read-then-insert must not
 // interleave with a concurrent upload, or an artifact ends up with two
@@ -107,38 +103,25 @@ export const resolveCustomCodeTool = async (
   tool: CustomCodeToolRow;
 }> => {
   const artifactRow = await resolveArtifact(tx, organizationId, projectId);
+  const plan = await Plan.getEffectivePlan(tx, organizationId);
+
+  // Checked before the existing-row shortcut, not after. An org that installed
+  // custom code on a paid plan and then downgraded still holds the row, and the
+  // question every write here asks is "may this org deploy code now" — not "did
+  // it once".
+  Plan.assertCustomCodeAllowed(plan);
 
   const existing = await findCustomCodeTool(tx, artifactRow.id);
   if (existing) {
     return { artifact: artifactRow, tool: existing };
   }
 
-  const [toolDef] = await tx
-    .select({ id: db.schema.toolDefinition.id })
-    .from(db.schema.toolDefinition)
-    .where(
-      eq(
-        db.schema.toolDefinition.key,
-        utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
-      )
-    )
-    .limit(1);
-
-  if (!toolDef) {
-    throw new Error(
-      'The custom-code tool definition is not seeded on this deployment'
-    );
-  }
-
-  Plan.assertToolQuota(
-    await Plan.getEffectivePlan(tx, organizationId),
-    artifactRow.artifactToolCount
-  );
+  Plan.assertToolQuota(plan, artifactRow.artifactToolCount);
 
   const [created] = await tx
     .insert(db.schema.artifactTool)
     .values({
-      toolDefinitionId: toolDef.id,
+      toolKey: utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE,
       config: utils.Schema.CUSTOM_CODE_CONFIG.parse({}),
       metadata: null,
       artifactId: artifactRow.id

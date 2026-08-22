@@ -27,4 +27,4 @@ npm run studio -w @ganju/db        # Drizzle Studio
 
 - Requires Postgres with [`pgvector`](https://github.com/pgvector/pgvector) ≥ 0.7 (the embedding column is a 3072-dim `halfvec` with an HNSW cosine index).
 - IDs are UUIDv7 text keys. Status/enum columns are validated against constant arrays in [`@ganju/utils`](../utils).
-- `toolGroup`, `toolDefinition`, and `mcpServerCatalog` rows are seeded out of band.
+- `mcpServerCatalog` rows are seeded out of band. The tool catalog itself is no longer data — it ships as `TOOL_CATALOG` in `@ganju/utils`.

@@ -1,6 +1,7 @@
 import { Context } from 'hono';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
+import type { JsonSchema } from '@ganju/utils';
 import { db } from '@ganju/db';
 
 import { buildArtifactConnections } from './connections';
@@ -31,6 +32,7 @@ import {
   syncDiscordCommandsForArtifact,
   deployCustomCodeScript,
   smokeTestCustomCodeScript,
+  invokeCustomCodeScript,
   deleteCustomCodeScript,
   Plan
 } from '../../utils';
@@ -1041,12 +1043,9 @@ const createTool = async (c: Context<AppEnv>) => {
     mcpServerCatalogId: string;
   } | null = null;
   {
-    const [toolDef] = await dbInstance
-      .select({ key: db.schema.toolDefinition.key })
-      .from(db.schema.toolDefinition)
-      .where(eq(db.schema.toolDefinition.id, currentValues.toolDefinitionId))
-      .limit(1);
-    if (toolDef?.key === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY) {
+    if (
+      currentValues.toolKey === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY
+    ) {
       const [artifactRow] = await dbInstance
         .select({ id: db.schema.artifact.id })
         .from(db.schema.artifact)
@@ -1091,14 +1090,13 @@ const createTool = async (c: Context<AppEnv>) => {
       throw new Error('Artifact not found for the project');
     }
 
-    const [toolDef] = await tx
-      .select()
-      .from(db.schema.toolDefinition)
-      .where(eq(db.schema.toolDefinition.id, currentValues.toolDefinitionId))
-      .limit(1);
-
-    if (!toolDef) {
-      throw new Error('Tool definition not found');
+    // The catalog is code, so this is a lookup and not a query. Still checked:
+    // an unknown key would install a row the MCP boot loop can never resolve,
+    // which is a tool that exists in the dashboard and never registers.
+    if (!utils.isToolKey(currentValues.toolKey)) {
+      throw new Error(
+        `Tool "${currentValues.toolKey}" not found in the catalog`
+      );
     }
 
     // http-endpoint config is user-authored and drives an outbound request at
@@ -1108,21 +1106,53 @@ const createTool = async (c: Context<AppEnv>) => {
     // stored config canonical.
     const resolvedConfig = proxyData
       ? proxyData.config
-      : toolDef.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
+      : currentValues.toolKey ===
+          utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
         ? validateHttpEndpointConfig(currentValues.config)
-        : toolDef.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+        : currentValues.toolKey ===
+            utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
           ? validateCustomCodeConfig(currentValues.config, null)
           : currentValues.config || null;
 
-    Plan.assertToolQuota(
-      await Plan.getEffectivePlan(tx, currentValues.organizationId),
-      currentArtifactByProject.artifactToolCount
-    );
+    const plan = await Plan.getEffectivePlan(tx, currentValues.organizationId);
+    Plan.assertToolQuota(plan, currentArtifactByProject.artifactToolCount);
+
+    // Two definitions carry their own plan rule on top of the tool quota:
+    // custom-code is paid-only, and http-endpoint is capped per artifact so the
+    // free tier's escape hatch can't grow into an unbounded tool list.
+    if (
+      currentValues.toolKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+    ) {
+      Plan.assertCustomCodeAllowed(plan);
+    }
+
+    if (
+      currentValues.toolKey ===
+      utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
+    ) {
+      const [{ count: endpointCount }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(db.schema.artifactTool)
+        .where(
+          and(
+            eq(db.schema.artifactTool.artifactId, currentArtifactByProject.id),
+            eq(
+              db.schema.artifactTool.toolKey,
+              utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT
+            )
+          )
+        );
+      // Counts rows, not enabled rows: unlike the tool quota, this bounds how
+      // many endpoint DEFINITIONS one artifact holds. Disabling one leaves the
+      // definition behind, so letting that free a slot would make the cap
+      // unbounded by toggling.
+      Plan.assertHttpEndpointQuota(plan, endpointCount);
+    }
 
     const artifactTool = await tx
       .insert(db.schema.artifactTool)
       .values({
-        toolDefinitionId: currentValues.toolDefinitionId,
+        toolKey: currentValues.toolKey,
         config: resolvedConfig,
         metadata: proxyData
           ? proxyData.metadata
@@ -1180,15 +1210,8 @@ const updateTool = async (c: Context<AppEnv>) => {
       .limit(1);
     if (artifactRow) {
       const [existing] = await dbInstance
-        .select({ key: db.schema.toolDefinition.key })
+        .select({ key: db.schema.artifactTool.toolKey })
         .from(db.schema.artifactTool)
-        .innerJoin(
-          db.schema.toolDefinition,
-          eq(
-            db.schema.artifactTool.toolDefinitionId,
-            db.schema.toolDefinition.id
-          )
-        )
         .where(
           and(
             eq(db.schema.artifactTool.id, currentValues.toolId),
@@ -1239,14 +1262,10 @@ const updateTool = async (c: Context<AppEnv>) => {
     // resolved + re-discovered above.
     const [existing] = await tx
       .select({
-        key: db.schema.toolDefinition.key,
+        key: db.schema.artifactTool.toolKey,
         config: db.schema.artifactTool.config
       })
       .from(db.schema.artifactTool)
-      .innerJoin(
-        db.schema.toolDefinition,
-        eq(db.schema.artifactTool.toolDefinitionId, db.schema.toolDefinition.id)
-      )
       .where(
         and(
           eq(db.schema.artifactTool.id, currentValues.toolId),
@@ -1613,6 +1632,7 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
   const currentValues =
     await utils.Schema.ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE.parseAsync({
       versionId: c.req.param('versionId'),
+      sourceKind: c.req.query('kind'),
       projectId: c.req.param('projectId'),
       userId: c.get('user').id,
       organizationId: c.req.param('organizationId')
@@ -1643,6 +1663,17 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
   }
   if (bundle.byteLength > utils.constants.CUSTOM_CODE_MAX_BUNDLE_BYTES) {
     throw new Error(`Bundle exceeds the ${bundleLimitMb}MB limit`);
+  }
+
+  // An editor upload is a project — an envelope of files, one module each. It is
+  // validated here rather than at deploy time because a path the runtime refuses
+  // should stop at the request that wrote it, not surface as a failed publish
+  // days later. A CLI bundle decodes to null and passes through untouched.
+  if (
+    currentValues.sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR
+  ) {
+    const files = utils.decodeProject(new TextDecoder().decode(bundle));
+    if (files) utils.validateProjectFiles(files);
   }
 
   const sourceHash = await hashBundle(bundle);
@@ -1686,7 +1717,12 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
 
     const [updated] = await tx
       .update(db.schema.artifactToolVersion)
-      .set({ sourceKey: key, sourceHash, error: null })
+      .set({
+        sourceKey: key,
+        sourceHash,
+        sourceKind: currentValues.sourceKind,
+        error: null
+      })
       .where(eq(db.schema.artifactToolVersion.id, version.id))
       .returning();
 
@@ -1694,6 +1730,217 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
   });
 
   return c.json(result);
+};
+
+/**
+ * Read one version's stored source back, for the editor.
+ *
+ * Returns `editable: false` rather than refusing when the version holds a CLI
+ * bundle: seeing what is deployed is legitimate, and the honest answer is "here
+ * it is, and you can't edit this one" rather than a 403 that reads like the
+ * version is missing. The dashboard shows it read-only.
+ */
+const getCustomCodeVersionSource = async (c: Context<AppEnv>) => {
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_GET_SOURCE.parseAsync({
+      versionId: c.req.param('versionId'),
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const dbInstance = db.create(c);
+
+  const { tool } = await resolveCustomCodeToolReadOnly(
+    dbInstance,
+    currentValues.organizationId,
+    currentValues.projectId
+  );
+
+  if (!tool) {
+    throw new Error('Version not found');
+  }
+
+  const version = await loadVersionForTool(
+    dbInstance,
+    tool.id,
+    currentValues.versionId
+  );
+
+  const editable =
+    version.sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR;
+
+  const bucket = c.env.STORAGE_BUCKET;
+  const object =
+    version.sourceKey && bucket ? await bucket.get(version.sourceKey) : null;
+  const stored = object ? await object.text() : null;
+
+  // Two shapes, one endpoint. `files` is what the explorer renders; `source`
+  // stays the main module's text, because that is what a single-file version has
+  // always been and what a CLI bundle still is.
+  const files = stored ? utils.decodeProject(stored) : null;
+  const main = utils.constants.CUSTOM_CODE_MAIN_MODULE;
+
+  return c.json({
+    versionId: version.id,
+    version: version.version,
+    status: version.status,
+    sourceKind: version.sourceKind,
+    editable,
+    files: files ?? (stored === null ? null : { [main]: stored }),
+    source: files ? (files[main] ?? null) : stored,
+    tools: version.tools
+  });
+};
+
+/**
+ * Run one tool of one version against a sample input, without publishing it.
+ *
+ * The point of the whole panel: until this existed, the only way to find out
+ * whether a function worked was to put it in front of every MCP client and call
+ * it from one. The shape of the answer follows from that — output, logs and
+ * error kept apart, plus what the schemas made of the input and the output,
+ * because "it returned something" and "it returned what it promised" are
+ * different questions.
+ *
+ * Three things make it safe to run unpublished code:
+ *
+ *  - It deploys to `artifact_<id>_preview`, a script name nothing dispatches to,
+ *    so a test cannot disturb what clients are being served. It is overwritten by
+ *    the next test and deleted after this one.
+ *  - Its broker token is a preview token: minted for a version that is
+ *    deliberately not active, and expiring on its own since no publish will
+ *    rotate it.
+ *  - It runs under the stored config's egress rules, so a host that will be
+ *    refused in production is refused here.
+ *
+ * It is a write in every sense that matters — it deploys code and spends CPU —
+ * so it carries the same plan gate the publish paths do.
+ */
+const testCustomCodeVersion = async (c: Context<AppEnv>) => {
+  const body = await c.req.json().catch(() => ({}));
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_TEST_VERSION.parseAsync({
+      versionId: c.req.param('versionId'),
+      tool: body?.tool,
+      input: body?.input ?? {},
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const dbInstance = db.create(c);
+
+  const { artifact, tool } = await resolveCustomCodeToolReadOnly(
+    dbInstance,
+    currentValues.organizationId,
+    currentValues.projectId
+  );
+
+  if (!tool) {
+    throw new Error('Version not found');
+  }
+
+  Plan.assertCustomCodeAllowed(
+    await Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
+  );
+
+  const version = await loadVersionForTool(
+    dbInstance,
+    tool.id,
+    currentValues.versionId
+  );
+
+  const entry = (
+    version.tools as Array<{
+      name: string;
+      inputSchema?: unknown;
+      outputSchema?: unknown;
+    }>
+  ).find(candidate => candidate.name === currentValues.tool);
+
+  if (!entry) {
+    throw new Error(
+      `This version does not declare a tool named "${currentValues.tool}".`
+    );
+  }
+
+  // Checked before anything is deployed. An input the schema refuses is an input
+  // an MCP client would never have sent, so running it would answer a question
+  // nobody asked — and it costs a deploy to find out.
+  const inputViolations = utils.validateAgainstJsonSchema(
+    (entry.inputSchema as JsonSchema) ?? {
+      type: 'object',
+      properties: {}
+    },
+    currentValues.input
+  );
+
+  if (inputViolations.length > 0) {
+    return c.json({
+      ran: false,
+      inputViolations,
+      logs: [],
+      durationMs: 0
+    });
+  }
+
+  if (!version.sourceKey) {
+    throw new Error('This version has no code to run yet.');
+  }
+
+  const bucket = c.env.STORAGE_BUCKET;
+  const object = bucket ? await bucket.get(version.sourceKey) : null;
+  if (!object) {
+    throw new Error(
+      'The code for this version is no longer in storage, so it cannot be run. Upload it again.'
+    );
+  }
+
+  const config = readCustomCodeConfig(tool);
+
+  await deployCustomCodeScript(c, {
+    artifactId: artifact.id,
+    versionId: version.id,
+    bundle: await object.arrayBuffer(),
+    preview: true
+  });
+
+  try {
+    const run = await invokeCustomCodeScript(c, {
+      artifactId: artifact.id,
+      toolName: currentValues.tool,
+      args: currentValues.input,
+      allowedHosts: config.allowedHosts ?? [],
+      timeoutMs: Math.min(
+        config.timeoutMs,
+        utils.constants.CUSTOM_CODE_TEST_TIMEOUT_MS
+      ),
+      preview: true
+    });
+
+    // A declared outputSchema is a promise to the MCP client, and one the boot
+    // loop turns into a protocol-level requirement: a tool that declares one and
+    // returns something else becomes an error for the whole call. Surfacing that
+    // here is most of the reason to declare an output schema at all.
+    const outputViolations =
+      !run.error && entry.outputSchema
+        ? utils.validateAgainstJsonSchema(
+            entry.outputSchema as JsonSchema,
+            run.output
+          )
+        : [];
+
+    return c.json({ ran: true, ...run, inputViolations: [], outputViolations });
+  } finally {
+    // Best effort, and the token's expiry is the backstop: a preview script left
+    // behind by a failed delete stops being able to reach the broker on its own.
+    try {
+      await deleteCustomCodeScript(c, artifact.id, { preview: true });
+    } catch (error) {
+      console.error('Could not remove the preview script', error);
+    }
+  }
 };
 
 // Publish and rollback share one state transition and differ only in which
@@ -1733,6 +1980,15 @@ const activateCustomCodeVersion = async (
   if (!tool) {
     throw new Error('No custom code is installed on this artifact.');
   }
+
+  // Read-only resolution, so unlike the create and upload paths this one does
+  // not carry the plan check with it — and these two are the endpoints that
+  // most literally deploy code. An org that installed on a paid plan and then
+  // downgraded keeps its row, its versions and their bundles, so without this
+  // it could go on publishing and rolling back indefinitely.
+  Plan.assertCustomCodeAllowed(
+    await Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
+  );
 
   const version = await loadVersionForTool(
     dbInstance,
@@ -1851,24 +2107,128 @@ const listTools = async (c: Context<AppEnv>) => {
 
   const artifact = await dbInstance.query.artifact.findFirst({
     where: eq(db.schema.artifact.projectId, currentValues.projectId),
-    with: {
-      artifactTools: {
-        with: {
-          toolDefinition: {
-            with: {
-              group: true
-            }
-          }
-        }
-      }
-    }
+    with: { artifactTools: true }
   });
 
   if (!artifact) {
     throw new Error('Artifact not found for the project');
   }
 
-  return c.json(artifact.artifactTools);
+  // Attached in code rather than joined. The response keeps the same shape it
+  // had when the catalog was two tables, so the dashboard still renders a tool
+  // without carrying its own copy of the catalog.
+  return c.json(
+    artifact.artifactTools.map(tool => ({
+      ...tool,
+      toolDefinition: utils.describeCatalogTool(tool.toolKey)
+    }))
+  );
+};
+
+/**
+ * Turn one installed tool on or off.
+ *
+ * The row and its config survive either way — that is the difference between
+ * this and removeTool, and the reason the flag exists at all. What changes is
+ * whether the MCP boot loop registers it, which is also what the plan's tool
+ * quota measures: `artifactToolCount` tracks ENABLED tools, because "7 tools on
+ * Free" means seven tools your server exposes, not seven rows you once created.
+ *
+ * Enabling therefore re-checks the quota. It is the one place a user can cross
+ * the cap without creating anything — disable three, upgrade nothing, enable
+ * four — and the check has to be here rather than at boot, where the only
+ * available answer would be to silently drop a tool the dashboard shows as on.
+ */
+const setToolEnabled = async (c: Context<AppEnv>) => {
+  const currentValues = await utils.Schema.ARTIFACT_SET_TOOL_ENABLED.parseAsync(
+    {
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId'),
+      toolId: c.req.param('toolId'),
+      enabled: (await c.req.json().catch(() => ({}))).enabled
+    }
+  );
+
+  const dbInstance = db.create(c);
+
+  const updated = await dbInstance.transaction(async tx => {
+    const [project] = await tx
+      .select()
+      .from(db.schema.project)
+      .where(
+        and(
+          eq(db.schema.project.id, currentValues.projectId),
+          eq(db.schema.project.organizationId, currentValues.organizationId)
+        )
+      )
+      .limit(1);
+
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const [currentArtifactByProject] = await tx
+      .select()
+      .from(db.schema.artifact)
+      .where(eq(db.schema.artifact.projectId, currentValues.projectId))
+      .limit(1);
+
+    if (!currentArtifactByProject) {
+      throw new Error('Artifact not found for the project');
+    }
+
+    const [tool] = await tx
+      .select()
+      .from(db.schema.artifactTool)
+      .where(
+        and(
+          eq(db.schema.artifactTool.id, currentValues.toolId),
+          eq(db.schema.artifactTool.artifactId, currentArtifactByProject.id)
+        )
+      )
+      .limit(1);
+
+    if (!tool) {
+      throw new Error('Tool not found');
+    }
+
+    // Idempotent: asking for the state a tool is already in is not an error,
+    // and must not move the counter. Two tabs open on the same page is the
+    // ordinary way this happens.
+    if (tool.enabled === currentValues.enabled) {
+      return tool;
+    }
+
+    if (currentValues.enabled) {
+      Plan.assertToolQuota(
+        await Plan.getEffectivePlan(tx, currentValues.organizationId),
+        currentArtifactByProject.artifactToolCount
+      );
+    }
+
+    const [row] = await tx
+      .update(db.schema.artifactTool)
+      .set({ enabled: currentValues.enabled })
+      .where(eq(db.schema.artifactTool.id, tool.id))
+      .returning();
+
+    await tx
+      .update(db.schema.artifact)
+      .set({
+        artifactToolCount: currentValues.enabled
+          ? sql`(${db.schema.artifact.artifactToolCount}::int + 1)::int`
+          : sql`greatest((${db.schema.artifact.artifactToolCount}::int - 1), 0)::int`
+      })
+      .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
+
+    return row;
+  });
+
+  return c.json({
+    ...updated,
+    toolDefinition: utils.describeCatalogTool(updated.toolKey)
+  });
 };
 
 const removeTool = async (c: Context<AppEnv>) => {
@@ -1921,12 +2281,17 @@ const removeTool = async (c: Context<AppEnv>) => {
       throw new Error('Tool not found');
     }
 
-    await tx
-      .update(db.schema.artifact)
-      .set({
-        artifactToolCount: sql`(${db.schema.artifact.artifactToolCount}::int - 1)::int`
-      })
-      .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
+    // Only an enabled row was ever counted, so only an enabled row gives its
+    // slot back. greatest() because this is a denormalized total and a delete
+    // must never be the thing that drives it negative.
+    if (deleteTool[0].enabled) {
+      await tx
+        .update(db.schema.artifact)
+        .set({
+          artifactToolCount: sql`greatest((${db.schema.artifact.artifactToolCount}::int - 1), 0)::int`
+        })
+        .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
+    }
 
     // http-endpoint and mcp-proxy tools own the credential referenced by id from
     // their auth config. Removing the tool would orphan it, so delete it too —
@@ -1992,15 +2357,9 @@ const removeTool = async (c: Context<AppEnv>) => {
     // custom-code secrets are addressed by label from inside the script rather
     // than by id from config, so the credentialId path above never sees them.
     // Its versions go with the row via the FK cascade; the secrets need this.
-    const [removedDefinition] = await tx
-      .select({ key: db.schema.toolDefinition.key })
-      .from(db.schema.toolDefinition)
-      .where(eq(db.schema.toolDefinition.id, deleteTool[0].toolDefinitionId))
-      .limit(1);
+    const removedKey = deleteTool[0].toolKey;
 
-    if (
-      removedDefinition?.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
-    ) {
+    if (removedKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
       const removedSecrets = await deleteCustomCodeSecrets(
         tx,
         currentArtifactByProject.id
@@ -2021,8 +2380,7 @@ const removeTool = async (c: Context<AppEnv>) => {
       artifactId: currentArtifactByProject.id,
       wasProxy: deleteTool[0].mcpServerCatalogId != null,
       wasCustomCode:
-        removedDefinition?.key ===
-        utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+        removedKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
     };
   });
 
@@ -2661,6 +3019,7 @@ export const ArtifactController = {
   updateResourceShowSource,
   createTool,
   updateTool,
+  setToolEnabled,
   removeTool,
   listTools,
   previewMcpProxy,
@@ -2670,6 +3029,8 @@ export const ArtifactController = {
   publishCustomCodeVersion,
   rollbackCustomCodeVersion,
   listCustomCodeVersions,
+  getCustomCodeVersionSource,
+  testCustomCodeVersion,
   listConnections,
   removeCredential,
   listCredentials,
