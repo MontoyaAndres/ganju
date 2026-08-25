@@ -2624,6 +2624,59 @@ export const ModalDialog = styled.div`
       .mcp-proxy-disconnect {
         margin-right: auto;
       }
+
+      .tools-settings-secret-add {
+        display: grid;
+        align-items: center;
+        grid-template-columns: 1fr 1fr 150px;
+        gap: 12px;
+        padding-top: 10px;
+
+        > div {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .MuiButtonBase-root {
+          font-size: ${theme.fonts.sm};
+          padding: 6px 16px;
+          border-radius: 6px;
+          text-transform: none;
+        }
+      }
+
+      .tools-settings-notice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        font-size: ${theme.fonts.sm};
+        background-color: ${theme.colors.earlyDawn};
+        color: ${theme.colors.romanCoffee};
+
+        > svg {
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
+          color: ${theme.colors.tahitiGold};
+        }
+      }
+
+      .tools-settings-empty {
+        margin: 0;
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.bastille}80;
+      }
+
+      .tools-settings-secret-name {
+        font-family: monospace;
+        font-size: ${theme.fonts.sm};
+        font-weight: 600;
+        color: ${theme.colors.bastille};
+        margin: 0;
+        word-break: break-all;
+      }
     }
 
     .tools-modal-actions {
@@ -2676,6 +2729,12 @@ export const ModalDialog = styled.div`
       }
 
       .tools-modal-body .http-endpoint-form {
+        .tools-settings-secret-add {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 14px;
+        }
+
         .http-endpoint-row {
           flex-direction: column;
           gap: 14px;

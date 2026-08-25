@@ -288,6 +288,22 @@ const es: Record<string, string> = {
   'field.calendar-find-free-slots.maxAdvanceDays.label':
     'Antelación máxima (días)',
 
+  /**
+   * The managed OAuth providers, by the slug everything keys on.
+   *
+   * Most of them already have a catalog group whose title says the same thing,
+   * and the tools view prefers that. These are the fallback, and the two that
+   * need it: `google-drive` and `one-drive` are resource sources rather than
+   * tool groups, so no card carries their name.
+   */
+  'provider.google-gmail': 'Gmail',
+  'provider.google-drive': 'Google Drive',
+  'provider.google-calendar': 'Google Calendar',
+  'provider.microsoft-outlook': 'Outlook',
+  'provider.one-drive': 'OneDrive',
+  'provider.slack': 'Slack',
+  'provider.slack-user': 'Slack (usuario)',
+
   // Option labels inside those fields, keyed by the stored value.
   'option.calendar-visibility.default': 'La del calendario',
   'option.calendar-visibility.public': 'Público',

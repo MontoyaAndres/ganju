@@ -1061,7 +1061,7 @@ export const HttpEndpointModal = ({
           </div>
           <div className="tools-modal-actions">
             <UI.Button size="small" disabled={submitting} onClick={onClose}>
-              Cancel
+              {c('cancel')}
             </UI.Button>
             <UI.Button
               variant="contained"

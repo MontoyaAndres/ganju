@@ -413,6 +413,71 @@ const en = {
   markerBareImport:
     'Only files in this project and ./ganju-sdk.js can be imported here — there is no install step. To use a package, bundle it locally and upload with the CLI.',
 
+  // Function settings.
+  //
+  // The capabilities half writes `artifact_tool.config`, so it needs the row a
+  // first draft creates. Secrets are artifact-scoped credential rows and need
+  // nothing, which is why they stay usable before there is any code at all.
+  settings: 'Settings',
+  settingsTitle: 'Function settings',
+  settingsSubtitle:
+    'What your code may reach, and what it is allowed to spend doing it.',
+  settingsNeedsDraft:
+    'Save a draft first — these settings live on the tool your first draft creates. Secrets below can be added now.',
+
+  settingsConnections: 'Connections',
+  settingsConnectionsHelp:
+    'Providers this script may ask for a token for, and send files as. The broker refuses anything not listed here, so widening it is a deliberate edit rather than something code can do for itself.',
+  settingsConnectionConnected: 'Connected',
+  settingsConnectionNeedsReauth: 'Needs re-authorization',
+  settingsConnectionNotConnected: 'Not connected',
+  settingsConnectionUnavailable: 'Unavailable on this deployment',
+  settingsConnectionsNote:
+    'Declaring a provider you have not connected is allowed — the call fails at run time with a message saying so, rather than the tool failing to deploy.',
+
+  settingsSecrets: 'Secrets',
+  settingsSecretsHelp:
+    'Read from your code with ctx.secret(). Encrypted at rest, resolved through the broker on each call, and never sent back to the browser — so changing one takes effect on the next call, with no redeploy.',
+  settingsSecretsEmpty: 'No secrets yet.',
+  settingsSecretName: 'Name',
+  settingsSecretNamePlaceholder: 'STRIPE_KEY',
+  settingsSecretValue: 'Value',
+  settingsAddSecret: 'Add secret',
+  settingsAdding: 'Adding...',
+  settingsOkSecretAdded: 'Secret added',
+  settingsOkSecretRemoved: 'Secret removed',
+  settingsErrSecretName:
+    'A name may only contain letters, digits, underscore or hyphen',
+  settingsErrSecretValue: 'Enter the secret value.',
+  /**
+   * Refused rather than shadowed. The broker resolves a label to the newest row
+   * carrying it, so a second secret under the same name would quietly win and
+   * the first would become unreachable without ever looking wrong here.
+   */
+  settingsErrSecretTaken: 'A secret by that name already exists.',
+  settingsErrAddSecret: 'Could not add the secret',
+  settingsRemoveSecretTitle: 'Remove secret',
+  settingsRemoveSecretDescription:
+    'Remove "{name}"? Any function reading it starts failing on its next call, and the value cannot be recovered.',
+  settingsErrRemoveSecret: 'Could not remove the secret',
+
+  // Names the group rather than the first field in it, which is what the
+  // heading used to repeat.
+  settingsLimits: 'Egress and limits',
+  settingsAllowedHosts: 'Allowed hosts',
+  settingsAllowedHostsHelp:
+    'Comma-separated. Leave empty to allow any public host. Private and loopback addresses are always blocked, whatever this says.',
+  settingsTimeout: 'Timeout (ms)',
+  settingsTimeoutHelp:
+    'How long one call may take. Default {default}, capped at {max}.',
+  settingsResourceAccess: 'Resource access',
+  settingsResourceAccessOwn: 'Only what this tool wrote',
+  settingsResourceAccessAll: 'Every resource on this artifact',
+  settingsResourceAccessHelp:
+    'How far ctx.resources.create and .delete reach. The default confines a tool to its own output, so a buggy function has none of your documents to destroy — widen it only for a tool whose job is to prune what it did not write.',
+  settingsOkSaved: 'Settings saved',
+  settingsErrSave: 'Could not save the settings',
+
   // HTTP endpoint dialog
   epTitleNew: 'Add HTTP endpoint',
   epTitleEdit: 'Edit endpoint',
@@ -920,6 +985,59 @@ export const TOOLS: Catalog<ToolsCopy> = {
       'Aquí no hay navegador — este código corre en el servidor, dentro de un isolate de Worker.',
     markerBareImport:
       'Aquí solo se pueden importar archivos de este proyecto y ./ganju-sdk.js — no hay paso de instalación. Para usar un paquete, empaquétalo en tu máquina y súbelo con la CLI.',
+
+    settings: 'Ajustes',
+    settingsTitle: 'Ajustes de las funciones',
+    settingsSubtitle:
+      'A qué puede llegar tu código, y cuánto se le permite gastar al hacerlo.',
+    settingsNeedsDraft:
+      'Guarda un borrador primero — estos ajustes viven en la herramienta que crea tu primer borrador. Los secretos de abajo ya se pueden agregar.',
+
+    settingsConnections: 'Conexiones',
+    settingsConnectionsHelp:
+      'Proveedores a los que este script puede pedirle un token, y como los que puede enviar archivos. El broker rechaza todo lo que no esté en esta lista, así que ampliarla es una decisión explícita y no algo que el código pueda hacer por su cuenta.',
+    settingsConnectionConnected: 'Conectado',
+    settingsConnectionNeedsReauth: 'Requiere volver a autorizar',
+    settingsConnectionNotConnected: 'Sin conectar',
+    settingsConnectionUnavailable: 'No disponible en este despliegue',
+    settingsConnectionsNote:
+      'Puedes declarar un proveedor que aún no hayas conectado — la llamada falla en tiempo de ejecución con un mensaje que lo explica, en vez de impedir el despliegue.',
+
+    settingsSecrets: 'Secretos',
+    settingsSecretsHelp:
+      'Se leen desde tu código con ctx.secret(). Se guardan cifrados, se resuelven a través del broker en cada llamada y nunca vuelven al navegador — así que cambiar uno surte efecto en la siguiente llamada, sin volver a desplegar.',
+    settingsSecretsEmpty: 'Aún no hay secretos.',
+    settingsSecretName: 'Nombre',
+    settingsSecretNamePlaceholder: 'STRIPE_KEY',
+    settingsSecretValue: 'Valor',
+    settingsAddSecret: 'Agregar secreto',
+    settingsAdding: 'Agregando...',
+    settingsOkSecretAdded: 'Secreto agregado',
+    settingsOkSecretRemoved: 'Secreto eliminado',
+    settingsErrSecretName:
+      'El nombre solo puede tener letras, dígitos, guion bajo o guion',
+    settingsErrSecretValue: 'Escribe el valor del secreto.',
+    settingsErrSecretTaken: 'Ya existe un secreto con ese nombre.',
+    settingsErrAddSecret: 'No pudimos agregar el secreto',
+    settingsRemoveSecretTitle: 'Eliminar secreto',
+    settingsRemoveSecretDescription:
+      '¿Eliminar "{name}"? Cualquier función que lo lea empezará a fallar en su siguiente llamada, y el valor no se puede recuperar.',
+    settingsErrRemoveSecret: 'No pudimos eliminar el secreto',
+
+    settingsLimits: 'Salida y límites',
+    settingsAllowedHosts: 'Hosts permitidos',
+    settingsAllowedHostsHelp:
+      'Separados por comas. Déjalo vacío para permitir cualquier host público. Las direcciones privadas y de loopback siempre están bloqueadas, diga lo que diga esta lista.',
+    settingsTimeout: 'Tiempo límite (ms)',
+    settingsTimeoutHelp:
+      'Cuánto puede tardar una llamada. Por defecto {default}, con un tope de {max}.',
+    settingsResourceAccess: 'Acceso a recursos',
+    settingsResourceAccessOwn: 'Solo lo que escribió esta herramienta',
+    settingsResourceAccessAll: 'Todos los recursos de este artefacto',
+    settingsResourceAccessHelp:
+      'Hasta dónde llegan ctx.resources.create y .delete. Por defecto una herramienta queda confinada a lo que ella misma escribió, así que una función con errores no tiene ninguno de tus documentos que destruir — amplíalo solo para una herramienta cuyo trabajo sea limpiar lo que no escribió.',
+    settingsOkSaved: 'Ajustes guardados',
+    settingsErrSave: 'No pudimos guardar los ajustes',
 
     epTitleNew: 'Agregar endpoint HTTP',
     epTitleEdit: 'Editar endpoint',

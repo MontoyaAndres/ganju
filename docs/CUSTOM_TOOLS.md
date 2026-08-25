@@ -576,6 +576,18 @@ Paths are validated where they are written rather than at deploy time: `.js` onl
 
 **Proven against the real namespace, because the whole thing rests on it:** a four-module script uploaded, `index.js` imported `./lib/greet.js`, and `lib/greet.js` imported `./nested/constants.js` — driven through the deployed dispatcher over MCP, with the result coming back through all three.
 
+#### The settings dialog
+
+Everything the broker serves had been reachable only from a `config` nobody could edit. `createVersion` posts `{ manifest }` alone, and no view wrote `connections`, `allowedHosts`, `timeoutMs` or `resourceAccess`, or created a `custom-code` credential — so `ctx.connection`, `ctx.sendFile` and `ctx.secret` could not be used by anyone working in the dashboard, while Monaco completed all three from the SDK's real declarations and the runtime refused them with *"add it to the tool's connections and publish a new version"* of a place that did not exist. [FunctionSettingsModal.tsx](../apps/web/src/components/views/tools/FunctionSettingsModal.tsx) is that place. Nothing on the server changed: the generic tool route already validated a custom-code config through `CUSTOM_CODE_CONFIG_WRITE` and already preserved `activeVersionId`, and the credential route already accepted the provider.
+
+**The two halves save differently, and look like it.** Capabilities write `artifact_tool.config` and save together behind one button. Secrets are `artifact_credential` rows scoped to the **artifact**, not to the tool row, so each acts on its own the moment it is added or removed — which is the honest rendering of what happens, since a stored secret is live from the next call. It also means secrets are editable before there is any code at all, while the capabilities half waits on the row a first draft creates and says so rather than rendering a form that cannot save.
+
+**A duplicate secret name is refused rather than shadowed.** [`resolveSecret`](../apps/tool-broker/src/utils/connection.ts) resolves a label to the newest row carrying it, so a second secret under the same name would quietly win and the first would become unreachable without ever looking wrong in the list.
+
+**Declaring a provider that is not connected is allowed.** The gate is the allow-list, and the connection is a separate fact — so the dialog reports each provider's state (connected, needs re-authorization, not connected, or not configured on this deployment) and lets the author declare ahead of connecting. The alternative would make the order of two independent steps load-bearing. A provider whose client id and secret are missing from the deployment is called out as such, because no amount of clicking Connect can fix that one.
+
+**Empty means unrestricted, for hosts.** [`hostAllowed`](../apps/tool-outbound/src/index.ts) returns true on an empty list, so clearing the field widens egress to any public host rather than blocking everything — the field says so, since the opposite reading is the dangerous one to guess wrong. Private and loopback addresses stay blocked by `isBlockedHost` whatever the list says.
+
 #### Testing a function without publishing it
 
 Until this, the only way to find out whether a function worked was to put it in front of every MCP client and call it from one. `POST …/custom-code/version/:versionId/test` takes a tool name and a sample input and answers with the output, the `ctx.log` lines, the error, and how long it took.
@@ -633,7 +645,7 @@ Two things it found that no local run could. The plan gate was missing on publis
 
 #### Still open on the dashboard
 
-- **Give the row's config a surface.** The Functions tab writes the manifest and the source, and nothing else — `createVersion` posts `{ manifest }` alone, and no view writes `connections`, `allowedHosts`, `timeoutMs` or `resourceAccess`, or creates a `custom-code` credential. So `ctx.connection`, `ctx.sendFile` and `ctx.secret` cannot be used by anyone working in the dashboard, while Monaco completes all three from the SDK's real declarations and the runtime refusal reads *"add it to the tool's connections and publish a new version"* — of a place that does not exist. The CLI would be the other door and is Phase 7, so today `ctx.resources` and `fetch` are the whole usable surface. Everything underneath is built and verified; what is missing is the form.
+- [x] ~~**Give the row's config a surface.**~~ — shipped; see [The settings dialog](#the-settings-dialog).
 - **Name the CLI in the editor's notice once it exists.** The notice describes the path — bundle it locally, upload the bundle — without naming a command. When Phase 7 lands, that sentence becomes one command.
 - **Format the backlog.** 62 files differ, all of them predating this work. `npm run format` does it in one command; it is worth its own commit, because a whitespace sweep across 62 files would bury a review of anything else.
 

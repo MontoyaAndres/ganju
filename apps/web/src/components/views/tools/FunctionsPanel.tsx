@@ -13,6 +13,7 @@ import {
   PlayArrowOutlined,
   RocketLaunchOutlined,
   SaveOutlined,
+  TuneOutlined,
   UndoOutlined,
   Warning
 } from '@mui/icons-material';
@@ -21,11 +22,17 @@ import Switch from '@mui/material/Switch';
 import { CodeEditor } from './CodeEditor';
 import { MetaGridSkeleton, ToolRowsSkeleton } from './Skeletons';
 import { JsonEditor, useSchemaMetaSchema } from './JsonEditor';
+import { FunctionSettingsModal } from './FunctionSettingsModal';
 import { ModalDialog, ModalOverlay } from './styles';
 import { i18n } from '../../../lib';
 
 // types
 import type { Translate } from '../../../lib';
+import type {
+  ArtifactConnection,
+  CustomCodeConfig,
+  CustomCodeSecret
+} from './FunctionSettingsModal';
 
 export interface ManifestTool {
   name: string;
@@ -60,6 +67,18 @@ interface Props {
   // page, and the full reload below moves the whole view back to a loading
   // state — which unmounts this panel and everything in it.
   onVersionsChanged: () => Promise<void> | void;
+  // The row's stored config, or null until a first draft creates the row. What
+  // the settings dialog edits: which providers this script may reach, where it
+  // may fetch, how long a call may take, and how far it may reach into the
+  // artifact's resources.
+  config: CustomCodeConfig | null;
+  connections: ArtifactConnection[];
+  // Already filtered to `provider = 'custom-code'`.
+  secrets: CustomCodeSecret[];
+  credentialApiBase: string;
+  getProviderLabel: (provider: string) => string;
+  onSaveConfig: (config: CustomCodeConfig) => Promise<boolean>;
+  onSecretsChanged: () => Promise<void> | void;
   // Reload the page's data. Only for what really changes it: publishing or
   // rolling back moves which tools the server exposes, and the first publish can
   // create the install row the budget meter counts.
@@ -330,7 +349,14 @@ export const FunctionsPanel = ({
   allowedTools,
   onSetAllowedTools,
   onVersionsChanged,
-  onChanged
+  onChanged,
+  config,
+  connections,
+  secrets,
+  credentialApiBase,
+  getProviderLabel,
+  onSaveConfig,
+  onSecretsChanged
 }: Props) => {
   const t = i18n.useT(i18n.copy.TOOLS);
   const c = i18n.useT(i18n.copy.COMMON);
@@ -369,6 +395,7 @@ export const FunctionsPanel = ({
   const [testInput, setTestInput] = useState<Record<string, string>>({});
   const [testRun, setTestRun] = useState<TestRun | null>(null);
   const [togglingTool, setTogglingTool] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Either half of the load means the panel does not yet know what it is
   // showing, and both resolve into the same screen — so they collapse into one
@@ -871,6 +898,10 @@ export const FunctionsPanel = ({
               </span>
             </UI.Button>
           )}
+          <UI.Button size="small" onClick={() => setSettingsOpen(true)}>
+            <TuneOutlined />
+            <span className="button-text">{t('settings')}</span>
+          </UI.Button>
           <UI.Button
             size="small"
             disabled={!editable}
@@ -1296,6 +1327,20 @@ export const FunctionsPanel = ({
           onSave={saveDraft}
         />
       ) : null}
+
+      {settingsOpen && (
+        <FunctionSettingsModal
+          config={config}
+          connections={connections}
+          secrets={secrets}
+          credentialApiBase={credentialApiBase}
+          getProviderLabel={getProviderLabel}
+          onSaveConfig={onSaveConfig}
+          onSecretsChanged={onSecretsChanged}
+          snackbar={snackbar}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {editing && (
         <FunctionModal

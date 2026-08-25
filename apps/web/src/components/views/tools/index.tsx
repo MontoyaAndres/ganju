@@ -84,7 +84,15 @@ interface ArtifactCredential {
   artifactId: string;
   createdAt: string;
   updatedAt: string;
-  metadata?: { needsReauth?: boolean; reauthReason?: string } | null;
+  // One table, two shapes. An OAuth credential carries the re-auth flags; a
+  // per-tool secret (http-endpoint, mcp-proxy, custom-code) carries the label it
+  // is looked up by — which for custom-code is the name a script passes to
+  // `ctx.secret()`, not just something to show in a list.
+  metadata?: {
+    needsReauth?: boolean;
+    reauthReason?: string;
+    label?: string;
+  } | null;
 }
 
 // One managed OAuth provider and where this artifact stands with it. Reported
@@ -554,6 +562,73 @@ export const Tools = ({ plan }: ToolsProps) => {
    * overwritten server-side by what is actually stored, since only publish and
    * rollback may move that pointer.
    */
+  const customCodeConfig = useMemo(
+    () =>
+      customCodeTool
+        ? ((customCodeTool.config || {}) as {
+            connections?: string[];
+            allowedHosts?: string[];
+            timeoutMs?: number;
+            resourceAccess?: string;
+          })
+        : null,
+    [customCodeTool]
+  );
+
+  // The artifact's `custom-code` credentials — the values a script reads back
+  // through `ctx.secret(name)`, matched on the label stored in metadata. Scoped
+  // to the artifact rather than to the tool row, which is why they can be
+  // managed before any code exists.
+  const customCodeSecrets = useMemo(
+    () =>
+      credentials.filter(
+        credential =>
+          credential.provider ===
+          utils.constants.CREDENTIAL_PROVIDER_CUSTOM_CODE
+      ),
+    [credentials]
+  );
+
+  /**
+   * Write the custom-code row's capabilities.
+   *
+   * The same route and the same rule as the allow-list below: the whole config
+   * is replaced, so the stored one is spread first, and `activeVersionId`
+   * travels with it and is overwritten server-side by what is actually stored —
+   * only publish and rollback may move that pointer.
+   */
+  const saveCustomCodeConfig = async (next: {
+    connections?: string[];
+    allowedHosts?: string[];
+    timeoutMs?: number;
+    resourceAccess?: string;
+  }): Promise<boolean> => {
+    if (!customCodeTool) return false;
+    const config = {
+      ...((customCodeTool.config as Record<string, unknown>) || {}),
+      ...next
+    };
+    try {
+      const data = await utils.fetcher({
+        url: `${toolApiBase}/${customCodeTool.id}`,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ config })
+        }
+      });
+      if (data?.error) {
+        snackbar.error(data.error);
+        return false;
+      }
+      await fetchAll();
+      return true;
+    } catch {
+      snackbar.error(t('settingsErrSave'));
+      return false;
+    }
+  };
+
   const setCustomCodeAllowedTools = async (next: string[] | null) => {
     if (!customCodeTool) return;
     const config = {
@@ -1550,6 +1625,13 @@ export default createHandler({
             onSetAllowedTools={setCustomCodeAllowedTools}
             onVersionsChanged={fetchCustomCode}
             onChanged={fetchAll}
+            config={customCodeConfig}
+            connections={connections}
+            secrets={customCodeSecrets}
+            credentialApiBase={credentialApiBase}
+            getProviderLabel={getProviderLabel}
+            onSaveConfig={saveCustomCodeConfig}
+            onSecretsChanged={fetchAll}
           />
         )}
 
