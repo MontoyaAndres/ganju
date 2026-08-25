@@ -23,6 +23,17 @@ const basicConfig = {
     roman: '#d9534f',
     indigo: '#5c6ac4'
   },
+  // What a file type looks like, for the Functions tab's explorer. Identity
+  // colours rather than UI ones — the same reason the channel brand colours
+  // below are literal: Seti is the icon theme VS Code ships enabled, so a .js
+  // file is this yellow in the editor the author has open on their other
+  // screen, and repainting it in the dashboard palette makes it stop being
+  // recognisable. Everything else in that explorer comes from `colors` above.
+  fileIcons: {
+    js: '#CBCB41',
+    json: '#F5DE19',
+    folder: '#90A4AE'
+  },
   chart: {
     telegram: '#7FC8EC',
     whatsapp: '#86D9A4',

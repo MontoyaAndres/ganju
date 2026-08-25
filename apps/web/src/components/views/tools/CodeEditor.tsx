@@ -34,6 +34,8 @@ interface Props {
   onCreateFile: (path: string) => void;
   onCreateFolder: (path: string) => void;
   onDeleteFile: (path: string) => void;
+  // A file, or a folder and everything under it.
+  onRenamePath: (from: string, to: string) => void;
   emptyFolders: string[];
   // A CLI-uploaded bundle is deployable but not editable, so the same component
   // has to render as a viewer.
@@ -53,6 +55,7 @@ export const CodeEditor = ({
   onCreateFile,
   onCreateFolder,
   onDeleteFile,
+  onRenamePath,
   emptyFolders,
   readOnly = false,
   dirty = false,
@@ -96,6 +99,7 @@ export const CodeEditor = ({
           onCreateFile={onCreateFile}
           onCreateFolder={onCreateFolder}
           onDelete={onDeleteFile}
+          onRename={onRenamePath}
         />
         <div className="tools-ide-surface">
           <Surface

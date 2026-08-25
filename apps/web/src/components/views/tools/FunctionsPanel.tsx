@@ -19,6 +19,7 @@ import {
 import Switch from '@mui/material/Switch';
 
 import { CodeEditor } from './CodeEditor';
+import { MetaGridSkeleton, ToolRowsSkeleton } from './Skeletons';
 import { JsonEditor, SCHEMA_META_SCHEMA } from './JsonEditor';
 import { ModalDialog, ModalOverlay } from './styles';
 
@@ -44,6 +45,7 @@ export interface CustomCodeVersion {
 
 interface Props {
   apiBase: string;
+  loading: boolean;
   activeVersionId: string | null;
   versions: CustomCodeVersion[];
   // The enabled subset of the live version's tools, from the row's config.
@@ -292,6 +294,7 @@ const argCount = (tool: ManifestTool): number =>
 
 export const FunctionsPanel = ({
   apiBase,
+  loading: versionsLoading,
   activeVersionId,
   versions,
   allowedTools,
@@ -317,7 +320,8 @@ export const FunctionsPanel = ({
   const [manifest, setManifest] = useState<ManifestTool[]>([]);
   const [editable, setEditable] = useState(true);
   const [sourceKind, setSourceKind] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Pulling one version's stored source.
+  const [sourceLoading, setSourceLoading] = useState(false);
   // One flag rather than several booleans: every one of these disables the same
   // buttons, and two of them running at once is never right.
   const [busy, setBusy] = useState<'draft' | 'deploy' | 'rollback' | null>(
@@ -333,6 +337,11 @@ export const FunctionsPanel = ({
   const [testInput, setTestInput] = useState<Record<string, string>>({});
   const [testRun, setTestRun] = useState<TestRun | null>(null);
   const [togglingTool, setTogglingTool] = useState<string | null>(null);
+
+  // Either half of the load means the panel does not yet know what it is
+  // showing, and both resolve into the same screen — so they collapse into one
+  // flag rather than two states with two different placeholders.
+  const loading = versionsLoading || sourceLoading;
 
   const openVersion = useMemo(
     () => versions.find(v => v.id === openVersionId) || null,
@@ -355,7 +364,7 @@ export const FunctionsPanel = ({
   useEffect(() => {
     if (!openVersionId) return;
     let cancelled = false;
-    setLoading(true);
+    setSourceLoading(true);
     utils
       .fetcher({
         url: `${customCodeBase}/version/${openVersionId}/source`,
@@ -388,7 +397,7 @@ export const FunctionsPanel = ({
       .catch(() => {
         if (!cancelled) snackbar.error('Could not load this version’s code');
       })
-      .finally(() => !cancelled && setLoading(false));
+      .finally(() => !cancelled && setSourceLoading(false));
     return () => {
       cancelled = true;
     };
@@ -451,14 +460,74 @@ export const FunctionsPanel = ({
     setEmptyFolders(prev => (prev.includes(path) ? prev : [...prev, path]));
   };
 
+  // Deletes a file, or a folder and everything beneath it — the explorer offers
+  // both and they are the same operation on a map of paths. The main module is
+  // refused either way: directly, and as a folder that happens to contain it,
+  // because "delete lib/" should never be the way a script loses its entry
+  // point.
   const deleteFile = (path: string) => {
     if (path === MAIN) return;
+    const prefix = `${path}/`;
+    if (MAIN.startsWith(prefix)) return;
+
     setFiles(prev => {
-      const next = { ...prev };
-      delete next[path];
+      const next: Record<string, string> = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (key === path || key.startsWith(prefix)) continue;
+        next[key] = value;
+      }
       return next;
     });
-    if (activePath === path) setActivePath(MAIN);
+    setEmptyFolders(prev =>
+      prev.filter(folder => folder !== path && !folder.startsWith(prefix))
+    );
+    if (activePath === path || activePath.startsWith(prefix)) {
+      setActivePath(MAIN);
+    }
+    setDirty(true);
+  };
+
+  /**
+   * Rename a file, or a folder and every path under it.
+   *
+   * A folder is a prefix, so renaming one is a prefix rewrite across the map —
+   * there is no directory to move. Key order is preserved rather than the moved
+   * entries being appended, so the file list doesn't reshuffle under someone who
+   * only renamed one thing.
+   *
+   * The name itself was already checked in the explorer against
+   * `validateProjectPath`, the same rule the upload path enforces. What is
+   * checked here is the one thing that isn't about the name: the main module
+   * cannot move, because the dispatcher calls it by that exact path.
+   */
+  const renamePath = (from: string, to: string) => {
+    if (from === to || from === MAIN) return;
+    const prefix = `${from}/`;
+    if (MAIN === from || MAIN.startsWith(prefix)) return;
+
+    setFiles(prev => {
+      const next: Record<string, string> = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (key === from) next[to] = value;
+        else if (key.startsWith(prefix))
+          next[to + key.slice(from.length)] = value;
+        else next[key] = value;
+      }
+      return next;
+    });
+    setEmptyFolders(prev =>
+      prev.map(folder =>
+        folder === from
+          ? to
+          : folder.startsWith(prefix)
+            ? to + folder.slice(from.length)
+            : folder
+      )
+    );
+    if (activePath === from) setActivePath(to);
+    else if (activePath.startsWith(prefix)) {
+      setActivePath(to + activePath.slice(from.length));
+    }
     setDirty(true);
   };
 
@@ -703,9 +772,16 @@ export const FunctionsPanel = ({
         <div>
           <h2 className="tools-section-title">Functions</h2>
           <p className="tools-section-subtitle">
-            {versions.length === 0 && `${headline} · `}
-            {manifest.length} {manifest.length === 1 ? 'function' : 'functions'}
-            {dirty && ' · unsaved changes'}
+            {loading ? (
+              <UI.Skeleton variant="text" width={190} height={14} />
+            ) : (
+              <>
+                {versions.length === 0 && `${headline} · `}
+                {manifest.length}{' '}
+                {manifest.length === 1 ? 'function' : 'functions'}
+                {dirty && ' · unsaved changes'}
+              </>
+            )}
           </p>
         </div>
         <div className="tools-functions-actions">
@@ -823,7 +899,9 @@ export const FunctionsPanel = ({
           code and contract here — the tool names an MCP client sees come from
           this row, not from the running script — so its metadata is worth
           reading before changing anything. */}
-      {openVersion && (
+      {loading && <MetaGridSkeleton />}
+
+      {!loading && openVersion && (
         <dl className="tools-meta-grid">
           <div>
             <dt>Version</dt>
@@ -862,7 +940,12 @@ export const FunctionsPanel = ({
         </dl>
       )}
 
-      {manifest.length === 0 ? (
+      {/* "No functions yet" is only true once the version and its manifest have
+          been read. Before that it is a guess, and the wrong one for anyone who
+          has already deployed something. */}
+      {loading ? (
+        <ToolRowsSkeleton rows={2} />
+      ) : manifest.length === 0 ? (
         <div className="tools-empty-state">
           <CodeOutlined />
           <h3>No functions yet</h3>
@@ -1166,6 +1249,7 @@ export const FunctionsPanel = ({
           onCreateFile={createFile}
           onCreateFolder={createFolder}
           onDeleteFile={deleteFile}
+          onRenamePath={renamePath}
           readOnly={!editable}
           dirty={dirty}
           onSave={saveDraft}

@@ -187,6 +187,11 @@ app
 
   // Billing controller
   .get(
+    '/organization/:organizationId/plan',
+    UserMiddleware.verify,
+    BillingController.getPlan
+  )
+  .get(
     '/organization/:organizationId/billing',
     UserMiddleware.verify,
     BillingController.getStatus

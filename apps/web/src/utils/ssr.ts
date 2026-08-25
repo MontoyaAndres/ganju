@@ -1,5 +1,17 @@
 import { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import { utils } from '@ganju/utils';
+import type { PlanLimits } from '@ganju/utils';
+
+/**
+ * What the organization is entitled to, as `getAuthMe` puts it in page props.
+ *
+ * Declared here rather than in a page or a view because this is the function
+ * that produces it, and both of those consume it.
+ */
+export interface Plan {
+  plan: string;
+  limits: PlanLimits;
+}
 
 const getMe = async (context: GetServerSidePropsContext) => {
   const { req } = context;
@@ -47,6 +59,28 @@ const getOrganizations = async (context: GetServerSidePropsContext) => {
   return null;
 };
 
+const getPlan = async (
+  context: GetServerSidePropsContext,
+  organizationId: string
+) => {
+  const plan = await utils.fetcher({
+    url: `/organization/${organizationId}/plan`,
+    config: {
+      credentials: 'include',
+      headers: {
+        cookie: context.req.headers.cookie
+      }
+    },
+    ssrContext: context
+  });
+
+  if (plan && !plan?.error) {
+    return plan;
+  }
+
+  return null;
+};
+
 const getAuthMe: GetServerSideProps = async context => {
   const {
     req,
@@ -69,7 +103,12 @@ const getAuthMe: GetServerSideProps = async context => {
     };
   }
 
-  const me = await getMe(context);
+  const organizationId = typeof params?.id === 'string' ? params.id : null;
+
+  const [me, plan] = await Promise.all([
+    getMe(context),
+    organizationId ? getPlan(context, organizationId) : Promise.resolve(null)
+  ]);
 
   if (me) {
     return {
@@ -77,7 +116,8 @@ const getAuthMe: GetServerSideProps = async context => {
         params: params || null,
         query: query || null,
         locale: locale || defaultLocale,
-        auth: me?.user || null
+        auth: me?.user || null,
+        plan: plan || null
       }
     };
   }

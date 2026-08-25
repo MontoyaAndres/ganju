@@ -51,6 +51,50 @@ export const decodeProject = (text: string): Record<string, string> | null => {
 };
 
 /**
+ * Check ONE path against every rule a stored file has to satisfy, and answer
+ * with the reason it fails or `null`.
+ *
+ * Split out of the set-level check below so the dashboard's file explorer can
+ * apply the identical rules as someone types a name, rather than letting them
+ * finish, click deploy, and read the same sentence back as a 400. There is one
+ * definition of what a legal path is, and both surfaces call it.
+ *
+ * `taken` is the paths already in the project, compared case-insensitively —
+ * pass the file being renamed's own path in it and the rename reports a
+ * collision with itself, so callers exclude it.
+ */
+export const validateProjectPath = (
+  path: string,
+  taken: Iterable<string> = []
+): string | null => {
+  if (!path) return 'A name is required';
+  if (path.length > constants.CUSTOM_CODE_MAX_FILE_PATH) {
+    return `The path "${path}" exceeds 100 characters`;
+  }
+  if (!/^[a-zA-Z0-9._-]+(\/[a-zA-Z0-9._-]+)*$/.test(path)) {
+    return `Invalid file path "${path}" — letters, digits, dot, dash, underscore and / only, with no leading or trailing slash`;
+  }
+  if (path.split('/').some(segment => segment === '.' || segment === '..')) {
+    return `Invalid file path "${path}" — . and .. are not allowed`;
+  }
+  if (!path.endsWith('.js')) {
+    return `Invalid file path "${path}" — every file must end in .js, since it is deployed as a module exactly as written`;
+  }
+  if (path === constants.CUSTOM_CODE_SDK_MODULE) {
+    return `Invalid file path "${path}" — that name belongs to the SDK, which is attached to every deploy`;
+  }
+  // Case-insensitively, because two files differing only in case are one file
+  // on the machine of whoever downloads them next.
+  const lower = path.toLowerCase();
+  for (const other of taken) {
+    if (other.toLowerCase() === lower) {
+      return `Invalid file path "${path}" — it is already in use`;
+    }
+  }
+  return null;
+};
+
+/**
  * Check a set of files before anything is stored or deployed.
  *
  * Paths are the module names the Workers upload API receives, and a script's
@@ -78,33 +122,8 @@ export const validateProjectFiles = (files: Record<string, string>): void => {
 
   const seen = new Set<string>();
   for (const path of paths) {
-    if (path.length > constants.CUSTOM_CODE_MAX_FILE_PATH) {
-      throw new Error(`The path "${path}" exceeds 100 characters`);
-    }
-    if (!/^[a-zA-Z0-9._-]+(\/[a-zA-Z0-9._-]+)*$/.test(path)) {
-      throw new Error(
-        `Invalid file path "${path}" — letters, digits, dot, dash, underscore and / only, with no leading or trailing slash`
-      );
-    }
-    if (path.split('/').some(segment => segment === '.' || segment === '..')) {
-      throw new Error(`Invalid file path "${path}" — . and .. are not allowed`);
-    }
-    if (!path.endsWith('.js')) {
-      throw new Error(
-        `Invalid file path "${path}" — every file must end in .js, since it is deployed as a module exactly as written`
-      );
-    }
-    if (path === constants.CUSTOM_CODE_SDK_MODULE) {
-      throw new Error(
-        `Invalid file path "${path}" — that name belongs to the SDK, which is attached to every deploy`
-      );
-    }
-    // Case-insensitively, because two files differing only in case are one file
-    // on the machine of whoever downloads them next.
-    const lower = path.toLowerCase();
-    if (seen.has(lower)) {
-      throw new Error(`Invalid file path "${path}" — it is already in use`);
-    }
-    seen.add(lower);
+    const problem = validateProjectPath(path, seen);
+    if (problem) throw new Error(problem);
+    seen.add(path.toLowerCase());
   }
 };

@@ -387,7 +387,7 @@ export const Wrapper = styled.div`
         grid-template-columns: 1fr;
 
         @media (min-width: ${theme.screens.md}) {
-          grid-template-columns: 200px 1fr;
+          grid-template-columns: 220px 1fr;
         }
       }
 
@@ -401,140 +401,335 @@ export const Wrapper = styled.div`
         }
       }
 
+      /* VS Code's Explorer, at its own scale and in this app's palette.
+         What makes it recognisable is the shape and the behaviour — the
+         twisties, the indent guides, the 22px rows, the hover-revealed toolbar,
+         rename in place — not VS Code's particular greys, so the greys are ours.
+         Named here as roles rather than repeated as interpolations below, which
+         is also the list to read if this ever needs a dark variant.
+         The one exception is the file-type icons: those are identity colours
+         and live in the theme beside the channel brand colours. */
       .tools-explorer {
+        --exp-bg: ${theme.colors.bastille}08;
+        --exp-fg: ${theme.colors.bastille}CC;
+        --exp-strong: ${theme.colors.bastille};
+        --exp-muted: ${theme.colors.bastille}80;
+        --exp-hover: ${theme.colors.bastille}0F;
+        --exp-press: ${theme.colors.bastille}1A;
+        --exp-selected: ${theme.colors.indigo}24;
+        --exp-focus: ${theme.colors.indigo};
+        --exp-on-focus: ${theme.colors.white};
+        --exp-guide: ${theme.colors.alto};
+        --exp-line: ${theme.colors.alto};
+        --exp-surface: ${theme.colors.white};
+        --exp-danger: ${theme.colors.thunderbird};
+        --exp-danger-bg: ${theme.colors.fairPink};
+
         display: flex;
         flex-direction: column;
-        background-color: ${theme.colors.bastille}04;
-        min-height: 120px;
+        min-width: 0;
+        min-height: 160px;
+        overflow: hidden;
+        background-color: var(--exp-bg);
+        color: var(--exp-fg);
+        font-size: 13px;
+        user-select: none;
 
-        .tools-explorer-head {
+        .tools-explorer-title {
+          padding: 8px 12px 6px;
+          font-size: 11px;
+          font-weight: 400;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: var(--exp-muted);
+        }
+
+        .tools-explorer-section {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 8px;
-          padding: 6px 8px 6px 12px;
-          font-size: ${theme.fonts.xs};
-          font-weight: 600;
+          height: 22px;
+          padding-right: 4px;
+
+          /* VS Code reveals the section's actions on hover over the whole
+             section, not over each button — so the row is the hover target. */
+          &:hover .tools-explorer-actions button,
+          &:focus-within .tools-explorer-actions button {
+            opacity: 1;
+          }
+        }
+
+        .tools-explorer-section-label {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+          height: 100%;
+          padding: 0 4px 0 2px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font: inherit;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: ${theme.colors.bastille}80;
+          color: var(--exp-strong);
+          text-align: left;
         }
 
         .tools-explorer-actions {
           display: flex;
           align-items: center;
+          gap: 1px;
+          flex-shrink: 0;
 
-          svg {
-            width: 16px;
-            height: 16px;
-          }
-        }
+          button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: none;
+            border-radius: 5px;
+            background: none;
+            cursor: pointer;
+            color: var(--exp-strong);
+            /* Hidden until the section is hovered, as in VS Code — the tree is
+               the content, and three icons sitting on it permanently is three
+               things to read past every time. Keyboard focus reveals them too,
+               or they would be unreachable without a mouse. */
+            opacity: 0;
+            transition: opacity 0.1s ease;
 
-        .tools-explorer-new {
-          display: flex;
-          align-items: center;
-          gap: 2px;
-          padding: 4px 8px 4px 12px;
-          font-size: ${theme.fonts.xs};
-          color: ${theme.colors.bastille}99;
+            &:hover {
+              background-color: var(--exp-press);
+            }
 
-          input {
-            flex: 1;
-            min-width: 0;
-            border: 1px solid ${theme.colors.alto};
-            border-radius: 6px;
-            padding: 3px 6px;
-            outline: none;
-            font-family: monospace;
-            font-size: ${theme.fonts.xs};
-            color: ${theme.colors.bastille};
+            &:focus-visible {
+              opacity: 1;
+              outline: 1px solid var(--exp-focus);
+            }
 
-            &:focus {
-              border-color: ${theme.colors.bastille};
+            svg {
+              width: 16px;
+              height: 16px;
             }
           }
         }
 
         .tools-explorer-tree {
           flex: 1;
-          overflow-y: auto;
+          /* Without this the flex item grows to its content and the sidebar
+             pushes the editor's height instead of scrolling. */
+          min-height: 0;
+          overflow: auto;
           padding-bottom: 8px;
+          outline: none;
+
+          /* The list only paints the strong selection while it has focus, which
+             is how VS Code distinguishes "this row is selected" from "this row
+             is what your keyboard is pointing at". */
+          &:focus-visible .tools-explorer-row.selected {
+            background-color: var(--exp-focus);
+            color: var(--exp-on-focus);
+
+            .tools-explorer-twisty,
+            .tools-explorer-icon.folder,
+            .tools-explorer-icon.plain,
+            .tools-explorer-badge {
+              color: var(--exp-on-focus);
+            }
+          }
         }
 
         .tools-explorer-row {
+          position: relative;
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding-right: 4px;
-          min-height: 26px;
-          font-size: ${theme.fonts.xs};
-          color: ${theme.colors.bastille}CC;
+          gap: 3px;
+          height: 22px;
+          padding-right: 6px;
+          cursor: pointer;
+          white-space: nowrap;
 
-          svg {
-            width: 14px;
-            height: 14px;
-            flex-shrink: 0;
-            color: ${theme.colors.bastille}66;
+          &:hover {
+            background-color: var(--exp-hover);
           }
 
-          .tools-explorer-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+          &.selected {
+            background-color: var(--exp-selected);
           }
 
-          .MuiButtonBase-root {
-            opacity: 0;
-            padding: 2px;
-          }
-
-          &:hover .MuiButtonBase-root {
-            opacity: 1;
-          }
-
-          &.folder {
-            font-weight: 600;
-            color: ${theme.colors.bastille}99;
-          }
-
-          &.file:hover {
-            background-color: ${theme.colors.bastille}08;
-          }
-
-          &.active {
-            background-color: ${theme.colors.bastille}0F;
-            color: ${theme.colors.bastille};
+          /* The file the editor is showing. VS Code marks it in the tab, not in
+             the tree — here there is one tab and it is a label, so the tree is
+             the only place the open file can be pointed at. */
+          &.active .tools-explorer-name {
             font-weight: 600;
           }
 
           &.attached {
-            padding-left: 8px;
-            opacity: 0.55;
-            font-style: italic;
+            cursor: default;
+            opacity: 0.6;
+
+            &:hover {
+              background-color: transparent;
+            }
           }
 
-          .tools-explorer-note {
-            margin-left: auto;
-            padding-right: 6px;
-            font-size: 10px;
-            font-style: normal;
-            color: ${theme.colors.bastille}66;
+          &.draft {
+            background-color: transparent;
+            cursor: default;
           }
         }
 
-        .tools-explorer-open {
+        .tools-explorer-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .tools-explorer-badge {
+          margin-left: auto;
+          padding-left: 8px;
+          font-size: 10px;
+          color: var(--exp-muted);
+        }
+
+        /* One 8px column per ancestor level, each drawing the vertical guide
+           that tells you which folder a deep row belongs to. */
+        .tools-explorer-indent {
           display: flex;
-          align-items: center;
-          gap: 6px;
+          flex-shrink: 0;
+        }
+
+        .tools-explorer-guide {
+          width: 8px;
+          height: 22px;
+          margin-left: 4px;
+          border-left: 1px solid var(--exp-guide);
+        }
+
+        .tools-explorer-twisty,
+        .tools-explorer-twisty-slot {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+        }
+
+        .tools-explorer-twisty {
+          color: var(--exp-muted);
+        }
+
+        .tools-explorer-icon {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+
+          /* Seti's colours, so a .js file is the same yellow here as in the
+             editor the author has open on another screen. */
+          &.js {
+            color: ${theme.fileIcons.js};
+          }
+
+          &.json {
+            color: ${theme.fileIcons.json};
+          }
+
+          &.folder {
+            color: ${theme.fileIcons.folder};
+          }
+
+          &.plain {
+            color: ${theme.colors.saltBox};
+          }
+        }
+
+        .tools-explorer-input {
+          display: flex;
           flex: 1;
           min-width: 0;
-          border: none;
-          background: none;
+
+          input {
+            flex: 1;
+            min-width: 0;
+            height: 18px;
+            padding: 0 4px;
+            border: 1px solid var(--exp-focus);
+            border-radius: 2px;
+            background-color: var(--exp-surface);
+            outline: none;
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--exp-strong);
+          }
+
+          &.invalid input {
+            border-color: var(--exp-danger);
+          }
+
+          /* Absolutely placed so a name that fails validation doesn't push
+             every row below it down while it is being corrected. */
+          .tools-explorer-input-error {
+            position: absolute;
+            top: 100%;
+            left: 24px;
+            right: 6px;
+            z-index: 5;
+            padding: 3px 6px;
+            border: 1px solid var(--exp-danger);
+            border-top: none;
+            background-color: var(--exp-danger-bg);
+            font-size: 11px;
+            line-height: 1.35;
+            white-space: normal;
+            color: var(--exp-danger);
+          }
+        }
+
+        .tools-explorer-menu {
+          position: fixed;
+          z-index: 30;
+          min-width: 170px;
           padding: 4px 0;
-          cursor: pointer;
-          font: inherit;
-          color: inherit;
-          text-align: left;
+          border: 1px solid var(--exp-line);
+          border-radius: 5px;
+          background-color: var(--exp-surface);
+          box-shadow: ${theme['custom-shadows'].small};
+
+          button {
+            display: block;
+            width: 100%;
+            padding: 4px 22px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font: inherit;
+            font-size: 13px;
+            color: var(--exp-strong);
+            text-align: left;
+
+            &:hover:not(:disabled) {
+              background-color: var(--exp-focus);
+              color: var(--exp-on-focus);
+            }
+
+            &:disabled {
+              opacity: 0.4;
+              cursor: default;
+            }
+
+            &.danger:hover:not(:disabled) {
+              background-color: var(--exp-danger);
+            }
+          }
+
+          .tools-explorer-menu-sep {
+            display: block;
+            margin: 4px 0;
+            border-top: 1px solid var(--exp-line);
+          }
         }
       }
 
@@ -683,6 +878,14 @@ export const Wrapper = styled.div`
         }
       }
 
+      /* The bar is a Skeleton rather than the real element, so the track's own
+         background would show through as a second rectangle. */
+      &.loading .tools-budget-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
       &.over {
         border-color: ${theme.colors.thunderbird}66;
 
@@ -772,6 +975,35 @@ export const Wrapper = styled.div`
       border: 1px solid ${theme.colors.alto};
       border-radius: 10px;
       overflow: hidden;
+
+      /* Same box as a real row, so the list doesn't resize when one replaces
+         the other. */
+      .tools-function-item-skeleton {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+
+        & + .tools-function-item-skeleton {
+          border-top: 1px solid ${theme.colors.alto};
+        }
+
+        .tools-function-item-skeleton-main {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .tools-function-item-skeleton-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+      }
 
       .tools-function-item {
         display: flex;

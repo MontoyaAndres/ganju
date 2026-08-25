@@ -116,7 +116,8 @@ import {
   CUSTOM_CODE_PROJECT_MARKER,
   encodeProject,
   decodeProject,
-  validateProjectFiles
+  validateProjectFiles,
+  validateProjectPath
 } from './customCodeProject';
 import type { CustomCodeProject } from './customCodeProject';
 import type {
@@ -265,6 +266,7 @@ export const utils = {
   encodeProject,
   decodeProject,
   validateProjectFiles,
+  validateProjectPath,
   ipv4InPrivateRange,
   isBlockedHost,
   validateMessageVariables,

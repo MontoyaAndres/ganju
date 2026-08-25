@@ -63,6 +63,11 @@ declare module '@emotion/react' {
       roman: string;
       indigo: string;
     };
+    fileIcons: {
+      js: string;
+      json: string;
+      folder: string;
+    };
     chart: {
       telegram: string;
       whatsapp: string;

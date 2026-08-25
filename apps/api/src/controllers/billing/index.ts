@@ -12,6 +12,18 @@ import { AppEnv } from '../../types';
 
 const { constants } = utils;
 
+const getPlan = async (c: Context<AppEnv>) => {
+  const organizationId = c.req.param('organizationId');
+  if (!organizationId) throw new Error('organizationId is required');
+
+  const { plan, limits } = await Plan.getEffectivePlan(
+    db.create(c),
+    organizationId
+  );
+
+  return c.json({ plan, limits });
+};
+
 const getStatus = async (c: Context<AppEnv>) => {
   const organizationId = c.req.param('organizationId');
   if (!organizationId) throw new Error('organizationId is required');
@@ -354,6 +366,7 @@ const webhook = async (c: Context<AppEnv>) => {
 };
 
 export const BillingController = {
+  getPlan,
   getStatus,
   createCheckout,
   createPortal,

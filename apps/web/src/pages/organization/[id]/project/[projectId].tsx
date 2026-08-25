@@ -3,10 +3,13 @@ import { ParsedUrlQuery } from 'querystring';
 import { Components } from '../../../../components';
 import { ssr } from '../../../../utils';
 
+import type { Plan } from '../../../../utils';
+
 export interface IProps {
   params: ParsedUrlQuery;
   query: ParsedUrlQuery;
   locale: string;
+  plan: Plan | null;
   auth: {
     name: string;
     email: string;

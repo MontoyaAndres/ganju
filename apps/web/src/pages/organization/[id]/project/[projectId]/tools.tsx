@@ -4,7 +4,7 @@ import { ssr } from '../../../../../utils';
 import type { IProps } from '../[projectId]';
 
 const ToolsPage = (props: IProps) => {
-  return <Components.Views.Tools />;
+  return <Components.Views.Tools plan={props.plan} />;
 };
 
 ToolsPage.getLayout = Components.Layouts.Home;

@@ -22,10 +22,14 @@ import {
 } from '@mui/icons-material';
 
 import { FunctionsPanel } from './FunctionsPanel';
-import type { CustomCodeVersion } from './FunctionsPanel';
+import { ToolRowsSkeleton } from './Skeletons';
 import { HttpEndpointModal } from './HttpEndpointModal';
 import { McpProxyModal } from './McpProxyModal';
 import { ModalDialog, ModalOverlay, Wrapper } from './styles';
+
+// types
+import type { CustomCodeVersion } from './FunctionsPanel';
+import type { Plan } from '../../../utils';
 
 interface McpServer {
   id: string;
@@ -131,13 +135,6 @@ const TAB_HTTP = 'http' as const;
 const TAB_CATALOG = 'catalog' as const;
 type ToolsTab = typeof TAB_FUNCTIONS | typeof TAB_HTTP | typeof TAB_CATALOG;
 
-// Only the fields this view acts on. The billing endpoint returns the whole
-// PlanLimits object; naming the two we use keeps the dependency legible.
-interface PlanLimits {
-  canUseCustomCode: boolean;
-  maxHttpEndpointsPerArtifact: number | null;
-}
-
 interface CustomCodeState {
   activeVersionId: string | null;
   versions: CustomCodeVersion[];
@@ -172,18 +169,33 @@ const tabForToolKey = (toolKey: string): ToolsTab => {
   return TAB_CATALOG;
 };
 
-export const Tools = () => {
+interface ToolsProps {
+  // Resolved server-side and handed down, so the tab this opens on is right in
+  // the first render rather than corrected after a request comes back.
+  plan: Plan | null;
+}
+
+export const Tools = ({ plan }: ToolsProps) => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
+  // Optimistic when the plan could not be resolved at all: assume allowed
+  // rather than flashing a lock on a paid org's own page. The server refuses
+  // either way, so the worst case is a control that looks open and then locks.
+  const canUseCustomCode = plan?.limits.canUseCustomCode !== false;
+  const httpEndpointCap = plan?.limits.maxHttpEndpointsPerArtifact ?? null;
+
   // Fixed order on every plan — Functions, HTTP, Catalog. Only which one opens
   // first changes with the plan, so upgrading doesn't rearrange the page under
-  // someone who has learned where things are.
-  const [tab, setTab] = useState<ToolsTab>(TAB_CATALOG);
-  // Set once, when the plan resolves: a Free org lands on the catalog, a paid
-  // one on its own code. Guarded so it never yanks the tab out from under a
-  // user who has already clicked somewhere.
-  const [tabPinned, setTabPinned] = useState(false);
-  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
+  // someone who has learned where things are. A paid org lands on its own code
+  // because that is what it came for; a Free org lands on the catalog, because
+  // Functions is locked for it and an upgrade wall is a poor first screen.
+  //
+  // A lazy initializer rather than an effect: this is the initial value, not a
+  // correction to one, so there is no render in which it is wrong and nothing
+  // to guard against yanking the tab out from under a mid-task click.
+  const [tab, setTab] = useState<ToolsTab>(() =>
+    canUseCustomCode ? TAB_FUNCTIONS : TAB_CATALOG
+  );
   const [customCode, setCustomCode] = useState<CustomCodeState>({
     activeVersionId: null,
     versions: []
@@ -199,6 +211,12 @@ export const Tools = () => {
   const [status, setStatus] = useState<
     'idle' | 'pending' | 'resolved' | 'rejected'
   >('idle');
+  // Whether this page has ever finished a load. `status` alone can't answer
+  // that: every mutation calls `fetchAll` and moves it back to `pending`, so a
+  // skeleton keyed on `status` would replace the list the user is looking at
+  // each time they flipped a switch. What a skeleton stands in for is content
+  // that has never been on screen — which is exactly once.
+  const [loaded, setLoaded] = useState(false);
   const [togglingToolKey, setTogglingToolKey] = useState<string | null>(null);
   const [connectingProvider, setConnectingProvider] = useState<string | null>(
     null
@@ -257,7 +275,6 @@ export const Tools = () => {
   const credentialApiBase = `${apiBase}/credential`;
   const connectionApiBase = `${apiBase}/connections`;
   const customCodeApiBase = `${apiBase}/custom-code`;
-  const billingApiBase = `/organization/${organizationId}/billing`;
 
   const fetchAll = async (signal?: AbortSignal) => {
     if (!organizationId || !projectId) return;
@@ -269,7 +286,6 @@ export const Tools = () => {
         installedData,
         credentialData,
         connectionData,
-        billingData,
         customCodeData
       ] = await Promise.all([
         utils.fetcher({
@@ -292,12 +308,6 @@ export const Tools = () => {
           url: connectionApiBase,
           config: { credentials: 'include', signal }
         }),
-        // What the org's plan allows — whether it may write tools in code, and
-        // how many HTTP endpoints it may hold. The tab bar reads both.
-        utils.fetcher({
-          url: billingApiBase,
-          config: { credentials: 'include', signal }
-        }),
         utils.fetcher({
           url: `${customCodeApiBase}/versions`,
           config: { credentials: 'include', signal }
@@ -311,13 +321,13 @@ export const Tools = () => {
       if (Array.isArray(connectionData?.connections)) {
         setConnections(connectionData.connections);
       }
-      if (billingData?.limits) setPlanLimits(billingData.limits);
       if (Array.isArray(customCodeData?.versions)) {
         setCustomCode({
           activeVersionId: customCodeData.activeVersionId ?? null,
           versions: customCodeData.versions
         });
       }
+      setLoaded(true);
       setStatus('resolved');
     } catch {
       if (!signal?.aborted) setStatus('rejected');
@@ -448,28 +458,10 @@ export const Tools = () => {
     setMcpProxyEditor({ server, existingTool: install });
   }, [pendingMcpServerSlug, mcpServers, installed]);
 
-  // Which tab opens first, decided once the plan is known. A paid org lands on
-  // its own code because that is what it came for; a Free org lands on the
-  // catalog, because Functions is locked for it and an upgrade wall is a poor
-  // first screen. Pinned after the first run and after any manual click, so the
-  // page never moves under someone mid-task.
-  useEffect(() => {
-    if (tabPinned || !planLimits) return;
-    setTabPinned(true);
-    if (planLimits.canUseCustomCode) setTab(TAB_FUNCTIONS);
-  }, [planLimits, tabPinned]);
-
-  const selectTab = (next: ToolsTab) => {
-    setTabPinned(true);
-    setTab(next);
-  };
-
-  // Optimistic until the plan resolves: assume allowed rather than flashing a
-  // lock on a paid org's own page for the length of one request. The server
-  // refuses either way, so the worst case here is a tab that looks open for a
-  // moment and then locks.
-  const canUseCustomCode = planLimits?.canUseCustomCode !== false;
-  const httpEndpointCap = planLimits?.maxHttpEndpointsPerArtifact ?? null;
+  // The one condition every skeleton on this page reads. A failed load is not
+  // loading: it stops showing skeletons and lets the empty states speak, which
+  // is the honest answer when there is nothing to show and nothing coming.
+  const initialLoading = !loaded && status !== 'rejected';
 
   const httpEndpoints = useMemo(
     () =>
@@ -606,7 +598,7 @@ export const Tools = () => {
     // "Open in Tools" from a channel arrives with an artifact_tool id, which now
     // has to resolve to a tab as well as a row — the three kinds live in
     // different places.
-    selectTab(tabForToolKey(match.toolKey));
+    setTab(tabForToolKey(match.toolKey));
     openEditor(match);
   }, [router.query.selected, installed]);
 
@@ -1424,7 +1416,7 @@ export const Tools = () => {
             className={`tools-tab ${tab === TAB_FUNCTIONS ? 'active' : ''} ${
               canUseCustomCode ? '' : 'locked'
             }`}
-            onClick={() => selectTab(TAB_FUNCTIONS)}
+            onClick={() => setTab(TAB_FUNCTIONS)}
           >
             {!canUseCustomCode && <LockOutlined fontSize="small" />}
             Functions
@@ -1435,7 +1427,7 @@ export const Tools = () => {
           <button
             type="button"
             className={`tools-tab ${tab === TAB_HTTP ? 'active' : ''}`}
-            onClick={() => selectTab(TAB_HTTP)}
+            onClick={() => setTab(TAB_HTTP)}
           >
             HTTP Endpoints
             {httpEndpoints.length > 0 && (
@@ -1445,7 +1437,7 @@ export const Tools = () => {
           <button
             type="button"
             className={`tools-tab ${tab === TAB_CATALOG ? 'active' : ''}`}
-            onClick={() => selectTab(TAB_CATALOG)}
+            onClick={() => setTab(TAB_CATALOG)}
           >
             Catalog
           </button>
@@ -1496,6 +1488,7 @@ export default createHandler({
         {tab === TAB_FUNCTIONS && canUseCustomCode && (
           <FunctionsPanel
             apiBase={apiBase}
+            loading={initialLoading}
             activeVersionId={customCode.activeVersionId}
             versions={customCode.versions}
             allowedTools={customCodeAllowedTools}
@@ -1512,7 +1505,8 @@ export default createHandler({
                 <h2 className="tools-section-title">HTTP Endpoints</h2>
                 <p className="tools-section-subtitle">
                   Expose your own HTTP APIs to the agent as named tools.
-                  {httpEndpointCap !== null &&
+                  {!initialLoading &&
+                    httpEndpointCap !== null &&
                     ` ${httpEndpoints.length} of ${httpEndpointCap} used.`}
                 </p>
               </div>
@@ -1530,8 +1524,9 @@ export default createHandler({
                 <span className="button-text">New endpoint</span>
               </UI.Button>
             </div>
-
-            {httpEndpoints.length === 0 ? (
+            {initialLoading ? (
+              <ToolRowsSkeleton rows={3} />
+            ) : httpEndpoints.length === 0 ? (
               <div className="tools-empty-state">
                 <ApiOutlined />
                 <h3>No endpoints yet</h3>
@@ -1623,34 +1618,48 @@ export default createHandler({
                 client will actually tolerate. Every enabled tool re-sends its
                 schema on every model call, so this is the page's real budget —
                 and it belongs next to the switches that spend it. */}
-            <div
-              className={`tools-budget ${
-                exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
-                  ? 'over'
-                  : ''
-              }`}
-            >
-              <div className="tools-budget-text">
-                <strong>{exposedToolCount}</strong> of{' '}
-                {utils.constants.CHANNEL_MAX_TOOLS} tools exposed
-                <span className="tools-budget-hint">
-                  {exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
-                    ? 'Past this, channels stop sending the extras and clients start to degrade.'
-                    : 'Each one is re-sent to the model on every turn.'}
-                </span>
+            {/* Rendered as a skeleton rather than as zero: an unloaded page
+                reads "0 of 40 tools exposed", which is a specific and wrong
+                claim about someone's server, and it settles on the real number
+                a moment later. A blank bar makes no claim at all. */}
+            {initialLoading ? (
+              <div className="tools-budget loading">
+                <div className="tools-budget-text">
+                  <UI.Skeleton variant="text" width={170} height={18} />
+                  <UI.Skeleton variant="text" width={260} height={13} />
+                </div>
+                <UI.Skeleton variant="rounded" width="100%" height={6} />
               </div>
-              <div className="tools-budget-bar">
-                <span
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (exposedToolCount / utils.constants.CHANNEL_MAX_TOOLS) *
-                        100
-                    )}%`
-                  }}
-                />
+            ) : (
+              <div
+                className={`tools-budget ${
+                  exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
+                    ? 'over'
+                    : ''
+                }`}
+              >
+                <div className="tools-budget-text">
+                  <strong>{exposedToolCount}</strong> of{' '}
+                  {utils.constants.CHANNEL_MAX_TOOLS} tools exposed
+                  <span className="tools-budget-hint">
+                    {exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
+                      ? 'Past this, channels stop sending the extras and clients start to degrade.'
+                      : 'Each one is re-sent to the model on every turn.'}
+                  </span>
+                </div>
+                <div className="tools-budget-bar">
+                  <span
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (exposedToolCount / utils.constants.CHANNEL_MAX_TOOLS) *
+                          100
+                      )}%`
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
             <div className="tools-catalog-controls">
               <div className="tools-search">
                 <Search />
@@ -1677,7 +1686,7 @@ export default createHandler({
                 ))}
               </div>
             </div>
-            {status === 'pending' && catalog.length === 0 && (
+            {initialLoading && (
               <div className="tools-catalog-groups">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="tools-catalog-group-card-skeleton">
@@ -1693,7 +1702,7 @@ export default createHandler({
             )}
             {filteredCatalog.length === 0 &&
               filteredMcpServers.length === 0 &&
-              status === 'resolved' && (
+              !initialLoading && (
                 <p className="tools-empty">
                   {filter === FILTER_ALL
                     ? 'No integrations match your search.'
