@@ -14,8 +14,12 @@ import {
   ExpandLess
 } from '@mui/icons-material';
 
-import { JsonEditor, SCHEMA_META_SCHEMA } from './JsonEditor';
+import { JsonEditor, useSchemaMetaSchema } from './JsonEditor';
 import { ModalDialog, ModalOverlay } from './styles';
+import { i18n } from '../../../lib';
+
+// types
+import type { Translate } from '../../../lib';
 
 interface ArtifactTool {
   id: string;
@@ -67,54 +71,79 @@ type SchemaArg = {
 const METHOD_OPTIONS = (
   utils.constants.HTTP_ENDPOINT_METHODS as readonly string[]
 ).map(m => ({ value: m, label: m }));
-const BODY_KIND_OPTIONS = [
-  { value: utils.constants.HTTP_ENDPOINT_BODY_KIND_NONE, label: 'None' },
-  { value: utils.constants.HTTP_ENDPOINT_BODY_KIND_JSON, label: 'JSON' },
+/**
+ * The four option lists whose labels are words rather than protocol.
+ *
+ * Built from the translator rather than declared as constants: the *values* are
+ * what gets stored and never vary, while the labels are read. `METHOD_OPTIONS`
+ * above stays a constant for the same reason inverted — `GET` is `GET`.
+ *
+ * `oauth` sends the access token of a connection the artifact already holds,
+ * refreshed on the server before every call. It is listed apart from the three
+ * stored-secret kinds because the user picks a *provider* rather than pasting a
+ * value, and because there is nothing to add inline when none is connected —
+ * connecting happens on the Tools page.
+ */
+type ToolsT = Translate<(typeof i18n.copy.TOOLS)['en']>;
+
+const bodyKindOptions = (t: ToolsT) => [
+  {
+    value: utils.constants.HTTP_ENDPOINT_BODY_KIND_NONE,
+    label: t('epBodyNone')
+  },
+  {
+    value: utils.constants.HTTP_ENDPOINT_BODY_KIND_JSON,
+    label: t('epBodyJson')
+  },
   {
     value: utils.constants.HTTP_ENDPOINT_BODY_KIND_FORM,
-    label: 'Form (urlencoded)'
+    label: t('epBodyForm')
   },
-  { value: utils.constants.HTTP_ENDPOINT_BODY_KIND_TEXT, label: 'Text' }
+  {
+    value: utils.constants.HTTP_ENDPOINT_BODY_KIND_TEXT,
+    label: t('epBodyText')
+  }
 ];
-const CONTENT_TYPE_OPTIONS = [
+const contentTypeOptions = (t: ToolsT) => [
   {
     value: utils.constants.HTTP_ENDPOINT_RESPONSE_CONTENT_TYPE_AUTO,
-    label: 'Auto-detect'
+    label: t('epResponseAuto')
   },
   {
     value: utils.constants.HTTP_ENDPOINT_RESPONSE_CONTENT_TYPE_JSON,
-    label: 'JSON'
+    label: t('epResponseJson')
   },
   {
     value: utils.constants.HTTP_ENDPOINT_RESPONSE_CONTENT_TYPE_TEXT,
-    label: 'Text'
+    label: t('epResponseText')
   }
 ];
-// `oauth` sends the access token of a connection the artifact already holds,
-// refreshed on the server before every call. It is listed apart from the three
-// stored-secret kinds because the user picks a *provider* rather than pasting a
-// value, and because there is nothing to add inline when none is connected —
-// connecting happens on the Tools page.
-const AUTH_KIND_OPTIONS = [
-  { value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE, label: 'None' },
+const authKindOptions = (t: ToolsT) => [
+  {
+    value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_NONE,
+    label: t('epAuthNone')
+  },
   {
     value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_BEARER,
-    label: 'Bearer token'
+    label: t('epAuthBearer')
   },
   {
     value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_BASIC,
-    label: 'Basic (user:pass)'
+    label: t('epAuthBasic')
   },
-  { value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_API_KEY, label: 'API key' },
+  {
+    value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_API_KEY,
+    label: t('epAuthApiKey')
+  },
   {
     value: utils.constants.HTTP_ENDPOINT_AUTH_KIND_OAUTH,
-    label: 'Connected account'
+    label: t('epAuthOauth')
   }
 ];
-const ARG_TYPE_OPTIONS = [
-  { value: 'string', label: 'String' },
-  { value: 'number', label: 'Number' },
-  { value: 'boolean', label: 'Boolean' }
+const argTypeOptions = (t: ToolsT) => [
+  { value: 'string', label: t('epTypeString') },
+  { value: 'number', label: t('epTypeNumber') },
+  { value: 'boolean', label: t('epTypeBoolean') }
 ];
 
 const asKeyValues = (v: unknown): KeyValue[] =>
@@ -160,6 +189,14 @@ export const HttpEndpointModal = ({
   onClose,
   onSaved
 }: Props) => {
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const schemaMetaSchema = useSchemaMetaSchema();
+  const bodyKinds = useMemo(() => bodyKindOptions(t), [t]);
+  const contentTypes = useMemo(() => contentTypeOptions(t), [t]);
+  const authKinds = useMemo(() => authKindOptions(t), [t]);
+  const argTypes = useMemo(() => argTypeOptions(t), [t]);
+
   const initial = (tool?.config || {}) as Record<string, any>;
 
   const [mode, setMode] = useState<'form' | 'json'>('form');
@@ -400,14 +437,14 @@ export const HttpEndpointModal = ({
     try {
       const parsed = JSON.parse(configJson);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        setError('Config must be a JSON object.');
+        setError(t('epErrConfigObject'));
         return;
       }
       applyConfig(parsed);
       setError(null);
       setMode('form');
     } catch {
-      setError('Invalid JSON — fix it before switching to the form.');
+      setError(t('epErrConfigJsonSwitch'));
     }
   };
 
@@ -421,11 +458,11 @@ export const HttpEndpointModal = ({
       }
     });
     if (data && !data.error) {
-      snackbar.success(tool ? 'Endpoint updated' : 'Endpoint added');
+      snackbar.success(tool ? t('epOkUpdated') : t('epOkAdded'));
       onSaved();
       onClose();
     } else {
-      snackbar.error(data?.error || 'Failed to save endpoint');
+      snackbar.error(data?.error || t('epErrSave'));
     }
   };
 
@@ -434,27 +471,27 @@ export const HttpEndpointModal = ({
     try {
       parsed = JSON.parse(configJson);
     } catch {
-      return setError('Invalid JSON.');
+      return setError(t('epErrInvalidJson'));
     }
     const result = utils.Schema.HTTP_ENDPOINT_CONFIG_WRITE.safeParse(parsed);
     if (!result.success) {
       return setError(
-        result.error.issues[0]?.message || 'Invalid configuration.'
+        result.error.issues[0]?.message || t('epErrInvalidConfig')
       );
     }
     setSubmitting(true);
     try {
       await persist(result.data);
     } catch {
-      snackbar.error('Failed to save endpoint');
+      snackbar.error(t('epErrSave'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const saveForm = async () => {
-    if (!name.trim()) return setError('Tool name is required.');
-    if (!url.trim()) return setError('URL is required.');
+    if (!name.trim()) return setError(t('epErrNameRequired'));
+    if (!url.trim()) return setError(t('epErrUrlRequired'));
     // Checked here rather than left to buildConfig, which runs after a
     // credential may already have been created — a typo in this box must not
     // leave a secret behind.
@@ -462,21 +499,19 @@ export const HttpEndpointModal = ({
       try {
         const parsed = JSON.parse(outputSchema);
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          return setError('Output schema must be a JSON object.');
+          return setError(t('epErrOutputSchemaObject'));
         }
       } catch {
-        return setError('Output schema is not valid JSON.');
+        return setError(t('epErrOutputSchemaJson'));
       }
     }
     if (needsCredential && !addingSecret && !credChoice) {
       return setError(
-        usesConnection
-          ? 'Select a connected account.'
-          : 'Select an existing secret or add a new one.'
+        usesConnection ? t('epErrPickConnection') : t('epErrPickSecret')
       );
     }
     if (needsCredential && addingSecret && !newSecret.trim()) {
-      return setError('Enter the secret value.');
+      return setError(t('epErrSecretValue'));
     }
 
     setSubmitting(true);
@@ -496,7 +531,7 @@ export const HttpEndpointModal = ({
           }
         });
         if (!created?.id) {
-          setError(created?.error || 'Failed to save the secret.');
+          setError(created?.error || t('epErrSaveSecret'));
           setSubmitting(false);
           return;
         }
@@ -507,13 +542,13 @@ export const HttpEndpointModal = ({
         buildConfig(credentialId)
       );
       if (!result.success) {
-        setError(result.error.issues[0]?.message || 'Invalid configuration.');
+        setError(result.error.issues[0]?.message || t('epErrInvalidConfig'));
         setSubmitting(false);
         return;
       }
       await persist(result.data);
     } catch {
-      snackbar.error('Failed to save endpoint');
+      snackbar.error(t('epErrSave'));
     } finally {
       setSubmitting(false);
     }
@@ -536,7 +571,7 @@ export const HttpEndpointModal = ({
         >
           <div className="tools-modal-header">
             <h2 className="tools-modal-title">
-              {tool ? 'Edit endpoint' : 'Add HTTP endpoint'}
+              {tool ? t('epTitleEdit') : t('epTitleNew')}
             </h2>
             <div className="http-endpoint-mode-toggle">
               <button
@@ -546,7 +581,7 @@ export const HttpEndpointModal = ({
                 onClick={() => mode === 'json' && switchToForm()}
               >
                 <ViewList />
-                Form
+                {t('epModeForm')}
               </button>
               <button
                 type="button"
@@ -555,7 +590,7 @@ export const HttpEndpointModal = ({
                 onClick={() => mode === 'form' && switchToJson()}
               >
                 <Code />
-                JSON
+                {t('epModeJson')}
               </button>
             </div>
             <IconButton size="small" onClick={onClose} disabled={submitting}>
@@ -566,14 +601,13 @@ export const HttpEndpointModal = ({
             {mode === 'json' ? (
               <>
                 <p className="tools-configure-help">
-                  Edit the full endpoint configuration as JSON. Switch back to{' '}
-                  <strong>Form</strong> to use the guided editor. To use a saved
-                  secret or a connected account, set{' '}
-                  <code>auth.credentialId</code> to its id.
+                  {t('epJsonHelpBefore')} <strong>{t('epModeForm')}</strong>{' '}
+                  {t('epJsonHelpMiddle')} <code>auth.credentialId</code>{' '}
+                  {t('epJsonHelpAfter')}
                 </p>
                 <JsonEditor
                   id="endpoint-config"
-                  label="Configuration (JSON)"
+                  label={t('epConfigLabel')}
                   height="420px"
                   readOnly={submitting}
                   value={configJson}
@@ -586,26 +620,26 @@ export const HttpEndpointModal = ({
             ) : (
               <>
                 <UI.Input
-                  label="Tool name"
+                  label={t('epName')}
                   value={name}
                   disabled={submitting}
-                  helperText="The name the assistant calls, e.g. lookup-order. Letters, digits, _ or -."
+                  helperText={t('epNameHelp')}
                   onChange={e => setName(e.target.value)}
                 />
                 <UI.Input
-                  label="Description"
+                  label={t('epDescription')}
                   multiline
                   rows={2}
                   value={description}
                   disabled={submitting}
-                  helperText="Tell the model when to call this tool."
+                  helperText={t('epDescriptionHelp')}
                   onChange={e => setDescription(e.target.value)}
                 />
-                <p className="http-endpoint-section">Request</p>
+                <p className="http-endpoint-section">{t('epSectionRequest')}</p>
                 <div className="http-endpoint-row">
                   <div className="http-endpoint-method">
                     <UI.Select
-                      label="Method"
+                      label={t('epMethod')}
                       value={method}
                       options={METHOD_OPTIONS}
                       disabled={submitting}
@@ -613,16 +647,16 @@ export const HttpEndpointModal = ({
                     />
                   </div>
                   <UI.Input
-                    label="URL"
+                    label={t('epUrl')}
                     value={url}
                     disabled={submitting}
-                    helperText="Use {{arg}} to drop in the inputs below."
+                    helperText={t('epUrlHelp')}
                     onChange={e => setUrl(e.target.value)}
                   />
                 </div>
                 <div className="http-endpoint-list">
                   <div className="http-endpoint-list-head">
-                    <span>Headers</span>
+                    <span>{t('epHeaders')}</span>
                     <UI.Button
                       size="small"
                       disabled={submitting}
@@ -631,13 +665,13 @@ export const HttpEndpointModal = ({
                       }
                     >
                       <Add fontSize="small" />
-                      <span className="button-text">Add</span>
+                      <span className="button-text">{t('epAdd')}</span>
                     </UI.Button>
                   </div>
                   {headers.map((h, i) => (
                     <div key={i} className="http-endpoint-kv">
                       <UI.Input
-                        label="Name"
+                        label={t('epFieldName')}
                         value={h.name}
                         disabled={submitting}
                         onChange={e =>
@@ -645,7 +679,7 @@ export const HttpEndpointModal = ({
                         }
                       />
                       <UI.Input
-                        label="Value"
+                        label={t('epFieldValue')}
                         value={h.value}
                         disabled={submitting}
                         onChange={e =>
@@ -666,7 +700,7 @@ export const HttpEndpointModal = ({
                 </div>
                 <div className="http-endpoint-list">
                   <div className="http-endpoint-list-head">
-                    <span>Query parameters</span>
+                    <span>{t('epQuery')}</span>
                     <UI.Button
                       size="small"
                       disabled={submitting}
@@ -675,13 +709,13 @@ export const HttpEndpointModal = ({
                       }
                     >
                       <Add fontSize="small" />
-                      <span className="button-text">Add</span>
+                      <span className="button-text">{t('epAdd')}</span>
                     </UI.Button>
                   </div>
                   {query.map((q, i) => (
                     <div key={i} className="http-endpoint-kv">
                       <UI.Input
-                        label="Name"
+                        label={t('epFieldName')}
                         value={q.name}
                         disabled={submitting}
                         onChange={e =>
@@ -689,7 +723,7 @@ export const HttpEndpointModal = ({
                         }
                       />
                       <UI.Input
-                        label="Value"
+                        label={t('epFieldValue')}
                         value={q.value}
                         disabled={submitting}
                         onChange={e =>
@@ -711,14 +745,14 @@ export const HttpEndpointModal = ({
                 {method !== utils.constants.HTTP_ENDPOINT_METHOD_GET && (
                   <div className="http-endpoint-list">
                     <div className="http-endpoint-list-head">
-                      <span>Body</span>
+                      <span>{t('epBody')}</span>
                     </div>
                     <div className="http-endpoint-row">
                       <div className="http-endpoint-method">
                         <UI.Select
-                          label="Format"
+                          label={t('epFormat')}
                           value={bodyKind}
-                          options={BODY_KIND_OPTIONS}
+                          options={bodyKinds}
                           disabled={submitting}
                           onChange={e => setBodyKind(e.target.value)}
                         />
@@ -732,20 +766,20 @@ export const HttpEndpointModal = ({
                       // once the arguments are substituted in.
                       <JsonEditor
                         id="endpoint-body-template"
-                        label="Body template"
+                        label={t('epBodyTemplate')}
                         height="140px"
                         readOnly={submitting}
                         validate={false}
                         value={bodyTemplate}
                         onChange={setBodyTemplate}
-                        help='Supports {{arg}}. For JSON it must parse once the arguments are filled in, e.g. {"id":"{{orderId}}"}'
+                        help={t('epBodyTemplateHelp')}
                       />
                     )}
                   </div>
                 )}
                 <div className="http-endpoint-list">
                   <div className="http-endpoint-list-head">
-                    <span>Inputs (model arguments)</span>
+                    <span>{t('epInputs')}</span>
                     <UI.Button
                       size="small"
                       disabled={submitting}
@@ -762,19 +796,15 @@ export const HttpEndpointModal = ({
                       }
                     >
                       <Add fontSize="small" />
-                      <span className="button-text">Add input</span>
+                      <span className="button-text">{t('epAddInput')}</span>
                     </UI.Button>
                   </div>
-                  <p className="http-endpoint-list-hint">
-                    Arguments the model fills in when it calls this tool.
-                    Reference them as {'{{name}}'} in the URL, headers, query,
-                    or body.
-                  </p>
+                  <p className="http-endpoint-list-hint">{t('epInputsHint')}</p>
                   {args.map((a, i) => (
                     <div key={i} className="http-endpoint-arg">
                       <div className="http-endpoint-arg-header">
                         <UI.Input
-                          label="Name"
+                          label={t('epFieldName')}
                           value={a.name}
                           disabled={submitting}
                           onChange={e =>
@@ -795,7 +825,7 @@ export const HttpEndpointModal = ({
                               }
                             />
                           }
-                          label="Required"
+                          label={t('epArgRequired')}
                         />
                         <IconButton
                           size="small"
@@ -809,9 +839,9 @@ export const HttpEndpointModal = ({
                       </div>
                       <div className="http-endpoint-arg-fields">
                         <UI.Select
-                          label="Type"
+                          label={t('epArgType')}
                           value={a.type}
-                          options={ARG_TYPE_OPTIONS}
+                          options={argTypes}
                           disabled={submitting}
                           onChange={e =>
                             updateList(setArgs, i, {
@@ -820,10 +850,10 @@ export const HttpEndpointModal = ({
                           }
                         />
                         <UI.Input
-                          label="Description"
+                          label={t('epArgDescription')}
                           value={a.description}
                           disabled={submitting}
-                          helperText="The model reads this to decide what to pass."
+                          helperText={t('epArgDescriptionHelp')}
                           onChange={e =>
                             updateList(setArgs, i, {
                               description: e.target.value
@@ -835,11 +865,11 @@ export const HttpEndpointModal = ({
                   ))}
                 </div>
                 <div className="http-endpoint-form">
-                  <p className="http-endpoint-section">Authentication</p>
+                  <p className="http-endpoint-section">{t('epSectionAuth')}</p>
                   <UI.Select
-                    label="Auth type"
+                    label={t('epAuthKind')}
                     value={authKind}
-                    options={AUTH_KIND_OPTIONS}
+                    options={authKinds}
                     disabled={submitting}
                     onChange={e => {
                       // A credential id chosen for one kind never carries to
@@ -857,18 +887,18 @@ export const HttpEndpointModal = ({
                     <div className="http-endpoint-row">
                       <div className="http-endpoint-method">
                         <UI.Select
-                          label="Send in"
+                          label={t('epSendIn')}
                           value={apiKeyIn}
                           options={[
-                            { value: 'header', label: 'Header' },
-                            { value: 'query', label: 'Query param' }
+                            { value: 'header', label: t('epSendInHeader') },
+                            { value: 'query', label: t('epSendInQuery') }
                           ]}
                           disabled={submitting}
                           onChange={e => setApiKeyIn(e.target.value)}
                         />
                       </div>
                       <UI.Input
-                        label="Parameter name"
+                        label={t('epParamName')}
                         value={apiKeyName}
                         disabled={submitting}
                         onChange={e => setApiKeyName(e.target.value)}
@@ -878,21 +908,23 @@ export const HttpEndpointModal = ({
                   {needsCredential && !addingSecret && (
                     <>
                       <UI.Select
-                        label={usesConnection ? 'Connection' : 'Secret'}
+                        label={
+                          usesConnection ? t('epConnection') : t('epSecret')
+                        }
                         value={credChoice}
                         options={credentialOptions}
                         disabled={submitting || credentialOptions.length === 0}
                         helperText={
                           credentialOptions.length === 0
                             ? usesConnection
-                              ? 'No connected accounts yet — connect one from the tool catalog first.'
-                              : 'No saved secrets yet — add one below.'
+                              ? t('epNoConnections')
+                              : t('epNoSecrets')
                             : usesConnection
-                              ? 'Its access token is refreshed and sent as a Bearer header on every call.'
+                              ? t('epOauthHelp')
                               : authKind ===
                                   utils.constants.HTTP_ENDPOINT_AUTH_KIND_BASIC
-                                ? 'Stored value should be "username:password".'
-                                : 'The stored secret is sent with each request.'
+                                ? t('epBasicHelp')
+                                : t('epSecretHelp')
                         }
                         onChange={e => setCredChoice(e.target.value)}
                       />
@@ -909,7 +941,9 @@ export const HttpEndpointModal = ({
                           }}
                         >
                           <Add fontSize="small" />
-                          <span className="button-text">Add new secret</span>
+                          <span className="button-text">
+                            {t('epAddSecret')}
+                          </span>
                         </UI.Button>
                       )}
                     </>
@@ -917,18 +951,18 @@ export const HttpEndpointModal = ({
                   {needsCredential && !usesConnection && addingSecret && (
                     <div className="http-endpoint-new-secret">
                       <UI.Input
-                        label="Label"
+                        label={t('epSecretLabel')}
                         value={newLabel}
                         disabled={submitting}
-                        helperText="A name to recognize this secret later."
+                        helperText={t('epSecretLabelHelp')}
                         onChange={e => setNewLabel(e.target.value)}
                       />
                       <UI.Input
                         label={
                           authKind ===
                           utils.constants.HTTP_ENDPOINT_AUTH_KIND_BASIC
-                            ? 'Secret (username:password)'
-                            : 'Secret value'
+                            ? t('epSecretValueBasic')
+                            : t('epSecretValue')
                         }
                         type="password"
                         value={newSecret}
@@ -947,7 +981,7 @@ export const HttpEndpointModal = ({
                           }}
                         >
                           <span className="button-text">
-                            Use an existing secret
+                            {t('epUseExistingSecret')}
                           </span>
                         </UI.Button>
                       )}
@@ -961,60 +995,60 @@ export const HttpEndpointModal = ({
                     onClick={() => setShowAdvanced(v => !v)}
                   >
                     {showAdvanced ? <ExpandLess /> : <ExpandMore />}
-                    Advanced options
+                    {t('epAdvanced')}
                   </button>
                   {showAdvanced && (
                     <div className="http-endpoint-advanced-content">
                       <div className="http-endpoint-row">
                         <div className="http-endpoint-method">
                           <UI.Select
-                            label="Response type"
+                            label={t('epResponseType')}
                             value={contentType}
-                            options={CONTENT_TYPE_OPTIONS}
+                            options={contentTypes}
                             disabled={submitting}
                             onChange={e => setContentType(e.target.value)}
                           />
                         </div>
                         <UI.Input
-                          label="JSON path"
+                          label={t('epJsonPath')}
                           value={jsonPath}
                           disabled={submitting}
-                          helperText="Extract a sub-tree, e.g. data.items"
+                          helperText={t('epJsonPathHelp')}
                           onChange={e => setJsonPath(e.target.value)}
                         />
                       </div>
                       <JsonEditor
                         id="endpoint-output-schema"
-                        label="Output schema — optional"
+                        label={t('epOutputSchema')}
                         height="150px"
                         readOnly={submitting}
-                        schema={SCHEMA_META_SCHEMA}
+                        schema={schemaMetaSchema}
                         value={outputSchema}
                         onChange={setOutputSchema}
-                        help="Declare one and a JSON response comes back as structured output instead of text. The response must then be a JSON object, or the call is reported as an error."
+                        help={t('epOutputSchemaHelp')}
                       />
                       <div className="http-endpoint-row">
                         <UI.Input
-                          label="Success statuses"
+                          label={t('epSuccessStatuses')}
                           value={successStatus}
                           disabled={submitting}
-                          helperText="Comma-separated, e.g. 200, 201. Defaults to 2xx."
+                          helperText={t('epSuccessStatusesHelp')}
                           onChange={e => setSuccessStatus(e.target.value)}
                         />
                         <UI.Input
-                          label="Timeout (ms)"
+                          label={t('epTimeout')}
                           type="number"
                           value={timeoutMs}
                           disabled={submitting}
-                          helperText="Default 10000, max 30000."
+                          helperText={t('epTimeoutHelp')}
                           onChange={e => setTimeoutMs(e.target.value)}
                         />
                       </div>
                       <UI.Input
-                        label="Allowed hosts"
+                        label={t('epAllowedHosts')}
                         value={allowedHosts}
                         disabled={submitting}
-                        helperText="Comma-separated allowlist. Private/loopback hosts are always blocked."
+                        helperText={t('epAllowedHostsHelp')}
                         onChange={e => setAllowedHosts(e.target.value)}
                       />
                     </div>
@@ -1035,7 +1069,7 @@ export const HttpEndpointModal = ({
               disabled={submitting}
               onClick={save}
             >
-              {submitting ? 'Saving...' : tool ? 'Save' : 'Add endpoint'}
+              {submitting ? c('saving') : tool ? c('save') : t('epSubmitAdd')}
             </UI.Button>
           </div>
         </ModalDialog>

@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { UI } from '@ganju/ui';
 import { AutoFixHighOutlined } from '@mui/icons-material';
+
+import { i18n } from '../../../lib';
 
 /**
  * A JSON field: the Monaco surface plus a label, a Format button, and whatever
@@ -22,39 +24,51 @@ const Surface = dynamic(() => import('./JsonSurface'), {
   )
 });
 
-// The shape of a schema this platform accepts, as a JSON Schema — so the two
-// schema fields complete their own keys and flag the ones the server would
-// reject. Mirrors SCHEMA_DEFINITION in @ganju/utils; it is a deliberate subset
-// of JSON Schema, not all of it.
-export const SCHEMA_META_SCHEMA = {
-  type: 'object',
-  required: ['type'],
-  properties: {
-    type: {
-      type: 'string',
-      enum: ['string', 'number', 'boolean', 'object', 'array'],
-      description: 'What kind of value this is.'
-    },
-    properties: {
+/**
+ * The shape of a schema this platform accepts, as a JSON Schema — so the two
+ * schema fields complete their own keys and flag the ones the server would
+ * reject. Mirrors SCHEMA_DEFINITION in @ganju/utils; it is a deliberate subset
+ * of JSON Schema, not all of it.
+ *
+ * A hook rather than a constant because the `description`s are copy: Monaco
+ * shows them on hover and in completion, which makes them the one part of this
+ * object a person reads. The keys and types are protocol and stay as they are.
+ */
+export const useSchemaMetaSchema = () => {
+  const t = i18n.useT(i18n.copy.TOOLS);
+  return useMemo(
+    () => ({
       type: 'object',
-      description: 'For an object: the fields it holds, keyed by name.',
-      additionalProperties: { $ref: '#' }
-    },
-    required: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Names from `properties` the caller must provide.'
-    },
-    items: { $ref: '#', description: 'For an array: the shape of one entry.' },
-    description: { type: 'string' },
-    minimum: { type: 'number' },
-    maximum: { type: 'number' },
-    minLength: { type: 'number' },
-    maxLength: { type: 'number' },
-    pattern: { type: 'string' },
-    enum: { type: 'array' }
-  }
-} as const;
+      required: ['type'],
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['string', 'number', 'boolean', 'object', 'array'],
+          description: t('jsonSchemaType')
+        },
+        properties: {
+          type: 'object',
+          description: t('jsonSchemaProperties'),
+          additionalProperties: { $ref: '#' }
+        },
+        required: {
+          type: 'array',
+          items: { type: 'string' },
+          description: t('jsonSchemaRequired')
+        },
+        items: { $ref: '#', description: t('jsonSchemaItems') },
+        description: { type: 'string' },
+        minimum: { type: 'number' },
+        maximum: { type: 'number' },
+        minLength: { type: 'number' },
+        maxLength: { type: 'number' },
+        pattern: { type: 'string' },
+        enum: { type: 'array' }
+      }
+    }),
+    [t]
+  );
+};
 
 interface Props {
   value: string;
@@ -93,6 +107,7 @@ export const JsonEditor = ({
   action,
   compact = false
 }: Props) => {
+  const t = i18n.useT(i18n.copy.TOOLS);
   const [errors, setErrors] = useState<string[]>([]);
 
   // An empty optional field is not a broken one. The language service says
@@ -125,7 +140,7 @@ export const JsonEditor = ({
               onClick={format}
             >
               <AutoFixHighOutlined fontSize="small" />
-              Format
+              {t('jsonFormat')}
             </button>
           )}
           {action}

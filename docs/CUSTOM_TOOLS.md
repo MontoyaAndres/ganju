@@ -242,7 +242,7 @@ Ordered so that nothing user-visible is removed before its replacement exists.
 - [x] `artifact_tool_version` table + Drizzle relation in [schema.ts](../packages/db/src/lib/schema.ts) ([migration 0064](../packages/db/drizzle/0064_careless_hellfire_club.sql)); [DATA_MODEL.md](DATA_MODEL.md) updated
 - [x] `custom-code` constants in [constants.ts](../packages/utils/src/constants.ts): `TOOL_DEFINITION_KEY_CUSTOM_CODE`, `CREDENTIAL_PROVIDER_CUSTOM_CODE` (in `PER_TOOL_CREDENTIAL_PROVIDERS`), version statuses, script/source-key prefixes, and the limits (`CUSTOM_CODE_MAX_TOOLS = 50`, timeouts, `CUSTOM_CODE_MAX_BUNDLE_BYTES = 3 MB`)
 - [x] `CUSTOM_CODE_CONFIG` zod schema in [schema.ts](../packages/utils/src/schema.ts), plus `CUSTOM_CODE_MANIFEST` and the four request schemas
-- [x] Seed `tool_group` + `tool_definition` rows for `custom-code` — [scripts/seed-custom-code.mjs](../scripts/seed-custom-code.mjs), idempotent, run on dev
+- [x] ~~Seed `tool_group` + `tool_definition` rows for `custom-code`~~ — superseded by [Phase 6](#1-the-tool-catalog-is-code-not-rows): the catalog is code now, the two tables are gone, and the seed script with them
 - [x] API: `POST …/artifact/custom-code/version`, `PUT …/version/:versionId/bundle`, `POST …/version/:versionId/publish`, `POST …/version/:versionId/rollback`, `GET …/versions` — handlers in [artifact/index.ts](../apps/api/src/controllers/artifact/index.ts), helpers in [artifact/customCode.ts](../apps/api/src/controllers/artifact/customCode.ts)
 - [x] Server-side manifest validation: tool-name charset/length, reserved-name check against `RESOURCE_TOOL_KEYS`, uniqueness, schema compilation via `jsonSchemaToZodShape`, per-plan tool cap
 
@@ -292,11 +292,11 @@ None of this is code; all of it was account state this branch could not create. 
 1. **A Cloudflare API token** with `Workers Scripts:Edit`, as `CUSTOM_CODE_CF_API_TOKEN`, plus `CLOUDFLARE_ACCOUNT_ID` — both set on `ganju-api-development`.
 2. **`CUSTOM_CODE_TOKEN_SECRET`** — set on `ganju-api-development` and `ganju-tool-broker-development`. Secrets cannot be read back, so that they hold the *same* value is the one thing here only a real publish proves.
 3. **Both workers deployed** — `ganju-tool-broker-development` and `ganju-tool-outbound-development` are live, and the `ganju-tools-development` dispatch namespace exists.
-4. ~~Seed `custom-code` on production~~ — obsolete. The catalog is code now, so there is nothing to seed; see [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md).
+4. ~~Seed `custom-code` on production~~ — obsolete. The catalog is code now, so there is nothing to seed; see [Phase 6](#1-the-tool-catalog-is-code-not-rows).
 
 Production has none of it, and is a separate exercise.
 
-What remains is a deploy rather than a setting: every deployed development worker predates the dashboard branch, while the development database is already migrated past it. See [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md#operational-state).
+What remains is a deploy rather than a setting: every deployed development worker predates the dashboard work, while the development database is already migrated past it. See [Operational state](#operational-state).
 
 ### Phase 4 — Channel runner ✅
 
@@ -450,7 +450,206 @@ One consequence worth naming: replacing a resource under `all` sets its source t
 - [x] Test panel: run a draft against sample input, show `ctx.log` output and validation errors — through a preview script nothing dispatches to, so the live version keeps serving while a draft is tried
 - [x] **Keep the catalog shape** — cards + Connect survive; what changed is that the page grew two tabs beside the catalog rather than replacing it with an editor
 
-Full account in [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md), including four platform changes this needed that were not in this plan: the tool catalog moving from Postgres into code, `artifact_tool.enabled` so turning a tool off stops deleting it, the per-plan custom-code gate (which is most of Phase 10), and `allowedTools` on a custom-code row so one function can be turned off without a redeploy.
+The old page had two tabs, **Installed** and **Catalog**, and one way to add a tool: find its card, toggle it on. That shape stopped fitting once a tool could be something the user *writes*. "Installed" is a database fact rather than a user concept — nobody wants to see a list of rows, they want to know what their agent can do right now. Turning a tool off deleted it, which is tolerable when config is a field or two and destructive the moment a tool is a function someone wrote. And a code editor, a version list and a deploy button have no home in a grid of integration cards.
+
+The new shape is three tabs in a fixed order — **Functions · HTTP Endpoints · Catalog** — matching the three things a user can put on their server: code they wrote, endpoints they pointed at, integrations we ship. Only which tab opens first changes with the plan (Free lands on Catalog, paid on Functions), pinned after the first resolve so the page never moves mid-task. A tab order that changed on upgrade day would make every screenshot and support answer plan-dependent for no gain.
+
+Four platform changes were needed that this plan did not anticipate. Each is worth stating on its own, because each outlives the page that prompted it.
+
+#### 1. The tool catalog is code, not rows
+
+`tool_group` and `tool_definition` held static reference data that only meant something paired with a handler in [registry.ts](../apps/mcp/src/tools/registry.ts). A row whose key had no handler did not error — the boot loop skipped it and the tool quietly vanished from the customer's server. The rows were seeded per environment by hand, so a definition could exist on dev and not production, which is exactly what had happened to `custom-code`.
+
+Every consumer of the `artifact_tool → tool_definition` join did one thing with it: resolve the id back into `tool_definition.key`. So the join became the key.
+
+- [toolCatalog.ts](../packages/utils/src/toolCatalog.ts) — 12 groups, 62 tools, generated from precisely the rows [migration 0065](../packages/db/drizzle/0065_tool_catalog_to_code.sql) drops.
+- `toolRegistry` is now `Record<ToolKey, ToolDefinition>`. A catalog entry with no handler, or a handler no entry offers, is a **build failure**. Verified in both directions.
+- `artifact_tool.tool_definition_id` → `tool_key text not null`.
+- `describeCatalogTool()` attaches the entry server-side, so API responses keep their shape and no client carries its own copy of the catalog.
+
+**`mcp_server_catalog` deliberately stayed in Postgres.** Its rows point at a *remote* server whose tools, resources and prompts are discovered at configure time. Nothing in our code implements them, so there is no pair to keep in step and no build-time guarantee to win.
+
+Read paths are lenient by design: a stored key the current catalog no longer offers still parses, and the boot loop skips what it cannot resolve rather than failing the artifact. Writes validate against `isToolKey`.
+
+#### 2. Disabling a tool no longer destroys it
+
+[Migration 0066](../packages/db/drizzle/0066_artifact_tool_enabled.sql) adds `artifact_tool.enabled`, defaulting true so every existing install is untouched.
+
+- The boot loop drops disabled rows before the ordering sort — they don't register, don't claim their name against another install, and don't cost the model a schema every turn.
+- `PATCH …/artifact/tool/:toolId/enabled` — deliberately its own route. `updateTool` re-validates config and re-runs remote discovery for mcp-proxy; nobody should pay a network round trip to flip a switch, or have the toggle fail because a remote server is down. Idempotent, because two tabs on one page is the ordinary way you ask for a state something is already in.
+- `loadProxiedPrompts` skips disabled servers.
+
+**`artifactToolCount` now counts enabled tools, not rows.** "7 tools on Free" should mean seven tools your server exposes. It follows that *enabling* re-checks the quota — that's the one place a user can cross the cap without creating anything (disable three, enable four), and it has to be caught there, since at boot the only available answer would be silently dropping a tool the dashboard shows as on.
+
+**Both actions are on every row, because they are different actions.** Off keeps the row and everything configured on it; Remove deletes both. A first pass shipped only one of them per surface — catalog rows had a switch and no way to delete, remote MCP servers had Disconnect and no way to go quiet — which left each surface missing the safer half of the pair. Now:
+
+| Surface | Off | Remove |
+|---|---|---|
+| Catalog tool row | switch | trash, only once a row exists |
+| HTTP endpoint | switch | trash |
+| Remote MCP server | switch in its dialog | Disconnect, as before |
+
+Two supporting details. A disabled row carries an **`Off · settings kept`** chip, because on a switch alone "off" and "never installed" look identical and one of them is holding a configuration somebody chose. And the delete confirmation says what delete does that off doesn't — it takes the settings with it — since anyone opening it to shorten their tool list wants the other control.
+
+#### 3. Custom code is a paid feature, with a server-side gate
+
+| Plan | `canUseCustomCode` | `maxHttpEndpointsPerArtifact` | tools |
+|---|---|---|---|
+| FREE | ✗ | 3 | 7 |
+| PRO | ✓ | unlimited | unlimited |
+| ENTERPRISE | ✓ | unlimited | unlimited |
+
+`assertCustomCodeAllowed` and `assertHttpEndpointQuota` in [plan.ts](../apps/api/src/utils/plan.ts), enforced from every write path that can produce a running script — `createTool`, `resolveCustomCodeTool` (create version, upload bundle), the test run, and publish/rollback — so the CLI can't route around the dashboard.
+
+Publish and rollback needed their own call. They resolve the tool read-only, since neither installs anything, so they were the two endpoints that deploy code without asking the plan — and they are the ones that most literally deploy it. A downgraded org keeps its row, its versions and their bundles, so a gate everywhere else and not there is no gate at all. The check sits *before* the existing-row shortcut in [customCode.ts](../apps/api/src/controllers/artifact/customCode.ts): the question every write asks is whether this org may deploy code **now**.
+
+The two caps count different things on purpose. The tool quota counts enabled tools, so disabling frees a slot. The endpoint cap counts *rows*, because disabling leaves the definition behind — if that freed a slot, the cap would be unbounded by toggling.
+
+#### 4. `allowedTools` — one function off, without a redeploy
+
+A `custom-code` row exposes one tool per manifest entry, and until now only the whole row toggled. `config.allowedTools` is the enabled subset — **the same field name and the same convention `mcp-proxy` already uses**, absent or empty meaning all of them, read by the same boot loop a few lines apart.
+
+It lives on the row's config rather than in the version because it answers a different question. The manifest is what the code *can* do and moves only by deploying; this is what the server currently offers. Turning a tool off to shorten a bloated tool list must not require a redeploy, or leave the author's manifest disagreeing with their own file.
+
+Two consequences worth stating. Names that no longer appear in the active manifest are never matched, so a version that drops a tool leaves nothing to clean up. And the last enabled tool cannot be turned off — an empty list means "all", so "none" is unrepresentable, which is the same reason `mcp-proxy` refuses to save a server with zero tools enabled.
+
+The budget meter counts the exposed subset, not the manifest, since that is the number a client actually sees. Fixed in passing: it read an empty `mcp-proxy` allow-list as zero tools where the boot loop reads it as all of them.
+
+#### The editor, with no compiler anywhere
+
+The decision that shapes everything else: **the SDK ships as a second ES module beside every uploaded script**, rather than being bundled into it.
+
+[`build-worker-module.mjs`](../packages/sdk/scripts/build-worker-module.mjs) bundles the SDK once at build time into a self-contained module; [customCodeDeploy.ts](../apps/api/src/utils/customCodeDeploy.ts) attaches it to every upload. Dashboard code does `import { createHandler } from './ganju-sdk.js'` and deploys **exactly as typed** — no build step between the text box and the running Worker, which is also what lets stored source round-trip without a second copy that could drift. Attached unconditionally, CLI uploads included: a bundle that inlined the SDK never imports it, and one unused module costs less than a branch that has to know which kind it's holding.
+
+**The module is 10.2KB.** It was 71.7KB until `@ganju/utils/constants` — one large object literal a bundler cannot tree-shake — was split. [sdkConstants.ts](../packages/utils/src/sdkConstants.ts) holds the 14 values the SDK reads at runtime and imports nothing; `constants.ts` imports them back, so there is still one definition of each.
+
+**`sourceKind`** ([migration 0067](../packages/db/drizzle/0067_version_source_kind.sql)) records whether stored bytes are readable. `'editor'` means a person typed them; `'bundle'` means the CLI compiled them — deployable but minified, so the editor shows it read-only rather than inviting someone to overwrite a real build with the contents of a text box. Defaults to `'bundle'`, which is what every pre-editor version genuinely is.
+
+- `GET …/custom-code/version/:versionId/source` → `{ source, sourceKind, editable, tools }`. Returns `editable: false` rather than 403 for a CLI bundle: seeing what's deployed is legitimate, and "here it is, read-only" beats an error that reads like the version is missing.
+- `PUT …/version/:versionId/bundle?kind=editor` — the CLI sends nothing and keeps getting `bundle`.
+
+**The editor is Monaco**, the one VS Code is built on — because people are meant to actually write code here, and a lighter editor reads as a toy the moment someone reaches for a shortcut it doesn't have. Loaded through `next/dynamic` with `ssr: false`, and **served from this origin**: [copy-monaco.mjs](../apps/web/scripts/copy-monaco.mjs) copies `monaco-editor/min/vs` into `public/monaco/vs` from both `build` and `dev`, and the directory is generated and gitignored. The default would put the editor on jsdelivr's uptime and need a CSP hole for scripts and workers. It is not bundled either: Monaco's ESM entry imports global CSS, which the pages router refuses from `node_modules`, and its language services are web workers every bundler wires up differently. The AMD loader sidesteps both. 10.6MB of assets, and **the app's own JS grows by 9KB gz in a chunk absent from the tools page's initial bundle**, so Monaco is fetched only when the Functions tab renders.
+
+**`ctx` autocompletes, from the SDK's real declarations.** [build-editor-types.mjs](../packages/sdk/scripts/build-editor-types.mjs) flattens the compiled `.d.ts` files into one 10KB module exported as `@ganju/sdk/editorTypes`, registered as an extra lib at the two paths Node-style resolution tries for `./ganju-sdk.js`. Generated rather than hand-written beside the SDK: a second copy of that surface drifts the first time a method is added, and the doc comments make the trip, so hovering `ctx.sendFile` in the browser shows the same paragraph as hovering it in a local editor.
+
+**The language is JavaScript, and that is a constraint rather than a preference.** The file is deployed byte for byte with no build step, so type annotations would reach the runtime as syntax errors — which is exactly how Monaco reports them. Checking still runs, against the SDK's types and whatever JSDoc the author writes. The `lib` is `esnext` + `dom` and deliberately not `@types/node`, so `process`, `require` and `Buffer` are unknown here because they are unknown there. `dom` is what supplies honest types for `fetch`, `Request`, `Response`, `URL` and `crypto` — a Worker has those — and it drags in `window` and `localStorage`, which it does not. So a marker pass flags those, plus `eval`/`new Function` and any import that isn't a project file or `./ganju-sdk.js`, each with the reason and the way around it. This is a courtesy, not a control — the real enforcement is the outbound worker, the CPU ceiling and the broker token — but a refusal at the keystroke beats one at deploy time and much beats one at call time.
+
+Two editor affordances are turned off: link detection, because a URL in pasted code becoming a click out of the dashboard is a phishing surface for nothing gained; and drop-into-editor, because nothing useful comes of dropping a file into a Worker script and the wrong one silently replaces the buffer. And the editor says what it is not — a notice above it: no terminal, no `npm install`, this file is deployed exactly as written.
+
+#### The Functions tab
+
+[FunctionsPanel.tsx](../apps/web/src/components/views/tools/FunctionsPanel.tsx) holds it: declare a function, edit it, read what is deployed, deploy, and go back.
+
+**Draft and deploy are separate buttons**, because saving and exposing are separate acts. Save draft creates a version and stores the source, and not one MCP client sees it; Deploy publishes. Deploying an untouched draft publishes *that* version rather than minting a second one identical to it. ⌘S saves a draft.
+
+**Version metadata is on the page, not implied by it.** A version is the unit of both code and contract — the tool names a client sees come from that row, not from the running script — so the panel states which one is open, its status, its function count, whether its source came from the editor or the CLI, and when it was created and published. **History is a picker, not a list**: every version is an option in one dropdown, and choosing one opens its code. What survives beside it is state-dependent and singular — Deploy publishes what is open, and a published version that is not the live one offers Roll back instead.
+
+**The editor appears once there is a function.** With an empty manifest the panel stops at its empty state, since the handler stub is generated from the declaration: an editor offered before then holds a file whose keys nothing would match.
+
+**Every JSON field is an editor, not a textarea.** Input schema, output schema, sample input, the endpoint's body template and its whole-config JSON mode — all of them are Monaco with the JSON language service ([JsonEditor.tsx](../apps/web/src/components/views/tools/JsonEditor.tsx)), so a missing quote is underlined where it is instead of surfacing as "not valid JSON" after clicking Save. The two schema fields validate against a JSON Schema describing the schema subset the server accepts, so `"type": "date"` is refused at the keystroke rather than by a 400; the sample-input field validates against the function's own input schema. The body template is the exception that proves the rule — highlighting, no validation, because `{{orderId}}` where a number goes is legal there and only has to parse once the arguments are filled in. Sharing the Monaco instance is what makes this cheap. It did cost one fix — `copy-monaco.mjs` was skipping `json.worker`, and a missing language-service worker fails invisibly: the editor still renders, and simply never reports anything.
+
+**The new-function modal writes the manifest entry and the handler stub from one click**, because `lookup-order` vs `lookupOrder` would deploy and then fail every call. The handler is written as a named function above the export, typed with JSDoc, and the map only names it:
+
+```js
+/** @type {import('./ganju-sdk.js').ToolHandler<{ orderId: string; includeItems?: boolean }>} */
+const lookupOrder = async (input, ctx) => {
+  ctx.log('lookup-order called');
+  return { ok: true };
+};
+
+export default createHandler({
+  'lookup-order': defineTool(lookupOrder)
+});
+```
+
+The `@type` line is not decoration, it is the only way to keep `ctx` typed here: `defineTool` infers the parameters of a function passed straight to it, and these are declared above the map and passed by name. A TypeScript annotation is not available, for the reason above. The input type is generated from the tool's own declared schema — `input.orderId` completes, and a property nobody declared does not — and it is rewritten when the schema changes. Handlers inlined into the object literal read fine at one tool and badly at ten; named above, the map stays a table of contents. It costs one thing: the kebab-case name and the identifier are two spellings of the same tool, so a rename has to move both. It does — the key always, and the identifier when the entry still reads the way this file wrote it, since anything else is the author's own arrangement.
+
+**A function row expands to its schemas** and edits in place. Renaming through that modal renames the handler key in the source too: the manifest and the code are checked against each other by the health probe, so a rename in one place only is a deploy that fails on a name the author thought they had changed. Removing a function drops it from the manifest and leaves the handler in the code, because an export the manifest doesn't declare is harmless and deleting someone's code from under them is not.
+
+**A script is a set of files, and the explorer is what says so.** [FileExplorer.tsx](../apps/web/src/components/views/tools/FileExplorer.tsx) renders the tree beside the editor: every file in the project, the folders they sit in, and `ganju-sdk.js` dimmed at the bottom because it is attached to every deploy and is part of the honest answer to "what is in my script". It behaves the way the thing it resembles does — collapsible folders, inline create and rename with the extension left alone, a context menu, arrow-key navigation, and a folder delete that takes its contents and asks first. `index.js` can be neither renamed nor deleted, directly or as part of a folder, since it is the module the dispatcher calls.
+
+The storage moved to match. `sourceKind: 'editor'` bytes are a JSON envelope of `{ path: source }` ([customCodeProject.ts](../packages/utils/src/customCodeProject.ts)), and the deploy uploads **one module per file** — which the upload API has always accepted, since that is how the SDK travels. `'bundle'` bytes are untouched: a CLI bundle *is* one module, and wrapping it would mean the stored bytes are no longer the thing that runs. The two are told apart by a marker in the envelope rather than by whether the bytes parse as JSON, because guessing is not a thing to do with someone's deploy.
+
+Folders are not stored, because there is nothing to store: a folder is a prefix shared by paths, so an empty one lives in the session and is gone on reload. Writing a placeholder file to hold a prefix would put a module in the customer's Worker that nobody wrote.
+
+Paths are validated where they are written rather than at deploy time: `.js` only, no `..`, no leading slash, not `ganju-sdk.js`, no two files differing only in case, 25 files at most. Each of those is a deploy that would otherwise fail in the runtime, hours after the edit that caused it. `projectPathIssue` owns the rule and answers with a code; the upload path renders it as English and the explorer renders it in the reader's language, so there is one definition of a legal path and no second copy to drift.
+
+**Proven against the real namespace, because the whole thing rests on it:** a four-module script uploaded, `index.js` imported `./lib/greet.js`, and `lib/greet.js` imported `./nested/constants.js` — driven through the deployed dispatcher over MCP, with the result coming back through all three.
+
+#### Testing a function without publishing it
+
+Until this, the only way to find out whether a function worked was to put it in front of every MCP client and call it from one. `POST …/custom-code/version/:versionId/test` takes a tool name and a sample input and answers with the output, the `ctx.log` lines, the error, and how long it took.
+
+**It runs the real thing.** The version deploys to `artifact_<id>_preview` — a script name nothing dispatches to — is called once, and is deleted afterwards. Real connections, real resources, real egress rules, and the live version keeps serving clients throughout. A test that stubbed `ctx` would only ever test code nobody writes.
+
+**Its broker token is a preview token.** A live token's lifetime is the active-version check, which cannot apply to a version that is deliberately not active — so [the token](../packages/utils/src/customCodeToken.ts) carries `preview` and an expiry instead, and [the broker](../apps/tool-broker/src/middleware/auth.ts) swaps that check for "this version belongs to this tool". The capability is the same as a live token's on purpose: whoever asked for the test could publish the same code instead, and the ten-minute expiry is what a failed cleanup runs into.
+
+**The deadline is a race, not an AbortSignal.** Passing `signal` to a Fetcher from a dispatch namespace works only when the binding lives in the same process: a local `wrangler dev` proxies the namespace to the account, and the proxy answers `AbortSignal serialization is not enabled` — so every test run and every custom tool call failed locally while the deployed Worker was fine. [`withDeadline`](../packages/utils/src/deadline.ts) races the fetch instead, at both call sites. What it gives up is stopping the isolate early, which was never this timeout's job: the per-script `limits.cpu_ms` ceiling bounds the compute, and this bounds how long a person watches a spinner.
+
+**Schemas are checked on both sides of the run.** An input the tool's own schema refuses never reaches a deploy — an MCP client would have refused it the same way. An output that doesn't match a declared `outputSchema` gets its own block, because the boot loop turns exactly that into a failed call. [`validateAgainstJsonSchema`](../packages/utils/src/jsonSchemaToZodShape.ts) is the same compiler the MCP boot loop registers tools with, pointed at a value.
+
+#### `outputSchema` for `http-endpoint`
+
+The last asymmetry between the two user-authored tool shapes: `custom-code` has carried one since the manifest existed, so the shared creation flow had a field that vanished on one tab.
+
+Optional, and absent on every endpoint that predates it. Declaring one turns a JSON response into MCP `structuredContent` and leaves the text behaviour untouched when it is absent. `structuredContent` is attached **only** when a schema was declared: handing every existing install a second representation of its response is not an upgrade.
+
+- **The boot loop applies the same guard `custom-code` does.** A tool that declares an `outputSchema` must return `structuredContent` or be marked `isError`, or the MCP SDK refuses to serialize its own result. Most often it means the endpoint answered with text, or an array, where the schema promised an object.
+- **Failures are now marked `isError`.** They used to come back as ordinary text beginning with `Error:`. Marking them is what the other two proxied definitions already do, and it is what makes the guard above workable. This is the one behaviour change existing installs will see.
+- **An output schema must describe an object**, on the write path only, because `structuredContent` is an object and a schema of any other type compiles to an empty shape that can never be satisfied. Applied to `custom-code` manifests too. The read shapes stay permissive, exactly as with the reserved-name rule.
+
+#### A pinned formatter
+
+The repo had a `.prettierrc` and no prettier, so `npx prettier` pulled whatever was newest and formatting was whatever each contributor's editor happened to load.
+
+`prettier` is now a root devDependency **pinned exactly** — `3.6.2`, not `^3.6.2`, since a caret would reintroduce the problem on the next minor. The version was chosen by measurement rather than by recency: checked against the committed `.ts`/`.tsx` files, 3.3.3 and 3.4.2 disagree with 37 of them, 3.6.2 with 36, and 3.9.6 with 43 — the newest reflows every emotion template literal, putting `${` on its own line throughout `packages/ui`. 3.6.2 is the recent version that fights the existing code least. `npm run format` and `npm run format:check` at the root, plus a `.prettierignore` for generated output.
+
+**Markdown is ignored, deliberately.** These docs are hand-formatted prose with a house style — `*emphasis*`, unpadded tables — and prettier's markdown rules would rewrite all of them to say the same thing differently. The formatter is here for code.
+
+#### Verified
+
+Every step was checked against the dev database with a throwaway fixture, removed afterwards.
+
+| What | Checks |
+|---|---|
+| Catalog migration | 9 — all 33 rows backfilled, no nulls, FK and column gone, both tables dropped, `mcp_server_catalog` intact, all 12 stored keys resolve |
+| Registry guarantee | 2 — catalog-without-handler and handler-without-catalog both fail `tsc` |
+| `enabled` flag | 11 — config survives a toggle, disable frees a quota slot, boot sees only enabled, delete of a disabled row doesn't double-decrement, counter never negative |
+| SDK sibling module | 7 — no bare imports, links against editor source, health probe, tool call, `ctx.log`, `source_kind` default |
+| Deploy chain | 10 — draft created, manifest verbatim, upload marks editor-authored, boot registers the function |
+| Test panel + `allowedTools` | 36 — [verify-custom-code-testing.mjs](../scripts/verify-custom-code-testing.mjs), all passing, first run |
+| `outputSchema` on http-endpoint | 26 — [verify-http-endpoint-output.mjs](../scripts/verify-http-endpoint-output.mjs), all passing |
+| The whole dashboard API, on the deployed stack | 69 — [probe-tools-dashboard.mjs](../scripts/probe-tools-dashboard.mjs) |
+
+The testing run drives the **real broker middleware** against a scaffolded tool with three versions rather than restating its checks: a live token for the active version is accepted, one for a version that is not active is refused, a preview token for a draft of that tool is accepted, and preview tokens naming another tool's version, a version that does not exist, or an expired one are all refused — with every rejection the same opaque 401. Plus the token itself, the schema validator the panel reports violations from, and the `allowedTools` filtering rule restated so a change to either side fails here rather than quietly changing which tools an MCP server offers.
+
+The http-endpoint run drives the **real executor** against a stubbed `fetch`: a JSON object becomes `structuredContent` and an array or a text body does not; `jsonPath` applies before the structure is taken; an endpoint that declares nothing still gets none; every failure path is marked `isError`; and the boot loop's guard is restated so that a change to either side fails here rather than in front of a customer.
+
+**Publishing is verified on the deployed development stack** by [probe-tools-dashboard.mjs](../scripts/probe-tools-dashboard.mjs). It signs a session cookie with `JWT_SECRET`, scaffolds a throwaway PRO org, and drives the dashboard's own routes: the catalog answering from code, an endpoint's output schema reaching an MCP client as `structuredContent` while an array response against the same schema comes back `isError`, the `enabled` flag keeping config and freeing a quota slot, a draft created and its source read back byte for byte, a test run against a schema-refused input and a good one, publish deploying to the dispatch namespace and the boot loop registering what it wrote, `allowedTools` narrowing the list with no redeploy, rollback restoring the older manifest, and the plan gate on a downgraded org. Then it removes the rows and the script.
+
+Two things it found that no local run could. The plan gate was missing on publish and rollback — every other write path answered 402 on FREE while those two deployed code. And a `GET` on an absent dispatch script answers `200` with `result.script: null` rather than 404, so an assertion on the status alone reports every deleted script as still deployed — which is why the probe reads the field.
+
+**Not verified: the Functions tab and the off/remove controls in a browser.** They typecheck, build, and the editor is confirmed absent from the tools page's initial chunk — none of which is the same as having loaded Monaco from `/monaco/vs` and clicked Deploy. Completion against the SDK types and the marker pass are the two pieces most worth checking first, since both depend on how Monaco resolves `./ganju-sdk.js`.
+
+#### Still open on the dashboard
+
+- **Give the row's config a surface.** The Functions tab writes the manifest and the source, and nothing else — `createVersion` posts `{ manifest }` alone, and no view writes `connections`, `allowedHosts`, `timeoutMs` or `resourceAccess`, or creates a `custom-code` credential. So `ctx.connection`, `ctx.sendFile` and `ctx.secret` cannot be used by anyone working in the dashboard, while Monaco completes all three from the SDK's real declarations and the runtime refusal reads *"add it to the tool's connections and publish a new version"* — of a place that does not exist. The CLI would be the other door and is Phase 7, so today `ctx.resources` and `fetch` are the whole usable surface. Everything underneath is built and verified; what is missing is the form.
+- **Name the CLI in the editor's notice once it exists.** The notice describes the path — bundle it locally, upload the bundle — without naming a command. When Phase 7 lands, that sentence becomes one command.
+- **Format the backlog.** 62 files differ, all of them predating this work. `npm run format` does it in one command; it is worth its own commit, because a whitespace sweep across 62 files would bury a review of anything else.
+
+#### Operational state
+
+**Migrations.** Dev is migrated through **0067** — verified: `artifact_tool` has `tool_key` and `enabled`, and `tool_definition` / `tool_group` are gone. Production has none of them, and they must land with the deploy: the API writes `tool_key` and reads `enabled` from the first request.
+
+```
+npm run migrate-prod --workspace=@ganju/db
+```
+
+**New dependencies.** `prettier` is pinned at the root. `apps/api` depends on `@ganju/sdk` for the prebuilt worker module; `apps/web` does too, for the editor's type declarations. `apps/web` also gains `@monaco-editor/react` (a dependency) and `monaco-editor` (a devDependency — nothing imports it at runtime, the build copies its files).
+
+**A build step, and a gitignored directory.** `apps/web`'s `build` and `dev` scripts run `scripts/copy-monaco.mjs` first, filling `apps/web/public/monaco/` — 10.6MB of static assets that ship with the deployment and are never committed. Two call sites rather than a `pre*` hook per command: `opennextjs-cloudflare build` runs the app's own `build` script, so `cf-build` and both deploys pick it up through that, and only `next dev` needs the second mention. A build that skips dev dependencies has no `monaco-editor` to copy from.
+
+**What blocks a publish on development is a deploy, not a secret.** Every deployed development Worker predates this work — api 15 Aug, mcp 14 Aug — while the development database is already migrated through 0067. The old code joins `tool_definition`, which 0065 dropped, so **the deployed development API and MCP are broken against their own database** until this lands. Applying migrations to a running deployment is what makes them a pair that has to move together, which is why they must go out in the same deploy. That deploy is also what puts the test panel and preview tokens on the broker — both are new here, so a test run against the currently-deployed broker would 401 the moment a script touched `ctx`.
 
 ### Phase 7 — CLI
 
@@ -471,7 +670,7 @@ Only after Phase 8. Deleting first fails *silently*: [mcp/index.ts:826-827](../a
 
 ### Phase 10 — Plans, quotas, abuse
 
-- [x] `PLAN_FEATURE_CUSTOM_CODE` in [plan.ts](../apps/api/src/utils/plan.ts); Free = `http-endpoint` only, capped at 3 — see [TOOLS_DASHBOARD.md](TOOLS_DASHBOARD.md)
+- [x] `PLAN_FEATURE_CUSTOM_CODE` in [plan.ts](../apps/api/src/utils/plan.ts); Free = `http-endpoint` only, capped at 3 — see [Phase 6](#3-custom-code-is-a-paid-feature-with-a-server-side-gate)
 - [ ] Meter custom-tool invocations / CPU-ms (the `mcp_request` counter already exists)
 - [ ] Abuse response process — see [Risks](#risks)
 

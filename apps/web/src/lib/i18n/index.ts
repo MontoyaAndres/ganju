@@ -14,6 +14,7 @@ import { useT, useLang } from './useT';
 import { useFormat } from './useFormat';
 import { langHref } from './langHref';
 import { copy } from './copy';
+import { catalogCopy } from './copy/toolCatalog';
 
 export type {
   Lang,
@@ -27,6 +28,7 @@ export type {
 
 export const i18n = {
   copy,
+  catalogCopy,
   useT,
   useLang,
   useFormat,

@@ -3,6 +3,8 @@ import Editor, { type Monaco } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { SDK_EDITOR_TYPES } from '@ganju/sdk/editorTypes';
 
+import { i18n } from '../../../lib';
+
 import './monacoLoader';
 
 /**
@@ -32,50 +34,46 @@ export interface MonacoSurfaceProps {
   onCaret?: (line: number, column: number, lineCount: number) => void;
 }
 
-// Globals that do not exist in the runtime this code is deployed to, each with
-// the reason and the way around it.
-//
-// The Workers runtime has no Node built-ins (no `nodejs_compat` on user scripts)
-// and no module resolution: what is uploaded is what runs, beside the SDK and
-// nothing else. TypeScript alone would not catch most of these — the DOM library
-// that gives us honest `fetch` and `Response` types also brings `window` and
-// `localStorage`, which are just as absent here.
+/**
+ * Globals that do not exist in the runtime this code is deployed to, each with
+ * the reason and the way around it.
+ *
+ * The Workers runtime has no Node built-ins (no `nodejs_compat` on user scripts)
+ * and no module resolution: what is uploaded is what runs, beside the SDK and
+ * nothing else. TypeScript alone would not catch most of these — the DOM library
+ * that gives us honest `fetch` and `Response` types also brings `window` and
+ * `localStorage`, which are just as absent here.
+ *
+ * Each rule carries the catalog key of its explanation rather than the sentence
+ * itself: the pattern is what the runtime enforces and never varies, while the
+ * message is copy and is read in whichever language the author is working in.
+ */
+type MarkerKey =
+  | 'markerRequire'
+  | 'markerProcess'
+  | 'markerNodeGlobals'
+  | 'markerEval'
+  | 'markerBrowser'
+  | 'markerBareImport';
+
 const FORBIDDEN: {
   pattern: RegExp;
-  message: string;
+  key: MarkerKey;
 }[] = [
-  {
-    pattern: /\brequire\s*\(/g,
-    message:
-      'require() is not available — the deployed script is an ES module and nothing resolves modules at runtime. To use a package, bundle it locally and upload with the CLI.'
-  },
-  {
-    pattern: /\bprocess\s*\./g,
-    message:
-      'process is not available. Cloudflare Workers run without Node built-ins; read configuration through ctx.secret() instead.'
-  },
-  {
-    pattern: /\b(?:Buffer|__dirname|__filename)\b/g,
-    message:
-      'Node built-ins are not available. Use TextEncoder / TextDecoder for bytes, and ctx.resources for storage.'
-  },
-  {
-    pattern: /\beval\s*\(|new\s+Function\s*\(/g,
-    message:
-      'Evaluating code at runtime is blocked by the Workers runtime and will throw.'
-  },
+  { pattern: /\brequire\s*\(/g, key: 'markerRequire' },
+  { pattern: /\bprocess\s*\./g, key: 'markerProcess' },
+  { pattern: /\b(?:Buffer|__dirname|__filename)\b/g, key: 'markerNodeGlobals' },
+  { pattern: /\beval\s*\(|new\s+Function\s*\(/g, key: 'markerEval' },
   {
     pattern: /\b(?:window|document|localStorage|sessionStorage|alert)\b\s*\./g,
-    message:
-      'There is no browser here — this code runs on the server, in a Worker isolate.'
+    key: 'markerBrowser'
   },
   {
     // Relative paths are fine — they are the project's own files, uploaded as
     // modules beside this one. A bare specifier is not: nothing resolves
     // packages at runtime, because there is no install step.
     pattern: /\bfrom\s+'(?![.\/])[^']*'/g,
-    message:
-      'Only files in this project and ./ganju-sdk.js can be imported here — there is no install step. To use a package, bundle it locally and upload with the CLI.'
+    key: 'markerBareImport'
   }
 ];
 
@@ -87,7 +85,11 @@ const MARKER_OWNER = 'ganju-runtime';
 const MODEL_ROOT = 'file:///';
 const modelUri = (path: string) => `${MODEL_ROOT}${path}`;
 
-const markRuntimeLimits = (monaco: Monaco, model: MonacoEditor.ITextModel) => {
+const markRuntimeLimits = (
+  monaco: Monaco,
+  model: MonacoEditor.ITextModel,
+  describe: (key: MarkerKey) => string
+) => {
   const text = model.getValue();
   const markers: MonacoEditor.IMarkerData[] = [];
 
@@ -99,7 +101,7 @@ const markRuntimeLimits = (monaco: Monaco, model: MonacoEditor.ITextModel) => {
       const end = model.getPositionAt(match.index + match[0].length);
       markers.push({
         severity: monaco.MarkerSeverity.Error,
-        message: rule.message,
+        message: describe(rule.key),
         startLineNumber: start.lineNumber,
         startColumn: start.column,
         endLineNumber: end.lineNumber,
@@ -170,6 +172,13 @@ const MonacoSurface = ({
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
 
+  // Same reason: the marker pass runs from listeners registered once on mount,
+  // and it has to render its reasons in whatever language is current then.
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const describeRef = useRef(t);
+  describeRef.current = t;
+  const describe = (key: MarkerKey) => describeRef.current(key);
+
   const monacoRef = useRef<Monaco | null>(null);
 
   // Keep a model per file. The <Editor> below owns the one it is showing; these
@@ -227,12 +236,12 @@ const MonacoSurface = ({
     };
 
     const model = instance.getModel();
-    if (model) markRuntimeLimits(monaco, model);
+    if (model) markRuntimeLimits(monaco, model, describe);
     report();
 
     instance.onDidChangeModelContent(() => {
       const current = instance.getModel();
-      if (current) markRuntimeLimits(monaco, current);
+      if (current) markRuntimeLimits(monaco, current, describe);
       report();
     });
 
@@ -240,7 +249,7 @@ const MonacoSurface = ({
     // a different file from that moment on.
     instance.onDidChangeModel(() => {
       const current = instance.getModel();
-      if (current) markRuntimeLimits(monaco, current);
+      if (current) markRuntimeLimits(monaco, current, describe);
       report();
     });
 

@@ -5,6 +5,7 @@ import { utils } from '@ganju/utils';
 import { TerminalOutlined } from '@mui/icons-material';
 
 import { FileExplorer } from './FileExplorer';
+import { i18n } from '../../../lib';
 
 /**
  * The editor surface plus its chrome: a file bar, a note about what this editor
@@ -62,28 +63,27 @@ export const CodeEditor = ({
   onSave,
   height = '440px'
 }: Props) => {
+  const t = i18n.useT(i18n.copy.TOOLS);
   const [caret, setCaret] = useState({ line: 1, column: 1, lineCount: 1 });
 
   return (
     <div className={`tools-ide ${readOnly ? 'readonly' : ''}`}>
       <div className="tools-ide-bar">
         <span className="tools-ide-file">{activePath}</span>
-        {readOnly && <span className="tools-ide-flag">read-only</span>}
+        {readOnly && <span className="tools-ide-flag">{t('ideReadOnly')}</span>}
         {dirty && !readOnly && (
-          <span className="tools-ide-flag unsaved">unsaved</span>
+          <span className="tools-ide-flag unsaved">{t('ideUnsaved')}</span>
         )}
         <span className="tools-ide-bar-right">
-          {caret.lineCount} {caret.lineCount === 1 ? 'line' : 'lines'}
+          {t.plural('ideLines', caret.lineCount)}
         </span>
       </div>
       {!readOnly && (
         <div className="tools-ide-notice">
           <TerminalOutlined fontSize="small" />
           <span>
-            No terminal here, and no <code>npm install</code> — this file is
-            deployed exactly as written. To use a package, bundle it into a
-            single file on your machine and upload that bundle. Everything in{' '}
-            <code>ctx</code> works without installing anything.
+            {t('ideNoticeBefore')} <code>npm install</code>{' '}
+            {t('ideNoticeMiddle')} <code>ctx</code> {t('ideNoticeAfter')}
           </span>
         </div>
       )}
@@ -117,13 +117,11 @@ export const CodeEditor = ({
         </div>
       </div>
       <div className="tools-ide-status">
-        <span>
-          Ln {caret.line}, Col {caret.column}
-        </span>
-        <span>Spaces: 2</span>
+        <span>{t('ideCaret', { line: caret.line, column: caret.column })}</span>
+        <span>{t('ideSpaces')}</span>
         <span>JavaScript</span>
         {onSave && !readOnly && (
-          <span className="tools-ide-status-right">⌘S saves a draft</span>
+          <span className="tools-ide-status-right">{t('ideSaveHint')}</span>
         )}
       </div>
     </div>

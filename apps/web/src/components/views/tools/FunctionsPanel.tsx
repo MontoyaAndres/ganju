@@ -20,8 +20,12 @@ import Switch from '@mui/material/Switch';
 
 import { CodeEditor } from './CodeEditor';
 import { MetaGridSkeleton, ToolRowsSkeleton } from './Skeletons';
-import { JsonEditor, SCHEMA_META_SCHEMA } from './JsonEditor';
+import { JsonEditor, useSchemaMetaSchema } from './JsonEditor';
 import { ModalDialog, ModalOverlay } from './styles';
+import { i18n } from '../../../lib';
+
+// types
+import type { Translate } from '../../../lib';
 
 export interface ManifestTool {
   name: string;
@@ -73,6 +77,8 @@ interface TestRun {
   inputViolations?: { path: string; message: string }[];
   outputViolations?: { path: string; message: string }[];
 }
+
+type ToolsT = Translate<(typeof i18n.copy.TOOLS)['en']>;
 
 const DRAFT = utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT;
 const MAIN = utils.constants.CUSTOM_CODE_MAIN_MODULE;
@@ -270,23 +276,47 @@ const renameStub = (source: string, from: string, to: ManifestTool): string => {
 
 const emptySchema = () => ({ type: 'object', properties: {} });
 
+// `parseSchema` runs outside any component, so it cannot translate. It throws
+// this sentinel and the dialog renders it; JSON's own parse errors come through
+// untouched, because they name the offending character and are the more useful
+// message of the two.
+const SCHEMA_NOT_OBJECT = 'schema-not-object';
+
 const parseSchema = (raw: string): Record<string, unknown> | null => {
   const text = raw.trim();
   if (!text) return null;
   const parsed = JSON.parse(text);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('Schema must be a JSON object');
+    throw new Error(SCHEMA_NOT_OBJECT);
   }
   return parsed as Record<string, unknown>;
 };
 
-const formatWhen = (iso: string | null | undefined): string =>
-  iso
-    ? new Date(iso).toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      })
-    : '—';
+/**
+ * A timestamp in the reader's own locale. `t.date` renders an em dash for a
+ * missing or unparseable value, which is exactly what a version that has never
+ * been published should show under Published.
+ */
+const formatWhen = (t: ToolsT, iso: string | null | undefined): string =>
+  iso ? t.date(iso, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+
+/**
+ * A version's stored status, in words. `live` is not one of them — it is what
+ * the row's id matching `activeVersionId` means, and it outranks the status,
+ * since the live version is `published` and so are the ones it superseded.
+ */
+const STATUS_KEYS = {
+  [utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT]: 'statusDraft',
+  [utils.constants.CUSTOM_CODE_VERSION_STATUS_PUBLISHED]: 'statusPublished',
+  [utils.constants.CUSTOM_CODE_VERSION_STATUS_ARCHIVED]: 'statusArchived'
+} as const satisfies Record<string, keyof (typeof i18n.copy.TOOLS)['en']>;
+
+const statusLabel = (t: ToolsT, status: string): string => {
+  const key = STATUS_KEYS[status as keyof typeof STATUS_KEYS];
+  // A status the dashboard has not heard of prints as it is stored, rather than
+  // as a missing key — the read path elsewhere is lenient for the same reason.
+  return key ? t(key) : status;
+};
 
 const argCount = (tool: ManifestTool): number =>
   Object.keys((tool.inputSchema?.properties as Record<string, unknown>) || {})
@@ -302,6 +332,8 @@ export const FunctionsPanel = ({
   onVersionsChanged,
   onChanged
 }: Props) => {
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const c = i18n.useT(i18n.copy.COMMON);
   const snackbar = UI.Alert.useSnackbar();
   const customCodeBase = `${apiBase}/custom-code`;
 
@@ -395,7 +427,7 @@ export const FunctionsPanel = ({
         setExpanded(null);
       })
       .catch(() => {
-        if (!cancelled) snackbar.error('Could not load this version’s code');
+        if (!cancelled) snackbar.error(t('fnErrLoadSource'));
       })
       .finally(() => !cancelled && setSourceLoading(false));
     return () => {
@@ -435,12 +467,12 @@ export const FunctionsPanel = ({
 
   const createFile = (path: string) => {
     if (files[path] !== undefined) {
-      snackbar.error('That file already exists');
+      snackbar.error(t('fnErrFileExists'));
       return;
     }
     if (Object.keys(files).length >= utils.constants.CUSTOM_CODE_MAX_FILES) {
       snackbar.error(
-        `A script can hold ${utils.constants.CUSTOM_CODE_MAX_FILES} files.`
+        t('fnErrMaxFiles', { max: utils.constants.CUSTOM_CODE_MAX_FILES })
       );
       return;
     }
@@ -560,7 +592,7 @@ export const FunctionsPanel = ({
       }
     });
     if (created?.error || !created?.id) {
-      snackbar.error(created?.error || 'Could not create the version');
+      snackbar.error(created?.error || t('fnErrCreateVersion'));
       return null;
     }
 
@@ -608,16 +640,18 @@ export const FunctionsPanel = ({
   const saveDraft = async () => {
     if (busy || !editable) return;
     if (manifest.length === 0) {
-      snackbar.error('Declare at least one function first');
+      snackbar.error(t('fnErrDeclareFirst'));
       return;
     }
     setBusy('draft');
     try {
       const created = await createVersion();
-      if (created) snackbar.success(`Draft v${created.version} saved`);
+      if (created) {
+        snackbar.success(t('fnOkDraftSaved', { version: created.version }));
+      }
       await onVersionsChanged();
     } catch {
-      snackbar.error('Could not save the draft');
+      snackbar.error(t('fnErrSaveDraft'));
     } finally {
       setBusy(null);
     }
@@ -626,7 +660,7 @@ export const FunctionsPanel = ({
   const deploy = async () => {
     if (busy) return;
     if (manifest.length === 0) {
-      snackbar.error('Declare at least one function before deploying');
+      snackbar.error(t('fnErrDeclareBeforeDeploy'));
       return;
     }
     setBusy('deploy');
@@ -638,11 +672,11 @@ export const FunctionsPanel = ({
         !dirty && isDraft && openVersion ? openVersion : await createVersion();
       if (!target) return;
       if (await activate(target.id, 'publish')) {
-        snackbar.success(`v${target.version} deployed`);
+        snackbar.success(t('fnOkDeployed', { version: target.version }));
       }
       await onChanged();
     } catch {
-      snackbar.error('Deploy failed');
+      snackbar.error(t('fnErrDeploy'));
     } finally {
       setBusy(null);
     }
@@ -653,7 +687,7 @@ export const FunctionsPanel = ({
     setBusy('rollback');
     try {
       if (await activate(version.id, 'rollback')) {
-        snackbar.success(`Rolled back to v${version.version}`);
+        snackbar.success(t('fnOkRolledBack', { version: version.version }));
         setOpenVersionId(version.id);
       }
       await onChanged();
@@ -683,7 +717,7 @@ export const FunctionsPanel = ({
           tool: tool.name,
           pending: false,
           ran: false,
-          error: 'The sample input is not valid JSON.'
+          error: t('fnErrSampleInputJson')
         });
         return;
       }
@@ -717,7 +751,7 @@ export const FunctionsPanel = ({
         tool: tool.name,
         pending: false,
         ran: false,
-        error: 'The test could not be run.'
+        error: t('fnErrTestFailed')
       });
     }
   };
@@ -745,9 +779,7 @@ export const FunctionsPanel = ({
     // a server with zero tools enabled. A script that should serve nothing is a
     // script to roll back, not one to switch off a function at a time.
     if (!next && updated.length === 0) {
-      snackbar.error(
-        'At least one function has to stay on. Roll back to a version without it instead.'
-      );
+      snackbar.error(t('fnErrLastOn'));
       return;
     }
 
@@ -763,23 +795,25 @@ export const FunctionsPanel = ({
   };
 
   const headline = openVersion
-    ? `v${openVersion.version} · ${isLive ? 'live' : openVersion.status}`
-    : 'New script — not deployed yet';
+    ? t('fnHeadlineVersion', {
+        version: openVersion.version,
+        status: isLive ? t('statusLive') : statusLabel(t, openVersion.status)
+      })
+    : t('fnHeadlineNew');
 
   return (
     <div className="tools-functions">
       <div className="tools-section-header">
         <div>
-          <h2 className="tools-section-title">Functions</h2>
+          <h2 className="tools-section-title">{t('fnTitle')}</h2>
           <p className="tools-section-subtitle">
             {loading ? (
               <UI.Skeleton variant="text" width={190} height={14} />
             ) : (
               <>
                 {versions.length === 0 && `${headline} · `}
-                {manifest.length}{' '}
-                {manifest.length === 1 ? 'function' : 'functions'}
-                {dirty && ' · unsaved changes'}
+                {t.plural('fnCount', manifest.length)}
+                {dirty && ` · ${t('fnUnsaved')}`}
               </>
             )}
           </p>
@@ -791,7 +825,7 @@ export const FunctionsPanel = ({
           {versions.length > 0 && (
             <div className="tools-version-picker">
               <UI.Select
-                label="Version"
+                label={t('versionLabel')}
                 size="small"
                 value={openVersionId ?? ''}
                 disabled={!!busy}
@@ -799,17 +833,20 @@ export const FunctionsPanel = ({
                   // Only while a fresh script is being written: there is no row
                   // to name yet, and a blank select would read as broken.
                   ...(openVersionId === null
-                    ? [{ value: '', label: 'New script · unsaved' }]
+                    ? [{ value: '', label: t('versionNewUnsaved') }]
                     : []),
                   ...versions.map(v => ({
                     value: v.id,
-                    label: `v${v.version} · ${
+                    label:
                       v.id === activeVersionId
-                        ? 'live'
-                        : v.error
-                          ? `${v.status} · failed`
-                          : v.status
-                    }`
+                        ? t('versionOption', {
+                            version: v.version,
+                            status: t('statusLive')
+                          })
+                        : t(v.error ? 'versionOptionFailed' : 'versionOption', {
+                            version: v.version,
+                            status: statusLabel(t, v.status)
+                          })
                   }))
                 ]}
                 onChange={e => setOpenVersionId(e.target.value || null)}
@@ -829,8 +866,8 @@ export const FunctionsPanel = ({
               <UndoOutlined />
               <span className="button-text">
                 {busy === 'rollback'
-                  ? 'Rolling back…'
-                  : `Roll back to v${openVersion.version}`}
+                  ? t('rollingBack')
+                  : t('rollBackTo', { version: openVersion.version })}
               </span>
             </UI.Button>
           )}
@@ -840,7 +877,7 @@ export const FunctionsPanel = ({
             onClick={() => setEditing({ mode: 'create' })}
           >
             <Add />
-            <span className="button-text">New function</span>
+            <span className="button-text">{t('newFunction')}</span>
           </UI.Button>
           <UI.Button
             size="small"
@@ -849,7 +886,7 @@ export const FunctionsPanel = ({
           >
             <SaveOutlined />
             <span className="button-text">
-              {busy === 'draft' ? 'Saving…' : 'Save draft'}
+              {busy === 'draft' ? t('savingDraft') : t('saveDraft')}
             </span>
           </UI.Button>
           <UI.Button
@@ -860,7 +897,7 @@ export const FunctionsPanel = ({
           >
             <RocketLaunchOutlined />
             <span className="button-text">
-              {busy === 'deploy' ? 'Deploying…' : 'Deploy'}
+              {busy === 'deploy' ? t('deploying') : t('deploy')}
             </span>
           </UI.Button>
         </div>
@@ -871,8 +908,14 @@ export const FunctionsPanel = ({
           <Warning />
           <span>
             {openVersion?.error
-              ? `v${openVersion.version} failed to publish — ${openVersion.error}`
-              : `v${latest!.version} failed to publish — ${latest!.error}`}
+              ? t('publishFailed', {
+                  version: openVersion.version,
+                  error: openVersion.error
+                })
+              : t('publishFailed', {
+                  version: latest!.version,
+                  error: latest!.error as string
+                })}
           </span>
         </div>
       )}
@@ -881,16 +924,15 @@ export const FunctionsPanel = ({
         <div className="tools-banner tools-banner-warning">
           <Warning />
           <span>
-            This version was uploaded from the CLI, so its code is a compiled
-            bundle and can’t be edited here.{' '}
+            {t('readOnlyBannerBefore')}{' '}
             <button
               type="button"
               className="tools-inline-link"
               onClick={startFresh}
             >
-              Start a new script
+              {t('readOnlyBannerAction')}
             </button>{' '}
-            to edit in the dashboard.
+            {t('readOnlyBannerAfter')}
           </span>
         </div>
       )}
@@ -904,38 +946,38 @@ export const FunctionsPanel = ({
       {!loading && openVersion && (
         <dl className="tools-meta-grid">
           <div>
-            <dt>Version</dt>
+            <dt>{t('metaVersion')}</dt>
             <dd>v{openVersion.version}</dd>
           </div>
           <div>
-            <dt>Status</dt>
+            <dt>{t('metaStatus')}</dt>
             <dd>
               <span
                 className={`tools-version-chip ${isLive ? 'live' : openVersion.status}`}
               >
-                {isLive ? 'live' : openVersion.status}
+                {isLive ? t('statusLive') : statusLabel(t, openVersion.status)}
               </span>
             </dd>
           </div>
           <div>
-            <dt>Functions</dt>
+            <dt>{t('metaFunctions')}</dt>
             <dd>{openVersion.tools?.length || 0}</dd>
           </div>
           <div>
-            <dt>Source</dt>
+            <dt>{t('metaSource')}</dt>
             <dd>
               {sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR
-                ? 'Dashboard editor'
-                : 'CLI bundle'}
+                ? t('sourceEditor')
+                : t('sourceCli')}
             </dd>
           </div>
           <div>
-            <dt>Created</dt>
-            <dd>{formatWhen(openVersion.createdAt)}</dd>
+            <dt>{t('metaCreated')}</dt>
+            <dd>{formatWhen(t, openVersion.createdAt)}</dd>
           </div>
           <div>
-            <dt>Published</dt>
-            <dd>{formatWhen(openVersion.publishedAt)}</dd>
+            <dt>{t('metaPublished')}</dt>
+            <dd>{formatWhen(t, openVersion.publishedAt)}</dd>
           </div>
         </dl>
       )}
@@ -948,11 +990,8 @@ export const FunctionsPanel = ({
       ) : manifest.length === 0 ? (
         <div className="tools-empty-state">
           <CodeOutlined />
-          <h3>No functions yet</h3>
-          <p>
-            Declare a function — its name, description and input — and its
-            handler is written into the editor for you.
-          </p>
+          <h3>{t('fnEmptyTitle')}</h3>
+          <p>{t('fnEmptyText')}</p>
           <UI.Button
             variant="contained"
             size="small"
@@ -960,7 +999,7 @@ export const FunctionsPanel = ({
             onClick={() => setEditing({ mode: 'create' })}
           >
             <Add />
-            <span className="button-text">New function</span>
+            <span className="button-text">{t('newFunction')}</span>
           </UI.Button>
         </div>
       ) : (
@@ -998,18 +1037,18 @@ export const FunctionsPanel = ({
                     <span className="tools-function-item-tags">
                       <code className="tools-function-item-id">{fn.name}</code>
                       <span className="tools-function-tag">
-                        {argCount(fn)} {argCount(fn) === 1 ? 'input' : 'inputs'}
+                        {t.plural('fnInputs', argCount(fn))}
                       </span>
                       {fn.outputSchema && (
                         <span className="tools-function-tag">
-                          structured output
+                          {t('fnStructuredOutput')}
                         </span>
                       )}
                     </span>
                   </button>
                   <div className="tools-function-item-actions">
                     {isLive && !exposed && (
-                      <span className="tools-state-chip">Off</span>
+                      <span className="tools-state-chip">{t('chipOff')}</span>
                     )}
                     <ExpandMore
                       className={`tools-function-chevron ${open ? 'open' : ''}`}
@@ -1022,8 +1061,8 @@ export const FunctionsPanel = ({
                       <Tooltip
                         title={
                           exposed
-                            ? 'On your MCP server — turn off to stop offering it, without redeploying'
-                            : 'Deployed but not offered — turn on to expose it'
+                            ? t('fnTooltipExposed')
+                            : t('fnTooltipNotExposed')
                         }
                       >
                         <span>
@@ -1041,8 +1080,8 @@ export const FunctionsPanel = ({
                     <Tooltip
                       title={
                         openVersion
-                          ? 'Run this function against a sample input'
-                          : 'Save a draft before running this'
+                          ? t('fnTooltipRun')
+                          : t('fnTooltipRunNeedsDraft')
                       }
                     >
                       <span>
@@ -1060,7 +1099,7 @@ export const FunctionsPanel = ({
                     </Tooltip>
                     {editable && (
                       <>
-                        <Tooltip title="Edit name, description and schemas">
+                        <Tooltip title={t('fnTooltipEdit')}>
                           <IconButton
                             size="small"
                             onClick={() =>
@@ -1070,7 +1109,7 @@ export const FunctionsPanel = ({
                             <EditOutlined fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Stop declaring this function — its handler stays in your code">
+                        <Tooltip title={t('fnTooltipRemove')}>
                           <IconButton
                             size="small"
                             onClick={() => removeFunction(fn.name)}
@@ -1086,7 +1125,7 @@ export const FunctionsPanel = ({
                   <div className="tools-function-item-detail">
                     <div>
                       <p className="tools-function-detail-label">
-                        Input schema
+                        {t('fnInputSchema')}
                       </p>
                       <pre className="tools-function-detail-code">
                         {JSON.stringify(
@@ -1098,7 +1137,7 @@ export const FunctionsPanel = ({
                     </div>
                     <div>
                       <p className="tools-function-detail-label">
-                        Output schema
+                        {t('fnOutputSchema')}
                       </p>
                       {fn.outputSchema ? (
                         <pre className="tools-function-detail-code">
@@ -1106,7 +1145,7 @@ export const FunctionsPanel = ({
                         </pre>
                       ) : (
                         <p className="tools-function-detail-empty">
-                          None — this tool returns text.
+                          {t('fnOutputSchemaNone')}
                         </p>
                       )}
                     </div>
@@ -1123,7 +1162,7 @@ export const FunctionsPanel = ({
                     <JsonEditor
                       compact
                       id={`test-input-${fn.name}`}
-                      label="Sample input"
+                      label={t('fnSampleInput')}
                       height="110px"
                       schema={fn.inputSchema || emptySchema()}
                       value={testInput[fn.name] ?? '{}'}
@@ -1138,15 +1177,13 @@ export const FunctionsPanel = ({
                         >
                           <PlayArrowOutlined fontSize="small" />
                           <span className="button-text">
-                            {run?.pending ? 'Running…' : 'Run'}
+                            {run?.pending ? t('fnRunning') : t('fnRun')}
                           </span>
                         </UI.Button>
                       }
                     />
                     <p className="tools-function-detail-empty">
-                      Runs this version on a preview script — your live tools
-                      keep serving clients. Real connections, real resources,
-                      real egress rules.
+                      {t('fnTestHint')}
                     </p>
 
                     {run && !run.pending && (
@@ -1156,7 +1193,7 @@ export const FunctionsPanel = ({
                         {!!run.inputViolations?.length && (
                           <div className="tools-test-block error">
                             <p className="tools-function-detail-label">
-                              Input doesn’t match the schema
+                              {t('fnTestInputViolations')}
                             </p>
                             <ul>
                               {run.inputViolations.map((issue, index) => (
@@ -1171,7 +1208,9 @@ export const FunctionsPanel = ({
 
                         {run.error && (
                           <div className="tools-test-block error">
-                            <p className="tools-function-detail-label">Error</p>
+                            <p className="tools-function-detail-label">
+                              {t('fnTestError')}
+                            </p>
                             <pre>{run.error}</pre>
                           </div>
                         )}
@@ -1179,9 +1218,11 @@ export const FunctionsPanel = ({
                         {run.ran && !run.error && (
                           <div className="tools-test-block">
                             <p className="tools-function-detail-label">
-                              Output{' '}
-                              {run.durationMs !== undefined &&
-                                `· ${run.durationMs}ms`}
+                              {run.durationMs === undefined
+                                ? t('fnTestOutput')
+                                : t('fnTestOutputTimed', {
+                                    ms: run.durationMs
+                                  })}
                             </p>
                             <pre>
                               {JSON.stringify(run.output ?? null, null, 2)}
@@ -1195,7 +1236,7 @@ export const FunctionsPanel = ({
                         {!!run.outputViolations?.length && (
                           <div className="tools-test-block error">
                             <p className="tools-function-detail-label">
-                              Output doesn’t match the schema
+                              {t('fnTestOutputViolations')}
                             </p>
                             <ul>
                               {run.outputViolations.map((issue, index) => (
@@ -1297,20 +1338,31 @@ const FunctionModal = ({
   );
   const [error, setError] = useState<string | null>(null);
 
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const schemaMetaSchema = useSchemaMetaSchema();
+
   const submit = () => {
     const trimmed = name.trim();
     if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-      setError('Name may only contain letters, digits, underscore or hyphen');
+      setError(t('fnErrNameCharset'));
       return;
     }
     // Checked here as well as on the server: the server owns the rule, but
     // finding out after a deploy round-trip is a poor way to learn it.
     if (utils.isReservedToolName(trimmed)) {
-      setError(utils.constants.RESERVED_TOOL_NAME_MESSAGE);
+      // The rule and its wording both live in @ganju/utils — the same message
+      // the server would answer with, put through the same translator.
+      setError(
+        utils.localizeZodIssue(
+          { message: utils.constants.RESERVED_TOOL_NAME_MESSAGE },
+          t.lang
+        )
+      );
       return;
     }
     if (trimmed !== initial?.name && existing.includes(trimmed)) {
-      setError('This script already declares a function by that name');
+      setError(t('fnErrNameTaken'));
       return;
     }
     let inputSchema: Record<string, unknown> | null;
@@ -1319,7 +1371,12 @@ const FunctionModal = ({
       inputSchema = parseSchema(input) || emptySchema();
       outputSchema = parseSchema(output);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Schema is not valid JSON');
+      const message = e instanceof Error ? e.message : '';
+      setError(
+        message === SCHEMA_NOT_OBJECT
+          ? t('fnErrSchemaNotObject')
+          : message || t('fnErrSchemaInvalid')
+      );
       return;
     }
     onSave({
@@ -1341,7 +1398,7 @@ const FunctionModal = ({
         >
           <div className="tools-modal-header">
             <h2 className="tools-modal-title">
-              {initial ? 'Edit function' : 'New function'}
+              {initial ? t('fnModalEdit') : t('fnModalNew')}
             </h2>
             <IconButton size="small" onClick={onCancel}>
               <Close />
@@ -1349,68 +1406,62 @@ const FunctionModal = ({
           </div>
           <div className="tools-modal-body">
             <label className="tools-field">
-              <span>Name</span>
+              <span>{t('fnFieldName')}</span>
               <input
                 value={name}
-                placeholder="lookup-order"
+                placeholder={t('fnFieldNamePlaceholder')}
                 onChange={e => setName(e.target.value)}
               />
-              <small>
-                What the model calls. Becomes the MCP tool name and the key in
-                your handler — renaming it here renames that key too.
-              </small>
+              <small>{t('fnFieldNameHelp')}</small>
             </label>
             <label className="tools-field">
-              <span>Title</span>
+              <span>{t('fnFieldTitle')}</span>
               <input
                 value={title}
-                placeholder="Look up order"
+                placeholder={t('fnFieldTitlePlaceholder')}
                 onChange={e => setTitle(e.target.value)}
               />
             </label>
             <label className="tools-field">
-              <span>Description</span>
+              <span>{t('fnFieldDescription')}</span>
               <textarea
                 rows={3}
                 value={description}
-                placeholder="Find an order by its id. Use when the customer gives an order number."
+                placeholder={t('fnFieldDescriptionPlaceholder')}
                 onChange={e => setDescription(e.target.value)}
               />
-              <small>
-                This is how the model decides whether to call it. Say when to
-                use it, not just what it does.
-              </small>
+              <small>{t('fnFieldDescriptionHelp')}</small>
             </label>
             {/* Both fields validate against the schema shape the server
                 accepts, so a key it would reject is underlined here rather than
                 returned as a 400 after Add function. */}
             <JsonEditor
               id="function-input-schema"
-              label="Input schema"
+              label={t('fnInputSchema')}
               height="170px"
-              schema={SCHEMA_META_SCHEMA}
+              schema={schemaMetaSchema}
               value={input}
               onChange={setInput}
-              help="What the model may pass. Every property it declares is offered to the model as an argument."
+              help={t('fnInputSchemaHelp')}
             />
             <JsonEditor
               id="function-output-schema"
-              label="Output schema — optional"
+              label={t('fnOutputSchemaLabel')}
               height="140px"
-              schema={SCHEMA_META_SCHEMA}
+              schema={schemaMetaSchema}
               value={output}
               onChange={setOutput}
-              help="Declare one and your tool must return a matching object — the MCP client gets structured output instead of text."
+              help={t('fnOutputSchemaHelp')}
             />
             {error && <p className="tools-field-error">{error}</p>}
           </div>
           <div className="tools-modal-actions">
             <UI.Button onClick={onCancel}>
-              <span className="button-text">Cancel</span>
+              <span className="button-text">{c('cancel')}</span>
             </UI.Button>
             <UI.Button variant="contained" onClick={submit}>
               <span className="button-text">
-                {initial ? 'Save changes' : 'Add function'}
+                {initial ? t('fnSaveChanges') : t('fnAddFunction')}
               </span>
             </UI.Button>
           </div>

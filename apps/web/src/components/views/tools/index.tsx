@@ -26,10 +26,12 @@ import { ToolRowsSkeleton } from './Skeletons';
 import { HttpEndpointModal } from './HttpEndpointModal';
 import { McpProxyModal } from './McpProxyModal';
 import { ModalDialog, ModalOverlay, Wrapper } from './styles';
+import { i18n } from '../../../lib';
 
 // types
 import type { CustomCodeVersion } from './FunctionsPanel';
 import type { Plan } from '../../../utils';
+import type { Translate } from '../../../lib';
 
 interface McpServer {
   id: string;
@@ -102,29 +104,32 @@ interface ArtifactConnection {
 
 const EXPANDED_GROUP_KEY = 'ganju:expandedToolGroupKey';
 
-const SEND_UPDATES_OPTIONS = [
-  {
-    value: utils.constants.CALENDAR_SEND_UPDATES_ALL,
-    label: 'Notify everyone'
-  },
+type ToolsT = Translate<(typeof i18n.copy.TOOLS)['en']>;
+
+/**
+ * The option lists whose labels are words. Values are what gets stored and are
+ * fixed; only the labels are read, so they are built from the translator rather
+ * than frozen at module scope.
+ */
+const sendUpdatesOptions = (t: ToolsT) => [
+  { value: utils.constants.CALENDAR_SEND_UPDATES_ALL, label: t('notifyAll') },
   {
     value: utils.constants.CALENDAR_SEND_UPDATES_EXTERNAL_ONLY,
-    label: 'Notify external guests only'
+    label: t('notifyExternal')
   },
-  {
-    value: utils.constants.CALENDAR_SEND_UPDATES_NONE,
-    label: "Don't send notifications"
-  }
+  { value: utils.constants.CALENDAR_SEND_UPDATES_NONE, label: t('notifyNone') }
 ];
 
-const WEEKDAYS: { value: number; label: string }[] = [
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
-  { value: 0, label: 'Sun' }
+// Monday first, because that is where the working week starts in both locales
+// this ships. Sunday is 0 in `Date`, which is why it is last rather than sorted.
+const weekdays = (t: ToolsT): { value: number; label: string }[] => [
+  { value: 1, label: t('weekdayMon') },
+  { value: 2, label: t('weekdayTue') },
+  { value: 3, label: t('weekdayWed') },
+  { value: 4, label: t('weekdayThu') },
+  { value: 5, label: t('weekdayFri') },
+  { value: 6, label: t('weekdaySat') },
+  { value: 0, label: t('weekdaySun') }
 ];
 
 // The three things a user can put on their MCP server, in the order they matter
@@ -150,11 +155,13 @@ type CatalogFilter =
   | typeof FILTER_OFF
   | typeof FILTER_NEEDS_CONNECTION;
 
-const CATALOG_FILTERS: { value: CatalogFilter; label: string }[] = [
-  { value: FILTER_ALL, label: 'All' },
-  { value: FILTER_ON, label: 'On' },
-  { value: FILTER_OFF, label: 'Off' },
-  { value: FILTER_NEEDS_CONNECTION, label: 'Needs connection' }
+const catalogFilters = (
+  t: ToolsT
+): { value: CatalogFilter; label: string }[] => [
+  { value: FILTER_ALL, label: t('filterAll') },
+  { value: FILTER_ON, label: t('filterOn') },
+  { value: FILTER_OFF, label: t('filterOff') },
+  { value: FILTER_NEEDS_CONNECTION, label: t('filterNeedsConnection') }
 ];
 
 // Which tab holds a given install. The three kinds of tool now live in three
@@ -177,7 +184,39 @@ interface ToolsProps {
 
 export const Tools = ({ plan }: ToolsProps) => {
   const router = useRouter();
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const c = i18n.useT(i18n.copy.COMMON);
   const snackbar = UI.Alert.useSnackbar();
+
+  /**
+   * The shipped catalog reads in the reader's language.
+   *
+   * Group and tool names arrive in the `/catalog/tools` payload in English —
+   * that is where they are declared, and the API has no locale — so they are
+   * translated here, by key, falling back to exactly what the payload sent. A
+   * tool added to the platform since this file was last touched therefore
+   * renders under its real English name rather than a missing-key placeholder.
+   */
+  const groupTitle = (group: { key: string; title: string }) =>
+    i18n.catalogCopy(t.lang, `group.${group.key}.title`, group.title) ||
+    group.title;
+  const groupDescription = (group: {
+    key: string;
+    description: string | null;
+  }) =>
+    i18n.catalogCopy(
+      t.lang,
+      `group.${group.key}.description`,
+      group.description
+    );
+  const toolTitle = (def: { key: string; title: string }) =>
+    i18n.catalogCopy(t.lang, `tool.${def.key}.title`, def.title) || def.title;
+  const toolDescription = (def: { key: string; description: string | null }) =>
+    i18n.catalogCopy(t.lang, `tool.${def.key}.description`, def.description);
+
+  const sendUpdates = useMemo(() => sendUpdatesOptions(t), [t]);
+  const weekdayOptions = useMemo(() => weekdays(t), [t]);
+  const filters = useMemo(() => catalogFilters(t), [t]);
   // Optimistic when the plan could not be resolved at all: assume allowed
   // rather than flashing a lock on a paid org's own page. The server refuses
   // either way, so the worst case is a control that looks open and then locks.
@@ -536,7 +575,7 @@ export const Tools = ({ plan }: ToolsProps) => {
       }
       await fetchAll();
     } catch {
-      snackbar.error('Failed to update this function');
+      snackbar.error(t('errUpdateFunction'));
     }
   };
 
@@ -973,7 +1012,7 @@ export const Tools = ({ plan }: ToolsProps) => {
       snackbar.success(successMessage);
       await fetchAll();
     } catch {
-      snackbar.error('Failed to update settings');
+      snackbar.error(t('errUpdateSettings'));
     } finally {
       setSavingCalendar(false);
     }
@@ -998,13 +1037,13 @@ export const Tools = ({ plan }: ToolsProps) => {
       if (data && data.error) {
         snackbar.error(data.error);
       } else {
-        snackbar.success('API key saved');
+        snackbar.success(t('okApiKeySaved'));
         setApiKeyGroup(null);
         setApiKeyValue('');
         await fetchAll();
       }
     } catch {
-      snackbar.error('Failed to save API key');
+      snackbar.error(t('errSaveApiKey'));
     } finally {
       setApiKeySubmitting(false);
     }
@@ -1034,10 +1073,10 @@ export const Tools = ({ plan }: ToolsProps) => {
         }
       });
       if (data?.error) snackbar.error(data.error);
-      else snackbar.success(enabled ? 'Tool enabled' : 'Tool disabled');
+      else snackbar.success(t(enabled ? 'okToolEnabled' : 'okToolDisabled'));
       await fetchAll();
     } catch {
-      snackbar.error('Failed to update tool');
+      snackbar.error(t('errUpdateTool'));
     } finally {
       setTogglingToolKey(null);
     }
@@ -1109,11 +1148,11 @@ export const Tools = ({ plan }: ToolsProps) => {
       if (data && data.error) {
         snackbar.error(data.error);
       } else {
-        snackbar.success(enabled ? 'Tool enabled' : 'Tool disabled');
+        snackbar.success(t(enabled ? 'okToolEnabled' : 'okToolDisabled'));
       }
       await fetchAll();
     } catch {
-      snackbar.error('Failed to update tool');
+      snackbar.error(t('errUpdateTool'));
     } finally {
       setTogglingToolKey(null);
     }
@@ -1191,8 +1230,24 @@ export const Tools = ({ plan }: ToolsProps) => {
   const setConfigField = (key: string, value: unknown) =>
     setConfigForm(prev => ({ ...prev, [key]: value }));
 
-  const renderCalendarField = (field: CalendarConfigField) => {
+  /**
+   * One per-tool setting.
+   *
+   * `toolKey` is here only so the label and help can be looked up: these fields
+   * are declared in `CALENDAR_TOOL_FIELDS`, which is shared code with no locale,
+   * so their wording is translated by key the same way the catalog's is — and
+   * falls back to the English the constant carries.
+   */
+  const renderCalendarField = (toolKey: string, field: CalendarConfigField) => {
     const value = configForm[field.key];
+    const base = `field.${toolKey}.${field.key}`;
+    const label = i18n.catalogCopy(
+      t.lang,
+      `${base}.label`,
+      field.label
+    ) as string;
+    const help =
+      i18n.catalogCopy(t.lang, `${base}.help`, field.help ?? null) ?? undefined;
 
     if (field.type === 'boolean') {
       return (
@@ -1201,10 +1256,8 @@ export const Tools = ({ plan }: ToolsProps) => {
           className="tools-config-field tools-config-field-row"
         >
           <div>
-            <p className="tools-config-field-label">{field.label}</p>
-            {field.help && (
-              <p className="tools-config-field-help">{field.help}</p>
-            )}
+            <p className="tools-config-field-label">{label}</p>
+            {help && <p className="tools-config-field-help">{help}</p>}
           </div>
           <Switch
             checked={value === true}
@@ -1219,15 +1272,23 @@ export const Tools = ({ plan }: ToolsProps) => {
       return (
         <div key={field.key} className="tools-config-field">
           <UI.Select
-            label={field.label}
+            label={label}
             value={
               typeof value === 'string' && value
                 ? value
                 : field.options[0]?.value || ''
             }
-            options={field.options}
+            options={field.options.map(option => ({
+              ...option,
+              label:
+                i18n.catalogCopy(
+                  t.lang,
+                  `option.${field.key === 'defaultVisibility' ? 'calendar-visibility' : field.key}.${option.value}`,
+                  option.label
+                ) || option.label
+            }))}
             disabled={submitting}
-            helperText={field.help}
+            helperText={help}
             onChange={e => setConfigField(field.key, e.target.value)}
           />
         </div>
@@ -1240,9 +1301,9 @@ export const Tools = ({ plan }: ToolsProps) => {
         : [];
       return (
         <div key={field.key} className="tools-config-field">
-          <p className="tools-config-field-label">{field.label}</p>
+          <p className="tools-config-field-label">{label}</p>
           <div className="tools-config-weekdays">
-            {WEEKDAYS.map(day => {
+            {weekdayOptions.map(day => {
               const active = selected.includes(day.value);
               return (
                 <button
@@ -1269,11 +1330,11 @@ export const Tools = ({ plan }: ToolsProps) => {
     return (
       <div key={field.key} className="tools-config-field">
         <UI.Input
-          label={field.label}
+          label={label}
           type={field.type === 'number' ? 'number' : 'text'}
           value={value === undefined || value === null ? '' : String(value)}
           disabled={submitting}
-          helperText={field.help}
+          helperText={help}
           onChange={e => setConfigField(field.key, e.target.value)}
         />
       </div>
@@ -1290,12 +1351,12 @@ export const Tools = ({ plan }: ToolsProps) => {
         parsed === null ||
         Array.isArray(parsed)
       ) {
-        setConfigError('Config must be a JSON object');
+        setConfigError(t('configMustBeObject'));
         return null;
       }
       return parsed as Record<string, unknown>;
     } catch {
-      setConfigError('Invalid JSON');
+      setConfigError(t('configInvalidJson'));
       return null;
     }
   };
@@ -1333,12 +1394,12 @@ export const Tools = ({ plan }: ToolsProps) => {
       if (data && !data.error) {
         handleCloseEdit();
         fetchAll();
-        snackbar.success('Tool updated');
+        snackbar.success(t('okToolUpdated'));
       } else {
-        snackbar.error(data?.error || 'Failed to update tool');
+        snackbar.error(data?.error || t('errUpdateTool'));
       }
     } catch {
-      snackbar.error('Failed to update tool');
+      snackbar.error(t('errUpdateTool'));
     } finally {
       setSubmitting(false);
     }
@@ -1355,12 +1416,12 @@ export const Tools = ({ plan }: ToolsProps) => {
       if (data && !data.error) {
         setRemoveAlert(null);
         fetchAll();
-        snackbar.success('Tool removed');
+        snackbar.success(t('okToolRemoved'));
       } else {
-        snackbar.error(data?.error || 'Failed to remove tool');
+        snackbar.error(data?.error || t('errRemoveTool'));
       }
     } catch {
-      snackbar.error('Failed to remove tool');
+      snackbar.error(t('errRemoveTool'));
     } finally {
       setSubmitting(false);
     }
@@ -1391,19 +1452,17 @@ export const Tools = ({ plan }: ToolsProps) => {
       <div className="tools-container">
         <div className="tools-header">
           <div className="tools-header-text">
-            <h1 className="tools-title">Tools</h1>
-            <p className="tools-subtitle">
-              Connect integrations and choose which tools this MCP server
-              exposes.
-            </p>
+            <h1 className="tools-title">{t('title')}</h1>
+            <p className="tools-subtitle">{t('subtitle')}</p>
           </div>
         </div>
         {connectedBanner && (
           <div className="tools-banner tools-banner-success">
             <CheckCircle />
             <span>
-              Connected <strong>{getProviderLabel(connectedBanner)}</strong>.
-              Toggle the tools you want to enable below.
+              {t('bannerConnected', {
+                provider: getProviderLabel(connectedBanner)
+              })}
             </span>
             <IconButton size="small" onClick={() => setConnectedBanner(null)}>
               <Close />
@@ -1419,7 +1478,7 @@ export const Tools = ({ plan }: ToolsProps) => {
             onClick={() => setTab(TAB_FUNCTIONS)}
           >
             {!canUseCustomCode && <LockOutlined fontSize="small" />}
-            Functions
+            {t('tabFunctions')}
             {canUseCustomCode && exposedFunctions.length > 0 && (
               <span className="tools-tab-count">{exposedFunctions.length}</span>
             )}
@@ -1429,7 +1488,7 @@ export const Tools = ({ plan }: ToolsProps) => {
             className={`tools-tab ${tab === TAB_HTTP ? 'active' : ''}`}
             onClick={() => setTab(TAB_HTTP)}
           >
-            HTTP Endpoints
+            {t('tabHttp')}
             {httpEndpoints.length > 0 && (
               <span className="tools-tab-count">{httpEndpoints.length}</span>
             )}
@@ -1439,7 +1498,7 @@ export const Tools = ({ plan }: ToolsProps) => {
             className={`tools-tab ${tab === TAB_CATALOG ? 'active' : ''}`}
             onClick={() => setTab(TAB_CATALOG)}
           >
-            Catalog
+            {t('tabCatalog')}
           </button>
         </div>
 
@@ -1447,14 +1506,10 @@ export const Tools = ({ plan }: ToolsProps) => {
           <div className="tools-locked">
             <div className="tools-locked-badge">
               <LockOutlined fontSize="small" />
-              <span>Pro</span>
+              <span>{t('lockedBadge')}</span>
             </div>
-            <h3>Write your own tools</h3>
-            <p>
-              Define a tool in TypeScript, deploy it to this MCP server, and
-              call it from any client. Your code gets the integrations you have
-              already connected — without ever touching a token.
-            </p>
+            <h3>{t('lockedTitle')}</h3>
+            <p>{t('lockedText')}</p>
             {/* The real thing, rendered inert. An empty upgrade wall says what
                 you cannot do; this says what you would get. */}
             <div className="tools-locked-preview" aria-hidden="true">
@@ -1480,7 +1535,7 @@ export default createHandler({
               variant="contained"
               onClick={() => router.push(`/${organizationId}/settings/billing`)}
             >
-              <span className="button-text">Upgrade to Pro</span>
+              <span className="button-text">{t('lockedUpgrade')}</span>
             </UI.Button>
           </div>
         )}
@@ -1502,12 +1557,15 @@ export default createHandler({
           <div className="tools-http">
             <div className="tools-section-header">
               <div>
-                <h2 className="tools-section-title">HTTP Endpoints</h2>
+                <h2 className="tools-section-title">{t('httpTitle')}</h2>
                 <p className="tools-section-subtitle">
-                  Expose your own HTTP APIs to the agent as named tools.
+                  {t('httpSubtitle')}
                   {!initialLoading &&
                     httpEndpointCap !== null &&
-                    ` ${httpEndpoints.length} of ${httpEndpointCap} used.`}
+                    ` ${t('httpUsage', {
+                      used: httpEndpoints.length,
+                      cap: httpEndpointCap
+                    })}`}
                 </p>
               </div>
               <UI.Button
@@ -1521,7 +1579,7 @@ export default createHandler({
                 onClick={() => setHttpEndpointEditor({ tool: null })}
               >
                 <Add />
-                <span className="button-text">New endpoint</span>
+                <span className="button-text">{t('httpNew')}</span>
               </UI.Button>
             </div>
             {initialLoading ? (
@@ -1529,11 +1587,8 @@ export default createHandler({
             ) : httpEndpoints.length === 0 ? (
               <div className="tools-empty-state">
                 <ApiOutlined />
-                <h3>No endpoints yet</h3>
-                <p>
-                  Point the agent at an API you already run. Each endpoint
-                  becomes a tool it can call by name.
-                </p>
+                <h3>{t('httpEmptyTitle')}</h3>
+                <p>{t('httpEmptyText')}</p>
               </div>
             ) : (
               <div className="tools-function-list">
@@ -1549,7 +1604,7 @@ export default createHandler({
                       <div className="tools-function-item-row">
                         <div className="tools-function-item-main">
                           <p className="tools-function-item-title">
-                            {config.name || 'Untitled endpoint'}
+                            {config.name || t('httpUntitled')}
                           </p>
                           {config.description && (
                             <p className="tools-function-item-description">
@@ -1562,7 +1617,7 @@ export default createHandler({
                             </code>
                             {!tool.enabled && (
                               <span className="tools-state-chip">
-                                Off · settings kept
+                                {t('chipOffKept')}
                               </span>
                             )}
                           </span>
@@ -1571,8 +1626,8 @@ export default createHandler({
                           <Tooltip
                             title={
                               tool.enabled
-                                ? 'Turn off — keeps this endpoint and its settings'
-                                : 'Turn on'
+                                ? t('tooltipTurnOffEndpoint')
+                                : t('tooltipTurnOn')
                             }
                           >
                             <span>
@@ -1586,7 +1641,7 @@ export default createHandler({
                               />
                             </span>
                           </Tooltip>
-                          <Tooltip title="Edit">
+                          <Tooltip title={t('tooltipEdit')}>
                             <IconButton
                               size="small"
                               onClick={() => setHttpEndpointEditor({ tool })}
@@ -1594,7 +1649,7 @@ export default createHandler({
                               <EditOutlined fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Remove — deletes this endpoint and its settings">
+                          <Tooltip title={t('tooltipRemoveEndpoint')}>
                             <IconButton
                               size="small"
                               onClick={() => setRemoveAlert(tool)}
@@ -1639,12 +1694,12 @@ export default createHandler({
                 }`}
               >
                 <div className="tools-budget-text">
-                  <strong>{exposedToolCount}</strong> of{' '}
-                  {utils.constants.CHANNEL_MAX_TOOLS} tools exposed
+                  <strong>{exposedToolCount}</strong>{' '}
+                  {t('budgetOf', { max: utils.constants.CHANNEL_MAX_TOOLS })}
                   <span className="tools-budget-hint">
                     {exposedToolCount > utils.constants.CHANNEL_MAX_TOOLS
-                      ? 'Past this, channels stop sending the extras and clients start to degrade.'
-                      : 'Each one is re-sent to the model on every turn.'}
+                      ? t('budgetHintOver')
+                      : t('budgetHint')}
                   </span>
                 </div>
                 <div className="tools-budget-bar">
@@ -1665,7 +1720,7 @@ export default createHandler({
                 <Search />
                 <input
                   type="text"
-                  placeholder="Search integrations..."
+                  placeholder={t('searchPlaceholder')}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
@@ -1674,7 +1729,7 @@ export default createHandler({
                   wanted to see on its own — what they want is one list they can
                   narrow. */}
               <div className="tools-filters">
-                {CATALOG_FILTERS.map(f => (
+                {filters.map(f => (
                   <button
                     key={f.value}
                     type="button"
@@ -1705,10 +1760,10 @@ export default createHandler({
               !initialLoading && (
                 <p className="tools-empty">
                   {filter === FILTER_ALL
-                    ? 'No integrations match your search.'
-                    : `No integrations match this filter${
-                        search.trim() ? ' and search' : ''
-                      }.`}
+                    ? t('emptyNoMatchSearch')
+                    : search.trim()
+                      ? t('emptyNoMatchFilterAndSearch')
+                      : t('emptyNoMatchFilter')}
                 </p>
               )}
             <div className="tools-catalog-groups">
@@ -1731,29 +1786,32 @@ export default createHandler({
                     <div className="tools-catalog-group-body">
                       <div className="tools-catalog-group-title-row">
                         <p className="tools-catalog-group-title">
-                          {group.title}
+                          {groupTitle(group)}
                         </p>
                         {connected &&
                           group.provider &&
                           (expired ? (
                             <span className="tools-catalog-group-expired">
                               <Warning />
-                              Expired
+                              {t('chipExpired')}
                             </span>
                           ) : (
                             <span className="tools-catalog-group-connected">
                               <CheckCircle />
-                              Connected
+                              {t('chipConnected')}
                             </span>
                           ))}
                       </div>
-                      {group.description && (
+                      {groupDescription(group) && (
                         <p className="tools-catalog-group-description">
-                          {group.description}
+                          {groupDescription(group)}
                         </p>
                       )}
                       <p className="tools-catalog-group-meta">
-                        {installedCount}/{group.tools.length} tools enabled
+                        {t('groupToolsEnabled', {
+                          enabled: installedCount,
+                          total: group.tools.length
+                        })}
                       </p>
                     </div>
                   </button>
@@ -1796,11 +1854,13 @@ export default createHandler({
                         {install && install.enabled && (
                           <span className="tools-catalog-group-connected">
                             <CheckCircle />
-                            Connected
+                            {t('chipConnected')}
                           </span>
                         )}
                         {install && !install.enabled && (
-                          <span className="tools-state-chip">Off</span>
+                          <span className="tools-state-chip">
+                            {t('chipOff')}
+                          </span>
                         )}
                       </div>
                       {s.description && (
@@ -1810,10 +1870,13 @@ export default createHandler({
                       )}
                       <p className="tools-catalog-group-meta">
                         {!install
-                          ? 'Remote MCP server · connect to enable tools'
-                          : install.enabled
-                            ? `${enabledCount} tool${enabledCount === 1 ? '' : 's'} enabled`
-                            : `${enabledCount} tool${enabledCount === 1 ? '' : 's'} · turned off`}
+                          ? t('mcpNotConnected')
+                          : t.plural(
+                              install.enabled
+                                ? 'mcpToolsEnabled'
+                                : 'mcpToolsOff',
+                              enabledCount
+                            )}
                       </p>
                     </div>
                   </button>
@@ -1830,7 +1893,7 @@ export default createHandler({
               onClick={() => setExpandedGroupKey(null)}
             >
               <ArrowBack />
-              Back to catalog
+              {t('backToCatalog')}
             </button>
             <div className="tools-group-detail-header">
               <div className="tools-group-detail-icon">
@@ -1838,11 +1901,11 @@ export default createHandler({
               </div>
               <div className="tools-group-detail-info">
                 <p className="tools-group-detail-title">
-                  {expandedGroup.title}
+                  {groupTitle(expandedGroup)}
                 </p>
-                {expandedGroup.description && (
+                {groupDescription(expandedGroup) && (
                   <p className="tools-group-detail-description">
-                    {expandedGroup.description}
+                    {groupDescription(expandedGroup)}
                   </p>
                 )}
               </div>
@@ -1853,12 +1916,12 @@ export default createHandler({
                       {isProviderExpired(expandedGroup.provider) ? (
                         <span className="tools-group-detail-expired-pill">
                           <Warning />
-                          Expired
+                          {t('chipExpired')}
                         </span>
                       ) : (
                         <span className="tools-group-detail-connected-pill">
                           <CheckCircle />
-                          Connected
+                          {t('chipConnected')}
                         </span>
                       )}
                       {isApiKeyProvider(expandedGroup.provider) && (
@@ -1869,7 +1932,9 @@ export default createHandler({
                             setApiKeyValue('');
                           }}
                         >
-                          <span className="button-text">Update API key</span>
+                          <span className="button-text">
+                            {t('updateApiKey')}
+                          </span>
                         </UI.Button>
                       )}
                       <UI.Button
@@ -1884,7 +1949,7 @@ export default createHandler({
                         }
                       >
                         <LinkOff />
-                        <span className="button-text">Disconnect</span>
+                        <span className="button-text">{t('disconnect')}</span>
                       </UI.Button>
                     </>
                   ) : isApiKeyProvider(expandedGroup.provider) ? (
@@ -1898,7 +1963,7 @@ export default createHandler({
                     >
                       <LinkIcon />
                       <span className="button-text">
-                        Add {expandedGroup.title} API key
+                        {t('addApiKeyFor', { name: groupTitle(expandedGroup) })}
                       </span>
                     </UI.Button>
                   ) : (
@@ -1911,8 +1976,10 @@ export default createHandler({
                       <LinkIcon />
                       <span className="button-text">
                         {connectingProvider === expandedGroup.provider
-                          ? 'Redirecting...'
-                          : `Connect ${expandedGroup.title}`}
+                          ? t('redirecting')
+                          : t('connectGroup', {
+                              name: groupTitle(expandedGroup)
+                            })}
                       </span>
                     </UI.Button>
                   )}
@@ -1923,8 +1990,7 @@ export default createHandler({
               <div className="tools-banner tools-banner-warning">
                 <Warning />
                 <span>
-                  Connect {expandedGroup.title} to enable these tools. You only
-                  need to connect once for the whole integration.
+                  {t('connectBanner', { name: groupTitle(expandedGroup) })}
                 </span>
               </div>
             )}
@@ -1932,13 +1998,12 @@ export default createHandler({
               <div className="tools-group-detail-config">
                 {expandedGroupInstalledTools.length === 0 ? (
                   <p className="tools-group-detail-config-hint">
-                    Enable a calendar tool below to set the default calendar,
-                    time zone, and notifications for this integration.
+                    {t('calendarHint')}
                   </p>
                 ) : (
                   <>
                     <UI.Select
-                      label="Default calendar"
+                      label={t('defaultCalendar')}
                       value={selectedCalendarValue}
                       options={calendarOptions}
                       disabled={
@@ -1949,41 +2014,41 @@ export default createHandler({
                       error={calendarStatus === 'rejected'}
                       helperText={
                         calendarStatus === 'rejected'
-                          ? 'Could not load calendars. Reconnect Google Calendar and try again.'
+                          ? t('calendarLoadError')
                           : calendarStatus === 'pending'
-                            ? 'Loading calendars…'
-                            : 'Events and free/busy lookups use this calendar unless a tool call overrides it.'
+                            ? t('calendarLoading')
+                            : t('calendarHelp')
                       }
                       onChange={e =>
                         saveGroupToolConfig(
                           { defaultCalendarId: e.target.value },
-                          'Default calendar updated'
+                          t('okDefaultCalendar')
                         )
                       }
                     />
                     <UI.Select
-                      label="Default time zone"
+                      label={t('defaultTimeZone')}
                       value={selectedTimeZone}
                       options={timeZoneOptions}
                       disabled={savingCalendar || timeZoneOptions.length === 0}
-                      helperText="Interprets event times and the working hours used by Find Free Slots."
+                      helperText={t('timeZoneHelpCalendar')}
                       onChange={e =>
                         saveGroupToolConfig(
                           { defaultTimeZone: e.target.value },
-                          'Default time zone updated'
+                          t('okDefaultTimeZone')
                         )
                       }
                     />
                     <UI.Select
-                      label="Attendee notifications"
+                      label={t('attendeeNotifications')}
                       value={groupSendUpdates}
-                      options={SEND_UPDATES_OPTIONS}
+                      options={sendUpdates}
                       disabled={savingCalendar}
-                      helperText="Whether Google emails guests when events are created, changed, or cancelled."
+                      helperText={t('notificationsHelp')}
                       onChange={e =>
                         saveGroupToolConfig(
                           { sendUpdates: e.target.value },
-                          'Notification setting updated'
+                          t('okNotifications')
                         )
                       }
                     />
@@ -1995,13 +2060,12 @@ export default createHandler({
               <div className="tools-group-detail-config">
                 {expandedGroupInstalledTools.length === 0 ? (
                   <p className="tools-group-detail-config-hint">
-                    Enable a Cal.com tool below to set the default event type
-                    and time zone for this integration.
+                    {t('calcomHint')}
                   </p>
                 ) : (
                   <>
                     <UI.Select
-                      label="Default event type"
+                      label={t('defaultEventType')}
                       value={selectedEventTypeId}
                       options={eventTypeOptions}
                       disabled={
@@ -2012,28 +2076,28 @@ export default createHandler({
                       error={eventTypesStatus === 'rejected'}
                       helperText={
                         eventTypesStatus === 'rejected'
-                          ? 'Could not load event types. Check the API key and try again.'
+                          ? t('eventTypesLoadError')
                           : eventTypesStatus === 'pending'
-                            ? 'Loading event types…'
-                            : 'Bookings are created against this event type unless a tool call overrides it.'
+                            ? t('eventTypesLoading')
+                            : t('eventTypeHelp')
                       }
                       onChange={e =>
                         saveGroupToolConfig(
                           { defaultEventTypeId: Number(e.target.value) },
-                          'Default event type updated'
+                          t('okDefaultEventType')
                         )
                       }
                     />
                     <UI.Select
-                      label="Default time zone"
+                      label={t('defaultTimeZone')}
                       value={selectedTimeZone}
                       options={timeZoneOptions}
                       disabled={savingCalendar || timeZoneOptions.length === 0}
-                      helperText="Used for availability lookups and the attendee's booking time zone."
+                      helperText={t('timeZoneHelpCalcom')}
                       onChange={e =>
                         saveGroupToolConfig(
                           { defaultTimeZone: e.target.value },
-                          'Default time zone updated'
+                          t('okDefaultTimeZone')
                         )
                       }
                     />
@@ -2062,19 +2126,21 @@ export default createHandler({
                   >
                     <div className="tools-group-detail-item-main">
                       <p className="tools-group-detail-item-title">
-                        {def.title}
+                        {toolTitle(def)}
                       </p>
-                      {def.description && (
+                      {toolDescription(def) && (
                         <p className="tools-group-detail-item-description">
-                          {def.description}
+                          {toolDescription(def)}
                         </p>
                       )}
                       {def.requiredScopes && (
                         <Tooltip
-                          title={`Required scopes: ${def.requiredScopes}`}
+                          title={t('scopesTooltip', {
+                            scopes: def.requiredScopes
+                          })}
                         >
                           <span className="tools-group-detail-item-scopes">
-                            Scopes
+                            {t('scopes')}
                           </span>
                         </Tooltip>
                       )}
@@ -2085,11 +2151,11 @@ export default createHandler({
                           configuration the user chose. Say so. */}
                       {install && !install.enabled && (
                         <span className="tools-state-chip">
-                          Off · settings kept
+                          {t('chipOffKept')}
                         </span>
                       )}
                       {configurable && (
-                        <Tooltip title="Configure">
+                        <Tooltip title={t('tooltipConfigure')}>
                           <IconButton
                             size="small"
                             onClick={() => handleEdit(install!)}
@@ -2101,8 +2167,8 @@ export default createHandler({
                       <Tooltip
                         title={
                           isInstalled
-                            ? 'Turn off — keeps its settings'
-                            : 'Turn on'
+                            ? t('tooltipTurnOffTool')
+                            : t('tooltipTurnOn')
                         }
                       >
                         <span>
@@ -2120,7 +2186,7 @@ export default createHandler({
                           it — and of the settings it holds — was to never
                           install it. */}
                       {install && (
-                        <Tooltip title="Remove — deletes this tool and its settings">
+                        <Tooltip title={t('tooltipRemoveTool')}>
                           <IconButton
                             size="small"
                             onClick={() => setRemoveAlert(install)}
@@ -2143,7 +2209,11 @@ export default createHandler({
             <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="tools-modal-header">
                 <h2 className="tools-modal-title">
-                  Configure {editTool.toolDefinition?.title || 'Tool'}
+                  {t('configureTitle', {
+                    name: editTool.toolDefinition
+                      ? toolTitle(editTool.toolDefinition)
+                      : t('configureFallbackName')
+                  })}
                 </h2>
                 <IconButton size="small" onClick={handleCloseEdit}>
                   <Close />
@@ -2164,7 +2234,9 @@ export default createHandler({
                   if (editFields) {
                     return (
                       <div className="tools-config-form">
-                        {editFields.map(field => renderCalendarField(field))}
+                        {editFields.map(field =>
+                          renderCalendarField(editKey as string, field)
+                        )}
                       </div>
                     );
                   }
@@ -2172,10 +2244,7 @@ export default createHandler({
                   if (editIsGroupManaged) {
                     return (
                       <p className="tools-configure-help">
-                        This tool has no per-tool settings. Its defaults
-                        (calendar / event type, time zone, notifications) are
-                        managed for the whole integration from the group header
-                        on the Catalog page.
+                        {t('configureGroupManaged')}
                       </p>
                     );
                   }
@@ -2183,20 +2252,17 @@ export default createHandler({
                   return (
                     <>
                       <p className="tools-configure-help">
-                        Optional tool configuration as JSON. Leave as{' '}
-                        <code>{'{}'}</code> if none is needed.
+                        {t('configJsonHelpBefore')} <code>{'{}'}</code>{' '}
+                        {t('configJsonHelpAfter')}
                       </p>
                       <UI.Input
-                        label="Config (JSON)"
+                        label={t('configJsonLabel')}
                         multiline
                         rows={8}
                         value={configJson}
                         disabled={submitting}
                         error={!!configError}
-                        helperText={
-                          configError ||
-                          'e.g. {"label": "inbox", "maxResults": 20}'
-                        }
+                        helperText={configError || t('configJsonExample')}
                         onChange={e => {
                           setConfigJson(e.target.value);
                           if (configError) setConfigError(null);
@@ -2212,7 +2278,7 @@ export default createHandler({
                   disabled={submitting}
                   onClick={handleCloseEdit}
                 >
-                  Cancel
+                  {c('cancel')}
                 </UI.Button>
                 <UI.Button
                   variant="contained"
@@ -2220,7 +2286,7 @@ export default createHandler({
                   disabled={submitting}
                   onClick={handleUpdateSubmit}
                 >
-                  {submitting ? 'Saving...' : 'Save'}
+                  {submitting ? c('saving') : c('save')}
                 </UI.Button>
               </div>
             </ModalDialog>
@@ -2237,7 +2303,7 @@ export default createHandler({
             <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="tools-modal-header">
                 <h2 className="tools-modal-title">
-                  Connect {apiKeyGroup.title}
+                  {t('connectTitle', { name: groupTitle(apiKeyGroup) })}
                 </h2>
                 <IconButton
                   size="small"
@@ -2249,11 +2315,10 @@ export default createHandler({
               </div>
               <div className="tools-modal-body">
                 <p className="tools-configure-help">
-                  Paste your {apiKeyGroup.title} API key. It is encrypted at
-                  rest and never shown again.
+                  {t('apiKeyHelp', { name: groupTitle(apiKeyGroup) })}
                 </p>
                 <UI.Input
-                  label="API key"
+                  label={t('apiKeyLabel')}
                   type="password"
                   value={apiKeyValue}
                   disabled={apiKeySubmitting}
@@ -2267,7 +2332,7 @@ export default createHandler({
                   disabled={apiKeySubmitting}
                   onClick={() => setApiKeyGroup(null)}
                 >
-                  Cancel
+                  {c('cancel')}
                 </UI.Button>
                 <UI.Button
                   variant="contained"
@@ -2275,7 +2340,7 @@ export default createHandler({
                   disabled={apiKeySubmitting || !apiKeyValue.trim()}
                   onClick={handleAddApiKey}
                 >
-                  {apiKeySubmitting ? 'Saving...' : 'Save'}
+                  {apiKeySubmitting ? c('saving') : c('save')}
                 </UI.Button>
               </div>
             </ModalDialog>
@@ -2311,37 +2376,60 @@ export default createHandler({
       )}
       <UI.Alert
         open={!!removeAlert}
-        title="Remove tool"
+        title={t('removeToolTitle')}
         // Now that off exists, remove has to say what it does that off doesn't:
         // it takes the configuration with it. Somebody reaching for this to
         // shorten their tool list wants the other button.
-        description={`Remove "${removeAlert?.toolDefinition?.title || (removeAlert?.config as { name?: string } | null)?.name || 'this tool'}" and everything configured on it? To take it off your MCP server without losing its settings, turn it off instead.`}
-        confirmText="Remove"
-        cancelText="Cancel"
+        description={t('removeToolDescription', {
+          name:
+            (removeAlert?.toolDefinition
+              ? toolTitle(removeAlert.toolDefinition)
+              : null) ||
+            (removeAlert?.config as { name?: string } | null)?.name ||
+            t('removeToolFallbackName')
+        })}
+        confirmText={t('remove')}
+        cancelText={c('cancel')}
         loading={submitting}
         onConfirm={handleRemoveConfirm}
         onCancel={() => setRemoveAlert(null)}
       />
       <UI.Alert
         open={!!disconnectAlert}
-        title={`Disconnect ${disconnectAlert ? getProviderLabel(disconnectAlert.provider) : ''}?`}
-        description={`Are you sure? This revokes stored credentials for ${disconnectAlert ? getProviderLabel(disconnectAlert.provider) : 'this provider'}. ${disconnectAlert?.affected || 0} enabled tool${(disconnectAlert?.affected || 0) === 1 ? '' : 's'} will stop working immediately and any request from the MCP server to this provider will fail until you reconnect. Your installed tools stay listed so you can resume after reconnecting.`}
-        confirmText="Disconnect"
-        cancelText="Cancel"
+        title={t('disconnectTitle', {
+          name: disconnectAlert
+            ? getProviderLabel(disconnectAlert.provider)
+            : ''
+        })}
+        description={t.plural(
+          'disconnectDescription',
+          disconnectAlert?.affected || 0,
+          {
+            name: disconnectAlert
+              ? getProviderLabel(disconnectAlert.provider)
+              : t('disconnectFallbackName')
+          }
+        )}
+        confirmText={t('disconnect')}
+        cancelText={c('cancel')}
         loading={submitting}
         onConfirm={handleDisconnectConfirm}
         onCancel={() => setDisconnectAlert(null)}
       />
       <UI.Alert
         open={!!scopeAlert}
-        title={`Additional permissions required`}
+        title={t('scopeAlertTitle')}
         description={
           scopeAlert
-            ? `Enabling "${scopeAlert.def.title}" needs permissions you haven't granted to ${scopeAlert.group.title} yet: ${scopeAlert.missing.join(', ')}. We'll send you back to ${scopeAlert.group.title} to approve them — your existing connection stays in place and the new scopes are added on top.`
+            ? t('scopeAlertDescription', {
+                tool: toolTitle(scopeAlert.def),
+                group: groupTitle(scopeAlert.group),
+                missing: scopeAlert.missing.join(', ')
+              })
             : ''
         }
-        confirmText="Grant permissions"
-        cancelText="Cancel"
+        confirmText={t('scopeAlertConfirm')}
+        cancelText={c('cancel')}
         loading={connectingProvider === scopeAlert?.group.provider}
         onConfirm={() => {
           if (!scopeAlert?.group.provider) return;

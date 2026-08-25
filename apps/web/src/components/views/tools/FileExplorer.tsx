@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
+import type { ProjectPathIssue } from '@ganju/utils';
+
+import { i18n } from '../../../lib';
 
 /**
  * The script's files, as VS Code's Explorer.
@@ -251,8 +254,6 @@ const FileIcon = ({ name }: { name: string }) => {
   );
 };
 
-// --- component -------------------------------------------------------------
-
 export const FileExplorer = ({
   files,
   activePath,
@@ -266,6 +267,8 @@ export const FileExplorer = ({
   onDelete,
   onRename
 }: Props) => {
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const c = i18n.useT(i18n.copy.COMMON);
   // Collapsed rather than expanded, so a folder that appears while someone is
   // working is open — which is what they want, and it means the empty set is
   // the correct initial state rather than something to compute.
@@ -398,48 +401,73 @@ export const FileExplorer = ({
   /**
    * What is wrong with the name being typed, or null.
    *
-   * The file rules are the server's own — `validateProjectPath` is what the
-   * upload path runs — so the explorer refuses exactly what a deploy would, at
-   * the keystroke rather than minutes later. A folder is checked against the
-   * same character rules by borrowing a `.js` suffix for the test, since a
-   * folder is only ever a prefix of legal file paths.
+   * The file rules are the server's own — `projectPathIssue` is what the upload
+   * path runs — so the explorer refuses exactly what a deploy would, at the
+   * keystroke rather than minutes later. Only the wording is ours: the rule
+   * answers with a code and this renders it, which is what lets the same
+   * refusal read in the author's language here and in English in `error_log`.
+   * A folder is checked against the same character rules by borrowing a `.js`
+   * suffix for the test, since a folder is only ever a prefix of legal file
+   * paths.
    */
+  const describeIssue = (issue: ProjectPathIssue | null) => {
+    if (!issue) return null;
+    switch (issue.code) {
+      case 'required':
+        return t('pathRequired');
+      case 'tooLong':
+        return t('pathTooLong', { path: issue.path, max: issue.max });
+      case 'charset':
+        return t('pathCharset', { path: issue.path });
+      case 'dots':
+        return t('pathDots', { path: issue.path });
+      case 'extension':
+        return t('pathExtension', { path: issue.path });
+      case 'reserved':
+        return t('pathReserved', { path: issue.path });
+      case 'taken':
+        return t('pathTaken', { path: issue.path });
+    }
+  };
+
   const draftError = useMemo((): string | null => {
     if (!draft) return null;
     const name = draft.value.trim().replace(/^\/+|\/+$/g, '');
     if (!name) return null;
-    if (name.includes('/')) {
-      return 'Use New Folder to nest — a name cannot contain "/"';
-    }
+    if (name.includes('/')) return t('pathNoSlash');
+
+    // A folder has no path issue of its own to report — it is legal or it is
+    // not — so the code is discarded and one sentence covers all of them.
+    const folderError = (path: string) =>
+      utils.projectPathIssue(`${path}/x.js`)
+        ? t('pathBadFolderName', { name })
+        : null;
 
     if (draft.kind === 'folder') {
-      const path = join(draft.parent, name);
-      return utils.validateProjectPath(`${path}/x.js`)
-        ? `Invalid folder name "${name}" — letters, digits, dot, dash and underscore only`
-        : null;
+      return folderError(join(draft.parent, name));
     }
 
     if (draft.kind === 'rename') {
       const path = join(parentOf(draft.path), name);
       if (path === draft.path) return null;
-      if (!draft.isFile) {
-        return utils.validateProjectPath(`${path}/x.js`)
-          ? `Invalid folder name "${name}" — letters, digits, dot, dash and underscore only`
-          : null;
-      }
+      if (!draft.isFile) return folderError(path);
       // Its own path is excluded, or every rename collides with itself.
       const taken = Object.keys(files).filter(p => p !== draft.path);
-      return utils.validateProjectPath(path, taken);
+      return describeIssue(utils.projectPathIssue(path, taken));
     }
 
     if (Object.keys(files).length >= utils.constants.CUSTOM_CODE_MAX_FILES) {
-      return `A script can hold ${utils.constants.CUSTOM_CODE_MAX_FILES} files.`;
+      return t('fnErrMaxFiles', {
+        max: utils.constants.CUSTOM_CODE_MAX_FILES
+      });
     }
-    return utils.validateProjectPath(
-      join(draft.parent, name.endsWith('.js') ? name : `${name}.js`),
-      Object.keys(files)
+    return describeIssue(
+      utils.projectPathIssue(
+        join(draft.parent, name.endsWith('.js') ? name : `${name}.js`),
+        Object.keys(files)
+      )
     );
-  }, [draft, files]);
+  }, [draft, files, t]);
 
   /**
    * Commit the name being typed.
@@ -617,9 +645,9 @@ export const FileExplorer = ({
           {node.path === mainModule && (
             <span
               className="tools-explorer-badge"
-              title="The module the dispatcher calls"
+              title={t('explorerEntryTitle')}
             >
-              entry
+              {t('explorerEntryBadge')}
             </span>
           )}
         </div>
@@ -660,7 +688,7 @@ export const FileExplorer = ({
 
   return (
     <div className="tools-explorer">
-      <div className="tools-explorer-title">Explorer</div>
+      <div className="tools-explorer-title">{t('explorerTitle')}</div>
 
       <div className="tools-explorer-section">
         <button
@@ -670,15 +698,15 @@ export const FileExplorer = ({
           onClick={() => setSectionOpen(open => !open)}
         >
           <Twisty open={sectionOpen} />
-          <span>Script</span>
+          <span>{t('explorerSection')}</span>
         </button>
         <span className="tools-explorer-actions">
           {!readOnly && (
             <>
               <button
                 type="button"
-                title="New File…"
-                aria-label="New File"
+                title={t('explorerNewFile')}
+                aria-label={t('explorerNewFileAria')}
                 onClick={() => startCreate('file')}
               >
                 <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -693,8 +721,8 @@ export const FileExplorer = ({
               </button>
               <button
                 type="button"
-                title="New Folder…"
-                aria-label="New Folder"
+                title={t('explorerNewFolder')}
+                aria-label={t('explorerNewFolderAria')}
                 onClick={() => startCreate('folder')}
               >
                 <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -712,8 +740,8 @@ export const FileExplorer = ({
           )}
           <button
             type="button"
-            title="Collapse Folders in Explorer"
-            aria-label="Collapse folders"
+            title={t('explorerCollapse')}
+            aria-label={t('explorerCollapseAria')}
             onClick={collapseAll}
           >
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -763,13 +791,15 @@ export const FileExplorer = ({
             this panel answers, and the answer includes it. */}
         <div
           className="tools-explorer-row attached"
-          title="Attached to every deploy"
+          title={t('explorerAttachedTitle')}
         >
           {indent(0)}
           <span className="tools-explorer-twisty-slot" />
           <FileIcon name={sdkModule} />
           <span className="tools-explorer-name">{sdkModule}</span>
-          <span className="tools-explorer-badge">attached</span>
+          <span className="tools-explorer-badge">
+            {t('explorerAttachedBadge')}
+          </span>
         </div>
       </div>
 
@@ -777,14 +807,18 @@ export const FileExplorer = ({
           it — remove-tool and disconnect already ask this way. */}
       <UI.Alert
         open={!!confirmFolder}
-        title="Delete folder"
+        title={t('explorerDeleteFolderTitle')}
         description={
           confirmFolder
-            ? `Delete "${confirmFolder}" and the ${countUnder(files, confirmFolder)} file${countUnder(files, confirmFolder) === 1 ? '' : 's'} in it? They are removed from this script, and there is no undo — a version you have already deployed still has them.`
+            ? t.plural(
+                'explorerDeleteFolder',
+                countUnder(files, confirmFolder),
+                { folder: confirmFolder }
+              )
             : ''
         }
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t('explorerDelete')}
+        cancelText={c('cancel')}
         onConfirm={() => {
           if (confirmFolder) onDelete(confirmFolder);
           setConfirmFolder(null);
@@ -811,13 +845,13 @@ export const FileExplorer = ({
                 type="button"
                 onClick={() => startCreate('file', menu.node)}
               >
-                New File…
+                {t('explorerNewFile')}
               </button>
               <button
                 type="button"
                 onClick={() => startCreate('folder', menu.node)}
               >
-                New Folder…
+                {t('explorerNewFolder')}
               </button>
             </>
           )}
@@ -830,7 +864,7 @@ export const FileExplorer = ({
                   disabled={menu.node.path === mainModule}
                   onClick={() => menu.node && startRename(menu.node)}
                 >
-                  Rename…
+                  {t('explorerRename')}
                 </button>
               )}
               {!readOnly && (
@@ -840,7 +874,7 @@ export const FileExplorer = ({
                   disabled={menu.node.path === mainModule}
                   onClick={() => menu.node && requestDelete(menu.node)}
                 >
-                  Delete
+                  {t('explorerDelete')}
                 </button>
               )}
               <span className="tools-explorer-menu-sep" />
@@ -855,7 +889,7 @@ export const FileExplorer = ({
                   setMenu(null);
                 }}
               >
-                Copy Path
+                {t('explorerCopyPath')}
               </button>
             </>
           )}

@@ -9,6 +9,7 @@ import { OVERVIEW } from './overview';
 import { PROMPTS } from './prompts';
 import { CHANNELS } from './channels';
 import { RESOURCES } from './resources';
+import { TOOLS } from './tools';
 
 export const copy = {
   COMMON,
@@ -21,5 +22,6 @@ export const copy = {
   OVERVIEW,
   PROMPTS,
   CHANNELS,
-  RESOURCES
+  RESOURCES,
+  TOOLS
 };

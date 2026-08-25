@@ -6,6 +6,7 @@ import Switch from '@mui/material/Switch';
 import { Close, ExpandMore, ExpandLess, LinkOff } from '@mui/icons-material';
 
 import { ModalDialog, ModalOverlay } from './styles';
+import { i18n } from '../../../lib';
 
 interface McpServer {
   id: string;
@@ -117,6 +118,20 @@ export const McpProxyModal = ({
     [editing, existingTool]
   );
 
+  const t = i18n.useT(i18n.copy.TOOLS);
+  const c = i18n.useT(i18n.copy.COMMON);
+
+  /**
+   * How this server introduces itself.
+   *
+   * The vendor's own description when it has one — that text comes from
+   * `mcp_server_catalog`, is written by whoever added the server, and is not
+   * ours to translate — and otherwise a sentence that at least says what
+   * connecting it is for.
+   */
+  const describeServer = () =>
+    server.description || t('mcpDefaultDescription', { name: server.name });
+
   const [phase, setPhase] = useState<'connect' | 'select'>(
     editing ? 'select' : 'connect'
   );
@@ -184,12 +199,12 @@ export const McpProxyModal = ({
   const handleConnect = async () => {
     if (busy) return;
     if (isOauth) {
-      return setError("This server can't be connected from here yet.");
+      return setError(t('mcpErrUnsupported'));
     }
     const token = pat.trim();
-    if (needsToken && !token) return setError('Enter a token to connect.');
+    if (needsToken && !token) return setError(t('mcpErrTokenRequired'));
     if (needsHeaderName && !headerName.trim()) {
-      return setError('Enter the header name the server expects.');
+      return setError(t('mcpErrHeaderRequired'));
     }
     setError(null);
     setBusy(true);
@@ -208,10 +223,7 @@ export const McpProxyModal = ({
         }
       });
       if (!result || result.error || !Array.isArray(result.tools)) {
-        setError(
-          result?.error ||
-            'Could not list tools with this token. Check it and try again.'
-        );
+        setError(result?.error || t('mcpErrListTools'));
         return;
       }
       const disc: Discovery = {
@@ -226,7 +238,7 @@ export const McpProxyModal = ({
       setEnabledPrompts(new Set());
       setPhase('select');
     } catch {
-      setError('Could not connect to the server.');
+      setError(t('mcpErrConnect'));
     } finally {
       setBusy(false);
     }
@@ -299,10 +311,10 @@ export const McpProxyModal = ({
         window.location.href = data.url;
         return;
       }
-      setError(data?.error || `Could not start the ${server.name} connection.`);
+      setError(data?.error || t('mcpErrStartOauth', { name: server.name }));
       setBusy(false);
     } catch {
-      setError(`Could not start the ${server.name} connection.`);
+      setError(t('mcpErrStartOauth', { name: server.name }));
       setBusy(false);
     }
   };
@@ -310,10 +322,10 @@ export const McpProxyModal = ({
   const handleSave = async () => {
     if (busy || !discovery) return;
     if (enabledTools.size === 0) {
-      return setError('Enable at least one tool.');
+      return setError(t('mcpErrPickOne'));
     }
     if (isOauth && !resolvedCredentialId) {
-      return setError(`Connect ${server.name} first.`);
+      return setError(t('mcpErrConnectFirst', { name: server.name }));
     }
     setError(null);
     setBusy(true);
@@ -338,7 +350,7 @@ export const McpProxyModal = ({
           }
         });
         if (!created?.id) {
-          setError(created?.error || 'Failed to save the token.');
+          setError(created?.error || t('mcpErrSaveToken'));
           setBusy(false);
           return;
         }
@@ -384,15 +396,17 @@ export const McpProxyModal = ({
       });
       if (data && !data.error) {
         snackbar.success(
-          editing ? `${server.name} updated` : `${server.name} connected`
+          editing
+            ? t('mcpOkUpdated', { name: server.name })
+            : t('mcpOkConnected', { name: server.name })
         );
         onSaved();
         onClose();
       } else {
-        setError(data?.error || 'Failed to save.');
+        setError(data?.error || t('mcpErrSave'));
       }
     } catch {
-      setError('Failed to save.');
+      setError(t('mcpErrSave'));
     } finally {
       setBusy(false);
     }
@@ -407,14 +421,14 @@ export const McpProxyModal = ({
         config: { method: 'DELETE', credentials: 'include' }
       });
       if (data && !data.error) {
-        snackbar.success(`${server.name} disconnected`);
+        snackbar.success(t('mcpOkDisconnected', { name: server.name }));
         onSaved();
         onClose();
       } else {
-        setError(data?.error || 'Failed to disconnect.');
+        setError(data?.error || t('mcpErrDisconnect'));
       }
     } catch {
-      setError('Failed to disconnect.');
+      setError(t('mcpErrDisconnect'));
     } finally {
       setBusy(false);
     }
@@ -443,15 +457,17 @@ export const McpProxyModal = ({
       });
       if (data && !data.error) {
         snackbar.success(
-          enabled ? `${server.name} enabled` : `${server.name} turned off`
+          enabled
+            ? t('mcpOkEnabled', { name: server.name })
+            : t('mcpOkTurnedOff', { name: server.name })
         );
         onSaved();
         onClose();
       } else {
-        setError(data?.error || 'Failed to update.');
+        setError(data?.error || t('mcpErrUpdate'));
       }
     } catch {
-      setError('Failed to update.');
+      setError(t('mcpErrUpdate'));
     } finally {
       setBusy(false);
     }
@@ -472,7 +488,9 @@ export const McpProxyModal = ({
         >
           <div className="tools-modal-header">
             <h2 className="tools-modal-title">
-              {editing ? `${server.name} tools` : `Connect ${server.name}`}
+              {editing
+                ? t('mcpTitleEdit', { name: server.name })
+                : t('mcpTitleConnect', { name: server.name })}
             </h2>
             <IconButton size="small" onClick={handleClose} disabled={busy}>
               <Close />
@@ -483,26 +501,22 @@ export const McpProxyModal = ({
               isOauth ? (
                 <p className="tools-configure-help">
                   {checkingOauth
-                    ? `Checking your ${server.name} connection…`
-                    : `${
-                        server.description ||
-                        `Connect ${server.name} to expose its tools to the assistant.`
-                      } You'll be redirected to ${server.name} to authorize, then brought back here to pick tools.`}
+                    ? t('mcpCheckingConnection', { name: server.name })
+                    : `${describeServer()} ${t('mcpOauthSuffix', {
+                        name: server.name
+                      })}`}
                 </p>
               ) : needsToken ? (
                 <>
                   <p className="tools-configure-help">
-                    {server.description ||
-                      `Connect ${server.name} to expose its tools to the assistant.`}{' '}
-                    Paste a token — it's encrypted at rest and never shown
-                    again.
+                    {describeServer()} {t('mcpTokenSuffix')}
                   </p>
                   {needsHeaderName && (
                     <UI.Input
-                      label="Header name"
+                      label={t('mcpHeaderName')}
                       value={headerName}
                       disabled={busy}
-                      helperText="The HTTP header the server expects the token in (e.g. X-Api-Key)."
+                      helperText={t('mcpHeaderNameHelp')}
                       onChange={e => {
                         setHeaderName(e.target.value);
                         if (error) setError(null);
@@ -510,12 +524,12 @@ export const McpProxyModal = ({
                     />
                   )}
                   <UI.Input
-                    label={`${server.name} token`}
+                    label={t('mcpTokenLabel', { name: server.name })}
                     type="password"
                     value={pat}
                     disabled={busy}
                     autoFocus
-                    helperText="A personal access token with the scopes you want the assistant to use."
+                    helperText={t('mcpTokenHelp')}
                     onChange={e => {
                       setPat(e.target.value);
                       if (error) setError(null);
@@ -524,16 +538,17 @@ export const McpProxyModal = ({
                 </>
               ) : (
                 <p className="tools-configure-help">
-                  {server.description ||
-                    `Connect ${server.name} to expose its tools to the assistant.`}{' '}
-                  This server needs no token — continue to list its tools.
+                  {describeServer()} {t('mcpNoTokenSuffix')}
                 </p>
               )
             ) : (
               <>
                 <div className="mcp-proxy-list-head">
                   <p className="http-endpoint-section">
-                    Tools ({enabledTools.size}/{discovery?.tools.length || 0})
+                    {t('mcpToolsCount', {
+                      enabled: enabledTools.size,
+                      total: discovery?.tools.length || 0
+                    })}
                   </p>
                   <div className="mcp-proxy-list-actions">
                     <UI.Button
@@ -541,19 +556,19 @@ export const McpProxyModal = ({
                       disabled={busy}
                       onClick={() => setAllTools(true)}
                     >
-                      <span className="button-text">All</span>
+                      <span className="button-text">{t('mcpAll')}</span>
                     </UI.Button>
                     <UI.Button
                       size="small"
                       disabled={busy}
                       onClick={() => setAllTools(false)}
                     >
-                      <span className="button-text">None</span>
+                      <span className="button-text">{t('mcpNone')}</span>
                     </UI.Button>
                   </div>
                 </div>
                 <p className="http-endpoint-list-hint">
-                  Choose which of {server.name}'s tools the assistant can call.
+                  {t('mcpPickHint', { name: server.name })}
                 </p>
                 <div className="mcp-proxy-tool-list">
                   {(discovery?.tools || []).map(t => (
@@ -585,15 +600,17 @@ export const McpProxyModal = ({
                       onClick={() => setShowAdvanced(v => !v)}
                     >
                       {showAdvanced ? <ExpandLess /> : <ExpandMore />}
-                      Resources & prompts (optional)
+                      {t('mcpAdvanced')}
                     </button>
                     {showAdvanced && (
                       <div className="http-endpoint-advanced-content">
                         {(discovery?.resources.length || 0) > 0 && (
                           <>
                             <p className="http-endpoint-section">
-                              Resources ({enabledResources.size}/
-                              {discovery?.resources.length})
+                              {t('mcpResourcesCount', {
+                                enabled: enabledResources.size,
+                                total: discovery?.resources.length || 0
+                              })}
                             </p>
                             <div className="mcp-proxy-tool-list">
                               {discovery?.resources.map(r => (
@@ -623,8 +640,10 @@ export const McpProxyModal = ({
                         {(discovery?.prompts.length || 0) > 0 && (
                           <>
                             <p className="http-endpoint-section">
-                              Prompts ({enabledPrompts.size}/
-                              {discovery?.prompts.length})
+                              {t('mcpPromptsCount', {
+                                enabled: enabledPrompts.size,
+                                total: discovery?.prompts.length || 0
+                              })}
                             </p>
                             <div className="mcp-proxy-tool-list">
                               {discovery?.prompts.map(p => (
@@ -652,8 +671,7 @@ export const McpProxyModal = ({
                           </>
                         )}
                         <p className="http-endpoint-list-hint">
-                          Resources and prompts are off by default — only the
-                          ones you enable here are exposed to the assistant.
+                          {t('mcpAdvancedHint')}
                         </p>
                       </div>
                     )}
@@ -673,11 +691,11 @@ export const McpProxyModal = ({
                   onChange={(_, checked) => handleToggleEnabled(checked)}
                 />
                 <span>
-                  {existingTool.enabled ? 'Exposed' : 'Off'}
+                  {existingTool.enabled ? t('mcpExposed') : t('chipOff')}
                   <small>
                     {existingTool.enabled
-                      ? 'These tools are on your MCP server'
-                      : 'Kept, but not on your MCP server'}
+                      ? t('mcpExposedHint')
+                      : t('mcpOffHint')}
                   </small>
                 </span>
               </label>
@@ -690,11 +708,11 @@ export const McpProxyModal = ({
                 onClick={handleDisconnect}
               >
                 <LinkOff fontSize="small" />
-                <span className="button-text">Disconnect</span>
+                <span className="button-text">{t('disconnect')}</span>
               </UI.Button>
             )}
             <UI.Button size="small" disabled={busy} onClick={handleClose}>
-              Cancel
+              {c('cancel')}
             </UI.Button>
             {phase === 'connect' && isOauth ? (
               <UI.Button
@@ -704,10 +722,10 @@ export const McpProxyModal = ({
                 onClick={handleOauthConnect}
               >
                 {busy
-                  ? 'Redirecting…'
+                  ? t('redirecting')
                   : checkingOauth
-                    ? 'Checking…'
-                    : `Connect ${server.name}`}
+                    ? t('mcpChecking')
+                    : t('mcpTitleConnect', { name: server.name })}
               </UI.Button>
             ) : phase === 'connect' ? (
               <UI.Button
@@ -720,7 +738,7 @@ export const McpProxyModal = ({
                 }
                 onClick={handleConnect}
               >
-                {busy ? 'Connecting...' : 'Connect & list tools'}
+                {busy ? t('mcpConnecting') : t('mcpConnectAndList')}
               </UI.Button>
             ) : (
               <UI.Button
@@ -730,10 +748,10 @@ export const McpProxyModal = ({
                 onClick={handleSave}
               >
                 {busy
-                  ? 'Saving...'
+                  ? c('saving')
                   : editing
-                    ? 'Save'
-                    : `Connect ${server.name}`}
+                    ? c('save')
+                    : t('mcpTitleConnect', { name: server.name })}
               </UI.Button>
             )}
           </div>

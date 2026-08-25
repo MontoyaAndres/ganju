@@ -117,9 +117,10 @@ import {
   encodeProject,
   decodeProject,
   validateProjectFiles,
-  validateProjectPath
+  validateProjectPath,
+  projectPathIssue
 } from './customCodeProject';
-import type { CustomCodeProject } from './customCodeProject';
+import type { CustomCodeProject, ProjectPathIssue } from './customCodeProject';
 import type {
   AttachmentResource,
   ResolvedAttachment,
@@ -267,6 +268,7 @@ export const utils = {
   decodeProject,
   validateProjectFiles,
   validateProjectPath,
+  projectPathIssue,
   ipv4InPrivateRange,
   isBlockedHost,
   validateMessageVariables,
@@ -322,6 +324,7 @@ export const utils = {
 
 export type {
   CustomCodeProject,
+  ProjectPathIssue,
   CatalogGroup,
   CatalogTool,
   CatalogToolDescriptor,
