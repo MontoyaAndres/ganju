@@ -169,6 +169,12 @@ MCP supports `outputSchema` + `structuredContent`, but [`ToolDefinition`](../app
 // ganju.json
 {
   "artifact": "acme-support",
+  // Row-level, because that is the level they are enforced at: one script per
+  // artifact, one set of rules for all of it. See below.
+  "connections": ["google-gmail"],
+  "allowedHosts": ["api.acme.com"],
+  "timeoutMs": 10000,
+  "resourceAccess": "own",
   "tools": [
     {
       "name": "lookup-order",
@@ -176,13 +182,17 @@ MCP supports `outputSchema` + `structuredContent`, but [`ToolDefinition`](../app
       "description": "Find an order by its id. Use when the customer gives an order number.",
       "entry": "src/lookupOrder.ts",
       "input":  { "type": "object", "properties": { "orderId": { "type": "string" } }, "required": ["orderId"] },
-      "output": { "type": "object", "properties": { "status": { "type": "string" } } },
-      "connections": ["google-gmail"],
-      "allowedHosts": ["api.acme.com"]
+      "output": { "type": "object", "properties": { "status": { "type": "string" } } }
     }
   ]
 }
 ```
+
+**`connections` and `allowedHosts` sit beside `tools`, not inside one.** An earlier sketch here put them on each tool, and that is not what shipped: they live on `artifact_tool.config` and the broker and the outbound worker read them per *script*, while the manifest entry a tool becomes carries only `name`, `title`, `description`, `inputSchema` and `outputSchema`. Per-tool egress would mean a second gate somewhere between the dispatcher and the isolate, and there is no such place — one script is one isolate with one set of bindings. `timeoutMs` and `resourceAccess` live at the same level for the same reason.
+
+They travel **with the deploy**: `POST …/custom-code/version` takes `config` alongside `manifest` in one request, because they describe how the uploaded code is allowed to run and belong to the same review as the code. `activeVersionId` is never among them — only publish and rollback move that.
+
+**Secrets are not in this file, and must not be.** `ctx.secret('STRIPE_KEY')` resolves an `artifact_credential` row through the broker at call time, so a secret is a thing you send once rather than a value committed next to your source. The CLI manages them through the credential endpoints — see [Phase 7](#phase-7--cli).
 
 **JavaScript and TypeScript only**, which is one language as far as we're concerned: a bundle is already compiled by the time it reaches the upload endpoint. Python Workers are a different upload shape (`index.py` main module, `python_workers` flag) and would need their own SDK to answer the health probe, so a Python bundle fails at publish rather than half-working. Not planned for v1.
 
@@ -588,6 +598,8 @@ Everything the broker serves had been reachable only from a `config` nobody coul
 
 **Empty means unrestricted, for hosts.** [`hostAllowed`](../apps/tool-outbound/src/index.ts) returns true on an empty list, so clearing the field widens egress to any public host rather than blocking everything — the field says so, since the opposite reading is the dangerous one to guess wrong. Private and loopback addresses stay blocked by `isBlockedHost` whatever the list says.
 
+**The dashboard is one door, not the door.** Everything here is a write to two endpoints the API already exposed — the generic tool route for the config, the credential routes for the secrets — so [the CLI](#phase-7--cli) reaches the same rows without a second write path behind it. What the dialog adds is a place to see them; it holds no rule the API does not.
+
 #### Testing a function without publishing it
 
 Until this, the only way to find out whether a function worked was to put it in front of every MCP client and call it from one. `POST …/custom-code/version/:versionId/test` takes a tool name and a sample input and answers with the output, the `ctx.log` lines, the error, and how long it took.
@@ -668,8 +680,21 @@ npm run migrate-prod --workspace=@ganju/db
 The SDK itself landed in Phase 2 — the runtime needed a client. What's left here is the CLI and publishing the package to npm.
 
 - [ ] `ganju login` (device-code flow against the existing `@better-auth/oauth-provider`), `init`, `deploy`, `test`, `logs`
+- [ ] `ganju secret set|list|rm` — the values `ctx.secret()` reads
 - [ ] Thin client of the Phase 1 API — never a second write path
 - [ ] Skip `ganju dev` in v1; a local sandbox faithful to production `ctx` is disproportionate work
+
+**Capabilities need no commands of their own.** `connections`, `allowedHosts`, `timeoutMs` and `resourceAccess` are declared in `ganju.json` and ride along with `ganju deploy`, because `POST …/custom-code/version` already accepts `config` beside `manifest`. So the CLI's whole config story is the file the author already edits, and the dashboard's [settings dialog](#the-settings-dialog) writes the same fields through the generic tool route — two doors onto one row, neither of them a second write path.
+
+**Secrets are the exception, and need commands.** They are `artifact_credential` rows rather than config, so they are not in `ganju.json` and must not be: a value committed beside the source is the thing this feature exists to avoid. Three endpoints already serve them — `POST`, `GET` and `DELETE …/artifact/credential` — with `provider: 'custom-code'` and the name in `label`.
+
+Three things the commands have to get right, each of which is a property of what already shipped rather than a choice left open:
+
+- **`list` can never print a value.** `listCredentials` strips `accessToken` from every row it returns, so the CLI can show which secrets exist and when they were made and has no way to show what they are. That is the correct surface, and it means "read it back" is not a feature to add later.
+- **`set` on an existing name must replace, not add.** [`resolveSecret`](../apps/tool-broker/src/utils/connection.ts) matches a label and takes the newest row, so a second secret under one name silently shadows the first — reachable by nothing, visible in every list. The dashboard refuses the duplicate outright; the CLI's `set` reads as an upsert, so it should delete-then-insert rather than inherit the shadow. Either way, two rows sharing a label must never exist.
+- **A secret is live from the next call, with no deploy.** The broker resolves it per call, so `ganju secret set` needs no `ganju deploy` after it, and saying so is worth a line of output — the neighbouring commands all end in one.
+
+`ganju init` should scaffold the `connections` and `allowedHosts` keys empty rather than omit them, since the runtime refusal for an undeclared provider names the field to add and an author who has never seen it has nowhere obvious to put it.
 
 ### Phase 8 — Templates
 
