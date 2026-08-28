@@ -148,11 +148,32 @@ const openBrowser = (url: string): void => {
   }
 };
 
+/**
+ * Half of what this page says comes off the query string — `error_description`
+ * is written by the authorization server, and anything at all can navigate a
+ * browser to this port while the login is open. Escaped because a login page
+ * that runs text it was handed is a login page that can be made to run someone
+ * else's, and "there is nothing on this origin worth stealing" is a reason to
+ * not care, not a reason to allow it.
+ */
+const escapeHtml = (value: string): string =>
+  value.replace(
+    /[&<>"']/g,
+    character =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[character] as string
+  );
+
 const page = (title: string, body: string) => `<!doctype html>
-<html><head><meta charset="utf-8"><title>${title}</title>
+<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>body{font:16px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;height:100vh;background:#0b0b0c;color:#e8e8ea}
 main{text-align:center;max-width:32rem;padding:2rem}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0;color:#a1a1aa}</style>
-</head><body><main><h1>${title}</h1><p>${body}</p></main></body></html>`;
+</head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p></main></body></html>`;
 
 interface CallbackResult {
   code: string;
@@ -218,7 +239,11 @@ const awaitCallback = async (
                 url.searchParams.get('error_description') ?? error
               );
               clearTimeout(timer);
-              reject(new CliError(`Sign-in was refused — ${error}`));
+              reject(
+                Object.assign(new CliError(`Sign-in was refused — ${error}`), {
+                  oauthError: error
+                })
+              );
               return;
             }
 
@@ -320,13 +345,18 @@ const exchange = async (
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
-export const login = async (apiUrl: string): Promise<StoredAccount> => {
-  const endpoints = await discover(apiUrl);
-
-  const stored = await readAccount(apiUrl);
-  const clientId =
-    stored?.clientId ?? (await registerClient(apiUrl, endpoints));
-
+/**
+ * One loopback authorization, as a given client.
+ *
+ * Split out so `login` can run it twice: a registration made before the CLI
+ * asked for a scope carries the old list, and the only way past that is a
+ * different client.
+ */
+const authorizeAs = async (
+  apiUrl: string,
+  endpoints: Endpoints,
+  clientId: string
+): Promise<StoredAccount> => {
   const verifier = base64url(randomBytes(32));
   const challenge = base64url(createHash('sha256').update(verifier).digest());
   const state = base64url(randomBytes(16));
@@ -362,6 +392,38 @@ export const login = async (apiUrl: string): Promise<StoredAccount> => {
   const account: StoredAccount = { clientId, ...tokens };
   await writeAccount(apiUrl, account);
   return account;
+};
+
+export const login = async (apiUrl: string): Promise<StoredAccount> => {
+  const endpoints = await discover(apiUrl);
+  const stored = await readAccount(apiUrl);
+
+  if (stored?.clientId) {
+    try {
+      return await authorizeAs(apiUrl, endpoints, stored.clientId);
+    } catch (error) {
+      // The provider validates a request's scopes against the CLIENT's own
+      // list, not just the ones it allows in general, so a client registered
+      // before the CLI began asking for `ganju:manage` refuses every login with
+      // `invalid_scope` — and the stored id would make that permanent, since
+      // logout deliberately keeps it. What is stale is the registration rather
+      // than anything the person did, so register again and go on.
+      if ((error as { oauthError?: string }).oauthError !== 'invalid_scope') {
+        throw error;
+      }
+      note(
+        color.gray(
+          '  this machine was registered before the CLI needed a new permission — registering it again'
+        )
+      );
+    }
+  }
+
+  return authorizeAs(
+    apiUrl,
+    endpoints,
+    await registerClient(apiUrl, endpoints)
+  );
 };
 
 /**

@@ -56,7 +56,8 @@ import {
   deployCustomCodeScript,
   smokeTestCustomCodeScript,
   invokeCustomCodeScript,
-  deleteCustomCodeScript
+  deleteCustomCodeScript,
+  hashBundle
 } from './customCodeDeploy';
 import {
   beginMcpProxyOauth,
@@ -146,6 +147,7 @@ export {
   smokeTestCustomCodeScript,
   invokeCustomCodeScript,
   deleteCustomCodeScript,
+  hashBundle,
   beginMcpProxyOauth,
   completeMcpProxyOauth,
   resolveMcpProxyOauthSecret,

@@ -318,12 +318,12 @@ export const bundleSourceKey = (
 
 // SHA-256 of the uploaded bytes, hex-encoded. Stored as sourceHash for dedupe
 // and to prove the object in R2 is the source a version claims to have.
-export const hashBundle = async (bundle: ArrayBuffer): Promise<string> => {
-  const digest = await crypto.subtle.digest('SHA-256', bundle);
-  return Array.from(new Uint8Array(digest))
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
-};
+//
+// Defined next to the deploy that stamps it into the script as the edition
+// marker, and re-exported here so both numbers are the same one: the hash a
+// version row records and the hash a running script reports must agree, or the
+// publish wait is comparing two things that only look alike.
+export { hashBundle } from '../../utils';
 
 // Move `versionId` into the published slot and point the tool row at it.
 // Shared by publish and rollback, which differ only in which versions they

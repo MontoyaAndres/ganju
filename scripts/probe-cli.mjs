@@ -273,7 +273,11 @@ try {
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       token_endpoint_auth_method: 'none',
-      scope: 'openid profile email offline_access'
+      // What the CLI itself registers with. `ganju:manage` has to be among a
+      // client's scopes or the authorize request the CLI makes is refused with
+      // `invalid_scope` — it is the scope the control plane requires, and the
+      // one an MCP client is never told about.
+      scope: 'openid profile email offline_access ganju:manage'
     })
   });
   const registered = await registration.json().catch(() => null);
@@ -347,6 +351,33 @@ try {
     'the token is an oauth_access_token row bound to this user',
     tokenRow?.user_id === userId,
     tokenRow ? `scopes ${JSON.stringify(tokenRow.scopes)}` : 'no row'
+  );
+  check(
+    'and it carries the control-plane scope',
+    (tokenRow?.scopes ?? []).includes('ganju:manage'),
+    JSON.stringify(tokenRow?.scopes)
+  );
+
+  // The token an MCP client holds is a live token for the same user — the
+  // control plane has to refuse it anyway, or connecting Claude Desktop to one
+  // MCP server would hand it the whole account. Minted directly here because
+  // what is being tested is the middleware's rule, not how a client obtains one.
+  const mcpToken = crypto.randomBytes(32).toString('base64url');
+  await sql`insert into oauth_access_token ${sql({
+    id: uuid(),
+    token: crypto.createHash('sha256').update(mcpToken).digest('base64url'),
+    client_id: clientId,
+    user_id: userId,
+    scopes: ['openid', 'profile', 'email'],
+    expires_at: new Date(Date.now() + 60 * 60 * 1000)
+  })}`;
+  const asMcpClient = await fetch(`${API}/me`, {
+    headers: { authorization: `Bearer ${mcpToken}` }
+  });
+  check(
+    'a token without it — what an MCP client is given — cannot reach the control plane',
+    asMcpClient.status === 401,
+    `HTTP ${asMcpClient.status}`
   );
 
   const who = ganju(['whoami']);

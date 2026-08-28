@@ -5,6 +5,8 @@ import type { Fetcher } from '@cloudflare/workers-types';
 export interface ToolEnv {
   GANJU_TOOL_TOKEN?: string;
   GANJU_BROKER?: Fetcher;
+  /** Digest of the bytes this script was uploaded from; echoed by the health probe. */
+  GANJU_SCRIPT_VERSION?: string;
   [key: string]: unknown;
 }
 

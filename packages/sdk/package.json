@@ -1,6 +1,6 @@
 {
   "name": "@ganju/sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "The typed `ctx` a Ganju custom tool is written against",
   "license": "Apache-2.0",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",

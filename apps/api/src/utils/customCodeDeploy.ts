@@ -71,7 +71,24 @@ const describeFailure = async (response: Response): Promise<string> => {
 export interface DeployedScript {
   scriptTag: string;
   token: string;
+  /**
+   * What the uploaded edition answers when asked which code it is running —
+   * the digest of the bytes this call put in the namespace. Handed to
+   * `smokeTestCustomCodeScript` so the wait is for these bytes and not merely
+   * for this version id.
+   */
+  edition: string;
 }
+
+// SHA-256 of the uploaded bytes, hex-encoded. Also what a version row stores as
+// `sourceHash`, so the marker a running script reports and the hash recorded
+// against its source are the same number by construction.
+export const hashBundle = async (bundle: ArrayBuffer): Promise<string> => {
+  const digest = await crypto.subtle.digest('SHA-256', bundle);
+  return Array.from(new Uint8Array(digest))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
 
 /**
  * Upload one version's bundle into the dispatch namespace as
@@ -122,6 +139,8 @@ export const deployCustomCodeScript = async (
     config.tokenSecret
   );
 
+  const edition = await hashBundle(input.bundle);
+
   const metadata = {
     main_module: utils.constants.CUSTOM_CODE_MAIN_MODULE,
     compatibility_date: utils.constants.CUSTOM_CODE_COMPATIBILITY_DATE,
@@ -139,6 +158,21 @@ export const deployCustomCodeScript = async (
         type: 'service',
         name: utils.constants.CUSTOM_CODE_BINDING_BROKER,
         service: config.brokerService
+      },
+      // Not a secret — the digest of these bytes, so the health probe can say
+      // which edition is answering. Uploading a script is not read-your-writes,
+      // and tool names cannot tell two editions apart when a deploy renames
+      // nothing.
+      //
+      // The bytes and not the version id: a draft is re-uploaded in place, so a
+      // version id is the same string across every edit of the same draft and
+      // could never distinguish this upload from the one before it. Two uploads
+      // of identical bytes do share a marker, which is the one case where not
+      // telling them apart is the right answer.
+      {
+        type: 'plain_text',
+        name: utils.constants.CUSTOM_CODE_BINDING_VERSION,
+        text: edition
       }
     ]
   };
@@ -202,19 +236,35 @@ export const deployCustomCodeScript = async (
     // etag identifies the exact uploaded content; falling back to the script id
     // keeps scriptTag populated even if the API stops returning one.
     scriptTag: body.result?.etag || body.result?.id || scriptName,
-    token
+    token,
+    edition
   };
 };
 
 /**
- * Ask a freshly uploaded script which tools it actually exports, and check that
- * against what the version's manifest declares.
+ * Ask the freshly uploaded script what it is, until the answer is the edition we
+ * just wrote, then check that it exports what the manifest declares.
+ *
+ * Two problems in one wait, and the second is why the first has to be solved.
  *
  * The manifest and the bundle are uploaded separately and nothing before this
  * point connects them, so "the manifest says `lookup-order`, the code exports
- * `lookupOrder`" survives all the way to the first customer tool call — where it
- * surfaces as a tool that exists in tools/list and fails every time it is used.
- * Catching it here costs one dispatch at publish time.
+ * `lookupOrder`" would otherwise survive to the first customer tool call, where
+ * it surfaces as a tool that exists in tools/list and fails every time it is
+ * used. Catching it here costs one dispatch at publish time.
+ *
+ * But uploading into a dispatch namespace is not read-your-writes: dispatching
+ * to the name immediately afterwards can reach the previous edition. That was
+ * invisible for as long as the only question asked was "which tools do you
+ * export", because a deploy that renames nothing gets the right answer from the
+ * wrong script — and then publishes, leaving the customer running code they did
+ * not deploy until propagation caught up. Only a rename made it visible, as a
+ * confusing "the bundle does not export …".
+ *
+ * So the script carries the digest of the bytes it was uploaded from, and this
+ * waits for its own before it checks anything. A brand-new script answers on the
+ * first try, which is why every probe against a throwaway artifact had always
+ * passed.
  *
  * Throws with a legible message on any failure; the caller records it on
  * `version.error` and refuses the publish.
@@ -223,6 +273,12 @@ export const smokeTestCustomCodeScript = async (
   c: Context<AppEnv>,
   input: {
     artifactId: string;
+    /**
+     * The digest `deployCustomCodeScript` returned for the upload being
+     * verified. Taken from that call rather than from the version row so it
+     * always describes the bytes actually sent.
+     */
+    edition: string;
     declaredTools: string[];
     // Passed through to the outbound worker so the probe runs under the same
     // egress rules a real call would. The namespace binding declares these
@@ -230,6 +286,7 @@ export const smokeTestCustomCodeScript = async (
     // "Missing one or more required arguments to worker" — the probe is not
     // exempt just because it never reaches user code.
     allowedHosts: string[];
+    preview?: boolean;
   }
 ): Promise<void> => {
   const dispatcher = c.env.DISPATCH;
@@ -239,8 +296,128 @@ export const smokeTestCustomCodeScript = async (
     );
   }
 
-  const scriptName = utils.customCodeScriptName(input.artifactId);
+  const scriptName = input.preview
+    ? utils.customCodePreviewScriptName(input.artifactId)
+    : utils.customCodeScriptName(input.artifactId);
 
+  const deadline = Date.now() + utils.constants.CUSTOM_CODE_SMOKE_TIMEOUT_MS;
+  // What the last attempt saw, and the whole content of the timeout message.
+  // "still answering as an older edition" and "nothing is answering yet" are
+  // both propagation, and the reader is owed which one they are waiting on.
+  let waitingOn = 'the script has not answered yet';
+  // The tools an unmarked script reported, kept for the fallback below.
+  let unmarkedTools: string[] | null = null;
+
+  for (;;) {
+    const probed = await probeHealth(
+      dispatcher,
+      scriptName,
+      input.artifactId,
+      input.allowedHosts
+    );
+
+    if (probed.answered) {
+      // The edition answering is the one we uploaded, so what it exports is
+      // what this version ships.
+      if (probed.edition === input.edition) {
+        assertExports(input.declaredTools, probed.tools);
+        return;
+      }
+
+      if (probed.edition === null) {
+        // A script built before the marker existed cannot say what it is, and
+        // waiting on it forever would turn every publish over one into a
+        // timeout. But the upload we are verifying always carries a marker, so
+        // an unmarked answer is by definition the *previous* edition — treating
+        // it as the answer immediately would check the very script this wait
+        // exists to see past. So it waits like any other stale edition, and the
+        // name check it falls back to is kept for the deadline, where it is the
+        // best available answer rather than the first one.
+        unmarkedTools = probed.tools;
+        waitingOn =
+          'the dispatcher still answers with an edition too old to say which it is';
+      } else {
+        unmarkedTools = null;
+        waitingOn = `the dispatcher still answers with an older edition (${probed.edition})`;
+      }
+    } else {
+      // Nothing is serving this name yet. On a first deploy that is the shape
+      // propagation takes — the namespace has no script to dispatch to — so it
+      // waits exactly like a stale edition does rather than failing a publish
+      // for being early.
+      unmarkedTools = null;
+      waitingOn = probed.reason;
+    }
+
+    if (Date.now() >= deadline) {
+      if (unmarkedTools) {
+        assertExports(input.declaredTools, unmarkedTools);
+        return;
+      }
+
+      // Carries its own status: an unmatched message is replaced with
+      // "Internal Server Error" by the central handler, and this one is the
+      // whole value of the failure — it tells the reader their code is fine and
+      // to try again. 503 is what "not ready yet, retry" means.
+      throw Object.assign(
+        new Error(
+          `The uploaded script is not being served yet — ${waitingOn}. This is propagation, not your code: publish again in a moment.`
+        ),
+        { status: 503 as const }
+      );
+    }
+
+    await new Promise(resolve =>
+      setTimeout(resolve, utils.constants.CUSTOM_CODE_SMOKE_INTERVAL_MS)
+    );
+  }
+};
+
+/**
+ * Every declared tool name has to be a key the script actually exports.
+ *
+ * Shared by both ways out of the wait above — the edition matched, or the
+ * edition cannot be known — because the check is the same one either way and
+ * two copies of an error message is two chances for them to drift apart.
+ */
+const assertExports = (declared: string[], exported: string[]): void => {
+  const missing = declared.filter(name => !exported.includes(name));
+  if (missing.length === 0) return;
+
+  throw new Error(
+    `The bundle does not export ${missing
+      .map(name => `"${name}"`)
+      .join(
+        ', '
+      )}, which this version declares. Every declared tool name must be a key in the object you pass to createHandler.`
+  );
+};
+
+/**
+ * The answer to one health call, with "nothing is there yet" as a value rather
+ * than an exception.
+ *
+ * That distinction is the whole point of the type. A script that has not
+ * propagated cannot be dispatched to at all, and treating that as a failed
+ * publish would reject every deploy that asked a moment too early — the
+ * dispatch error and the stale edition are the same race, so they have to wait
+ * the same way. Anything that *does* answer and answers wrongly is a real
+ * failure and still throws: something is serving, and it is not an SDK script.
+ */
+type ProbeResult =
+  | { answered: true; tools: string[]; edition: string | null }
+  | { answered: false; reason: string };
+
+/**
+ * One health call. Separated so the wait above reads as a loop over a question
+ * rather than as transport.
+ */
+const probeHealth = async (
+  dispatcher: NonNullable<AppEnv['Bindings']['DISPATCH']>,
+  scriptName: string,
+  artifactId: string,
+  allowedHosts: string[]
+): Promise<ProbeResult> => {
   // Untyped so the Fetcher's own Response type flows through — the Workers and
   // DOM Response declarations are structurally different and annotating either
   // one here fights the other.
@@ -251,10 +428,9 @@ export const smokeTestCustomCodeScript = async (
       {},
       {
         outbound: {
-          [utils.constants.CUSTOM_CODE_OUTBOUND_PARAM_ARTIFACT_ID]:
-            input.artifactId,
+          [utils.constants.CUSTOM_CODE_OUTBOUND_PARAM_ARTIFACT_ID]: artifactId,
           [utils.constants.CUSTOM_CODE_OUTBOUND_PARAM_ALLOWED_HOSTS]:
-            JSON.stringify(input.allowedHosts)
+            JSON.stringify(allowedHosts)
         }
       }
     );
@@ -270,11 +446,12 @@ export const smokeTestCustomCodeScript = async (
       }
     );
   } catch (error) {
-    throw new Error(
-      `The uploaded script could not be started — ${
+    return {
+      answered: false,
+      reason: `the script could not be started yet — ${
         error instanceof Error ? error.message : String(error)
       }`
-    );
+    };
   }
 
   if (!response.ok) {
@@ -284,26 +461,27 @@ export const smokeTestCustomCodeScript = async (
   }
 
   const body = (await response.json().catch(() => null)) as {
-    output?: { tools?: unknown };
+    output?: { tools?: unknown; version?: unknown };
   } | null;
-  const exported = Array.isArray(body?.output?.tools)
+
+  const tools = Array.isArray(body?.output?.tools)
     ? (body.output.tools as unknown[]).filter(
         (name): name is string => typeof name === 'string'
       )
     : null;
 
-  if (!exported) {
+  if (!tools) {
     throw new Error(
       'The uploaded script did not answer the health check. It must be built with @ganju/sdk.'
     );
   }
 
-  const missing = input.declaredTools.filter(name => !exported.includes(name));
-  if (missing.length > 0) {
-    throw new Error(
-      `The bundle does not export ${missing.map(name => `"${name}"`).join(', ')}, which this version declares. Check the tool names in your manifest.`
-    );
-  }
+  const edition = body?.output?.version;
+  return {
+    answered: true,
+    tools,
+    edition: typeof edition === 'string' ? edition : null
+  };
 };
 
 export interface CustomCodeRunResult {

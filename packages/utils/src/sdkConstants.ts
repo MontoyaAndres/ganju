@@ -30,6 +30,18 @@ export const CUSTOM_CODE_BROKER_PATH_RESOURCES_CREATE = '/resources/create';
 export const CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE = '/resources/delete';
 export const CUSTOM_CODE_BROKER_PATH_SEND_FILE = '/send-file';
 
+// Injected at upload time and echoed back by the health probe below. Uploading a
+// script into the dispatch namespace is not read-your-writes: dispatching to the
+// name immediately afterwards can still reach the previous edition. Tool names
+// alone cannot tell the two apart when a deploy does not rename anything, so the
+// script carries the digest of the bytes it was uploaded from and the publish
+// pipeline waits until the edition answering is the one it just wrote.
+//
+// The bytes rather than the version id: a draft is re-uploaded in place, so its
+// id is the same string across every edit and could never separate this upload
+// from the one before it.
+export const CUSTOM_CODE_BINDING_VERSION = 'GANJU_SCRIPT_VERSION';
+
 // The reserved tool name the publish pipeline calls against a freshly uploaded
 // script to ask which tools it actually exports — which is what turns "the
 // manifest declares lookup-order but the code exports lookupOrder" from a

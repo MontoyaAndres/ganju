@@ -102,6 +102,27 @@ export const createAuth = (
         // closed. The upstream option is expected to go away once MCP settles
         // on Client ID Metadata Documents or signed software statements.
         allowUnauthenticatedClientRegistration: true,
+        // The scopes a client is allowed to ask for. The plugin's default is the
+        // four standard OIDC ones, and a scope missing from this list is refused
+        // with `invalid_scope` — so `ganju:manage` has to be named here for the
+        // CLI to request it at all.
+        //
+        // Allowlisted is not the same as advertised. Discovery is written by
+        // WellKnownController from OAUTH_SCOPES_SUPPORTED, which does not carry
+        // this one, so an MCP client reading that document asks for the standard
+        // four and gets a token the control plane will not accept.
+        scopes: [
+          ...utils.constants.OAUTH_SCOPES_SUPPORTED,
+          utils.constants.CONTROL_PLANE_SCOPE
+        ],
+        // The granted scopes, echoed back to whoever holds the token. Both
+        // bearer-token middlewares — the control plane's and the MCP server's —
+        // introspect through `/oauth2/userinfo`, and what a token is allowed to
+        // do cannot be checked from a response that only says whose it is.
+        // (Nothing is disclosed here that the holder did not itself request.)
+        customUserInfoClaims: ({ scopes }: { scopes: string[] }) => ({
+          scope: scopes.join(' ')
+        }),
         // Audiences a token may be minted for. The plugin's default is the
         // base URL alone, which rejects the per-artifact MCP resource an MCP
         // client asks for; `mcpAudience` is that resource, already verified to

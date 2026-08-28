@@ -16,7 +16,7 @@ const bearerToken = (c: Context<AppEnv>): string | null => {
 };
 
 /**
- * Resolve an opaque OAuth access token to the user it was minted for.
+ * Resolve an OAuth access token to the user it may act as here.
  *
  * Browsers carry the session cookie; a terminal cannot. The CLI signs in through
  * the same authorization server every MCP client uses and holds an access token,
@@ -29,6 +29,14 @@ const bearerToken = (c: Context<AppEnv>): string | null => {
  * provider owns, and reading `oauth_access_token` here would be a second copy of
  * its expiry and revocation rules. The endpoint answers with the subject when
  * the token is live and 401s otherwise.
+ *
+ * Whose token it is settles nothing on its own, which is the second check.
+ * The same authorization server mints tokens for MCP clients: connect Claude
+ * Desktop to one of your MCP servers and it holds a live token for your account,
+ * and userinfo will confirm as much. Accepting that here would make connecting
+ * an MCP client an act of full delegation — deploy code, read secrets, change
+ * billing — which nobody agreed to. So a token also has to carry the scope the
+ * CLI asks for and discovery never offers.
  */
 const userFromAccessToken = async (
   c: Context<AppEnv>,
@@ -50,8 +58,13 @@ const userFromAccessToken = async (
 
   const claims = (await response.json().catch(() => null)) as {
     sub?: string;
+    scope?: string;
   } | null;
   if (!claims?.sub) return null;
+
+  const scopes =
+    typeof claims.scope === 'string' ? claims.scope.split(' ') : [];
+  if (!scopes.includes(utils.constants.CONTROL_PLANE_SCOPE)) return null;
 
   const [row] = await db
     .create(c)

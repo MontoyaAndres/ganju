@@ -46,8 +46,20 @@ export const createHandler = (
     // Answered before any user code runs and without touching the broker: the
     // publish pipeline calls it against a freshly uploaded script to check that
     // what the bundle exports matches what the manifest declares.
+    //
+    // `version` is what the edition answering says it is — the digest of the
+    // bytes it was uploaded from. Uploading a script and dispatching to the same
+    // name immediately afterwards can still reach the previous edition, and
+    // comparing tool names cannot notice that when a deploy renames nothing — so
+    // the marker travels with the script and publish waits for its own.
     if (name === constants.CUSTOM_CODE_HEALTH_TOOL) {
-      return json({ output: { tools: Object.keys(tools) }, logs: [] });
+      return json({
+        output: {
+          tools: Object.keys(tools),
+          version: env[constants.CUSTOM_CODE_BINDING_VERSION] ?? null
+        },
+        logs: []
+      });
     }
 
     const handler = tools[name];

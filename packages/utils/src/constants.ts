@@ -3,6 +3,7 @@ import {
   CLI_OAUTH_REDIRECT_PATH,
   CLI_OAUTH_REDIRECT_PORTS,
   CLI_OAUTH_SCOPES,
+  CONTROL_PLANE_SCOPE,
   CLI_TOKEN_REFRESH_SKEW_SECONDS,
   CUSTOM_CODE_SDK_SPECIFIER,
   CUSTOM_CODE_MAX_BUNDLE_BYTES,
@@ -11,6 +12,7 @@ import {
 import {
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
+  CUSTOM_CODE_BINDING_VERSION,
   CUSTOM_CODE_BROKER_ORIGIN,
   CUSTOM_CODE_BROKER_PATH_CONNECTION,
   CUSTOM_CODE_BROKER_PATH_SECRET,
@@ -1451,6 +1453,16 @@ const CUSTOM_CODE_COMPATIBILITY_DATE = '2025-11-17';
 // tighter than our own workers' 30s — this is the technical cap that bounds
 // what one adversarial call can cost us, so an infinite loop in a customer's
 // tool is billed as five seconds rather than as whatever it wanted.
+// How long publish waits for the edition it just uploaded to be the one the
+// dispatcher answers with, and how often it asks.
+//
+// Bounded rather than open-ended because this runs inside the publish request:
+// past this, publishing would be a request nobody waits out. Exceeding it is
+// reported as "try again" rather than published, which is the safe direction —
+// the alternative is advertising tools backed by a script that is not there yet.
+const CUSTOM_CODE_SMOKE_TIMEOUT_MS = 20_000;
+const CUSTOM_CODE_SMOKE_INTERVAL_MS = 1_000;
+
 const CUSTOM_CODE_SCRIPT_CPU_MS = 5_000;
 
 // The ctx.log() caps also live in ./sdkConstants — the buffer that enforces them
@@ -1622,6 +1634,21 @@ const OAUTH_SCOPES_SUPPORTED = ['openid', 'profile', 'email', 'offline_access'];
 // TODO: Net: mcp:read is a cosmetic claim on bot tokens; artifact: is a code path that can't fire. Neither affects security today. They become real only if you build the per-server confinement feature (which would make artifact:<slug> issued + enforced). This is more for OIDC.
 const MCP_SCOPE_READ = 'mcp:read';
 const ARTIFACT_SCOPE_PREFIX = 'artifact:';
+
+// `CONTROL_PLANE_SCOPE` (defined in ./cliConstants, re-exported below) is what
+// a bearer token needs before it may act as the user on the control plane —
+// publish code, read and rotate secrets, change billing.
+//
+// Access tokens are minted for MCP clients too: a customer who connects Claude
+// Desktop to one of their MCP servers hands it a token for their own account,
+// and `/oauth2/userinfo` will happily confirm that it is theirs. Without a scope
+// that separates the two, "this token belongs to the user" would be the same
+// sentence as "this token may deploy code as the user", and connecting an MCP
+// client would silently be an act of full delegation.
+//
+// Deliberately outside OAUTH_SCOPES_SUPPORTED: it is allowlisted on the provider
+// so the CLI can request it, and left out of discovery, which is what an MCP
+// client reads to decide what to ask for.
 
 // The CLI signs in as a public OAuth client through a loopback redirect
 // (RFC 8252) — the flow `wrangler`, `gh` and `vercel` all use. It registers
@@ -2458,6 +2485,7 @@ export const constants = {
   OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE,
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
+  CUSTOM_CODE_BINDING_VERSION,
   CUSTOM_CODE_BROKER_ORIGIN,
   CUSTOM_CODE_BROKER_PATH_CONNECTION,
   CUSTOM_CODE_BROKER_PATH_SECRET,
@@ -2478,6 +2506,8 @@ export const constants = {
   CUSTOM_CODE_BROKER_SERVICE_ENV,
   CUSTOM_CODE_COMPATIBILITY_DATE,
   CUSTOM_CODE_SCRIPT_CPU_MS,
+  CUSTOM_CODE_SMOKE_TIMEOUT_MS,
+  CUSTOM_CODE_SMOKE_INTERVAL_MS,
   CUSTOM_CODE_MAX_LOGS,
   CUSTOM_CODE_MAX_LOG_LENGTH,
   CUSTOM_CODE_SEND_FILE_TARGET_GMAIL,
@@ -2524,6 +2554,7 @@ export const constants = {
   OAUTH_SCOPES_SUPPORTED,
   MCP_SCOPE_READ,
   ARTIFACT_SCOPE_PREFIX,
+  CONTROL_PLANE_SCOPE,
   CLI_OAUTH_CLIENT_NAME,
   CLI_OAUTH_REDIRECT_PATH,
   CLI_OAUTH_REDIRECT_PORTS,

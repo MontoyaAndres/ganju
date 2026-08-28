@@ -1899,14 +1899,31 @@ const testCustomCodeVersion = async (c: Context<AppEnv>) => {
 
   const config = readCustomCodeConfig(tool);
 
-  await deployCustomCodeScript(c, {
+  const deployed = await deployCustomCodeScript(c, {
     artifactId: artifact.id,
     versionId: version.id,
     bundle: await object.arrayBuffer(),
     preview: true
   });
 
+  // Inside the try, so the preview script is removed whether the run happens or
+  // the wait below gives up first. Timing out is the likeliest way this endpoint
+  // fails now, and a preview script left behind by the path that failed early is
+  // the same leak as one left behind by a failed delete.
   try {
+    // The same wait publish makes, and for a sharper reason: a preview script is
+    // uploaded under a name every previous test also used, so without it a test
+    // can quietly run the code from the run before — which reads as "my edit did
+    // nothing" and is the worst possible answer from a thing whose whole job is
+    // to tell you what your edit does.
+    await smokeTestCustomCodeScript(c, {
+      artifactId: artifact.id,
+      edition: deployed.edition,
+      declaredTools: [currentValues.tool],
+      allowedHosts: config.allowedHosts ?? [],
+      preview: true
+    });
+
     const run = await invokeCustomCodeScript(c, {
       artifactId: artifact.id,
       toolName: currentValues.tool,
@@ -1947,6 +1964,77 @@ const testCustomCodeVersion = async (c: Context<AppEnv>) => {
 // versions they accept: publish promotes anything with a bundle, rollback
 // requires a version that has been live before. They stay separate endpoints so
 // the intent is legible in logs and in the UI.
+/**
+ * Put back whatever was running before a publish that did not survive
+ * validation.
+ *
+ * Publishing has to upload before it can check — the only way to ask a script
+ * what it exports is to deploy it and call it — so by the time a mismatch is
+ * caught, the artifact's one script has already been replaced. `activeVersionId`
+ * is untouched, which is correct, and that is exactly what leaves the two out of
+ * step: the MCP server keeps advertising the previous version's tool names while
+ * the namespace holds the bundle that was just rejected. Every one of those
+ * advertised tools then answers "this script does not export …". A typo takes
+ * down tools that were working.
+ *
+ * Restoring is the other half of refusing. With no previous version the artifact
+ * had no live script at all, so the script is removed rather than replaced,
+ * which is the state `activeVersionId: null` already describes.
+ *
+ * Best-effort on purpose: the caller is already throwing, and the error it
+ * carries — what is wrong with the bundle — is the one the author can act on.
+ * A restore that fails must not replace it with a message about our plumbing,
+ * so it is logged and the original error goes on being the answer.
+ */
+const restorePreviousScript = async (
+  c: Context<AppEnv>,
+  input: {
+    artifactId: string;
+    toolId: string;
+    previousVersionId: string | null;
+  }
+): Promise<void> => {
+  try {
+    if (!input.previousVersionId) {
+      await deleteCustomCodeScript(c, input.artifactId);
+      return;
+    }
+
+    const previous = await loadVersionForTool(
+      db.create(c),
+      input.toolId,
+      input.previousVersionId
+    );
+
+    // The bundle is gone from storage, so there is nothing to put back. Leaving
+    // the rejected script in place would be worse than removing it: one answers
+    // every advertised tool with an error, the other answers that the tool is
+    // not deployed, and only the second is true.
+    const bucket = c.env.STORAGE_BUCKET;
+    const object = previous.sourceKey
+      ? await bucket?.get(previous.sourceKey)
+      : null;
+    if (!object) {
+      await deleteCustomCodeScript(c, input.artifactId);
+      return;
+    }
+
+    // The redeploy stamps the restored bytes with their own digest, so the
+    // marker the next publish waits on describes the edition that is actually
+    // serving rather than the one that was rejected.
+    await deployCustomCodeScript(c, {
+      artifactId: input.artifactId,
+      versionId: previous.id,
+      bundle: await object.arrayBuffer()
+    });
+  } catch (error) {
+    console.error(
+      `Could not restore the previously deployed script for artifact ${input.artifactId}`,
+      error
+    );
+  }
+};
+
 const activateCustomCodeVersion = async (
   c: Context<AppEnv>,
   requirePreviouslyPublished: boolean
@@ -2018,6 +2106,13 @@ const activateCustomCodeVersion = async (
     );
   }
 
+  // What is serving right now, captured before anything is overwritten. The
+  // upload below replaces the artifact's one script, and a validation failure
+  // after that point would otherwise leave the namespace holding a rejected
+  // bundle while `activeVersionId` still advertises this version's tools — a
+  // typo in a tool name taking down tools that were working.
+  const previousVersionId = readCustomCodeConfig(tool).activeVersionId ?? null;
+
   // Every failure from here on is recorded on the version before it is
   // rethrown. `error` is the column the dashboard reads, and a publish that
   // fails with nothing written there is a version the user can only debug from
@@ -2032,6 +2127,7 @@ const activateCustomCodeVersion = async (
 
     await smokeTestCustomCodeScript(c, {
       artifactId: artifact.id,
+      edition: deployed.edition,
       declaredTools: (version.tools as Array<{ name: string }>).map(
         entry => entry.name
       ),
@@ -2043,6 +2139,13 @@ const activateCustomCodeVersion = async (
       .update(db.schema.artifactToolVersion)
       .set({ error: message })
       .where(eq(db.schema.artifactToolVersion.id, version.id));
+
+    await restorePreviousScript(c, {
+      artifactId: artifact.id,
+      toolId: tool.id,
+      previousVersionId
+    });
+
     throw error;
   }
 

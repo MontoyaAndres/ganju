@@ -23,13 +23,27 @@ export const CLI_OAUTH_CLIENT_NAME = 'Ganju CLI';
 export const CLI_OAUTH_REDIRECT_PATH = '/callback';
 export const CLI_OAUTH_REDIRECT_PORTS = [8976, 8977, 8978, 8979, 8980];
 
+// What the API requires before a bearer token may act on the control plane —
+// publish code, read and rotate secrets, change billing. Lives here because the
+// CLI is the client that asks for it; the API's own copy is the re-export in
+// `constants.ts`, so the string the CLI requests and the string the middleware
+// demands cannot drift apart.
+export const CONTROL_PLANE_SCOPE = 'ganju:manage';
+
 // `offline_access` is what mints the refresh token; without it a CLI session
 // would end an hour after login.
+//
+// An MCP client reads the discovery document to decide what to ask for, and
+// that document does not list `ganju:manage` — so a token minted for someone's
+// MCP server can reach that server and nothing else, while this one can deploy.
+// The consent screen names the scope, which is the point: deploying code as
+// someone is worth showing them.
 export const CLI_OAUTH_SCOPES = [
   'openid',
   'profile',
   'email',
-  'offline_access'
+  'offline_access',
+  CONTROL_PLANE_SCOPE
 ];
 
 // Refresh this far before the access token actually expires, so a long command

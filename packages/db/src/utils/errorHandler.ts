@@ -15,7 +15,7 @@ export interface HandleErrorOptions {
 
 export interface HandleErrorResult {
   refId: string;
-  status: 400 | 401 | 402 | 403 | 404 | 409 | 500;
+  status: 400 | 401 | 402 | 403 | 404 | 409 | 500 | 503;
   body: Record<string, unknown>;
 }
 
@@ -41,7 +41,8 @@ interface DbSource {
 }
 
 export type HandleErrorSource =
-  Context | (DbSource & { request?: RequestContext });
+  | Context
+  | (DbSource & { request?: RequestContext });
 
 const matchStatus = (message: string): 400 | 401 | 403 | 404 | 409 | null => {
   const lower = message.toLowerCase();
