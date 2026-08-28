@@ -10,6 +10,7 @@
     "deploy-prod": "wrangler deploy --env production"
   },
   "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
     "@ganju/containers": "*",
     "@ganju/db": "*",
     "@ganju/utils": "*",
@@ -20,8 +21,8 @@
     "jose": "^6.2.3"
   },
   "devDependencies": {
-    "@ganju/tsconfig": "*",
     "@cloudflare/workers-types": "^4.20260611.1",
+    "@ganju/tsconfig": "*",
     "@types/node": "^25.9.3",
     "esbuild": "^0.28.0",
     "fast-glob": "^3.3.3",

@@ -12,16 +12,17 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
     "@better-auth/oauth-provider": "^1.6.25",
+    "@cfworker/json-schema": "^4.1.1",
     "@ganju/containers": "*",
     "@ganju/db": "*",
+    "@ganju/sdk": "*",
     "@ganju/utils": "*",
     "@google/genai": "^2.8.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-auth": "^1.6.25",
     "hono": "^4.12.25",
     "openai": "^6.42.0",
-    "stripe": "^22.2.3",
-    "@ganju/sdk": "*"
+    "stripe": "^22.2.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260611.1",

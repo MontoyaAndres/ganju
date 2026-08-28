@@ -930,6 +930,31 @@ Full cost model, plan definitions, worked examples, and break-even: **[PRICING.m
 
 **We become a code-execution platform.** Crypto mining, spam relays, and attack proxying will find us. `fetch` without screening is an open proxy. Controls: outbound-worker enforcement (not SDK-level), per-script CPU limits, host allowlists, billing per CPU. Budget for an abuse-response *process*, not just code.
 
+**An `outputSchema` killed every channel turn, and the tool was not the thing that broke.** The MCP SDK validates `structuredContent` against a declared output schema, and its default validator is Ajv, which compiles a schema with `new Function`. Workers disallow code generation from strings — so `Client.listTools()` threw `EvalError: Code generation from strings disallowed for this context` and took the whole turn with it.
+
+The severity is in *where* it threw. `listTools()` runs at the start of every channel turn, before the model has chosen anything, so one tool declaring an output schema anywhere on the artifact stopped the bot answering **any** message — not just calls to that tool. It reached a real Telegram bot the first time a deployed tool declared one.
+
+Latent since [Phase 3](#phase-3--mcp-integration-) added `outputSchema` for custom-code, and widened by [Phase 6](#outputschema-for-http-endpoint) adding it for `http-endpoint`. Nothing had declared one until now, which is why every test passed: the native tools don't, so the channel path had never carried a schema to validate.
+
+External MCP clients were never affected — Claude Desktop brings its own client. It is only ours, and only inside a Worker.
+
+Fixed by passing the validator the SDK ships for edge runtimes, which walks the schema instead of compiling it:
+
+```ts
+new Client(
+  { name: 'ganju-channel', version: '0.0.1' },
+  { jsonSchemaValidator: new CfWorkerJsonSchemaValidator() }
+);
+```
+
+Applied at all three Worker client sites — the channel runner in [mcpClient.ts](../apps/api/src/utils/mcpClient.ts), and both `mcp-proxy` clients, which would have hit the same wall the moment a remote server declared an output schema. `apps/resource-handler` keeps the default: it is Node, where `new Function` is allowed. Confirmed by A/B under workerd against the real MCP endpoint: the default validator throws the exact `EvalError`, and the same request with this one lists all seven tools.
+
+**A redeploy can smoke-test against the previous edition — found in production use, not by any test.** Uploading a script into the dispatch namespace and immediately dispatching to it is not read-your-writes. Deploying over an artifact that already had a script made [the health probe](#phase-2--runtime-) ask the freshly-uploaded script what it exports and get the *old* script's answer, so publish refused with "The bundle does not export …". The identical command succeeded ninety seconds later.
+
+Every automated run had missed this by construction: the probes scaffold a throwaway artifact, so the script name is new and there is no previous edition to serve. It appears only when overwriting, which is what every real customer redeploy is.
+
+Two consequences, and the second is the one that matters. A deploy that *changes* tool names fails loudly and is merely annoying — retry and it passes. A deploy that *keeps* the same tool names passes the smoke test against the old script and publishes, and the customer is then running code they did not deploy until propagation catches up. The fix is on the publish path: poll the health probe until it reports the version being published, rather than asking once. `sourceHash` is already on the row, so there is something specific to wait for.
+
 **Publish latency vs. boot correctness.** WfP upload takes seconds — fine at publish time, fatal on the call path. The Postgres-first boot contract is what keeps it off the call path; don't regress it.
 
 **Tool-list explosion — measured, not theoretical.** Querying our own `channel_message` rows: an artifact with **5 tools averages 1,103 input tokens/turn; one with 12 tools averages 13,109.** 2.4× the tools, 12× the tokens, because every schema is re-sent on every model call and a turn makes ~3. Custom tools invite exactly this growth.

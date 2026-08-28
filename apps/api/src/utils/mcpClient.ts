@@ -1,5 +1,6 @@
 import { Context } from 'hono';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/cfworker';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { utils } from '@ganju/utils';
 
@@ -62,7 +63,10 @@ export const createMcpClient = async (
       ) as unknown as Promise<Response>;
     }
   });
-  const client = new Client({ name: 'ganju-channel', version: '0.0.1' });
+  const client = new Client(
+    { name: 'ganju-channel', version: '0.0.1' },
+    { jsonSchemaValidator: new CfWorkerJsonSchemaValidator() }
+  );
   await client.connect(transport);
 
   return {

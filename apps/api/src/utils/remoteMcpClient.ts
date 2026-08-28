@@ -1,4 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/cfworker';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { utils } from '@ganju/utils';
@@ -70,10 +71,10 @@ export const discoverRemoteMcpTools = async (
         })
       : new StreamableHTTPClientTransport(parsed, { fetch: fetchWithAuth });
 
-  const client = new Client({
-    name: 'ganju-mcp-proxy-discovery',
-    version: '0.0.1'
-  });
+  const client = new Client(
+    { name: 'ganju-mcp-proxy-discovery', version: '0.0.1' },
+    { jsonSchemaValidator: new CfWorkerJsonSchemaValidator() }
+  );
 
   const timer = new Promise<never>((_, reject) => {
     setTimeout(
