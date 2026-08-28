@@ -1,0 +1,52 @@
+{
+  "name": "@ganju/cli",
+  "version": "0.0.1",
+  "description": "Write, deploy and debug Ganju custom tools from the terminal",
+  "license": "Apache-2.0",
+  "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
+  "homepage": "https://ganju.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MontoyaAndres/ganju.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "ganju",
+    "mcp",
+    "model-context-protocol",
+    "cli",
+    "tools",
+    "cloudflare-workers"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "ganju": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "prepublishOnly": "npm run build",
+    "clean": "rm -rf dist && rm -rf node_modules"
+  },
+  "dependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "devDependencies": {
+    "@ganju/tsconfig": "*",
+    "@types/node": "^22.10.2",
+    "typescript": "^6.0.3",
+    "@ganju/utils": "*"
+  }
+}

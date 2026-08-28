@@ -159,8 +159,6 @@ const containerOf = (node: TreeNode | null): string => {
   return node.isFile ? parentOf(node.path) : node.path;
 };
 
-// --- icons -----------------------------------------------------------------
-//
 // Drawn here rather than pulled from an icon font: this is five shapes, and the
 // alternative is shipping a whole icon theme to draw them. Colours are Seti's,
 // the theme VS Code ships enabled, so a `.js` file is the same yellow here as

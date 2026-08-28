@@ -1,6 +1,30 @@
 {
   "name": "@ganju/utils",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "description": "Shared constants, schemas and helpers for Ganju",
+  "license": "Apache-2.0",
+  "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
+  "homepage": "https://ganju.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MontoyaAndres/ganju.git",
+    "directory": "packages/utils"
+  },
+  "keywords": [
+    "ganju",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,6 +48,11 @@
       "import": "./dist/toolCatalog.js",
       "require": "./dist/toolCatalog.js"
     },
+    "./cliConstants": {
+      "types": "./dist/cliConstants.d.ts",
+      "import": "./dist/cliConstants.js",
+      "require": "./dist/cliConstants.js"
+    },
     "./sdkConstants": {
       "types": "./dist/sdkConstants.d.ts",
       "import": "./dist/sdkConstants.js",
@@ -32,6 +61,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "clean": "rm -rf dist && rm -rf node_modules"
   },
   "dependencies": {

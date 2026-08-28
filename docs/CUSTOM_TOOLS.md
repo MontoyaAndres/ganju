@@ -169,6 +169,11 @@ MCP supports `outputSchema` + `structuredContent`, but [`ToolDefinition`](../app
 // ganju.json
 {
   "artifact": "acme-support",
+  // Written by `ganju link`, because every endpoint is keyed by them. The slug
+  // above is the readable half — a deploy reporting a uuid would leave the
+  // author checking the dashboard to find out which server they just changed.
+  "organizationId": "…",
+  "projectId": "…",
   // Row-level, because that is the level they are enforced at: one script per
   // artifact, one set of rules for all of it. See below.
   "connections": ["google-gmail"],
@@ -195,6 +200,8 @@ They travel **with the deploy**: `POST …/custom-code/version` takes `config` a
 **Secrets are not in this file, and must not be.** `ctx.secret('STRIPE_KEY')` resolves an `artifact_credential` row through the broker at call time, so a secret is a thing you send once rather than a value committed next to your source. The CLI manages them through the credential endpoints — see [Phase 7](#phase-7--cli).
 
 **JavaScript and TypeScript only**, which is one language as far as we're concerned: a bundle is already compiled by the time it reaches the upload endpoint. Python Workers are a different upload shape (`index.py` main module, `python_workers` flag) and would need their own SDK to answer the health probe, so a Python bundle fails at publish rather than half-working. Not planned for v1.
+
+**`entry` is what makes the tool name appear once.** When every tool names one, the CLI generates the `createHandler` map from the manifest, so `lookup-order` vs `lookupOrder` — the mistake the health probe exists to catch — cannot be made. Declaring no `entry` at all is the other supported shape: `main` (default `src/index.ts`) is the author's own map, which is what the dashboard's editor produces. A mix of the two is refused, because both readings silently drop half of what the author wrote.
 
 One script serves every tool an artifact declares, so the deployed module's default export routes on the tool name. `defineTool` is there for inference — without it `input` and `ctx` are implicitly `any`, and typed `ctx` is most of the reason to use the SDK at all.
 
@@ -658,7 +665,7 @@ Two things it found that no local run could. The plan gate was missing on publis
 #### Still open on the dashboard
 
 - [x] ~~**Give the row's config a surface.**~~ — shipped; see [The settings dialog](#the-settings-dialog).
-- **Name the CLI in the editor's notice once it exists.** The notice describes the path — bundle it locally, upload the bundle — without naming a command. When Phase 7 lands, that sentence becomes one command.
+- [x] ~~**Name the CLI in the editor's notice once it exists.**~~ — shipped with [Phase 7](#phase-7--cli): the notice now names `ganju deploy` rather than describing the path around it, in both languages.
 - **Format the backlog.** 62 files differ, all of them predating this work. `npm run format` does it in one command; it is worth its own commit, because a whitespace sweep across 62 files would bury a review of anything else.
 
 #### Operational state
@@ -675,26 +682,124 @@ npm run migrate-prod --workspace=@ganju/db
 
 **What blocks a publish on development is a deploy, not a secret.** Every deployed development Worker predates this work — api 15 Aug, mcp 14 Aug — while the development database is already migrated through 0067. The old code joins `tool_definition`, which 0065 dropped, so **the deployed development API and MCP are broken against their own database** until this lands. Applying migrations to a running deployment is what makes them a pair that has to move together, which is why they must go out in the same deploy. That deploy is also what puts the test panel and preview tokens on the broker — both are new here, so a test run against the currently-deployed broker would 401 the moment a script touched `ctx`.
 
-### Phase 7 — CLI
+### Phase 7 — CLI ✅
 
-The SDK itself landed in Phase 2 — the runtime needed a client. What's left here is the CLI and publishing the package to npm.
+The SDK itself landed in Phase 2 — the runtime needed a client. What landed here is [packages/cli](../packages/cli), and one change to the control plane that had to come first.
 
-- [ ] `ganju login` (device-code flow against the existing `@better-auth/oauth-provider`), `init`, `deploy`, `test`, `logs`
-- [ ] `ganju secret set|list|rm` — the values `ctx.secret()` reads
-- [ ] Thin client of the Phase 1 API — never a second write path
-- [ ] Skip `ganju dev` in v1; a local sandbox faithful to production `ctx` is disproportionate work
+- [x] `ganju login` / `logout` / `whoami` — loopback PKCE, not the device code this plan assumed; see below
+- [x] `ganju init` and `ganju link` — scaffold a project, then point it at an organization and project
+- [x] `ganju build` — esbuild to one ES module, minified, with the SDK left external
+- [x] `ganju deploy` — build, create a draft, upload, publish. `--draft` stops before the last step
+- [x] `ganju test <tool>` — the same preview run the dashboard's test panel makes
+- [x] `ganju logs` — recent calls and their `ctx.log` output, `--follow` to keep watching
+- [x] `ganju secret set|list|rm` — the values `ctx.secret()` reads
+- [x] `ganju versions` / `ganju rollback` — thin over the two endpoints publish already had
+- [ ] Publish to npm — `@ganju/cli`, `@ganju/sdk` and `@ganju/utils` are packaged and install-tested; the publish itself needs the account's 2FA one-time password, see below
+- [x] ~~Skip `ganju dev` in v1~~ — still skipped, and `ganju test` is why: it runs the real thing against real connections, which a local sandbox could not have been
 
-**Capabilities need no commands of their own.** `connections`, `allowedHosts`, `timeoutMs` and `resourceAccess` are declared in `ganju.json` and ride along with `ganju deploy`, because `POST …/custom-code/version` already accepts `config` beside `manifest`. So the CLI's whole config story is the file the author already edits, and the dashboard's [settings dialog](#the-settings-dialog) writes the same fields through the generic tool route — two doors onto one row, neither of them a second write path.
+**`ganju.json` is the whole config story**, as planned: `connections`, `allowedHosts`, `timeoutMs` and `resourceAccess` are declared there and ride along with the deploy, because `POST …/custom-code/version` already accepts `config` beside `manifest`. The dashboard's [settings dialog](#the-settings-dialog) writes the same fields through the generic tool route — two doors onto one row, neither of them a second write path. Every command here is a client of an endpoint the dashboard already uses.
 
-**Secrets are the exception, and need commands.** They are `artifact_credential` rows rather than config, so they are not in `ganju.json` and must not be: a value committed beside the source is the thing this feature exists to avoid. Three endpoints already serve them — `POST`, `GET` and `DELETE …/artifact/credential` — with `provider: 'custom-code'` and the name in `label`.
+#### Packaged for npm, not yet published
 
-Three things the commands have to get right, each of which is a property of what already shipped rather than a choice left open:
+Three packages go up under the `@ganju` scope, which the account already owns: **`@ganju/cli`**, **`@ganju/sdk`**, and **`@ganju/utils`** — the last one only because the other two are built from it. Its npm page says so, since a reader who lands there should not mistake the shared kernel for a public API. `db`, `ui`, `containers` and `tsconfig` stay unpublished: nobody outside installs a Drizzle schema, and a self-hoster clones the Apache-2.0 repo.
 
-- **`list` can never print a value.** `listCredentials` strips `accessToken` from every row it returns, so the CLI can show which secrets exist and when they were made and has no way to show what they are. That is the correct surface, and it means "read it back" is not a feature to add later.
-- **`set` on an existing name must replace, not add.** [`resolveSecret`](../apps/tool-broker/src/utils/connection.ts) matches a label and takes the newest row, so a second secret under one name silently shadows the first — reachable by nothing, visible in every list. The dashboard refuses the duplicate outright; the CLI's `set` reads as an upsert, so it should delete-then-insert rather than inherit the shadow. Either way, two rows sharing a label must never exist.
-- **A secret is live from the next call, with no deploy.** The broker resolves it per call, so `ganju secret set` needs no `ganju deploy` after it, and saying so is worth a line of output — the neighbouring commands all end in one.
+Every scoped package carries `publishConfig.access: "public"`, without which npm defaults a scoped name to restricted and refuses the publish outright.
 
-`ganju init` should scaffold the `connections` and `allowedHosts` keys empty rather than omit them, since the runtime refusal for an undeclared provider names the field to add and an author who has never seen it has nowhere obvious to put it.
+**Publishing `@ganju/utils` is a disclosure, and worth naming as one.** It holds no secrets — those live in env — but it does put the pricing constants, plan limits, the tool catalog, the SSRF screen, the broker's token-minting algorithm and the zod schemas describing every endpoint on a public registry. That is a decision taken deliberately rather than a consequence noticed later.
+
+**The CLI bundles rather than depending on it.** Not because it cannot — `@ganju/utils` is published now — but because a globally installed CLI should not drag zod, dayjs and a cipher suite onto a machine to read eight constants, and three packages released in lockstep should not be able to half-resolve against each other. Those eight live in [cliConstants.ts](../packages/utils/src/cliConstants.ts), a module importing nothing, for the same reason [sdkConstants](#the-editor-with-no-compiler-anywhere) exists: `constants.ts` is one object literal a bundler cannot tree-shake. `esbuild` stays a real dependency, since it ships a platform binary.
+
+**Installing the tarballs found a bug that packing them did not.** `@ganju/sdk` is a types package above all else — `ganju build` marks it external and the runtime code is the module the platform attaches — and its published `types.d.ts` imports `Fetcher` from `@cloudflare/workers-types`, which was a *dev* dependency. A consumer got `TS2307` on the first import: the package's entire value failing on arrival. It is a real dependency now, and a consumer's `tsc` was re-run against the installed tarball to prove it.
+
+Each package also carries the `LICENSE` and `NOTICE` that Apache-2.0 §4(d) requires it to, and all three were installed together into a prefix outside this repo: `@ganju/sdk` imports and type-checks, and the `@ganju/cli` bin runs `init` and `build` from a directory that has never seen the workspace. The 48-check probe passes against the bundled CLI.
+
+**What remains is three commands.** The npm account has `two-factor auth: auth-and-writes`, so each publish asks for a one-time password only its owner can supply, and `@ganju/utils` has to land before `@ganju/sdk` can resolve it:
+
+```
+npm run build -w @ganju/utils -w @ganju/sdk -w @ganju/cli
+npm publish --workspace @ganju/utils --otp=<code>
+npm publish --workspace @ganju/sdk  --otp=<code>
+npm publish --workspace @ganju/cli  --otp=<code>
+```
+
+One thing to know before running it: `DEFAULT_API_URL` is `https://api.ganju.ai`, which is not deployed. Until it is, an installed CLI reaches nothing unless `GANJU_API_URL` points it somewhere else — so publishing now claims the names and ships something correct, and the version that is useful to a stranger is the one after production exists.
+
+#### The login flow is not the one this plan named
+
+This document said device-code flow against the existing `@better-auth/oauth-provider`. **The installed plugin has no device grant** — it implements `authorization_code`, `client_credentials` and `refresh_token`, and nothing else. So a device-code login would have meant writing that grant first, as a second custom plugin beside [ganju-auth-plugin.ts](../apps/api/src/utils/ganju-auth-plugin.ts), plus a device_code table, polling, and a code-entry page — all before the first command could run.
+
+What shipped instead is the **loopback redirect of RFC 8252**, which is what `wrangler`, `gh` and `vercel` do: the CLI holds a port open, sends the browser to the authorize endpoint, and reads the code off the redirect. It works against the provider exactly as deployed.
+
+Four things about it worth knowing:
+
+- **The client is public, and registers itself.** No secret — PKCE instead, because a secret shipped in an npm package is a secret every user of the package has. Registration is RFC 7591, which is open on this server because MCP clients need it, so a fresh install needs no client row anyone had to provision by hand. That is deliberately unlike `BOT_OAUTH_CLIENT_ID`, whose manual provisioning step is a documented way for a deployment to be quietly broken.
+- **Every candidate port is registered, not only the one used.** The provider does implement RFC 8252 loopback matching, where the port is ignored for a `127.0.0.0/8` redirect — verified in its source. Registering all five anyway costs one array and means the login does not depend on one library's behaviour, which matters because by the time it would fail the browser is already open.
+- **Tokens are keyed by API origin.** Working against a local API and against production is the ordinary case, and one token slot would silently log you out of one every time you touched the other. `~/.ganju/credentials.json`, mode `0600`.
+- **`GANJU_API_TOKEN` is the headless answer.** CI, containers and SSH sessions have no browser, and this is what they use instead. It is the pressure valve for the thing device code would have solved, and it is the reason not shipping device code is a deferral rather than a hole.
+
+#### The control plane had no way in from a terminal
+
+`UserMiddleware.verify` authenticated by calling `auth.api.getSession()`, which reads the **session cookie**. A browser carries one; a terminal cannot. So an OAuth access token — the thing a CLI login produces, and the thing every MCP client already holds — opened no control-plane route at all.
+
+It does now. When there is no session and the request carries a bearer token, the middleware resolves it to a subject and loads that user. Three details:
+
+- **Introspection goes through the auth handler in this process**, not over the network. Tokens are opaque rows, so what makes one valid is a lookup the provider owns; reading `oauth_access_token` here would be a second copy of its expiry and revocation rules. `apps/mcp` does the same thing over a service binding ([middleware/auth.ts](../apps/mcp/src/middleware/auth.ts)), so the endpoint's contract was already proven — this is the same call without the hop.
+- **The cookie is still tried first**, because it is what every dashboard request carries and costs nothing extra. A token is only introspected when there is no session to read.
+- **Nothing downstream changed.** The per-user rate limit and both membership checks run against the resolved user either way, so a CLI request is authorized by exactly the rule a dashboard request is. `session` is still set when there was one; nothing reads it.
+
+#### `ganju logs` needed an endpoint, and only an endpoint
+
+The rows already existed. apps/mcp records one `mcp_request` per call with the tool name, the latency, any error, and the `ctx.log` lines on `output.logs` — logs travel back with the result rather than being shipped line by line, which is why a log call costs no round trip and why a call is one whole entry rather than a stream of half of one. What was missing was a way to read them without a database client.
+
+`GET …/artifact/custom-code/logs` is that. It scopes by joining `mcp_session` to the artifact and then filtering on the custom-code install's id rather than by tool name, because a native tool and a user's tool can carry the same name on artifacts that predate the reserved-name rule, and only the id says which row ran. It pages backwards with `before` rather than by offset, so a call arriving mid-page cannot make the reader see one twice.
+
+It also means `--follow` is polling, and the CLI says so. There is nothing to tail: a row appears when a call finishes.
+
+#### The manifest can generate the router
+
+`ganju.json` carries an `entry` per tool, as sketched at the top of this document. What that buys is worth stating, because it is not convenience: when every tool names one, the **map from tool name to handler is generated**, so the tool name is written in exactly one place. `lookup-order` vs `lookupOrder` — the mistake the publish pipeline's health probe exists to catch — becomes impossible rather than merely detected.
+
+Declaring no `entry` at all is the other supported shape: `main` (default `src/index.ts`) is the author's own `createHandler` map, which is what the dashboard's editor produces and what someone porting a script from it already has. **A mix of the two is refused rather than resolved**, because both resolutions silently drop half of what the author wrote — either the tools without an entry never register, or the entry files never get imported.
+
+#### The SDK is external, not bundled
+
+The bundler rewrites `@ganju/sdk` (and a literal `./ganju-sdk.js`) to the sibling module the publish pipeline attaches to every upload, and marks it external. Bundling it would work and would be wrong twice: the module travels with the upload regardless, so a copy inside the bundle is dead weight; and the SDK is typed sugar over host bindings, so a version frozen into a customer's bundle is a version that stops matching the broker it talks to.
+
+TypeScript works, and types are stripped rather than checked — a bundle is compiled by the time it reaches the upload endpoint, which is exactly the property that made "JavaScript and TypeScript are one language as far as we're concerned" true in the first place. Anyone who wants them enforced runs `tsc` themselves.
+
+The upload carries no `?kind`, so it stores as `bundle` and the dashboard's editor shows it read-only — the behaviour `sourceKind` was added for. Uploading the project as an editable `editor` envelope from the CLI is possible and was not built: it would mean a second deploy path with its own constraints (`.js` only, 25 files, `index.js` as the entry), and the answer to "I want to edit this in the dashboard" is to write it in the dashboard.
+
+#### Secrets are the exception, and they needed commands
+
+They are `artifact_credential` rows rather than config, so they are not in `ganju.json` and must not be: a value committed beside the source is the thing this feature exists to avoid. Three endpoints already served them, and the three properties this plan predicted all held:
+
+- **`list` can never print a value.** `listCredentials` strips `accessToken` from every row it returns, so the CLI can show which secrets exist and when they were made and has no way to show what they are. The list says so out loud, because the obvious next question is what a secret is set to and the answer is that nothing can tell you.
+- **`set` replaces rather than adds.** [`resolveSecret`](../apps/tool-broker/src/utils/connection.ts) matches a label and takes the newest row, so a second secret under one name would silently win while the first stayed visible in every list and reachable by nothing. `set` deletes then inserts.
+- **A secret is live from the next call**, with no deploy after it, and the command ends by saying so.
+
+`GANJU_SECRET_VALUE` was added for one reason not in the plan: `ganju secret set NAME VALUE` puts the value in shell history, and a CLI whose happy path leaks the secret to `~/.zsh_history` is not much of an improvement on committing it.
+
+#### Verified
+
+`ganju build` and every failure around it were run against real projects: multi-file TypeScript resolving through a relative import and bundling to one module with the SDK left external; both entry shapes; a missing `entry`; a manifest that mixes the two; and malformed JSON in `ganju.json`.
+
+**Then the whole thing was run against a real API and the real database** by [scripts/probe-cli.mjs](../scripts/probe-cli.mjs) — 48 checks, all passing. It runs the built binary as a subprocess against `apps/api` on localhost backed by the development database, with `apps/mcp` beside it, so the bearer middleware, the publish pipeline, the dispatch namespace and the MCP boot loop are all the real ones. It scaffolds a throwaway PRO org and removes everything, including the script it put in the namespace.
+
+The one thing a script cannot do is click a browser, so two steps are performed for it: the CLI's OAuth client is pre-registered with consent skipped, and the "browser" is curl carrying a session cookie the probe signs. Everything either side is the CLI's own path — discovery, PKCE, the loopback listener, the token exchange.
+
+What that run establishes, in the order it checks it:
+
+- **Login is real.** Dynamic registration accepts the five loopback redirects; `ganju login` completes the flow; the stored token is an `oauth_access_token` row bound to that user carrying `openid profile email offline_access`; and the credentials file is mode `600`.
+- **The middleware change does what it was added for, and nothing more.** A bearer token opens `/me`, an invalid one is still 401, no credentials is still 401 — and a bearer-authenticated caller naming an organization they do not belong to still gets 403. Authorization was not widened, only the way a caller is identified.
+- **A deploy reaches an MCP client.** `ganju deploy` creates the `custom-code` install on first use, writes one published version stored as `bundle` with `activeVersionId` pointing at it, and puts the script in the dispatch namespace. `tools/list` over the real MCP endpoint then registers that tool with its `outputSchema`, and calling it runs the CLI-built bundle and returns the `structuredContent` the schema promised.
+- **The rest, against real infrastructure.** `test` running a draft on a real preview script and cleaning it up afterwards; `--version active` running the live one and uploading nothing; `logs` reporting the call that was made over MCP with its `ctx.log` line; secrets set, replaced not shadowed, listed without a value, and removed, with the stored value confirmed encrypted; a second deploy and a rollback moving the pointer; and the refusals — a reserved tool name pinpointed as `manifest.tools.0.name`, and the plan gate answering 402 on FREE.
+
+**It found two bugs that no run against a stand-in could have.** Both were mine, and both were wrong about what the server actually returns:
+
+- **Schema violations printed as `[object Object]`.** `validateAgainstJsonSchema` returns `{ path, message }` pairs, not strings, and the test command printed them straight. The path is the useful half — `word: expected string, received undefined` rather than a sentence with no subject — so it is rendered as the pair now.
+- **A secret's name is not a column.** `artifact_credential` has no `label`; the name lives in `metadata.label`, which is also where [`resolveSecret`](../apps/tool-broker/src/utils/connection.ts) reads it. Reading a `label` field meant every name came back undefined, so `list` showed `(unnamed)`, `set` never detected the row it was meant to replace — the exact shadowing the command exists to prevent — and `rm` could never find anything. All three read `metadata.label` now, the same place the runtime does.
+
+**Still not run: a login against the deployed development stack.** The probe drives a local API because that deployment predates the bearer middleware, so a real `ganju login` there is a deploy away rather than a test away — and the deploy it needs is the one the [operational state](#operational-state) note already describes.
 
 ### Phase 8 — Templates
 

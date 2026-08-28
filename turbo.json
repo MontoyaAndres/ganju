@@ -5,6 +5,7 @@
     "NODE_ENV",
     "RESOURCE_HANDLER_PORT",
     "DATABASE_URL",
+    "CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE",
     "JWT_SECRET",
     "CRYPTO_SECRET",
     "MCP_INTERNAL_SECRET",
@@ -19,6 +20,8 @@
     "MICROSOFT_CLIENT_SECRET",
     "SLACK_CLIENT_ID",
     "SLACK_CLIENT_SECRET",
+    "EMAIL_FROM",
+    "ALERT_EMAIL",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
     "STRIPE_PRICE_PRO",
@@ -29,8 +32,6 @@
     "CLOUDFLARE_ACCOUNT_ID",
     "CUSTOM_CODE_CF_API_TOKEN",
     "CUSTOM_CODE_TOKEN_SECRET",
-    "CUSTOM_CODE_DISPATCH_NAMESPACE",
-    "CUSTOM_CODE_BROKER_SERVICE",
     "NEXT_PUBLIC_API_URL",
     "NEXT_PUBLIC_WEB_URL",
     "NEXT_PUBLIC_MCP_URL",
@@ -51,6 +52,9 @@
       "persistent": true
     },
     "start": {
+      "cache": false
+    },
+    "publish": {
       "cache": false
     },
     "clean": {

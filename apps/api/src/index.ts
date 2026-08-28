@@ -459,6 +459,11 @@ app
     ArtifactController.listCustomCodeVersions
   )
   .get(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/logs',
+    UserMiddleware.verify,
+    ArtifactController.listCustomCodeLogs
+  )
+  .get(
     '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/source',
     UserMiddleware.verify,
     ArtifactController.getCustomCodeVersionSource

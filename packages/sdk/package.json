@@ -1,6 +1,32 @@
 {
   "name": "@ganju/sdk",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "description": "The typed `ctx` a Ganju custom tool is written against",
+  "license": "Apache-2.0",
+  "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
+  "homepage": "https://ganju.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MontoyaAndres/ganju.git",
+    "directory": "packages/sdk"
+  },
+  "keywords": [
+    "ganju",
+    "mcp",
+    "model-context-protocol",
+    "cloudflare-workers",
+    "tools"
+  ],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,13 +49,14 @@
   },
   "scripts": {
     "build": "tsc && node scripts/build-worker-module.mjs && node scripts/build-editor-types.mjs",
+    "prepublishOnly": "npm run build",
     "clean": "rm -rf dist && rm -rf node_modules"
   },
   "dependencies": {
-    "@ganju/utils": "*"
+    "@ganju/utils": "*",
+    "@cloudflare/workers-types": "^4.20260611.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260611.1",
     "@ganju/tsconfig": "*",
     "typescript": "^6.0.3",
     "esbuild": "^0.25.0"

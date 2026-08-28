@@ -50,6 +50,8 @@ A [Next.js](https://nextjs.org) app (Pages Router, MUI/Emotion) deployed to Clou
 | [`packages/utils`](../packages/utils)           | The shared kernel: [`constants.ts`](../packages/utils/src/constants.ts) (mime types, provider URLs, platform caps, LLM catalog, chunking config), crypto, OAuth refresh, SSRF screening, chunking, per-channel send helpers |
 | [`packages/ui`](../packages/ui)                 | MUI-based component library used by the web app                                                                                                                                                                             |
 | [`packages/containers`](../packages/containers) | The `ResourceHandler` Cloudflare Container class                                                                                                                                                                            |
+| [`packages/sdk`](../packages/sdk)               | `@ganju/sdk` — the typed `ctx` a user's tool is written against, and the module attached beside every deployed script                                                                                                        |
+| [`packages/cli`](../packages/cli)               | `ganju` — write, deploy and debug custom tools from a terminal; a thin client of the same endpoints the dashboard uses                                                                                                       |
 | [`packages/tsconfig`](../packages/tsconfig)     | Shared TypeScript config                                                                                                                                                                                                    |
 
 ## Data flow examples

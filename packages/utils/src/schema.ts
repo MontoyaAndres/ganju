@@ -1092,6 +1092,33 @@ const ARTIFACT_CUSTOM_CODE_ROLLBACK = z.object({
   organizationId: z.uuid()
 });
 
+// Recent invocations of the artifact's custom tools, newest first.
+//
+// The rows already exist — apps/mcp records one `mcp_request` per call with the
+// tool name and, for a custom tool, the `ctx.log` lines on its output. What was
+// missing is a way to read them without a database client, which is the whole of
+// what `ganju logs` needs. `tool` narrows to one name; `before` pages backwards
+// through the same ordering rather than by offset, so a row arriving mid-page
+// can't make the reader see one twice.
+const ARTIFACT_CUSTOM_CODE_LIST_LOGS = z.object({
+  tool: z
+    .string()
+    .min(1)
+    .max(constants.CUSTOM_CODE_TOOL_NAME_MAX)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Tool name is not valid')
+    .optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(constants.CUSTOM_CODE_LOGS_MAX_LIMIT)
+    .default(constants.CUSTOM_CODE_LOGS_DEFAULT_LIMIT),
+  before: z.coerce.date().optional(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
 // Reads the artifact's version history and which one is currently active.
 const ARTIFACT_CUSTOM_CODE_LIST_VERSIONS = z.object({
   projectId: z.uuid(),
@@ -1509,6 +1536,7 @@ export const Schema = {
   ARTIFACT_CUSTOM_CODE_TEST_VERSION,
   ARTIFACT_CUSTOM_CODE_PUBLISH,
   ARTIFACT_CUSTOM_CODE_ROLLBACK,
+  ARTIFACT_CUSTOM_CODE_LIST_LOGS,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,
   CUSTOM_CODE_INVOKE_REQUEST,
   CUSTOM_CODE_INVOKE_RESPONSE,

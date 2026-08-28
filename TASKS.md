@@ -66,3 +66,53 @@ Enterprise - Contact us:
 - Same Pro benefits
 - Can add a custom/existing MCP server and use Ganju as a proxy
 - SSO, contract terms, dedicated support
+
+---
+
+## Administer everything from the CLI
+
+The CLI covers custom tools end to end — login, link, build, deploy, test,
+logs, secrets, versions, rollback — and stops there. Everything else an
+organization owns is still dashboard-only: prompts, knowledge (resources),
+tools that aren't custom code, channels, LLM connections, members and
+invitations, projects and organizations themselves.
+
+The gap is worth closing because the two audiences want opposite things from
+the same rows. Someone wiring Ganju into a deploy pipeline wants prompts and
+resources under version control and applied by a command; someone administering
+a team wants to add five people without five trips through a modal. Both are
+answered by the same work, and neither is answered by more UI.
+
+What it would cover, roughly in the order the endpoints already exist:
+
+- **Prompts** — `ganju prompt list|get|set|rm`, with a prompt's messages and
+  input schema in a file so it can be reviewed in a pull request.
+- **Knowledge** — `ganju resource list|add|rm|sync`, including uploading a file,
+  adding a website to crawl, and reading indexing status. This is the one with
+  real asynchrony in it: ingestion is queued, so `add` has to report a resource
+  that is `PENDING` and give a way to wait for it.
+- **Tools that aren't custom code** — `ganju tool list|enable|disable|rm`, plus
+  creating and editing HTTP endpoints and connecting remote MCP servers. The
+  `enabled` flag and the catalog-in-code both landed with the dashboard work,
+  so the read side is already a list of keys rather than a join.
+- **Channels** — list, create, rotate a webhook secret, attach an LLM.
+- **Organizations, projects, members** — create, rename, invite, remove, and
+  read the plan and its usage.
+
+Three things this has to get right, all of them properties of what already
+shipped rather than choices left open:
+
+- **A thin client, never a second write path.** Every command must be a client
+  of the endpoint the dashboard uses. Custom tools already work this way and it
+  is what keeps one definition of what a valid write is.
+- **Nothing prints a secret.** `listCredentials` strips the value from every row
+  it returns, and the LLM and channel credential routes do the same. That is the
+  correct surface — "read it back" is not a feature to add later.
+- **Destructive commands need a `--yes`, and a real name to confirm.** Deleting
+  a project takes its artifact, its resources and its channels with it. In a
+  terminal there is no dialog to slow that down, so the command has to be the
+  thing that does.
+
+Not started, and deliberately not blocking the custom-tools CLI: it is a large
+surface, most of it is CRUD over endpoints that already exist, and none of it is
+needed for someone to write and ship a tool.

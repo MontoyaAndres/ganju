@@ -336,7 +336,7 @@ const en = {
   /** Split around `<code>npm install</code>` and `<code>ctx</code>`. */
   ideNoticeBefore: 'No terminal here, and no',
   ideNoticeMiddle:
-    '— this file is deployed exactly as written. To use a package, bundle it into a single file on your machine and upload that bundle. Everything in',
+    '— this file is deployed exactly as written. To use a package, write your tools on your machine and run `ganju deploy`, which bundles them for you. Everything in',
   ideNoticeAfter: 'works without installing anything.',
   ideCaret: 'Ln {line}, Col {column}',
   ideSpaces: 'Spaces: 2',
@@ -924,7 +924,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
     ideLines_other: '{count} líneas',
     ideNoticeBefore: 'Aquí no hay terminal, ni',
     ideNoticeMiddle:
-      '— este archivo se despliega exactamente como está escrito. Para usar un paquete, empaquétalo en un solo archivo en tu máquina y sube ese bundle. Todo lo que hay en',
+      '— este archivo se despliega exactamente como está escrito. Para usar un paquete, escribe tus herramientas en tu máquina y ejecuta `ganju deploy`, que las empaqueta por ti. Todo lo que hay en',
     ideNoticeAfter: 'funciona sin instalar nada.',
     ideCaret: 'Ln {line}, Col {column}',
     ideSpaces: 'Espacios: 2',

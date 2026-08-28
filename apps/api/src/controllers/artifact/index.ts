@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import type { JsonSchema } from '@ganju/utils';
 import { db } from '@ganju/db';
@@ -2096,6 +2096,89 @@ const listCustomCodeVersions = async (c: Context<AppEnv>) => {
   });
 };
 
+/**
+ * Recent invocations of this artifact's custom tools, with their `ctx.log`
+ * output — what `ganju logs` prints.
+ *
+ * Read from `mcp_request`, which apps/mcp already writes one of per call with
+ * the tool name, the latency, any error and the log lines on `output.logs`. So
+ * this endpoint adds no recording, only a way to read what is recorded.
+ *
+ * Scoped by joining through `mcp_session` to the artifact and then filtering on
+ * the custom-code install's id, rather than by tool name alone: a native tool
+ * and a user's tool can carry the same name on artifacts that predate the
+ * reserved-name rule, and only the id says which row actually ran.
+ */
+const listCustomCodeLogs = async (c: Context<AppEnv>) => {
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_LIST_LOGS.parseAsync({
+      tool: c.req.query('tool'),
+      limit: c.req.query('limit'),
+      before: c.req.query('before'),
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const dbInstance = db.create(c);
+
+  const { tool } = await resolveCustomCodeToolReadOnly(
+    dbInstance,
+    currentValues.organizationId,
+    currentValues.projectId
+  );
+
+  // An artifact with no custom code has no invocations, which is not an error —
+  // the same reason listCustomCodeVersions answers empty rather than throwing.
+  if (!tool) {
+    return c.json({ entries: [] });
+  }
+
+  const rows = await dbInstance
+    .select({
+      id: db.schema.mcpRequest.id,
+      toolName: db.schema.mcpRequest.toolName,
+      latencyMs: db.schema.mcpRequest.latencyMs,
+      errorMessage: db.schema.mcpRequest.errorMessage,
+      output: db.schema.mcpRequest.output,
+      createdAt: db.schema.mcpRequest.createdAt
+    })
+    .from(db.schema.mcpRequest)
+    .innerJoin(
+      db.schema.mcpSession,
+      eq(db.schema.mcpRequest.sessionId, db.schema.mcpSession.id)
+    )
+    .where(
+      and(
+        eq(db.schema.mcpRequest.artifactToolId, tool.id),
+        eq(db.schema.mcpSession.artifactId, tool.artifactId),
+        ...(currentValues.tool
+          ? [eq(db.schema.mcpRequest.toolName, currentValues.tool)]
+          : []),
+        ...(currentValues.before
+          ? [lt(db.schema.mcpRequest.createdAt, currentValues.before)]
+          : [])
+      )
+    )
+    .orderBy(desc(db.schema.mcpRequest.createdAt))
+    .limit(currentValues.limit);
+
+  // `logs` is written onto the recorded output alongside the tool's own result;
+  // lift it out so a reader gets the lines without having to know that.
+  return c.json({
+    entries: rows.map(({ output, ...rest }) => {
+      const shaped = output as { logs?: unknown } | null;
+      const logs =
+        shaped && Array.isArray(shaped.logs)
+          ? shaped.logs.filter(
+              (line): line is string => typeof line === 'string'
+            )
+          : [];
+      return { ...rest, logs };
+    })
+  });
+};
+
 const listTools = async (c: Context<AppEnv>) => {
   const currentValues = await utils.Schema.ARTIFACT_GET_TOOL.parseAsync({
     projectId: c.req.param('projectId'),
@@ -3029,6 +3112,7 @@ export const ArtifactController = {
   publishCustomCodeVersion,
   rollbackCustomCodeVersion,
   listCustomCodeVersions,
+  listCustomCodeLogs,
   getCustomCodeVersionSource,
   testCustomCodeVersion,
   listConnections,

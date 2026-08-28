@@ -1,4 +1,14 @@
 import {
+  CLI_OAUTH_CLIENT_NAME,
+  CLI_OAUTH_REDIRECT_PATH,
+  CLI_OAUTH_REDIRECT_PORTS,
+  CLI_OAUTH_SCOPES,
+  CLI_TOKEN_REFRESH_SKEW_SECONDS,
+  CUSTOM_CODE_SDK_SPECIFIER,
+  CUSTOM_CODE_MAX_BUNDLE_BYTES,
+  CREDENTIAL_PROVIDER_CUSTOM_CODE
+} from './cliConstants';
+import {
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
   CUSTOM_CODE_BROKER_ORIGIN,
@@ -1018,8 +1028,8 @@ const CREDENTIAL_PROVIDER_MCP_PROXY = 'mcp-proxy' as 'mcp-proxy';
 // runtime. Same multi-row shape as the two above — many per artifact, labelled
 // in metadata, no vendor to validate — but the label is also the LOOKUP KEY the
 // script passes to ctx.secret(), not just a display string. The broker resolves
-// them; the secret value itself never reaches user code as a binding.
-const CREDENTIAL_PROVIDER_CUSTOM_CODE = 'custom-code' as 'custom-code';
+// them; the secret value itself never reaches user code as a binding. Defined in
+// cliConstants because `ganju secret` writes under it.
 // Providers whose secrets are per-tool (many rows per artifact, deleted with the
 // tool that owns them) rather than one-per-provider. See createCredential /
 // removeTool in apps/api ArtifactController.
@@ -1226,7 +1236,6 @@ const CUSTOM_CODE_MAIN_MODULE = 'index.js';
 // object read on every deploy.
 const CUSTOM_CODE_MAX_FILES = 25;
 const CUSTOM_CODE_MAX_FILE_PATH = 100;
-const CUSTOM_CODE_SDK_SPECIFIER = './ganju-sdk.js';
 
 // WfP script name: `artifact_<artifactId>`. The id, never the slug — slugs are
 // user-editable and a rename would orphan the deployed script.
@@ -1283,7 +1292,6 @@ const CUSTOM_CODE_MAX_RESPONSE_BYTES = 256 * 1024;
 // Hard ceiling on an uploaded bundle, checked before the body is streamed to R2.
 // Set well below Cloudflare's own script-size ceiling so a rejection happens
 // here — with a legible error — rather than at deploy time in Phase 2.
-const CUSTOM_CODE_MAX_BUNDLE_BYTES = 3 * 1024 * 1024;
 
 // Three hops have to agree on a wire shape, and none of them share a module
 // graph at runtime — apps/mcp dispatches, the user's script runs inside the
@@ -1614,6 +1622,23 @@ const OAUTH_SCOPES_SUPPORTED = ['openid', 'profile', 'email', 'offline_access'];
 // TODO: Net: mcp:read is a cosmetic claim on bot tokens; artifact: is a code path that can't fire. Neither affects security today. They become real only if you build the per-server confinement feature (which would make artifact:<slug> issued + enforced). This is more for OIDC.
 const MCP_SCOPE_READ = 'mcp:read';
 const ARTIFACT_SCOPE_PREFIX = 'artifact:';
+
+// The CLI signs in as a public OAuth client through a loopback redirect
+// (RFC 8252) — the flow `wrangler`, `gh` and `vercel` all use. It registers
+// itself through RFC 7591 dynamic registration on first login rather than
+// relying on a client row someone had to provision by hand, and caches the id
+// it was given.
+//
+// A fixed port would fail whenever something else already held it, so the CLI
+// binds the first one here that is free. All of them are registered up front
+// rather than only the one that gets used: the provider does implement RFC 8252
+// loopback matching, where the port is ignored for a 127.0.0.0/8 redirect, but
+// that is one library's behaviour and this is a login that has already opened
+// someone's browser by the time it would fail.
+
+// Recent custom-tool invocations, as `ganju logs` reads them.
+const CUSTOM_CODE_LOGS_DEFAULT_LIMIT = 20;
+const CUSTOM_CODE_LOGS_MAX_LIMIT = 100;
 
 const BOT_GRANT_TYPE = 'urn:ganju:bot-on-behalf-of';
 const EXTERNAL_LINK_VERIFICATION_PREFIX = 'external_link:';
@@ -2499,6 +2524,13 @@ export const constants = {
   OAUTH_SCOPES_SUPPORTED,
   MCP_SCOPE_READ,
   ARTIFACT_SCOPE_PREFIX,
+  CLI_OAUTH_CLIENT_NAME,
+  CLI_OAUTH_REDIRECT_PATH,
+  CLI_OAUTH_REDIRECT_PORTS,
+  CLI_OAUTH_SCOPES,
+  CLI_TOKEN_REFRESH_SKEW_SECONDS,
+  CUSTOM_CODE_LOGS_DEFAULT_LIMIT,
+  CUSTOM_CODE_LOGS_MAX_LIMIT,
   BOT_GRANT_TYPE,
   EXTERNAL_LINK_VERIFICATION_PREFIX,
   EXTERNAL_LINK_TTL_SECONDS,
