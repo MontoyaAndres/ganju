@@ -19,6 +19,14 @@ import { fileURLToPath } from 'node:url';
 
 const out = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 
+// The version `ganju --version` prints, read from the manifest rather than
+// written beside it. Two releases went out reporting the version before them,
+// because a constant in the source is a second place to remember to bump and
+// the only one nothing checks.
+const { version } = JSON.parse(
+  await readFile(new URL('../package.json', import.meta.url), 'utf8')
+);
+
 const result = await build({
   entryPoints: [fileURLToPath(new URL('../src/index.ts', import.meta.url))],
   outfile: out,
@@ -31,6 +39,7 @@ const result = await build({
   // tsc has no way to emit a shebang and a shebang in the source is a syntax
   // error to every editor that reads it, so it is prepended here instead.
   banner: { js: '#!/usr/bin/env node' },
+  define: { __GANJU_CLI_VERSION__: JSON.stringify(version) },
   legalComments: 'none',
   logLevel: 'info',
   metafile: true

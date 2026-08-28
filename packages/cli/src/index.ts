@@ -21,7 +21,9 @@ import { rollback, versions } from './commands/versions.js';
  * out whether they wanted it.
  */
 
-const VERSION = '0.0.1';
+declare const __GANJU_CLI_VERSION__: string;
+const VERSION =
+  typeof __GANJU_CLI_VERSION__ === 'string' ? __GANJU_CLI_VERSION__ : 'dev';
 
 const usage = () => {
   say(`${color.bold('ganju')} — write, deploy and debug custom tools
