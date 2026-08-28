@@ -116,3 +116,51 @@ shipped rather than choices left open:
 Not started, and deliberately not blocking the custom-tools CLI: it is a large
 surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
+
+---
+
+## A durable identity for CI
+
+`GANJU_API_TOKEN` lets a machine with no browser run the CLI, and it is the only
+way to do that today. It takes an OAuth access token, which
+`accessTokenExpiresIn` sets to **one hour** — and the CLI deliberately never
+refreshes an env token, because it has nowhere to write the new one. So a value
+pasted into GitHub Actions secrets stops working within the hour. It is fine for
+a job someone kicks off now; it is not a service account, and a scheduled deploy
+built on it fails on its second run.
+
+There is no long-lived machine credential in the system at all. The
+authorization server does implement `client_credentials`, so the grant exists —
+but those tokens carry no `sub`, and `UserMiddleware.verify` resolves a caller by
+introspecting for exactly that claim, so one would 401 on every control-plane
+route. The grant being there is not the same as the path working.
+
+Two shapes would close it, and they are genuinely different:
+
+- **A personal access token.** A long-lived, revocable credential minted from the
+  dashboard, scoped to one organization, that resolves to the user who made it.
+  Fits the middleware as it stands, since it still answers "which user is this".
+  The cost is a new credential type to store, list, revoke and audit — and one
+  more thing that grants access to an account if it leaks.
+- **Teach the middleware to accept a client-credentials token.** Mint a client
+  per organization rather than per user, and resolve a caller to the *org* rather
+  than to a person. Truer to what CI is — a deploy pipeline is not a colleague —
+  but it means the membership checks, which are all "is this user an admin of
+  this project", need a second answer for a caller who is not a user at all. That
+  is the larger change, and the one worth doing if machine access ever needs to
+  be more than a convenience.
+
+Three things either shape has to get right:
+
+- **Revocation has to be real and obvious.** A credential that outlives a laptop,
+  a contractor or a leaked log is only safe if killing it is one click and takes
+  effect immediately.
+- **It must be visible.** Who minted it, when it was last used, and against what.
+  A token nobody can see is a token nobody revokes.
+- **`ganju` must not need a new code path.** `GANJU_API_TOKEN` already bypasses
+  the store and sends a bearer token; whatever is minted should be usable there
+  unchanged, so CI and a laptop stay one client.
+
+Not started. Until it exists, CI deploys work only by minting a fresh token
+inside the hour, which is worth saying out loud in the docs rather than letting
+someone discover it on their second scheduled run.

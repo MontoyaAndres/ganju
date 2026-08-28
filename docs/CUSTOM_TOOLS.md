@@ -680,7 +680,7 @@ npm run migrate-prod --workspace=@ganju/db
 
 **A build step, and a gitignored directory.** `apps/web`'s `build` and `dev` scripts run `scripts/copy-monaco.mjs` first, filling `apps/web/public/monaco/` — 10.6MB of static assets that ship with the deployment and are never committed. Two call sites rather than a `pre*` hook per command: `opennextjs-cloudflare build` runs the app's own `build` script, so `cf-build` and both deploys pick it up through that, and only `next dev` needs the second mention. A build that skips dev dependencies has no `monaco-editor` to copy from.
 
-**What blocks a publish on development is a deploy, not a secret.** Every deployed development Worker predates this work — api 15 Aug, mcp 14 Aug — while the development database is already migrated through 0067. The old code joins `tool_definition`, which 0065 dropped, so **the deployed development API and MCP are broken against their own database** until this lands. Applying migrations to a running deployment is what makes them a pair that has to move together, which is why they must go out in the same deploy. That deploy is also what puts the test panel and preview tokens on the broker — both are new here, so a test run against the currently-deployed broker would 401 the moment a script touched `ctx`.
+~~**What blocks a publish on development is a deploy, not a secret.**~~ — done. Development is deployed and current: the probe drives publish, the test panel's preview tokens and the custom-code logs endpoint against it, all of which are new here, and all of which answer. Production has none of it and is a separate exercise; it still needs migrations 0064–0067 and the same secrets, applied together, since the code writes `tool_key` and reads `enabled` from the first request.
 
 ### Phase 7 — CLI ✅
 
@@ -694,12 +694,12 @@ The SDK itself landed in Phase 2 — the runtime needed a client. What landed he
 - [x] `ganju logs` — recent calls and their `ctx.log` output, `--follow` to keep watching
 - [x] `ganju secret set|list|rm` — the values `ctx.secret()` reads
 - [x] `ganju versions` / `ganju rollback` — thin over the two endpoints publish already had
-- [ ] Publish to npm — `@ganju/cli`, `@ganju/sdk` and `@ganju/utils` are packaged and install-tested; the publish itself needs the account's 2FA one-time password, see below
+- [x] Publish to npm — `@ganju/cli` 0.0.1, `@ganju/sdk` 0.0.2 and `@ganju/utils` 0.0.2 are live under the `@ganju` scope
 - [x] ~~Skip `ganju dev` in v1~~ — still skipped, and `ganju test` is why: it runs the real thing against real connections, which a local sandbox could not have been
 
 **`ganju.json` is the whole config story**, as planned: `connections`, `allowedHosts`, `timeoutMs` and `resourceAccess` are declared there and ride along with the deploy, because `POST …/custom-code/version` already accepts `config` beside `manifest`. The dashboard's [settings dialog](#the-settings-dialog) writes the same fields through the generic tool route — two doors onto one row, neither of them a second write path. Every command here is a client of an endpoint the dashboard already uses.
 
-#### Packaged for npm, not yet published
+#### Published to npm
 
 Three packages go up under the `@ganju` scope, which the account already owns: **`@ganju/cli`**, **`@ganju/sdk`**, and **`@ganju/utils`** — the last one only because the other two are built from it. Its npm page says so, since a reader who lands there should not mistake the shared kernel for a public API. `db`, `ui`, `containers` and `tsconfig` stay unpublished: nobody outside installs a Drizzle schema, and a self-hoster clones the Apache-2.0 repo.
 
@@ -713,16 +713,11 @@ Every scoped package carries `publishConfig.access: "public"`, without which npm
 
 Each package also carries the `LICENSE` and `NOTICE` that Apache-2.0 §4(d) requires it to, and all three were installed together into a prefix outside this repo: `@ganju/sdk` imports and type-checks, and the `@ganju/cli` bin runs `init` and `build` from a directory that has never seen the workspace. The 48-check probe passes against the bundled CLI.
 
-**What remains is three commands.** The npm account has `two-factor auth: auth-and-writes`, so each publish asks for a one-time password only its owner can supply, and `@ganju/utils` has to land before `@ganju/sdk` can resolve it:
+**One thing to know when publishing again: `publish` is a reserved npm lifecycle name.** A script called `publish` is run *by* `npm publish`, so a script of `npm run build && npm publish` re-enters itself — the first upload succeeds and the second answers `403 You cannot publish over the previously published versions`, which reads like a failure and is in fact proof the first one worked. `prepublishOnly` is the hook that expresses the same intent without the recursion, and is what these packages carry now.
 
-```
-npm run build -w @ganju/utils -w @ganju/sdk -w @ganju/cli
-npm publish --workspace @ganju/utils --otp=<code>
-npm publish --workspace @ganju/sdk  --otp=<code>
-npm publish --workspace @ganju/cli  --otp=<code>
-```
+Also worth knowing before the next release: `@ganju/sdk` declares `@ganju/utils` as `*`, so every existing install follows whatever version is latest. That is fine while the two move together and stops being fine the first time `@ganju/utils` changes something the SDK's types depend on.
 
-One thing to know before running it: `DEFAULT_API_URL` is `https://api.ganju.ai`, which is not deployed. Until it is, an installed CLI reaches nothing unless `GANJU_API_URL` points it somewhere else — so publishing now claims the names and ships something correct, and the version that is useful to a stranger is the one after production exists.
+One thing still true of the published CLI: `DEFAULT_API_URL` is `https://api.ganju.ai`, which is not deployed. Development is, so `GANJU_API_URL=https://development-api…` is how the CLI is useful today, and the first release worth pointing a stranger at is the one after production exists.
 
 #### The login flow is not the one this plan named
 
@@ -799,7 +794,9 @@ What that run establishes, in the order it checks it:
 - **Schema violations printed as `[object Object]`.** `validateAgainstJsonSchema` returns `{ path, message }` pairs, not strings, and the test command printed them straight. The path is the useful half — `word: expected string, received undefined` rather than a sentence with no subject — so it is rendered as the pair now.
 - **A secret's name is not a column.** `artifact_credential` has no `label`; the name lives in `metadata.label`, which is also where [`resolveSecret`](../apps/tool-broker/src/utils/connection.ts) reads it. Reading a `label` field meant every name came back undefined, so `list` showed `(unnamed)`, `set` never detected the row it was meant to replace — the exact shadowing the command exists to prevent — and `rm` could never find anything. All three read `metadata.label` now, the same place the runtime does.
 
-**Still not run: a login against the deployed development stack.** The probe drives a local API because that deployment predates the bearer middleware, so a real `ganju login` there is a deploy away rather than a test away — and the deploy it needs is the one the [operational state](#operational-state) note already describes.
+**Then all of it again, against the deployed development stack, driving the CLI installed from npm.** The probe takes `PROBE_API_URL`, `PROBE_MCP_URL` and `PROBE_CLI`, so the same 48 checks ran against `development-api` and `development-mcp` with `node_modules/@ganju/cli/dist/index.js` as the binary — the published artifact, the deployed Workers, the real dispatch namespace. All 48 passed. That is the gap this section previously named as open, and it is closed: nothing about the CLI is now verified only against something local or something built in place.
+
+The one step no script performs is a human signing in to Google or GitHub in a browser. The probe substitutes a signed session cookie for exactly that click and nothing else, so what remains unexercised is the identity provider's own page.
 
 ### Phase 8 — Templates
 

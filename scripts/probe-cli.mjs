@@ -3,6 +3,11 @@
 //   npm run dev -w api          # in another terminal
 //   node scripts/probe-cli.mjs
 //
+// Or against a deployed environment, with the published CLI:
+//   PROBE_API_URL=https://development-api.example.com \
+//   PROBE_MCP_URL=https://development-mcp.example.com \
+//   PROBE_CLI=./node_modules/@ganju/cli/dist/index.js node scripts/probe-cli.mjs
+//
 // Everything the CLI does was previously exercised against a stand-in server,
 // which proves the request sequences and nothing about the server. This runs the
 // installed binary as a subprocess against an API on localhost backed by the
@@ -41,7 +46,11 @@ const CF_TOKEN = read('CUSTOM_CODE_CF_API_TOKEN');
 const API = process.env.PROBE_API_URL ?? 'http://localhost:8080';
 const MCP_ORIGIN = process.env.PROBE_MCP_URL ?? 'http://localhost:8081';
 const NAMESPACE = 'ganju-tools-development';
-const CLI = path.join(root, 'packages/cli/dist/index.js');
+// Defaults to the workspace build. Point it at an installed binary to check the
+// artifact people actually get:
+//   PROBE_CLI=$(npm root -g)/@ganju/cli/dist/index.js node scripts/probe-cli.mjs
+const CLI =
+  process.env.PROBE_CLI ?? path.join(root, 'packages/cli/dist/index.js');
 
 for (const [k, v] of Object.entries({
   DATABASE_URL,
