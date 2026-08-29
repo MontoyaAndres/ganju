@@ -92,6 +92,15 @@ export const Dialog = styled.div<DialogProps>`
       padding: 12px 16px;
       border-top: 1px solid ${theme.colors.alto};
 
+      .MuiButtonBase-root {
+        font-size: ${theme.fonts.base};
+        padding: 6px 16px;
+        min-height: 0;
+        border-radius: 6px;
+        text-transform: none;
+        color: ${theme.colors.white};
+      }
+
       @media (min-width: ${theme.screens.md}) {
         padding: 14px 20px;
       }

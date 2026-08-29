@@ -10,6 +10,7 @@ import { login, logout, whoami } from './commands/login.js';
 import { logs } from './commands/logs.js';
 import { secret } from './commands/secret.js';
 import { test } from './commands/test.js';
+import { token } from './commands/token.js';
 import { rollback, versions } from './commands/versions.js';
 
 /**
@@ -43,6 +44,7 @@ ${color.bold('Managing what is live')}
   ganju versions                every version, and which one is live
   ganju rollback <version>      put a previously live version back
   ganju secret set|list|rm      the values ctx.secret() reads
+  ganju token                   credentials for CI, scoped to this project
 
 ${color.bold('Other')}
   ganju whoami                  who this machine is signed in as
@@ -58,11 +60,13 @@ ${color.bold('Flags')}
   --limit <n>                   logs: how many entries (default 20)
   --follow                      logs: keep polling for new calls
   --organization / --project    link: skip the prompts
+  --expires <days|never>        token create: when it stops working
   --json                        machine-readable output where it makes sense
 
 ${color.bold('Environment')}
   GANJU_API_URL                 which deployment to talk to
   GANJU_API_TOKEN               a token for a machine with no browser
+                                (ganju token create mints a durable one)
   GANJU_SECRET_VALUE            secret set: the value, kept out of shell history`);
 };
 
@@ -104,6 +108,7 @@ const main = async (argv: string[]): Promise<void> => {
       limit: { type: 'string' },
       organization: { type: 'string' },
       project: { type: 'string' },
+      expires: { type: 'string' },
       status: { type: 'boolean' }
     }
   });
@@ -153,6 +158,11 @@ const main = async (argv: string[]): Promise<void> => {
       return rollback(positionals[0]);
     case 'secret':
       return secret(positionals);
+    case 'token':
+      return token(positionals, {
+        expires: flag('expires'),
+        json: flag('json')
+      });
     default:
       fail(`Unknown command "${command}"`);
       note('Run `ganju help` to see what there is.');

@@ -5,6 +5,7 @@ import { InvitationController } from './invitation';
 import { MemberController } from './member';
 import { OrganizationController } from './organization';
 import { OrganizationLlmController } from './organizationLlm';
+import { AccessTokenController } from './accessToken';
 import { OAuthController } from './oauth';
 import { CatalogController } from './catalog';
 import { ChannelController } from './channel';
@@ -26,6 +27,7 @@ export {
   MemberController,
   OrganizationController,
   OrganizationLlmController,
+  AccessTokenController,
   OAuthController,
   CatalogController,
   ChannelController,

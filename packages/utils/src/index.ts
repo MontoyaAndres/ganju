@@ -136,6 +136,13 @@ import { localizeZodIssue, languageFromHeader } from './localizeZodIssue';
 import { slugifyTitle } from './slugifyTitle';
 import { resourceUriFromTitle } from './resourceUri';
 import {
+  accessTokenHint,
+  hashAccessToken,
+  isAccessToken,
+  mintAccessToken
+} from './accessToken';
+import type { MintedAccessToken } from './accessToken';
+import {
   TOOL_CATALOG,
   TOOL_KEYS,
   describeCatalogTool,
@@ -283,6 +290,10 @@ export const utils = {
   languageFromHeader,
   slugifyTitle,
   resourceUriFromTitle,
+  accessTokenHint,
+  hashAccessToken,
+  isAccessToken,
+  mintAccessToken,
   TOOL_CATALOG,
   TOOL_KEYS,
   describeCatalogTool,
@@ -327,6 +338,7 @@ export const utils = {
 };
 
 export type {
+  MintedAccessToken,
   CustomCodeProject,
   ProjectPathIssue,
   CatalogGroup,

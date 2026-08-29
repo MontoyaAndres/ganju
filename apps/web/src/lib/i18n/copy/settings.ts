@@ -124,6 +124,8 @@ const en = {
     'Projects under this organization. Open a project, or manage who can access it.',
   projectsEmpty: 'No projects yet.',
   projectMembers: 'Members',
+  projectTokens: 'Access tokens',
+  projectHideTokens: 'Hide tokens',
   projectHideMembers: 'Hide members',
   projectOpen: 'Open →',
 
@@ -222,6 +224,55 @@ const en = {
   toastOwnedOrganizations:
     'Delete or transfer these organizations first: {names}',
   toastAccountDeleteFailed: 'Could not delete your account',
+
+  // Access tokens — the durable credential CI authenticates with.
+  tokensHeading: 'Access tokens',
+  tokensIntro:
+    'Long-lived credentials for machines that cannot open a browser — a CI job, a container, a box reached over SSH. Each one acts as you, on this project and nothing else.',
+  tokensEmpty:
+    'No access tokens yet. Create one to deploy this project from CI without signing in.',
+  tokenNameLabel: 'What is it for',
+  tokenNamePlaceholder: 'GitHub Actions — deploy',
+  tokenNameHelp:
+    'The only thing anyone will have to go on when deciding whether revoking it breaks a deploy.',
+  tokenNameRequired: 'Give the token a name',
+  tokenExpiryLabel: 'Expires',
+  tokenExpiry30: 'In 30 days',
+  tokenExpiry90: 'In 90 days',
+  tokenExpiry365: 'In a year',
+  tokenExpiryNever: 'Never',
+  tokenCreate: 'Create token',
+  tokenCreating: 'Creating...',
+  tokenRevoke: 'Revoke token',
+  /** `{date}` — when the token was last used to authenticate a request. */
+  tokenLastUsed: 'Last used {date}',
+  tokenNeverUsed: 'Never used',
+  tokenNoExpiry: 'No expiry',
+  /** Shown in place of a name when the account that minted the token is gone. */
+  tokenOwnerGone: 'Owner deleted',
+  tokenOrphanedBadge: 'Inactive',
+  /** `{date}` — when the token stops working. */
+  tokenExpires: 'Expires {date}',
+  /** `{date}` — when the token stopped working. */
+  tokenExpired: 'Expired {date}',
+  tokenMintedTitle: 'Your new access token',
+  tokenMintedWarning:
+    'Copy it now — this is the only time it is shown. We store a hash of it, so nobody, including us, can show it to you again. If you lose it, revoke it and create another.',
+  tokenMintedUsage:
+    'Set it as GANJU_API_TOKEN wherever the CLI runs. It works with `ganju deploy` unchanged, and it can act only on this project.',
+  tokenMintedEnvLabel: 'Environment variable',
+  tokenMintedDone: 'I have copied it',
+  toastTokenCopied: 'Token copied',
+  toastTokenFailed: 'Could not create the token',
+  toastTokenRevoked: 'Token revoked',
+  toastTokenRevokeFailed: 'Could not revoke the token',
+  confirmRevokeTokenTitle: 'Revoke this token?',
+  /** `{name}` — the token's name. */
+  confirmRevokeTokenText:
+    'Anything using "{name}" stops working immediately. This cannot be undone — create a new token if you need one again.',
+  tokensOrphanedHelp:
+    'A token whose owner was deleted is kept so you can see it, but it no longer works. Revoke it and create a new one to get the pipeline running again.',
+  confirmRevokeTokenAction: 'Yes, revoke it',
 
   // No access at all.
   noAccessTitle: 'No access',
@@ -336,6 +387,8 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Los proyectos de esta organización. Abre uno o gestiona quién puede entrar.',
     projectsEmpty: 'Todavía no hay proyectos.',
     projectMembers: 'Miembros',
+    projectTokens: 'Tokens de acceso',
+    projectHideTokens: 'Ocultar tokens',
     projectHideMembers: 'Ocultar miembros',
     projectOpen: 'Abrir →',
 
@@ -428,6 +481,49 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     toastOwnedOrganizations:
       'Primero elimina o transfiere estas organizaciones: {names}',
     toastAccountDeleteFailed: 'No pudimos eliminar tu cuenta',
+
+    tokensHeading: 'Tokens de acceso',
+    tokensIntro:
+      'Credenciales de larga duración para máquinas que no pueden abrir un navegador: un job de CI, un contenedor, un servidor al que llegas por SSH. Cada una actúa como tú, y solo sobre este proyecto.',
+    tokensEmpty:
+      'Aún no hay tokens de acceso. Crea uno para desplegar este proyecto desde CI sin iniciar sesión.',
+    tokenNameLabel: 'Para qué es',
+    tokenNamePlaceholder: 'GitHub Actions — despliegue',
+    tokenNameHelp:
+      'Es lo único con lo que alguien podrá decidir si revocarlo rompe un despliegue.',
+    tokenNameRequired: 'Ponle un nombre al token',
+    tokenExpiryLabel: 'Caduca',
+    tokenExpiry30: 'En 30 días',
+    tokenExpiry90: 'En 90 días',
+    tokenExpiry365: 'En un año',
+    tokenExpiryNever: 'Nunca',
+    tokenCreate: 'Crear token',
+    tokenCreating: 'Creando...',
+    tokenRevoke: 'Revocar token',
+    tokenLastUsed: 'Se usó por última vez el {date}',
+    tokenNeverUsed: 'Sin usar',
+    tokenNoExpiry: 'Sin caducidad',
+    tokenOwnerGone: 'Propietario eliminado',
+    tokenOrphanedBadge: 'Inactivo',
+    tokenExpires: 'Caduca el {date}',
+    tokenExpired: 'Caducó el {date}',
+    tokenMintedTitle: 'Tu nuevo token de acceso',
+    tokenMintedWarning:
+      'Cópialo ahora: es la única vez que se muestra. Guardamos su hash, así que nadie, nosotros incluidos, puede volver a enseñártelo. Si lo pierdes, revócalo y crea otro.',
+    tokenMintedUsage:
+      'Configúralo como GANJU_API_TOKEN donde se ejecute la CLI. Funciona con `ganju deploy` sin cambiar nada, y solo puede actuar sobre este proyecto.',
+    tokenMintedEnvLabel: 'Variable de entorno',
+    tokenMintedDone: 'Ya lo copié',
+    toastTokenCopied: 'Token copiado',
+    toastTokenFailed: 'No pudimos crear el token',
+    toastTokenRevoked: 'Token revocado',
+    toastTokenRevokeFailed: 'No pudimos revocar el token',
+    confirmRevokeTokenTitle: '¿Revocar este token?',
+    confirmRevokeTokenText:
+      'Todo lo que use "{name}" dejará de funcionar de inmediato. No se puede deshacer: crea un token nuevo si vuelves a necesitarlo.',
+    tokensOrphanedHelp:
+      'Un token cuyo propietario fue eliminado se conserva para que puedas verlo, pero ya no funciona. Revócalo y crea uno nuevo para que el pipeline vuelva a funcionar.',
+    confirmRevokeTokenAction: 'Sí, revocarlo',
 
     noAccessTitle: 'Sin acceso',
     noAccessSubtitle:

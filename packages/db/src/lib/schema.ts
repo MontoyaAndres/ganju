@@ -552,6 +552,64 @@ export const organizationLlm = pgTable(
   ]
 );
 
+export const accessToken = pgTable(
+  'access_token',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    // What it is for, in the words of whoever made it. The only thing anyone has
+    // to recognise a row by when deciding whether revoking it will break a
+    // deploy.
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    // The first few characters of the value, so two rows can be told apart.
+    hint: text('hint').notNull(),
+    // Null means it does not expire. A scheduled deploy that stops on a date
+    // nobody wrote down is its own kind of outage, so this is the author's
+    // choice rather than ours.
+    expiresAt: timestamp('expires_at', { mode: 'date' }),
+    // Written at most every few minutes rather than on every request: the
+    // question it answers is "is anything still using this", which minute-level
+    // precision does not improve.
+    lastUsedAt: timestamp('last_used_at', { mode: 'date' }),
+    // The one project this credential may act on. Everything else the middleware
+    // resolves — organization routes included — is refused.
+    projectId: text('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    // The account the token acts as, and the record of who minted it.
+    //
+    // Deliberately NOT a cascade. Deleting the person would otherwise take the
+    // row with it, and a deploy credential that vanishes leaves a pipeline
+    // failing with nothing in the product to explain why — the offboarding and
+    // the broken build are days apart and look unrelated. Set null instead: the
+    // row survives, the list shows it lost its owner, and revoking or replacing
+    // it is something somebody can see they need to do.
+    //
+    // It stops authenticating either way. Every check downstream of the
+    // middleware is phrased against a user, so a token with nobody behind it has
+    // nobody to act as; what changes is that the failure is legible.
+    userId: text('user_id').references(() => user.id, {
+      onDelete: 'set null'
+    }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    uniqueIndex('access_token_tokenHash_idx').on(table.tokenHash),
+    index('access_token_projectId_idx').on(table.projectId),
+    index('access_token_organizationId_idx').on(table.organizationId),
+    index('access_token_userId_idx').on(table.userId)
+  ]
+);
+
 export const channel = pgTable(
   'channel',
   {
@@ -1109,6 +1167,7 @@ export const userRelations = relations(user, ({ many }) => ({
   createdProjects: many(project),
   organizationUsers: many(organizationUser),
   projectUsers: many(projectUser),
+  accessTokens: many(accessToken),
   consents: many(userConsent)
 }));
 
@@ -1143,6 +1202,7 @@ export const organizationRelations = relations(
     projects: many(project),
     organizationUsers: many(organizationUser),
     organizationLlms: many(organizationLlm),
+    accessTokens: many(accessToken),
     invitations: many(invitation),
     subscription: one(subscription, {
       fields: [organization.id],
@@ -1183,6 +1243,7 @@ export const projectRelations = relations(project, ({ one, many }) => ({
   }),
   artifacts: many(artifact),
   projectUsers: many(projectUser),
+  accessTokens: many(accessToken),
   invitations: many(invitation)
 }));
 
@@ -1272,6 +1333,21 @@ export const organizationLlmRelations = relations(
     channels: many(channel)
   })
 );
+
+export const accessTokenRelations = relations(accessToken, ({ one }) => ({
+  project: one(project, {
+    fields: [accessToken.projectId],
+    references: [project.id]
+  }),
+  organization: one(organization, {
+    fields: [accessToken.organizationId],
+    references: [organization.id]
+  }),
+  user: one(user, {
+    fields: [accessToken.userId],
+    references: [user.id]
+  })
+}));
 
 export const channelRelations = relations(channel, ({ one, many }) => ({
   artifact: one(artifact, {

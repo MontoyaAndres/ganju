@@ -8,6 +8,7 @@ import { Add, DeleteOutlined, EditOutlined } from '@mui/icons-material';
 import { Wrapper } from './styles';
 import { MembersManager } from './members-manager';
 import { BillingManager } from './billing-manager';
+import { TokensManager } from './tokens-manager';
 import { authClient } from '../../../utils';
 import { i18n } from '../../../lib';
 
@@ -187,6 +188,12 @@ export const Settings = (props: SettingsProps) => {
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(
     null
   );
+  // Independent of the members panel above, because the two answer different
+  // questions about the same project and closing one to read the other would
+  // only lose the reader their place.
+  const [expandedTokensProjectId, setExpandedTokensProjectId] = useState<
+    string | null
+  >(null);
   // Personal-data controls. These are about the signed-in USER, not the
   // organization, so every member sees them — not just the owner.
   const [consent, setConsent] = useState<ConsentStatus | null>(null);
@@ -862,6 +869,21 @@ export const Settings = (props: SettingsProps) => {
                 </button>
                 <button
                   type="button"
+                  className="project-item-toggle"
+                  onClick={() =>
+                    setExpandedTokensProjectId(
+                      expandedTokensProjectId === project.id ? null : project.id
+                    )
+                  }
+                >
+                  {t(
+                    expandedTokensProjectId === project.id
+                      ? 'projectHideTokens'
+                      : 'projectTokens'
+                  )}
+                </button>
+                <button
+                  type="button"
                   className="project-item-link"
                   onClick={() =>
                     router.push(
@@ -877,6 +899,13 @@ export const Settings = (props: SettingsProps) => {
                       scope="project"
                       basePath={`${orgBase}/project/${project.id}`}
                       currentUserId={auth.id}
+                    />
+                  </div>
+                )}
+                {expandedTokensProjectId === project.id && (
+                  <div className="project-members">
+                    <TokensManager
+                      basePath={`${orgBase}/project/${project.id}`}
                     />
                   </div>
                 )}

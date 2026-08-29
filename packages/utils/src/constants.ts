@@ -1695,6 +1695,55 @@ const ARTIFACT_SCOPE_PREFIX = 'artifact:';
 // that is one library's behaviour and this is a login that has already opened
 // someone's browser by the time it would fail.
 
+// A personal access token — the durable credential a machine with no browser
+// uses, where an OAuth access token's one hour is not enough. Bound to one
+// project, because that is the unit a deploy pipeline works on: one repository,
+// one artifact, one credential in its CI settings.
+//
+// The prefix is part of the value rather than decoration: it is what lets the
+// middleware tell one of these from an OAuth token before it decides which
+// lookup to make, and it is what secret scanners match on when one leaks into a
+// repository. The rest is 32 random bytes, base64url — the token is the only
+// place the value ever exists in plaintext, since what is stored is its hash.
+const ACCESS_TOKEN_PREFIX = 'ganju_pat_';
+const ACCESS_TOKEN_BYTES = 32;
+
+// Enough of the secret to recognise a row by, and not enough to be worth
+// stealing. Shown in the dashboard and by `ganju token list` beside the name.
+const ACCESS_TOKEN_HINT_CHARS = 6;
+
+const ACCESS_TOKEN_NAME_MAX = 100;
+
+// A ceiling per project, so a compromised session cannot quietly mint an
+// unbounded set of credentials that each survive the session being ended.
+const ACCESS_TOKEN_MAX_PER_PROJECT = 20;
+
+// An expiry is optional, because a scheduled deploy that dies on a date nobody
+// wrote down is its own kind of outage — but a year is the longest we will
+// write one for.
+const ACCESS_TOKEN_MAX_EXPIRY_DAYS = 365;
+
+// `last_used_at` is a convenience, not an audit log, so it is written at most
+// this often per token rather than on every request. The question it answers —
+// "is anything still using this, or can I revoke it" — does not get a better
+// answer from minute-level precision, and the write would otherwise land on the
+// hot path of every CI request.
+const ACCESS_TOKEN_LAST_USED_INTERVAL_MS = 5 * 60 * 1000;
+
+// The only path a personal access token may reach without naming the project it
+// is scoped to, and only on GET. `/me` reports who the token is, which is how
+// the CLI confirms a machine is authenticated at all, and tells it nothing it
+// does not already hold.
+//
+// Everything else is refused, organization routes included — billing, members,
+// the model configs and the other projects are not what a deploy credential is
+// for. The list is deliberately this short: a route added later is closed by
+// omission rather than open by it.
+const ACCESS_TOKEN_UNSCOPED_PATHS = ['/me'];
+
+const ACCESS_TOKEN_SCOPE_MESSAGE =
+  'This token is scoped to a different project';
+
 // Recent custom-tool invocations, as `ganju logs` reads them.
 const CUSTOM_CODE_LOGS_DEFAULT_LIMIT = 20;
 const CUSTOM_CODE_LOGS_MAX_LIMIT = 100;
@@ -2596,6 +2645,15 @@ export const constants = {
   CLI_OAUTH_REDIRECT_PORTS,
   CLI_OAUTH_SCOPES,
   CLI_TOKEN_REFRESH_SKEW_SECONDS,
+  ACCESS_TOKEN_PREFIX,
+  ACCESS_TOKEN_BYTES,
+  ACCESS_TOKEN_HINT_CHARS,
+  ACCESS_TOKEN_NAME_MAX,
+  ACCESS_TOKEN_MAX_PER_PROJECT,
+  ACCESS_TOKEN_MAX_EXPIRY_DAYS,
+  ACCESS_TOKEN_LAST_USED_INTERVAL_MS,
+  ACCESS_TOKEN_UNSCOPED_PATHS,
+  ACCESS_TOKEN_SCOPE_MESSAGE,
   CUSTOM_CODE_LOGS_DEFAULT_LIMIT,
   CUSTOM_CODE_LOGS_MAX_LIMIT,
   BOT_GRANT_TYPE,

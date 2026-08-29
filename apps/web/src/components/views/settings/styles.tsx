@@ -598,3 +598,186 @@ export const MembersManagerWrapper = styled.div`
     }
   `}
 `;
+
+export const TokensManagerWrapper = styled.div`
+  ${({ theme }) => css`
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .tm-block-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+
+      .tm-block-title {
+        font-size: ${theme.fonts.sm};
+        font-weight: 600;
+        color: ${theme.colors.bastille};
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .tm-count {
+        font-size: ${theme.fonts.xs};
+        font-weight: 600;
+        color: ${theme.colors.bastille}99;
+        background: ${theme.colors.bastille}0d;
+        border-radius: 999px;
+        padding: 1px 8px;
+      }
+    }
+
+    .tm-intro {
+      font-size: ${theme.fonts.xs};
+      color: ${theme.colors.bastille}99;
+      margin: 0 0 10px;
+      line-height: 1.6;
+    }
+
+    .tm-empty {
+      font-size: ${theme.fonts.sm};
+      color: ${theme.colors.bastille}99;
+      margin: 0;
+      padding: 14px;
+      background: ${theme.colors.bastille}08;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    .tm-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tm-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid ${theme.colors.bastille}14;
+      border-radius: 10px;
+
+      .tm-row-info {
+        flex: 1;
+        min-width: 0;
+
+        .tm-row-name {
+          font-size: ${theme.fonts.sm};
+          font-weight: 600;
+          color: ${theme.colors.bastille};
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .tm-row-sub {
+          font-size: ${theme.fonts.xs};
+          color: ${theme.colors.bastille}99;
+          margin: 2px 0 0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+      }
+
+      .tm-hint {
+        font-family: monospace;
+        font-size: ${theme.fonts.xs};
+        font-weight: 500;
+        color: ${theme.colors.bastille}99;
+        background: ${theme.colors.bastille}0d;
+        border-radius: 4px;
+        padding: 1px 6px;
+      }
+
+      .tm-dot {
+        color: ${theme.colors.bastille}4d;
+      }
+
+      /* A kept row that no longer works. Loud enough to be read as a state
+         rather than a label, since the row otherwise looks live. */
+      .tm-orphaned {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: ${theme.colors.saltBox};
+        background: ${theme.colors.saltBox}1a;
+        border-radius: 4px;
+        padding: 1px 6px;
+      }
+
+      .MuiIconButton-root {
+        flex-shrink: 0;
+        padding: 4px;
+      }
+    }
+
+    .tm-orphaned-help {
+      font-size: ${theme.fonts.xs};
+      color: ${theme.colors.bastille}99;
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      background: ${theme.colors.saltBox}14;
+      border-radius: 8px;
+      line-height: 1.6;
+    }
+
+    .tm-create {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+
+      .tm-create-field {
+        flex: 1;
+      }
+
+      .tm-create-expiry {
+        width: 150px;
+        flex-shrink: 0;
+      }
+
+      .MuiButtonBase-root {
+        flex-shrink: 0;
+        margin-top: 8px;
+        font-size: ${theme.fonts.sm};
+        padding: 7px 16px;
+        border-radius: 8px;
+        text-transform: none;
+        white-space: nowrap;
+      }
+    }
+  `}
+`;
+
+export const TokenMintedContent = styled.div`
+  ${({ theme }) => css`
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    .tm-minted-warning {
+      font-size: ${theme.fonts.sm};
+      color: ${theme.colors.bastille};
+      margin: 0;
+      padding: 12px 14px;
+      background: ${theme.colors.fernGreen}14;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    .tm-minted-help {
+      font-size: ${theme.fonts.xs};
+      color: ${theme.colors.bastille}99;
+      margin: 0;
+      line-height: 1.6;
+    }
+  `}
+`;

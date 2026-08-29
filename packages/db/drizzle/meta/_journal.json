@@ -484,6 +484,13 @@
       "when": 1788008006126,
       "tag": "0068_version_script_name",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1788032153274,
+      "tag": "0069_access_token",
+      "breakpoints": true
     }
   ]
 }

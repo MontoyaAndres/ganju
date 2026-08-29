@@ -701,6 +701,96 @@ try {
     removed.code === 0 && afterRemove[0].n === 0
   );
 
+  // --- access tokens ------------------------------------------------------
+  section('access tokens');
+
+  const mint = ganju([
+    'token',
+    'create',
+    'Probe CI',
+    '--expires',
+    '30',
+    '--json'
+  ]);
+  // `stdout` rather than `out`, because progress goes to stderr precisely so
+  // that --json can be parsed.
+  const minted = mint.code === 0 ? JSON.parse(mint.stdout.trim()) : null;
+  check(
+    '`ganju token create` answers with a value',
+    !!minted?.token?.startsWith('ganju_pat_'),
+    minted?.hint
+  );
+  check(
+    '  ...bound to the linked project, with no picker anywhere',
+    minted?.projectId === projectId
+  );
+  check(
+    '  ...and an expiry computed from --expires',
+    !!minted?.expiresAt &&
+      Math.abs(
+        new Date(minted.expiresAt).getTime() - (Date.now() + 30 * 86400_000)
+      ) < 120_000
+  );
+
+  const storedToken =
+    await sql`select token_hash, hint from access_token where id = ${minted?.id ?? ''}`;
+  check(
+    'the row holds a hash and not the value',
+    storedToken.length === 1 &&
+      storedToken[0].token_hash !== minted.token &&
+      !minted.token.includes(storedToken[0].token_hash)
+  );
+
+  const tokenList = ganju(['token', 'list']);
+  check(
+    '`ganju token list` shows the name and never the value',
+    tokenList.code === 0 &&
+      tokenList.out.includes('Probe CI') &&
+      !tokenList.out.includes(minted.token)
+  );
+
+  // The whole point of the credential: it deploys where a login cannot happen.
+  const asMachine = ganju(['whoami'], {
+    env: { GANJU_API_TOKEN: minted.token }
+  });
+  check(
+    'the minted token authenticates with no stored login',
+    asMachine.code === 0,
+    asMachine.out.trim()
+  );
+  const machineVersions = ganju(['versions'], {
+    env: { GANJU_API_TOKEN: minted.token }
+  });
+  check(
+    '  ...and reaches its own project',
+    machineVersions.code === 0 && /\bv?1\b/.test(machineVersions.out)
+  );
+
+  // A credential that can mint credentials outlives its own revocation.
+  const escalate = ganju(['token', 'create', 'second'], {
+    env: { GANJU_API_TOKEN: minted.token }
+  });
+  check(
+    'a token cannot mint another one',
+    escalate.code !== 0 && /cannot create tokens/i.test(escalate.out),
+    escalate.stderr.trim().split('\n')[0]
+  );
+
+  const revoked = ganju(['token', 'revoke', 'Probe CI']);
+  const afterRevoke =
+    await sql`select count(*)::int as n from access_token where id = ${minted.id}`;
+  check(
+    '`ganju token revoke` deletes the row by name',
+    revoked.code === 0 && afterRevoke[0].n === 0
+  );
+  const afterRevokeUse = ganju(['whoami'], {
+    env: { GANJU_API_TOKEN: minted.token }
+  });
+  check(
+    '  ...and the credential stops working on its next request',
+    afterRevokeUse.code !== 0
+  );
+
   // --- versions and rollback ---------------------------------------------
   section('versions and rollback');
 

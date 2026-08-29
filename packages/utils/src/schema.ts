@@ -603,6 +603,52 @@ const ORGANIZATION_REMOVE_LLM = z.object({
   organizationId: z.uuid()
 });
 
+// Personal access tokens. `name` is required rather than optional because it is
+// the only thing anyone has to go on when deciding whether revoking a row will
+// break a deploy, and a list of unnamed credentials is a list nobody prunes.
+//
+// `expiresInDays` is what the caller sends; `expiresAt` is what the row stores.
+// A duration is what someone actually decides ("ninety days"), and computing the
+// date on the server means a clock the client got wrong cannot mint a token that
+// outlives what was asked for. Null is a token that does not expire, which is a
+// real answer for a scheduled deploy and is why it is spelled explicitly rather
+// than reached by leaving the field out.
+const ACCESS_TOKEN_CREATE = z.object({
+  name: z.string().trim().min(1).max(constants.ACCESS_TOKEN_NAME_MAX),
+  expiresInDays: z
+    .number()
+    .int()
+    .min(1)
+    .max(constants.ACCESS_TOKEN_MAX_EXPIRY_DAYS)
+    .nullable()
+    .optional(),
+  userId: z.uuid(),
+  organizationId: z.uuid(),
+  projectId: z.uuid()
+});
+
+const ACCESS_TOKEN_LIST = z.object({
+  userId: z.uuid(),
+  organizationId: z.uuid(),
+  projectId: z.uuid()
+});
+
+const ACCESS_TOKEN_REMOVE = z.object({
+  tokenId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid(),
+  projectId: z.uuid()
+});
+
+// The ids the route already carries come off: the dashboard reads them from the
+// URL it is on, so a form asking for them again is a second place for them to be
+// wrong.
+const ACCESS_TOKEN_CREATE_VIEW = ACCESS_TOKEN_CREATE.omit({
+  userId: true,
+  organizationId: true,
+  projectId: true
+});
+
 const ORGANIZATION_CREATE_LLM_VIEW = ORGANIZATION_CREATE_LLM.omit({
   userId: true,
   organizationId: true
@@ -1513,6 +1559,10 @@ export const Schema = {
   ORGANIZATION_UPDATE_LLM,
   ORGANIZATION_UPDATE_LLM_VIEW,
   ORGANIZATION_REMOVE_LLM,
+  ACCESS_TOKEN_CREATE,
+  ACCESS_TOKEN_CREATE_VIEW,
+  ACCESS_TOKEN_LIST,
+  ACCESS_TOKEN_REMOVE,
   CHANNEL_CONFIG,
   CHANNEL_CREATE,
   CHANNEL_CREATE_VIEW,

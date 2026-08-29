@@ -107,7 +107,8 @@ export class ApiClient {
       response = await send(await this.token());
     }
 
-    if (!response.ok) throw await describeFailure(response, this.apiUrl);
+    if (!response.ok)
+      throw await describeFailure(response, this.apiUrl, !!this.envToken);
 
     if (response.status === 204) return undefined as T;
     const text = await response.text();
@@ -130,7 +131,8 @@ export class ApiClient {
  */
 const describeFailure = async (
   response: Response,
-  apiUrl: string
+  apiUrl: string,
+  usingEnvironmentToken: boolean
 ): Promise<CliError> => {
   const payload = (await response.json().catch(() => null)) as {
     error?: string;
@@ -147,14 +149,31 @@ const describeFailure = async (
   }
 
   if (response.status === 401) {
-    return new CliError('Your session has expired', {
-      hint: 'Run `ganju login` again.'
-    });
+    // The advice differs by how this machine authenticated, and getting it wrong
+    // wastes the reader's time in both directions: told to log in again, someone
+    // holding an access token goes looking for a browser on a build agent; told
+    // to check a token, someone with an expired login re-reads their CI config.
+    return usingEnvironmentToken
+      ? new CliError('GANJU_API_TOKEN was not accepted', {
+          hint: "It may have been revoked or expired — mint a new one in the dashboard, under the organization's settings."
+        })
+      : new CliError('Your session has expired', {
+          hint: 'Run `ganju login` again.'
+        });
   }
   if (response.status === 403) {
-    return new CliError('You are not an admin of that project', {
-      hint: 'Run `ganju link` to pick one you are.'
-    });
+    // The server's own message when it has one: an access token used against an
+    // organization it is not scoped to is refused here too, and "you are not an
+    // admin" would send the reader to fix the wrong thing.
+    return payload?.error
+      ? new CliError(payload.error, {
+          hint: usingEnvironmentToken
+            ? 'Check that GANJU_API_TOKEN belongs to the organization in ganju.json.'
+            : 'Run `ganju link` to pick a project you are an admin of.'
+        })
+      : new CliError('You are not an admin of that project', {
+          hint: 'Run `ganju link` to pick one you are.'
+        });
   }
   if (response.status === 402) {
     return new CliError(payload?.error ?? 'Your plan does not include this', {

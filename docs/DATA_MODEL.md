@@ -9,6 +9,7 @@ user
  └── organization        (ownerId → user)
       ├── organizationUser     (role: ADMIN)   membership
       ├── organizationLlm      org-level LLM configs (provider, model, apiKey, systemPrompt)
+      ├── accessToken         a machine credential, scoped to one project, acting as one user
       ├── invitation           org/project invites (token, status, expiry)
       └── project          (organizationId → organization)
            ├── projectUser      membership
@@ -16,6 +17,7 @@ user
 ```
 
 - A **user** authenticates via better-auth (`session`, `account`, `verification`, `jwks`, plus the OAuth provider tables `oauth_client`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`).
+- **accessToken** is the durable credential a machine authenticates with, where a browser login cannot happen — CI, a container, an SSH session. It resolves to the user who minted it and is confined to **one project**, so the request middleware answers the question it already asked ("which user is this") while gaining a boundary the membership checks do not have: those authorize everything its holder can reach, and a credential in one repository's CI settings must not inherit that. `organizationId` is denormalized from the project rather than a second scope. `tokenHash` holds a SHA-256; the value exists once, in the response that created it, so nothing can print it back. Revoking is a row delete, and authentication is a lookup by hash, so it lands on the next request. `userId` is `on delete set null` rather than a cascade — deleting the account keeps the row, so a pipeline that stops has something to point at, though the token no longer authenticates once there is nobody for it to act as.
 - An **organization** is the billing/ownership boundary; **projects** group work inside it; both have a membership join table with a `role`.
 - **organizationLlm** holds reusable LLM connections (Anthropic / OpenAI / OpenAI-compatible / Google) that channels reference.
 

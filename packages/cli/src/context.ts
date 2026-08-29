@@ -19,6 +19,7 @@ export interface CommandContext {
   project: LoadedProject;
   target: ProjectTarget;
   api: ApiClient;
+  projectPath: string;
   artifactPath: string;
 }
 
@@ -26,11 +27,13 @@ export const commandContext = async (): Promise<CommandContext> => {
   const project = await loadProject();
   const target = requireTarget(project);
   const api = new ApiClient(apiUrlFor(project));
+  const projectPath = `/organization/${target.organizationId}/project/${target.projectId}`;
   return {
     project,
     target,
     api,
-    artifactPath: `/organization/${target.organizationId}/project/${target.projectId}/artifact`
+    projectPath,
+    artifactPath: `${projectPath}/artifact`
   };
 };
 

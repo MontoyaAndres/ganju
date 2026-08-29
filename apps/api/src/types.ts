@@ -24,6 +24,7 @@ import type {
 export type Variables = {
   user: Auth['$Infer']['Session']['user'];
   session: Auth['$Infer']['Session']['session'];
+  apiToken: { id: string; projectId: string; organizationId: string };
 };
 
 export interface RateLimiter {

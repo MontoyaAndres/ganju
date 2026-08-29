@@ -10,6 +10,7 @@ import {
   MemberController,
   OrganizationController,
   OrganizationLlmController,
+  AccessTokenController,
   ProjectController,
   OAuthController,
   CatalogController,
@@ -545,6 +546,23 @@ app
     '/organization/:organizationId/llm/:llmId',
     UserMiddleware.verify,
     OrganizationLlmController.remove
+  )
+
+  // Access token controller
+  .get(
+    '/organization/:organizationId/project/:projectId/token',
+    UserMiddleware.verify,
+    AccessTokenController.list
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/token',
+    UserMiddleware.verify,
+    AccessTokenController.create
+  )
+  .delete(
+    '/organization/:organizationId/project/:projectId/token/:tokenId',
+    UserMiddleware.verify,
+    AccessTokenController.remove
   )
 
   // Channel controller
