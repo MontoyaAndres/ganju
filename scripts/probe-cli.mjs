@@ -102,11 +102,38 @@ const cf = async (p, init) => {
 // A GET on a script that is not in the namespace answers 200 with
 // `result.script: null`, not 404 — so presence is that field, never the status.
 const scriptExists = async name => {
+  if (!name) return false;
   const res = await cf(
     `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}`,
     { method: 'GET' }
   );
   return res.status === 200 && res.body?.result?.script != null;
+};
+
+// Every script this artifact owns. Names are minted per upload now, so the probe
+// asks the namespace which ones exist rather than constructing them.
+const artifactScripts = async () => {
+  const res = await cf(
+    `/workers/dispatch/namespaces/${NAMESPACE}/scripts?per_page=100`,
+    { method: 'GET' }
+  );
+  return (res.body?.result ?? [])
+    .map(entry => entry.script_name || entry.id)
+    .filter(name => name && name.startsWith(`artifact_${artifactId}`));
+};
+
+// The name the published version records — the pointer the MCP boot loop
+// dispatches to, read from the same column it reads.
+const liveScriptName = async () => {
+  const [row] = await sql`
+    select v.script_name
+      from artifact_tool_version v
+      join artifact_tool t on t.id = v.artifact_tool_id
+     where t.artifact_id = ${artifactId}
+       and v.status = 'published'
+     limit 1
+  `;
+  return row?.script_name ?? null;
 };
 
 const userId = uuid();
@@ -519,8 +546,8 @@ try {
   );
 
   check(
-    'the script really is in the dispatch namespace',
-    await scriptExists(`artifact_${artifactId}`)
+    'the script really is in the dispatch namespace, under the name the version records',
+    await scriptExists(await liveScriptName())
   );
 
   // --- the deployed script answers over MCP ------------------------------
@@ -603,7 +630,7 @@ try {
 
   check(
     'the preview script was cleaned up afterwards',
-    !(await scriptExists(`artifact_${artifactId}_preview`))
+    (await artifactScripts()).every(name => !name.includes('_preview'))
   );
 
   // --- logs --------------------------------------------------------------
@@ -764,17 +791,12 @@ try {
 } finally {
   section('cleanup');
 
-  for (const name of [
-    `artifact_${artifactId}`,
-    `artifact_${artifactId}_preview`
-  ]) {
-    if (deployed || (await scriptExists(name))) {
-      const del = await cf(
-        `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}?force=true`,
-        { method: 'DELETE' }
-      );
-      console.log(`  removed ${name} (HTTP ${del.status})`);
-    }
+  for (const name of await artifactScripts()) {
+    const del = await cf(
+      `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}?force=true`,
+      { method: 'DELETE' }
+    );
+    console.log(`  removed ${name} (HTTP ${del.status})`);
   }
 
   if (clientId) {

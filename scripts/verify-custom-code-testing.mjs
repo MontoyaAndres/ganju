@@ -135,10 +135,54 @@ check(
 );
 
 check(
-  'the preview script name is the live one plus a suffix',
+  'the legacy preview name is the legacy live name plus a suffix',
   utils.customCodePreviewScriptName('abc') ===
     `${utils.customCodeScriptName('abc')}_preview`,
   utils.customCodePreviewScriptName('abc')
+);
+
+// The naming rule the whole redeploy fix rests on: a minted name is never the
+// name of an earlier upload, and never exceeds what Cloudflare accepts.
+const ARTIFACT = '0199c0de-1234-7890-abcd-ef0123456789';
+const minted = Array.from({ length: 200 }, () =>
+  utils.customCodeUploadName(ARTIFACT)
+);
+
+check(
+  'every minted upload name is unique',
+  new Set(minted).size === minted.length,
+  `${new Set(minted).size} distinct of ${minted.length}`
+);
+
+check(
+  'a minted name is the artifact name plus a hex suffix',
+  minted.every(name =>
+    new RegExp(`^${utils.customCodeScriptName(ARTIFACT)}_[0-9a-f]{12}$`).test(
+      name
+    )
+  ),
+  minted[0]
+);
+
+// 63 is the ceiling Cloudflare enforces on a Worker name, and `artifact_<uuid>`
+// already spends 45 of it. A preview name spends eight more on `_preview`, so
+// the two suffixes are deliberately different lengths — this is the check that
+// keeps a future prefix change from silently producing a name that is refused.
+const previewMinted = utils.customCodePreviewUploadName(ARTIFACT);
+
+check(
+  'a minted live name fits inside the 63-character ceiling',
+  minted[0].length === 58 && minted[0].length <= 63,
+  `${minted[0].length} chars`
+);
+
+check(
+  'a minted preview name fits too, with a shorter suffix',
+  previewMinted.length === 62 &&
+    new RegExp(
+      `^${utils.customCodePreviewScriptName(ARTIFACT)}_[0-9a-f]{8}$`
+    ).test(previewMinted),
+  `${previewMinted.length} chars — ${previewMinted}`
 );
 
 console.log('\nschema validation — what the panel reports\n');

@@ -95,11 +95,38 @@ const cf = async (path, init) => {
 // `result.script: null`, not 404 — so presence is that field, never the status.
 // Reading the status instead reports every deleted script as still deployed.
 const scriptExists = async name => {
+  if (!name) return false;
   const res = await cf(
     `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}`,
     { method: 'GET' }
   );
   return res.status === 200 && res.body?.result?.script != null;
+};
+
+// Every script this artifact owns. Names are minted per upload now, so the probe
+// asks the namespace which ones exist rather than constructing them.
+const artifactScripts = async () => {
+  const res = await cf(
+    `/workers/dispatch/namespaces/${NAMESPACE}/scripts?per_page=100`,
+    { method: 'GET' }
+  );
+  return (res.body?.result ?? [])
+    .map(entry => entry.script_name || entry.id)
+    .filter(name => name && name.startsWith(`artifact_${artifactId}`));
+};
+
+// The name the published version records — the pointer the MCP boot loop
+// dispatches to, read from the same column it reads.
+const liveScriptName = async () => {
+  const [row] = await sql`
+    select v.script_name
+      from artifact_tool_version v
+      join artifact_tool t on t.id = v.artifact_tool_id
+     where t.artifact_id = ${artifactId}
+       and v.status = 'published'
+     limit 1
+  `;
+  return row?.script_name ?? null;
 };
 
 let cookieHeader = '';
@@ -574,7 +601,9 @@ try {
     JSON.stringify(badOutput.body?.outputViolations || []).slice(0, 160)
   );
 
-  previewSeen = await scriptExists(`artifact_${artifactId}_preview`);
+  previewSeen = (await artifactScripts()).some(name =>
+    name.includes('_preview')
+  );
   check('the preview script is deleted after the run', previewSeen === false);
 
   const published = await api(`${ccBase}/version/${versionId}/publish`, {
@@ -595,8 +624,8 @@ try {
   );
 
   check(
-    '  ...and the script is really in the dispatch namespace',
-    await scriptExists(`artifact_${artifactId}`)
+    '  ...and the script is really in the dispatch namespace, under the name the version records',
+    await scriptExists(await liveScriptName())
   );
 
   tools = await listTools();
@@ -784,8 +813,8 @@ try {
     String(freeRollback.status)
   );
 
-  const previewAfterRefusal = await scriptExists(
-    `artifact_${artifactId}_preview`
+  const previewAfterRefusal = (await artifactScripts()).some(name =>
+    name.includes('_preview')
   );
   check(
     '  ...and a refused test leaves no preview script behind',
@@ -847,9 +876,11 @@ try {
     removed.status === 200,
     String(removed.status)
   );
-  const stillThere = await scriptExists(`artifact_${artifactId}`);
+  // Plural: uninstalling reads every version's recorded name and deletes each,
+  // because one artifact now owns one script per publish rather than one script.
+  const stillThere = (await artifactScripts()).length > 0;
   check(
-    '  ...and the script leaves the dispatch namespace',
+    '  ...and every script it owned leaves the dispatch namespace',
     stillThere === false
   );
   if (!stillThere) deployed = false;
@@ -868,10 +899,7 @@ try {
 } finally {
   section('cleanup');
   if (deployed || previewSeen) {
-    for (const name of [
-      `artifact_${artifactId}`,
-      `artifact_${artifactId}_preview`
-    ]) {
+    for (const name of await artifactScripts()) {
       const del = await cf(
         `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}?force=true`,
         { method: 'DELETE' }

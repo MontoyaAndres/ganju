@@ -908,6 +908,19 @@ export const artifactToolVersion = pgTable(
     // Workers for Platforms script version tag, filled by the publish pipeline.
     // Null while nothing has been deployed for this version yet.
     scriptTag: text('script_tag'),
+    // The dispatch-namespace name this version's bundle was uploaded to, and
+    // the name the MCP boot loop dispatches to.
+    //
+    // Every upload mints its own, so this is a pointer rather than a convention
+    // — which is what lets a publish write to a name that has never existed
+    // (read-your-writes, ~2s) instead of over the artifact's one script (not
+    // read-your-writes, up to ~40s). It lives here rather than on
+    // `artifact_tool.config` so that code, contract and the script serving them
+    // are one row: publish and rollback move all three by moving one pointer.
+    //
+    // Null on any version published before this column existed, whose bundle
+    // really is under the legacy derived name. The read path falls back to it.
+    scriptName: text('script_name'),
     // The manifest: [{ name, title, description, inputSchema, outputSchema? }].
     // Validated against Schema.CUSTOM_CODE_MANIFEST before it is written.
     tools: json('tools').notNull(),

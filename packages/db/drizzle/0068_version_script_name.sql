@@ -1,0 +1,1 @@
+ALTER TABLE "artifact_tool_version" ADD COLUMN "script_name" text;

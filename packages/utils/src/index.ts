@@ -102,7 +102,9 @@ import {
   mintCustomCodeToken,
   verifyCustomCodeToken,
   customCodeScriptName,
-  customCodePreviewScriptName
+  customCodePreviewScriptName,
+  customCodeUploadName,
+  customCodePreviewUploadName
 } from './customCodeToken';
 import type { CustomCodeTokenPayload } from './customCodeToken';
 import { oauthProviders } from './oauthProviders';
@@ -257,6 +259,8 @@ export const utils = {
   verifyCustomCodeToken,
   customCodeScriptName,
   customCodePreviewScriptName,
+  customCodeUploadName,
+  customCodePreviewUploadName,
   oauthProviders,
   resolveAttachment,
   isExposedResource,

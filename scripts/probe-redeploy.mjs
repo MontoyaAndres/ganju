@@ -75,11 +75,39 @@ const cf = async (p, init) => {
 // A GET on a script that is not in the namespace answers 200 with
 // `result.script: null`, not 404 — so presence is that field, never the status.
 const scriptExists = async name => {
+  if (!name) return false;
   const res = await cf(
     `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}`,
     { method: 'GET' }
   );
   return res.status === 200 && res.body?.result?.script != null;
+};
+
+// Every script this artifact owns. A name is minted per upload now, so the probe
+// cannot construct the names it is asserting about — it has to ask the namespace
+// which ones exist, and the database which one is live.
+const artifactScripts = async () => {
+  const res = await cf(
+    `/workers/dispatch/namespaces/${NAMESPACE}/scripts?per_page=100`,
+    { method: 'GET' }
+  );
+  return (res.body?.result ?? [])
+    .map(entry => entry.script_name || entry.id)
+    .filter(name => name && name.startsWith(`artifact_${artifactId}`));
+};
+
+// The name the currently published version records — the pointer the MCP boot
+// loop dispatches to, read from the same column it reads.
+const liveScriptName = async () => {
+  const [row] = await sql`
+    select v.script_name
+      from artifact_tool_version v
+      join artifact_tool t on t.id = v.artifact_tool_id
+     where t.artifact_id = ${artifactId}
+       and v.status = 'published'
+     limit 1
+  `;
+  return row?.script_name ?? null;
 };
 
 const userId = uuid();
@@ -271,8 +299,8 @@ try {
   // namespace state is empty. Leaving the rejected bundle would mean an artifact
   // advertising no tools while holding a script nobody asked for.
   check(
-    'and left no script behind, matching an artifact with no active version',
-    !(await scriptExists(`artifact_${artifactId}`))
+    'and left no script pointed at, matching an artifact with no active version',
+    (await liveScriptName()) === null
   );
 
   // --- 1. the first deploy, which every other probe already covers ---------
@@ -386,20 +414,17 @@ try {
     `active is v${stillActive?.version}, published was v${third.version}`
   );
 
-  // The other half of refusing. Publishing has to upload before it can check
-  // what a script exports, so a rejected publish has already replaced the
-  // running script — leaving the artifact advertising v3's tools over v4's
-  // bundle, and every one of them answering "this script does not export …".
-  // Refusing the publish is only correct if what was working still works.
+  // The other half of refusing, and it is now free. Publishing still has to
+  // upload before it can check what a script exports — the only way to ask is to
+  // deploy and call — but the upload goes to a name of its own, so the live
+  // script was never touched and there is nothing to put back. This used to be a
+  // restore that could itself fail; it is now a property of where the bytes went.
   const stillThird = await callTool('probe-renamed');
   check(
-    'the rejected publish restored the previously deployed script',
+    'the rejected publish left the previously deployed script serving',
     stillThird?.structuredContent?.marker === 'THIRD',
     `marker=${stillThird?.structuredContent?.marker}`
   );
-
-  // And the restore has to leave the marker describing the edition that is
-  // really serving, or the next publish waits on a version that never arrives.
   const fourth = await deploy(
     TOOL('probe-marker'),
     handlerReturning('probe-marker', 'FIFTH')
@@ -468,8 +493,8 @@ try {
   );
 
   check(
-    'and the preview script is not left behind',
-    !(await scriptExists(`artifact_${artifactId}_preview`))
+    'and no preview script is left behind',
+    (await artifactScripts()).every(name => !name.includes('_preview'))
   );
 
   // The live artifact is untouched by any of that: a test deploys to its own
@@ -487,11 +512,10 @@ try {
   failures.push('probe aborted');
 } finally {
   section('cleanup');
-  for (const name of [
-    `artifact_${artifactId}`,
-    `artifact_${artifactId}_preview`
-  ]) {
-    if (deployed) {
+  // Listed rather than constructed: one publish leaves one script, and this
+  // probe deliberately publishes several times.
+  if (deployed) {
+    for (const name of await artifactScripts()) {
       const del = await cf(
         `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${name}?force=true`,
         { method: 'DELETE' }

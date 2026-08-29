@@ -1239,9 +1239,39 @@ const CUSTOM_CODE_MAIN_MODULE = 'index.js';
 const CUSTOM_CODE_MAX_FILES = 25;
 const CUSTOM_CODE_MAX_FILE_PATH = 100;
 
-// WfP script name: `artifact_<artifactId>`. The id, never the slug — slugs are
-// user-editable and a rename would orphan the deployed script.
+// WfP script name: `artifact_<artifactId>_<upload>`. The id, never the slug —
+// slugs are user-editable and a rename would orphan the deployed script.
+//
+// The trailing segment is minted per upload rather than derived from anything,
+// which is the whole point: uploading over a name that already exists is not
+// read-your-writes, so a deploy that replaces a script can serve the previous
+// edition for up to half a minute. A name nothing has ever used cannot, and
+// costs nothing to mint. Everything a publish used to do to survive that race —
+// waiting on an edition marker, refusing with a 503, putting the previous bundle
+// back when validation failed — went with the reuse that caused it.
 const CUSTOM_CODE_SCRIPT_NAME_PREFIX = 'artifact_';
+
+// Worker names cap at 63 characters, and `artifact_<uuid>` already spends 45.
+// That leaves 17 for a separator and a suffix, so a second uuid does not fit and
+// neither does a hex-32 digest. Twelve hex characters is 48 bits against a
+// namespace holding at most a few hundred names for any one artifact — not a
+// collision worth checking for, and an upload to a name in use would fail loudly
+// rather than quietly serve the wrong code.
+const CUSTOM_CODE_SCRIPT_NAME_MAX = 63;
+const CUSTOM_CODE_UPLOAD_SUFFIX_CHARS = 12;
+
+// How long a superseded script stays in the namespace before the hourly sweep
+// may collect it.
+//
+// Deleting at publish time would race the thing it deletes: a tool call that
+// resolved the old pointer a moment earlier is still in flight, and the pointer
+// moving does not recall it. An hour is far longer than any call can take, and
+// the wait costs $0.02 per script per month against an allowance of 1,000.
+const CUSTOM_CODE_SWEEP_GRACE_MS = 60 * 60 * 1_000;
+
+// Deletes per sweep. A backlog drains over several hourly runs rather than
+// making one run unbounded — the same shape the retention purge uses.
+const CUSTOM_CODE_SWEEP_MAX_DELETES = 200;
 
 // A second script per artifact, `artifact_<id>_preview`, that the Test panel
 // deploys a draft into and calls.
@@ -1453,15 +1483,17 @@ const CUSTOM_CODE_COMPATIBILITY_DATE = '2025-11-17';
 // tighter than our own workers' 30s — this is the technical cap that bounds
 // what one adversarial call can cost us, so an infinite loop in a customer's
 // tool is billed as five seconds rather than as whatever it wanted.
-// How long publish waits for the edition it just uploaded to be the one the
-// dispatcher answers with, and how often it asks.
+// How long a deploy waits for a freshly minted script name to become
+// dispatchable, and how often it asks.
 //
-// Bounded rather than open-ended because this runs inside the publish request:
-// past this, publishing would be a request nobody waits out. Exceeding it is
-// reported as "try again" rather than published, which is the safe direction —
-// the alternative is advertising tools backed by a script that is not there yet.
-const CUSTOM_CODE_SMOKE_TIMEOUT_MS = 20_000;
-const CUSTOM_CODE_SMOKE_INTERVAL_MS = 1_000;
+// Every upload goes to a name that has never been used, which is
+// read-your-writes: ~2s end to end against the deployed namespace, against the
+// 20-41s a replacement could take. So this bounds how long a brand-new name
+// takes to register, never how long an old edition takes to stop answering —
+// there is no old edition. It is short for that reason, and a script that
+// answers with the wrong edition now fails outright instead of being waited on.
+const CUSTOM_CODE_REGISTER_TIMEOUT_MS = 8_000;
+const CUSTOM_CODE_REGISTER_INTERVAL_MS = 500;
 
 const CUSTOM_CODE_SCRIPT_CPU_MS = 5_000;
 
@@ -2465,6 +2497,10 @@ export const constants = {
   CUSTOM_CODE_MAX_FILE_PATH,
   CUSTOM_CODE_VERSION_STATUSES,
   CUSTOM_CODE_SCRIPT_NAME_PREFIX,
+  CUSTOM_CODE_SCRIPT_NAME_MAX,
+  CUSTOM_CODE_UPLOAD_SUFFIX_CHARS,
+  CUSTOM_CODE_SWEEP_GRACE_MS,
+  CUSTOM_CODE_SWEEP_MAX_DELETES,
   CUSTOM_CODE_PREVIEW_SCRIPT_SUFFIX,
   CUSTOM_CODE_PREVIEW_TOKEN_TTL_MS,
   CUSTOM_CODE_TEST_TIMEOUT_MS,
@@ -2506,8 +2542,8 @@ export const constants = {
   CUSTOM_CODE_BROKER_SERVICE_ENV,
   CUSTOM_CODE_COMPATIBILITY_DATE,
   CUSTOM_CODE_SCRIPT_CPU_MS,
-  CUSTOM_CODE_SMOKE_TIMEOUT_MS,
-  CUSTOM_CODE_SMOKE_INTERVAL_MS,
+  CUSTOM_CODE_REGISTER_TIMEOUT_MS,
+  CUSTOM_CODE_REGISTER_INTERVAL_MS,
   CUSTOM_CODE_MAX_LOGS,
   CUSTOM_CODE_MAX_LOG_LENGTH,
   CUSTOM_CODE_SEND_FILE_TARGET_GMAIL,

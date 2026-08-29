@@ -394,17 +394,29 @@ const business = async (c: Context<AppEnv>) => {
     .map(t => parseCustomCodeConfig(t.config)?.activeVersionId)
     .filter((id): id is string => !!id);
 
-  const versionToolsById = new Map<string, unknown>();
+  // `scriptName` rides along on the query that was already being made. It is
+  // the dispatch-namespace name the active version's bundle was uploaded to,
+  // and reading it here is what keeps the Postgres-first boot contract intact:
+  // the name a call dispatches to is a column, exactly like the tool list beside
+  // it, so the boot loop still never asks Cloudflare anything.
+  const versionById = new Map<
+    string,
+    { tools: unknown; scriptName: string | null }
+  >();
   if (activeVersionIds.length > 0) {
     const versions = await dbInstance
       .select({
         id: db.schema.artifactToolVersion.id,
-        tools: db.schema.artifactToolVersion.tools
+        tools: db.schema.artifactToolVersion.tools,
+        scriptName: db.schema.artifactToolVersion.scriptName
       })
       .from(db.schema.artifactToolVersion)
       .where(inArray(db.schema.artifactToolVersion.id, activeVersionIds));
     for (const version of versions) {
-      versionToolsById.set(version.id, version.tools);
+      versionById.set(version.id, {
+        tools: version.tools,
+        scriptName: version.scriptName
+      });
     }
   }
 
@@ -773,8 +785,16 @@ const business = async (c: Context<AppEnv>) => {
       // No published version yet is the ordinary state of a freshly installed
       // tool, not an error — the artifact simply contributes no tools.
       if (!codeConfig?.activeVersionId) continue;
-      const versionTools = versionToolsById.get(codeConfig.activeVersionId);
-      if (!versionTools) continue;
+      const activeVersion = versionById.get(codeConfig.activeVersionId);
+      if (!activeVersion) continue;
+      const versionTools = activeVersion.tools;
+
+      // A version published before script names were recorded has none, and its
+      // bundle really is sitting under the legacy derived name. Falling back is
+      // what keeps it serving: a version that stopped registering because a rule
+      // tightened underneath it is a failure invisible to whoever owns it.
+      const scriptName =
+        activeVersion.scriptName ?? utils.customCodeScriptName(artifact.id);
 
       // The enabled subset, absent/empty meaning all of them — read exactly the
       // way the mcp-proxy branch above reads its own allow-list. A tool turned
@@ -852,6 +872,7 @@ const business = async (c: Context<AppEnv>) => {
                 codeConfig,
                 {
                   artifactId: artifact.id,
+                  scriptName,
                   toolName: entry.name,
                   args
                 }

@@ -477,6 +477,13 @@
       "when": 1786999435929,
       "tag": "0067_version_source_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1788008006126,
+      "tag": "0068_version_script_name",
+      "breakpoints": true
     }
   ]
 }

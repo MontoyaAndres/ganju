@@ -3,7 +3,13 @@ import { utils } from '@ganju/utils';
 import { SDK_WORKER_MODULE } from '@ganju/sdk/workerModule';
 
 // types
+import type { EnvSource } from '@ganju/utils';
 import type { AppEnv } from '../types';
+
+// Everything that only talks to the Cloudflare REST API needs the environment
+// and nothing else. Typed as the narrower thing so the sweep, which runs from
+// the cron handler and has no request, can call the same helpers a route does.
+type CustomCodeEnv = EnvSource;
 
 const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4';
 
@@ -31,7 +37,7 @@ interface CloudflareResponse<T> {
  * the same silent-orphan failure the removal checklist warns about, except
  * self-inflicted on every publish.
  */
-const readConfig = (c: Context<AppEnv>): DispatchConfig => {
+const readConfig = (c: CustomCodeEnv): DispatchConfig => {
   const missing: string[] = [];
   const read = (name: string): string => {
     const value = utils.getEnv(c, name);
@@ -72,10 +78,22 @@ export interface DeployedScript {
   scriptTag: string;
   token: string;
   /**
-   * What the uploaded edition answers when asked which code it is running —
-   * the digest of the bytes this call put in the namespace. Handed to
-   * `smokeTestCustomCodeScript` so the wait is for these bytes and not merely
-   * for this version id.
+   * The dispatch-namespace name this upload went to, minted here and used
+   * nowhere else until the caller records it. Every other operation on this
+   * script — the health check, a test invocation, a delete — takes it as an
+   * argument rather than deriving it, because there is nothing left to derive
+   * it from.
+   */
+  scriptName: string;
+  /**
+   * What the uploaded edition answers when asked which code it is running — the
+   * digest of the bytes this call put in the namespace.
+   *
+   * No longer the thing a wait is spent on: a minted name has no previous
+   * edition to be confused with. It is kept as an assertion, because it is the
+   * only thing that can ever detect this class of bug again, and because under
+   * per-upload names a mismatch is not a race to wait out — it means something
+   * is already serving under a name we just minted.
    */
   edition: string;
 }
@@ -91,8 +109,19 @@ export const hashBundle = async (bundle: ArrayBuffer): Promise<string> => {
 };
 
 /**
- * Upload one version's bundle into the dispatch namespace as
- * `artifact_<artifactId>`, replacing whatever is deployed under that name.
+ * Upload one version's bundle into the dispatch namespace, under a name no
+ * upload has used before.
+ *
+ * The name is minted here rather than derived from the artifact, and that is the
+ * load-bearing part. Uploading over an existing name is not read-your-writes:
+ * measured against the deployed namespace, replacing a script served the
+ * previous edition for as long as 41 seconds, while a name never used before
+ * answered in 2. Publishing to a fresh name every time removes the race instead
+ * of waiting it out, which is why the caller records the returned name — it is
+ * the only thing that knows where these bytes went.
+ *
+ * A caller may pass `scriptName` to re-deploy to a name it already owns. Only
+ * rollback does, and only when the script it wants is gone from the namespace.
  *
  * Two bindings are injected here and nowhere else:
  *
@@ -113,17 +142,23 @@ export const deployCustomCodeScript = async (
     artifactId: string;
     versionId: string;
     bundle: ArrayBuffer;
-    // A test run rather than a publish: uploads to `artifact_<id>_preview` and
+    // A test run rather than a publish: mints a `…_preview_<hex>` name and
     // carries a token the broker accepts for a version that is not active.
-    // Nothing dispatches to that name, so a test cannot disturb what MCP
+    // Nothing dispatches to a preview name, so a test cannot disturb what MCP
     // clients are being served.
     preview?: boolean;
+    // Deploy to this exact name instead of minting one. Rollback's fallback,
+    // for the case where the version it is restoring has a recorded name whose
+    // script the sweep has since collected.
+    scriptName?: string;
   }
 ): Promise<DeployedScript> => {
   const config = readConfig(c);
-  const scriptName = input.preview
-    ? utils.customCodePreviewScriptName(input.artifactId)
-    : utils.customCodeScriptName(input.artifactId);
+  const scriptName =
+    input.scriptName ??
+    (input.preview
+      ? utils.customCodePreviewUploadName(input.artifactId)
+      : utils.customCodeUploadName(input.artifactId));
 
   const token = await utils.mintCustomCodeToken(
     {
@@ -160,15 +195,14 @@ export const deployCustomCodeScript = async (
         service: config.brokerService
       },
       // Not a secret — the digest of these bytes, so the health probe can say
-      // which edition is answering. Uploading a script is not read-your-writes,
-      // and tool names cannot tell two editions apart when a deploy renames
-      // nothing.
+      // which edition is answering.
       //
-      // The bytes and not the version id: a draft is re-uploaded in place, so a
-      // version id is the same string across every edit of the same draft and
-      // could never distinguish this upload from the one before it. Two uploads
-      // of identical bytes do share a marker, which is the one case where not
-      // telling them apart is the right answer.
+      // It no longer has a race to resolve: this upload goes to a name nothing
+      // has ever used, so the only script that can answer is this one. It stays
+      // because it is the only way to ever notice otherwise, and because it
+      // costs one plain-text binding to keep. Two uploads of identical bytes
+      // share a marker, which is the one case where not telling them apart is
+      // the right answer — and they no longer share a name.
       {
         type: 'plain_text',
         name: utils.constants.CUSTOM_CODE_BINDING_VERSION,
@@ -237,42 +271,45 @@ export const deployCustomCodeScript = async (
     // keeps scriptTag populated even if the API stops returning one.
     scriptTag: body.result?.etag || body.result?.id || scriptName,
     token,
+    scriptName,
     edition
   };
 };
 
 /**
- * Ask the freshly uploaded script what it is, until the answer is the edition we
- * just wrote, then check that it exports what the manifest declares.
+ * Ask the freshly uploaded script which tools it exports, and check that against
+ * what the version's manifest declares.
  *
- * Two problems in one wait, and the second is why the first has to be solved.
+ * The manifest and the bundle arrive through different endpoints and nothing
+ * before this point connects them, so "the manifest says `lookup-order`, the code
+ * exports `lookupOrder`" would otherwise survive to the first customer tool call,
+ * where it surfaces as a tool that exists in tools/list and fails every time it
+ * is used. Catching it here costs one dispatch at publish time.
  *
- * The manifest and the bundle are uploaded separately and nothing before this
- * point connects them, so "the manifest says `lookup-order`, the code exports
- * `lookupOrder`" would otherwise survive to the first customer tool call, where
- * it surfaces as a tool that exists in tools/list and fails every time it is
- * used. Catching it here costs one dispatch at publish time.
+ * This used to be a twenty-second wait as well as a check. It is not any more.
+ * Uploading over an existing name is not read-your-writes, so the old script
+ * could answer this question on the new script's behalf — and a deploy that
+ * renamed nothing got the right answer from the wrong code and published it. The
+ * name is now minted per upload, so the only script that can answer is the one
+ * just written, and the two failures separate cleanly:
  *
- * But uploading into a dispatch namespace is not read-your-writes: dispatching
- * to the name immediately afterwards can reach the previous edition. That was
- * invisible for as long as the only question asked was "which tools do you
- * export", because a deploy that renames nothing gets the right answer from the
- * wrong script — and then publishes, leaving the customer running code they did
- * not deploy until propagation caught up. Only a rename made it visible, as a
- * confusing "the bundle does not export …".
- *
- * So the script carries the digest of the bytes it was uploaded from, and this
- * waits for its own before it checks anything. A brand-new script answers on the
- * first try, which is why every probe against a throwaway artifact had always
- * passed.
+ *  - Nothing answers yet. A brand-new name takes a moment to register — ~2s
+ *    measured — so this retries briefly.
+ *  - Something answers as a different edition. Under a name nothing has ever
+ *    used, that is not propagation and waiting cannot fix it. It fails.
  *
  * Throws with a legible message on any failure; the caller records it on
- * `version.error` and refuses the publish.
+ * `version.error` and refuses the publish. Refusing is now cheap: the rejected
+ * bundle sits under a name nothing points at, and whatever was live is still
+ * live and untouched.
  */
 export const smokeTestCustomCodeScript = async (
   c: Context<AppEnv>,
   input: {
     artifactId: string;
+    // The name `deployCustomCodeScript` uploaded to. Passed rather than derived
+    // — deriving it is the thing this change removed.
+    scriptName: string;
     /**
      * The digest `deployCustomCodeScript` returned for the upload being
      * verified. Taken from that call rather than from the version row so it
@@ -286,7 +323,6 @@ export const smokeTestCustomCodeScript = async (
     // "Missing one or more required arguments to worker" — the probe is not
     // exempt just because it never reaches user code.
     allowedHosts: string[];
-    preview?: boolean;
   }
 ): Promise<void> => {
   const dispatcher = c.env.DISPATCH;
@@ -296,79 +332,52 @@ export const smokeTestCustomCodeScript = async (
     );
   }
 
-  const scriptName = input.preview
-    ? utils.customCodePreviewScriptName(input.artifactId)
-    : utils.customCodeScriptName(input.artifactId);
-
-  const deadline = Date.now() + utils.constants.CUSTOM_CODE_SMOKE_TIMEOUT_MS;
+  const deadline = Date.now() + utils.constants.CUSTOM_CODE_REGISTER_TIMEOUT_MS;
   // What the last attempt saw, and the whole content of the timeout message.
-  // "still answering as an older edition" and "nothing is answering yet" are
-  // both propagation, and the reader is owed which one they are waiting on.
   let waitingOn = 'the script has not answered yet';
-  // The tools an unmarked script reported, kept for the fallback below.
-  let unmarkedTools: string[] | null = null;
 
   for (;;) {
     const probed = await probeHealth(
       dispatcher,
-      scriptName,
+      input.scriptName,
       input.artifactId,
       input.allowedHosts
     );
 
     if (probed.answered) {
-      // The edition answering is the one we uploaded, so what it exports is
-      // what this version ships.
-      if (probed.edition === input.edition) {
-        assertExports(input.declaredTools, probed.tools);
-        return;
+      // A null edition means a script built before the marker existed. Under a
+      // minted name that cannot be a stale answer — nothing else has ever been
+      // deployed here — so it is accepted rather than waited on, and the export
+      // check is the same one either way.
+      if (probed.edition !== null && probed.edition !== input.edition) {
+        throw new Error(
+          `The deployed script reports a different edition (${probed.edition}) than the one just uploaded. This name should have been unused; something else is serving it.`
+        );
       }
 
-      if (probed.edition === null) {
-        // A script built before the marker existed cannot say what it is, and
-        // waiting on it forever would turn every publish over one into a
-        // timeout. But the upload we are verifying always carries a marker, so
-        // an unmarked answer is by definition the *previous* edition — treating
-        // it as the answer immediately would check the very script this wait
-        // exists to see past. So it waits like any other stale edition, and the
-        // name check it falls back to is kept for the deadline, where it is the
-        // best available answer rather than the first one.
-        unmarkedTools = probed.tools;
-        waitingOn =
-          'the dispatcher still answers with an edition too old to say which it is';
-      } else {
-        unmarkedTools = null;
-        waitingOn = `the dispatcher still answers with an older edition (${probed.edition})`;
-      }
-    } else {
-      // Nothing is serving this name yet. On a first deploy that is the shape
-      // propagation takes — the namespace has no script to dispatch to — so it
-      // waits exactly like a stale edition does rather than failing a publish
-      // for being early.
-      unmarkedTools = null;
-      waitingOn = probed.reason;
+      assertExports(input.declaredTools, probed.tools);
+      return;
     }
 
-    if (Date.now() >= deadline) {
-      if (unmarkedTools) {
-        assertExports(input.declaredTools, unmarkedTools);
-        return;
-      }
+    // Nothing is serving this name yet, which is what registering a new name
+    // looks like from here. It is the one case worth retrying, and it is short.
+    waitingOn = probed.reason;
 
+    if (Date.now() >= deadline) {
       // Carries its own status: an unmatched message is replaced with
       // "Internal Server Error" by the central handler, and this one is the
       // whole value of the failure — it tells the reader their code is fine and
       // to try again. 503 is what "not ready yet, retry" means.
       throw Object.assign(
         new Error(
-          `The uploaded script is not being served yet — ${waitingOn}. This is propagation, not your code: publish again in a moment.`
+          `The uploaded script is not being served yet — ${waitingOn}. This is the namespace registering a new script, not your code: publish again in a moment.`
         ),
         { status: 503 as const }
       );
     }
 
     await new Promise(resolve =>
-      setTimeout(resolve, utils.constants.CUSTOM_CODE_SMOKE_INTERVAL_MS)
+      setTimeout(resolve, utils.constants.CUSTOM_CODE_REGISTER_INTERVAL_MS)
     );
   }
 };
@@ -509,11 +518,11 @@ export const invokeCustomCodeScript = async (
   c: Context<AppEnv>,
   input: {
     artifactId: string;
+    scriptName: string;
     toolName: string;
     args: Record<string, unknown>;
     allowedHosts: string[];
     timeoutMs: number;
-    preview?: boolean;
   }
 ): Promise<CustomCodeRunResult> => {
   const dispatcher = c.env.DISPATCH;
@@ -523,10 +532,7 @@ export const invokeCustomCodeScript = async (
     );
   }
 
-  const scriptName = input.preview
-    ? utils.customCodePreviewScriptName(input.artifactId)
-    : utils.customCodeScriptName(input.artifactId);
-
+  const { scriptName } = input;
   const startedAt = Date.now();
 
   let response;
@@ -618,22 +624,18 @@ export const invokeCustomCodeScript = async (
 };
 
 /**
- * Remove an artifact's script from the dispatch namespace.
+ * Remove one script from the dispatch namespace, by name.
  *
- * Called when the custom-code tool is uninstalled. A 404 is success: the script
- * may never have been deployed (a tool installed but never published), and
- * failing an uninstall because the thing being removed is already gone would
- * leave the row undeletable.
+ * Called to clean up a preview script after a test run, to drop every script an
+ * artifact owns when its custom-code tool is uninstalled, and by the sweep. A
+ * 404 is success: the script may never have been deployed, and failing because
+ * the thing being removed is already gone would leave a row undeletable.
  */
 export const deleteCustomCodeScript = async (
-  c: Context<AppEnv>,
-  artifactId: string,
-  options: { preview?: boolean } = {}
+  c: CustomCodeEnv,
+  scriptName: string
 ): Promise<void> => {
   const config = readConfig(c);
-  const scriptName = options.preview
-    ? utils.customCodePreviewScriptName(artifactId)
-    : utils.customCodeScriptName(artifactId);
 
   const response = await fetch(`${scriptUrl(config, scriptName)}?force=true`, {
     method: 'DELETE',
@@ -644,5 +646,99 @@ export const deleteCustomCodeScript = async (
     throw new Error(
       `The deployed script could not be removed — ${await describeFailure(response)}`
     );
+  }
+};
+
+/**
+ * Whether a script is currently in the namespace.
+ *
+ * Rollback's question. Once each version owns a name, rolling back is usually
+ * just moving `activeVersionId` — the target's script is still deployed and
+ * nothing has to be uploaded. That is only true while the sweep has not
+ * collected it, so this is what decides between moving the pointer and
+ * re-uploading the stored bundle.
+ *
+ * One trap, and it is the one that made an early probe report every deleted
+ * script as still deployed: a GET on an absent dispatch script answers **200**
+ * with `result.script: null`, not 404. The status alone says nothing.
+ */
+export const customCodeScriptExists = async (
+  c: CustomCodeEnv,
+  scriptName: string
+): Promise<boolean> => {
+  const config = readConfig(c);
+
+  const response = await fetch(scriptUrl(config, scriptName), {
+    headers: { Authorization: `Bearer ${config.apiToken}` }
+  });
+
+  if (response.status === 404) return false;
+  if (!response.ok) {
+    throw new Error(
+      `The deployed script could not be read — ${await describeFailure(response)}`
+    );
+  }
+
+  const body = (await response.json().catch(() => null)) as CloudflareResponse<{
+    script?: unknown;
+    id?: string;
+  } | null> | null;
+
+  const result = body?.result;
+  if (!result) return false;
+
+  return 'script' in result ? result.script !== null : !!result.id;
+};
+
+/**
+ * Every script name in the dispatch namespace, with when it was last modified.
+ *
+ * The sweep's input. Paged, because the namespace holds one script per *upload*
+ * now rather than one per artifact, so the list grows with deploy activity until
+ * the sweep catches up with it.
+ */
+export const listCustomCodeScripts = async (
+  c: CustomCodeEnv
+): Promise<Array<{ name: string; modifiedAt: Date | null }>> => {
+  const config = readConfig(c);
+  const collected: Array<{ name: string; modifiedAt: Date | null }> = [];
+  let cursor: string | null = null;
+
+  for (;;) {
+    const url = new URL(
+      `${CLOUDFLARE_API_BASE}/accounts/${config.accountId}/workers/dispatch/namespaces/${config.namespace}/scripts`
+    );
+    url.searchParams.set('per_page', '100');
+    if (cursor) url.searchParams.set('cursor', cursor);
+
+    const response: Response = await fetch(url, {
+      headers: { Authorization: `Bearer ${config.apiToken}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `The dispatch namespace could not be listed — ${await describeFailure(response)}`
+      );
+    }
+
+    const body = (await response.json()) as CloudflareResponse<
+      Array<{ id?: string; script_name?: string; modified_on?: string }>
+    > & {
+      result_info?: { cursor?: string };
+    };
+
+    for (const script of body.result ?? []) {
+      const name = script.script_name || script.id;
+      if (!name) continue;
+      const modified = script.modified_on ? new Date(script.modified_on) : null;
+      collected.push({
+        name,
+        modifiedAt:
+          modified && !Number.isNaN(modified.getTime()) ? modified : null
+      });
+    }
+
+    cursor = body.result_info?.cursor || null;
+    if (!cursor) return collected;
   }
 };

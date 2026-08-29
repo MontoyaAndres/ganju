@@ -28,6 +28,7 @@ import {
   requestedMcpAudience,
   runOverageMetering,
   runRetentionPurge,
+  runCustomCodeScriptSweep,
   runErrorAlerts
 } from './utils';
 import {
@@ -646,6 +647,12 @@ export default {
     // Enforce the retention windows the privacy policy publishes. Batched, so
     // a long backlog drains over several hourly runs.
     ctx.waitUntil(runRetentionPurge({ env }));
+    // Collect dispatch-namespace scripts nothing points at. Every publish, test
+    // run and rejected bundle now writes to a name of its own — which is what
+    // makes a deploy read-your-writes — so superseded scripts accumulate until
+    // something removes them. Hourly and after a grace period, because a script
+    // is only safe to delete once no request can still be reaching it.
+    ctx.waitUntil(runCustomCodeScriptSweep({ env }));
     // The hourly tick also sweeps, so a missed 15-minute run still gets picked
     // up rather than waiting for the next one.
     ctx.waitUntil(runErrorAlerts({ env }));

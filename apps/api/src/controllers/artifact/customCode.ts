@@ -330,10 +330,12 @@ export { hashBundle } from '../../utils';
 // accept as input — the state transition itself is identical, and writing it
 // once is what keeps the "exactly one published version" invariant true.
 //
-// `version.scriptTag` is written through from the caller rather than read from
-// the row: the caller has just deployed and holds the tag the namespace returned
-// for the bytes now running. A rollback re-deploys the same source and gets a
-// tag of its own, so the column always names what is actually live.
+// `version.scriptTag` and `version.scriptName` are written through from the
+// caller rather than read from the row: the caller has just deployed and holds
+// both the tag the namespace returned and the name it uploaded to. A rollback
+// that found its script still deployed passes the row back unchanged, which
+// writes the same values already stored — the pointer moves and nothing else
+// does, which is the whole of what a rollback now costs.
 export const activateVersion = async (
   tx: DbExecutor,
   tool: CustomCodeToolRow,
@@ -360,6 +362,7 @@ export const activateVersion = async (
       // which is what makes "has this ever been published" answerable.
       publishedAt: version.publishedAt ?? new Date(),
       scriptTag: version.scriptTag,
+      scriptName: version.scriptName,
       error: null
     })
     .where(eq(db.schema.artifactToolVersion.id, version.id))

@@ -179,20 +179,100 @@ export const verifyCustomCodeToken = async (
 };
 
 /**
- * The dispatch-namespace script name for an artifact: `artifact_<id>`.
+ * The legacy dispatch-namespace script name for an artifact: `artifact_<id>`.
  *
  * The id, never the slug — slugs are user-editable and a rename would orphan the
  * deployed script while the database still pointed at a live version.
+ *
+ * Nothing uploads to this name any more; every deploy mints its own. It survives
+ * as the fallback for a version published before `script_name` existed, whose
+ * bundle really is sitting under this name. Tightening a rule must never stop an
+ * already-published version from serving, because that failure is invisible to
+ * whoever owns it — the same reason the boot loop still accepts a stored tool key
+ * the current catalog no longer offers.
  */
 export const customCodeScriptName = (artifactId: string): string =>
   `${constants.CUSTOM_CODE_SCRIPT_NAME_PREFIX}${artifactId}`;
 
 /**
- * The script name a test run deploys into: `artifact_<id>_preview`.
+ * The legacy preview script name: `artifact_<id>_preview`.
  *
- * A second script rather than a second version of the live one, because a test
- * must not be able to disturb what MCP clients are being served — and the only
- * way to be certain of that is for it to run under a name nothing dispatches to.
+ * Kept for the same reason as the one above, and for one more: it is the prefix
+ * the sweep matches to recognise a preview script left behind by a test run that
+ * did not clean up after itself.
  */
 export const customCodePreviewScriptName = (artifactId: string): string =>
   `${customCodeScriptName(artifactId)}${constants.CUSTOM_CODE_PREVIEW_SCRIPT_SUFFIX}`;
+
+/**
+ * A dispatch-namespace name no upload has ever used:
+ * `artifact_<id>_<12 hex chars>`.
+ *
+ * Minted rather than derived, and that is the entire design. Uploading over an
+ * existing name is not read-your-writes — a replacement can serve the previous
+ * edition for tens of seconds — so a deploy that always writes to a new name is
+ * correct by construction rather than by waiting to see whether it worked.
+ *
+ * The suffix deliberately carries no meaning. The two candidates that did are
+ * both wrong: the bundle digest collides whenever a deploy reverts to bytes that
+ * shipped before, which is exactly what a rollback is, and the version id is one
+ * string across every re-upload of a single draft, which is every test run of it.
+ *
+ * Twelve hex characters is what fits. Worker names cap at 63 and
+ * `artifact_<uuid>` spends 45 of them.
+ */
+export const customCodeUploadName = (artifactId: string): string =>
+  mintUploadName(customCodeScriptName(artifactId));
+
+/**
+ * A preview name no test run has ever used:
+ * `artifact_<id>_preview_<12 hex chars>`.
+ *
+ * The sharper version of the same race. Every test used to deploy over one
+ * preview name, so a test could report the run before it — which reads as "my
+ * edit did nothing" from the one tool whose whole job is to say what an edit
+ * does. Nothing stores this: it is minted, used, and deleted inside one request.
+ */
+export const customCodePreviewUploadName = (artifactId: string): string =>
+  mintUploadName(customCodePreviewScriptName(artifactId));
+
+/**
+ * Append `_<hex>` to a base name, spending whatever the 63-character ceiling
+ * leaves and no more.
+ *
+ * The budget is genuinely tight, and the two names spend it differently:
+ *
+ * | name | base | separator | suffix | total |
+ * |---|---|---|---|---|
+ * | live | `artifact_<uuid>` = 45 | 1 | 12 | 58 |
+ * | preview | + `_preview` = 53 | 1 | 8 | 62 |
+ *
+ * Twelve hex characters is 48 bits and eight is 32, against a namespace holding
+ * a few hundred names for any one artifact — and a preview name lives for the
+ * seconds one test run takes. Neither is a collision worth checking for, and an
+ * upload to a name already in use fails loudly rather than quietly serving the
+ * wrong code, which is the failure that matters.
+ *
+ * The ceiling is asserted rather than assumed: it is one number away from being
+ * silently exceeded by a longer prefix, and a name Cloudflare refuses would
+ * surface as a failed publish with nothing explaining why.
+ */
+const mintUploadName = (base: string): string => {
+  const available = constants.CUSTOM_CODE_SCRIPT_NAME_MAX - base.length - 1;
+  // Even, because each byte renders as two hex characters.
+  const chars =
+    Math.min(constants.CUSTOM_CODE_UPLOAD_SUFFIX_CHARS, available) & ~1;
+
+  if (chars < 4) {
+    throw new Error(
+      `A dispatch script name based on "${base}" leaves no room for a unique suffix.`
+    );
+  }
+
+  const bytes = new Uint8Array(chars / 2);
+  crypto.getRandomValues(bytes);
+
+  return `${base}_${Array.from(bytes)
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('')}`;
+};

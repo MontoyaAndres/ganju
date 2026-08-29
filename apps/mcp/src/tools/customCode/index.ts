@@ -88,6 +88,10 @@ export const executeCustomCodeCall = async (
   config: CustomCodeToolConfig,
   input: {
     artifactId: string;
+    // The dispatch-namespace name of the active version's bundle, read from the
+    // version row by the boot loop. Passed rather than derived: a name is minted
+    // per upload now, so there is no convention left to reconstruct it from.
+    scriptName: string;
     toolName: string;
     args: Record<string, unknown>;
   }
@@ -101,7 +105,7 @@ export const executeCustomCodeCall = async (
     };
   }
 
-  const scriptName = utils.customCodeScriptName(input.artifactId);
+  const { scriptName } = input;
 
   let script;
   try {

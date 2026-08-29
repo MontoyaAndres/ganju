@@ -57,6 +57,8 @@ import {
   smokeTestCustomCodeScript,
   invokeCustomCodeScript,
   deleteCustomCodeScript,
+  customCodeScriptExists,
+  listCustomCodeScripts,
   hashBundle
 } from './customCodeDeploy';
 import {
@@ -77,6 +79,7 @@ import { Plan } from './plan';
 import { createStripe, stripeCryptoProvider } from './stripe';
 import { runOverageMetering } from './metering';
 import { runRetentionPurge } from './retention';
+import { runCustomCodeScriptSweep } from './customCodeSweep';
 import { runErrorAlerts, recentErrors } from './alerting';
 import {
   consentActorFromRequest,
@@ -88,6 +91,7 @@ import {
 export {
   Plan,
   runRetentionPurge,
+  runCustomCodeScriptSweep,
   runErrorAlerts,
   recentErrors,
   consentActorFromRequest,
@@ -147,6 +151,8 @@ export {
   smokeTestCustomCodeScript,
   invokeCustomCodeScript,
   deleteCustomCodeScript,
+  customCodeScriptExists,
+  listCustomCodeScripts,
   hashBundle,
   beginMcpProxyOauth,
   completeMcpProxyOauth,
