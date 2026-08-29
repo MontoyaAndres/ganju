@@ -1102,7 +1102,9 @@ const business = async (c: Context<AppEnv>) => {
             refreshToken: cred.refreshToken,
             expiresAt: cred.expiresAt,
             scopes: cred.scopes,
-            needsReauth: cred.needsReauth === true
+            needsReauth: cred.needsReauth === true,
+            id: cred.id,
+            metadata: cred.metadata
           }))
       : [];
     const reauthRequired =

@@ -2979,6 +2979,27 @@ const createCredential = async (c: Context<AppEnv>) => {
     }
   });
 
+  // Cache the zone on the connected Cal.com profile, so the model can resolve
+  // "tomorrow at 9" from the moment the key is saved rather than from the first
+  // booking. After the commit and best-effort: the key is validated and stored
+  // either way, and the tool handler re-reads this when it goes stale. Note the
+  // replace path above nulls metadata, which is correct — a new key can be a
+  // different account — and this is what puts the zone back.
+  if (
+    createdId &&
+    currentValues.provider === utils.constants.API_KEY_PROVIDER_CALCOM
+  ) {
+    try {
+      const timeZone = await utils.fetchCalcomTimeZone(currentValues.apiKey);
+      await dbInstance
+        .update(db.schema.artifactCredential)
+        .set({ metadata: utils.writeCredentialTimeZone(null, timeZone) })
+        .where(eq(db.schema.artifactCredential.id, createdId));
+    } catch {
+      // Left for the tool handler's staleness check to pick up.
+    }
+  }
+
   return c.json({
     provider: currentValues.provider,
     status: 'ok',

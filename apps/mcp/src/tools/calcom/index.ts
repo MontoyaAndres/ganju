@@ -1,6 +1,10 @@
 import { utils } from '@ganju/utils';
 
 import { ToolContext, ToolDefinition } from '../types';
+import {
+  resolveEffectiveTimeZone,
+  refreshVendorTimeZoneIfStale
+} from '../timeZone';
 
 const CALCOM_API_BASE = utils.constants.CALCOM_API_BASE;
 
@@ -44,11 +48,24 @@ const resolveEventTypeId = (
 ): number | undefined =>
   cfgNumber(args.eventTypeId) ?? cfgNumber(context.config?.defaultEventTypeId);
 
-const resolveTimeZone = (
+// Explicit arg, then the group-level default, then the zone on the connected
+// Cal.com profile — the one the host's availability is written in, read from
+// `GET /v2/me` and cached on the credential.
+const resolveTimeZone = async (
   args: Record<string, unknown>,
   context: ToolContext
-): string | undefined =>
-  cfgString(args.timeZone) || cfgString(context.config?.defaultTimeZone);
+): Promise<string | undefined> => {
+  const explicit =
+    cfgString(args.timeZone) || cfgString(context.config?.defaultTimeZone);
+  if (explicit) return explicit;
+
+  await refreshVendorTimeZoneIfStale(
+    context,
+    context.credentials[0],
+    utils.fetchCalcomTimeZone
+  );
+  return resolveEffectiveTimeZone(args, context);
+};
 
 interface CalcomResponse {
   status?: string;
@@ -168,7 +185,7 @@ export const listAvailableSlots: ToolDefinition = {
         'Error: no event type. Set a default event type for this integration or pass eventTypeId (see calcom-list-event-types).'
       );
     }
-    const timeZone = resolveTimeZone(args, context);
+    const timeZone = await resolveTimeZone(args, context);
 
     const params = new URLSearchParams();
     params.set('eventTypeId', String(eventTypeId));
@@ -216,7 +233,7 @@ export const listAvailableSlots: ToolDefinition = {
 export const createBooking: ToolDefinition = {
   title: 'Cal.com: Create Booking',
   description:
-    "Book a Cal.com slot. Pass `start` (ISO 8601, UTC — one of the times returned by calcom-list-available-slots) and the attendee's `name` and `email`. The event type is the artifact's default unless you pass eventTypeId. attendeeTimeZone (IANA) defaults to the configured zone. In a channel conversation the attendee name/email come from the participant. Returns the booking UID (needed for calcom-cancel-booking) and status.",
+    "Book a Cal.com slot. Pass `start` (ISO 8601, UTC — one of the times returned by calcom-list-available-slots) and the attendee's `name` and `email`. The event type is the artifact's default unless you pass eventTypeId. Pass attendeeTimeZone (IANA) whenever the conversation reveals where the attendee is — it is what their confirmation and reminders are rendered in. Omitted, it falls back to the zone configured on the connected Cal.com account, which is a guess about the attendee rather than a fact. In a channel conversation the attendee name/email come from the participant. Returns the booking UID (needed for calcom-cancel-booking) and status.",
   schema: {
     type: 'object',
     properties: {
@@ -254,9 +271,23 @@ export const createBooking: ToolDefinition = {
         'Error: no event type. Set a default event type for this integration or pass eventTypeId (see calcom-list-event-types).'
       );
     }
+    // The attendee's zone, which is genuinely not the same question as the
+    // host's — we are booking on behalf of whoever is in the conversation, and
+    // nothing tells us where they are. The host's configured zone is the best
+    // available guess (a local business books local customers) and is a far
+    // better one than the 'UTC' this used to hardcode, which silently confirmed
+    // every booking in a zone nobody lives in. An explicit `attendeeTimeZone`
+    // still wins, and the model should pass one whenever the conversation
+    // reveals it.
+    await refreshVendorTimeZoneIfStale(
+      context,
+      context.credentials[0],
+      utils.fetchCalcomTimeZone
+    );
     const timeZone =
       cfgString(args.attendeeTimeZone) ||
       cfgString(context.config?.defaultTimeZone) ||
+      utils.readCredentialTimeZone(context.credentials[0]?.metadata) ||
       'UTC';
 
     const body: Record<string, unknown> = {

@@ -14,6 +14,8 @@ export interface ToolCredential {
   expiresAt?: Date | null;
   scopes?: string | null;
   needsReauth?: boolean;
+  id?: string;
+  metadata?: unknown;
 }
 
 export interface PromptInventoryArgument {

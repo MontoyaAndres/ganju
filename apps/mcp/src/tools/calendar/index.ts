@@ -1,6 +1,10 @@
 import { utils } from '@ganju/utils';
 
 import { ToolContext, ToolDefinition } from '../types';
+import {
+  resolveEffectiveTimeZone,
+  refreshVendorTimeZoneIfStale
+} from '../timeZone';
 
 const CALENDAR_API_BASE = utils.constants.GOOGLE_CALENDAR_API_BASE;
 
@@ -62,13 +66,27 @@ const resolveCalendarId = (
   return utils.constants.CALENDAR_DEFAULT_CALENDAR_ID;
 };
 
-// Time zone an event/lookup operates in: explicit arg wins, then the
-// group-level default, else undefined (Google falls back to the calendar zone).
-const resolveTimeZone = (
+// Time zone an event/lookup operates in. Explicit arg, then the group-level
+// default, then the zone the user set in Google Calendar itself — read from the
+// primary calendar and cached on the connection, refreshed here when it has
+// aged out. Undefined only when the vendor could not tell us either, in which
+// case Google falls back to the calendar's own zone for timestamps that carry
+// no offset.
+const resolveTimeZone = async (
   args: Record<string, unknown>,
   context: ToolContext
-): string | undefined =>
-  cfgString(args.timeZone) || cfgString(context.config?.defaultTimeZone);
+): Promise<string | undefined> => {
+  const explicit =
+    cfgString(args.timeZone) || cfgString(context.config?.defaultTimeZone);
+  if (explicit) return explicit;
+
+  await refreshVendorTimeZoneIfStale(
+    context,
+    context.credentials[0],
+    utils.fetchGoogleCalendarTimeZone
+  );
+  return resolveEffectiveTimeZone(args, context);
+};
 
 const calendarFetch = async (
   token: string,
@@ -361,7 +379,7 @@ export const listEvents: ToolDefinition = {
 export const createEvent: ToolDefinition = {
   title: 'Calendar: Create Event',
   description:
-    'Create an event on a calendar. Pass `summary` and `startTime` (ISO 8601). Give `endTime` (ISO 8601) or `durationMinutes`; if neither is set the configured default duration is used. You (the model) convert natural language like "tomorrow at 7am" into ISO before calling. Optionally set description, location, timeZone (IANA; omit to use the configured/calendar zone), and attendees (emails, who are emailed an invite). A Google Meet link is attached automatically when the integration is configured for it. Writes to the artifact\'s default calendar unless you pass calendarId. Returns the new event ID and a link.',
+    'Create an event on a calendar. Pass `summary` and `startTime` (ISO 8601). Give `endTime` (ISO 8601) or `durationMinutes`; if neither is set the configured default duration is used. You (the model) convert natural language like "tomorrow at 7am" into ISO before calling. Optionally set description, location, timeZone (IANA; omit to use the zone configured on the connected Google Calendar account), and attendees (emails, who are emailed an invite). A Google Meet link is attached automatically when the integration is configured for it. Writes to the artifact\'s default calendar unless you pass calendarId. Returns the new event ID and a link.',
   schema: {
     type: 'object',
     properties: {
@@ -411,7 +429,7 @@ export const createEvent: ToolDefinition = {
 
     const config = context.config || {};
     const calendarId = resolveCalendarId(args, context);
-    const timeZone = resolveTimeZone(args, context);
+    const timeZone = await resolveTimeZone(args, context);
     const attendees = utils.toStringArray(args.attendees);
 
     const startIso = String(args.startTime);
@@ -537,7 +555,7 @@ export const updateEvent: ToolDefinition = {
 
     const config = context.config || {};
     const calendarId = resolveCalendarId(args, context);
-    const timeZone = resolveTimeZone(args, context);
+    const timeZone = await resolveTimeZone(args, context);
 
     const body: Record<string, unknown> = {};
     if (args.summary !== undefined) body.summary = String(args.summary);
@@ -671,7 +689,7 @@ export const findFreeSlots: ToolDefinition = {
 
     const config = context.config || {};
     const calendarId = resolveCalendarId(args, context);
-    const timeZone = resolveTimeZone(args, context);
+    const timeZone = await resolveTimeZone(args, context);
 
     let windowStart = new Date(String(args.timeMin));
     let windowEnd = new Date(String(args.timeMax));

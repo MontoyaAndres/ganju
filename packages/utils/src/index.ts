@@ -218,6 +218,14 @@ import {
   isCredentialNeedingReauth
 } from './oauth';
 import type { RefreshOAuthTokenInput, RefreshedOAuthToken } from './oauth';
+import {
+  isValidTimeZone,
+  readCredentialTimeZone,
+  credentialTimeZoneIsStale,
+  writeCredentialTimeZone,
+  fetchGoogleCalendarTimeZone,
+  fetchCalcomTimeZone
+} from './vendorTimeZone';
 import { PlanLimitError, isPlanLimitError } from './planLimitError';
 import type { PlanLimitDetails } from './planLimitError';
 import type { PlanLimits } from './constants';
@@ -333,6 +341,12 @@ export const utils = {
   buildReauthMetadata,
   clearReauthMetadata,
   isCredentialNeedingReauth,
+  isValidTimeZone,
+  readCredentialTimeZone,
+  credentialTimeZoneIsStale,
+  writeCredentialTimeZone,
+  fetchGoogleCalendarTimeZone,
+  fetchCalcomTimeZone,
   PlanLimitError,
   isPlanLimitError
 };

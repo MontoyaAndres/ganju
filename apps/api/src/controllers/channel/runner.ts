@@ -528,19 +528,63 @@ export const runChannelTurn = async (
     artifactTools
   );
 
-  // Calendar tools share a fanned-out defaultTimeZone in their config; surface
-  // it so the model can resolve "today" / "9am" in the user's zone.
-  const hasCalendarTools = artifactTools.some(t =>
-    t.key.startsWith(utils.constants.CALENDAR_TOOL_KEY_PREFIX)
-  );
+  // Scheduling tools need the model to resolve "today" / "9am" before it calls
+  // anything — by the time a handler runs, the instant is already chosen. So the
+  // zone goes in the system prompt.
+  //
+  // Cal.com counts here as much as Google Calendar does. An earlier version
+  // checked only the `calendar-` prefix, so an artifact that booked exclusively
+  // through Cal.com got neither the zone nor the ISO-8601 instruction below.
+  const isSchedulingTool = (key: string): boolean =>
+    key.startsWith(utils.constants.CALENDAR_TOOL_KEY_PREFIX) ||
+    key.startsWith(utils.constants.CALCOM_TOOL_KEY_PREFIX);
+  const schedulingTools = artifactTools.filter(t => isSchedulingTool(t.key));
+  const hasCalendarTools = schedulingTools.length > 0;
+
   let channelTimeZone: string | null = null;
-  for (const t of artifactTools) {
-    if (!t.key.startsWith(utils.constants.CALENDAR_TOOL_KEY_PREFIX)) continue;
+  for (const t of schedulingTools) {
     const cfg = t.config as Record<string, unknown> | null;
     const tz = cfg?.defaultTimeZone;
     if (typeof tz === 'string' && tz) {
       channelTimeZone = tz;
       break;
+    }
+  }
+
+  // Nothing configured in our dashboard, which is the ordinary case — that
+  // field is only written when someone opens the dropdown and changes it. Fall
+  // back to the zone the user configured with the vendor, cached on the
+  // connection by the tool handlers. Read, never fetched: a chat turn must not
+  // wait on Google or Cal.com to answer before the model starts thinking.
+  if (!channelTimeZone && hasCalendarTools) {
+    const providers = Array.from(
+      new Set(
+        schedulingTools
+          .map(t =>
+            t.key.startsWith(utils.constants.CALENDAR_TOOL_KEY_PREFIX)
+              ? utils.constants.OAUTH_PROVIDER_GOOGLE_CALENDAR
+              : utils.constants.API_KEY_PROVIDER_CALCOM
+          )
+          .filter(Boolean)
+      )
+    );
+    if (providers.length > 0) {
+      const credentialRows = await dbInstance
+        .select({ metadata: db.schema.artifactCredential.metadata })
+        .from(db.schema.artifactCredential)
+        .where(
+          and(
+            eq(db.schema.artifactCredential.artifactId, artifactRow.id),
+            inArray(db.schema.artifactCredential.provider, providers)
+          )
+        );
+      for (const row of credentialRows) {
+        const cached = utils.readCredentialTimeZone(row.metadata);
+        if (cached) {
+          channelTimeZone = cached;
+          break;
+        }
+      }
     }
   }
 

@@ -178,6 +178,10 @@ const callback = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
 
+  // Carried out of the transaction for the time-zone read below, which runs
+  // after the commit so it cannot roll back a working connection.
+  let connectedArtifactId: string | null = null;
+
   await dbInstance.transaction(async tx => {
     const [project] = await tx
       .select()
@@ -203,6 +207,8 @@ const callback = async (c: Context<AppEnv>) => {
     if (!currentArtifactByProject) {
       throw new Error('Artifact not found for the project');
     }
+
+    connectedArtifactId = currentArtifactByProject.id;
 
     const [existingCredential] = await tx
       .select()
@@ -266,6 +272,48 @@ const callback = async (c: Context<AppEnv>) => {
         .where(eq(db.schema.artifact.id, currentArtifactByProject.id));
     }
   });
+
+  // Read the zone the user configured in Google Calendar and cache it on the
+  // connection, so the model has it from the moment the account is linked
+  // rather than from the first tool call. Best-effort and after the commit: a
+  // connection that works is worth more than a zone we can look up again, so
+  // nothing here can fail the callback the user is waiting on.
+  // Read back through a plain copy: the assignment above happens inside a
+  // callback, which control-flow analysis cannot see.
+  const linkedArtifactId: string | null = connectedArtifactId;
+  if (
+    provider === utils.constants.OAUTH_PROVIDER_GOOGLE_CALENDAR &&
+    linkedArtifactId
+  ) {
+    try {
+      const timeZone = await utils.fetchGoogleCalendarTimeZone(
+        tokenFields.access_token
+      );
+      const [row] = await dbInstance
+        .select({
+          id: db.schema.artifactCredential.id,
+          metadata: db.schema.artifactCredential.metadata
+        })
+        .from(db.schema.artifactCredential)
+        .where(
+          and(
+            eq(db.schema.artifactCredential.artifactId, linkedArtifactId),
+            eq(db.schema.artifactCredential.provider, provider)
+          )
+        )
+        .limit(1);
+      if (row) {
+        await dbInstance
+          .update(db.schema.artifactCredential)
+          .set({
+            metadata: utils.writeCredentialTimeZone(row.metadata, timeZone)
+          })
+          .where(eq(db.schema.artifactCredential.id, row.id));
+      }
+    } catch {
+      // Left for the tool handler's staleness check to pick up.
+    }
+  }
 
   const targetPage =
     provider === utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE ||

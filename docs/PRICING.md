@@ -208,7 +208,7 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 |---|---|
 | MCP servers | **Unlimited** (unlimited orgs, projects, artifacts) |
 | Tools / prompts | Unlimited (channels see at most ~40 — see Part 2.3) |
-| Custom code | ✅ WfP, CLI, templates, managed connections |
+| Custom code | ✅ WfP, CLI, managed connections |
 | LLM | Bring your own key |
 | Included storage | **1 GB** embedded content (~500,000 pages of text) |
 | Included messages | 3,000/month — of which **1,000 may run on Ganju's model** |

@@ -14,7 +14,7 @@ Users write a **Cloudflare Worker** — their own code, their own tool names, de
 
 Three properties this must have:
 
-1. **The catalog doesn't disappear, it becomes editable.** Templates that recreate the shipped tools, on top of managed connections. Same cards, same Connect button — the card now installs code the user can edit.
+1. **The catalog doesn't disappear.** Custom code sits *beside* the shipped integrations rather than replacing them — same cards, same Connect button, plus two tabs for the things a user writes. A user whose case the catalog covers should never have to write code for it.
 2. **Secrets never enter user code.** The broker mints short-lived access tokens; refresh tokens and client secrets stay server-side.
 3. **Boot never depends on the runtime.** Tool names and schemas live in Postgres, written at publish time — the same configure-time-discovery trick `mcp-proxy` already uses ([tools README](../apps/mcp/src/tools/README.md#key-design-choice-configure-time-discovery)).
 
@@ -35,12 +35,11 @@ Three properties this must have:
 
 ### Remove
 
-| Group | Tools | Why |
-|---|---|---|
-| `google-calendar` | 6 | Pure vendor wrapper, no container dependency, converts cleanly to a template. |
-| `calcom` | 4 | Same. Also our only non-Tavily API-key provider, so removing it simplifies `API_KEY_PROVIDERS`. |
+**Nothing.** This is a reversal, and worth stating as one: an earlier draft cut `google-calendar` (6 tools) and `calcom` (4) on the reasoning that both are pure vendor wrappers with no container dependency, which convert cleanly to templates.
 
-This cull is deliberately conservative — 10 of 60. The native surface can shrink further once templates prove out in production; revisit after Phase 6.
+Every word of that depended on templates existing. Absent them — see [Phase 8](#phase-8--templates--dropped) — removing a shipped integration does not convert it into anything. It deletes a working tool and offers the user an empty editor in its place, which is a worse product for the only people it affects. The cost of keeping a native group is now a handler and a catalog entry the compiler keeps in step ([the catalog is code](#1-the-tool-catalog-is-code-not-rows)), not a per-environment seeding step that could silently disagree with itself. That was most of the maintenance argument, and it is gone.
+
+So the native surface stays at 12 groups and 62 tools. Custom code sits beside it. The [removal checklist](#removal-checklist) is kept as reference for what removing a native group would touch, should that ever be worth doing — the mechanics are real even though nothing is scheduled.
 
 ### Add
 
@@ -252,7 +251,7 @@ Ordered so that nothing user-visible is removed before its replacement exists.
   Worth knowing if this is ever done again: the entitlement takes a few minutes to reach the API. `wrangler` kept returning `10121 You do not have access to dispatch namespaces` well after the dashboard showed the product as Active — an empty `[]` from `wrangler dispatch-namespace list` is the signal it has landed. Creating both namespaces up front costs nothing: the $25/mo is a per-account platform fee and namespaces aren't a billed unit, so the charge starts with the first script deployed into one, drawing on an account-wide 1,000-script allowance.
 - [x] Confirm current WfP pricing → verified August 2026 in [PRICING.md](PRICING.md#part-1--what-things-actually-cost-us): $25/mo including 1,000 scripts, then $0.02 per script per month
 - [x] Decide: managed-only connections for v1, or managed + BYO app from the start → **managed-only**, BYO deferred (Phase 5)
-- [ ] Decide: is the LLM-generates-the-tool flow in v1, or CLI + templates only
+- [ ] Decide: is the LLM-generates-the-tool flow in v1, or is the CLI the launch surface
 
 ### Phase 1 — Data model + publish API (no runtime) ✅
 
@@ -287,7 +286,7 @@ Five things worth knowing:
 
 - **The tool token is signed, not stored.** `GANJU_TOOL_TOKEN` is an HMAC over `{artifactId, versionId}` ([customCodeToken.ts](../packages/utils/src/customCodeToken.ts)), not a row. The broker verifies the signature *and* that the version is still `config.activeVersionId` — a check it makes against the row it already reads for the connection allow-list. That is what makes "rotated on every publish" real: a superseded script's credential stops working the instant a newer version lands, with no token table to keep in step.
 - **`ctx.log` never touches the broker.** Log lines are buffered in the isolate and returned with the result, then recorded on the `mcp_request` row. A log call that cost a network round trip would be a log call nobody makes.
-- **Publish now fails when the runtime isn't configured**, rather than degrading to a database-only state change. A publish that moves the pointer without deploying advertises tools to every MCP client with nothing behind them — the same silent orphan the [removal checklist](#removal-checklist-calendar--calcom) warns about, self-inflicted. Missing env vars are named in the error.
+- **Publish now fails when the runtime isn't configured**, rather than degrading to a database-only state change. A publish that moves the pointer without deploying advertises tools to every MCP client with nothing behind them — the same silent orphan the [removal checklist](#removal-checklist) warns about, self-inflicted. Missing env vars are named in the error.
 - **The smoke test earns its keep.** The manifest and the bundle arrive through different endpoints and nothing connects them until this: the reserved `__ganju_health` tool asks the deployed script which names it actually exports, and publish refuses when they don't cover what the manifest declares. `lookup-order` vs `lookupOrder` used to survive to the first customer call.
 - **`sendFile` was still Phase 5 at this point.** The route existed and returned 501; it landed in Phase 5 below.
 
@@ -335,7 +334,7 @@ Only `RESOURCE_TOOL_KEYS` was reserved, on custom-code manifests. `http-endpoint
 Closed in three parts:
 
 - **Reserved by namespace, not by blocklist.** [`isReservedToolName`](../packages/utils/src/reservedToolName.ts) owns the group prefixes (`gmail-`, `outlook-`, `slack-`, `calendar-`, `calcom-`, `web-`) plus the unprefixed keys. A list of the ~60 shipped keys would answer the wrong question: a name that is free at publish time is taken the moment someone installs a native tool using it. Owning the prefix means a tool added to any of those groups later can never collide with a name already published. `mcp-proxy` needs no entry — its names are always `<prefix>__<remote>`, and no native key contains the separator.
-- **Enforced on the write path only.** `CUSTOM_CODE_MANIFEST` and the new `HTTP_ENDPOINT_CONFIG_WRITE` carry the rule; the schemas apps/mcp reads a stored row with do not. Tightening a rule must never stop an already-installed tool from registering — that failure is invisible to the owner, and it's the same silent orphan the [removal checklist](#removal-checklist-calendar--calcom) warns about. There are no custom-code installs anywhere yet, but `http-endpoint` installs on production can't be checked from here, so the permissive read path is what makes this safe to ship.
+- **Enforced on the write path only.** `CUSTOM_CODE_MANIFEST` and the new `HTTP_ENDPOINT_CONFIG_WRITE` carry the rule; the schemas apps/mcp reads a stored row with do not. Tightening a rule must never stop an already-installed tool from registering — that failure is invisible to the owner, and it's the same silent orphan the [removal checklist](#removal-checklist) warns about. There are no custom-code installs anywhere yet, but `http-endpoint` installs on production can't be checked from here, so the permissive read path is what makes this safe to ship.
 - **Registration order made deterministic.** apps/mcp now sorts natives ahead of the three proxied definitions, ties broken by id. A legacy name that is reserved today keeps working and simply loses the tie to the native tool — which is also how the runner attributes it, so the tool that runs and the tool the usage row points at are finally the same one.
 
 One thing worth knowing: the message is a fixed string in constants rather than one that quotes the offending name, because [`localizeZodIssue`](../packages/utils/src/localizeZodIssue.ts) keys its translations on the exact English text. A 50-tool manifest still pinpoints the entry — through the issue `path` (`tools.3.name`), not the message. It also had to contain a word `matchStatus` recognises, or the http-endpoint path, which re-throws the issue message as a plain `Error`, would have answered 500 instead of 400.
@@ -804,7 +803,13 @@ Five things worth knowing:
 
 Also covered: minting and the hint; the prefix routing an OAuth-shaped token to the other path; every bound on the create schema, with the issue path and its Spanish rendering; expired and unknown tokens answering identically; `/me` reachable while the organization, the organization list and account deletion are not; `last_used_at` written when stale and left alone when fresh; the row holding no plaintext; revocation landing on the next request; the list never carrying a value; a project named under another organization's id refused; the cap being per project rather than per organization; and a token refused at all three management endpoints.
 
-**Verified over real HTTP** against a running API — the routes driven with a session cookie, then the built CLI as a subprocess with the minted token: `whoami` and `versions` work with no stored login, the sibling project and the organization are both refused with the scope message, minting another token under a token is refused, and revoking stops the credential on its next request. [probe-cli.mjs](../scripts/probe-cli.mjs) carries that CLI path as a permanent section, so it runs with the rest of the end-to-end probe.
+**Verified on the deployed development environment** by [probe-access-tokens.mjs](../scripts/probe-access-tokens.mjs) — 41 checks, all passing, first clean run. The verify script above drives the middleware and the controller as functions, which proves the rules and nothing about the deployment: not the routes, not the worker's environment, not that the migration ran. This one goes through the network at whatever is actually serving, and reads the row back out of the database the deployed worker wrote it to — so a missing 0069 is a failure here rather than a 500 in front of a customer.
+
+What only a deployed run shows: the routes exist and are wired to the middleware in the order the local run assumes; the confinement holds across the network, with a sibling project and the organization both refused by the deployed worker; an expired token and an unknown one come back identical from the real handler; and the CLI, run as a subprocess with nothing but `GANJU_API_TOKEN` in its environment, reaches the project over HTTPS exactly as a build agent would.
+
+One thing it cost to learn, and worth knowing before writing another probe against `development`: that environment sets `NODE_ENV = "production"` in its vars, so better-auth's `useSecureCookies` is on and it reads `__Secure-better-auth.session_token`. A probe signing only the unprefixed name gets a 401 that reads as a broken feature. Both names are sent, which is what [probe-cli.mjs](../scripts/probe-cli.mjs) already did and the reason it never hit this.
+
+[probe-cli.mjs](../scripts/probe-cli.mjs) also carries the CLI's own token commands as a permanent section — `create`, `list` and `revoke` after a real OAuth login, which is the half this probe cannot do, since it has no browser to sign in with.
 
 What is **not** verified is the dashboard panel in a browser. It typechecks and builds; the copy-once dialog is the part most worth clicking, since it is the only place the value is ever shown.
 
@@ -848,14 +853,23 @@ What that run establishes, in the order it checks it:
 
 The one step no script performs is a human signing in to Google or GitHub in a browser. The probe substitutes a signed session cookie for exactly that click and nothing else, so what remains unexercised is the identity provider's own page.
 
-### Phase 8 — Templates
+### Phase 8 — Templates ❌ dropped
 
-- [ ] Gmail / Outlook / Slack / Calendar / Cal.com / web-search templates on top of managed connections
-- [ ] Calendar + Cal.com templates must land **before** Phase 9
+Not built, and not deferred — **dropped**. Templates were the bridge between the old plan and the new one: shipped integrations rewritten as editable user code, so the catalog could be deleted without taking anything away from the people using it. Two things happened on the way here that removed the need for the bridge.
 
-### Phase 9 — Removal
+The catalog stopped being the thing custom code replaces. [Phase 6](#phase-6--dashboard-) put Functions and HTTP Endpoints *beside* Catalog rather than on top of it, and that shape is better than the one this phase was serving: a user whose case the shipped integrations cover connects an account and is done, and a user whose case they don't writes a function. A template is only valuable in a world where the first option is going away.
 
-Only after Phase 8. Deleting first fails *silently*: [mcp/index.ts:826-827](../apps/mcp/src/controllers/mcp/index.ts#L826-L827) does `toolRegistry.get(key)` → `if (!handler) continue`, so an orphaned install just stops registering — the tool vanishes from the customer's agent with no error. See the [removal checklist](#removal-checklist-calendar--calcom).
+And the catalog stopped being expensive to keep. It is code now, not seeded rows ([the catalog is code](#1-the-tool-catalog-is-code-not-rows)), so a shipped integration costs a handler and an entry that the compiler keeps in step — not a per-environment seeding step that could silently disagree with itself. The maintenance argument for converting them away went with it.
+
+What a template would still buy is a starting point for someone writing their first tool against a connection we already manage. That is a real thing and it is not this: it is an example in the docs, or a starter in `ganju init`, neither of which needs a phase or a data model.
+
+**The consequence for the next section is that it empties out.** [Phase 9](#phase-9--removal--dropped) existed to retire the two groups templates were going to replace. With no replacement coming and no maintenance argument left, nothing is retired — `google-calendar` and `calcom` both stay.
+
+### Phase 9 — Removal ❌ dropped
+
+Nothing is removed. This phase existed to retire `google-calendar` and `calcom` once templates could take their place; templates are [dropped](#phase-8--templates--dropped) and both groups stay — see [Remove](#remove).
+
+The hazard this phase was written around is still real and still worth knowing, because it applies to any native group we ever do retire: **deleting the code without deleting the rows fails silently.** [mcp/index.ts:826-827](../apps/mcp/src/controllers/mcp/index.ts#L826-L827) does `toolRegistry.get(key)` → `if (!handler) continue`, so an orphaned install stops registering — the tool vanishes from the customer's agent with no error anywhere they can see, while the row still sits in their dashboard and still spends a slot against their tool quota. Code and rows have to move together. The [removal checklist](#removal-checklist) is the inventory.
 
 ### Phase 10 — Plans, quotas, abuse
 
@@ -865,7 +879,9 @@ Only after Phase 8. Deleting first fails *silently*: [mcp/index.ts:826-827](../a
 
 ---
 
-## Removal checklist (calendar + calcom)
+## Removal checklist
+
+Not scheduled — see [Phase 9](#phase-9--removal--dropped). Kept because the inventory is the hard part of retiring a native group, and it is the same inventory whichever group it is. Written against `google-calendar` + `calcom`, the two that were once candidates.
 
 **Code**
 
@@ -893,7 +909,7 @@ Only after Phase 8. Deleting first fails *silently*: [mcp/index.ts:826-827](../a
 **Data** (rows are seeded out of band — see [DATA_MODEL.md](DATA_MODEL.md#conventions))
 
 - [ ] Migration: convert or delete `artifact_tool` rows for the 10 definitions, delete the `tool_definition` + `tool_group` rows, and clean up `artifact_credential` rows with provider `google-calendar` / `calcom`
-- [ ] Decide the story for existing installs: auto-migrate to the template, or in-app deprecation notice. **How much this matters depends on whether there are real production installs** — if not launched, delete freely.
+- [ ] Decide the story for existing installs: in-app deprecation notice, or delete freely. (Auto-migrating to a template was the original answer and is [no longer available](#phase-8--templates--dropped).) **How much this matters depends on whether there are real production installs** — if not launched, delete freely.
 
 **Docs**
 
@@ -967,7 +983,7 @@ That's the Vercel/Supabase evolution, and it's a better story than metering some
 | Tier | Extensibility |
 |---|---|
 | Free | resources + `mcp-proxy` (curated) + `http-endpoint` (capped at 1–3) |
-| Pro | + custom code on WfP, CLI, managed connections, templates |
+| Pro | + custom code on WfP, CLI, managed connections |
 | Enterprise | + BYO OAuth apps, multiple artifacts/scripts, arbitrary MCP URLs |
 
 Free gets no custom code at launch ([TASKS.md:61](../TASKS.md#L61) already says custom tools are Pro). `http-endpoint` *is* the free tier's custom tool — it already gives a custom name, description, and input schema against the user's own backend with no sandbox at all. A QuickJS-in-worker runtime for Free is a possible later hook; building two runtimes to serve non-paying users is the wrong order of work.
@@ -1031,5 +1047,5 @@ Two consequences: MCP clients degrade past ~50-80 tools, and the channel runner 
 ## Open questions
 
 1. ~~Managed-only connections for v1, or managed + BYO app from the start?~~ **Decided: managed-only for v1.** The connections surface reports `app: 'managed'` on every row, so a per-organization app can be reported through the same shape rather than forcing every consumer to learn a new one. Still open is *when* BYO lands — it's the pressure valve for the OAuth-liability risk below, so it should not drift indefinitely.
-2. Is the LLM-generates-the-tool flow in v1, or is CLI + templates the launch surface? (`organizationLlm` already exists, so the plumbing is there.)
-3. Are there real production installs of the calendar/calcom tools — i.e. how much migration does Phase 9 warrant?
+2. Is the LLM-generates-the-tool flow in v1, or is the CLI + the dashboard editor the launch surface? (`organizationLlm` already exists, so the plumbing is there.) Templates were the third answer to this and are [no longer on the table](#phase-8--templates--dropped).
+3. ~~Are there real production installs of the calendar/calcom tools — i.e. how much migration does Phase 9 warrant?~~ **Moot: neither group is being removed** ([Remove](#remove)). Worth recording what the question turned up before it was dropped, since it is the same question any future removal asks: the development database holds zero `artifact_tool` rows for `calcom-` keys and zero `artifact_credential` rows with provider `calcom`, and production has never run any of this.
