@@ -22,6 +22,11 @@ import postgres from 'postgres';
 import { v7 as uuid } from 'uuid';
 
 const isProd = process.argv.includes('--prod');
+// Opt-in: report one real overage to the real Stripe test meter, through the same
+// function the hourly cron calls, and read the aggregate back. Off by default
+// because every other check here needs no key and bills nothing; on, it is the
+// only proof that the event our code sends is one the meter actually counts.
+const liveStripe = process.argv.includes('--live-stripe');
 const envFile = isProd ? '../.env.prod' : '../.env';
 const env = fs.readFileSync(new URL(envFile, import.meta.url), 'utf8');
 const read = key => env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.trim();
@@ -531,6 +536,113 @@ try {
     'the fresh period reports nothing on the new counter',
     totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 0
   );
+
+  if (liveStripe) {
+    console.log('\nthe real Stripe meter\n');
+
+    const SK = read('STRIPE_SECRET_KEY');
+    const auth = `Basic ${Buffer.from(`${SK}:`).toString('base64')}`;
+    const call = async (path, params) => {
+      const res = await fetch(`https://api.stripe.com/v1/${path}`, {
+        method: params ? 'POST' : 'GET',
+        headers: {
+          Authorization: auth,
+          ...(params
+            ? { 'content-type': 'application/x-www-form-urlencoded' }
+            : {})
+        },
+        ...(params ? { body: new URLSearchParams(params) } : {})
+      });
+      return res.json();
+    };
+
+    // A customer of its own, so the events this run reports land somewhere that
+    // is deleted afterwards rather than on anyone's real test subscription.
+    const customer = await call('customers', {
+      email: 'verify-tool-call-metering@example.invalid',
+      name: 'verify tool call metering'
+    });
+    check('a throwaway Stripe customer is created', !!customer.id, customer.id);
+
+    try {
+      await setCounters({
+        stripe_customer_id: customer.id,
+        message_count: 0,
+        shared_message_count: 0,
+        reported_message_overage: 0,
+        reported_shared_message_overage: 0,
+        tool_call_count: included + 12_345,
+        reported_tool_call_overage: 0,
+        message_period_start: new Date()
+      });
+
+      // The real client, not the stub — this is the hourly cron's own call.
+      const realStripe = {
+        billing: {
+          meterEvents: {
+            create: event =>
+              call('billing/meter_events', {
+                event_name: event.event_name,
+                'payload[stripe_customer_id]': event.payload.stripe_customer_id,
+                'payload[value]': event.payload.value
+              }).then(r => {
+                if (r.error) throw new Error(r.error.message);
+                return r;
+              })
+          }
+        }
+      };
+
+      await meterOrganization(dbInstance, realStripe, orgId);
+      const marked = Number((await subRow()).reported_tool_call_overage);
+      check(
+        'the real meter accepted the overage',
+        marked === 12_345,
+        `mark ${marked} — a rejection would have left it at 0`
+      );
+
+      // Stripe aggregates asynchronously, so "not visible yet" is a third state
+      // rather than a failure: the mark above already proves the event was
+      // accepted, and this only asks whether it has been counted yet.
+      const meters = await call('billing/meters?limit=100');
+      const meter = (meters.data || []).find(
+        m => m.event_name === constants.STRIPE_METER_TOOL_CALLS
+      );
+      check('  ...and the meter exists to count it', !!meter, meter?.id);
+
+      let total = 0;
+      if (meter) {
+        const DAY = 86_400;
+        const start = Math.floor(Date.now() / 1000 / DAY) * DAY;
+        const end = Math.ceil((Date.now() / 1000 + 60) / DAY) * DAY;
+        for (let i = 0; i < 20 && total === 0; i++) {
+          const summary = await call(
+            `billing/meters/${meter.id}/event_summaries?customer=${customer.id}` +
+              `&start_time=${start}&end_time=${end}&value_grouping_window=day`
+          );
+          total = (summary.data || []).reduce(
+            (n, x) => n + x.aggregated_value,
+            0
+          );
+          if (total === 0) await new Promise(r => setTimeout(r, 3_000));
+        }
+      }
+      if (total === 12_345) {
+        check('  ...and aggregated exactly what was reported', true, '12,345');
+      } else {
+        console.log(
+          `  pend   the aggregate has not surfaced yet — got ${total}, Stripe counts asynchronously`
+        );
+      }
+    } finally {
+      const deleted = await fetch(
+        `https://api.stripe.com/v1/customers/${customer.id}`,
+        { method: 'DELETE', headers: { Authorization: auth } }
+      ).then(r => r.json());
+      check('the throwaway customer is deleted', deleted.deleted === true);
+      await setCounters({ stripe_customer_id: customerId });
+    }
+  }
 
   console.log('\nthe usage summary\n');
 

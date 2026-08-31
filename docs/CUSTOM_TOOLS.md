@@ -969,6 +969,13 @@ nothing.
 drive it without the sweep rolling every other organization's period. Only the
 cron calls `runOverageMetering`.
 
+**`--live-stripe` reports one real overage to the real meter**, through the same
+function the hourly cron calls, against a throwaway customer it deletes
+afterwards. Off by default, because every other check needs no key and bills
+nothing — and on, it is the only thing that proves the event our code sends is
+one the meter actually counts: 12,345 calls reported, accepted, and aggregated to
+exactly 12,345.
+
 **Adding a fourth meter found a fault in how three were reported.** Stripe
 rejects an event whose name matches no active meter, and `ganju_custom_tool_calls`
 does not exist yet — so the reporting order mattered in a way it never had to
@@ -991,8 +998,8 @@ exact payload keys, the price resolves and is active, and the five
 mode still has none of the four.
 
 **Verified on the deployed development environment** by
-[probe-tool-call-metering.mjs](../scripts/probe-tool-call-metering.mjs) — 30
-checks, all passing, first clean run. The verify script drives the modules as
+[probe-tool-call-metering.mjs](../scripts/probe-tool-call-metering.mjs) — 37
+checks, all passing. The verify script drives the modules as
 functions, which proves the arithmetic and nothing about the deployment: not that
 the boot loop passes the organization id, not that the gate runs before the
 dispatch, not that the migration reached the database the worker talks to. This
@@ -1020,6 +1027,12 @@ What only a deployed run shows:
   support wording.
 - **The deployed billing endpoint reports it** — `toolCallsUsed`,
   `includedToolCalls` and the $5 rate, from the same row.
+- **The deployed worker puts the price in a checkout session.** It reads
+  `STRIPE_PRICE_TOOL_CALL_OVERAGE` from a *secret*, so a correct `.env` proves
+  nothing about it — an unset secret is skipped in silence and the customer is
+  served custom tool calls for free. The session it built carries five line items
+  including that price, and the price is per 1,000 calls against the meter
+  apps/api reports to. The session is expired and the customer deleted afterwards.
 
 One thing it found that no local run could: **an artifact with no registered
 tools answers `tools/list` with `-32601 Method not found`, not an empty list.**

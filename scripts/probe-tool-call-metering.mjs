@@ -46,7 +46,8 @@ for (const [k, v] of Object.entries({
   JWT_SECRET,
   MCP_INTERNAL_SECRET: MCP_SECRET,
   CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
-  CUSTOM_CODE_CF_API_TOKEN: CF_TOKEN
+  CUSTOM_CODE_CF_API_TOKEN: CF_TOKEN,
+  STRIPE_SECRET_KEY: read('STRIPE_SECRET_KEY')
 })) {
   if (!v) throw new Error(`Missing ${k} in .env`);
 }
@@ -191,6 +192,26 @@ const counterReaches = async (expected, tries = 25) => {
   }
   return false;
 };
+
+// Stripe, read directly, to check what the DEPLOYED worker built. A checkout
+// session is the only place the price ids are assembled, and the worker reads
+// them from secrets — so a correct .env proves nothing about it.
+const STRIPE_KEY = read('STRIPE_SECRET_KEY');
+const stripe = async (path, params) => {
+  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method: params ? 'POST' : 'GET',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${STRIPE_KEY}:`).toString('base64')}`,
+      ...(params ? { 'content-type': 'application/x-www-form-urlencoded' } : {})
+    },
+    ...(params ? { body: new URLSearchParams(params) } : {})
+  });
+  return res.json();
+};
+
+// Anything created in Stripe by this run, undone in the finally block.
+let checkoutSessionId = null;
+let stripeCustomerId = null;
 
 const artifactBase = `/organization/${orgId}/project/${projectId}/artifact`;
 const ccBase = `${artifactBase}/custom-code`;
@@ -518,6 +539,82 @@ try {
     '  ...and re-enabling brings them back',
     restoredTools.some(t => t.name === 'meter-echo')
   );
+
+  // --- 8. checkout, built by the deployed worker --------------------------
+  section('the price the deployed worker puts in a checkout session');
+
+  // Checkout refuses an organization that is already paid, so this asks as a
+  // Free one — which is also the only shape that ever reaches this route.
+  await setCounters({ plan: 'FREE', tool_call_count: 0 });
+
+  const checkout = await api(`/organization/${orgId}/billing/checkout`, {
+    method: 'POST'
+  });
+  check(
+    'the deployed worker builds a checkout session',
+    checkout.status === 200 && typeof checkout.body?.url === 'string',
+    JSON.stringify(checkout.body).slice(0, 200)
+  );
+
+  if (checkout.body?.url) {
+    const sessionId = new URL(checkout.body.url).pathname.split('/').pop();
+    // The hosted URL carries a `cs_test_…#fid…` fragment; the id is the part
+    // before the fragment, and Stripe's own id is what the API is keyed by.
+    const [sub] = await sql`
+      select stripe_customer_id from subscription where organization_id = ${orgId}`;
+    stripeCustomerId = sub?.stripe_customer_id ?? null;
+    check(
+      '  ...against a Stripe customer it created for the org',
+      typeof stripeCustomerId === 'string' &&
+        stripeCustomerId.startsWith('cus_'),
+      String(stripeCustomerId)
+    );
+
+    // Find the session by customer rather than by parsing the hosted URL, which
+    // is not a documented shape.
+    const sessions = await stripe(
+      `checkout/sessions?customer=${stripeCustomerId}&limit=1`
+    );
+    const session = sessions.data?.[0];
+    checkoutSessionId = session?.id ?? null;
+    check(
+      '  ...that Stripe can be asked about',
+      !!session,
+      session?.id || sessions.error?.message || sessionId
+    );
+
+    if (session) {
+      const items = await stripe(`checkout/sessions/${session.id}/line_items`);
+      const priceIds = (items.data || []).map(li => li.price.id);
+      check(
+        'the session carries all five line items',
+        priceIds.length === 5,
+        `${priceIds.length} items`
+      );
+      // The whole point of setting the secret: an unset one is skipped in
+      // silence, and the customer is served custom tool calls for free.
+      const toolCallPrice = read('STRIPE_PRICE_TOOL_CALL_OVERAGE');
+      check(
+        '  ...including the custom tool call price the secret names',
+        priceIds.includes(toolCallPrice),
+        priceIds.join(', ')
+      );
+
+      const price = await stripe(`prices/${toolCallPrice}`);
+      check(
+        '  ...priced per 1,000 calls, not per million',
+        price.transform_quantity?.divide_by === 1000 &&
+          price.unit_amount_decimal === '0.5',
+        `${price.unit_amount_decimal}¢ per ${price.transform_quantity?.divide_by}`
+      );
+      check(
+        '  ...against the meter apps/api reports to',
+        price.recurring?.meter &&
+          (await stripe(`billing/meters/${price.recurring.meter}`))
+            .event_name === 'ganju_custom_tool_calls'
+      );
+    }
+  }
 } finally {
   section('Cleaning up');
 
@@ -528,6 +625,31 @@ try {
     );
     console.log(
       `  ${res.status === 200 || res.status === 404 ? 'removed' : 'FAILED '} ${name}`
+    );
+  }
+
+  if (checkoutSessionId) {
+    const expired = await stripe(
+      `checkout/sessions/${checkoutSessionId}/expire`,
+      {}
+    );
+    console.log(
+      `  ${expired?.status === 'expired' ? 'expired' : 'FAILED '} checkout session ${checkoutSessionId}`
+    );
+  }
+  if (stripeCustomerId) {
+    const res = await fetch(
+      `https://api.stripe.com/v1/customers/${stripeCustomerId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${STRIPE_KEY}:`).toString('base64')}`
+        }
+      }
+    );
+    const body = await res.json().catch(() => ({}));
+    console.log(
+      `  ${body.deleted ? 'deleted' : 'FAILED '} stripe customer ${stripeCustomerId}`
     );
   }
 
