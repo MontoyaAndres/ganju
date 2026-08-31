@@ -949,7 +949,7 @@ privacy, the pricing page, the docs and the plan tables all said "only two thing
 are metered" and now say three, in both languages.
 
 **Verified** by [scripts/verify-tool-call-metering.mjs](../scripts/verify-tool-call-metering.mjs)
-— 45 checks, all passing, driving the real modules rather than restating their
+— 51 checks, all passing, driving the real modules rather than restating their
 arithmetic: apps/mcp's `flushRequests` for the counting, `@ganju/db`'s budget for
 the cap, and apps/api's `meterOrganization` for what reaches Stripe, with a stub
 that records meter events instead of billing them. It scaffolds a throwaway PRO
@@ -969,13 +969,64 @@ nothing.
 drive it without the sweep rolling every other organization's period. Only the
 cron calls `runOverageMetering`.
 
-**Not verified on the deployed stack, and it cannot be until it ships.** The
-development workers predate this code, so the two things only a deployed run
-shows are still open: the hard-cap refusal coming back through a real MCP client,
-and the counter moving on a real dispatch rather than on a `flushRequests` call
-made from a script. Both are one probe once development is redeployed — and the
-migration has to go with it, since `select *` on `subscription` names a column an
-unmigrated database does not have.
+**Adding a fourth meter found a fault in how three were reported.** Stripe
+rejects an event whose name matches no active meter, and `ganju_custom_tool_calls`
+does not exist yet — so the reporting order mattered in a way it never had to
+before. The rejection escaped `reportMeter` and aborted the organization's whole
+run *after* the message and storage events had been sent and *before* the marks
+recording them were written, which would have had the next hourly run report the
+same messages a second time. Each meter now reports independently and only the
+marks whose event actually landed advance: a mark that moves without its event
+loses that usage for good, because the mark is the only memory of what was
+billed, while a mark that stays put costs one retry. The run after the meter
+exists reports everything the rejections missed, in full.
+
+**The Stripe objects exist in test mode.** `ganju_custom_tool_calls` is an active
+meter with the same shape as the other three, and the Pro product carries a
+metered price at **$0.005 per 1,000 calls** — $5 per million, in a package small
+enough that Stripe's round-up costs half a cent rather than $5. Confirmed by the
+three things that fail silently otherwise: the meter accepts an event carrying our
+exact payload keys, the price resolves and is active, and the five
+`STRIPE_PRICE_*` values assemble into a valid five-item checkout session. Live
+mode still has none of the four.
+
+**Verified on the deployed development environment** by
+[probe-tool-call-metering.mjs](../scripts/probe-tool-call-metering.mjs) — 30
+checks, all passing, first clean run. The verify script drives the modules as
+functions, which proves the arithmetic and nothing about the deployment: not that
+the boot loop passes the organization id, not that the gate runs before the
+dispatch, not that the migration reached the database the worker talks to. This
+one publishes a real script into the dispatch namespace, calls it over the real
+MCP endpoint, and reads the counter back out of the row the deployed worker
+wrote.
+
+What only a deployed run shows:
+
+- **The counter moves on a real dispatch**, and once per call — three calls, three
+  counts — while `tools/list` and `initialize` move it not at all.
+- **Publishing moves it not at all.** A publish smoke-tests through the
+  dispatcher and a test run drives a preview script; neither is a customer's tool
+  call, and the counter is still 0 after a deploy.
+- **A function that throws still counts.** The call came back `isError` with the
+  script's own message, and the count went up — it spent the compute.
+- **The refusal reaches a real MCP client as an answer.** At the cap the call
+  came back *"this organization has reached its monthly limit of 20,000,000
+  custom tool calls"*, the row landed on `mcp_request` with `custom tool call cap
+  reached`, the refusal itself counted nothing, and — the point of checking at
+  call time — **the tools stayed listed**. Below the cap the next call worked, so
+  the refusal is not sticky.
+- **A downgraded organization keeps serving.** On FREE with a published script,
+  calls ran up to 10,000 and then stopped with the upgrade wording rather than the
+  support wording.
+- **The deployed billing endpoint reports it** — `toolCallsUsed`,
+  `includedToolCalls` and the $5 rate, from the same row.
+
+One thing it found that no local run could: **an artifact with no registered
+tools answers `tools/list` with `-32601 Method not found`, not an empty list.**
+The MCP SDK advertises no `tools` capability when nothing registered, so
+suspending an artifact's only tool row makes clients report the method as
+missing. That is the correct state and it is what a suspended artifact looks like
+from outside — worth knowing before reading it as a broken server.
 
 #### The process, and the command it leans on
 

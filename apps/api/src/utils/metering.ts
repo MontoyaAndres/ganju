@@ -19,21 +19,41 @@ const limitsFor = (plan: string): PlanLimits =>
   (constants.PLAN_LIMITS as Record<string, PlanLimits>)[plan] ??
   constants.PLAN_LIMITS.FREE;
 
-// Report a single overage meter event (no-op when the delta is non-positive).
+/**
+ * Report a single overage meter event, and say whether it landed.
+ *
+ * A failure is logged and contained rather than thrown. One meter can be absent
+ * while the others exist — that is the ordinary state of a rate between shipping
+ * the code that reports it and creating the Stripe objects behind it, and Stripe
+ * rejects an event whose name matches no active meter. If that rejection escaped
+ * here it would take the whole run for this organization with it, BEFORE the
+ * marks are written: the events that did land would go unrecorded, and the next
+ * hourly run would report the same usage again. A missing meter must cost us a
+ * rate, never a customer a second invoice for the same messages.
+ */
 const reportMeter = async (
   stripe: Stripe,
   eventName: string,
   customerId: string,
   delta: number
-): Promise<void> => {
-  if (delta <= 0) return;
-  await stripe.billing.meterEvents.create({
-    event_name: eventName,
-    payload: {
-      stripe_customer_id: customerId,
-      value: String(delta)
-    }
-  });
+): Promise<boolean> => {
+  if (delta <= 0) return false;
+  try {
+    await stripe.billing.meterEvents.create({
+      event_name: eventName,
+      payload: {
+        stripe_customer_id: customerId,
+        value: String(delta)
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error(
+      `[metering] ${eventName} rejected for ${customerId}:`,
+      error instanceof Error ? error.message : error
+    );
+    return false;
+  }
 };
 
 // Push this org's current-period overage to Stripe. Reports only the increment
@@ -108,58 +128,59 @@ export const meterOrganization = async (
       : 0;
   const embeddedDelta = embeddedOverageMb - sub.reportedEmbeddedOverageMb;
 
-  if (messageDelta > 0) {
-    await reportMeter(
-      stripe,
-      constants.STRIPE_METER_MESSAGES,
-      sub.stripeCustomerId,
-      messageDelta
-    );
-  }
-  if (sharedDelta > 0) {
-    await reportMeter(
-      stripe,
-      constants.STRIPE_METER_SHARED_MESSAGES,
-      sub.stripeCustomerId,
-      sharedDelta
-    );
-  }
-  if (embeddedDelta > 0) {
-    await reportMeter(
-      stripe,
-      constants.STRIPE_METER_EMBEDDED,
-      sub.stripeCustomerId,
-      embeddedDelta
-    );
-  }
-  if (toolCallDelta > 0) {
-    await reportMeter(
-      stripe,
-      constants.STRIPE_METER_TOOL_CALLS,
-      sub.stripeCustomerId,
-      toolCallDelta
-    );
-  }
+  // Each meter reports on its own, so one that is missing or rejecting can't
+  // take the others down with it. What comes back is whether the event landed —
+  // which is what the marks below are written from.
+  const messageReported = await reportMeter(
+    stripe,
+    constants.STRIPE_METER_MESSAGES,
+    sub.stripeCustomerId,
+    messageDelta
+  );
+  const sharedReported = await reportMeter(
+    stripe,
+    constants.STRIPE_METER_SHARED_MESSAGES,
+    sub.stripeCustomerId,
+    sharedDelta
+  );
+  const embeddedReported = await reportMeter(
+    stripe,
+    constants.STRIPE_METER_EMBEDDED,
+    sub.stripeCustomerId,
+    embeddedDelta
+  );
+  const toolCallReported = await reportMeter(
+    stripe,
+    constants.STRIPE_METER_TOOL_CALLS,
+    sub.stripeCustomerId,
+    toolCallDelta
+  );
 
-  // Advance only the marks whose meter event actually went through, so a failure
-  // on one meter can't mark another's usage as billed.
+  // Advance only the marks whose meter event actually went through. A mark that
+  // moves without its event loses that usage for good — nothing re-derives it,
+  // because the mark IS the memory of what was billed. A mark that stays put
+  // costs nothing but a retry on the next run.
   if (
-    messageDelta > 0 ||
-    sharedDelta > 0 ||
-    embeddedDelta > 0 ||
-    toolCallDelta > 0
+    messageReported ||
+    sharedReported ||
+    embeddedReported ||
+    toolCallReported
   ) {
     await executor
       .update(db.schema.subscription)
       .set({
-        reportedMessageOverage:
-          messageDelta > 0 ? messageOverage : sub.reportedMessageOverage,
-        reportedSharedMessageOverage:
-          sharedDelta > 0 ? sharedOverage : sub.reportedSharedMessageOverage,
-        reportedEmbeddedOverageMb:
-          embeddedDelta > 0 ? embeddedOverageMb : sub.reportedEmbeddedOverageMb,
-        reportedToolCallOverage:
-          toolCallDelta > 0 ? toolCallOverage : sub.reportedToolCallOverage
+        reportedMessageOverage: messageReported
+          ? messageOverage
+          : sub.reportedMessageOverage,
+        reportedSharedMessageOverage: sharedReported
+          ? sharedOverage
+          : sub.reportedSharedMessageOverage,
+        reportedEmbeddedOverageMb: embeddedReported
+          ? embeddedOverageMb
+          : sub.reportedEmbeddedOverageMb,
+        reportedToolCallOverage: toolCallReported
+          ? toolCallOverage
+          : sub.reportedToolCallOverage
       })
       .where(eq(db.schema.subscription.id, sub.id));
   }

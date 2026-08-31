@@ -108,6 +108,12 @@ and no further: every step below the first breaks something a customer built.
    record. This sets `artifact_tool.enabled = false`: the tools stop registering
    at boot, so nothing can call them, and the code, versions and settings survive.
    Reversible with `--restore`.
+
+   **What the customer's client sees**: the tools are gone from `tools/list`, and
+   if this was the artifact's *only* tool row, `tools/list` itself answers
+   `-32601 Method not found` — an MCP server with nothing registered advertises no
+   tools capability. Expect "my server is broken" rather than "my tools are off",
+   and say which it is when you contact them.
 3. **Remove the bundles from the namespace.**
 
    ```bash

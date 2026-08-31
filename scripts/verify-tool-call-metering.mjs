@@ -97,13 +97,21 @@ const LIMITS = constants.PLAN_LIMITS;
 // A Stripe stand-in that records what it was asked to bill. Same shape the real
 // client exposes, and nothing else — meterOrganization only ever calls this one
 // method.
-const makeStripe = () => {
+// `rejecting` names meters that answer the way Stripe answers an event whose
+// name matches no active meter — which is the state every rate is in between
+// shipping the code that reports it and creating the objects behind it.
+const makeStripe = (rejecting = []) => {
   const events = [];
   return {
     events,
     billing: {
       meterEvents: {
         async create(event) {
+          if (rejecting.includes(event.event_name)) {
+            throw new Error(
+              `Event name '${event.event_name}' does not match any active meter`
+            );
+          }
           events.push(event);
           return event;
         }
@@ -437,6 +445,58 @@ try {
     (await subRow()).reported_tool_call_overage === 400
   );
 
+  console.log('\na meter that does not exist yet\n');
+
+  // The live state of the tool-call meter today, and the reason this is checked
+  // rather than assumed: a rejection that escaped would abort the run BEFORE the
+  // marks are written, leaving the events that DID land unrecorded — and the next
+  // hourly run would bill that same usage a second time.
+  await setCounters({
+    message_count: LIMITS.PRO.includedMessages + 300,
+    shared_message_count: 0,
+    reported_message_overage: 0,
+    tool_call_count: included + 900,
+    reported_tool_call_overage: 0
+  });
+
+  stripe = makeStripe([constants.STRIPE_METER_TOOL_CALLS]);
+  await meterOrganization(dbInstance, stripe, orgId);
+  check(
+    'a rejected meter does not stop the others reporting',
+    totalFor(stripe, constants.STRIPE_METER_MESSAGES) === 300,
+    `${totalFor(stripe, constants.STRIPE_METER_MESSAGES)} messages reported`
+  );
+  let marks = await subRow();
+  check(
+    '  ...and their marks still advance, so nothing is billed twice',
+    marks.reported_message_overage === 300,
+    `mark ${marks.reported_message_overage}`
+  );
+  check(
+    '  ...while the rejected meter’s mark stays put',
+    marks.reported_tool_call_overage === 0,
+    'a mark that moves without its event loses that usage for good'
+  );
+
+  // And once the meter exists, the usage it missed is still owed in full.
+  stripe = makeStripe();
+  await meterOrganization(dbInstance, stripe, orgId);
+  check(
+    'the next run reports everything the rejection missed',
+    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 900,
+    `${totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS)} calls`
+  );
+  check(
+    '  ...and does not re-report what already landed',
+    totalFor(stripe, constants.STRIPE_METER_MESSAGES) === 0
+  );
+  marks = await subRow();
+  check(
+    '  ...with both marks now caught up',
+    marks.reported_tool_call_overage === 900 &&
+      marks.reported_message_overage === 300
+  );
+
   console.log('\nthe period\n');
 
   // A period that started before the stored boundary is the ordinary monthly
@@ -447,6 +507,7 @@ try {
     message_period_start: new Date('2020-01-01T00:00:00Z'),
     message_count: 900,
     shared_message_count: 100,
+    reported_message_overage: 0,
     tool_call_count: included + 400,
     reported_tool_call_overage: 400
   });
