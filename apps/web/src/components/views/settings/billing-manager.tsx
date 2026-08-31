@@ -21,6 +21,9 @@ interface BillingLimits {
   canInvite: boolean;
   includedMessages: number;
   includedEmbeddedBytes: number;
+  // Custom-tool invocations included per month. Free's is 0 — it cannot deploy
+  // code — so the row only renders on a paid plan.
+  includedToolCalls: number;
 }
 
 interface BillingStatus {
@@ -34,6 +37,8 @@ interface BillingStatus {
     messageCap: number | null;
     sharedMessagesUsed: number;
     includedSharedMessages: number;
+    toolCallsUsed: number;
+    includedToolCalls: number;
   };
   subscription: {
     status: string;
@@ -50,6 +55,8 @@ interface BillingStatus {
     messagePer1kUsd: number;
     sharedMessagePer1kUsd: number;
     embeddedPerGbUsd: number;
+    includedToolCalls: number;
+    toolCallPerMillionUsd: number;
     customDomainUsd: number;
   };
 }
@@ -375,6 +382,23 @@ export const BillingManager = (props: BillingManagerProps) => {
             isFree ? undefined : `$${status.pricing.embeddedPerGbUsd}/GB`
           }
         />
+        {/* Only tools the org WROTE are metered — a shipped integration or a
+            proxied server costs one screened fetch. Hidden on Free, which
+            cannot deploy code and would read the row as an offer. */}
+        {!isFree && (
+          <UsageRow
+            theme={theme}
+            unlimitedText={t('usageUnlimited')}
+            includedText={t('usageIncluded')}
+            overText={(amount, rate) => t('usageOverage', { amount, rate })}
+            label={t('usageToolCalls')}
+            used={status.usage.toolCallsUsed}
+            limit={status.limits.includedToolCalls}
+            render={t.n}
+            overageRate={`$${status.pricing.toolCallPerMillionUsd}/M`}
+            hint={t('toolCallsHint')}
+          />
+        )}
         <UsageRow
           theme={theme}
           unlimitedText={t('usageUnlimited')}

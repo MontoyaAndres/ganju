@@ -1891,6 +1891,30 @@ const PRICING_SHARED_KEY_HARD_CAP = 100_000;
 // so $2 is now roughly break-even. Raising CHUNK_TARGET_CHARS would tip it
 // positive without touching this number.
 const PRICING_EMBEDDED_PER_GB_USD = 2;
+// Custom-tool invocations included per month, and the rate beyond them.
+//
+// "Tool call" here means one dispatch into a user's own script on Workers for
+// Platforms — NOT a call to a shipped integration or a proxied server. Those
+// cost us one screened fetch from a Worker we already pay for, which is why they
+// stay bundled; this one runs the customer's code on our infrastructure, and is
+// the first cost axis a user can turn against us rather than merely consume.
+//
+// Cloudflare bills the whole chain (dispatcher → user script → outbound worker)
+// as ONE request and counts CPU across all three, so a call costs ~$2.30 per
+// million at the per-script CPU ceiling. $5/M is ~2x that, and 1,000,000 is far
+// past any real month: the heaviest worked customer in the cost model makes
+// 800,000, and a single artifact pinned at its rate limit for a full month
+// manages ~2.6 million.
+const PRICING_INCLUDED_TOOL_CALLS = 1_000_000;
+const PRICING_TOOL_CALL_PER_M_USD = 5;
+// Abuse backstop on custom-tool invocations — the compute analogue of
+// PRICING_SHARED_KEY_HARD_CAP, and needed for the same reason: past a point,
+// usage stops looking like a customer and starts looking like a runaway loop or
+// a stolen credential. 20x the included allowance is ~$46 of compute against
+// ~$95 billed, and takes eight artifacts held at their rate limit for a month to
+// reach. Enterprise is null — the cost model's own enterprise example makes 20
+// million calls a month, so a fixed ceiling there would fight a real customer.
+const PRICING_TOOL_CALL_HARD_CAP = 20_000_000;
 const PRICING_CUSTOM_DOMAIN_USD = 15;
 
 interface PlanLimits {
@@ -1934,6 +1958,20 @@ interface PlanLimits {
   // keeps that from becoming an unbounded tool list on the plan that runs on our
   // model key. `null` = no limit.
   maxHttpEndpointsPerArtifact: number | null;
+  // Monthly allowance of CUSTOM-TOOL invocations — dispatches into the org's own
+  // code. A billing threshold like includedSharedMessages, not a block: past it
+  // paid plans keep running and meter at the per-million rate.
+  //
+  // Only custom code counts. A shipped integration or a proxied server costs one
+  // screened fetch, so metering those would bill a customer for something that
+  // rounds to zero and make the tool list a thing to ration.
+  includedToolCalls: number;
+  // Absolute stop on custom-tool invocations, regardless of billing. The
+  // compute-side twin of sharedKeyHardCap, and the only limit on this axis that
+  // an infinite loop inside someone's tool actually meets — the per-script CPU
+  // ceiling bounds one call, the per-artifact rate limiter bounds calls per
+  // minute, and this bounds the month. `null` = no backstop.
+  toolCallHardCap: number | null;
   // Display-only allowances included in the plan (what overage is measured
   // against). Not used for blocking.
   includedMessages: number;
@@ -1967,6 +2005,15 @@ const PLAN_LIMITS: Record<
     canUseCustomLlm: false,
     canUseCustomCode: false,
     maxHttpEndpointsPerArtifact: 3,
+    // Free can't deploy custom code, so the only way to have a running script on
+    // this plan is to have DOWNGRADED with one already published — a paid org
+    // keeps its versions and their bundles. Those tools go on serving, because
+    // killing a customer's live integrations the moment a card fails is a worse
+    // failure than serving a bounded number of calls while they fix it. This is
+    // that bound: real breathing room, ~$0.02 of compute, and no overage path
+    // off Free to turn it into a bill.
+    includedToolCalls: 0,
+    toolCallHardCap: 10_000,
     includedMessages: 100,
     includedEmbeddedBytes: 5 * MB
   },
@@ -1988,6 +2035,8 @@ const PLAN_LIMITS: Record<
     canUseCustomLlm: true,
     canUseCustomCode: true,
     maxHttpEndpointsPerArtifact: null,
+    includedToolCalls: PRICING_INCLUDED_TOOL_CALLS,
+    toolCallHardCap: PRICING_TOOL_CALL_HARD_CAP,
     includedMessages: PRICING_INCLUDED_MESSAGES,
     includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
   },
@@ -2005,6 +2054,12 @@ const PLAN_LIMITS: Record<
     canUseCustomLlm: true,
     canUseCustomCode: true,
     maxHttpEndpointsPerArtifact: null,
+    includedToolCalls: PRICING_INCLUDED_TOOL_CALLS,
+    // No backstop: an Enterprise contract is negotiated against real volume, and
+    // the reference deal in the cost model runs 20 million calls a month — the
+    // exact number a Pro-shaped ceiling would refuse. Raise the ceiling by
+    // contract; don't make one plan's abuse limit another plan's product limit.
+    toolCallHardCap: null,
     includedMessages: PRICING_INCLUDED_MESSAGES,
     includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
   }
@@ -2024,6 +2079,7 @@ const PLAN_FEATURE_HTTP_ENDPOINT = 'httpEndpoint' as 'httpEndpoint';
 const PLAN_FEATURE_RAW_STORAGE = 'rawStorage' as 'rawStorage';
 const PLAN_FEATURE_EMBEDDED_STORAGE = 'embeddedStorage' as 'embeddedStorage';
 const PLAN_FEATURE_MESSAGE = 'message' as 'message';
+const PLAN_FEATURE_TOOL_CALL = 'toolCall' as 'toolCall';
 
 // Stable code returned on a quota block so clients can branch on it (402).
 const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
@@ -2039,6 +2095,11 @@ const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
 const STRIPE_METER_MESSAGES = 'ganju_channel_messages';
 const STRIPE_METER_SHARED_MESSAGES = 'ganju_shared_messages';
 const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
+// Custom-tool invocations, reported as a raw count of the calls above the
+// included allowance. Its price is a package of 1,000,000 rather than per-unit:
+// $5/1,000,000 renders per-unit as $0.000005, which no invoice line should have
+// to say.
+const STRIPE_METER_TOOL_CALLS = 'ganju_custom_tool_calls';
 
 // Legal documents a user accepts, and the version they're on. Bump the version
 // when the document changes materially — existing users are then re-prompted,
@@ -2047,7 +2108,7 @@ const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
 const CONSENT_DOCUMENT_TERMS = 'terms' as 'terms';
 const CONSENT_DOCUMENT_PRIVACY = 'privacy' as 'privacy';
 const CONSENT_DOCUMENTS = [CONSENT_DOCUMENT_TERMS, CONSENT_DOCUMENT_PRIVACY];
-const CONSENT_CURRENT_VERSION = '2026-08-01';
+const CONSENT_CURRENT_VERSION = '2026-08-31';
 
 const CONSENT_SOURCE_SIGNUP = 'signup' as 'signup';
 const CONSENT_SOURCE_REACCEPT = 'reaccept' as 'reaccept';
@@ -2131,6 +2192,9 @@ export const constants = {
   PRICING_INCLUDED_EMBEDDED_GB,
   PRICING_MESSAGE_PER_1K_USD,
   PRICING_EMBEDDED_PER_GB_USD,
+  PRICING_INCLUDED_TOOL_CALLS,
+  PRICING_TOOL_CALL_PER_M_USD,
+  PRICING_TOOL_CALL_HARD_CAP,
   PRICING_CUSTOM_DOMAIN_USD,
   PLAN_FEATURE_ORGANIZATION,
   PLAN_FEATURE_PROJECT,
@@ -2144,10 +2208,12 @@ export const constants = {
   PLAN_FEATURE_RAW_STORAGE,
   PLAN_FEATURE_EMBEDDED_STORAGE,
   PLAN_FEATURE_MESSAGE,
+  PLAN_FEATURE_TOOL_CALL,
   PLAN_LIMIT_ERROR_CODE,
   STRIPE_METER_MESSAGES,
   STRIPE_METER_SHARED_MESSAGES,
   STRIPE_METER_EMBEDDED,
+  STRIPE_METER_TOOL_CALLS,
   CONSENT_DOCUMENT_TERMS,
   CONSENT_DOCUMENT_PRIVACY,
   CONSENT_DOCUMENTS,

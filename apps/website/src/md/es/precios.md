@@ -26,13 +26,16 @@ solo por lo que uses por encima de ella.
 - Incluye 3.000 mensajes de canal/mes — hasta 1.000 con nuestro modelo de IA — más 1 GB de contenido consultable cada mes
 - Pasado eso: $2 por cada 1.000 mensajes con tu propia llave de IA, $15 por cada 1.000 con la nuestra · $2 por GB adicional
 - Las llamadas a herramientas desde clientes MCP (Claude, Cursor, ChatGPT) están incluidas — no se cobran como mensajes
+- Incluye 1.000.000 de llamadas al mes a las funciones que escribes en código; después, 5 USD por millón
 - Complemento de dominio propio ($15/mes) · crea tus propias herramientas
 - Soporte 24/7
 
-Solo medimos dos cosas, porque son las únicas que nos cuestan dinero: las respuestas
+Medimos tres cosas, porque son las únicas que nos cuestan dinero: las respuestas
 del asistente en canales (cada una ejecuta un ciclo de llamadas a herramientas con un
-LLM) y el contenido consultable con embeddings (almacenado como vectores en Postgres).
-El almacenamiento de archivos en bruto es gratis.
+LLM), el contenido consultable con embeddings (almacenado como vectores en Postgres)
+y las llamadas a las funciones que escribiste en código (que corren en nuestro
+cómputo). El almacenamiento de archivos en bruto es gratis, y las llamadas a las
+integraciones que incluimos también.
 
 ## Empresarial — A la medida
 

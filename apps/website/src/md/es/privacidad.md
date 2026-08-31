@@ -1,6 +1,6 @@
 # Política de Privacidad y Tratamiento de Datos Personales
 
-**Última actualización: 1 de agosto de 2026 · Vigente desde: 1 de agosto de 2026**
+**Última actualización: 31 de agosto de 2026 · Vigente desde: 31 de agosto de 2026**
 
 Esta política explica qué datos recoge Ganju cuando usas el servicio alojado en
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai` y `mcp.ganju.ai`, para qué los usamos,
@@ -81,9 +81,10 @@ token de la invitación y si fue aceptada, rechazada o venció.
 ### Facturación y consumo
 
 Plan y estado de la suscripción, período de facturación vigente, indicadores de
-cancelación e identificadores de cliente y suscripción en Stripe. Medimos dos cosas
-por organización: **respuestas del asistente** en canales de chat y **contenido
-indexado (embebido) en megabytes**, además del excedente ya reportado a Stripe.
+cancelación e identificadores de cliente y suscripción en Stripe. Medimos tres cosas
+por organización: **respuestas del asistente** en canales de chat, **contenido
+indexado (embebido) en megabytes** y **llamadas a las funciones que escribiste en
+código**, además del excedente ya reportado a Stripe.
 
 **Nunca vemos ni almacenamos los datos de tu tarjeta.** Los medios de pago los recoge
 y custodia Stripe; nosotros solo recibimos identificadores y el estado de la

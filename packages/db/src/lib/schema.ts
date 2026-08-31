@@ -378,6 +378,7 @@ export const subscription = pgTable(
     customDomain: boolean('custom_domain').notNull().default(false),
     messageCount: integer('message_count').notNull().default(0),
     sharedMessageCount: integer('shared_message_count').notNull().default(0),
+    toolCallCount: integer('tool_call_count').notNull().default(0),
     messagePeriodStart: timestamp('message_period_start', { mode: 'date' }),
     reportedMessageOverage: integer('reported_message_overage')
       .notNull()
@@ -388,6 +389,9 @@ export const subscription = pgTable(
     reportedEmbeddedOverageMb: bigint('reported_embedded_overage_mb', {
       mode: 'number'
     })
+      .notNull()
+      .default(0),
+    reportedToolCallOverage: integer('reported_tool_call_overage')
       .notNull()
       .default(0),
     lastStripeEventAt: bigint('last_stripe_event_at', { mode: 'number' }),

@@ -39,7 +39,12 @@ const reportMeter = async (
 // Push this org's current-period overage to Stripe. Reports only the increment
 // since the last run (tracked on the subscription row) so meter events never
 // double-count, and stores the new high-water mark.
-const meterOrganization = async (
+//
+// Exported for one organization at a time, which is the only way to exercise the
+// delta arithmetic without a sweep that would roll the period and move the
+// reported marks of every other organization in the database. The cron
+// entrypoint is still `runOverageMetering` below.
+export const meterOrganization = async (
   executor: DbExecutor,
   stripe: Stripe,
   organizationId: string
@@ -83,6 +88,17 @@ const meterOrganization = async (
   const messageOverage = Math.max(0, ownKeyUsed - ownKeyIncluded);
   const messageDelta = messageOverage - sub.reportedMessageOverage;
 
+  // Custom-tool invocations: a monotonic per-period counter, like messages, and
+  // reported as a raw count of calls above the allowance. Native and proxied
+  // tools are not in this number — apps/mcp counts only dispatches into the
+  // org's own code, because that is the only tool call that runs on compute we
+  // buy rather than on one screened fetch.
+  const toolCallOverage = Math.max(
+    0,
+    sub.toolCallCount - limits.includedToolCalls
+  );
+  const toolCallDelta = toolCallOverage - sub.reportedToolCallOverage;
+
   // Embedded storage: a live level. We bill the high-water mark of the overage
   // within the period (decreases aren't credited), reported in whole MB.
   const embeddedBytes = await sumEmbeddedStorage(executor, organizationId);
@@ -116,10 +132,23 @@ const meterOrganization = async (
       embeddedDelta
     );
   }
+  if (toolCallDelta > 0) {
+    await reportMeter(
+      stripe,
+      constants.STRIPE_METER_TOOL_CALLS,
+      sub.stripeCustomerId,
+      toolCallDelta
+    );
+  }
 
   // Advance only the marks whose meter event actually went through, so a failure
   // on one meter can't mark another's usage as billed.
-  if (messageDelta > 0 || sharedDelta > 0 || embeddedDelta > 0) {
+  if (
+    messageDelta > 0 ||
+    sharedDelta > 0 ||
+    embeddedDelta > 0 ||
+    toolCallDelta > 0
+  ) {
     await executor
       .update(db.schema.subscription)
       .set({
@@ -128,7 +157,9 @@ const meterOrganization = async (
         reportedSharedMessageOverage:
           sharedDelta > 0 ? sharedOverage : sub.reportedSharedMessageOverage,
         reportedEmbeddedOverageMb:
-          embeddedDelta > 0 ? embeddedOverageMb : sub.reportedEmbeddedOverageMb
+          embeddedDelta > 0 ? embeddedOverageMb : sub.reportedEmbeddedOverageMb,
+        reportedToolCallOverage:
+          toolCallDelta > 0 ? toolCallOverage : sub.reportedToolCallOverage
       })
       .where(eq(db.schema.subscription.id, sub.id));
   }

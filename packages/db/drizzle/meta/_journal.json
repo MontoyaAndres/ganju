@@ -491,6 +491,13 @@
       "when": 1788032153274,
       "tag": "0069_access_token",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1788197608962,
+      "tag": "0070_tool_call_metering",
+      "breakpoints": true
     }
   ]
 }

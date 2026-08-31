@@ -1,0 +1,2 @@
+ALTER TABLE "subscription" ADD COLUMN "tool_call_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "subscription" ADD COLUMN "reported_tool_call_overage" integer DEFAULT 0 NOT NULL;

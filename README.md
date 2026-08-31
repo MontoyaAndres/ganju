@@ -102,6 +102,7 @@ Full setup (prerequisites, environment variables, database, per-app commands) is
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | Local setup, env vars, commands, troubleshooting    |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                     | Database entities and relationships                 |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                     | Deploying to Cloudflare, environments, secrets      |
+| [docs/ABUSE.md](docs/ABUSE.md)                               | Responding to abuse of user-authored tools          |
 | [apps/mcp/src/tools/README.md](apps/mcp/src/tools/README.md) | How tools work and how to add one                   |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Contribution workflow and conventions               |
 

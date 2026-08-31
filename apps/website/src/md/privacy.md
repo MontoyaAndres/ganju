@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: August 1, 2026 · Effective: August 1, 2026**
+**Last updated: August 31, 2026 · Effective: August 31, 2026**
 
 This policy explains what Ganju collects when you use the hosted service at
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai`, and `mcp.ganju.ai`, why we collect it,
@@ -78,9 +78,10 @@ token, and whether it was accepted, declined, or expired.
 ### Billing and usage
 
 Plan and subscription status, current billing period, cancellation flags, and your
-Stripe customer and subscription identifiers. We meter two things per organization:
-**assistant replies** on chat channels and **embedded (searchable) content in
-megabytes**, plus the overage already reported to Stripe.
+Stripe customer and subscription identifiers. We meter three things per organization:
+**assistant replies** on chat channels, **embedded (searchable) content in
+megabytes**, and **calls to tools you wrote in code**, plus the overage already
+reported to Stripe.
 
 **We never see or store your card details.** Payment methods are collected and held
 by Stripe; we only receive identifiers and subscription status back.

@@ -52,6 +52,7 @@ const en = {
   usageMessages: 'Assistant replies this month',
   usageSharedMessages: 'Of those, on our AI model',
   usageEmbedded: 'Embedded content (RAG)',
+  usageToolCalls: 'Custom tool calls',
   usageStorage: 'File storage',
   usageProjects: 'Projects',
   usageUnlimited: 'Unlimited',
@@ -75,6 +76,8 @@ const en = {
     " instead. Only your assistant's replies count — incoming user messages are free.",
   messagesHintFree:
     "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance.",
+  toolCallsHint:
+    'Only tools you wrote in code count here — calls to the integrations we ship, and to remote MCP servers, are included in your plan.',
   toastCheckoutSuccess: 'Subscription active — welcome to Pro!',
   toastCheckoutCancelled: 'Checkout cancelled.',
   toastBillingFailed: 'Could not open billing. Try again.',
@@ -324,6 +327,7 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     usageMessages: 'Respuestas del asistente este mes',
     usageSharedMessages: 'De esas, con nuestro modelo de IA',
     usageEmbedded: 'Contenido indexado (RAG)',
+    usageToolCalls: 'Llamadas a tus funciones',
     usageStorage: 'Almacenamiento de archivos',
     usageProjects: 'Proyectos',
     usageUnlimited: 'Ilimitado',
@@ -342,6 +346,8 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       ' en su lugar. Solo cuentan las respuestas de tu asistente — los mensajes que entran son gratis.',
     messagesHintFree:
       'Aquí solo cuentan las respuestas de tu asistente. Los mensajes que te envían son gratis y no consumen tu cupo.',
+    toolCallsHint:
+      'Aquí solo cuentan las funciones que escribiste en código — las llamadas a las integraciones que incluimos, y a servidores MCP remotos, van incluidas en tu plan.',
     toastCheckoutSuccess: 'Suscripción activa — ¡bienvenido a Pro!',
     toastCheckoutCancelled: 'Cancelaste el pago.',
     toastBillingFailed: 'No pudimos abrir la facturación. Inténtalo de nuevo.',

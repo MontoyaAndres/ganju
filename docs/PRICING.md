@@ -224,6 +224,8 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 | Messages on **Ganju's** model | $15 per 1,000 | ~$4–11 | 1.4–3.75× |
 | Custom tool calls | $5 per million | ~$2.30/M | ~2× |
 
+Only tools the customer **wrote** count against that million. Calls to the shipped integrations, and to proxied MCP servers, stay bundled: they cost one screened fetch from a Worker we already pay for, so metering them would bill for something that rounds to zero and turn the tool list into a thing to ration.
+
 **Storage is priced at roughly break-even, on purpose.** When $2/GB was set it sat well under the then-current $4.51/GB. Rather than raise the price again, the gap was closed from the cost side: halving the embedding to 1536 dimensions took the real figure to **~$2.41/GB** (Part 2.5). $2 against $2.41 is close enough to live with, the exposure is bounded by the 1 GB allowance, and raising `CHUNK_TARGET_CHARS` would tip it positive without another price change.
 
 **If a customer maxes every included allowance:** $4.00 inference + $2.41 storage + $2.30 tool calls + $0.02 script = **$8.73**, leaving **$20.27 (70%)**. A typical BYO-key customer with a few hundred MB costs ~$2 → **93%**.
@@ -380,18 +382,23 @@ The guardrails the model depends on are now in code:
 - **Model guard.** A comment at `DEFAULT_LLM_MODEL` stating that every number in this document derives from Flash-Lite's rate.
 - **Storage repriced, then made honest.** 1 GB included (was 5) at **$2/GB** (was $0.50), and the embedding halved to 1536 dimensions so the real cost is ~$2.41/GB rather than ~$4.51. Price and cost were moved toward each other from both ends.
 - **$29 and the two message rates.** `PRICING_PRO_BASE_USD = 29`, `PRICING_INCLUDED_SHARED_MESSAGES = 1_000`, `PRICING_SHARED_MESSAGE_PER_1K_USD = 15`, mirrored through the billing API, dashboard, marketing site, docs and terms.
+- **Custom tool calls are metered.** `subscription.tool_call_count` counts dispatches into a customer's own code — not native or proxied tools, which cost one screened fetch — and reports overage above **1,000,000/month** to a fourth meter (`ganju_custom_tool_calls`) at **$5 per million**. Counted in apps/mcp, one statement per request, and only for a call that actually reached the isolate. The line in Part 4 that sold this had nothing behind it until now.
+- **A monthly ceiling on that compute.** `toolCallHardCap` — 20,000,000 on Pro, `null` on Enterprise, 10,000 on Free for the downgraded org whose script is still published. The per-script CPU ceiling bounds one call and the rate limiter bounds a minute; this is what bounds a month. Refused at dispatch with the reason, never by dropping the tool from `tools/list`.
+- **An abuse process, not just controls** — the runbook in [ABUSE.md](ABUSE.md), and the one command it leans on.
 - **Shared-key turns are sold, not blocked.** The runner's old gate stopped a channel at the shared allowance; it now only trips at `PRICING_SHARED_KEY_HARD_CAP` (100,000/mo) as an abuse backstop. Between the allowance and the backstop, shared turns keep running and report to a second Stripe meter (`ganju_shared_messages`) at $15/1,000. Own-key turns keep reporting to the original meter at $2/1,000, and no turn bills to both. The metering split reproduces every worked example in Part 5.
 
 ### Stripe — done in test, pending in live
 
-The two-rate model does nothing until Stripe has the objects behind it. **Test mode is complete**: product `Ganju Pro` carries a $29 default price plus three metered prices, backed by meters `ganju_channel_messages` ($2/1,000), `ganju_shared_messages` ($15/1,000) and `ganju_embedded_storage` ($0.50/1,024 — the app reports whole MB, so 1,024 units is 1 GB). The old $20 price is archived, and the product description states the allowance we actually grant.
+The two-rate model does nothing until Stripe has the objects behind it. **Test mode is complete for messages and storage**: product `Ganju Pro` carries a $29 default price plus three metered prices, backed by meters `ganju_channel_messages` ($2/1,000), `ganju_shared_messages` ($15/1,000) and `ganju_embedded_storage` ($0.50/1,024 — the app reports whole MB, so 1,024 units is 1 GB). The old $20 price is archived, and the product description states the allowance we actually grant.
+
+**The fourth meter is not created in either mode.** `ganju_custom_tool_calls` and its price are what the metering cron now reports custom tool calls to, and until they exist those calls are counted, capped, and served for free — the same silent skip the other overage lines have, and the reason `STRIPE_PRICE_TOOL_CALL_OVERAGE` is checked in unset. Same shape as the rest — aggregation `sum`, value key `value`, customer key `stripe_customer_id` — with the price a **package of 1,000,000 at $5**, because per-unit renders as $0.000005 on an invoice.
 
 **Live mode is untouched, and nothing carries over from test.** It needs, in order:
 
-1. Three meters — event names must match `STRIPE_METER_*` in [constants.ts](../packages/utils/src/constants.ts) exactly, aggregation `sum`, value key `value`, customer key `stripe_customer_id`. A typo means events are discarded silently.
-2. Four prices on the Pro product. Use **package** pricing (`transform_quantity`), not per-unit — $0.015/message renders as a long decimal on the invoice.
+1. Four meters — event names must match `STRIPE_METER_*` in [constants.ts](../packages/utils/src/constants.ts) exactly, aggregation `sum`, value key `value`, customer key `stripe_customer_id`. A typo means events are discarded silently.
+2. Five prices on the Pro product. Use **package** pricing (`transform_quantity`), not per-unit — $0.015/message renders as a long decimal on the invoice, and $5 per million renders worse.
 3. A webhook at `https://api.ganju.ai/billing/webhook` for `checkout.session.completed` and `customer.subscription.{created,updated,deleted}` — the four the handler switches on.
-4. The five `STRIPE_PRICE_*` values plus `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as Worker secrets: `npx wrangler secret put <NAME> --env production`.
+4. The six `STRIPE_PRICE_*` values plus `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as Worker secrets: `npx wrangler secret put <NAME> --env production`.
 
 Two failure modes worth knowing, both silent. Checkout **skips any overage line whose env var is unset** — deliberate, so the base plan can launch before the meters exist, but it means an unset `STRIPE_PRICE_SHARED_MESSAGE_OVERAGE` serves shared inference for free while the cron still reports it. And the deployed Worker reads **secrets, not `.env`** — a correct local file proves nothing about what checkout actually builds.
 
@@ -403,7 +410,7 @@ Stripe prices are immutable: a rate change means a new price object, set as defa
 2. **Confirm retrieval quality on live traffic after the 1536 change.** Shipped on dev (Part 2.5) and the cost is now ~$2.41/GB, so the $2 price holds and the ~$5/GB fallback is off the table. The residual risk is narrow: the equivalence test used `RETRIEVAL_QUERY` vectors, while documents embed with `RETRIEVAL_DOCUMENT`. Matryoshka shouldn't care, but one real search against freshly-ingested content confirms it for free.
 3. **The per-USER-script CPU ceiling** is not the item above — it's a limit on the WfP dispatch namespace and can't exist until Phase 2. Cloudflare's max is 30 seconds; ~5 seconds is plenty and caps the adversarial worst case.
 4. **Apply migrations 0061, 0062 and 0063 to *production*** (`npm run migrate-prod`). Dev is done. Until prod has them, the deployed code writes to columns that don't exist — and 0063 changes a column type, so code and migration must ship together or inserts fail on the dimension mismatch.
-5. **Repeat the Stripe setup in live mode**, per the checklist above.
+5. **Repeat the Stripe setup in live mode**, per the checklist above — and create `ganju_custom_tool_calls` and its price in **both** modes, since test mode does not have them either.
 6. **Click through the hosted Checkout page once.** Everything either side of it is now verified (14 Aug): the four `STRIPE_PRICE_*` values assemble into a valid four-item session at the new rates, and creating that subscription against a Free org fires the webhook, which resolves the org from metadata, maps the $29 price to PRO and writes customer, subscription, price and period end. What's still unexercised is the hosted page itself and the `checkout.session.completed` branch specifically — the test drove `customer.subscription.created` instead. Low risk, but it's the last untouched line.
 7. **The marketing estimator models only the own-key rate.** A two-rate slider tested worse than one, so the calculator quotes $2/1,000 and its hint says the estimate assumes your own key. Revisit if support questions say otherwise.
 8. **Backfill note:** existing subscription rows start at `shared_message_count = 0`, so any org mid-period gets its shared allowance re-granted once. Harmless while Pro is unlaunched; Free is unaffected because its hard total cap blocks first.

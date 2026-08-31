@@ -23,12 +23,15 @@ only for what you use beyond it.
 - Includes 3,000 channel messages/mo — up to 1,000 of them on our AI model — + 1 GB searchable content each month
 - Past that: $2 per 1,000 messages on your own AI key, $15 per 1,000 on ours · $2 per extra GB
 - MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
+- Includes 1,000,000 calls/mo to tools you write in code, then $5 per million
 - Custom domain add-on ($15/mo) · build your own custom tools
 - 24/7 support
 
-Only two things are metered, because they're the only things that cost us money:
-channel-bot assistant replies (each runs an LLM tool-calling loop) and embedded
-RAG content (stored as vectors in Postgres). Raw file storage is free.
+Three things are metered, because they're the only things that cost us money:
+channel-bot assistant replies (each runs an LLM tool-calling loop), embedded
+RAG content (stored as vectors in Postgres), and calls to tools you wrote in code
+(which run on our compute). Raw file storage is free, and so are calls to the
+integrations we ship.
 
 ## Enterprise — Custom
 

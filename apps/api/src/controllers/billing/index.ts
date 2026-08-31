@@ -57,6 +57,8 @@ const getStatus = async (c: Context<AppEnv>) => {
       messagePer1kUsd: constants.PRICING_MESSAGE_PER_1K_USD,
       sharedMessagePer1kUsd: constants.PRICING_SHARED_MESSAGE_PER_1K_USD,
       embeddedPerGbUsd: constants.PRICING_EMBEDDED_PER_GB_USD,
+      includedToolCalls: constants.PRICING_INCLUDED_TOOL_CALLS,
+      toolCallPerMillionUsd: constants.PRICING_TOOL_CALL_PER_M_USD,
       customDomainUsd: constants.PRICING_CUSTOM_DOMAIN_USD
     }
   });
@@ -137,6 +139,15 @@ const createCheckout = async (c: Context<AppEnv>) => {
   if (sharedOveragePrice) lineItems.push({ price: sharedOveragePrice });
   const embeddedOveragePrice = utils.getEnv(c, 'STRIPE_PRICE_EMBEDDED_OVERAGE');
   if (embeddedOveragePrice) lineItems.push({ price: embeddedOveragePrice });
+  // Custom-tool invocations past the included allowance. Same silent-skip rule
+  // as the lines above, and the same consequence: unset means apps/mcp goes on
+  // counting the calls and the cron goes on reporting them, with no price to
+  // turn them into a charge.
+  const toolCallOveragePrice = utils.getEnv(
+    c,
+    'STRIPE_PRICE_TOOL_CALL_OVERAGE'
+  );
+  if (toolCallOveragePrice) lineItems.push({ price: toolCallOveragePrice });
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',

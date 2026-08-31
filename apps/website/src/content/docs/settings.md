@@ -74,6 +74,9 @@ Pro adds nothing to your bill until you go past the included amounts:
   because Ganju is buying the inference for you, so this rate covers a real cost
   rather than just the platform work.
 - **Extra embedded content (RAG)** — $2 per GB beyond the included 1 GB. Searchable content is stored with a search index several times its own size, which is why this costs more per GB than plain file storage (which is free).
+- **Extra calls to tools you wrote** — $5 per million beyond the included 1,000,000.
+  Only your own code counts here; calls to the integrations Ganju ships, and to remote
+  MCP servers you connect, are bundled.
 - **Custom domain** — $15 / mo add-on.
 
 > Want more for free? Ganju is Apache-2.0 — you can self-host and run on your own

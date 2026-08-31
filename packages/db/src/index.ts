@@ -11,4 +11,11 @@ export const utils = {
   handleError
 };
 
-export type { Database, DbExecutor, UsageCounts, EffectivePlan } from './lib';
+export type {
+  Database,
+  DbExecutor,
+  UsageCounts,
+  EffectivePlan,
+  UsageCounters,
+  ToolCallBudget
+} from './lib';

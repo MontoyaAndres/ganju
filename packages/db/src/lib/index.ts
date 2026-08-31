@@ -9,12 +9,16 @@ import {
   sumRawStorage,
   sumEmbeddedStorage,
   assertRawStorageQuota,
-  assertEmbeddedStorageQuota
+  assertEmbeddedStorageQuota,
+  usagePeriodStart,
+  rollUsagePeriodIfDue,
+  checkToolCallBudget,
+  incrementToolCallUsage
 } from './plan';
 
 export type { Database } from './db';
 export type { DbExecutor, UsageCounts } from './usage';
-export type { EffectivePlan } from './plan';
+export type { EffectivePlan, UsageCounters, ToolCallBudget } from './plan';
 
 export const plan = {
   limitsFor,
@@ -24,7 +28,11 @@ export const plan = {
   sumRawStorage,
   sumEmbeddedStorage,
   assertRawStorageQuota,
-  assertEmbeddedStorageQuota
+  assertEmbeddedStorageQuota,
+  usagePeriodStart,
+  rollUsagePeriodIfDue,
+  checkToolCallBudget,
+  incrementToolCallUsage
 };
 
 export { create, schema, incrementArtifactUsage };

@@ -82,6 +82,11 @@ const capBytes = (body: ArrayBuffer, maxBytes: number): string => {
  *
  * Failures come back as `Error: …` text rather than thrown, per the tool
  * convention — the model gets something actionable instead of a protocol error.
+ *
+ * `dispatched` reports whether the call reached the isolate, which is what the
+ * caller meters on. A tool that threw, timed out or ran long still spent the
+ * compute and still counts; a deployment with no dispatch namespace, or a name
+ * with no script behind it, never started one and must not.
  */
 export const executeCustomCodeCall = async (
   dispatcher: DispatchNamespace | undefined,
@@ -95,13 +100,14 @@ export const executeCustomCodeCall = async (
     toolName: string;
     args: Record<string, unknown>;
   }
-): Promise<{ result: ToolResult; logs: string[] }> => {
+): Promise<{ result: ToolResult; logs: string[]; dispatched: boolean }> => {
   if (!dispatcher) {
     return {
       result: text(
         'Error: custom tools are not available on this deployment (no dispatch namespace is bound).'
       ),
-      logs: []
+      logs: [],
+      dispatched: false
     };
   }
 
@@ -128,7 +134,8 @@ export const executeCustomCodeCall = async (
       result: text(
         `Error: "${input.toolName}" is not deployed. Publish the tool's code again from the Tools page.`
       ),
-      logs: []
+      logs: [],
+      dispatched: false
     };
   }
 
@@ -155,7 +162,8 @@ export const executeCustomCodeCall = async (
         result: text(
           `Error: "${input.toolName}" timed out after ${config.timeoutMs}ms.`
         ),
-        logs: []
+        logs: [],
+        dispatched: true
       };
     }
     return {
@@ -164,7 +172,8 @@ export const executeCustomCodeCall = async (
           error instanceof Error ? error.message : String(error)
         }`
       ),
-      logs: []
+      logs: [],
+      dispatched: true
     };
   }
 
@@ -181,7 +190,8 @@ export const executeCustomCodeCall = async (
       result: text(
         `Error: "${input.toolName}" failed — HTTP ${response.status}`
       ),
-      logs: []
+      logs: [],
+      dispatched: true
     };
   }
 
@@ -195,7 +205,8 @@ export const executeCustomCodeCall = async (
       result: text(
         `Error: "${input.toolName}" returned a response that is not valid JSON.`
       ),
-      logs: []
+      logs: [],
+      dispatched: true
     };
   }
 
@@ -204,7 +215,8 @@ export const executeCustomCodeCall = async (
       result: text(
         `Error: "${input.toolName}" returned an unexpected response shape.`
       ),
-      logs: []
+      logs: [],
+      dispatched: true
     };
   }
 
@@ -215,7 +227,8 @@ export const executeCustomCodeCall = async (
   if (parsed.data.error) {
     return {
       result: { ...text(`Error: ${parsed.data.error}`), isError: true },
-      logs
+      logs,
+      dispatched: true
     };
   }
 
@@ -242,7 +255,8 @@ export const executeCustomCodeCall = async (
       ],
       ...(structured ? { structuredContent: structured } : {})
     },
-    logs
+    logs,
+    dispatched: true
   };
 };
 

@@ -17,7 +17,10 @@ const {
   sumRawStorage,
   sumEmbeddedStorage,
   assertRawStorageQuota,
-  assertEmbeddedStorageQuota
+  assertEmbeddedStorageQuota,
+  rollUsagePeriodIfDue,
+  checkToolCallBudget,
+  incrementToolCallUsage
 } = db.plan;
 
 export type { EffectivePlan };
@@ -25,18 +28,31 @@ export {
   getEffectivePlan,
   sumEmbeddedStorage,
   assertRawStorageQuota,
-  assertEmbeddedStorageQuota
+  assertEmbeddedStorageQuota,
+  checkToolCallBudget,
+  incrementToolCallUsage
 };
 
 // Create the Free subscription row that backs a new organization. Idempotent so
 // it's safe to call from the org-create transaction (and again on backfill).
+//
+// The period is stamped here rather than left null. An unstamped row reads as
+// "this belongs to a period that has ended" on the first check, which rolls it —
+// and a rollover ZEROES the counters, so usage recorded before that first check
+// would be discarded. Nothing today can hit that (every counted call is behind a
+// check that runs first, in the same request), but the ordering is not something
+// a future caller should have to know.
 export const ensureSubscription = async (
   executor: DbExecutor,
   organizationId: string
 ): Promise<void> => {
   await executor
     .insert(db.schema.subscription)
-    .values({ organizationId, plan: constants.PLAN_FREE })
+    .values({
+      organizationId,
+      plan: constants.PLAN_FREE,
+      messagePeriodStart: db.plan.usagePeriodStart(null)
+    })
     .onConflictDoNothing({ target: db.schema.subscription.organizationId });
 };
 
@@ -223,11 +239,6 @@ export const assertOrganizationCreation = async (
 
 // monthly message cap (channel assistant turns)
 
-// Start of the current calendar month in UTC — the period Free orgs are capped
-// against (paid orgs use their Stripe billing period when present).
-const monthStartUtc = (now: Date): Date =>
-  new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-
 const loadOrCreateSubscription = async (
   executor: DbExecutor,
   organizationId: string
@@ -278,33 +289,11 @@ export const checkMessageCap = async (
   const limits = limitsFor(plan);
   const cap = limits.monthlyMessageCap;
 
-  const periodStart =
-    plan !== constants.PLAN_FREE && sub.currentPeriodStart
-      ? sub.currentPeriodStart
-      : monthStartUtc(now);
-
-  let used = sub.messageCount;
-  let sharedUsed = sub.sharedMessageCount;
-  if (
-    !sub.messagePeriodStart ||
-    sub.messagePeriodStart.getTime() < periodStart.getTime()
-  ) {
-    await executor
-      .update(db.schema.subscription)
-      .set({
-        messageCount: 0,
-        // Both counters belong to the same period, so they roll over together.
-        sharedMessageCount: 0,
-        messagePeriodStart: periodStart,
-        // New period → every meter's overage clock restarts too.
-        reportedMessageOverage: 0,
-        reportedSharedMessageOverage: 0,
-        reportedEmbeddedOverageMb: 0
-      })
-      .where(eq(db.schema.subscription.id, sub.id));
-    used = 0;
-    sharedUsed = 0;
-  }
+  // The period, its boundary and what a rollover zeroes are shared with
+  // apps/mcp's tool-call budget — every counter on this row belongs to the same
+  // period, and two definitions of when it ends would bill one month twice.
+  const { messageCount: used, sharedMessageCount: sharedUsed } =
+    await rollUsagePeriodIfDue(executor, sub, now);
 
   return {
     allowed: cap == null || used < cap,
@@ -353,21 +342,28 @@ export type OrganizationUsage = {
   // whoever is chatting with the bot rather than by the owner.
   sharedMessagesUsed: number;
   includedSharedMessages: number;
+  // Custom-tool invocations this period, and what the plan includes. The only
+  // usage row on the dashboard that measures compute rather than storage or
+  // inference, and the only one a customer can grow by writing a loop.
+  toolCallsUsed: number;
+  includedToolCalls: number;
 };
 
 export const getOrganizationUsage = async (
   executor: DbExecutor,
   organizationId: string
 ): Promise<OrganizationUsage> => {
-  const [[{ projectCount }], rawBytes, embeddedBytes, cap] = await Promise.all([
-    executor
-      .select({ projectCount: sql<number>`count(*)::int` })
-      .from(db.schema.project)
-      .where(eq(db.schema.project.organizationId, organizationId)),
-    sumRawStorage(executor, organizationId),
-    sumEmbeddedStorage(executor, organizationId),
-    checkMessageCap(executor, organizationId)
-  ]);
+  const [[{ projectCount }], rawBytes, embeddedBytes, cap, toolCalls] =
+    await Promise.all([
+      executor
+        .select({ projectCount: sql<number>`count(*)::int` })
+        .from(db.schema.project)
+        .where(eq(db.schema.project.organizationId, organizationId)),
+      sumRawStorage(executor, organizationId),
+      sumEmbeddedStorage(executor, organizationId),
+      checkMessageCap(executor, organizationId),
+      checkToolCallBudget(executor, organizationId)
+    ]);
 
   return {
     projectCount: Number(projectCount) || 0,
@@ -376,7 +372,9 @@ export const getOrganizationUsage = async (
     messagesUsed: cap.used,
     messageCap: cap.cap,
     sharedMessagesUsed: cap.sharedUsed,
-    includedSharedMessages: cap.includedSharedMessages
+    includedSharedMessages: cap.includedSharedMessages,
+    toolCallsUsed: toolCalls.used,
+    includedToolCalls: toolCalls.included
   };
 };
 
@@ -396,5 +394,7 @@ export const Plan = {
   assertEmbeddedStorageQuota,
   checkMessageCap,
   incrementMessageUsage,
+  checkToolCallBudget,
+  incrementToolCallUsage,
   getOrganizationUsage
 };

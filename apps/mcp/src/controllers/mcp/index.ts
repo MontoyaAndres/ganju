@@ -6,6 +6,7 @@ import {
 import { StreamableHTTPTransport } from '@hono/mcp';
 import { JsonSchema, utils } from '@ganju/utils';
 import { db } from '@ganju/db';
+import type { ToolCallBudget } from '@ganju/db';
 import { eq, inArray } from 'drizzle-orm';
 
 import {
@@ -419,6 +420,17 @@ const business = async (c: Context<AppEnv>) => {
       });
     }
   }
+
+  // The organization's custom-tool budget for this period, loaded at most once
+  // per request and only when something actually dispatches. An artifact whose
+  // tools are all native never reads it: those cost one screened fetch from a
+  // Worker we already pay for, and are not metered.
+  let toolCallBudget: Promise<ToolCallBudget> | null = null;
+  const loadToolCallBudget = (): Promise<ToolCallBudget> =>
+    (toolCallBudget ??= db.plan.checkToolCallBudget(
+      dbInstance,
+      artifact.project.organizationId
+    ));
 
   for (const artifactTool of orderedArtifactTools) {
     // Resolved from the shipped catalog rather than a join. Null means the row
@@ -867,7 +879,39 @@ const business = async (c: Context<AppEnv>) => {
                 return result;
               }
 
-              const { result, logs } = await executeCustomCodeCall(
+              // The abuse backstop, checked here rather than at registration:
+              // a tool that vanishes from tools/list is a failure its owner
+              // cannot see, while a tool that answers with the reason is one
+              // they can act on. Crossing the INCLUDED allowance changes what a
+              // call costs and never reaches this branch — only the hard cap
+              // stops anything.
+              const budget = await loadToolCallBudget();
+              if (!budget.allowed) {
+                const result = {
+                  content: [
+                    {
+                      type: 'text' as const,
+                      text:
+                        budget.plan === utils.constants.PLAN_FREE
+                          ? `Error: this organization has used its ${budget.hardCap?.toLocaleString('en-US')} monthly custom tool calls on the Free plan. Upgrade to keep "${entry.name}" running.`
+                          : `Error: this organization has reached its monthly limit of ${budget.hardCap?.toLocaleString('en-US')} custom tool calls. Contact support to raise it.`
+                    }
+                  ],
+                  isError: true
+                };
+                pendingRequests.push({
+                  method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
+                  toolName: entry.name,
+                  artifactToolId: artifactTool.id,
+                  input: args,
+                  output: result,
+                  latencyMs: Date.now() - startedAt,
+                  errorMessage: 'custom tool call cap reached'
+                });
+                return result;
+              }
+
+              const { result, logs, dispatched } = await executeCustomCodeCall(
                 c.env.DISPATCH,
                 codeConfig,
                 {
@@ -900,11 +944,16 @@ const business = async (c: Context<AppEnv>) => {
                 method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
                 toolName: entry.name,
                 artifactToolId: artifactTool.id,
+                // What the org is billed for: a dispatch that reached the
+                // isolate. A tool that threw or timed out still spent it — the
+                // alternative makes failing the cheap way to buy compute — while
+                // a script that was never deployed spent nothing.
+                customCodeCall: dispatched,
                 input: args,
                 // ctx.log() output is recorded alongside the result rather than
                 // returned to the model: it is the author's debugging channel
-                // (and what the Phase 6 test panel reads), not something the
-                // model should have to read past.
+                // (and what the test panel reads), not something the model
+                // should have to read past.
                 output: logs.length > 0 ? { ...shaped, logs } : shaped,
                 latencyMs: Date.now() - startedAt,
                 errorMessage: shaped.isError
@@ -1240,11 +1289,18 @@ const business = async (c: Context<AppEnv>) => {
           clientVersion: client.version,
           metadata: sessionMetadata
         });
-        await flushRequests(dbInstance, session.id, artifact.id, allRequests, {
-          userId: jwtUserId ?? null,
-          clientName: client.name,
-          viaChannel: channelIdHeader != null
-        });
+        await flushRequests(
+          dbInstance,
+          session.id,
+          artifact.id,
+          artifact.project.organizationId,
+          allRequests,
+          {
+            userId: jwtUserId ?? null,
+            clientName: client.name,
+            viaChannel: channelIdHeader != null
+          }
+        );
       } catch (error) {
         console.error('Failed to record MCP usage', error);
       }

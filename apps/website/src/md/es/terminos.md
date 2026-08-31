@@ -1,6 +1,6 @@
 # Términos y Condiciones del Servicio
 
-**Última actualización: 1 de agosto de 2026 · Vigente desde: 1 de agosto de 2026**
+**Última actualización: 31 de agosto de 2026 · Vigente desde: 31 de agosto de 2026**
 
 Estos términos son el acuerdo entre tú y **Ganju S.A.S.**, sociedad por acciones
 simplificada constituida bajo las leyes de Colombia con domicilio en Bogotá, D.C.,
@@ -103,11 +103,12 @@ actuamos según las instrucciones de quien tenga el rol de Propietario.
 
 ### Cómo funciona la medición
 
-Solo medimos dos cosas, porque son las únicas que nos cuestan dinero: las **respuestas
-del asistente** en canales y el **contenido indexado** almacenado como vectores. El
-almacenamiento de archivos es gratuito, y las **llamadas a herramientas desde clientes
-MCP como Claude, Cursor y ChatGPT están incluidas** en tu plan: nunca se facturan como
-respuestas.
+Medimos tres cosas, porque son las únicas que nos cuestan dinero: las **respuestas
+del asistente** en canales, el **contenido indexado** almacenado como vectores y las
+**llamadas a las funciones que escribes tú**, que ejecutan tu código en nuestra
+infraestructura. El almacenamiento de archivos es gratuito, y las **llamadas a las
+integraciones que incluimos, y a servidores MCP remotos, están incluidas** en tu plan:
+nunca se facturan como respuestas, y no son las llamadas que medimos arriba.
 
 Todos los planes incluyen un cupo de respuestas que corren sobre el **modelo
 compartido de Ganju**, cuya inferencia pagamos nosotros. Ese cupo no es ilimitado:
@@ -128,6 +129,10 @@ excedente en Pro es:
 - **USD 15 por cada 1.000 respuestas** que superen las primeras 1.000 ejecutadas con
   el modelo propio de Ganju, que cubre la inferencia que compramos por ti.
 - **USD 2 por GB** de contenido indexado adicional sobre 1 GB. El contenido buscable cuesta mucho más de almacenar que el archivo original — cada fragmento lleva un índice de búsqueda varias veces mayor que él mismo.
+- **USD 5 por millón de llamadas** a las funciones que escribiste en código, después
+  del primer 1.000.000 de cada mes. Solo cuenta tu propio código: las llamadas a las
+  integraciones que incluimos, y a los servidores MCP remotos que conectes, siguen
+  incluidas.
 
 El complemento de dominio personalizado cuesta **USD 15 / mes**.
 

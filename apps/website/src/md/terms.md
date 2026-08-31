@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated: August 1, 2026 · Effective: August 1, 2026**
+**Last updated: August 31, 2026 · Effective: August 31, 2026**
 
 These terms are the agreement between you and **Ganju S.A.S.**, a *sociedad por
 acciones simplificada* incorporated under the laws of Colombia with its registered
@@ -99,10 +99,12 @@ of whoever holds the Owner role.
 
 ### How metering works
 
-Only two things are metered, because they're the only two that cost us money:
-**assistant replies** on channels and **embedded content** stored as vectors. Raw
-file storage is free, and **MCP tool calls from clients like Claude, Cursor, and
-ChatGPT are bundled into your plan** — they are never billed as replies.
+Three things are metered, because they're the only three that cost us money:
+**assistant replies** on channels, **embedded content** stored as vectors, and
+**calls to tools you write yourself**, which run your code on our infrastructure. Raw
+file storage is free, and **MCP tool calls to the integrations we ship, and to remote
+MCP servers, are bundled into your plan** — they are never billed as replies, and
+they are not the calls metered above.
 
 Every plan includes an allowance of replies that run on **Ganju's shared model**,
 whose inference we pay for. That allowance is not unlimited:
@@ -122,6 +124,9 @@ the two cost us very different amounts. Past the included amounts, Pro overage i
 - **$15 per 1,000 replies** beyond the first 1,000 run on Ganju's own model, which
   covers the inference we buy on your behalf.
 - **$2 per GB** of embedded content beyond 1 GB. Searchable content costs far more to store than the raw file does — every passage carries a search index several times its own size.
+- **$5 per million calls** to tools you wrote in code, beyond the first 1,000,000 each
+  month. Only your own code counts: calls to the integrations we ship, and to remote
+  MCP servers you connect, stay bundled.
 
 The custom-domain add-on is **$15 / month**.
 

@@ -669,7 +669,7 @@ Two things it found that no local run could. The plan gate was missing on publis
 
 #### Operational state
 
-**Migrations.** Dev is migrated through **0069** — verified: `artifact_tool` has `tool_key` and `enabled`, `tool_definition` / `tool_group` are gone, `artifact_tool_version` carries `script_name`, and `access_token` exists. Production has none of them, and they must land with the deploy: the API writes `tool_key` and reads `enabled` from the first request, dispatches to `script_name` at boot, and reads `access_token` on any request carrying a `ganju_pat_` bearer token.
+**Migrations.** Dev is migrated through **0070** — verified: `artifact_tool` has `tool_key` and `enabled`, `tool_definition` / `tool_group` are gone, `artifact_tool_version` carries `script_name`, `access_token` exists, and `subscription` carries `tool_call_count`. Production has none of them, and they must land with the deploy: the API writes `tool_key` and reads `enabled` from the first request, dispatches to `script_name` at boot, reads `access_token` on any request carrying a `ganju_pat_` bearer token, and both workers read the tool-call counter on every custom tool call.
 
 ```
 npm run migrate-prod --workspace=@ganju/db
@@ -871,11 +871,143 @@ Nothing is removed. This phase existed to retire `google-calendar` and `calcom` 
 
 The hazard this phase was written around is still real and still worth knowing, because it applies to any native group we ever do retire: **deleting the code without deleting the rows fails silently.** [mcp/index.ts:826-827](../apps/mcp/src/controllers/mcp/index.ts#L826-L827) does `toolRegistry.get(key)` → `if (!handler) continue`, so an orphaned install stops registering — the tool vanishes from the customer's agent with no error anywhere they can see, while the row still sits in their dashboard and still spends a slot against their tool quota. Code and rows have to move together. The [removal checklist](#removal-checklist) is the inventory.
 
-### Phase 10 — Plans, quotas, abuse
+### Phase 10 — Plans, quotas, abuse ✅
 
 - [x] `PLAN_FEATURE_CUSTOM_CODE` in [plan.ts](../apps/api/src/utils/plan.ts); Free = `http-endpoint` only, capped at 3 — see [Phase 6](#3-custom-code-is-a-paid-feature-with-a-server-side-gate)
-- [ ] Meter custom-tool invocations / CPU-ms (the `mcp_request` counter already exists)
-- [ ] Abuse response process — see [Risks](#risks)
+- [x] Meter custom-tool invocations — a fourth counter, a fourth Stripe meter, and the hard cap that bounds the month
+- [x] Abuse response process — [ABUSE.md](ABUSE.md), and the one command it leans on
+
+#### Invocations are billed; CPU is only enforced
+
+[Fix 1](#fix-1--cap-the-tail-technically-bill-on-the-legible-unit) said cap the
+tail technically and bill on the legible unit, and that is what shipped. CPU-ms
+never becomes a line item: it is bounded by `limits.cpu_ms` per script, which is
+a limit a customer meets rather than a number they are invoiced for. What they
+are invoiced for is **calls**, which they can forecast, and which the pricing
+page can state in one sentence.
+
+**Only dispatches into the customer's own code count.** A shipped integration or
+a proxied server is one screened fetch from a Worker we already pay for; metering
+those would bill for something that rounds to zero and turn the tool list into a
+thing to ration. So `PRICING_INCLUDED_TOOL_CALLS = 1_000_000` at
+`PRICING_TOOL_CALL_PER_M_USD = 5`, against custom code alone.
+
+Four things came out of building it that the plan did not anticipate:
+
+- **The counter is a column, not a query.** `mcp_request` already holds one row
+  per call, and the obvious move was to count them. Two things rule it out: the
+  table is purged on a 90-day retention window, which is shorter than some
+  billing disputes, and counting rows across every artifact in an organization on
+  an hourly cron is a scan where `subscription.tool_call_count` is a read of one
+  row ([migration 0070](../packages/db/drizzle/0070_tool_call_metering.sql)).
+- **Counting happens above the channel-proxy early return, and that is the whole
+  subtlety.** `flushRequests` returns early for turns a channel proxied, because
+  the runner writes those execution rows and doing it twice would double them.
+  But the runner counts **messages**, and a turn that called three custom tools
+  spent three dispatches whoever asked for them. Compute and inference are
+  different axes; each is counted exactly once, where it is spent. The count is
+  also one statement per request rather than per call — a request that made four
+  dispatches adds four.
+- **A failed call still counts, a call that never started does not.**
+  `executeCustomCodeCall` now reports `dispatched`, and only that is metered. A
+  tool that threw or timed out spent the compute — not counting it would make
+  failing the cheap way to buy compute — while a deployment with no dispatch
+  namespace, or a name with no script behind it, spent nothing.
+- **The hard cap is checked at call time, not at registration.** Dropping the
+  tools from `tools/list` would be a failure their owner cannot see, which is the
+  silent orphan the [removal checklist](#removal-checklist) warns about. Answering
+  the call with the reason is a failure they can act on. The budget is read once
+  per request, lazily, so an artifact whose tools are all native never reads it at
+  all. Crossing the *included allowance* never reaches this branch: past it a call
+  bills, it does not fail.
+
+`toolCallHardCap` is 20,000,000 on Pro — 20× the allowance, ~$46 of compute, and
+eight artifacts held at their rate limit for a month. Enterprise is `null`,
+because the cost model's own enterprise example makes 20 million calls a month
+and a fixed ceiling there would fight a real customer. Free is **10,000**, which
+exists for one case: a paid org that downgraded with a script still published.
+Those tools go on serving, because killing a customer's live integrations the
+moment a card fails is a worse failure than serving a bounded number of calls
+while they fix it.
+
+One thing this turned up that had nothing to do with tool calls: **an unstamped
+period discards usage.** A rollover zeroes the counters, and a subscription with
+`message_period_start = null` reads as one whose period has ended — so usage
+recorded before that row's first budget check would be thrown away. Nothing could
+reach it (every counted call sits behind a check that runs first, in the same
+request), but the ordering is not something a future caller should have to know,
+so `ensureSubscription` stamps the period at creation. The period, its boundary
+and what a rollover clears now have one definition in [@ganju/db](../packages/db/src/lib/plan.ts),
+shared by the message cap and the tool-call budget — two definitions would
+disagree the first time an org's billing period started mid-month.
+
+**The marketing site said the opposite, and had to change.** "Are MCP tool calls
+charged separately? No" was true when every tool was ours to run. It is now split:
+calls to the integrations we ship and to remote MCP servers stay bundled; calls
+to tools the customer wrote include a million a month and then bill. Terms,
+privacy, the pricing page, the docs and the plan tables all said "only two things
+are metered" and now say three, in both languages.
+
+**Verified** by [scripts/verify-tool-call-metering.mjs](../scripts/verify-tool-call-metering.mjs)
+— 45 checks, all passing, driving the real modules rather than restating their
+arithmetic: apps/mcp's `flushRequests` for the counting, `@ganju/db`'s budget for
+the cap, and apps/api's `meterOrganization` for what reaches Stripe, with a stub
+that records meter events instead of billing them. It scaffolds a throwaway PRO
+org and removes it.
+
+What it covers: native tools not counting while custom ones do, and a mixed
+request counting only the custom half; a channel-proxied dispatch counting while
+still writing no execution row; the increment refusing zero and negatives; the
+cap allowing right up to the ceiling and refusing at it, on all three plans plus
+a cancelled subscription falling back to Free's; the overage reported once and
+only the increment after that, against the right meter and customer, without
+touching the message meters; a rollover clearing the counter, its reported mark
+and the message counters together; and an org with no billing account reporting
+nothing.
+
+`meterOrganization` is exported for one organization at a time so the run can
+drive it without the sweep rolling every other organization's period. Only the
+cron calls `runOverageMetering`.
+
+**Not verified on the deployed stack, and it cannot be until it ships.** The
+development workers predate this code, so the two things only a deployed run
+shows are still open: the hard-cap refusal coming back through a real MCP client,
+and the counter moving on a real dispatch rather than on a `flushRequests` call
+made from a script. Both are one probe once development is redeployed — and the
+migration has to go with it, since `select *` on `subscription` names a column an
+unmigrated database does not have.
+
+#### The process, and the command it leans on
+
+[ABUSE.md](ABUSE.md) is the runbook: what the platform already stops without
+anyone waking up, the six signals that say something is wrong and roughly when
+each fires, three triage questions in the order worth asking them, and a
+containment ladder from "narrow the allowed hosts" to "suspend the organization".
+
+It leans on one command rather than a page of SQL:
+
+```bash
+node scripts/suspend-custom-code.mjs <artifact-slug>                    # report
+node scripts/suspend-custom-code.mjs <artifact-slug> --confirm          # stop
+node scripts/suspend-custom-code.mjs <artifact-slug> --confirm --delete-scripts
+```
+
+Without `--confirm` it only prints — owner, plan, calls this period, every
+deployed script name — which is most of what the incident record needs anyway.
+`--confirm` sets `artifact_tool.enabled = false`, so the tools stop registering
+at boot while the code, versions and settings survive; `--restore` puts them
+back. `--delete-scripts` removes the bundles from the dispatch namespace for code
+that has to be off the platform this minute, and that one only comes back by
+publishing.
+
+**It deliberately does not stop the owner deploying again.** Suspending answers
+"make it stop now"; keeping it stopped is a plan or an account decision, and
+building that into the same command would hide which of the two you were making.
+
+The runbook names its own gaps rather than implying coverage it doesn't have: no
+cron watches the tool-call counter (the hard cap is what makes that survivable),
+test runs are real compute and are metered nowhere, and every step of this runs
+from a shell with the database URL.
 
 ---
 
@@ -941,7 +1073,9 @@ Custom code adds a third, and it's the first one a user can turn against us:
 | **Compute** (custom tool execution) | usage **or malice** — an infinite loop, a miner | **yes** |
 | **Script slots** (artifacts) | projects created | no, but it's a fixed monthly floor per unit |
 
-### Fix 1 — cap the tail technically, bill on the legible unit
+Compute is now metered and capped like the other two — `subscription.tool_call_count`, a fourth Stripe meter, and a monthly ceiling per plan. Script slots still are not, and still don't need to be: two cents a month is not a thing to bill.
+
+### Fix 1 — cap the tail technically, bill on the legible unit ✅
 
 Don't put CPU-ms on a pricing page; nobody can forecast it and it makes the product feel dangerous. Instead:
 
@@ -949,6 +1083,8 @@ Don't put CPU-ms on a pricing page; nobody can forecast it and it makes the prod
 - **Bill** on invocations, which users can reason about
 
 Adversarial cost is then bounded by a technical limit rather than by a billing threat, and the pricing page stays simple.
+
+Both halves shipped in [Phase 10](#phase-10--plans-quotas-abuse-): `limits.cpu_ms` is 5s per script and appears on no invoice, and invocations meter at $5 per million past a million included. The monthly `toolCallHardCap` was the piece this fix didn't name — a per-call ceiling bounds one call, and something still has to bound the month.
 
 ### Fix 2 — "no limits on orgs/projects" can stay
 
@@ -994,7 +1130,7 @@ Full cost model, plan definitions, worked examples, and break-even: **[PRICING.m
 
 ## Risks
 
-**We become a code-execution platform.** Crypto mining, spam relays, and attack proxying will find us. `fetch` without screening is an open proxy. Controls: outbound-worker enforcement (not SDK-level), per-script CPU limits, host allowlists, billing per CPU. Budget for an abuse-response *process*, not just code.
+**We become a code-execution platform.** Crypto mining, spam relays, and attack proxying will find us. `fetch` without screening is an open proxy. Controls: outbound-worker enforcement (not SDK-level), per-script CPU limits, host allowlists, and a monthly cap on invocations. The process this asked for is [ABUSE.md](ABUSE.md) — what stops it automatically, the signals that say it didn't, and the containment ladder — and [Phase 10](#phase-10--plans-quotas-abuse-) is what made "billing per CPU" concrete: CPU is enforced per script and never invoiced, invocations are what bill.
 
 **An `outputSchema` killed every channel turn, and the tool was not the thing that broke.** The MCP SDK validates `structuredContent` against a declared output schema, and its default validator is Ajv, which compiles a schema with `new Function`. Workers disallow code generation from strings — so `Client.listTools()` threw `EvalError: Code generation from strings disallowed for this context` and took the whole turn with it.
 

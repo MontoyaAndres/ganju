@@ -63,7 +63,9 @@ export type Bindings = {
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_ENTERPRISE?: string;
   STRIPE_PRICE_MESSAGE_OVERAGE?: string;
+  STRIPE_PRICE_SHARED_MESSAGE_OVERAGE?: string;
   STRIPE_PRICE_EMBEDDED_OVERAGE?: string;
+  STRIPE_PRICE_TOOL_CALL_OVERAGE?: string;
   EMAIL_FROM?: string;
   ALERT_EMAIL?: string;
 };

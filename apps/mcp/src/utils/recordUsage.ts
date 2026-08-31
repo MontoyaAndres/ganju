@@ -17,6 +17,7 @@ export interface PendingRequest {
   artifactToolId?: string | null;
   artifactResourceId?: string | null;
   artifactPromptId?: string | null;
+  customCodeCall?: boolean;
 }
 
 interface JsonRpcRequest {
@@ -177,6 +178,7 @@ export const flushRequests = async (
   dbInstance: ReturnType<typeof db.create>,
   sessionId: string,
   artifactId: string,
+  organizationId: string,
   requests: PendingRequest[],
   actor: RequestActor
 ): Promise<void> => {
@@ -206,6 +208,26 @@ export const flushRequests = async (
       lastRequestAt: new Date()
     })
     .where(eq(db.schema.mcpSession.id, sessionId));
+
+  // Custom-tool invocations, counted against the organization's monthly budget.
+  //
+  // Deliberately ABOVE the channel-proxy early return below. That return exists
+  // because the channel runner records the execution audit for turns it proxied,
+  // and recording them twice would double count — but the runner counts
+  // MESSAGES, and a turn that called three custom tools spent three dispatches
+  // whoever asked for them. Compute is a different axis from inference, and each
+  // is counted exactly once, where it is spent.
+  //
+  // One statement per request rather than per call, and best-effort: this runs
+  // after the response, so a failure here costs a counter, not a tool call.
+  const customCodeCalls = requests.filter(r => r.customCodeCall).length;
+  if (customCodeCalls > 0) {
+    await db.plan.incrementToolCallUsage(
+      dbInstance,
+      organizationId,
+      customCodeCalls
+    );
+  }
 
   // Channel-proxied calls are accounted for by the channel runner (which knows
   // the external actor) — recording them here as well would double count.
