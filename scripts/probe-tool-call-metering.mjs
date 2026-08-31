@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import postgres from 'postgres';
 import { v7 as uuid } from 'uuid';
+import { utils } from '@ganju/utils';
 
 const root = new URL('..', import.meta.url).pathname;
 const env = fs.readFileSync(root + '.env', 'utf8');
@@ -86,6 +87,8 @@ const projectId = uuid();
 const artifactId = uuid();
 const slug = `probe-meter-${Date.now().toString(36)}`;
 const sessionToken = crypto.randomBytes(32).toString('base64url');
+
+const { mintContainmentToken } = utils;
 
 const cf = async (path, init) => {
   const res = await fetch(
@@ -540,7 +543,92 @@ try {
     restoredTools.some(t => t.name === 'meter-echo')
   );
 
-  // --- 8. checkout, built by the deployed worker --------------------------
+  // --- 8. the containment link, end to end --------------------------------
+  section('the stop link a usage alert carries');
+
+  // Minted here rather than waiting for the hourly digest: the token is a pure
+  // function of the secret, so this is the same value that email would carry.
+  const stopToken = await mintContainmentToken(orgId, JWT_SECRET);
+  const stopPath = `/containment/${stopToken}`;
+
+  const beforeGet = await sql`
+    select enabled from artifact_tool
+    where artifact_id = ${artifactId} and tool_key = 'custom-code'`;
+
+  const shown = await fetch(`${API}${stopPath}`);
+  const shownBody = await shown.text();
+  check(
+    'the link renders a confirmation page',
+    shown.status === 200 && shownBody.includes('Stop custom tools?'),
+    `HTTP ${shown.status}`
+  );
+  check(
+    '  ...naming the organization and the server it would stop',
+    shownBody.includes(slug),
+    slug
+  );
+
+  const afterGet = await sql`
+    select enabled from artifact_tool
+    where artifact_id = ${artifactId} and tool_key = 'custom-code'`;
+  check(
+    '  ...and the GET changed nothing',
+    afterGet[0].enabled === beforeGet[0].enabled &&
+      afterGet[0].enabled === true,
+    'a mail client prefetching the URL must not stop anyone’s tools'
+  );
+
+  const acted = await fetch(`${API}${stopPath}`, { method: 'POST' });
+  const actedBody = await acted.text();
+  check(
+    'the form POST stops them',
+    acted.status === 200 && actedBody.includes('Stopped'),
+    `HTTP ${acted.status}`
+  );
+  const afterPost = await sql`
+    select enabled from artifact_tool
+    where artifact_id = ${artifactId} and tool_key = 'custom-code'`;
+  check(
+    '  ...by disabling the install, not deleting anything',
+    afterPost[0].enabled === false
+  );
+  const survived = await sql`
+    select count(*)::int as n from artifact_tool_version
+    where artifact_tool_id in (
+      select id from artifact_tool where artifact_id = ${artifactId})`;
+  check(
+    '  ...with the versions still there',
+    survived[0].n > 0,
+    `${survived[0].n} version(s)`
+  );
+  check(
+    '  ...and the tools gone from the MCP server',
+    !(await listTools()).some(t => t.name === 'meter-echo')
+  );
+
+  const badToken = await mintContainmentToken(
+    orgId,
+    'not-this-deployments-key'
+  );
+  const badRes = await fetch(`${API}/containment/${badToken}`);
+  check(
+    'a link signed by another key is refused',
+    badRes.status === 410,
+    `HTTP ${badRes.status}`
+  );
+
+  // Put it back the way the owner would, so the checkout section below runs
+  // against an artifact in its normal state.
+  await sql`update artifact_tool set enabled = true where artifact_id = ${artifactId} and tool_key = 'custom-code'`;
+  const secondPost = await fetch(`${API}${stopPath}`, { method: 'POST' });
+  check(
+    'the same link works again while it is still valid',
+    secondPost.status === 200,
+    'it is a capability with a lifetime, not a one-shot'
+  );
+  await sql`update artifact_tool set enabled = true where artifact_id = ${artifactId} and tool_key = 'custom-code'`;
+
+  // --- 9. checkout, built by the deployed worker --------------------------
   section('the price the deployed worker puts in a checkout session');
 
   // Checkout refuses an organization that is already paid, so this asks as a

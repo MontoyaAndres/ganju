@@ -2096,9 +2096,14 @@ const STRIPE_METER_MESSAGES = 'ganju_channel_messages';
 const STRIPE_METER_SHARED_MESSAGES = 'ganju_shared_messages';
 const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
 // Custom-tool invocations, reported as a raw count of the calls above the
-// included allowance. Its price is a package of 1,000,000 rather than per-unit:
-// $5/1,000,000 renders per-unit as $0.000005, which no invoice line should have
-// to say.
+// included allowance. Its price is a package of 1,000 at $0.005 rather than
+// per-unit — $5/1,000,000 renders per-unit as $0.000005, which no invoice line
+// should have to say. The other direction is worse for a different reason:
+// Stripe rounds a PARTIAL package up, so at 1,000,000 a customer ten calls past
+// the allowance would owe the whole $5, and one 2.5 million past would owe $15
+// against the $12.50 every page of ours quotes. At 1,000 the rounding
+// disappears into the noise of a million-call allowance, and the invoice reads
+// as usage — `2,500 × $0.005`.
 const STRIPE_METER_TOOL_CALLS = 'ganju_custom_tool_calls';
 
 // Legal documents a user accepts, and the version they're on. Bump the version
@@ -2165,6 +2170,23 @@ const ALERT_TOOL_CALL_CAP_FRACTION = 0.5;
 const ALERT_TOOL_CALL_COOLDOWN_HOURS = 6;
 // Organizations itemised in one digest.
 const ALERT_TOOL_CALL_MAX_ROWS = 25;
+
+// The "stop these tools" link the usage digest carries.
+//
+// It exists because the alert travels and the response did not: every other
+// containment step needs a shell holding the production database URL, so an
+// abuse notice arriving away from a desk was one nobody could act on for hours.
+//
+// Narrow on purpose. It disables the organization's custom-code installs — the
+// tools stop registering at boot, the code, versions and settings all survive,
+// and any owner can switch them back on. It cannot delete a script, touch a
+// credential, or reach anything else.
+const CONTAINMENT_TOKEN_VERSION = '1';
+const CONTAINMENT_PURPOSE_DISABLE_CUSTOM_CODE = 'disable-custom-code';
+// Long enough to still work when the mail is read a few hours late, short enough
+// that a forwarded thread or an archived inbox is not a way in.
+const CONTAINMENT_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const CONTAINMENT_PATH = '/containment';
 // Only alert on genuine server failures. 4xx rows are expected client errors
 // (validation, not-found, quota) and would drown the signal.
 const ALERT_MIN_STATUS = 500;
@@ -2249,6 +2271,10 @@ export const constants = {
   ALERT_TOOL_CALL_CAP_FRACTION,
   ALERT_TOOL_CALL_COOLDOWN_HOURS,
   ALERT_TOOL_CALL_MAX_ROWS,
+  CONTAINMENT_TOKEN_VERSION,
+  CONTAINMENT_PURPOSE_DISABLE_CUSTOM_CODE,
+  CONTAINMENT_TOKEN_TTL_MS,
+  CONTAINMENT_PATH,
   ALERT_MIN_STATUS,
   ALERT_MAX_ROWS,
   ALERT_MAX_GROUPS,

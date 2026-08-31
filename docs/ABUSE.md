@@ -43,7 +43,8 @@ In rough order of how early they fire:
    organizations whose custom-tool usage is worth a look: an unusual hourly rate,
    half the monthly ceiling reached, or the ceiling met and calls being refused.
    It stays quiet for six hours after alerting on an organization, so a busy
-   month is not an hourly email.
+   month is not an hourly email. Each digest carries a link that stops that
+   organization's custom tools — see the containment ladder.
 
    The counter behind it is `subscription.tool_call_count`, a per-period total
    per organization, and it is still the cheapest question to ask by hand:
@@ -103,7 +104,22 @@ and no further: every step below the first breaks something a customer built.
    or `config.allowedTools` to the subset that isn't the problem. Both are edits
    to the tool's config, take effect on the next call with no redeploy, and leave
    everything else working.
-2. **Suspend the artifact's custom tools.**
+2. **Tap the link in the alert.** The usage digest carries one per organization
+   it names: it opens a page saying whose tools it would stop, which servers, and
+   how many calls this period, and a button that stops them. This is the step
+   that works from a phone, which is where an abuse notice usually finds you.
+
+   It is deliberately the smallest thing that answers "make it stop": it disables
+   the organization's custom-code installs and nothing else — no script deleted,
+   no credential touched — and any owner can switch them back on. The link
+   expires in 12 hours, and opening it changes nothing; only the button does, so
+   a mail client prefetching the URL is harmless.
+
+   It acts on the whole organization, because the counter that raised the alert
+   is per organization. When you know which artifact is the problem, the command
+   below is narrower.
+
+3. **Suspend one artifact's custom tools, from a machine with the repo.**
 
    ```bash
    node scripts/suspend-custom-code.mjs <artifact-slug> --confirm
@@ -120,7 +136,7 @@ and no further: every step below the first breaks something a customer built.
    `-32601 Method not found` — an MCP server with nothing registered advertises no
    tools capability. Expect "my server is broken" rather than "my tools are off",
    and say which it is when you contact them.
-3. **Remove the bundles from the namespace.**
+4. **Remove the bundles from the namespace.**
 
    ```bash
    node scripts/suspend-custom-code.mjs <artifact-slug> --confirm --delete-scripts
@@ -129,17 +145,17 @@ and no further: every step below the first breaks something a customer built.
    For code that is actively doing damage and should be off the platform this
    minute. Not reversible by flag — the owner republishes, or an operator rolls
    a version forward, which re-uploads it.
-4. **Revoke credentials.** Delete the `artifact_credential` rows for the
+5. **Revoke credentials.** Delete the `artifact_credential` rows for the
    connections it was using, and any `access_token` rows for the project. Both
    land on the next request: authentication is a lookup, not a cached lease. Do
    this first, not last, when the answer to question 3 was "stolen".
-5. **Downgrade or suspend the organization.** Setting the subscription to a
+6. **Downgrade or suspend the organization.** Setting the subscription to a
    non-entitled status drops it to Free limits, which among other things drops
    the monthly tool-call ceiling to 10,000 and blocks publishing. This is the
    only step that stops the owner from simply deploying again, and it is an
    account decision — it stops their *whole* product, not one tool.
 
-**Suspending is not a stop on redeploying.** Steps 2 and 3 answer "make it stop
+**Suspending is not a stop on redeploying.** Steps 2 to 4 answer "make it stop
 now". If the owner is the problem rather than their code, step 5 is the one that
 holds.
 
@@ -163,8 +179,10 @@ holds.
 
 Named because a runbook that implies more coverage than exists is worse than none:
 
-- **There is no dashboard kill switch for an operator.** Everything above runs
-  from a shell with the database URL in `.env`. Fine for now; the wrong shape the
-  first time someone has to do it from a phone.
+- **Everything past the link needs a shell.** Step 2 works from a phone; steps 3
+  to 6 need the repo and the production database URL. That is the right shape for
+  the destructive half — deleting bundles and revoking credentials should be
+  harder to do by accident — but it does mean the narrow, per-artifact response
+  is the one that needs a laptop while the blunt, per-organization one does not.
 - **The rate limit is per installed tool, not per organization.** An org with
   fifty artifacts gets fifty budgets. The monthly cap is what bounds the total.

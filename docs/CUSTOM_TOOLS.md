@@ -1107,8 +1107,60 @@ than keeping the list tidy:
   actually reached, and is refused at the ceiling as a 402 carrying the feature,
   which is what a dashboard and a CLI can act on.
 
-What remains is the one it can't close from here: every containment step runs
-from a shell with the database URL.
+That left the runbook's last gap: every containment step needed a shell holding
+the production database URL, which is the wrong shape for the moment it matters —
+an abuse notice arrives on a phone, and until now the response did not.
+
+**So the digest carries a link.** An HMAC over `{organizationId, exp}`, minted per
+digest, twelve-hour lifetime, opening a page that names the organization, the
+servers it would stop and the calls this period, with one button. Four properties
+carry the design, and each is about a capability that travels through email:
+
+- **It disables, and that is all.** The organization's custom-code installs stop
+  registering; code, versions, settings and credentials all survive, and any
+  owner switches them back on without us. Deleting bundles and revoking
+  credentials stay behind a shell, where being harder to do by accident is worth
+  the friction.
+- **The GET never acts.** Mail clients, link scanners and chat previews fetch
+  URLs nobody clicked, so the link renders and a form POST acts. A capability
+  that fires on preview is one somebody else holds.
+- **Purpose-bound.** The payload carries `p: 'disable-custom-code'`, checked on
+  verify, so a token this deployment signs for one job can never be replayed as
+  another — the domain separation that makes sharing `JWT_SECRET` safe.
+- **Organization-wide, because that is what the alert knows.** The counter behind
+  the digest is per organization; naming one artifact would mean guessing which,
+  from an email that cannot tell. The per-artifact command is the narrower tool,
+  and it is the one that still needs a laptop.
+
+No session is involved, deliberately: whoever is on call may have none on the
+device in their hand, which is the entire situation this exists for.
+
+**Verified** — the token's own rules in the verify run (expiry, another
+deployment's secret, a tampered payload, a token minted for a different purpose,
+and the digest carrying a link that verifies back to the organization it names),
+and the flow itself against a locally running API: the page naming the
+organization, its server and its call count; the GET leaving `enabled` alone; the
+POST disabling the install and deleting nothing; a second visit reporting it
+already stopped; and a foreign, malformed or expired link all refused as an
+identical 410, since a page that says which check failed tells whoever found the
+link what to change. The deployed probe carries the same flow for the next
+deploy.
+
+**Both were then exercised against the deployed stack on the example project**,
+which is the one artifact running real user code: its four tools registered and
+two of them ran through the outbound worker to `pokeapi.co` and
+`registry.npmjs.org`, each counted once; a test run against the *live* version
+returned the handler's own `ctx.log` lines, deleted its preview script, left
+`activeVersionId` and all 111 resources untouched, and — the point — counted,
+where before it would not have. The example's own manifest and its CLI-built
+bundle were then uploaded to a throwaway organization to meet the ceiling: 402,
+`PLAN_LIMIT_EXCEEDED` / `toolCall`, with nothing deployed to find that out,
+because the gate runs before the preview upload.
+
+And the alert runs where it was wired: an hour after the deploy the cron wrote
+`tool_calls:<organizationId>` with the snapshot matching the counter and no alert
+sent, which is a first sighting adopting the position rather than emailing about
+usage that predates it.
 
 ---
 

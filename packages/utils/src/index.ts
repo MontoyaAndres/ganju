@@ -107,6 +107,11 @@ import {
   customCodePreviewUploadName
 } from './customCodeToken';
 import type { CustomCodeTokenPayload } from './customCodeToken';
+import {
+  mintContainmentToken,
+  verifyContainmentToken
+} from './containmentToken';
+import type { ContainmentTokenPayload } from './containmentToken';
 import { oauthProviders } from './oauthProviders';
 import type { OAuthProviderConfig } from './oauthProviders';
 import { resolveAttachment } from './attachment';
@@ -276,6 +281,8 @@ export const utils = {
   customCodePreviewScriptName,
   customCodeUploadName,
   customCodePreviewUploadName,
+  mintContainmentToken,
+  verifyContainmentToken,
   oauthProviders,
   resolveAttachment,
   isExposedResource,
@@ -417,6 +424,7 @@ export type {
   CustomCodeSendFile,
   CustomCodeCreateResource,
   CustomCodeTokenPayload,
+  ContainmentTokenPayload,
   OAuthProviderConfig,
   AttachmentResource,
   ResolvedAttachment,

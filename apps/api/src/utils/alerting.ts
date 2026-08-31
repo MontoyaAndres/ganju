@@ -354,6 +354,7 @@ interface ToolCallFlag {
   sinceLastCheck: number;
   hardCap: number | null;
   reason: 'surge' | 'approaching' | 'at-cap';
+  stopUrl?: string;
 }
 
 const describeReason = (flag: ToolCallFlag): string => {
@@ -375,7 +376,8 @@ const buildToolCallEmail = (
     `${f.name} (${f.plan}) — ${f.used.toLocaleString('en-US')} calls this period, ` +
     `${f.sinceLastCheck.toLocaleString('en-US')} since the last check` +
     `${f.hardCap ? ` of ${f.hardCap.toLocaleString('en-US')}` : ''} — ${describeReason(f)}\n` +
-    `  ${f.organizationId}`;
+    `  ${f.organizationId}` +
+    `${f.stopUrl ? `\n  Stop their custom tools: ${f.stopUrl}` : ''}`;
 
   const text = `${subject}\n\n${flags.map(line).join('\n\n')}\n`;
 
@@ -392,6 +394,11 @@ const buildToolCallEmail = (
             ${f.hardCap ? `· ceiling ${f.hardCap.toLocaleString('en-US')}` : ''}
           </span><br />
           <span style="color:#8a8798;font-size:12px;">${describeReason(f)} · ${f.organizationId}</span>
+          ${
+            f.stopUrl
+              ? `<br /><a href="${f.stopUrl}" style="display:inline-block;margin-top:8px;font-size:13px;color:#b4231f;text-decoration:none;font-weight:600;">Stop their custom tools →</a>`
+              : ''
+          }
         </td>
       </tr>`
     )
@@ -415,9 +422,10 @@ const buildToolCallEmail = (
                   ${rows}
                 </table>
                 <p style="margin:24px 0 0;font-size:12px;color:#6b6878;">
-                  Start with
-                  <code>node scripts/suspend-custom-code.mjs &lt;artifact-slug&gt;</code>,
-                  which reports before it changes anything.
+                  The link asks before it does anything, turns tools off without
+                  deleting them, and expires. From a machine with the repo,
+                  <code>node scripts/suspend-custom-code.mjs &lt;artifact-slug&gt;</code>
+                  reports first and reaches further.
                 </p>
               </td>
             </tr>
@@ -490,7 +498,8 @@ export const runToolCallAlerts = async (
 
     const stateByKey = new Map(states.map(state => [state.key, state]));
     const now = Date.now();
-    const cooldownMs = constants.ALERT_TOOL_CALL_COOLDOWN_HOURS * 60 * 60 * 1000;
+    const cooldownMs =
+      constants.ALERT_TOOL_CALL_COOLDOWN_HOURS * 60 * 60 * 1000;
 
     const flags: ToolCallFlag[] = [];
     const snapshots: { key: string; used: number; alerted: boolean }[] = [];
@@ -576,6 +585,22 @@ export const runToolCallAlerts = async (
     const shown = flags
       .sort((a, b) => b.used - a.used)
       .slice(0, constants.ALERT_TOOL_CALL_MAX_ROWS);
+
+    // One link per organization, minted per digest and short-lived. Only the
+    // organizations actually being written about get one: a capability that
+    // travels by email should exist for exactly as long, and for exactly as
+    // many subjects, as the message carrying it.
+    const apiUrl = utils.getEnv(source, 'NEXT_PUBLIC_API_URL');
+    const secret = utils.getEnv(source, 'JWT_SECRET');
+    if (apiUrl && secret) {
+      for (const flag of shown) {
+        flag.stopUrl = `${apiUrl}${constants.CONTAINMENT_PATH}/${await utils.mintContainmentToken(
+          flag.organizationId,
+          secret
+        )}`;
+      }
+    }
+
     const { subject, text, html } = buildToolCallEmail(shown);
 
     const domain = utils.getEnv(source, 'NEXT_PUBLIC_DOMAIN')!;

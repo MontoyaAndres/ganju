@@ -133,7 +133,9 @@ const source = {
   env: {
     HYPERDRIVE: { connectionString: DATABASE_URL },
     NEXT_PUBLIC_DOMAIN: 'verify.invalid',
-    ALERT_EMAIL: 'alerts@verify.invalid'
+    ALERT_EMAIL: 'alerts@verify.invalid',
+    NEXT_PUBLIC_API_URL: 'https://api.verify.invalid',
+    JWT_SECRET: read('JWT_SECRET')
   }
 };
 const dbInstance = db.create(source);
@@ -810,6 +812,83 @@ try {
     'a rollover is not read as a surge',
     !mine(drain()),
     'the count fell below the snapshot; the delta is the count, not a negative'
+  );
+
+  console.log('\nthe containment link\n');
+
+  const SECRET = 'containment-verify-secret';
+  const minted = await utils.mintContainmentToken(orgId, SECRET);
+
+  check(
+    'a link token verifies and names its organization',
+    (await utils.verifyContainmentToken(minted, SECRET))?.organizationId ===
+      orgId
+  );
+  check(
+    '  ...and nothing else — the payload carries no artifact or action',
+    Object.keys((await utils.verifyContainmentToken(minted, SECRET)) ?? {})
+      .sort()
+      .join(',') === 'exp,iat,organizationId,p,v'
+  );
+  check(
+    'another deployment’s secret does not open it',
+    (await utils.verifyContainmentToken(minted, 'other-secret')) === null
+  );
+  check(
+    'an expired link is refused',
+    (await utils.verifyContainmentToken(
+      minted,
+      SECRET,
+      Date.now() + constants.CONTAINMENT_TOKEN_TTL_MS + 1_000
+    )) === null,
+    `${constants.CONTAINMENT_TOKEN_TTL_MS / 3_600_000}h lifetime`
+  );
+  check(
+    'a tampered payload is refused',
+    (await utils.verifyContainmentToken(
+      `${minted.slice(0, 10)}X${minted.slice(11)}`,
+      SECRET
+    )) === null,
+    'the signature covers the organization id'
+  );
+
+  // Domain separation: this deployment signs several kinds of token with the
+  // same secret, so a token minted for one job must not be spendable as another.
+  const foreign = await utils.mintCustomCodeToken(
+    { artifactId: artifactId, versionId: 'v', ttlMs: 60_000 },
+    SECRET
+  );
+  check(
+    'a token minted for another purpose is refused',
+    (await utils.verifyContainmentToken(foreign, SECRET)) === null,
+    'the purpose is inside the signature, not beside it'
+  );
+
+  // The digest is what carries it, so the link has to survive the email build.
+  await sql`delete from alert_state where key = ${alertKey}`;
+  await setCounters({ tool_call_count: 500 });
+  drain();
+  await runToolCallAlerts(source);
+  await setCounters({
+    tool_call_count: 500 + constants.ALERT_TOOL_CALL_SURGE
+  });
+  await runToolCallAlerts(source);
+  const withLink = drain().find(m => m.text.includes(orgId));
+  check(
+    'the digest carries a stop link for the organization it names',
+    !!withLink &&
+      withLink.text.includes(
+        `${source.env.NEXT_PUBLIC_API_URL}${constants.CONTAINMENT_PATH}/`
+      ),
+    withLink?.text.split('\n').find(l => l.includes('Stop their')) ?? 'absent'
+  );
+  const linked = withLink?.text.match(
+    new RegExp(`${constants.CONTAINMENT_PATH}/([A-Za-z0-9_.-]+)`)
+  )?.[1];
+  check(
+    '  ...that verifies against this deployment and names this organization',
+    (await utils.verifyContainmentToken(linked ?? '', read('JWT_SECRET')))
+      ?.organizationId === orgId
   );
 
   console.log('\nthe usage summary\n');

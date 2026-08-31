@@ -16,9 +16,11 @@ import { OneDriveController } from './oneDrive';
 import { WellKnownController } from './wellKnown';
 import { ContactController } from './contact';
 import { BillingController } from './billing';
+import { ContainmentController } from './containment';
 
 export {
   BillingController,
+  ContainmentController,
   ContactController,
   UserController,
   ProjectController,

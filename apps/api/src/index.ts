@@ -21,7 +21,8 @@ import {
   OneDriveController,
   WellKnownController,
   ContactController,
-  BillingController
+  BillingController,
+  ContainmentController
 } from './controllers';
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
@@ -157,6 +158,19 @@ app
 
   // Stripe webhook (public, verified by the stripe-signature header)
   .post('/billing/webhook', BillingController.webhook)
+
+  // The containment link a usage alert carries. Public, because the authority is
+  // the signed token and whoever is on call may have no session on the device in
+  // their hand — which is the situation it exists for. The GET only renders; the
+  // POST is what acts, so a mail client prefetching the URL changes nothing.
+  .get(
+    `${utils.constants.CONTAINMENT_PATH}/:token`,
+    ContainmentController.confirm
+  )
+  .post(
+    `${utils.constants.CONTAINMENT_PATH}/:token`,
+    ContainmentController.apply
+  )
 
   // User controller
   .post('/user/avatar', UserMiddleware.verify, UserController.uploadAvatar)
