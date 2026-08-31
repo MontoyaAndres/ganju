@@ -1846,6 +1846,16 @@ const testCustomCodeVersion = async (c: Context<AppEnv>) => {
     await Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
   );
 
+  // A test run is a dispatch into the customer's code on our compute, which is
+  // the same thing the monthly ceiling exists to bound — so it is refused at the
+  // ceiling like any other call, and counted like one below. It was briefly
+  // neither: the reasoning was that billing someone for testing their own tool
+  // before they ship it discourages the thing that keeps bad code out of
+  // production. What that left was an unmetered path to the same compute, which
+  // is worse than the thing it avoided — and against a million included calls, a
+  // developer's test runs are noise.
+  await Plan.assertToolCallBudget(dbInstance, currentValues.organizationId);
+
   const version = await loadVersionForTool(
     dbInstance,
     tool.id,
@@ -1935,6 +1945,16 @@ const testCustomCodeVersion = async (c: Context<AppEnv>) => {
         utils.constants.CUSTOM_CODE_TEST_TIMEOUT_MS
       )
     });
+
+    // One, not two: the health probe that runs before this is our own check on
+    // the upload, and the author did not ask for it. Counted after the run
+    // rather than before, so a version that never reached the isolate — no
+    // bundle, a refused smoke test — costs nothing, exactly as in apps/mcp.
+    await Plan.incrementToolCallUsage(
+      dbInstance,
+      currentValues.organizationId,
+      1
+    );
 
     // A declared outputSchema is a promise to the MCP client, and one the boot
     // loop turns into a protocol-level requirement: a tool that declares one and

@@ -30,7 +30,8 @@ import {
   runOverageMetering,
   runRetentionPurge,
   runCustomCodeScriptSweep,
-  runErrorAlerts
+  runErrorAlerts,
+  runToolCallAlerts
 } from './utils';
 import {
   handleIndexBatch,
@@ -674,6 +675,10 @@ export default {
     // The hourly tick also sweeps, so a missed 15-minute run still gets picked
     // up rather than waiting for the next one.
     ctx.waitUntil(runErrorAlerts({ env }));
+    // Custom-tool usage worth a human look. Hourly rather than every 15 minutes
+    // because the signal it reads is a per-hour rate, and because the monthly
+    // ceiling — not this email — is what actually bounds the spend.
+    ctx.waitUntil(runToolCallAlerts({ env }));
   },
   queue: (
     batch: MessageBatch<

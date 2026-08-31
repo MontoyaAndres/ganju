@@ -80,7 +80,7 @@ import { createStripe, stripeCryptoProvider } from './stripe';
 import { runOverageMetering } from './metering';
 import { runRetentionPurge } from './retention';
 import { runCustomCodeScriptSweep } from './customCodeSweep';
-import { runErrorAlerts, recentErrors } from './alerting';
+import { runErrorAlerts, runToolCallAlerts, recentErrors } from './alerting';
 import {
   consentActorFromRequest,
   recordConsent,
@@ -93,6 +93,7 @@ export {
   runRetentionPurge,
   runCustomCodeScriptSweep,
   runErrorAlerts,
+  runToolCallAlerts,
   recentErrors,
   consentActorFromRequest,
   recordConsent,

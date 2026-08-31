@@ -328,6 +328,32 @@ export const incrementMessageUsage = async (
     .where(eq(db.schema.subscription.organizationId, organizationId));
 };
 
+/**
+ * Refuse a custom-tool run once the organization is at its monthly ceiling.
+ *
+ * The MCP worker answers this case with a tool error, because a client that
+ * asked for a tool deserves a result rather than a protocol failure. This is the
+ * dashboard's and the CLI's version of the same gate, where a 402 with the
+ * feature on it is what the caller can act on.
+ */
+export const assertToolCallBudget = async (
+  executor: DbExecutor,
+  organizationId: string
+): Promise<void> => {
+  const budget = await checkToolCallBudget(executor, organizationId);
+  if (budget.allowed) return;
+
+  throw new PlanLimitError(
+    `This organization has reached its monthly limit of ${budget.hardCap?.toLocaleString('en-US')} custom tool calls, so a test run is not allowed right now.`,
+    {
+      feature: constants.PLAN_FEATURE_TOOL_CALL,
+      plan: budget.plan,
+      limit: budget.hardCap ?? undefined,
+      used: budget.used
+    }
+  );
+};
+
 // usage summary (for the billing/status endpoint + dashboard)
 
 export type OrganizationUsage = {
@@ -395,6 +421,7 @@ export const Plan = {
   checkMessageCap,
   incrementMessageUsage,
   checkToolCallBudget,
+  assertToolCallBudget,
   incrementToolCallUsage,
   getOrganizationUsage
 };

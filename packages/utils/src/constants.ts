@@ -2148,6 +2148,23 @@ const CRON_HOURLY = '0 * * * *';
 const CRON_ERROR_ALERTS = '*/15 * * * *';
 
 const ALERT_STATE_KEY_ERROR_LOG = 'error_log';
+// Custom-tool usage alerting, keyed per organization as `tool_calls:<id>`. The
+// monthly hard cap bounds what abuse can spend; these thresholds are what say
+// something is happening NOW, while there is still a month left to spend.
+const ALERT_STATE_KEY_TOOL_CALLS = 'tool_calls';
+// Calls in a single hour. The per-tool rate limit allows 3,600/hour, and a month
+// of the included million sustained is ~1,370/hour — so five figures in one hour
+// is either many artifacts at full tilt or something that should be looked at.
+const ALERT_TOOL_CALL_SURGE = 10_000;
+// The share of the abuse backstop at which the wall is close enough to warn
+// about. Half a month's ceiling reached is worth an email even if the rate is
+// unremarkable, because the alternative is a customer meeting it silently.
+const ALERT_TOOL_CALL_CAP_FRACTION = 0.5;
+// How long to stay quiet about one organization after alerting on it. Without
+// this a busy month is an hourly email, and an hourly email is a muted one.
+const ALERT_TOOL_CALL_COOLDOWN_HOURS = 6;
+// Organizations itemised in one digest.
+const ALERT_TOOL_CALL_MAX_ROWS = 25;
 // Only alert on genuine server failures. 4xx rows are expected client errors
 // (validation, not-found, quota) and would drown the signal.
 const ALERT_MIN_STATUS = 500;
@@ -2227,6 +2244,11 @@ export const constants = {
   CRON_HOURLY,
   CRON_ERROR_ALERTS,
   ALERT_STATE_KEY_ERROR_LOG,
+  ALERT_STATE_KEY_TOOL_CALLS,
+  ALERT_TOOL_CALL_SURGE,
+  ALERT_TOOL_CALL_CAP_FRACTION,
+  ALERT_TOOL_CALL_COOLDOWN_HOURS,
+  ALERT_TOOL_CALL_MAX_ROWS,
   ALERT_MIN_STATUS,
   ALERT_MAX_ROWS,
   ALERT_MAX_GROUPS,

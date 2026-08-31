@@ -39,8 +39,14 @@ screening lives in the outbound worker and not in the SDK.
 
 In rough order of how early they fire:
 
-1. **The tool-call counter.** `subscription.tool_call_count` is a per-period total
-   per organization, and it is the cheapest question to ask:
+1. **The tool-call alert.** The hourly cron emails `ALERT_EMAIL` a digest of
+   organizations whose custom-tool usage is worth a look: an unusual hourly rate,
+   half the monthly ceiling reached, or the ceiling met and calls being refused.
+   It stays quiet for six hours after alerting on an organization, so a busy
+   month is not an hourly email.
+
+   The counter behind it is `subscription.tool_call_count`, a per-period total
+   per organization, and it is still the cheapest question to ask by hand:
 
    ```sql
    select o.name, s.plan, s.tool_call_count
@@ -157,15 +163,6 @@ holds.
 
 Named because a runbook that implies more coverage than exists is worse than none:
 
-- **Nothing alerts on the tool-call counter.** The number is there and the query
-  above is one line, but no cron watches it, so today the counter is a thing you
-  look at rather than a thing that pages you. The hard cap is what makes that
-  survivable — it bounds the month whether or not anyone is watching.
-- **Test runs are not metered.** `ganju test` and the dashboard's test panel
-  deploy a preview script and call it, which is real compute, and it is counted
-  nowhere. It is bounded by a human clicking and by the same CPU ceiling, and
-  billing someone for testing their own tool before they ship it is a bad trade —
-  but it is an unmetered path, and a determined loop could drive it.
 - **There is no dashboard kill switch for an operator.** Everything above runs
   from a shell with the database URL in `.env`. Fine for now; the wrong shape the
   first time someone has to do it from a phone.

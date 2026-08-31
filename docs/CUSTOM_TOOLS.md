@@ -659,6 +659,13 @@ The http-endpoint run drives the **real executor** against a stubbed `fetch`: a 
 
 Two things it found that no local run could. The plan gate was missing on publish and rollback — every other write path answered 402 on FREE while those two deployed code. And a `GET` on an absent dispatch script answers `200` with `result.script: null` rather than 404, so an assertion on the status alone reports every deleted script as still deployed — which is why the probe reads the field.
 
+**The billing row was checked in a browser**, driven with Playwright against the
+local app: on Pro at 1,240,000 calls it renders `1,240,000 / 1,000,000 included`
+with the amber overage bar and `240,000 over · billed at $5/M`, sitting between
+embedded content and file storage; under the allowance it renders plain; and on
+Free it is absent, since a plan that cannot deploy code would read the row as an
+offer. The scaffold it needed was removed each time.
+
 **Not verified: the Functions tab and the off/remove controls in a browser.** They typecheck, build, and the editor is confirmed absent from the tools page's initial chunk — none of which is the same as having loaded Monaco from `/monaco/vs` and clicked Deploy. Completion against the SDK types and the marker pass are the two pieces most worth checking first, since both depend on how Monaco resolves `./ganju-sdk.js`.
 
 #### Still open on the dashboard
@@ -949,7 +956,7 @@ privacy, the pricing page, the docs and the plan tables all said "only two thing
 are metered" and now say three, in both languages.
 
 **Verified** by [scripts/verify-tool-call-metering.mjs](../scripts/verify-tool-call-metering.mjs)
-— 51 checks, all passing, driving the real modules rather than restating their
+— 64 checks, all passing, driving the real modules rather than restating their
 arithmetic: apps/mcp's `flushRequests` for the counting, `@ganju/db`'s budget for
 the cap, and apps/api's `meterOrganization` for what reaches Stripe, with a stub
 that records meter events instead of billing them. It scaffolds a throwaway PRO
@@ -963,7 +970,14 @@ a cancelled subscription falling back to Free's; the overage reported once and
 only the increment after that, against the right meter and customer, without
 touching the message meters; a rollover clearing the counter, its reported mark
 and the message counters together; and an org with no billing account reporting
-nothing.
+nothing. And for the alert and the test-run gate: the first sighting adopting the
+position instead of alerting on a month of accumulated usage, a surge described
+as a rate, a second surge inside the cooldown staying quiet while still tracking
+the position, half the ceiling alerting on its own, the ceiling saying calls are
+refused, a rollover not reading as a surge, and the test gate answering 402 with
+`toolCall` on it. The digest's mailer is the one thing stubbed — it sends through
+a Worker binding this process does not have — and it is stubbed by swapping the
+module, so the snapshots, deltas, thresholds and cooldown under test are real.
 
 `meterOrganization` is exported for one organization at a time so the run can
 drive it without the sweep rolling every other organization's period. Only the
@@ -1068,9 +1082,32 @@ publishing.
 "make it stop now"; keeping it stopped is a plan or an account decision, and
 building that into the same command would hide which of the two you were making.
 
-The runbook names its own gaps rather than implying coverage it doesn't have: no
-cron watches the tool-call counter (the hard cap is what makes that survivable),
-test runs are real compute and are metered nowhere, and every step of this runs
+Two of the gaps the runbook first named are now closed, and it says so rather
+than keeping the list tidy:
+
+- **Something watches the counter.** `runToolCallAlerts` runs on the hourly cron
+  beside the metering sweep and emails a digest of organizations worth a look —
+  an hourly rate no plan-sized workload reaches (`ALERT_TOOL_CALL_SURGE`), half
+  the ceiling reached, or the ceiling met and calls being refused. It borrows
+  every property the error digest already paid for: a snapshot per organization
+  so the signal is a *rate* rather than a total, a rollover read as zero rather
+  than as a negative delta, and a cooldown, because an organization legitimately
+  running hot would otherwise send an email every hour until someone muted the
+  alert. Nothing here is load-bearing for cost — the ceiling is — it exists so
+  that meeting the ceiling is something we hear about rather than something a
+  customer discovers.
+- **Test runs are metered.** `ganju test` and the dashboard's test panel deploy a
+  preview script and call it, which is the same compute as any other dispatch,
+  and it was counted nowhere. The original reasoning — that billing someone for
+  testing their own tool discourages the thing that keeps bad code out of
+  production — bought an unmetered path to the same compute, which is worse than
+  what it avoided. Against a million included calls a developer's test runs are
+  noise. So a test run counts one (the health probe before it is our own check,
+  not something the author asked for), counts it only once the isolate was
+  actually reached, and is refused at the ceiling as a 402 carrying the feature,
+  which is what a dashboard and a CLI can act on.
+
+What remains is the one it can't close from here: every containment step runs
 from a shell with the database URL.
 
 ---

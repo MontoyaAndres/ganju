@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
@@ -342,4 +342,259 @@ export const recentErrors = async (
     )
     .orderBy(desc(db.schema.errorLog.id))
     .limit(limit) as Promise<ErrorRow[]>;
+};
+
+// custom-tool usage
+
+interface ToolCallFlag {
+  organizationId: string;
+  name: string;
+  plan: string;
+  used: number;
+  sinceLastCheck: number;
+  hardCap: number | null;
+  reason: 'surge' | 'approaching' | 'at-cap';
+}
+
+const describeReason = (flag: ToolCallFlag): string => {
+  if (flag.reason === 'at-cap') return 'at the monthly ceiling — calls refused';
+  if (flag.reason === 'approaching')
+    return `past ${Math.round(constants.ALERT_TOOL_CALL_CAP_FRACTION * 100)}% of the ceiling`;
+  return 'unusual hourly rate';
+};
+
+const buildToolCallEmail = (
+  flags: ToolCallFlag[]
+): { subject: string; text: string; html: string } => {
+  const worst = flags.some(f => f.reason === 'at-cap');
+  const subject = `${worst ? '⚠ ' : ''}Custom tool usage — ${flags.length} organization${
+    flags.length === 1 ? '' : 's'
+  }`;
+
+  const line = (f: ToolCallFlag) =>
+    `${f.name} (${f.plan}) — ${f.used.toLocaleString('en-US')} calls this period, ` +
+    `${f.sinceLastCheck.toLocaleString('en-US')} since the last check` +
+    `${f.hardCap ? ` of ${f.hardCap.toLocaleString('en-US')}` : ''} — ${describeReason(f)}\n` +
+    `  ${f.organizationId}`;
+
+  const text = `${subject}\n\n${flags.map(line).join('\n\n')}\n`;
+
+  const rows = flags
+    .map(
+      f => `
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #ece9f5;">
+          <strong>${f.name}</strong>
+          <span style="color:#6b6878;">· ${f.plan}</span><br />
+          <span style="color:#4a4759;">
+            ${f.used.toLocaleString('en-US')} calls this period ·
+            ${f.sinceLastCheck.toLocaleString('en-US')} since the last check
+            ${f.hardCap ? `· ceiling ${f.hardCap.toLocaleString('en-US')}` : ''}
+          </span><br />
+          <span style="color:#8a8798;font-size:12px;">${describeReason(f)} · ${f.organizationId}</span>
+        </td>
+      </tr>`
+    )
+    .join('');
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#faf9fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#211f2e;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;padding:28px;">
+            <tr>
+              <td>
+                <h1 style="margin:0 0 8px;font-size:20px;">${worst ? '⚠ Custom tool usage' : 'Custom tool usage'}</h1>
+                <p style="margin:0 0 20px;font-size:14px;line-height:1.5;color:#4a4759;">
+                  ${flags.length} organization${flags.length === 1 ? '' : 's'} worth a look.
+                  Calls here are dispatches into a customer's own code — the compute we pay for.
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.45;">
+                  ${rows}
+                </table>
+                <p style="margin:24px 0 0;font-size:12px;color:#6b6878;">
+                  Start with
+                  <code>node scripts/suspend-custom-code.mjs &lt;artifact-slug&gt;</code>,
+                  which reports before it changes anything.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+};
+
+/**
+ * Email a digest of organizations whose custom-tool usage is worth looking at.
+ *
+ * The counter this reads bounds a month and refuses calls past the ceiling, so
+ * nothing here is load-bearing for cost — it exists so that meeting the ceiling
+ * is something we hear about rather than something a customer discovers.
+ *
+ * Three properties, all of which the error digest already established and none
+ * of which are free:
+ *
+ * - **A snapshot per organization, not a global one.** The rate signal is calls
+ *   since the last check, which needs per-org state; `alert_state` is keyed
+ *   `tool_calls:<organizationId>` for exactly that.
+ * - **A rollover is not a surge.** Counters reset to zero each period, so a
+ *   snapshot above the current count means the period turned, and the delta is
+ *   the whole count rather than a negative number.
+ * - **Cooldown, or it gets muted.** An organization legitimately running hot
+ *   would otherwise produce an email every hour until someone silenced the
+ *   alert, which is how alerting dies.
+ */
+export const runToolCallAlerts = async (
+  source: ApiEnvSource
+): Promise<{ scanned: number; flagged: number; sent: boolean }> => {
+  const empty = { scanned: 0, flagged: 0, sent: false };
+
+  try {
+    const dbInstance = db.create(source);
+
+    const rows = await dbInstance
+      .select({
+        organizationId: db.schema.subscription.organizationId,
+        name: db.schema.organization.name,
+        plan: db.schema.subscription.plan,
+        status: db.schema.subscription.status,
+        used: db.schema.subscription.toolCallCount
+      })
+      .from(db.schema.subscription)
+      .innerJoin(
+        db.schema.organization,
+        eq(db.schema.organization.id, db.schema.subscription.organizationId)
+      )
+      .where(gt(db.schema.subscription.toolCallCount, 0));
+
+    if (rows.length === 0) return empty;
+
+    const keys = rows.map(
+      row => `${constants.ALERT_STATE_KEY_TOOL_CALLS}:${row.organizationId}`
+    );
+    const states = await dbInstance
+      .select({
+        key: db.schema.alertState.key,
+        lastSeenId: db.schema.alertState.lastSeenId,
+        lastAlertAt: db.schema.alertState.lastAlertAt
+      })
+      .from(db.schema.alertState)
+      .where(inArray(db.schema.alertState.key, keys));
+
+    const stateByKey = new Map(states.map(state => [state.key, state]));
+    const now = Date.now();
+    const cooldownMs = constants.ALERT_TOOL_CALL_COOLDOWN_HOURS * 60 * 60 * 1000;
+
+    const flags: ToolCallFlag[] = [];
+    const snapshots: { key: string; used: number; alerted: boolean }[] = [];
+
+    for (const row of rows) {
+      const key = `${constants.ALERT_STATE_KEY_TOOL_CALLS}:${row.organizationId}`;
+      const state = stateByKey.get(key);
+      const previous = Number(state?.lastSeenId ?? NaN);
+
+      // A first sighting adopts the position instead of alerting on a total that
+      // may have accumulated over a whole month before this ever ran. A count
+      // BELOW the snapshot means the period rolled, so everything since is new.
+      const first = !state || Number.isNaN(previous);
+      const sinceLastCheck = first
+        ? 0
+        : row.used >= previous
+          ? row.used - previous
+          : row.used;
+
+      const plan = db.plan.planFromSubscription({
+        plan: row.plan,
+        status: row.status
+      } as typeof db.schema.subscription.$inferSelect);
+      const hardCap = db.plan.limitsFor(plan).toolCallHardCap;
+
+      const reason: ToolCallFlag['reason'] | null =
+        hardCap != null && row.used >= hardCap
+          ? 'at-cap'
+          : hardCap != null &&
+              row.used >= hardCap * constants.ALERT_TOOL_CALL_CAP_FRACTION
+            ? 'approaching'
+            : sinceLastCheck >= constants.ALERT_TOOL_CALL_SURGE
+              ? 'surge'
+              : null;
+
+      const quiet =
+        state?.lastAlertAt != null &&
+        now - state.lastAlertAt.getTime() < cooldownMs;
+
+      const alerting = reason !== null && !first && !quiet;
+      if (alerting) {
+        flags.push({
+          organizationId: row.organizationId,
+          name: row.name,
+          plan,
+          used: row.used,
+          sinceLastCheck,
+          hardCap,
+          reason
+        });
+      }
+      snapshots.push({ key, used: row.used, alerted: alerting });
+    }
+
+    // Written whether or not anything was sent: the snapshot is what makes the
+    // NEXT run's delta mean anything, and skipping it during a cooldown would
+    // turn one quiet hour into a false surge later.
+    const writeSnapshots = async (alerted: boolean) => {
+      const stamped = new Date();
+      for (const snapshot of snapshots.filter(s => s.alerted === alerted)) {
+        await dbInstance
+          .insert(db.schema.alertState)
+          .values({
+            key: snapshot.key,
+            lastSeenId: String(snapshot.used),
+            lastAlertAt: alerted ? stamped : null
+          })
+          .onConflictDoUpdate({
+            target: db.schema.alertState.key,
+            set: {
+              lastSeenId: String(snapshot.used),
+              ...(alerted ? { lastAlertAt: stamped } : {})
+            }
+          });
+      }
+    };
+
+    if (flags.length === 0) {
+      await writeSnapshots(false);
+      return { scanned: rows.length, flagged: 0, sent: false };
+    }
+
+    const shown = flags
+      .sort((a, b) => b.used - a.used)
+      .slice(0, constants.ALERT_TOOL_CALL_MAX_ROWS);
+    const { subject, text, html } = buildToolCallEmail(shown);
+
+    const domain = utils.getEnv(source, 'NEXT_PUBLIC_DOMAIN')!;
+    const to = utils.getEnv(source, 'ALERT_EMAIL') || `alerts@${domain}`;
+
+    const sent = await deliver(source, { to, subject, text, html });
+    if (!sent) {
+      // Leave the flagged organizations' snapshots alone so the next run sees
+      // the same delta rather than losing it to a transient mail failure.
+      console.error('tool call alert email failed to send; snapshots held');
+      await writeSnapshots(false);
+      return { scanned: rows.length, flagged: flags.length, sent: false };
+    }
+
+    await writeSnapshots(false);
+    await writeSnapshots(true);
+    return { scanned: rows.length, flagged: flags.length, sent: true };
+  } catch (error) {
+    console.error('runToolCallAlerts failed', error);
+    return empty;
+  }
 };

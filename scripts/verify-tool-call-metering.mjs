@@ -65,15 +65,42 @@ fs.writeFileSync(
   entry,
   [
     `export { meterOrganization } from ${from('apps/api/src/utils/metering')};`,
+    `export { runToolCallAlerts } from ${from('apps/api/src/utils/alerting')};`,
     `export { Plan } from ${from('apps/api/src/utils/plan')};`,
     `export { flushRequests, upsertSession } from ${from('apps/mcp/src/utils/recordUsage')};`,
     `export { db } from '@ganju/db';`,
-    `export { utils } from '@ganju/utils';`
+    `export { utils } from '@ganju/utils';`,
+    `export { drain } from ${JSON.stringify(path.join(root, `.verify-email-${process.pid}`))};`
   ].join('\n')
+);
+
+// The digest sends mail through a Worker binding this process does not have, so
+// `deliver` is swapped for a recorder. Everything else in the module — the
+// snapshots, the deltas, the thresholds, the cooldown — is the real thing.
+const emailStub = path.join(root, `.verify-email-${process.pid}.ts`);
+fs.writeFileSync(
+  emailStub,
+  `export const sent: any[] = [];
+export const deliver = async (_source: unknown, message: unknown) => {
+  sent.push(message);
+  return true;
+};
+export const drain = () => sent.splice(0, sent.length);
+`
 );
 
 await esbuild.build({
   entryPoints: [entry],
+  plugins: [
+    {
+      name: 'stub-email',
+      setup(build) {
+        build.onResolve({ filter: /(^|\/)email$/ }, () => ({
+          path: emailStub
+        }));
+      }
+    }
+  ],
   outfile,
   bundle: true,
   format: 'esm',
@@ -89,12 +116,27 @@ await esbuild.build({
   logLevel: 'error'
 });
 
-const { meterOrganization, Plan, flushRequests, upsertSession, db, utils } =
-  await import(outfile);
+const {
+  meterOrganization,
+  runToolCallAlerts,
+  Plan,
+  flushRequests,
+  upsertSession,
+  db,
+  utils,
+  drain
+} = await import(outfile);
 
-const dbInstance = db.create({
-  env: { HYPERDRIVE: { connectionString: DATABASE_URL } }
-});
+// The same shape a Worker hands these modules: the database binding, plus the
+// two values the digest reads to address its mail.
+const source = {
+  env: {
+    HYPERDRIVE: { connectionString: DATABASE_URL },
+    NEXT_PUBLIC_DOMAIN: 'verify.invalid',
+    ALERT_EMAIL: 'alerts@verify.invalid'
+  }
+};
+const dbInstance = db.create(source);
 
 const { constants } = utils;
 const LIMITS = constants.PLAN_LIMITS;
@@ -644,6 +686,132 @@ try {
     }
   }
 
+  console.log('\nthe test-run gate\n');
+
+  // A test run is a dispatch on our compute, so it meets the same ceiling. The
+  // dashboard and the CLI need a 402 with the feature on it rather than the tool
+  // error apps/mcp answers a client with.
+  await setPlan('PRO');
+  await setCounters({ tool_call_count: 10 });
+  let threw = null;
+  try {
+    await Plan.assertToolCallBudget(dbInstance, orgId);
+  } catch (error) {
+    threw = error;
+  }
+  check('a test run under the ceiling is allowed', threw === null);
+
+  await setCounters({ tool_call_count: LIMITS.PRO.toolCallHardCap });
+  threw = null;
+  try {
+    await Plan.assertToolCallBudget(dbInstance, orgId);
+  } catch (error) {
+    threw = error;
+  }
+  check('  ...and refused at it', threw !== null, threw?.message?.slice(0, 90));
+  check(
+    '  ...as a plan limit, with the feature on it',
+    threw?.code === constants.PLAN_LIMIT_ERROR_CODE &&
+      threw?.feature === constants.PLAN_FEATURE_TOOL_CALL &&
+      threw?.status === 402,
+    `${threw?.code} / ${threw?.feature} / ${threw?.status}`
+  );
+
+  console.log('\nthe usage alert\n');
+
+  const alertKey = `${constants.ALERT_STATE_KEY_TOOL_CALLS}:${orgId}`;
+  const alertState = async () =>
+    (await sql`select * from alert_state where key = ${alertKey}`)[0];
+  const mine = messages =>
+    messages.filter(m => m.text.includes(orgId)).length > 0;
+
+  await sql`delete from alert_state where key = ${alertKey}`;
+  await setCounters({ tool_call_count: 500 });
+  drain();
+
+  await runToolCallAlerts(source);
+  check(
+    'the first sighting adopts the position instead of alerting',
+    !mine(drain()),
+    'a month of usage accumulated before this ran is not news'
+  );
+  check(
+    '  ...and records the snapshot',
+    (await alertState())?.last_seen_id === '500'
+  );
+
+  await setCounters({ tool_call_count: 500 + constants.ALERT_TOOL_CALL_SURGE });
+  await runToolCallAlerts(source);
+  let mail = drain();
+  check(
+    'an hourly surge alerts',
+    mine(mail),
+    mail.map(m => m.subject).join(' | ')
+  );
+  check(
+    '  ...describing it as a rate rather than a total',
+    mail.some(m => m.text.includes('unusual hourly rate'))
+  );
+  check(
+    '  ...and advances the snapshot past it',
+    (await alertState())?.last_seen_id ===
+      String(500 + constants.ALERT_TOOL_CALL_SURGE)
+  );
+
+  await setCounters({
+    tool_call_count: 500 + constants.ALERT_TOOL_CALL_SURGE * 2
+  });
+  await runToolCallAlerts(source);
+  check(
+    'a second surge inside the cooldown stays quiet',
+    !mine(drain()),
+    'an hourly email is a muted email'
+  );
+  check(
+    '  ...while still tracking the position',
+    (await alertState())?.last_seen_id ===
+      String(500 + constants.ALERT_TOOL_CALL_SURGE * 2),
+    'holding the snapshot would turn a quiet hour into a false surge later'
+  );
+
+  // Push the last alert outside the cooldown window rather than waiting hours.
+  const stale = new Date(
+    Date.now() - (constants.ALERT_TOOL_CALL_COOLDOWN_HOURS + 1) * 3_600_000
+  );
+  await sql`update alert_state set last_alert_at = ${stale} where key = ${alertKey}`;
+
+  await setCounters({
+    tool_call_count: Math.ceil(
+      LIMITS.PRO.toolCallHardCap * constants.ALERT_TOOL_CALL_CAP_FRACTION
+    )
+  });
+  await runToolCallAlerts(source);
+  mail = drain();
+  check(
+    'crossing half the ceiling alerts even with an unremarkable rate',
+    mine(mail) && mail.some(m => m.text.includes('% of the ceiling')),
+    'the alternative is a customer meeting the wall silently'
+  );
+
+  await sql`update alert_state set last_alert_at = ${stale} where key = ${alertKey}`;
+  await setCounters({ tool_call_count: LIMITS.PRO.toolCallHardCap });
+  await runToolCallAlerts(source);
+  check(
+    'reaching the ceiling says calls are being refused',
+    drain().some(m => m.text.includes('calls refused'))
+  );
+
+  // A period rollover takes the counter back to zero, which must read as "no
+  // calls since the last check" rather than as a negative delta.
+  await sql`update alert_state set last_alert_at = ${stale} where key = ${alertKey}`;
+  await setCounters({ tool_call_count: 5 });
+  await runToolCallAlerts(source);
+  check(
+    'a rollover is not read as a surge',
+    !mine(drain()),
+    'the count fell below the snapshot; the delta is the count, not a negative'
+  );
+
   console.log('\nthe usage summary\n');
 
   await setCounters({ tool_call_count: 4_321 });
@@ -679,6 +847,7 @@ try {
   await sql`delete from artifact_tool where artifact_id = ${artifactId}`;
   await sql`delete from artifact where id = ${artifactId}`;
   await sql`delete from project where id = ${projectId}`;
+  await sql`delete from alert_state where key like ${'%' + orgId}`;
   await sql`delete from subscription where organization_id = ${orgId}`;
   await sql`delete from organization where id = ${orgId}`;
   const leftover =
@@ -687,6 +856,7 @@ try {
 
   fs.rmSync(bundleDir, { recursive: true, force: true });
   fs.rmSync(entry, { force: true });
+  fs.rmSync(emailStub, { force: true });
   await sql.end();
 }
 
