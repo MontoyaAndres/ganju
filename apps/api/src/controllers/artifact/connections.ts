@@ -70,7 +70,7 @@ export const buildArtifactConnections = (
       scopes: credential?.scopes ?? null,
       configured: Boolean(
         utils.getEnv(c, config.clientIdEnv) &&
-        utils.getEnv(c, config.clientSecretEnv)
+          utils.getEnv(c, config.clientSecretEnv)
       ),
       app: 'managed'
     };

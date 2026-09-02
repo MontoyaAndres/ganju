@@ -34,7 +34,9 @@ export const Wrapper = styled.div`
       font-size: inherit;
       font-family: inherit;
       color: ${theme.colors.bastille}99;
-      transition: background-color 0.15s ease, color 0.15s ease;
+      transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

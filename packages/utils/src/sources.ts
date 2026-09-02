@@ -30,7 +30,9 @@ export interface ResourceUrlContext {
  * nothing to a browser. Formatting it as a web link produced a dead button in
  * whichever channel the answer went to.
  */
-export const isDownloadableSource = (sourceType: Source['sourceType']): boolean =>
+export const isDownloadableSource = (
+  sourceType: Source['sourceType']
+): boolean =>
   sourceType === constants.RESOURCE_SOURCE_TYPE_FILE ||
   sourceType === constants.RESOURCE_SOURCE_TYPE_CUSTOM_CODE;
 
@@ -79,7 +81,10 @@ export const formatSourcesAsButtons = (
         source.pageNumber
       );
       return {
-        text: truncateLabel(`${position} ${label}${pageSuffix}`, maxLabelLength),
+        text: truncateLabel(
+          `${position} ${label}${pageSuffix}`,
+          maxLabelLength
+        ),
         url
       };
     }

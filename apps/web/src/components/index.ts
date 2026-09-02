@@ -3,5 +3,5 @@ import { Layouts } from './layouts';
 
 export const Components = {
   Views,
-  Layouts,
+  Layouts
 };

@@ -3,5 +3,5 @@ import { Home } from './home';
 
 export const Layouts = {
   Auth,
-  Home,
+  Home
 };

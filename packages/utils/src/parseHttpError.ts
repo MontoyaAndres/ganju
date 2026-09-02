@@ -1,4 +1,6 @@
-export const parseHttpErrorMessage = async (response: Response): Promise<string> => {
+export const parseHttpErrorMessage = async (
+  response: Response
+): Promise<string> => {
   const raw = await response.text();
   if (!raw) return `${response.status} ${response.statusText}`;
 

@@ -484,7 +484,10 @@ export const handleDiscordDebouncedBatch = async (
   messages: BufferedChannelMessage[]
 ): Promise<void> => {
   const credentials = loadCredentials(c, channelRow.credentials);
-  await sendDiscordTyping(credentials.botToken, envelope.externalConversationId);
+  await sendDiscordTyping(
+    credentials.botToken,
+    envelope.externalConversationId
+  );
   await runDiscordBatchAndReply(
     c,
     channelRow,

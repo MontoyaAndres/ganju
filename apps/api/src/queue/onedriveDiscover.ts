@@ -141,7 +141,8 @@ const insertChildResource = async (
   // OneDrive reports a byte size for files (folders report an aggregate we skip);
   // record it up front so the org's raw-storage total is correct before the file
   // body is synced. The onedriveFile sync later overwrites it with the stored size.
-  const sizeBytes = !folder && typeof child.size === 'number' ? child.size : null;
+  const sizeBytes =
+    !folder && typeof child.size === 'number' ? child.size : null;
   const inserted = await dbInstance.transaction(async tx => {
     const [created] = await tx
       .insert(db.schema.artifactResource)

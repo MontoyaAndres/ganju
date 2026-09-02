@@ -41,11 +41,10 @@ integraciones que incluimos también.
 
 Para organizaciones grandes con necesidades avanzadas.
 
-- Todo lo de Pro
-- Usa Ganju como proxy de tu propio servidor MCP
+- Todo lo de Pro, sin límites de proyectos, herramientas, prompts ni canales
 - Dirección web y herramientas a la medida
-- SSO y condiciones contractuales
-- Soporte dedicado con tiempos de respuesta garantizados
+- Cuotas y condiciones contractuales acordadas directamente
+- Un contacto asignado para soporte
 
 ## Instalación propia
 

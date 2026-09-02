@@ -123,8 +123,14 @@ const issueOf = result => result.error?.issues?.[0];
 
 console.log('\nrequest schema\n');
 
-check('text payload accepted', S.safeParse({ title: 'Q3', content: 'x' }).success);
-check('bytes payload accepted', S.safeParse({ title: 'Q3', bytes: 'aGk=' }).success);
+check(
+  'text payload accepted',
+  S.safeParse({ title: 'Q3', content: 'x' }).success
+);
+check(
+  'bytes payload accepted',
+  S.safeParse({ title: 'Q3', bytes: 'aGk=' }).success
+);
 
 let r = S.safeParse({ title: 'Q3' });
 check(
@@ -147,7 +153,10 @@ check(
 );
 r = S.safeParse({ title: 'Big', content: 'a'.repeat(textCap + 1) });
 check('text one byte over rejected', !r.success, issueOf(r)?.message);
-check('  ...issue path names content', issueOf(r)?.path?.join('.') === 'content');
+check(
+  '  ...issue path names content',
+  issueOf(r)?.path?.join('.') === 'content'
+);
 
 // The cap is on BYTES, so a string that fits by character count can still fail.
 check(
@@ -170,14 +179,18 @@ check('  ...issue path names bytes', issueOf(r)?.path?.join('.') === 'bytes');
 
 check(
   'known mime accepted',
-  S.safeParse({ title: 'Q3', content: 'x', mimeType: 'application/pdf' }).success
+  S.safeParse({ title: 'Q3', content: 'x', mimeType: 'application/pdf' })
+    .success
 );
 check(
   'unknown mime rejected',
   !S.safeParse({ title: 'Q3', content: 'x', mimeType: 'application/x-evil' })
     .success
 );
-check('empty title rejected', !S.safeParse({ title: '', content: 'x' }).success);
+check(
+  'empty title rejected',
+  !S.safeParse({ title: '', content: 'x' }).success
+);
 
 check(
   'create defaults index to false',
@@ -243,7 +256,8 @@ check(
 
 // scaffold
 
-const [owner] = await sql`select id from "user" order by created_at asc limit 1`;
+const [owner] =
+  await sql`select id from "user" order by created_at asc limit 1`;
 if (!owner) throw new Error('No user in this database to own the scaffold');
 
 const orgId = uuid();
@@ -271,8 +285,9 @@ const insertRow = async values => {
 };
 
 const resourceCount = async () =>
-  (await sql`select artifact_resource_count from artifact where id = ${artifactId}`)[0]
-    .artifact_resource_count;
+  (
+    await sql`select artifact_resource_count from artifact where id = ${artifactId}`
+  )[0].artifact_resource_count;
 
 // Defaults match a tool that declared nothing: the safe floor, with a queue
 // binding present. Individual checks override.
@@ -319,18 +334,26 @@ try {
   check('  ...artifact count incremented', (await resourceCount()) === 1);
 
   // no chunks: this is the "not indexed" promise
-  const chunks = await sql`select count(*)::int as n from artifact_resource_chunk where resource_id = ${rows[0].id}`;
+  const chunks =
+    await sql`select count(*)::int as n from artifact_resource_chunk where resource_id = ${rows[0].id}`;
   check('  ...no chunks written (not indexed)', chunks[0].n === 0);
 
   console.log('\nreplacing what a script created\n');
 
   result = await run({ title: 'Q3 report', content: 'second draft, longer' });
   check('same uri succeeds', result.ok);
-  check('  ...reports replaced', result.ok && result.resource.created === false);
+  check(
+    '  ...reports replaced',
+    result.ok && result.resource.created === false
+  );
   rows = await resourceRows('resource://q3-report');
   check('  ...still one row', rows.length === 1, `${rows.length} row(s)`);
   check('  ...content updated', rows[0]?.content === 'second draft, longer');
-  check('  ...size updated', Number(rows[0]?.size) === 20, String(rows[0]?.size));
+  check(
+    '  ...size updated',
+    Number(rows[0]?.size) === 20,
+    String(rows[0]?.size)
+  );
   check(
     '  ...artifact count NOT incremented again',
     (await resourceCount()) === 1,
@@ -363,7 +386,9 @@ try {
   check('  ...no inline content', rows[0]?.content === null);
   check(
     '  ...key sits under the artifact prefix',
-    firstKey.startsWith(`organizations/${orgId}/projects/${projectId}/resources/${artifactId}/`),
+    firstKey.startsWith(
+      `organizations/${orgId}/projects/${projectId}/resources/${artifactId}/`
+    ),
     firstKey
   );
   check(
@@ -408,7 +433,11 @@ try {
 
   result = await run({ title: 'Contract', content: 'overwritten by a tool' });
   check('an uploaded resource is refused', !result.ok);
-  check('  ...with 409', !result.ok && result.status === 409, String(result.status));
+  check(
+    '  ...with 409',
+    !result.ok && result.status === 409,
+    String(result.status)
+  );
   check(
     '  ...and the message names the fix',
     !result.ok &&
@@ -466,7 +495,9 @@ try {
   check(
     '  ...both rows at that uri survive',
     rows.length === 2 &&
-      rows.every(r => r.source_type === utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE),
+      rows.every(
+        r => r.source_type === utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE
+      ),
     'the seed and its page share a uri; neither belongs to the script'
   );
 
@@ -553,7 +584,10 @@ try {
   );
 
   deleteResult = await remove('https://acme.com');
-  check('a crawled uri is refused', !deleteResult.ok && deleteResult.status === 409);
+  check(
+    'a crawled uri is refused',
+    !deleteResult.ok && deleteResult.status === 409
+  );
   check(
     '  ...the crawl is intact',
     (await resourceRows('https://acme.com')).length === 2 &&
@@ -562,7 +596,8 @@ try {
 
   console.log('\nthe counter tracks reality\n');
 
-  const [{ n: actual }] = await sql`select count(*)::int as n from artifact_resource where artifact_id = ${artifactId}`;
+  const [{ n: actual }] =
+    await sql`select count(*)::int as n from artifact_resource where artifact_id = ${artifactId}`;
   const tracked = await resourceCount();
   check(
     'artifact_resource_count matches the rows that actually exist',
@@ -648,9 +683,11 @@ try {
     `${countBeforeCascade} → ${await resourceCount()}`
   );
 
-  const [{ n: chunksLeft }] = await sql`select count(*)::int as n from artifact_resource_chunk where resource_id = ${pageId}`;
-  check('  ...the page\'s chunks cascaded', chunksLeft === 0);
-  const [{ e: embeddedAfter }] = await sql`select artifact_resource_embedded_size as e from artifact where id = ${artifactId}`;
+  const [{ n: chunksLeft }] =
+    await sql`select count(*)::int as n from artifact_resource_chunk where resource_id = ${pageId}`;
+  check("  ...the page's chunks cascaded", chunksLeft === 0);
+  const [{ e: embeddedAfter }] =
+    await sql`select artifact_resource_embedded_size as e from artifact where id = ${artifactId}`;
   check(
     '  ...and the embedded total came down with them',
     Number(embeddedAfter) === 0,
@@ -682,7 +719,8 @@ try {
 
   deleteResult = await remove('resource://folder/file', { access: ALL });
   check('deleting a child of a surviving parent succeeds', deleteResult.ok);
-  const [{ c: childCount }] = await sql`select child_resource_count as c from artifact_resource where id = ${parentId}`;
+  const [{ c: childCount }] =
+    await sql`select child_resource_count as c from artifact_resource where id = ${parentId}`;
   check(
     "  ...the parent's child count came down",
     Number(childCount) === 0,
@@ -697,10 +735,7 @@ try {
 
   result = await run({ title: 'Searchable', content: 'find me' });
   check('by default a resource is not indexed', result.ok);
-  check(
-    '  ...nothing is queued',
-    result.ok && result.indexResourceId === null
-  );
+  check('  ...nothing is queued', result.ok && result.indexResourceId === null);
   check(
     '  ...and it is written COMPLETED',
     (await resourceRows('resource://searchable'))[0].status ===
@@ -759,13 +794,15 @@ try {
 
   result = await run({ title: 'Searchable', content: 'no longer indexed' });
   check('replacing an indexed resource without index succeeds', result.ok);
-  const [{ n: staleChunks }] = await sql`select count(*)::int as n from artifact_resource_chunk where resource_id = ${searchableId}`;
+  const [{ n: staleChunks }] =
+    await sql`select count(*)::int as n from artifact_resource_chunk where resource_id = ${searchableId}`;
   check(
     '  ...the stale chunks were dropped',
     staleChunks === 0,
     'left behind they would keep answering searches with content the row no longer holds'
   );
-  const [{ e: embeddedNow }] = await sql`select artifact_resource_embedded_size as e from artifact where id = ${artifactId}`;
+  const [{ e: embeddedNow }] =
+    await sql`select artifact_resource_embedded_size as e from artifact where id = ${artifactId}`;
   check(
     '  ...and the embedded total was credited back',
     Number(embeddedNow) === 0,
@@ -900,7 +937,8 @@ try {
   await sql`delete from project where id = ${projectId}`;
   await sql`delete from subscription where organization_id = ${orgId}`;
   await sql`delete from organization where id = ${orgId}`;
-  const leftover = await sql`select count(*)::int as n from organization where id = ${orgId}`;
+  const leftover =
+    await sql`select count(*)::int as n from organization where id = ${orgId}`;
   check('scaffold removed', leftover[0].n === 0);
 
   fs.rmSync(bundleDir, { recursive: true, force: true });

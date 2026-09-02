@@ -247,9 +247,7 @@ export default function PricingCalculator({
 
           <p className="calc-note">{copy.note}</p>
 
-          {withinFree && (
-            <p className="calc-free">{copy.free}</p>
-          )}
+          {withinFree && <p className="calc-free">{copy.free}</p>}
         </div>
       </div>
     </div>

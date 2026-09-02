@@ -164,9 +164,7 @@ const discoverOne = async (
     }));
     const batchSize = utils.constants.CRAWL_PAGE_QUEUE_BATCH_SIZE;
     for (let i = 0; i < messages.length; i += batchSize) {
-      await env.CRAWL_PAGE_QUEUE.sendBatch(
-        messages.slice(i, i + batchSize)
-      );
+      await env.CRAWL_PAGE_QUEUE.sendBatch(messages.slice(i, i + batchSize));
     }
   }
 };

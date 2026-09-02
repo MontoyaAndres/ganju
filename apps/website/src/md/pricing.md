@@ -37,11 +37,10 @@ integrations we ship.
 
 For larger organizations with advanced needs.
 
-- Everything in Pro
-- Proxy your own / existing MCP server through Ganju
+- Everything in Pro, with no limits on projects, tools, prompts, or channels
 - Custom web address & tools
-- SSO & contract terms
-- Dedicated support with guaranteed response times
+- Allowances and contract terms arranged directly
+- A named contact for support
 
 ## Self-host
 

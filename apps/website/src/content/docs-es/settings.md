@@ -41,10 +41,10 @@ medidas contra las `3,000` incluidas.
 | Traer tu propio modelo              | —                                             | ✓                                        | ✓                     |
 
 **Empresarial** es un plan a la medida para organizaciones grandes — todo lo de
-Pro, más usar Ganju como proxy de tu propio servidor MCP, una dirección web y
-herramientas a la medida, SSO y condiciones contractuales, y soporte dedicado con
-tiempos de respuesta garantizados. El precio y las cuotas se acuerdan
-directamente — [habla con ventas](/es/contacto).
+Pro sin límites de proyectos, herramientas, prompts ni canales, una dirección web
+y herramientas a la medida, y un contacto asignado para soporte. El precio, las
+cuotas y las condiciones contractuales se acuerdan directamente —
+[habla con ventas](/es/contacto).
 
 ### Cómo funciona de verdad la cuota de mensajes
 

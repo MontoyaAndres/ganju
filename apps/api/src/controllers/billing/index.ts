@@ -94,6 +94,20 @@ const ensureStripeCustomer = async (
   return customer.id;
 };
 
+/**
+ * The Stripe locale for this request, from the language the dashboard is in.
+ *
+ * Stripe accepts far more locales than we ship, so this narrows to the two we
+ * actually have rather than forwarding whatever arrived — an unknown tag is a
+ * 400 from Stripe, and the checkout is the last page to fail on a detail like
+ * that.
+ */
+const checkoutLocale = (c: Context<AppEnv>): 'en' | 'es' =>
+  utils.languageFromHeader(c.req.header('accept-language')) ===
+  constants.LANGUAGE_ES
+    ? 'es'
+    : 'en';
+
 const createCheckout = async (c: Context<AppEnv>) => {
   const organizationId = c.req.param('organizationId');
   if (!organizationId) throw new Error('organizationId is required');
@@ -156,6 +170,18 @@ const createCheckout = async (c: Context<AppEnv>) => {
     client_reference_id: organizationId,
     subscription_data: { metadata: { organizationId } },
     allow_promotion_codes: true,
+    // Stripe's own chrome — the pay button, "Subtotal", "Billed monthly", the
+    // card form — is localized by this. The default is `auto`, which reads the
+    // BROWSER's language, and that is not the language the user picked in the
+    // dashboard: someone reading Ganju in Spanish on an English-configured
+    // browser lands on an English checkout. The dashboard sends its own choice
+    // on `Accept-Language` (the shared fetcher sets it), which is the same
+    // header the invitation emails are written from.
+    //
+    // It does NOT translate the product name or description on each line —
+    // those come from the Stripe Product and Stripe has no per-locale copy for
+    // them.
+    locale: checkoutLocale(c),
     success_url: `${returnBase}?billing=success`,
     cancel_url: `${returnBase}?billing=cancelled`
   });
@@ -184,6 +210,10 @@ const createPortal = async (c: Context<AppEnv>) => {
   const webUrl = utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL') || '';
   const session = await stripe.billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
+    // Same reasoning as checkout above: the portal is where a subscription is
+    // cancelled, and a cancel flow in the wrong language is the worst place to
+    // make someone guess.
+    locale: checkoutLocale(c),
     return_url: `${webUrl}/organization/${organizationId}/settings`
   });
 

@@ -28,7 +28,8 @@ export interface ResolvedAttachment {
 }
 
 export type ResolveAttachmentResult =
-  { ok: true; attachment: ResolvedAttachment } | { ok: false; error: string };
+  | { ok: true; attachment: ResolvedAttachment }
+  | { ok: false; error: string };
 
 /**
  * Resolve one resource's attachment bytes.

@@ -13,7 +13,7 @@ const main = async () => {
       sourcemap: true,
       tsconfig: 'tsconfig.json',
       outbase: 'src',
-      bundle: false,
+      bundle: false
     })
     .catch(error => {
       console.error(error);

@@ -3,7 +3,9 @@ import { ContentCopy } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
 
-declare const navigator: { clipboard: { writeText: (s: string) => Promise<void> } };
+declare const navigator: {
+  clipboard: { writeText: (s: string) => Promise<void> };
+};
 
 export interface IProps {
   label: string;

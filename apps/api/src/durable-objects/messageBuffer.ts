@@ -138,7 +138,8 @@ export class MessageBufferDO extends DurableObject<Bindings> {
       // doesn't cover network I/O — so keep anything that arrived after the
       // batch we just handed off instead of clearing wholesale.
       const current =
-        (await this.ctx.storage.get<BufferedChannelMessage[]>('messages')) || [];
+        (await this.ctx.storage.get<BufferedChannelMessage[]>('messages')) ||
+        [];
       const leftover = current.slice(messages.length);
       await this.ctx.storage.delete('attempts');
       if (leftover.length === 0) {
@@ -156,7 +157,8 @@ export class MessageBufferDO extends DurableObject<Bindings> {
     // Hand-off failed. Keep the batch and try again shortly — a dropped batch
     // reads to the user as the bot ignoring them. Give up after a few attempts
     // so a permanently broken route can't loop forever.
-    const attempts = ((await this.ctx.storage.get<number>('attempts')) ?? 0) + 1;
+    const attempts =
+      ((await this.ctx.storage.get<number>('attempts')) ?? 0) + 1;
     if (attempts >= utils.constants.CHANNEL_DEBOUNCE_MAX_ATTEMPTS) {
       console.error(
         `MessageBufferDO: dropping ${messages.length} message(s) for channel ${envelope.channelId} after ${attempts} failed hand-offs`

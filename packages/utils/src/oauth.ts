@@ -95,9 +95,7 @@ export const clearReauthMetadata = (
   return Object.keys(next).length > 0 ? next : null;
 };
 
-export const isCredentialNeedingReauth = (
-  metadata: unknown
-): boolean => {
+export const isCredentialNeedingReauth = (metadata: unknown): boolean => {
   if (!metadata || typeof metadata !== 'object') return false;
   return (metadata as Record<string, unknown>).needsReauth === true;
 };

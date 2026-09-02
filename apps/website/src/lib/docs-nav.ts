@@ -141,12 +141,12 @@ export function docsHref(slug: string | undefined, lang: Lang): string {
 const resolve = (spec: DocNavSpec, lang: Lang): DocNavNode => ({
   label: spec.label[lang],
   ...(spec.soon ? {} : { href: docsHref(spec.slug, lang) }),
-  ...(spec.items ? { items: spec.items.map((item) => resolve(item, lang)) } : {})
+  ...(spec.items ? { items: spec.items.map(item => resolve(item, lang)) } : {})
 });
 
 /** The sidebar tree for one language, hrefs resolved. */
 export function docsNav(lang: Lang): DocNavNode[] {
-  return SPEC.map((spec) => resolve(spec, lang));
+  return SPEC.map(spec => resolve(spec, lang));
 }
 
 /** Strip a trailing slash (except on the root path) so paths compare equal. */
@@ -162,7 +162,7 @@ export function isActive(href: string | undefined, current: string): boolean {
 /** Whether a node (or any descendant) is the current page — used to auto-open groups. */
 export function containsActive(node: DocNavNode, current: string): boolean {
   if (isActive(node.href, current)) return true;
-  return node.items?.some((child) => containsActive(child, current)) ?? false;
+  return node.items?.some(child => containsActive(child, current)) ?? false;
 }
 
 const TRAIL_ROOT: Record<Lang, { home: string; docs: string }> = {

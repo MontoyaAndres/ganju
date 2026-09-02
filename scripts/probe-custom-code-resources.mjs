@@ -210,7 +210,11 @@ fs.rmSync(entry, { force: true });
 // the same token the publish pipeline mints, built here rather than imported so
 // this stays a black-box exercise of the deployed broker's verification
 const b64url = buf =>
-  Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  Buffer.from(buf)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 
 const mintToken = async (artifactId, versionId) => {
   const payload = b64url(
@@ -231,7 +235,10 @@ const mintToken = async (artifactId, versionId) => {
 const cf = async (urlPath, init) => {
   const res = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}${urlPath}`,
-    { ...init, headers: { Authorization: `Bearer ${CF_TOKEN}`, ...init?.headers } }
+    {
+      ...init,
+      headers: { Authorization: `Bearer ${CF_TOKEN}`, ...init?.headers }
+    }
   );
   const body = await res.json().catch(() => null);
   if (!res.ok || body?.success === false) {
@@ -244,7 +251,8 @@ const cf = async (urlPath, init) => {
 
 // scaffold
 
-const [owner] = await sql`select id from "user" order by created_at asc limit 1`;
+const [owner] =
+  await sql`select id from "user" order by created_at asc limit 1`;
 if (!owner) throw new Error('No user in this database to own the scaffold');
 
 const orgId = uuid();
@@ -361,10 +369,10 @@ try {
     'index.js'
   );
 
-  await cf(
-    `/workers/dispatch/namespaces/${NAMESPACE}/scripts/${scriptName}`,
-    { method: 'PUT', body: form }
-  );
+  await cf(`/workers/dispatch/namespaces/${NAMESPACE}/scripts/${scriptName}`, {
+    method: 'PUT',
+    body: form
+  });
   deployed = true;
   console.log('  deployed to the dispatch namespace\n');
 
@@ -394,11 +402,10 @@ try {
     const text = await res.text();
     if (!res.ok) throw new Error(`MCP ${res.status}: ${text.slice(0, 300)}`);
     // The transport answers SSE; the JSON-RPC envelope is the `data:` line.
-    const line = text
-      .split('\n')
-      .find(l => l.startsWith('data:'));
+    const line = text.split('\n').find(l => l.startsWith('data:'));
     const payload = JSON.parse(line ? line.slice(5).trim() : text);
-    if (payload.error) throw new Error(`MCP error: ${JSON.stringify(payload.error)}`);
+    if (payload.error)
+      throw new Error(`MCP error: ${JSON.stringify(payload.error)}`);
     return payload.result;
   };
 
@@ -459,7 +466,11 @@ try {
   });
   check('a script can write a file resource', out.ok === true, out.error || '');
   rows = await rowsFor('resource://probe-invoice');
-  check('  ...with a real R2 key', !!rows[0]?.file_key, rows[0]?.file_key || '');
+  check(
+    '  ...with a real R2 key',
+    !!rows[0]?.file_key,
+    rows[0]?.file_key || ''
+  );
   check(
     '  ...and the decoded size',
     Number(rows[0]?.size) === 20,
@@ -474,7 +485,8 @@ try {
   );
   check(
     '  ...and the crawl seed is filtered out',
-    (out.value?.uris || []).filter(u => u === 'https://probe.example').length === 1,
+    (out.value?.uris || []).filter(u => u === 'https://probe.example')
+      .length === 1,
     'the seed and its page share a uri; only the page is addressable'
   );
 
@@ -517,7 +529,11 @@ try {
     status = r?.status;
     if (chunks > 0 && status === 'COMPLETED') break;
   }
-  check('  ...the queue delivered and the indexer ran', chunks > 0, `${chunks} chunk(s)`);
+  check(
+    '  ...the queue delivered and the indexer ran',
+    chunks > 0,
+    `${chunks} chunk(s)`
+  );
   check('  ...flipping the row to COMPLETED', status === 'COMPLETED', status);
 
   const [{ e: embedded }] =
@@ -568,7 +584,7 @@ try {
     children: true
   });
   check(
-    "  ...as is a crawl, even with children:true",
+    '  ...as is a crawl, even with children:true',
     out.ok === false,
     out.error || 'it was NOT refused'
   );

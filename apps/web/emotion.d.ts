@@ -175,9 +175,8 @@ export namespace jsx {
       P
     >;
     interface IntrinsicAttributes extends EmotionJSX.IntrinsicAttributes {}
-    interface IntrinsicClassAttributes<
-      T
-    > extends EmotionJSX.IntrinsicClassAttributes<T> {}
+    interface IntrinsicClassAttributes<T>
+      extends EmotionJSX.IntrinsicClassAttributes<T> {}
     type IntrinsicElements = EmotionJSX.IntrinsicElements;
   }
 }

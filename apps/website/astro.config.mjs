@@ -52,7 +52,8 @@ function buildLastmod() {
 
   for (const file of markdownFiles(join(root, 'src/content/blog'))) {
     const path = join(root, 'src/content/blog', file);
-    const date = frontmatterDate(path, 'updated') ?? frontmatterDate(path, 'date');
+    const date =
+      frontmatterDate(path, 'updated') ?? frontmatterDate(path, 'date');
     if (date) lastmod.set(`/blog/${slug(file)}`, date);
   }
 
@@ -79,7 +80,9 @@ const LASTMOD = buildLastmod();
 /** `https://ganju.ai/docs/tools/gmail/` → `/docs/tools/gmail` */
 const toPath = url => {
   const { pathname } = new URL(url);
-  return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  return pathname.length > 1 && pathname.endsWith('/')
+    ? pathname.slice(0, -1)
+    : pathname;
 };
 
 // Pages that send `noindex` — keep them out of the sitemap rather than

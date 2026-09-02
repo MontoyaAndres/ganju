@@ -5,14 +5,14 @@
   --surface-2: #fbfbfc;
   --border: rgba(28, 24, 37, 0.1);
   --border-strong: rgba(28, 24, 37, 0.2);
-  --text: #1c1825; 
-  --muted: #6e6b73; 
+  --text: #1c1825;
+  --muted: #6e6b73;
   --muted-2: #9a98a0;
   --brand: #1c1825;
   --brand-2: #1c1825;
-  --accent: #1c1825; 
+  --accent: #1c1825;
   --purple: #f0f0f0;
-  --accent-soft: rgb(240,240,240); 
+  --accent-soft: rgb(240, 240, 240);
   --success: #2e7d32;
   --radius: 14px;
   --radius-lg: 22px;
@@ -22,7 +22,9 @@
   --shadow-glow: 0 0 0 1px var(--border), 0px 14px 44px rgba(0, 0, 0, 0.12);
   --maxw: 1400px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-sans: var(--font-fustat, "Fustat"), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans:
+    var(--font-fustat, 'Fustat'), system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
   --font-display: var(--font-sans);
 }
 
@@ -67,7 +69,8 @@ a {
 }
 
 code {
-  font-family: "SFMono-Regular", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-family:
+    'SFMono-Regular', ui-monospace, 'JetBrains Mono', Menlo, monospace;
   font-size: 0.92em;
 }
 
@@ -142,8 +145,11 @@ svg {
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease),
-    background 0.2s var(--ease), border-color 0.2s var(--ease);
+  transition:
+    transform 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease),
+    border-color 0.2s var(--ease);
   white-space: nowrap;
 }
 
@@ -189,7 +195,9 @@ svg {
   backdrop-filter: blur(12px);
   background: rgba(255, 255, 255, 0.7);
   border-bottom: 1px solid transparent;
-  transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+  transition:
+    background 0.3s var(--ease),
+    border-color 0.3s var(--ease);
 }
 
 .site-header.scrolled {
@@ -223,7 +231,7 @@ svg {
 }
 
 .brand-mark::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 7px;
   border-radius: 3px;
@@ -268,7 +276,9 @@ svg {
   height: 2px;
   background: var(--text);
   border-radius: 2px;
-  transition: transform 0.3s var(--ease), opacity 0.3s var(--ease);
+  transition:
+    transform 0.3s var(--ease),
+    opacity 0.3s var(--ease);
 }
 
 .nav-toggle.open span:nth-child(1) {
@@ -461,7 +471,9 @@ svg {
   font-size: 1.05rem;
   color: var(--muted);
   opacity: 0.85;
-  transition: color 0.2s var(--ease), opacity 0.2s var(--ease);
+  transition:
+    color 0.2s var(--ease),
+    opacity 0.2s var(--ease);
 }
 
 .trust-logos li:hover {
@@ -487,7 +499,9 @@ svg {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 30px 28px;
-  transition: transform 0.3s var(--ease), border-color 0.3s var(--ease),
+  transition:
+    transform 0.3s var(--ease),
+    border-color 0.3s var(--ease),
     box-shadow 0.3s var(--ease);
 }
 
@@ -571,7 +585,9 @@ svg {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease),
+  transition:
+    transform 0.2s var(--ease),
+    border-color 0.2s var(--ease),
     background 0.2s var(--ease);
 }
 
@@ -633,7 +649,9 @@ svg {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
-  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
 }
 
 .form-field textarea {
@@ -779,7 +797,7 @@ svg {
 }
 
 .price-features li::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 6px;
@@ -823,7 +841,9 @@ svg {
   border: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
-  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease),
+  transition:
+    transform 0.2s var(--ease),
+    border-color 0.2s var(--ease),
     background 0.2s var(--ease);
 }
 
@@ -1092,7 +1112,7 @@ svg {
 }
 
 .faq summary::after {
-  content: "+";
+  content: '+';
   font-size: 1.4rem;
   color: var(--brand-2);
   transition: transform 0.25s var(--ease);
@@ -1177,7 +1197,9 @@ svg {
   place-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease),
+  transition:
+    transform 0.2s var(--ease),
+    border-color 0.2s var(--ease),
     background 0.2s var(--ease);
 }
 
@@ -1273,7 +1295,9 @@ svg {
 .reveal {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
 }
 
 .reveal.visible {
@@ -1482,7 +1506,10 @@ svg {
   background: var(--surface);
   text-decoration: none;
   color: var(--text);
-  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.2s var(--ease);
 }
 
 .doc-list li a:hover {
@@ -1543,7 +1570,7 @@ svg {
 }
 
 .prose code {
-  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
   font-size: 0.9em;
   background: var(--bg-2);
   padding: 0.15em 0.4em;

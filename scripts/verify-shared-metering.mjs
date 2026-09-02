@@ -24,7 +24,9 @@ const SK = read('STRIPE_SECRET_KEY');
 
 const stripe = async path => {
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
-    headers: { Authorization: `Basic ${Buffer.from(`${SK}:`).toString('base64')}` }
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${SK}:`).toString('base64')}`
+    }
   });
   return res.json();
 };
@@ -57,7 +59,9 @@ const expectedShared = Math.max(0, sub.shared_message_count - INCLUDED_SHARED);
 const ownKeyUsed = Math.max(0, sub.message_count - sub.shared_message_count);
 
 console.log('\nCounters');
-console.log(`  plan=${sub.plan} status=${sub.status} customer=${sub.stripe_customer_id}`);
+console.log(
+  `  plan=${sub.plan} status=${sub.status} customer=${sub.stripe_customer_id}`
+);
 console.log(`  message_count            ${sub.message_count}`);
 console.log(`  shared_message_count     ${sub.shared_message_count}`);
 console.log(`  own-key turns (derived)  ${ownKeyUsed}`);
@@ -78,13 +82,14 @@ check(
 // bounds aren't aligned to the grouping window, so both ends snap to UTC days —
 // widening the range is harmless here because the counter is per-period anyway.
 const DAY = 86400;
-const start = Math.floor(
-  new Date(sub.message_period_start).getTime() / 1000 / DAY
-) * DAY;
+const start =
+  Math.floor(new Date(sub.message_period_start).getTime() / 1000 / DAY) * DAY;
 const end = Math.ceil(Date.now() / 1000 / DAY) * DAY;
 
 const meters = await stripe('billing/meters?limit=100');
-const byEvent = Object.fromEntries((meters.data || []).map(m => [m.event_name, m.id]));
+const byEvent = Object.fromEntries(
+  (meters.data || []).map(m => [m.event_name, m.id])
+);
 
 const totalFor = async eventName => {
   const id = byEvent[eventName];
@@ -152,7 +157,11 @@ const failed = results.filter(r => r === 'fail').length;
 const pending = results.filter(r => r === 'pend').length;
 console.log(
   `\n${
-    failed ? `${failed} CHECK(S) FAILED` : pending ? 'WAITING ON THE CRON' : 'ALL CHECKS PASSED'
+    failed
+      ? `${failed} CHECK(S) FAILED`
+      : pending
+        ? 'WAITING ON THE CRON'
+        : 'ALL CHECKS PASSED'
   } — ${results.filter(r => r === 'pass').length}/${results.length} passed` +
     `${pending ? `, ${pending} pending` : ''}\n`
 );

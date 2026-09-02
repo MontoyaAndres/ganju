@@ -25,10 +25,10 @@ const IMAGES_DIR = fileURLToPath(
 // bump toward 90 (or switch to `nearLossless: true`) if UI text looks soft.
 const WEBP_QUALITY = 80;
 
-const kb = (bytes) => `${(bytes / 1024).toFixed(0)} KB`;
+const kb = bytes => `${(bytes / 1024).toFixed(0)} KB`;
 
 const files = (await readdir(IMAGES_DIR))
-  .filter((f) => f.toLowerCase().endsWith('.png'))
+  .filter(f => f.toLowerCase().endsWith('.png'))
   .sort();
 
 let converted = 0;

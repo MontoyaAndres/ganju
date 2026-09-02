@@ -40,10 +40,10 @@ organization — `Pro plan · active`, with assistant replies tracked against th
 | Invite team members        | —                                      | ✓                                    | ✓              |
 | Bring your own model       | —                                      | ✓                                    | ✓              |
 
-**Enterprise** is a custom plan for larger organizations — everything in Pro, plus
-proxying your own / existing MCP server, a custom web address and tools, SSO and
-contract terms, and dedicated support with guaranteed response times. Pricing and
-allowances are arranged directly — [contact sales](/contact).
+**Enterprise** is a custom plan for larger organizations — everything in Pro with
+no limits on projects, tools, prompts or channels, a custom web address and tools,
+and a named contact for support. Pricing, allowances and contract terms are
+arranged directly — [contact sales](/contact).
 
 ### How the message allowance really works
 

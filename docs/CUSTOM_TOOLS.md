@@ -251,7 +251,8 @@ Ordered so that nothing user-visible is removed before its replacement exists.
   Worth knowing if this is ever done again: the entitlement takes a few minutes to reach the API. `wrangler` kept returning `10121 You do not have access to dispatch namespaces` well after the dashboard showed the product as Active — an empty `[]` from `wrangler dispatch-namespace list` is the signal it has landed. Creating both namespaces up front costs nothing: the $25/mo is a per-account platform fee and namespaces aren't a billed unit, so the charge starts with the first script deployed into one, drawing on an account-wide 1,000-script allowance.
 - [x] Confirm current WfP pricing → verified August 2026 in [PRICING.md](PRICING.md#part-1--what-things-actually-cost-us): $25/mo including 1,000 scripts, then $0.02 per script per month
 - [x] Decide: managed-only connections for v1, or managed + BYO app from the start → **managed-only**, BYO deferred (Phase 5)
-- [ ] Decide: is the LLM-generates-the-tool flow in v1, or is the CLI the launch surface
+- [x] Decide: is the LLM-generates-the-tool flow in v1, or is the CLI the launch surface → **the CLI and the dashboard editor**, codegen deferred until a user asks — see [open question 2](#open-questions)
+- [ ] **Google verification + CASA for the restricted Gmail scopes** — not started. The only prerequisite on this list whose clock somebody else runs, and the one item here that a production date depends on rather than the other way round. See [OAuth broker liability](#risks)
 
 ### Phase 1 — Data model + publish API (no runtime) ✅
 
@@ -366,7 +367,7 @@ Two notes on running this again. Publishing can't be exercised locally — it ne
 - [x] **Connections surface** — `GET …/artifact/connections` ([connections.ts](../apps/api/src/controllers/artifact/connections.ts)) reports every managed provider and where the artifact stands with it: `connected`, `needsReauth`, `credentialId`, `expiresAt`, `scopes`, and `configured`
 - [x] **`http-endpoint`'s `auth.kind: 'oauth'`** now has its picker. The dispatch plumbing really was already there — apps/mcp resolves `auth.credentialId` against the artifact's *refreshed* credentials, so a managed row worked the moment one could be selected
 - [x] **`sendFile` in the broker** ([sendFile.ts](../apps/tool-broker/src/utils/sendFile.ts)) — `gmail`, `outlook`, `slack`, forwarding to the container routes the native handlers already drive
-- [ ] BYO-app mode: per-org client id/secret — **deferred**, see [open question 1](#open-questions)
+- [ ] BYO-app mode: per-org client id/secret — **deferred until something asks for it**, see [open question 1](#open-questions)
 
 Five things worth knowing:
 
@@ -686,7 +687,7 @@ npm run migrate-prod --workspace=@ganju/db
 
 **A build step, and a gitignored directory.** `apps/web`'s `build` and `dev` scripts run `scripts/copy-monaco.mjs` first, filling `apps/web/public/monaco/` — 10.6MB of static assets that ship with the deployment and are never committed. Two call sites rather than a `pre*` hook per command: `opennextjs-cloudflare build` runs the app's own `build` script, so `cf-build` and both deploys pick it up through that, and only `next dev` needs the second mention. A build that skips dev dependencies has no `monaco-editor` to copy from.
 
-~~**What blocks a publish on development is a deploy, not a secret.**~~ — done. Development is deployed and current: the probe drives publish, the test panel's preview tokens and the custom-code logs endpoint against it, all of which are new here, and all of which answer. Production has none of it and is a separate exercise; it still needs migrations 0064–0067 and the same secrets, applied together, since the code writes `tool_key` and reads `enabled` from the first request.
+~~**What blocks a publish on development is a deploy, not a secret.**~~ — done. Development is deployed and current: the probe drives publish, the test panel's preview tokens and the custom-code logs endpoint against it, all of which are new here, and all of which answer. Production has none of it and is a separate exercise; it still needs **migrations 0064–0070** and the same secrets, applied together, since the code writes `tool_key` and reads `enabled` from the first request, dispatches to `script_name` at boot, reads `access_token` on any `ganju_pat_` bearer, and reads the tool-call counter on every custom tool call. This said 0064–0067 for a while after 0068, 0069 and 0070 had landed — a stale range in a sentence somebody follows cold is worse than no range, so it is written against [Operational state](#operational-state) above rather than restated from memory.
 
 ### Phase 7 — CLI ✅
 
@@ -701,7 +702,7 @@ The SDK itself landed in Phase 2 — the runtime needed a client. What landed he
 - [x] `ganju secret set|list|rm` — the values `ctx.secret()` reads
 - [x] `ganju token create|list|revoke` — the durable credential CI authenticates with; see below
 - [x] `ganju versions` / `ganju rollback` — thin over the two endpoints publish already had
-- [x] Publish to npm — `@ganju/cli` 0.0.1, `@ganju/sdk` 0.0.2 and `@ganju/utils` 0.0.2 are live under the `@ganju` scope
+- [x] Publish to npm — live under the `@ganju` scope, at **`@ganju/cli` 0.0.4, `@ganju/sdk` 0.0.3 and `@ganju/utils` 0.0.6** as of this writing. Check the registry rather than this line: the repo carries an unpublished `@ganju/utils` 0.0.7, which is the ordinary state between a change and a release
 - [x] ~~Skip `ganju dev` in v1~~ — still skipped, and `ganju test` is why: it runs the real thing against real connections, which a local sandbox could not have been
 
 **`ganju.json` is the whole config story**, as planned: `connections`, `allowedHosts`, `timeoutMs` and `resourceAccess` are declared there and ride along with the deploy, because `POST …/custom-code/version` already accepts `config` beside `manifest`. The dashboard's [settings dialog](#the-settings-dialog) writes the same fields through the generic tool route — two doors onto one row, neither of them a second write path. Every command here is a client of an endpoint the dashboard already uses.
@@ -718,11 +719,11 @@ Every scoped package carries `publishConfig.access: "public"`, without which npm
 
 **Installing the tarballs found a bug that packing them did not.** `@ganju/sdk` is a types package above all else — `ganju build` marks it external and the runtime code is the module the platform attaches — and its published `types.d.ts` imports `Fetcher` from `@cloudflare/workers-types`, which was a *dev* dependency. A consumer got `TS2307` on the first import: the package's entire value failing on arrival. It is a real dependency now, and a consumer's `tsc` was re-run against the installed tarball to prove it.
 
-Each package also carries the `LICENSE` and `NOTICE` that Apache-2.0 §4(d) requires it to, and all three were installed together into a prefix outside this repo: `@ganju/sdk` imports and type-checks, and the `@ganju/cli` bin runs `init` and `build` from a directory that has never seen the workspace. The 48-check probe passes against the bundled CLI.
+Each package also carries the `LICENSE` and `NOTICE` that Apache-2.0 §4(d) requires it to, and all three were installed together into a prefix outside this repo: `@ganju/sdk` imports and type-checks, and the `@ganju/cli` bin runs `init` and `build` from a directory that has never seen the workspace. The probe below passes against the bundled CLI.
 
 **One thing to know when publishing again: `publish` is a reserved npm lifecycle name.** A script called `publish` is run *by* `npm publish`, so a script of `npm run build && npm publish` re-enters itself — the first upload succeeds and the second answers `403 You cannot publish over the previously published versions`, which reads like a failure and is in fact proof the first one worked. `prepublishOnly` is the hook that expresses the same intent without the recursion, and is what these packages carry now.
 
-Also worth knowing before the next release: `@ganju/sdk` declares `@ganju/utils` as `*`, so every existing install follows whatever version is latest. That is fine while the two move together and stops being fine the first time `@ganju/utils` changes something the SDK's types depend on.
+`@ganju/sdk` declares `@ganju/utils` as `*`, so every existing install follows whatever version is latest — and they have already diverged: the SDK is on 0.0.3 while utils has had five releases. **Deliberately left as `*`.** What the SDK actually takes from utils is a handful of constants and types that no release has touched, so following latest costs nothing and pinning would mean a lockstep release every time utils moves for a reason the SDK does not care about. The tripwire is narrow and worth naming: pin it the first time a utils change reaches something [types.ts](../packages/sdk/src/types.ts) depends on — until then the range is carrying no risk, only convenience.
 
 One thing still true of the published CLI: `DEFAULT_API_URL` is `https://api.ganju.ai`, which is not deployed. Development is, so `GANJU_API_URL=https://development-api…` is how the CLI is useful today, and the first release worth pointing a stranger at is the one after production exists.
 
@@ -840,7 +841,7 @@ They are `artifact_credential` rows rather than config, so they are not in `ganj
 
 `ganju build` and every failure around it were run against real projects: multi-file TypeScript resolving through a relative import and bundling to one module with the SDK left external; both entry shapes; a missing `entry`; a manifest that mixes the two; and malformed JSON in `ganju.json`.
 
-**Then the whole thing was run against a real API and the real database** by [scripts/probe-cli.mjs](../scripts/probe-cli.mjs) — 48 checks, all passing, and two more since, added with the control-plane scope and not yet run. It runs the built binary as a subprocess against `apps/api` on localhost backed by the development database, with `apps/mcp` beside it, so the bearer middleware, the publish pipeline, the dispatch namespace and the MCP boot loop are all the real ones. It scaffolds a throwaway PRO org and removes everything, including the script it put in the namespace.
+**Then the whole thing was run against a real API and the real database** by [scripts/probe-cli.mjs](../scripts/probe-cli.mjs) — **60 checks, all passing**, the last two being the control-plane scope: that a CLI login carries `ganju:manage`, and that a token without it — what an MCP client is given — is refused by the control plane rather than quietly admitted. It runs the built binary as a subprocess against `apps/api` on localhost backed by the development database, with `apps/mcp` beside it, so the bearer middleware, the publish pipeline, the dispatch namespace and the MCP boot loop are all the real ones. It scaffolds a throwaway PRO org and removes everything, including the script it put in the namespace.
 
 The one thing a script cannot do is click a browser, so two steps are performed for it: the CLI's OAuth client is pre-registered with consent skipped, and the "browser" is curl carrying a session cookie the probe signs. Everything either side is the CLI's own path — discovery, PKCE, the loopback listener, the token exchange.
 
@@ -1251,9 +1252,32 @@ Pro's 3,000 included channel messages may run on *our* model ([TASKS.md:47-54](.
 
 Split the counter: messages on the customer's key stay at $2/1,000 (a correct platform fee); messages on our model get a 1,000-turn sub-cap, then $15/1,000. Never BYO-required — every Free→Pro converter is on our key by definition, so requiring BYO breaks their bot on upgrade day. See [PRICING.md](PRICING.md#part-3--the-gap-in-the-current-model).
 
-### Fix 3 — Enterprise needs a new anchor
+### Fix 3 — Enterprise needs a new anchor ✅ (mostly already true)
 
-"Can add a custom/existing MCP server and use Ganju as a proxy" ([TASKS.md:67](../TASKS.md#L67)) is becoming broadly available. Enterprise moves to: unlimited artifacts/scripts, BYO OAuth apps, dedicated dispatch namespace, raised CPU ceilings, arbitrary MCP URLs, SSO, SLA.
+"Can add a custom/existing MCP server and use Ganju as a proxy" ([TASKS.md:67](../TASKS.md#L67)) is becoming broadly available, so the tier needed a different anchor. The sketch was: unlimited artifacts/scripts, BYO OAuth apps, dedicated dispatch namespace, raised CPU ceilings, arbitrary MCP URLs, SSO, SLA.
+
+**Read back later, that sentence caused a scare it did not deserve, and the reason is worth recording: it mixes two lists that have very different standing.** One is what the tier *promises publicly*. The other is what a first Enterprise deal might want. Only the first can be wrong in a way that matters, because only the first has been said to anyone.
+
+**What the tier was claiming publicly** — on [pricing](../apps/website/src/pages/pricing.astro), the machine-readable [pricing.md](../apps/website/src/md/pricing.md) beside it, and the [settings guide](../apps/website/src/content/docs/settings.md), each in both languages — and where every line stood when checked:
+
+| Claimed | Status |
+|---|---|
+| Everything in Pro | ✅ True, and stronger than it sounds: every `ENTERPRISE` entry in `PLAN_LIMITS` is already `null` — projects, tools, prompts, channels, raw and embedded storage, messages, `maxHttpEndpointsPerArtifact`, and `toolCallHardCap`. The comparison table's row of "Unlimited" is accurate line for line |
+| Proxy your own / existing MCP server | ✅ Built — and gated by no plan check anywhere, so it is not an Enterprise feature at all. That is the prediction at the top of this section arriving |
+| Custom web address & tools | ✅ The custom-slug add-on and custom code |
+| SSO | ❌ **Not built** — and the OIDC already in the codebase is not a head start. **Removed from the copy** |
+| Dedicated support, guaranteed response times | ❌ Not code: a response-time commitment, someone on call, a status page. **Softened to a named contact** |
+
+So of five public claims, three were already true, one was true but not a differentiator, and one was fiction. The copy now lists what is true, plus the unlimited allowances that were the tier's best line and went unmentioned.
+
+**The other three were never promised to anybody.** BYO OAuth apps, a dedicated dispatch namespace and raised CPU ceilings appear in the sketch above and nowhere a customer can read, so they are [open question 1](#open-questions)-shaped: defer, with a trigger, and no exposure while they wait. Their sizes are also wildly uneven, which the sketch's flat list hid:
+
+- **Raised CPU ceilings is close to free.** `limits.cpu_ms` is already set per script from one constant at one call site ([customCodeDeploy.ts](../apps/api/src/utils/customCodeDeploy.ts)), which is exactly why it was put there rather than on the namespace. Making it plan-derived is a `PlanLimits` field and that call site.
+- **A dedicated namespace is the only real project.** The namespace is one env var read per deployment, so per-organization means threading an override through publish, the boot loop, the sweep and the broker — every path that resolves a script by name.
+
+**SSO deserves its own note, because the codebase looks like it has a head start and does not.** [better-auth.ts](../apps/api/src/utils/better-auth.ts) makes Ganju an OIDC **provider** — that is how the CLI and MCP clients log in *to* us, and it is what the `ganju:manage` scope is checked against. SSO is the **consumer** direction: accepting a login *from* a customer's identity provider, discovering it by email domain, and provisioning into `organization_user` on first arrival. Opposite plumbing, near-zero reuse. It is the one public claim with nothing behind it, so it came off the pricing page until a deal pays for it — a "contact us" tier does not need to enumerate what it cannot yet do, and shipping a login path with no customer to exercise it is how a broken login path ships.
+
+**One mismatch fixed while here.** The pricing page guaranteed response times; [terms.md](../apps/website/src/md/terms.md) says Enterprise availability commitments live in a separate agreement, "if any". The terms win, so there was no contractual exposure — but a prospect reading both saw the marketing promise something the contract declined to, and the copy now says what an order form can actually carry.
 
 ### What does *not* need to change
 
@@ -1331,10 +1355,28 @@ Verified by [scripts/probe-redeploy.mjs](../scripts/probe-redeploy.mjs), which d
 
 Two consequences: MCP clients degrade past ~50-80 tools, and the channel runner pays that inflation in *our* tokens on shared-key turns. The **~40-tool channel cap is now enforced** (`CHANNEL_MAX_TOOLS`); still to do is making the enable/disable unit the **connection** rather than the individual action. See [PRICING.md](PRICING.md#part-2--the-five-things-worth-knowing).
 
-**OAuth broker liability.** Managed connections mean we own the scopes, the annual Google CASA assessment for restricted Gmail scopes, and a single point of suspension across all customers. BYO-app mode is the pressure valve — it's also why we should never have to run a verification project for a new vendor again.
+**OAuth broker liability.** Managed connections mean we own the scopes, the annual Google CASA assessment for restricted Gmail scopes, and a single point of suspension across all customers: one app suspended — for a policy call, a failed re-verification, or one customer's abuse — and every customer's Gmail stops at the same instant. Custom code tightened that coupling rather than loosening it, since user-written JavaScript now holds tokens minted from our app. BYO-app mode is the pressure valve, and it's why we should never have to run a verification project for a new vendor again.
+
+**But BYO is not the way out of CASA, and it is worth being exact about why.** The obligation attaches to whichever app requests the scopes, and [oauthProviders.ts](../packages/utils/src/oauthProviders.ts) requests three restricted ones — `gmail.readonly`, `gmail.modify`, `gmail.compose`. Under BYO the managed app keeps serving everyone who did not bring their own, and nobody on Free or Pro will: registering a Cloud project, configuring a consent screen and passing a review is enterprise behaviour, not small-business behaviour. So BYO shrinks the audit's population and never its existence. **Verification is a prerequisite for launching Gmail in production, not a consequence of it** — which is why it is a [Phase 0 box](#phase-0--prerequisites) now rather than a sentence in this section. It is also the one item in this document with a lead time measured in somebody else's weeks.
 
 ## Open questions
 
-1. ~~Managed-only connections for v1, or managed + BYO app from the start?~~ **Decided: managed-only for v1.** The connections surface reports `app: 'managed'` on every row, so a per-organization app can be reported through the same shape rather than forcing every consumer to learn a new one. Still open is *when* BYO lands — it's the pressure valve for the OAuth-liability risk below, so it should not drift indefinitely.
-2. Is the LLM-generates-the-tool flow in v1, or is the CLI + the dashboard editor the launch surface? (`organizationLlm` already exists, so the plumbing is there.) Templates were the third answer to this and are [no longer on the table](#phase-8--templates--dropped).
+None are open. All three are kept struck rather than deleted, because what a question turned up on the way to being answered is usually the part worth having later — and because two of these resolved to *not yet*, which is a decision that has to carry its trigger with it or it quietly becomes *never*. The one live prerequisite left is not a question at all: it is the [Google verification and CASA box](#phase-0--prerequisites) in Phase 0.
+
+1. ~~Managed-only connections for v1, or managed + BYO app from the start?~~ **Decided: managed-only, and BYO waits for something to ask for it.** The connections surface reports `app: 'managed'` on every row ([connections.ts:38](../apps/api/src/controllers/artifact/connections.ts#L38)), so a per-organization app can be reported through the same shape rather than forcing every consumer to learn a new one.
+
+   **What changed since that field was planted is that the risk turned out to be measurable, and the measurement is zero.** Every liability BYO answers scales with the number of customers on the managed app, and production has never run any of this — no connections to suspend, no deployed scripts holding tokens minted from our app. Building it now would harden a blast radius that currently has nothing inside it, at the cost of the two things actually between here and launch.
+
+   **Two triggers, either one:** the first enterprise conversation, because somebody paying at that tier will ask whose name is on the consent screen their employees click — it is already an [Enterprise anchor](#fix-3--enterprise-needs-a-new-anchor), so it gets built into that deal and priced there. Or the first customer needing a scope we don't offer, which arrives sooner and is cheaper to notice: `defaultScopes` is one shared constant today, so one unusual need means editing a file every other customer rides on.
+
+   **Deferring costs nothing structurally, and that is the whole reason it is safe to defer.** The work is per-org encrypted storage for the client id and secret, the authorization flow and the broker's refresh path reading those instead of `getEnv(c, config.clientIdEnv)`, per-org scopes, and `configured` computed per organization. Days, not a rewrite, and no migration — because the `app` field widens from `'managed'` to `'managed' | 'byo'` and every consumer already has somewhere to branch. Waiting is only dangerous when the deferred thing forces a migration later. This one does not.
+
+2. ~~Is the LLM-generates-the-tool flow in v1, or is the CLI + the dashboard editor the launch surface?~~ **Decided: the CLI and the dashboard editor are the launch surface. Codegen ships when a user asks for it.**
+
+   The plumbing was never the question — [`organizationLlm`](../packages/db/src/lib/schema.ts) already stores each organization's provider, model and key, and the channel runner already reads it to run turns on a customer's own key. The question was who the feature is for, and it is worth naming the cost of this answer rather than filing it as obvious: with templates [dropped](#phase-8--templates--dropped) there is no middle ground left, so a launch on these two surfaces is a launch for people who can write JavaScript. Everyone else gets the shipped catalog and `http-endpoint`.
+
+   **It is deferred rather than dropped because it is purely additive.** Generated code is the same source the editor already edits, and it would ride the same draft → upload → smoke test → publish pipeline, against the same [test path](#testing-a-function-without-publishing-it) that runs a preview on real connections before anything is published. Nothing about shipping it later is harder than shipping it now, and two things about shipping it now are harder: production and documentation are what launch is actually waiting on, and a codegen surface enlarges both.
+
+   **What it will need decided when it does land**, none of which has to be answered today: whose key pays for generation — the organization's own is clean but excludes every Free→Pro converter, who by definition has none, while ours is a cost line the existing shared-key meter does not cover, since it counts channel turns and not codegen calls. And that the useful shape is generate → test → feed the failure back → regenerate, not a one-shot button.
+
 3. ~~Are there real production installs of the calendar/calcom tools — i.e. how much migration does Phase 9 warrant?~~ **Moot: neither group is being removed** ([Remove](#remove)). Worth recording what the question turned up before it was dropped, since it is the same question any future removal asks: the development database holds zero `artifact_tool` rows for `calcom-` keys and zero `artifact_credential` rows with provider `calcom`, and production has never run any of this.

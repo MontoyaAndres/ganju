@@ -18,17 +18,17 @@ export interface SlackSendRequest {
   operation: SlackOperation;
 
   // chat.postMessage / files.completeUploadExternal share these
-  channel: string;            // channel ID (C…/G…/D…) or name (#general)
-  threadTs?: string;          // reply in-thread when set
+  channel: string; // channel ID (C…/G…/D…) or name (#general)
+  threadTs?: string; // reply in-thread when set
 
   // post-message
-  text?: string;              // required for post-message
-  mrkdwn?: boolean;           // defaults to true on Slack's side
-  blocks?: unknown[];         // optional Block Kit payload
+  text?: string; // required for post-message
+  mrkdwn?: boolean; // defaults to true on Slack's side
+  blocks?: unknown[]; // optional Block Kit payload
 
   // upload-file
-  title?: string;             // shown in the Slack file viewer
-  initialComment?: string;    // message body posted alongside the file
+  title?: string; // shown in the Slack file viewer
+  initialComment?: string; // message body posted alongside the file
 }
 
 // Wire protocol for sending a PROXIED (remote MCP) resource as a Slack file.
@@ -59,7 +59,7 @@ export interface SlackSendResponse {
   // file id. Empty string when Slack returns ok:true with no id (shouldn't
   // happen, but defensively typed).
   id: string;
-  channel?: string;           // resolved channel id
-  ts?: string;                // message timestamp (post-message only)
-  permalink?: string;         // file permalink (upload-file only)
+  channel?: string; // resolved channel id
+  ts?: string; // message timestamp (post-message only)
+  permalink?: string; // file permalink (upload-file only)
 }

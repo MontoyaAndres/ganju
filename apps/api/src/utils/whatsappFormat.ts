@@ -33,8 +33,10 @@ const processInline = (text: string): string => {
 
   // Links: WhatsApp can't render a labelled link, so surface both the label and
   // the (auto-linking) url. Drop the parens when they'd just repeat the url.
-  r = r.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_, label: string, url: string) =>
-    label === url ? url : `${label} (${url})`
+  r = r.replace(
+    /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    (_, label: string, url: string) =>
+      label === url ? url : `${label} (${url})`
   );
 
   // Restore bold sentinels to WhatsApp's single-asterisk bold.

@@ -71,7 +71,9 @@ try {
           updated_at = now()
       WHERE client_id = ${clientId}
     `;
-    console.log(`Updated bot client ${clientId.slice(0, 6)}… (secret rehashed)`);
+    console.log(
+      `Updated bot client ${clientId.slice(0, 6)}… (secret rehashed)`
+    );
   } else {
     await sql`
       INSERT INTO oauth_client (

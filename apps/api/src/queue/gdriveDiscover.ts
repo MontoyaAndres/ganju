@@ -138,7 +138,8 @@ const insertChildResource = async (
   // Drive reports a byte size for files (not folders); record it up front so the
   // org's raw-storage total is correct before the file body is fetched. The
   // gdriveFile sync later overwrites it with the actual stored size.
-  const parsedSize = !folder && child.size ? Number.parseInt(child.size, 10) : NaN;
+  const parsedSize =
+    !folder && child.size ? Number.parseInt(child.size, 10) : NaN;
   const sizeBytes = Number.isFinite(parsedSize) ? parsedSize : null;
   const inserted = await dbInstance.transaction(async tx => {
     const [created] = await tx

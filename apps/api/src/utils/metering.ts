@@ -94,10 +94,7 @@ export const meterOrganization = async (
   const sharedUsed = sub.sharedMessageCount;
   const ownKeyUsed = Math.max(0, sub.messageCount - sharedUsed);
 
-  const sharedOverage = Math.max(
-    0,
-    sharedUsed - limits.includedSharedMessages
-  );
+  const sharedOverage = Math.max(0, sharedUsed - limits.includedSharedMessages);
   const sharedDelta = sharedOverage - sub.reportedSharedMessageOverage;
 
   const ownKeyIncluded = Math.max(

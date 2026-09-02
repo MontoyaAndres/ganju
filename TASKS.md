@@ -58,7 +58,7 @@ Pro - $20/mo base + usage (base includes an allowance):
 - MCP-client tool calls: bundled (metered separately, never as "messages")
 - Add-on (NOT bundled): custom slug https://<mycompany>.mcp.ganju.ai/ at $15/mo —
   covers Cloudflare ACM ($10/mo) + margin; only some users want it
-- User can create custom tools (programming — sandbox via vm/isolate, TBD)
+- User can create custom tools (programming — Workers for Platforms; see docs/CUSTOM_TOOLS.md)
 - Support 24/7
 
 Enterprise - Contact us:

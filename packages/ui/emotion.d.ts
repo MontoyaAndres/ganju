@@ -10,7 +10,7 @@ import {
   FunctionInterpolation,
   Interpolation,
   Keyframes,
-  SerializedStyles,
+  SerializedStyles
 } from '@emotion/serialize';
 import {
   ClassAttributes,
@@ -20,7 +20,7 @@ import {
   ReactElement,
   ReactNode,
   Ref,
-  createElement,
+  createElement
 } from 'react';
 import { EmotionJSX } from './jsx-namespace';
 
@@ -32,7 +32,7 @@ export {
   FunctionInterpolation,
   Interpolation,
   Keyframes,
-  SerializedStyles,
+  SerializedStyles
 };
 
 export * from './theming';

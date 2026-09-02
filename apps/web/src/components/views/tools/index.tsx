@@ -1608,7 +1608,9 @@ export default createHandler({
             </div>
             <UI.Button
               variant="contained"
-              onClick={() => router.push(`/${organizationId}/settings/billing`)}
+              onClick={() =>
+                router.push(`/organization/${organizationId}/settings`)
+              }
             >
               <span className="button-text">{t('lockedUpgrade')}</span>
             </UI.Button>
