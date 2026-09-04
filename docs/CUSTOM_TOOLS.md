@@ -471,6 +471,8 @@ The old page had two tabs, **Installed** and **Catalog**, and one way to add a t
 
 The new shape is three tabs in a fixed order — **Functions · HTTP Endpoints · Catalog** — matching the three things a user can put on their server: code they wrote, endpoints they pointed at, integrations we ship. Only which tab opens first changes with the plan (Free lands on Catalog, paid on Functions), pinned after the first resolve so the page never moves mid-task. A tab order that changed on upgrade day would make every screenshot and support answer plan-dependent for no gain.
 
+**The plan arrives with the page, which is what makes that pin possible.** `getAuthMe` in [ssr.ts](../apps/web/src/utils/ssr.ts) fetches `GET …/organization/:id/plan` alongside `/me` — one `Promise.all`, so the plan costs no latency the page was not already spending — and hands it down as a prop. Fetched on the client instead, the first paint would have no plan to read, so the tab bar would either render a guess and correct itself or render nothing and pop in; both are the mid-task movement the pin exists to prevent, and the correcting-guess version moves the tab under a cursor already travelling toward it. It is also the plan every gate on the page reads, so the Functions tab knows on the first frame whether it is offering an editor or an upgrade. The prop is the *display* answer only — [`assertCustomCodeAllowed`](../apps/api/src/utils/plan.ts) still runs on every write, since a prop is a thing the browser holds.
+
 Four platform changes were needed that this plan did not anticipate. Each is worth stating on its own, because each outlives the page that prompted it.
 
 #### 1. The tool catalog is code, not rows
@@ -629,6 +631,20 @@ Optional, and absent on every endpoint that predates it. Declaring one turns a J
 - **Failures are now marked `isError`.** They used to come back as ordinary text beginning with `Error:`. Marking them is what the other two proxied definitions already do, and it is what makes the guard above workable. This is the one behaviour change existing installs will see.
 - **An output schema must describe an object**, on the write path only, because `structuredContent` is an object and a schema of any other type compiles to an empty shape that can never be satisfied. Applied to `custom-code` manifests too. The read shapes stay permissive, exactly as with the reserved-name rule.
 
+#### Both languages, and the catalog is the exception
+
+The page ships in English and Spanish like every other view, which for a tab this size is 1,206 lines of copy in [tools.ts](../apps/web/src/lib/i18n/copy/tools.ts) — the editor's notice, the file explorer's menus, the function and settings modals, the endpoint form, the remote-MCP dialog, every empty state and every confirmation. English is declared first and types every other language, so a key added here fails the build until it is translated. That is the ordinary pattern and it needs no explanation.
+
+**The shipped catalog needed a different one, and this is the part worth knowing.** Group and tool names do not belong to the dashboard — they arrive in the `/catalog/tools` payload from [toolCatalog.ts](../packages/utils/src/toolCatalog.ts), which is now [code rather than rows](#1-the-tool-catalog-is-code-not-rows). Declaring the English again in a copy file would be a second copy of ~150 strings, and it would drift **silently**: nothing checks two lists of prose against each other, and a package that has no idea a translation file exists cannot fail a build over one. So [toolCatalog.ts](../apps/web/src/lib/i18n/copy/toolCatalog.ts) under `copy/` holds **only the Spanish**, keyed by what the payload carries (`group.<key>`, `tool.<key>`, `field.<toolKey>.<configKey>` — namespaced because `greeting`, `custom-code`, `http-endpoint` and `mcp-proxy` are each both a group key and a tool key). It overrides the English it is given instead of restating it.
+
+Two consequences, both chosen. A tool added to the platform renders **in English** here until someone translates it — not as a raw key, and not as a build failure in a package that never heard of this file. And a key for a tool that no longer exists is dead weight and nothing worse.
+
+Nothing about the API's own messages is translated here either: `handleError` localizes on the way out, so a `data.error` is already in the reader's language by the time a snackbar shows it. That is the same rule the reserved-name message follows, from the other end — [`localizeZodIssue`](../packages/utils/src/localizeZodIssue.ts) keys on the exact English text, which is why that message is a fixed string rather than one quoting the offending name.
+
+Protocol nouns stay put in both languages: `JSON`, `URL`, `GET`, `Bearer`, `ctx`, `index.js`, `ganju-sdk.js`. They appear verbatim in code and payloads, and a translated `ganju-sdk.js` would be a file nobody has.
+
+**One check the compiler cannot make**, so it is a script: [check-i18n-catalogs.mjs](../scripts/check-i18n-catalogs.mjs). TypeScript guarantees the keys match, and cannot see inside a string — a Spanish line that drops `{count}` or `{provider}` type-checks perfectly and renders a sentence with a hole in it, and a plural family missing its `_other` form falls back to English for every count but one. It checks those two and warns on an entry left as a copy of the English it should have replaced, which a handful legitimately are.
+
 #### A pinned formatter
 
 The repo had a `.prettierrc` and no prettier, so `npx prettier` pulled whatever was newest and formatting was whatever each contributor's editor happened to load.
@@ -651,6 +667,7 @@ Every step was checked against the dev database with a throwaway fixture, remove
 | Test panel + `allowedTools` | 36 — [verify-custom-code-testing.mjs](../scripts/verify-custom-code-testing.mjs), all passing, first run |
 | `outputSchema` on http-endpoint | 26 — [verify-http-endpoint-output.mjs](../scripts/verify-http-endpoint-output.mjs), all passing |
 | The whole dashboard API, on the deployed stack | 69 — [probe-tools-dashboard.mjs](../scripts/probe-tools-dashboard.mjs) |
+| The Functions tab, in a real browser | 40 — [probe-tools-browser.mjs](../scripts/probe-tools-browser.mjs) |
 
 The testing run drives the **real broker middleware** against a scaffolded tool with three versions rather than restating its checks: a live token for the active version is accepted, one for a version that is not active is refused, a preview token for a draft of that tool is accepted, and preview tokens naming another tool's version, a version that does not exist, or an expired one are all refused — with every rejection the same opaque 401. Plus the token itself, the schema validator the panel reports violations from, and the `allowedTools` filtering rule restated so a change to either side fails here rather than quietly changing which tools an MCP server offers.
 
@@ -667,13 +684,29 @@ embedded content and file storage; under the allowance it renders plain; and on
 Free it is absent, since a plan that cannot deploy code would read the row as an
 offer. The scaffold it needed was removed each time.
 
-**Not verified: the Functions tab and the off/remove controls in a browser.** They typecheck, build, and the editor is confirmed absent from the tools page's initial chunk — none of which is the same as having loaded Monaco from `/monaco/vs` and clicked Deploy. Completion against the SDK types and the marker pass are the two pieces most worth checking first, since both depend on how Monaco resolves `./ganju-sdk.js`.
+**Verified in a browser.** This was the oldest open item in this document, and it had quietly grown rather than aged — it was written about the editor and the off/remove controls, and the file explorer, the new-function modal, the settings dialog and the Spanish copy all landed behind it. It is closed by [probe-tools-browser.mjs](../scripts/probe-tools-browser.mjs) — **40 checks, all passing** — which drives real Chromium against `apps/web` and `apps/api` running locally, on the development database, with a session cookie it signs.
+
+Everything else on this feature drives the API, the modules, or the deployed stack, and **none of those loads Monaco**. So this covers precisely the part that only exists once a browser has rendered it:
+
+- **Monaco is fetched only when there is something to edit, and from this origin.** The empty state issues **zero** requests under `/monaco/`; the first function pulls `/monaco/vs/loader.js` from `localhost:3000` rather than a CDN. That is the code-splitting claim and the served-from-this-origin claim, both confirmed by observing the requests rather than by reading the bundle.
+- **`ctx` completes from the SDK's real declarations** — and this is the piece with no server-side equivalent to fall back on. Asked through Monaco's own JavaScript worker, `ctx.` returns exactly `connection`, `log`, `resources`, `secret`, `sendFile` — all five, and **nothing else**, which is what proves the extra lib resolved as `./ganju-sdk.js` rather than the editor falling back to `any`. `ctx.resources.` returns all five of `search`, `read`, `list`, `create`, `delete`. And `input.` returns `orderId` and only `orderId` — the type generated from the tool's own declared input schema, so a property nobody declared genuinely does not complete.
+- **The marker pass fires, one marker per rule, each carrying its reason.** A file holding `require(`, `process.`, `eval(`, `localStorage.` and a bare `import … from 'dayjs'` produces exactly five markers under the `ganju-runtime` owner, and reverting the source clears all five. The bare-import marker names the way around it, which is the whole point of marking rather than blocking.
+- **The modal writes the manifest entry and the handler stub together.** The generated file carries the `@type` line with the input type built from the declared schema (`ToolHandler<{ orderId: string }>`), the handler named above the map, and the map naming it under the kebab-case key. The explorer shows `index.js` as the entry and `ganju-sdk.js` as attached, and the notice names `ganju deploy`.
+- **`index.js` is protected in the explorer**, not merely by convention: its Rename and Delete items render **disabled** in the context menu.
+- **Deploy works from the editor to the dispatch namespace.** Clicking Deploy publishes one version, `activeVersionId` points at it, `source_kind` is `editor`, the manifest holds the declared tool, and `script_name` is a freshly minted `artifact_<id>_<12 hex>` — which the probe then confirms is really in `ganju-tools-development` by asking the namespace, and deletes afterwards.
+- **The settings dialog's two halves behave as described.** Capabilities and secrets are both present, secrets carry their own add control while the capabilities half sits behind one Save, and the provider list says a provider may be declared before it is connected. Saving writes `allowedHosts` and `timeoutMs` to `artifact_tool.config` and leaves `activeVersionId` untouched — the preservation rule, observed from the browser rather than from the schema.
+
+Two things worth knowing before running it again. It needs the **local** API rather than the deployed one, because CORS admits only the configured web origin — and `wrangler dev` must be authenticated against the *project's* Cloudflare account, since `DISPATCH` is a remote binding and a session on another account fails the publish with an authentication error rather than a missing-namespace one. And the deploy step really does put a script in the shared development namespace; the probe removes it in its `finally`, which is why that block runs even when a check throws.
+
+Two selectors cost a run each, and both say something about the page rather than about Playwright: `index.js` appears twice on screen — in the explorer tree and in the editor header — so the tree row has to be addressed through `.tools-explorer-tree`; and the menu item reads `Rename…` with an ellipsis, not `Rename`.
 
 #### Still open on the dashboard
 
 - [x] ~~**Give the row's config a surface.**~~ — shipped; see [The settings dialog](#the-settings-dialog).
 - [x] ~~**Name the CLI in the editor's notice once it exists.**~~ — shipped with [Phase 7](#phase-7--cli): the notice now names `ganju deploy` rather than describing the path around it, in both languages.
-- **Format the backlog.** 62 files differ, all of them predating this work. `npm run format` does it in one command; it is worth its own commit, because a whitespace sweep across 62 files would bury a review of anything else.
+- [x] ~~**Format the backlog.**~~ — done, and in its own commit as the entry asked for: 54 files reformatted with no behaviour change beside them, so the sweep reads as the whitespace change it is. `npm run format:check` is clean at the root, which is what turns this from a one-off into a rule — the next file to drift fails the check rather than accumulating into a second backlog.
+
+Nothing is open on this list any more, and with the [browser pass](#verified) above now run, nothing is unverified on the dashboard either.
 
 #### Operational state
 
@@ -1353,7 +1386,20 @@ Verified by [scripts/probe-redeploy.mjs](../scripts/probe-redeploy.mjs), which d
 
 **Tool-list explosion — measured, not theoretical.** Querying our own `channel_message` rows: an artifact with **5 tools averages 1,103 input tokens/turn; one with 12 tools averages 13,109.** 2.4× the tools, 12× the tokens, because every schema is re-sent on every model call and a turn makes ~3. Custom tools invite exactly this growth.
 
-Two consequences: MCP clients degrade past ~50-80 tools, and the channel runner pays that inflation in *our* tokens on shared-key turns. The **~40-tool channel cap is now enforced** (`CHANNEL_MAX_TOOLS`); still to do is making the enable/disable unit the **connection** rather than the individual action. See [PRICING.md](PRICING.md#part-2--the-five-things-worth-knowing).
+Two consequences: MCP clients degrade past ~50-80 tools, and the channel runner pays that inflation in *our* tokens on shared-key turns. The **~40-tool channel cap is now enforced** (`CHANNEL_MAX_TOOLS`). See [PRICING.md](PRICING.md#part-2--the-five-things-worth-knowing).
+
+**The unit of enable/disable stays the individual tool. Decided, not deferred.** An earlier draft of this section carried moving it up to the *connection* as an open to-do, on the reasoning that a coarser switch is a faster way to shorten a tool list. It is not being built, and the reason is that it would make the control coarser than the thing it controls.
+
+Tokens are spent per **tool**, because it is each schema that is re-sent on every model call. So the tool is the unit that costs, and it should be the unit that toggles. A connection-level switch asks an owner who needs `gmail-send-email` to expose all 18 Gmail tools to get it, which is the exact inflation this section is about — and the owner who wants to trim would have no move left except disconnecting an account they still use.
+
+The machinery for the fine-grained answer is already here and already the right shape, so this is a decision to keep something rather than to build something:
+
+- `artifact_tool.enabled` toggles one installed tool, keeps its config, and frees a quota slot ([disabling no longer destroys](#2-disabling-a-tool-no-longer-destroys-it)).
+- `config.allowedTools` narrows a `custom-code` or `mcp-proxy` row to a subset of the tools it exposes, with no redeploy ([`allowedTools`](#4-allowedtools--one-function-off-without-a-redeploy)).
+
+Between them every tool on an artifact is individually switchable today, which is what a connection-level switch would have taken away. What a connection *does* remain the unit of is the things that genuinely are per-account: connecting, re-authorizing, disconnecting, and the group-level config the tools in it share.
+
+`CHANNEL_MAX_TOOLS` stays the backstop, and it is a different mechanism for a different problem: per-tool switches are the owner choosing what their agent can do, while the cap is the platform refusing to send a model more schema than it can use. Neither replaces the other.
 
 **OAuth broker liability.** Managed connections mean we own the scopes, the annual Google CASA assessment for restricted Gmail scopes, and a single point of suspension across all customers: one app suspended — for a policy call, a failed re-verification, or one customer's abuse — and every customer's Gmail stops at the same instant. Custom code tightened that coupling rather than loosening it, since user-written JavaScript now holds tokens minted from our app. BYO-app mode is the pressure valve, and it's why we should never have to run a verification project for a new vendor again.
 

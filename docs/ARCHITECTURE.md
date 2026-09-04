@@ -10,7 +10,7 @@ Everything centers on the **artifact**. An artifact is a project's MCP server: i
 user → organization → project → artifact → { prompts, resources, tools, credentials, channels }
 ```
 
-## The four apps
+## The six apps
 
 ### `apps/api` — control-plane Worker
 
@@ -37,6 +37,23 @@ A plain Node HTTP server ([`apps/resource-handler/src/server.ts`](../apps/resour
 - **Document extraction** (`/extract`) — PDF, Word, Excel → text, for embedding.
 - **Web crawling** (`/crawl/discover`, `/crawl/page`) — Cheerio or Playwright.
 - **Large file sends** — pushing resources into Gmail/Outlook/Slack/Telegram/Discord/WhatsApp, including streaming a proxied remote MCP resource as a file without it transiting a Worker.
+
+### `apps/tool-broker` — the host capabilities a user's tool is given
+
+A Hono Worker ([`apps/tool-broker/src/index.ts`](../apps/tool-broker/src/index.ts)) reached over a **service binding** from inside a customer's deployed script. It is what makes `ctx` in [`@ganju/sdk`](../packages/sdk) real: `connection()` mints a short-lived access token, `secret()` resolves an `artifact_credential` by label, `resources.*` reads, creates and deletes the artifact's resources, and `sendFile()` forwards to the resource-handler container the way the native Gmail/Outlook/Slack handlers do.
+
+Two properties it exists to hold, neither of which could live in the SDK:
+
+- **Secrets never enter user code.** Refresh tokens and client secrets stay here; the isolate only ever sees an access token with an expiry.
+- **A service binding carries no caller identity**, so the script is authenticated by `GANJU_TOOL_TOKEN` — an HMAC over `{artifactId, versionId}` injected at upload time, verified here against the artifact's *current* active version. That is what makes a superseded script's credential stop working the moment a newer version publishes. The artifact id is never read from the request body.
+
+### `apps/tool-outbound` — the egress screen for user code
+
+A small Worker ([`apps/tool-outbound/src/index.ts`](../apps/tool-outbound/src/index.ts)) that every outbound `fetch` from a customer's script goes through: the shared SSRF screen (`isBlockedHost` — private, loopback, link-local), the tool's `allowedHosts` when set, and the per-artifact rate limit.
+
+**Enforcement is here rather than in the SDK on purpose** — anything inside the isolate is user-editable and therefore not a control. An empty `allowedHosts` means unrestricted rather than blocked, but `isBlockedHost` applies whatever the list says. Note it screens global `fetch` only: a container binding is not intercepted, which is why the embedding host needs an exemption and the `sendFile` container call never did.
+
+Both Workers are deployed per environment (`ganju-tool-broker-development`, `ganju-tool-outbound-development`) and are described in full, with the reasoning, in [CUSTOM_TOOLS.md](CUSTOM_TOOLS.md).
 
 ### `apps/web` — dashboard
 
@@ -113,7 +130,12 @@ Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/w
 | `RESOURCE_HANDLER` | Durable Object → Container | Heavy work delegation                            |
 | `DISCORD_GATEWAY`  | Durable Object             | Persistent Discord Gateway socket                |
 | `MCP` / `API`      | Service bindings           | Worker-to-Worker calls                           |
+| `DISPATCH`         | Workers for Platforms      | Runs a customer's deployed tool script           |
 | `*_QUEUE`          | Queues                     | Background jobs (see below)                      |
+
+`DISPATCH` is bound in **both** `apps/api` (to upload and smoke-test a publish) and `apps/mcp` (to run a tool call), against the `ganju-tools-<env>` dispatch namespace. Two things about it are worth knowing before touching either: there is **no local emulation**, so the binding is marked `remote = true` and `wrangler dev` proxies to the real namespace ([DEVELOPMENT.md](DEVELOPMENT.md)); and the boot loop must never call it to discover tools — names and schemas are read from Postgres, so a slow or failed deploy cannot break `tools/list`.
+
+A customer's script gets two bindings of its own, injected at upload: a service binding to `apps/tool-broker`, and `GANJU_TOOL_TOKEN`, the signed credential the broker authenticates it by.
 
 ### Queues (background work)
 

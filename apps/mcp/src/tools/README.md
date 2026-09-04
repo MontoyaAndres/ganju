@@ -26,7 +26,7 @@ A tool group's `provider` ties it to an `artifact_credential` row; the MCP serve
 **OAuth** (Gmail, Outlook, Google Drive/Calendar, Slack):
 
 - Register in [constants.ts](../../../../packages/utils/src/constants.ts): `OAUTH_PROVIDERS`, `OAUTH_AUTH_URLS`, `OAUTH_TOKEN_URLS`.
-- Add scopes + client env names in [apps/api providers.ts](../../../api/src/utils/providers.ts) and the refresh env map in [apps/mcp refreshCredential.ts](../../utils/refreshCredential.ts).
+- Add scopes + client env names in [apps/api providers.ts](../../../api/src/utils/providers.ts) and the refresh env map in [apps/mcp refreshCredential.ts](../utils/refreshCredential.ts).
 - Refresh is automatic via [`refreshOAuthToken`](../../../../packages/utils/src/oauth.ts); expired refresh tokens flip the credential to `needsReauth`.
 - Tools UI shows **Connect** → `GET /oauth/:provider/authorize` → consent → callback stores the credential.
 
@@ -45,6 +45,38 @@ Config lives on `artifact_tool.config` (JSON, per tool). Two scopes:
 - **Per-tool** — knobs that tune one tool (list page size, working hours, buffer, Meet on/off). Declared as a typed schema in `CALENDAR_TOOL_FIELDS` in [constants.ts](../../../../packages/utils/src/constants.ts) and rendered as a form in the tool's edit modal. Tools that only have group-level settings show a "managed at the group level" note instead of the raw JSON editor.
 
 Handlers resolve every setting the same way: **`args.<override>` → `config.<default>` → fallback**. The override arg is an escape hatch, not the default — the agent's job is "book at 7am", the owner's job is "book where". Don't put secrets in `config` (they belong in `artifact_credential`).
+
+### Time zone: the fallback comes from the vendor, not from us
+
+Time zone is the one setting where `config.<default>` → fallback was not good enough, and it is worth reading before adding any setting that has the same shape.
+
+Every scheduling question the model answers is a time-zone question first: "tomorrow at 9" is not an instant until you know whose 9 it is. The chain above had two answers and neither worked. `config.defaultTimeZone` is only written when the owner opens a dropdown and **changes** it, so in practice it is empty on nearly every install — and the fallbacks underneath it were `undefined` for Google (which then uses the calendar's own zone, and only helps when the timestamp carries no offset) and the literal `'UTC'` for Cal.com, which booked the attendee in a zone nobody lives in and told no one.
+
+**But the user already answered this question** — in Google Calendar's settings, and in their Cal.com profile. So we ask the vendor rather than asking the owner again, and that answer becomes the default under any explicit choice. One new step, third in the chain:
+
+**`args.timeZone` → `config.defaultTimeZone` → the zone cached on the connection → vendor-specific fallback**
+
+[timeZone.ts](./timeZone.ts) owns the chain (`resolveEffectiveTimeZone`) and the refresh (`refreshVendorTimeZoneIfStale`); [vendorTimeZone.ts](../../../../packages/utils/src/vendorTimeZone.ts) owns the cache and the two vendor readers.
+
+**It is cached on `artifact_credential.metadata`, because that is what it is a property of** — the connected account, not the tool row. One artifact can have six calendar tools installed and they all share one connection, so the connection is the only place the answer belongs exactly once. Two keys, `timeZone` and `timeZoneCheckedAt`, namespaced so they cannot collide with the reauth markers the OAuth refresh path writes to the same column. `writeCredentialTimeZone` **merges** rather than replaces for exactly that reason: a bare `{ timeZone }` would clear `needsReauth` and silently re-enable a connection the refresh path had flagged as broken.
+
+**Three places fill the cache, and the ordering rule is the same in all of them: after the commit, best-effort.**
+
+- **On connect** — the OAuth callback ([oauth/index.ts](../../../api/src/controllers/oauth/index.ts)) for Google Calendar, and `createCredential` ([artifact/index.ts](../../../api/src/controllers/artifact/index.ts)) for a Cal.com key — so the model has the zone from the moment the account is linked rather than from the first tool call. A connection that works is worth more than a zone we can look up again, so nothing here can fail the callback the user is waiting on. Note the API-key replace path nulls `metadata` first, which is correct — a new key can be a different account — and this is what puts the zone back.
+- **On the tool-call path**, when the cached value has aged out. The TTL is **24 hours**: this changes when somebody moves or travels, rarely and never urgently, so the cost of being briefly stale is one meeting in the old zone, while a shorter TTL is a vendor round trip on the path of every call. The alternative — refreshing only when the owner opens the dashboard — leaves an artifact whose owner moved cities booking in the old zone indefinitely, and the owner has no reason to visit a page about a thing they believe is working.
+
+A cache with no `timeZoneCheckedAt` stamp reads as **stale rather than fresh-forever** — the conservative direction, since the only cost is one request. A vendor that reports no zone still stamps the check, so it is asked once a day rather than on every call. And the refresh writes the new metadata back onto the in-memory credential too, since several tools can run against one boot.
+
+**Everything about the read is best-effort.** Both readers return `null` on a non-200, on a throw, and on a zone `Intl.DateTimeFormat` cannot resolve — because everything downstream (`Intl`, Google's `start.timeZone`, Cal.com's `attendee.timeZone`) throws or 400s on a name it cannot parse, so a vendor returning something unexpected must degrade to "we don't know" rather than poison every later call. A throw here would take a tool call or a whole chat turn with it.
+
+Two vendor details worth not rediscovering:
+
+- **Google reads `GET /calendars/primary`, deliberately not `GET /users/me/settings/timezone`.** The settings endpoint is the more direct answer to "what did the user configure" and needs `calendar.settings.readonly` — a scope we do not request and could not add without sending every already-connected user back through consent. The primary calendar's zone is the same value in every case that matters, and `calendar.readonly` already covers it.
+- **Cal.com's `/v2/me` zone is the _host's_**, the one their availability is written in. For `calcom-create-booking` that is a guess about the attendee rather than a fact — but it is a far better guess than the hardcoded `'UTC'` it replaced, since a local business books local customers. An explicit `attendeeTimeZone` still wins, and the tool description now tells the model to pass one whenever the conversation reveals where the attendee is.
+
+**The channel runner reads the cache, never fetches it.** The zone goes in the system prompt, because by the time a handler runs the instant is already chosen — the model has to resolve "today" and "9am" before it calls anything. A chat turn must not wait on Google or Cal.com to answer before the model starts thinking, so the runner takes whatever is cached and moves on. Fixed in the same pass: it recognised only the `calendar-` prefix, so an artifact that booked exclusively through Cal.com got neither the zone nor the ISO-8601 instruction beside it. Both prefixes count as scheduling tools now.
+
+**Verified** by [verify-vendor-timezone.mjs](../../../../scripts/verify-vendor-timezone.mjs) — 36 checks, all passing. Pure logic and a stubbed fetch, no network and no credential decrypted: the precedence chain at every rung, the merge preserving reauth markers, the staleness rule including a missing and an unparseable stamp, and both readers' parsing and degrade-to-null contract, including that Google hits `/calendars/primary` and Cal.com sends its version header.
 
 ## Shipped
 

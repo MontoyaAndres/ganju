@@ -69,7 +69,14 @@ Other useful commands (run inside `packages/db` or via the workspace):
 npm run studio -w @ganju/db   # Drizzle Studio — browse the DB
 ```
 
-Some rows are **seeded out of band** (tool groups, tool definitions, the MCP server catalog). If a tool doesn't appear in the dashboard, check those tables exist — see [DATA_MODEL.md](DATA_MODEL.md).
+The **`mcp_server_catalog`** rows are seeded out of band — they are the curated
+remote MCP servers, and nothing in the app creates them. The shipped tool catalog
+is **not** seeded: `tool_group` and `tool_definition` were dropped in migration
+0065, and the catalog is now `TOOL_CATALOG` in
+[@ganju/utils](../packages/utils/src/toolCatalog.ts), paired with a handler the
+compiler keeps in step. So if a shipped tool is missing from the dashboard it is
+a code or migration problem, never a missing row — see
+[DATA_MODEL.md](DATA_MODEL.md).
 
 ### Bot OAuth client
 
@@ -100,17 +107,58 @@ npm run dev
 | `apps/api`              | http://localhost:8080 | `wrangler dev --env development` (via [`scripts/wrangler-dev.sh`](../scripts/wrangler-dev.sh)) |
 | `apps/mcp`              | http://localhost:8081 | `wrangler dev --env development`                                                               |
 | `apps/resource-handler` | http://localhost:8082 | Container started by Wrangler/Docker                                                           |
+| `apps/tool-broker`      | http://localhost:8083 | `wrangler dev --env development` (via the same script as `apps/api`)                          |
+| `apps/tool-outbound`    | http://localhost:8084 | `wrangler dev --env development` (via the same script as `apps/api`)                          |
 | `apps/web`              | http://localhost:3000 | `next dev`                                                                                     |
+
+**The two tool Workers run locally, but a deployed script does not talk to them.**
+This is the one thing to know before debugging a custom tool by editing
+`apps/tool-broker` and wondering why nothing changes. The broker is reached over
+a **service binding injected into the customer's script at upload time**, and
+that binding names the *deployed* Worker (`CUSTOM_CODE_BROKER_SERVICE`, e.g.
+`ganju-tool-broker-development`). The script itself lives in the dispatch
+namespace, which is remote. So a `ctx.connection()` call from a tool you just
+published goes to the deployed broker no matter what is running on 8083.
+
+What the local processes are good for is driving them directly — which is what
+[`scripts/verify-custom-code-resources.mjs`](../scripts/verify-custom-code-resources.mjs)
+does, bundling the real broker module and calling it rather than re-implementing
+its SQL. To exercise the whole chain instead, deploy the broker
+(`npm run deploy-dev -w tool-broker`) and use a probe script; those drive the
+deployed stack on purpose, for exactly this reason.
 
 **The dispatch namespace runs remotely, always.** There is no local emulation of
 Workers for Platforms, so `DISPATCH` is marked `remote = true` in both
 `apps/api` and `apps/mcp` — without it miniflare refuses the binding outright
 (`Binding DISPATCH needs to be run remotely`) and every publish, test run and
 custom-tool call fails locally. With it, `wrangler dev` proxies to the real
-`ganju-tools-development` namespace, which means two things worth knowing: the
-account has to be authenticated (`wrangler login`, or `CLOUDFLARE_API_TOKEN` in
-the environment), and a local test run really does deploy a preview script into
-the shared development namespace — the same one the deployed environment uses.
+`ganju-tools-development` namespace, and a local test run really does deploy a
+preview script into it — the same namespace the deployed environment uses.
+
+**Being logged in is not the requirement. Being logged into _this project's_
+account is.** `wrangler dev` needs a session (`wrangler login`, or
+`CLOUDFLARE_API_TOKEN` in the environment), and if that session belongs to
+another Cloudflare account the namespace is simply not there to reach. What you
+get is not a missing-namespace error, it is:
+
+```
+✘ [ERROR] Failed to establish remote session due to an authentication issue.
+  Your credentials may have expired or been revoked.
+```
+
+which sends you to re-authenticate as the same account you already are. The
+tell is that `wrangler whoami` **succeeds** and prints an account id that does
+not match `CLOUDFLARE_ACCOUNT_ID` in `.env` — so check those two against each
+other before believing the message:
+
+```bash
+npx wrangler whoami | grep -A2 'Account ID'
+grep '^CLOUDFLARE_ACCOUNT_ID=' .env
+```
+
+If they differ, `wrangler logout && wrangler login` into the account that owns
+the namespace. Anyone with more than one Cloudflare account will meet this, and
+the error names the wrong cause every time.
 
 To run a single app, use the workspace filter, e.g.:
 
