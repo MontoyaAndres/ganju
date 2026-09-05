@@ -2,7 +2,7 @@
 title: Getting started
 description: A summary of the setup walkthrough — sign in, build your project, and share your AI, one short page at a time.
 order: 1
-updated: 2026-07-06
+updated: 2026-09-05
 ---
 
 Getting started walks you through setting up Ganju from scratch, one short page
@@ -19,7 +19,7 @@ need. Here's what each page covers:
 - **[Resources](/docs/getting-started/resources)** — add the files and knowledge
   your AI can search.
 - **[Tools](/docs/getting-started/tools)** — switch on the actions your AI can
-  take, like email, calendar, and web search.
+  take, like email, calendar, and web search — or write your own.
 - **[Channels](/docs/getting-started/channels)** — offer your AI to clients and
   teams on the apps they already use: Slack, WhatsApp, Discord, Telegram, and
   more.
@@ -44,7 +44,10 @@ can do, each building block has a fuller guide:
 - **[Resources](/docs/resources)** — Google Drive, OneDrive, website crawls, and
   uploads, with semantic search and citations.
 - **[Tools](/docs/tools)** — the full catalog: Gmail, Outlook, Slack, calendars,
-  web search, GitHub, Notion, and your own HTTP endpoints.
+  web search, GitHub, Notion — plus your own
+  [HTTP endpoints](/docs/tools/http-endpoints) and
+  [functions](/docs/tools/functions), and the
+  [`ganju` CLI](/docs/tools/cli) that ships them.
 - **[Channels](/docs/channels)** — per-platform setup for Telegram, WhatsApp,
   Slack, and Discord.
 - **[MCP clients](/docs/mcp)** — connect Claude, ChatGPT, Cursor, or VS Code to the

@@ -2,12 +2,12 @@
 title: Welcome
 description: Connect your AI to your files, tools, and apps — then offer it to anyone through the channels they already use.
 order: 0
-updated: 2026-07-06
+updated: 2026-09-05
 ---
 
 Welcome to the Ganju docs. Ganju connects AI assistants like Claude, ChatGPT,
-and Gemini to your own files, tools, and apps — no servers to run, no code to
-write.
+and Gemini to your own files, tools, and apps — with no servers to run, and no
+code to write unless you want to.
 
 Then it lets you **offer that AI to whoever you want** — clients, your team, or
 individual people — through the channels they already use: Slack, WhatsApp,
@@ -36,6 +36,13 @@ you combine to shape exactly what your assistant knows, does, and where it lives
 - **[Tools](/docs/tools)** — let it take action: email (Gmail, Outlook), Slack,
   calendars (Google, Cal.com), web search, remote MCP servers like GitHub and
   Notion, or your own HTTP APIs.
+- **[Functions](/docs/tools/functions)** — when the catalog doesn't cover your
+  case, write the tool yourself in JavaScript. It runs on the edge with your
+  connected accounts and file-sending handed to it as host capabilities, so
+  there's still no server for you to run.
+- **[The `ganju` CLI](/docs/tools/cli)** — put those functions in a repository:
+  build, deploy, test against real connections, read their logs, roll back, and
+  ship from CI.
 - **[Channels](/docs/channels)** — deliver it to real people on Telegram, WhatsApp,
   Slack, and Discord, with step-by-step setup for each.
 - **[MCP clients](/docs/mcp)** — connect the same assistant to Claude, ChatGPT,

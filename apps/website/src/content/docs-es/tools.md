@@ -1,16 +1,30 @@
 ---
 title: Herramientas
-description: Dale a tu IA la capacidad de actuar — ayudantes integrados para recursos más integraciones como Gmail, Outlook, Slack, Calendar, Cal.com, búsqueda web y tus propias APIs.
+description: Dale a tu IA la capacidad de actuar — integraciones como Gmail, Outlook, Slack y Calendar, tus propias APIs HTTP y funciones que escribes tú.
 order: 4
-updated: 2026-07-07
+updated: 2026-09-05
 ---
 
 Las **herramientas** son las acciones que tu asistente puede ejecutar por ti.
 Mientras los [recursos](/es/docs/resources) le dejan *leer* tu conocimiento, las
 herramientas le dejan *hacer* cosas — enviar un correo, publicar en Slack, agendar
 una reunión, buscar en la web en vivo o llamar a tu propia API. Todo proyecto viene
-con un conjunto de herramientas integradas, y agregas más desde el catálogo cuando
-las necesites.
+con un conjunto de herramientas integradas, y agregas más cuando las necesites.
+
+## Tres formas de agregar una
+
+La página **Tools** tiene tres pestañas, que corresponden a las tres cosas que
+puedes poner en tu servidor:
+
+| Pestaña | Qué es | Plan |
+| --- | --- | --- |
+| **[Funciones](/es/docs/tools/functions)** | Código que escribes tú. Lógica de varios pasos, transformaciones, cualquier cosa que combine una credencial con un cálculo. | Pro |
+| **[Endpoints HTTP](/es/docs/tools/http-endpoints)** | Una petición contra una API que ya tienes, descrita en un formulario. Sin código. | Todos los planes |
+| **[Catálogo](/es/docs/tools/catalog)** | Las integraciones que traemos y mantenemos — conecta una cuenta y enciende las herramientas que quieras. | Todos los planes |
+
+Empieza por el catálogo. Si tu caso está cubierto ahí, conectar una cuenta es todo
+el trabajo. Si no lo está, un endpoint HTTP es el camino más corto a tu propia API,
+y una función es a lo que recurres cuando una sola petición no alcanza.
 
 ## Por qué usar herramientas
 
@@ -61,15 +75,18 @@ tu asistente pueda trabajar con tus [recursos](/es/docs/resources) y
 - **List Prompts** — lista los prompts y comandos que expone este asistente, y cómo
   ejecutarlos en el canal actual.
 
-![La pestaña Installed de la página de Herramientas mostrando las cinco herramientas integradas](/images/default-tools-tools.webp)
+## Encender y apagar herramientas
 
-## Explora el catálogo
+Cada herramienta tiene un interruptor y un borrar, y hacen cosas distintas.
+**Apagar** deja de exponer la herramienta pero conserva su configuración y su
+conexión; **Eliminar** borra la fila y se lleva los ajustes. Apagar una
+herramienta libera un espacio en el conteo de tu plan, así que puedes rotar entre
+más de las que expones a la vez.
 
-El **Catalog** lista cada integración que puedes agregar — correo, chat,
-calendarios, búsqueda web, servidores MCP remotos y tus propios endpoints HTTP.
-Cada tarjeta muestra cuántas de sus herramientas has activado.
-
-![El catálogo de Herramientas con tarjetas de integraciones como Gmail, Slack y Google Calendar](/images/catalog-tools.webp)
+Mantén la lista corta a propósito. El esquema de cada herramienta activa se le
+reenvía al modelo en cada llamada, así que una lista larga cuesta tokens en cada
+turno y le complica la elección al modelo. Los canales la limitan a 40 por esa
+razón.
 
 ## Herramientas disponibles
 
@@ -96,10 +113,15 @@ las herramientas que ofrece:
   GitHub para repos, issues y pull requests.
 - **[Notion](/es/docs/tools/notion)** — conecta el servidor MCP remoto oficial de
   Notion para buscar y actualizar páginas y bases de datos.
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — expón tus propias APIs como
-  herramientas con nombre.
 - **[Saludo](/es/docs/tools/greeting)** — una herramienta de demostración diminuta
   para probar un servidor nuevo.
+
+Y las dos que construyes tú:
+
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — expón tus propias APIs como
+  herramientas con nombre, sin código.
+- **[Funciones](/es/docs/tools/functions)** — escribe tus propias herramientas en
+  JavaScript, desde el navegador o con la **[CLI `ganju`](/es/docs/tools/cli)**.
 
 Sigue con: decide dónde usa la gente tu asistente — configura
 [canales](/es/docs/getting-started/channels).

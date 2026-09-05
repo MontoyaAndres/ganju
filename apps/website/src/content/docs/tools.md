@@ -1,15 +1,30 @@
 ---
 title: Tools
-description: Give your AI the ability to take action — built-in resource helpers plus integrations like Gmail, Outlook, Slack, Calendar, Cal.com, web search, and your own APIs.
+description: Give your AI the ability to take action — integrations like Gmail, Outlook, Slack and Calendar, your own HTTP APIs, and functions you write yourself.
 order: 4
-updated: 2026-07-07
+updated: 2026-09-05
 ---
 
 **Tools** are the actions your assistant can take on your behalf. Where
 [resources](/docs/resources) let it *read* your knowledge, tools let it *do*
 things — send an email, post to Slack, book a meeting, search the live web, or
 call your own API. Every project ships with a set of built-in tools, and you add
-more from the catalog whenever you need them.
+more whenever you need them.
+
+## Three ways to add one
+
+The **Tools** page has three tabs, matching the three things you can put on your
+server:
+
+| Tab | What it is | Plan |
+| --- | --- | --- |
+| **[Functions](/docs/tools/functions)** | Code you write. Multi-step logic, transforms, anything that combines a credential with a computation. | Pro |
+| **[HTTP Endpoints](/docs/tools/http-endpoints)** | One request against an API you already run, described in a form. No code. | All plans |
+| **[Catalog](/docs/tools/catalog)** | The integrations we ship and maintain — connect an account, switch on the tools you want. | All plans |
+
+Start at the catalog. If your case is covered there, connecting an account is the
+whole job. If it isn't, an HTTP endpoint is the shortest path to your own API,
+and a function is what you reach for when one request isn't enough.
 
 ## Why use tools
 
@@ -55,15 +70,17 @@ assistant can work with your [resources](/docs/resources) and
 - **List Prompts** — list the prompts and commands this assistant exposes, and how
   to run them on the current channel.
 
-![The Tools page Installed tab showing the five built-in tools](/images/default-tools-tools.webp)
+## Turning tools on and off
 
-## Browse the catalog
+Every tool has a switch and a delete, and they do different things. **Off** stops
+the tool being exposed while keeping its configuration and its connection;
+**Remove** deletes the row and takes the settings with it. Turning a tool off
+frees a slot against your plan's tool count, so you can rotate through more than
+you expose at once.
 
-The **Catalog** lists every integration you can add — email, chat, calendars, web
-search, remote MCP servers, and your own HTTP endpoints. Each card shows how many
-of its tools you've enabled.
-
-![The Tools catalog with integration cards like Gmail, Slack, and Google Calendar](/images/catalog-tools.webp)
+Keep the list short on purpose. Every enabled tool's schema is re-sent to the
+model on every call, so a long tool list costs tokens on every turn and makes the
+model's choice harder. Channels cap the list at 40 for that reason.
 
 ## Available tools
 
@@ -88,9 +105,14 @@ every tool it offers:
   for repos, issues, and pull requests.
 - **[Notion](/docs/tools/notion)** — connect Notion's official remote MCP server
   to search and update pages and databases.
-- **[HTTP Endpoints](/docs/tools/http-endpoints)** — expose your own APIs as named
-  tools.
 - **[Greeting](/docs/tools/greeting)** — a tiny demo tool for testing a new server.
+
+And the two you build yourself:
+
+- **[HTTP Endpoints](/docs/tools/http-endpoints)** — expose your own APIs as named
+  tools, with no code.
+- **[Functions](/docs/tools/functions)** — write your own tools in JavaScript,
+  from the browser or the **[`ganju` CLI](/docs/tools/cli)**.
 
 Next: decide where people use your assistant — set up
 [channels](/docs/getting-started/channels).

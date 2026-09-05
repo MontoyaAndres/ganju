@@ -2,7 +2,7 @@
 title: Primeros pasos
 description: Un resumen del recorrido de configuración — inicia sesión, arma tu proyecto y comparte tu IA, una página corta a la vez.
 order: 1
-updated: 2026-07-06
+updated: 2026-09-05
 ---
 
 Primeros pasos te guía para configurar Ganju desde cero, con una página corta por
@@ -19,7 +19,8 @@ lo que cubre cada una:
 - **[Recursos](/es/docs/getting-started/resources)** — agrega los archivos y el
   conocimiento que tu IA puede consultar.
 - **[Herramientas](/es/docs/getting-started/tools)** — enciende las acciones que
-  tu IA puede ejecutar, como correo, calendario y búsqueda web.
+  tu IA puede ejecutar, como correo, calendario y búsqueda web — o escribe las
+  tuyas.
 - **[Canales](/es/docs/getting-started/channels)** — ofrece tu IA a clientes y
   equipos en las apps que ya usan: Slack, WhatsApp, Discord, Telegram y más.
 - **[Configuración](/es/docs/getting-started/settings)** — administra miembros,
@@ -44,7 +45,10 @@ tu asistente puede hacer, cada bloque tiene una guía más completa:
 - **[Recursos](/es/docs/resources)** — Google Drive, OneDrive, rastreo de sitios
   web y archivos subidos, con búsqueda semántica y citas.
 - **[Herramientas](/es/docs/tools)** — el catálogo completo: Gmail, Outlook,
-  Slack, calendarios, búsqueda web, GitHub, Notion y tus propios endpoints HTTP.
+  Slack, calendarios, búsqueda web, GitHub, Notion — además de tus propios
+  [endpoints HTTP](/es/docs/tools/http-endpoints) y
+  [funciones](/es/docs/tools/functions), y la
+  [CLI `ganju`](/es/docs/tools/cli) que las publica.
 - **[Canales](/es/docs/channels)** — configuración por plataforma para Telegram,
   WhatsApp, Slack y Discord.
 - **[Clientes MCP](/es/docs/mcp)** — conecta Claude, ChatGPT, Cursor o VS Code al

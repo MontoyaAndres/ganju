@@ -196,7 +196,7 @@ MCP supports `outputSchema` + `structuredContent`, but [`ToolDefinition`](../app
 
 They travel **with the deploy**: `POST …/custom-code/version` takes `config` alongside `manifest` in one request, because they describe how the uploaded code is allowed to run and belong to the same review as the code. `activeVersionId` is never among them — only publish and rollback move that.
 
-**Secrets are not in this file, and must not be.** `ctx.secret('STRIPE_KEY')` resolves an `artifact_credential` row through the broker at call time, so a secret is a thing you send once rather than a value committed next to your source. The CLI manages them through the credential endpoints — see [Phase 7](#phase-7--cli).
+**Secrets are not in this file, and must not be.** `ctx.secret('STRIPE_KEY')` resolves an `artifact_credential` row through the broker at call time, so a secret is a thing you send once rather than a value committed next to your source. The CLI manages them through the credential endpoints — see [Phase 7](#phase-7--cli-).
 
 **JavaScript and TypeScript only**, which is one language as far as we're concerned: a bundle is already compiled by the time it reaches the upload endpoint. Python Workers are a different upload shape (`index.py` main module, `python_workers` flag) and would need their own SDK to answer the health probe, so a Python bundle fails at publish rather than half-working. Not planned for v1.
 
@@ -607,7 +607,7 @@ Everything the broker serves had been reachable only from a `config` nobody coul
 
 **Empty means unrestricted, for hosts.** [`hostAllowed`](../apps/tool-outbound/src/index.ts) returns true on an empty list, so clearing the field widens egress to any public host rather than blocking everything — the field says so, since the opposite reading is the dangerous one to guess wrong. Private and loopback addresses stay blocked by `isBlockedHost` whatever the list says.
 
-**The dashboard is one door, not the door.** Everything here is a write to two endpoints the API already exposed — the generic tool route for the config, the credential routes for the secrets — so [the CLI](#phase-7--cli) reaches the same rows without a second write path behind it. What the dialog adds is a place to see them; it holds no rule the API does not.
+**The dashboard is one door, not the door.** Everything here is a write to two endpoints the API already exposed — the generic tool route for the config, the credential routes for the secrets — so [the CLI](#phase-7--cli-) reaches the same rows without a second write path behind it. What the dialog adds is a place to see them; it holds no rule the API does not.
 
 #### Testing a function without publishing it
 
@@ -703,7 +703,7 @@ Two selectors cost a run each, and both say something about the page rather than
 #### Still open on the dashboard
 
 - [x] ~~**Give the row's config a surface.**~~ — shipped; see [The settings dialog](#the-settings-dialog).
-- [x] ~~**Name the CLI in the editor's notice once it exists.**~~ — shipped with [Phase 7](#phase-7--cli): the notice now names `ganju deploy` rather than describing the path around it, in both languages.
+- [x] ~~**Name the CLI in the editor's notice once it exists.**~~ — shipped with [Phase 7](#phase-7--cli-): the notice now names `ganju deploy` rather than describing the path around it, in both languages.
 - [x] ~~**Format the backlog.**~~ — done, and in its own commit as the entry asked for: 54 files reformatted with no behaviour change beside them, so the sweep reads as the whitespace change it is. `npm run format:check` is clean at the root, which is what turns this from a one-off into a rule — the next file to drift fails the check rather than accumulating into a second backlog.
 
 Nothing is open on this list any more, and with the [browser pass](#verified) above now run, nothing is unverified on the dashboard either.
@@ -920,7 +920,7 @@ The hazard this phase was written around is still real and still worth knowing, 
 
 #### Invocations are billed; CPU is only enforced
 
-[Fix 1](#fix-1--cap-the-tail-technically-bill-on-the-legible-unit) said cap the
+[Fix 1](#fix-1--cap-the-tail-technically-bill-on-the-legible-unit-) said cap the
 tail technically and bill on the legible unit, and that is what shipped. CPU-ms
 never becomes a line item: it is bounded by `limits.cpu_ms` per script, which is
 a limit a customer meets rather than a number they are invoiced for. What they
@@ -1196,6 +1196,71 @@ And the alert runs where it was wired: an hour after the deploy the cron wrote
 sent, which is a first sighting adopting the position rather than emailing about
 usage that predates it.
 
+### Phase 11 — Documentation ✅
+
+Not a phase this plan anticipated, because a plan written about a runtime does
+not think of the marketing site as part of it. But [open question
+2](#open-questions) named production and documentation as the two things launch
+is waiting on, and this is the second one: everything in this document is written
+for whoever maintains it, and none of it is written for the person deciding
+whether to write a tool.
+
+- [x] Three pages under **Tools**, matching the three tabs the dashboard actually
+      has: [functions.md](../apps/website/src/content/docs/tools/functions.md),
+      [http-endpoints.md](../apps/website/src/content/docs/tools/http-endpoints.md)
+      (a stub before this), and
+      [catalog.md](../apps/website/src/content/docs/tools/catalog.md)
+- [x] [cli.md](../apps/website/src/content/docs/tools/cli.md) — install, every
+      command, `ganju.json`, both router shapes, secrets, the login flow, and
+      deploying from CI
+- [x] Both languages, since `docs/` and `docs-es/` are a parallel tree and a file
+      id must exist in both
+- [x] Seven screenshots, with the webp twins
+      [optimize-images.mjs](../scripts/optimize-images.mjs) generates
+- [x] The sidebar restructured in [docs-nav.ts](../apps/website/src/lib/docs-nav.ts)
+
+Four things worth knowing, three of which are about what was already wrong.
+
+**The docs described a page that no longer exists.** `tools.md` and
+`getting-started/tools.md` both opened by saying the Tools page has two tabs,
+**Installed** and **Catalog** — the shape [Phase 6](#phase-6--dashboard-)
+replaced. Every screenshot on those pages still shows that tab bar. So this was
+not additive work with three new pages beside it; the pages that existed were
+describing a product we stopped shipping, and a reader following them would have
+gone looking for a tab that is not there.
+
+**The same sentence in `welcome.md` had quietly become false.** "No servers to
+run, no code to write" was the whole promise, and half of it stopped being true
+the moment Functions shipped. It now reads "no code to write unless you want to",
+which is the honest version and is also what sets up the Functions entry beside
+it. Worth naming because it is the failure mode of a landing page rather than of
+a doc: nobody edits the first paragraph when they ship a feature, and it is the
+paragraph that makes the promise.
+
+**The integrations were siblings of Catalog, not children of it.** Adding three
+pages to a flat list of twelve put Functions, HTTP Endpoints and Catalog next to
+Gmail and Notion, so the three tabs read as three more integrations. They nest
+under Catalog now, which is where they live in the product — and the CLI nests
+under Functions for the same reason. `order` runs 36–39 across the four new pages
+so [llms.txt](../apps/website/src/pages/llms.txt.ts) and `/docs.md` list them in
+tab order rather than alphabetically among the vendors.
+
+**What the pages say that this document does not.** The reasoning here is about
+why a thing is built the way it is; the docs are about what a reader will hit.
+So the load-bearing lines over there are the traps: that an empty `allowedHosts`
+means *any* public host rather than none, that a test run is metered, that Off
+and Remove are different acts, that a CLI upload is read-only in the editor, that
+a personal access token reaches one project and is shown once, and that tool
+count is a per-turn token cost rather than a preference. Each of those is a
+decision recorded in this file, arriving where somebody meets it.
+
+**Still open:** the Catalog page has no screenshot. `catalog-tools.webp` shows
+the retired tab bar *and* an HTTP Endpoints card that is now its own tab, so
+using it would contradict the page it sits on. Every getting-started screenshot
+has the same problem in a milder form — the grid below the tabs is still
+accurate, which is why those were kept. A refresh of the Catalog tab and the
+Gmail connect flow closes it, and needs a browser rather than a decision.
+
 ---
 
 ## Removal checklist
@@ -1413,7 +1478,7 @@ None are open. All three are kept struck rather than deleted, because what a que
 
    **What changed since that field was planted is that the risk turned out to be measurable, and the measurement is zero.** Every liability BYO answers scales with the number of customers on the managed app, and production has never run any of this — no connections to suspend, no deployed scripts holding tokens minted from our app. Building it now would harden a blast radius that currently has nothing inside it, at the cost of the two things actually between here and launch.
 
-   **Two triggers, either one:** the first enterprise conversation, because somebody paying at that tier will ask whose name is on the consent screen their employees click — it is already an [Enterprise anchor](#fix-3--enterprise-needs-a-new-anchor), so it gets built into that deal and priced there. Or the first customer needing a scope we don't offer, which arrives sooner and is cheaper to notice: `defaultScopes` is one shared constant today, so one unusual need means editing a file every other customer rides on.
+   **Two triggers, either one:** the first enterprise conversation, because somebody paying at that tier will ask whose name is on the consent screen their employees click — it is already an [Enterprise anchor](#fix-3--enterprise-needs-a-new-anchor--mostly-already-true), so it gets built into that deal and priced there. Or the first customer needing a scope we don't offer, which arrives sooner and is cheaper to notice: `defaultScopes` is one shared constant today, so one unusual need means editing a file every other customer rides on.
 
    **Deferring costs nothing structurally, and that is the whole reason it is safe to defer.** The work is per-org encrypted storage for the client id and secret, the authorization flow and the broker's refresh path reading those instead of `getEnv(c, config.clientIdEnv)`, per-org scopes, and `configured` computed per organization. Days, not a rewrite, and no migration — because the `app` field widens from `'managed'` to `'managed' | 'byo'` and every consumer already has somewhere to branch. Waiting is only dangerous when the deferred thing forces a migration later. This one does not.
 
@@ -1421,7 +1486,7 @@ None are open. All three are kept struck rather than deleted, because what a que
 
    The plumbing was never the question — [`organizationLlm`](../packages/db/src/lib/schema.ts) already stores each organization's provider, model and key, and the channel runner already reads it to run turns on a customer's own key. The question was who the feature is for, and it is worth naming the cost of this answer rather than filing it as obvious: with templates [dropped](#phase-8--templates--dropped) there is no middle ground left, so a launch on these two surfaces is a launch for people who can write JavaScript. Everyone else gets the shipped catalog and `http-endpoint`.
 
-   **It is deferred rather than dropped because it is purely additive.** Generated code is the same source the editor already edits, and it would ride the same draft → upload → smoke test → publish pipeline, against the same [test path](#testing-a-function-without-publishing-it) that runs a preview on real connections before anything is published. Nothing about shipping it later is harder than shipping it now, and two things about shipping it now are harder: production and documentation are what launch is actually waiting on, and a codegen surface enlarges both.
+   **It is deferred rather than dropped because it is purely additive.** Generated code is the same source the editor already edits, and it would ride the same draft → upload → smoke test → publish pipeline, against the same [test path](#testing-a-function-without-publishing-it) that runs a preview on real connections before anything is published. Nothing about shipping it later is harder than shipping it now, and one thing about shipping it now is harder: production is what launch is actually waiting on, and a codegen surface enlarges it. Documentation was the other half of that sentence until [Phase 11](#phase-11--documentation-) closed it — and it is worth noting that codegen would reopen it, since a generated tool is a surface with its own failure modes to explain.
 
    **What it will need decided when it does land**, none of which has to be answered today: whose key pays for generation — the organization's own is clean but excludes every Free→Pro converter, who by definition has none, while ours is a cost line the existing shared-key meter does not cover, since it counts channel turns and not codegen calls. And that the useful shape is generate → test → feed the failure back → regenerate, not a one-shot button.
 

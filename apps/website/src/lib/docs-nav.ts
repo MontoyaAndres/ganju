@@ -87,31 +87,49 @@ const SPEC: DocNavSpec[] = [
   {
     slug: 'tools',
     label: { en: 'Tools', es: 'Herramientas' },
+    // The three tabs of the Tools page, in the order they appear on it. The
+    // shipped integrations hang off Catalog rather than sitting beside it,
+    // because that is where they live in the product — as siblings they read
+    // as three more tabs.
     items: [
-      { slug: 'tools/built-in', label: { en: 'Built-in', es: 'Integradas' } },
-      { slug: 'tools/gmail', label: { en: 'Gmail', es: 'Gmail' } },
-      { slug: 'tools/outlook', label: { en: 'Outlook', es: 'Outlook' } },
-      { slug: 'tools/slack', label: { en: 'Slack', es: 'Slack' } },
       {
-        slug: 'tools/slack-search',
-        label: { en: 'Slack Search', es: 'Búsqueda en Slack' }
+        slug: 'tools/functions',
+        label: { en: 'Functions', es: 'Funciones' },
+        items: [{ slug: 'tools/cli', label: { en: 'CLI', es: 'CLI' } }]
       },
-      {
-        slug: 'tools/google-calendar',
-        label: { en: 'Google Calendar', es: 'Google Calendar' }
-      },
-      { slug: 'tools/calcom', label: { en: 'Cal.com', es: 'Cal.com' } },
-      {
-        slug: 'tools/web-search',
-        label: { en: 'Web Search', es: 'Búsqueda web' }
-      },
-      { slug: 'tools/github', label: { en: 'GitHub', es: 'GitHub' } },
-      { slug: 'tools/notion', label: { en: 'Notion', es: 'Notion' } },
       {
         slug: 'tools/http-endpoints',
         label: { en: 'HTTP Endpoints', es: 'Endpoints HTTP' }
       },
-      { slug: 'tools/greeting', label: { en: 'Greeting', es: 'Saludo' } }
+      {
+        slug: 'tools/catalog',
+        label: { en: 'Catalog', es: 'Catálogo' },
+        items: [
+          {
+            slug: 'tools/built-in',
+            label: { en: 'Built-in', es: 'Integradas' }
+          },
+          { slug: 'tools/gmail', label: { en: 'Gmail', es: 'Gmail' } },
+          { slug: 'tools/outlook', label: { en: 'Outlook', es: 'Outlook' } },
+          { slug: 'tools/slack', label: { en: 'Slack', es: 'Slack' } },
+          {
+            slug: 'tools/slack-search',
+            label: { en: 'Slack Search', es: 'Búsqueda en Slack' }
+          },
+          {
+            slug: 'tools/google-calendar',
+            label: { en: 'Google Calendar', es: 'Google Calendar' }
+          },
+          { slug: 'tools/calcom', label: { en: 'Cal.com', es: 'Cal.com' } },
+          {
+            slug: 'tools/web-search',
+            label: { en: 'Web Search', es: 'Búsqueda web' }
+          },
+          { slug: 'tools/github', label: { en: 'GitHub', es: 'GitHub' } },
+          { slug: 'tools/notion', label: { en: 'Notion', es: 'Notion' } },
+          { slug: 'tools/greeting', label: { en: 'Greeting', es: 'Saludo' } }
+        ]
+      }
     ]
   },
   {
