@@ -17,6 +17,10 @@ const faqs = [
     a: 'Google Gemini, Anthropic Claude u OpenAI (ChatGPT) — solo agregas tu propia cuenta. Otros proveedores compatibles también funcionan.'
   },
   {
+    q: '¿Puedo escribir mis propias herramientas?',
+    a: 'Sí — para eso están las funciones. Describes la herramienta, completas lo que debe hacer, la pruebas en privado y le das a Deploy; nosotros la ejecutamos, así que no hay servidor que configurar ni nada que instalar. Recibe tus cuentas conectadas, tus llaves guardadas y tus archivos, así que lo que escribes se queda pequeño y nunca sostiene una contraseña. Las funciones son una característica Pro y sí llevan algo de JavaScript; en el plan gratuito puedes apuntar un endpoint HTTP a tu propia aplicación, sin nada de código.'
+  },
+  {
     q: '¿Mis datos están seguros?',
     a: 'Sí. Tus contraseñas y llaves se guardan cifradas, nunca se muestran en texto plano y nunca se comparten. Todo corre sobre la red global segura de Cloudflare — y si instalas Ganju por tu cuenta, tus datos se quedan por completo en tu propia infraestructura.'
   },
@@ -25,6 +29,50 @@ const faqs = [
     a: 'Sí. Ganju es software libre: puedes usarlo y modificarlo sin costo. Instálalo en tu propia cuenta, o deja que nosotros lo operemos por ti con un plan de pago.'
   }
 ];
+
+// Las dos muestras de código de la página. Van como HTML y no como texto para
+// poder colorear los tokens sin un resaltador — una portada que envía uno para
+// pintar veinte líneas está pagando por lo que no es.
+const functionCode = `<span class="k">import</span> { createHandler, defineTool } <span class="k">from</span> <span class="s">'./ganju-sdk.js'</span>;
+
+<span class="k">export default</span> <span class="f">createHandler</span>({
+  <span class="s">'lookup-order'</span>: <span class="f">defineTool</span>(<span class="k">async</span> (input, ctx) =&gt; {
+    <span class="k">const</span> key = <span class="k">await</span> ctx.<span class="f">secret</span>(<span class="s">'SHOP_API_KEY'</span>);
+
+    <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(
+      <span class="s">\`https://api.mystore.com/v1/orders/\${input.orderId}\`</span>,
+      { headers: { authorization: <span class="s">\`Bearer \${key}\`</span> } }
+    );
+
+    <span class="c">// Dilo claro — el asistente lee esto y responde con eso.</span>
+    <span class="k">if</span> (res.status === 404) {
+      <span class="k">return</span> { found: <span class="k">false</span>, message: <span class="s">\`No existe el pedido \${input.orderId}.\`</span> };
+    }
+    <span class="k">if</span> (!res.ok) <span class="k">throw new</span> <span class="f">Error</span>(<span class="s">\`La tienda respondió \${res.status}\`</span>);
+
+    <span class="k">const</span> order = <span class="k">await</span> res.<span class="f">json</span>();
+    ctx.<span class="f">log</span>(<span class="s">'consultado'</span>, order.id, order.status);
+
+    <span class="k">return</span> {
+      found: <span class="k">true</span>,
+      status: order.status,
+      placedOn: order.created_at,
+      eta: order.shipping?.estimated_delivery ?? <span class="k">null</span>,
+      tracking: order.shipping?.tracking_url ?? <span class="k">null</span>
+    };
+  })
+});`;
+
+const cliCode = `<span class="p">$</span> npm install -g @ganju/cli
+
+<span class="p">$</span> ganju init my-tools <span class="p">&amp;&amp;</span> cd my-tools
+<span class="p">$</span> ganju login          <span class="c"># abre tu navegador</span>
+<span class="p">$</span> ganju link           <span class="c"># elige el proyecto</span>
+<span class="p">$</span> ganju deploy
+
+<span class="ok">✓</span> v3 is live on acme-support — 2 tools
+  lookup-order
+  refund-status`;
 
 const jsonLd = [SOFTWARE_APPLICATION_SCHEMA_ES, faqSchema(faqs)];
 ---
@@ -49,7 +97,8 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA_ES, faqSchema(faqs)];
           Ganju permite que asistentes de IA como Claude y ChatGPT — y tus bots en Telegram, Slack,
           WhatsApp y Discord — usen de forma segura tus propios documentos, herramientas y
           aplicaciones. Tu IA responde con tu información y hace trabajo real. Se configura en
-          minutos, sin programar.
+          minutos sin escribir una línea de código — y si necesitas una herramienta que no
+          tenemos, la agregas tú.
         </p>
         <div class="hero-cta">
           <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">
@@ -276,7 +325,218 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA_ES, faqSchema(faqs)];
 
       <div class="integration-note reveal">
         <strong>http-endpoint</strong> conecta tu propia aplicación o sitio web.
-        <strong>mcp-proxy</strong> enchufa otros servicios ya listos como Notion y GitHub. Ninguno requiere escribir código.
+        <strong>mcp-proxy</strong> enchufa otros servicios ya listos como Notion y GitHub. Ninguno requiere escribir código —
+        y cuando una herramienta necesita lógica de verdad, <a href="#functions">la escribes tú</a>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Funciones (código propio) ===== -->
+  <section class="section section-code" id="functions">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Tus propias herramientas · en Pro</span>
+        <h2>¿Necesitas algo que no traemos? Lo agregas tú.</h2>
+        <p>
+          Una función es una herramienta pequeña que le agregas a tu asistente — buscar algo en tu
+          propio sistema, calcular algo, disparar un proceso en otro lado. La describes, completas
+          lo que hace y le das a Deploy. Nosotros la ejecutamos: sin servidor, sin instalar nada y
+          sin nada que mantener vivo.
+        </p>
+      </div>
+
+      <ol class="fn-flow reveal">
+        <li>
+          <span class="fn-num" aria-hidden="true">01</span>
+          <h3>Descríbela</h3>
+          <p>
+            Ponle un nombre y di cuándo debería usarla tu asistente, como le explicarías a alguien
+            que acaba de entrar al equipo. El código inicial se escribe solo.
+          </p>
+        </li>
+        <li>
+          <span class="fn-num" aria-hidden="true">02</span>
+          <h3>Completa qué hace</h3>
+          <p>
+            El editor te sugiere lo que hay disponible mientras escribes y subraya los errores
+            donde están, no después de guardar.
+          </p>
+        </li>
+        <li>
+          <span class="fn-num" aria-hidden="true">03</span>
+          <h3>Pruébala en privado</h3>
+          <p>
+            Dale a Run con un ejemplo y mira exactamente qué devuelve. Nadie más puede llamarla y
+            tu asistente en vivo sigue igual.
+          </p>
+        </li>
+        <li>
+          <span class="fn-num" aria-hidden="true">04</span>
+          <h3>Despliégala, o deshaz</h3>
+          <p>
+            Un botón la pone en vivo en todo lo que usa tu asistente. Todas las versiones se
+            guardan, así que volver atrás es un clic.
+          </p>
+        </li>
+      </ol>
+
+      <div class="subhead reveal">
+        <h3>Una herramienta completa, de principio a fin</h3>
+        <p>
+          Esta lee una llave que guardaste, le pregunta por un pedido al sistema de una tienda,
+          avisa claro cuando ese pedido no existe y devuelve una respuesta ordenada para que la
+          use el asistente. Ese es el archivo entero — el alojamiento, las credenciales y el
+          historial de versiones son cosa nuestra.
+        </p>
+      </div>
+
+      <figure class="code-figure reveal">
+        <div class="code-card">
+          <div class="code-head">
+            <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="code-file">index.js</span>
+          </div>
+          <pre><code set:html={functionCode} /></pre>
+        </div>
+        <figcaption>
+          JavaScript, y nada más — sin paso de compilación, sin paquetes que instalar y sin un
+          archivo de configuración que aprender.
+        </figcaption>
+      </figure>
+
+      <div class="subhead reveal">
+        <h3>Tu herramienta no tiene que hacerlo todo sola</h3>
+        <p>
+          Lo difícil y lo delicado se le entrega hecho — tus cuentas conectadas, tus llaves, tus
+          archivos — para que lo que escribes se quede pequeño.
+        </p>
+      </div>
+
+      <div class="cap-grid">
+        <div class="cap reveal">
+          <h3>Actuar con tus cuentas conectadas</h3>
+          <p>
+            Envía desde la cuenta de Gmail o de Slack que ya conectaste aquí. Las contraseñas y los
+            tokens se quedan con nosotros; tu herramienta nunca los ve.
+          </p>
+          <code>{"ctx.connection()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Usar una llave que guardaste una vez</h3>
+          <p>
+            Pegas una llave de API en Settings y tu herramienta la lee cuando corre — cifrada, y
+            nunca se le muestra a nadie, ni a ti.
+          </p>
+          <code>{"ctx.secret()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Buscar en tus propios documentos</h3>
+          <p>
+            Los mismos archivos, sitios y drives con los que responde tu asistente quedan a la mano
+            para que tu herramienta busque y lea.
+          </p>
+          <code>{"ctx.resources.search()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Guardar algo de vuelta</h3>
+          <p>
+            Escribe un reporte, una nota o una hoja de cálculo en el proyecto, para poder
+            encontrarla, leerla o enviarla después.
+          </p>
+          <code>{"ctx.resources.create()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Enviar un adjunto de verdad</h3>
+          <p>
+            Manda por correo o publica un archivo de hasta 40MB sin que pase nunca por tu
+            herramienta — lo movemos nosotros.
+          </p>
+          <code>{"ctx.sendFile()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Llamar a cualquier sitio o API</h3>
+          <p>
+            La forma de siempre de pedir cosas, con las direcciones internas siempre bloqueadas y
+            una lista opcional de los hosts que permites.
+          </p>
+          <code>{"fetch()"}</code>
+        </div>
+      </div>
+
+      <div class="fn-doors">
+        <div class="fn-door reveal">
+          <h3>Escríbela en el navegador</h3>
+          <p>
+            No hay nada que instalar. El editor es el mismo sobre el que está hecho VS Code, sabe
+            lo que tu herramienta puede hacer y despliega exactamente lo que escribiste.
+          </p>
+          <ul class="fn-list">
+            <li>Autocompletado de todo lo que la plataforma te entrega.</li>
+            <li>Un botón Run junto a cada herramienta, con una entrada de ejemplo.</li>
+            <li>Todas las versiones en un menú, y un clic para volver a cualquiera.</li>
+            <li>Archivos y carpetas, si tu herramienta crece más allá de una página.</li>
+          </ul>
+        </div>
+
+        <div class="fn-door reveal">
+          <h3>O desde tu terminal</h3>
+          <p>
+            Si tus herramientas viven en un repositorio, en revisión de código y en tu pipeline,
+            Ganju CLI hace todo lo que hace la página.
+          </p>
+          <div class="code-card">
+            <div class="code-head">
+              <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+              <span class="code-file">bash</span>
+            </div>
+            <pre><code set:html={cliCode} /></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="subhead reveal">
+        <h3>Tres cosas que la gente construye primero</h3>
+        <p>Cada una es una herramienta pequeña, y una tarde como mucho.</p>
+      </div>
+
+      <div class="recipe-grid">
+        <div class="recipe reveal">
+          <h3>Responder por pedidos en Telegram</h3>
+          <p>
+            Un cliente pregunta dónde va su pedido. La herramienta consulta tu sistema y el bot
+            responde en el mismo chat donde le preguntaron.
+          </p>
+          <span class="recipe-uses"><strong>Usa:</strong> tu propio sistema y una llave guardada</span>
+        </div>
+        <div class="recipe reveal">
+          <h3>Enviar el reporte del lunes, con archivo</h3>
+          <p>
+            La herramienta arma la hoja de cálculo, la guarda en el proyecto y la envía desde tu
+            propio correo — como adjunto, no como enlace.
+          </p>
+          <span class="recipe-uses"><strong>Usa:</strong> tu cuenta de Gmail o de Outlook</span>
+        </div>
+        <div class="recipe reveal">
+          <h3>Clasificar un ticket con tus documentos</h3>
+          <p>
+            Busca en tus propios documentos, revisa el ticket en el sistema donde lo guardas y
+            publica el resumen donde el equipo ya está.
+          </p>
+          <span class="recipe-uses"><strong>Usa:</strong> tus documentos y tu Slack</span>
+        </div>
+      </div>
+
+      <div class="fn-note reveal">
+        <p class="fn-limits">
+          Uso justo, en números claros: cada ejecución tiene <strong>5 segundos</strong> y el
+          timeout que elijas, cada herramienta se puede llamar <strong>60 veces por minuto</strong>
+          y Pro incluye <strong>1.000.000 de llamadas al mes</strong> — solo cuentan las
+          herramientas que escribiste tú, nunca las integraciones que traemos.
+        </p>
+        <div class="hero-cta center">
+          <a class="btn btn-primary btn-lg" href="/es/docs/tools/functions">Mira cómo funciona, paso a paso</a>
+          <a class="btn btn-ghost btn-lg" href="/es/docs/tools/cli">Ganju CLI</a>
+        </div>
       </div>
     </div>
   </section>

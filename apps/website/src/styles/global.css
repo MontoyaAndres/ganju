@@ -26,6 +26,8 @@
     var(--font-fustat, 'Fustat'), system-ui, -apple-system, 'Segoe UI', Roboto,
     sans-serif;
   --font-display: var(--font-sans);
+  --font-mono:
+    'SFMono-Regular', ui-monospace, 'JetBrains Mono', Menlo, monospace;
 }
 
 *,
@@ -69,8 +71,7 @@ a {
 }
 
 code {
-  font-family:
-    'SFMono-Regular', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.92em;
 }
 
@@ -1472,6 +1473,361 @@ svg {
   }
 }
 
+.section-code {
+  position: relative;
+  overflow: hidden;
+  background: #14111c;
+  color: #f5f4f8;
+  --code-line: rgba(255, 255, 255, 0.13);
+  --code-muted: rgba(245, 244, 248, 0.66);
+  --code-fill: rgba(255, 255, 255, 0.045);
+}
+
+.section-code .section-head p,
+.section-code .eyebrow {
+  color: var(--code-muted);
+}
+
+.section-code .btn-primary {
+  background: #ffffff;
+  color: #14111c;
+  box-shadow: none;
+}
+
+.section-code .btn-ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #f5f4f8;
+}
+
+.section-code .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.code-card {
+  background: #0e0c14;
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
+  min-width: 0;
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--code-line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.code-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.code-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.code-file {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--code-muted);
+}
+
+.code-card pre {
+  margin: 0;
+  padding: 22px;
+  overflow-x: auto;
+  font-size: 0.86rem;
+  line-height: 1.75;
+}
+
+.code-card code {
+  font-family: var(--font-mono);
+  color: #e9e7f2;
+  font-size: 1em;
+}
+
+.code-card .c {
+  color: rgba(245, 244, 248, 0.42);
+}
+
+.code-card .k {
+  color: #c0b4ff;
+}
+
+.code-card .s {
+  color: #8fdcb8;
+}
+
+.code-card .f {
+  color: #ffd3a0;
+}
+
+.code-card .p {
+  color: rgba(245, 244, 248, 0.5);
+}
+
+.code-card .ok {
+  color: #8fdcb8;
+}
+
+.fn-flow {
+  list-style: none;
+  margin: 44px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 26px;
+}
+
+.fn-flow .fn-num {
+  margin-bottom: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  border: 1px solid var(--code-line);
+  background: var(--code-fill);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.fn-flow h3 {
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+}
+
+.fn-flow p {
+  color: var(--code-muted);
+  font-size: 0.98rem;
+}
+
+.fn-flow code {
+  color: #e9e7f2;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.cap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 72px;
+}
+
+.cap {
+  background: var(--code-fill);
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  min-width: 0;
+}
+
+.cap h3 {
+  font-size: 1.05rem;
+  margin-bottom: 8px;
+}
+
+.cap p {
+  color: var(--code-muted);
+  font-size: 0.95rem;
+}
+
+.cap code {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: rgba(245, 244, 248, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 3px 9px;
+  border-radius: 7px;
+  margin-top: 14px;
+}
+
+.fn-doors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-top: 22px;
+  align-items: start;
+}
+
+.fn-door {
+  background: var(--code-fill);
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-lg);
+  padding: 26px 24px;
+  height: 100%;
+  min-width: 0;
+}
+
+.fn-door h3 {
+  font-size: 1.15rem;
+  margin-bottom: 8px;
+}
+
+.fn-door > p {
+  color: var(--code-muted);
+  font-size: 0.98rem;
+  margin-bottom: 18px;
+}
+
+.fn-door .code-card {
+  box-shadow: none;
+}
+
+.code-figure {
+  max-width: 840px;
+  margin: 0 auto;
+}
+
+.fn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.fn-list li {
+  position: relative;
+  padding-left: 22px;
+  color: var(--code-muted);
+  font-size: 0.96rem;
+}
+
+.fn-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.fn-list code {
+  color: #e9e7f2;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.recipe {
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  min-width: 0;
+}
+
+.recipe h3 {
+  font-size: 1.05rem;
+  margin-bottom: 8px;
+}
+
+.recipe p {
+  color: var(--code-muted);
+  font-size: 0.95rem;
+  margin-bottom: 14px;
+}
+
+.recipe-uses {
+  display: block;
+  font-size: 0.85rem;
+  color: rgba(245, 244, 248, 0.5);
+  border-top: 1px solid var(--code-line);
+  padding-top: 12px;
+}
+
+.recipe-uses strong {
+  color: rgba(245, 244, 248, 0.75);
+  font-weight: 600;
+}
+
+.fn-note {
+  margin-top: 56px;
+  text-align: center;
+}
+
+.fn-limits {
+  color: var(--code-muted);
+  max-width: 720px;
+  margin: 0 auto 26px;
+  font-size: 1rem;
+}
+
+.fn-limits strong {
+  color: #f5f4f8;
+}
+
+.subhead {
+  max-width: 720px;
+  margin: 72px auto 22px;
+  text-align: center;
+}
+
+.subhead h3 {
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+  margin-bottom: 10px;
+}
+
+.subhead p {
+  color: var(--code-muted);
+  font-size: 1rem;
+}
+
+@media (max-width: 900px) {
+  .fn-doors {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .fn-flow,
+  .cap-grid,
+  .recipe-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cap-grid {
+    margin-top: 48px;
+  }
+
+  .subhead {
+    margin-top: 56px;
+  }
+}
+
+@media (max-width: 620px) {
+  .fn-flow,
+  .cap-grid,
+  .recipe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .code-card pre {
+    padding: 18px 16px;
+    font-size: 0.8rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1570,7 +1926,7 @@ svg {
 }
 
 .prose code {
-  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
   background: var(--bg-2);
   padding: 0.15em 0.4em;

@@ -17,6 +17,10 @@ const faqs = [
     a: 'Use Google Gemini, Anthropic Claude, or OpenAI (ChatGPT) — just add your own account. Other compatible providers work too.'
   },
   {
+    q: 'Can I write my own tools?',
+    a: "Yes — that's what Functions are. You describe the tool, fill in what it should do, try it privately, and press Deploy; we run it, so there's no server to set up and nothing to install. It's handed your connected accounts, your saved keys and your files, so the part you write stays small and never holds a password. Functions are a Pro feature and do involve a little JavaScript; on the free plan you can point an HTTP Endpoint at your own app instead, with no code at all."
+  },
+  {
     q: 'Is my data safe?',
     a: "Yes. Your passwords and keys are encrypted, never shown in plain text, and never shared. Everything runs on Cloudflare's secure global network — and if you run Ganju yourself, your data stays entirely in your own account."
   },
@@ -25,6 +29,50 @@ const faqs = [
     a: 'Yes. Ganju is open source and free to use and modify. Host it on your own account, or let us run it for you on a paid plan.'
   }
 ];
+
+// The two code samples on the page. They are written as HTML rather than as
+// text so their tokens can be coloured without a highlighter — a landing page
+// that ships one to render twenty lines is paying for the wrong thing.
+const functionCode = `<span class="k">import</span> { createHandler, defineTool } <span class="k">from</span> <span class="s">'./ganju-sdk.js'</span>;
+
+<span class="k">export default</span> <span class="f">createHandler</span>({
+  <span class="s">'lookup-order'</span>: <span class="f">defineTool</span>(<span class="k">async</span> (input, ctx) =&gt; {
+    <span class="k">const</span> key = <span class="k">await</span> ctx.<span class="f">secret</span>(<span class="s">'SHOP_API_KEY'</span>);
+
+    <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(
+      <span class="s">\`https://api.mystore.com/v1/orders/\${input.orderId}\`</span>,
+      { headers: { authorization: <span class="s">\`Bearer \${key}\`</span> } }
+    );
+
+    <span class="c">// Say so plainly — the assistant reads this and answers with it.</span>
+    <span class="k">if</span> (res.status === 404) {
+      <span class="k">return</span> { found: <span class="k">false</span>, message: <span class="s">\`No order \${input.orderId}.\`</span> };
+    }
+    <span class="k">if</span> (!res.ok) <span class="k">throw new</span> <span class="f">Error</span>(<span class="s">\`The shop answered \${res.status}\`</span>);
+
+    <span class="k">const</span> order = <span class="k">await</span> res.<span class="f">json</span>();
+    ctx.<span class="f">log</span>(<span class="s">'looked up'</span>, order.id, order.status);
+
+    <span class="k">return</span> {
+      found: <span class="k">true</span>,
+      status: order.status,
+      placedOn: order.created_at,
+      eta: order.shipping?.estimated_delivery ?? <span class="k">null</span>,
+      tracking: order.shipping?.tracking_url ?? <span class="k">null</span>
+    };
+  })
+});`;
+
+const cliCode = `<span class="p">$</span> npm install -g @ganju/cli
+
+<span class="p">$</span> ganju init my-tools <span class="p">&amp;&amp;</span> cd my-tools
+<span class="p">$</span> ganju login          <span class="c"># opens your browser</span>
+<span class="p">$</span> ganju link           <span class="c"># pick the project</span>
+<span class="p">$</span> ganju deploy
+
+<span class="ok">✓</span> v3 is live on acme-support — 2 tools
+  lookup-order
+  refund-status`;
 
 const jsonLd = [SOFTWARE_APPLICATION_SCHEMA, faqSchema(faqs)];
 ---
@@ -46,7 +94,8 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA, faqSchema(faqs)];
         <p class="lead">
           Ganju lets AI assistants like Claude and ChatGPT — and your bots on Telegram, Slack,
           WhatsApp, and Discord — safely use your own documents, tools, and apps. Your AI answers
-          with your information and gets real work done. Set it up in minutes, no coding required.
+          with your information and gets real work done. Set it up in minutes without writing a
+          line of code — and if you need a tool we don't have, you can add it yourself.
         </p>
         <div class="hero-cta">
           <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">
@@ -273,7 +322,216 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA, faqSchema(faqs)];
 
       <div class="integration-note reveal">
         <strong>http-endpoint</strong> connects your own app or website.
-        <strong>mcp-proxy</strong> plugs in other ready-made services like Notion and GitHub. Both work without writing any code.
+        <strong>mcp-proxy</strong> plugs in other ready-made services like Notion and GitHub. Both work without writing any code —
+        and when a tool needs real logic, <a href="#functions">write it yourself</a>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Functions ===== -->
+  <section class="section section-code" id="functions">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Your own tools · on Pro</span>
+        <h2>Need something we don't have? Add it yourself.</h2>
+        <p>
+          A function is a small tool you add to your assistant — look something up in your own
+          system, work something out, start a job somewhere else. You describe it, fill in what it
+          does, and press Deploy. We run it: no server, nothing to install, nothing to keep alive.
+        </p>
+      </div>
+
+      <ol class="fn-flow reveal">
+        <li>
+          <span class="fn-num" aria-hidden="true">01</span>
+          <h3>Describe it</h3>
+          <p>
+            Give the tool a name and say when your assistant should reach for it, the way you'd
+            brief a new teammate. The starting code is written for you.
+          </p>
+        </li>
+        <li>
+          <span class="fn-num" aria-hidden="true">02</span>
+          <h3>Fill in what it does</h3>
+          <p>
+            The editor suggests what's available as you type and underlines mistakes where they
+            are, rather than after you save.
+          </p>
+        </li>
+        <li>
+          <span class="fn-num" aria-hidden="true">03</span>
+          <h3>Try it privately</h3>
+          <p>
+            Press Run with an example and see exactly what comes back. Nobody else can call it,
+            and your live assistant carries on unchanged.
+          </p>
+        </li>
+        <li>
+          <span class="fn-num" aria-hidden="true">04</span>
+          <h3>Deploy, or undo</h3>
+          <p>
+            One button makes it live everywhere your assistant works. Every version is kept, so
+            going back is a click.
+          </p>
+        </li>
+      </ol>
+
+      <div class="subhead reveal">
+        <h3>A whole tool, start to finish</h3>
+        <p>
+          This one reads a key you saved, asks a shop's own system about an order, says so plainly
+          when there is no such order, and hands back a tidy answer for the assistant to use.
+          That's the whole file — the hosting, the credentials and the version history are ours.
+        </p>
+      </div>
+
+      <figure class="code-figure reveal">
+        <div class="code-card">
+          <div class="code-head">
+            <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="code-file">index.js</span>
+          </div>
+          <pre><code set:html={functionCode} /></pre>
+        </div>
+        <figcaption>
+          JavaScript, and only JavaScript — no build step, no packages to install, no
+          configuration file to learn.
+        </figcaption>
+      </figure>
+
+      <div class="subhead reveal">
+        <h3>Your tool doesn't have to do it all itself</h3>
+        <p>
+          The hard and risky parts are handed to it — your connected accounts, your keys, your
+          files — so the part you write stays small.
+        </p>
+      </div>
+
+      <div class="cap-grid">
+        <div class="cap reveal">
+          <h3>Act as your connected accounts</h3>
+          <p>
+            Send from the Gmail or Slack account you already connected here. The passwords and
+            tokens stay with us; your tool never sees them.
+          </p>
+          <code>{"ctx.connection()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Use a key you saved once</h3>
+          <p>
+            Paste an API key into Settings and your tool reads it when it runs — encrypted, and
+            never shown back to anyone, including you.
+          </p>
+          <code>{"ctx.secret()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Search your own documents</h3>
+          <p>
+            The same files, sites and drives your assistant answers from are there for your tool
+            to search and read.
+          </p>
+          <code>{"ctx.resources.search()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Save something back</h3>
+          <p>
+            Write a report, a note or a spreadsheet onto the project, so it can be found, read or
+            sent later on.
+          </p>
+          <code>{"ctx.resources.create()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Send a real attachment</h3>
+          <p>
+            Email or post a file of up to 40MB without it ever passing through your tool — we move
+            it for you.
+          </p>
+          <code>{"ctx.sendFile()"}</code>
+        </div>
+        <div class="cap reveal">
+          <h3>Call any site or API</h3>
+          <p>
+            The ordinary way of fetching things, with internal addresses always blocked and an
+            optional list of the hosts you allow.
+          </p>
+          <code>{"fetch()"}</code>
+        </div>
+      </div>
+
+      <div class="fn-doors">
+        <div class="fn-door reveal">
+          <h3>Write it in the browser</h3>
+          <p>
+            Nothing to install. The editor is the one VS Code is built on, it knows what your tool
+            can do, and it deploys exactly what you typed.
+          </p>
+          <ul class="fn-list">
+            <li>Autocomplete for everything the platform hands you.</li>
+            <li>A Run button beside each tool, with a sample input to try.</li>
+            <li>Every version in one menu, and one click back to any of them.</li>
+            <li>Files and folders, if your tool outgrows a single page.</li>
+          </ul>
+        </div>
+
+        <div class="fn-door reveal">
+          <h3>Or from your terminal</h3>
+          <p>
+            If your tools belong in a repository, in code review and in your pipeline, the
+            Ganju CLI does everything the page does.
+          </p>
+          <div class="code-card">
+            <div class="code-head">
+              <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+              <span class="code-file">bash</span>
+            </div>
+            <pre><code set:html={cliCode} /></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="subhead reveal">
+        <h3>Three things people build first</h3>
+        <p>Each of these is one small tool, and an afternoon at most.</p>
+      </div>
+
+      <div class="recipe-grid">
+        <div class="recipe reveal">
+          <h3>Answer order questions in Telegram</h3>
+          <p>
+            A customer asks where their order is. The tool checks your system and the bot answers
+            in the chat it was asked in.
+          </p>
+          <span class="recipe-uses"><strong>Uses:</strong> your own system, and a key you saved</span>
+        </div>
+        <div class="recipe reveal">
+          <h3>Email Monday's report, file attached</h3>
+          <p>
+            The tool builds the spreadsheet, saves it onto the project, and sends it from your own
+            mailbox — as an attachment, not a link.
+          </p>
+          <span class="recipe-uses"><strong>Uses:</strong> your Gmail or Outlook account</span>
+        </div>
+        <div class="recipe reveal">
+          <h3>Triage a ticket against your docs</h3>
+          <p>
+            It searches your own documents, checks the ticket in the system you keep them in, and
+            posts the summary where the team already is.
+          </p>
+          <span class="recipe-uses"><strong>Uses:</strong> your documents, and your Slack</span>
+        </div>
+      </div>
+
+      <div class="fn-note reveal">
+        <p class="fn-limits">
+          Fair use, in plain numbers: each run gets <strong>5 seconds</strong> and the timeout you
+          choose, each tool can be called <strong>60 times a minute</strong>, and Pro includes
+          <strong>1,000,000 calls a month</strong> — only the tools you wrote count toward it,
+          never the integrations we ship.
+        </p>
+        <div class="hero-cta center">
+          <a class="btn btn-primary btn-lg" href="/docs/tools/functions">See how it works, step by step</a>
+          <a class="btn btn-ghost btn-lg" href="/docs/tools/cli">Ganju CLI</a>
+        </div>
       </div>
     </div>
   </section>
