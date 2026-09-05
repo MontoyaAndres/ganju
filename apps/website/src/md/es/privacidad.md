@@ -1,6 +1,6 @@
 # Política de Privacidad y Tratamiento de Datos Personales
 
-**Última actualización: 31 de agosto de 2026 · Vigente desde: 31 de agosto de 2026**
+**Última actualización: 5 de septiembre de 2026 · Vigente desde: 5 de septiembre de 2026**
 
 Esta política explica qué datos recoge Ganju cuando usas el servicio alojado en
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai` y `mcp.ganju.ai`, para qué los usamos,
@@ -22,6 +22,7 @@ servicio que nosotros operamos.
 - [Para qué los usamos](#para-qué-los-usamos)
 - [Modelos de IA, embeddings y tu contenido](#modelos-de-ia-embeddings-y-tu-contenido)
 - [Cuentas y herramientas conectadas](#cuentas-y-herramientas-conectadas)
+- [Datos de usuario de Google](#datos-de-usuario-de-google)
 - [Canales de chat y sus usuarios finales](#canales-de-chat-y-sus-usuarios-finales)
 - [Con quién compartimos los datos](#con-quién-compartimos-los-datos)
 - [Cookies y rastreo](#cookies-y-rastreo)
@@ -253,6 +254,114 @@ privadas y de loopback, pero una vez que los datos salen hacia un destino que t�
 configuraste, el operador de ese destino los trata bajo su propia responsabilidad.
 Puedes desconectar cualquier cuenta desde el panel en cualquier momento, y también
 revocar el acceso en el proveedor.
+
+## Datos de usuario de Google
+
+Las herramientas de Gmail, Google Drive y Google Calendar de Ganju llaman a las APIs
+de Google Workspace, y «Iniciar sesión con Google» llama a las APIs de identidad de
+Google. Todo lo dicho en esta política aplica a esos datos; esta sección precisa qué
+le pedimos a Google, para qué, y qué pasa después con lo que recibimos.
+
+Nada de esto se concede al registrarte. **Tú conectas cada cuenta de Google, una por
+una, desde el panel**, y solo cuando quieres que funcionen las herramientas
+correspondientes. Puedes desconectarla cuando quieras — ve a [Revocar el acceso y
+borrar los datos](#revocar-el-acceso-y-borrar-los-datos).
+
+### Qué pedimos y para qué
+
+**Iniciar sesión con Google** usa `openid`, `email` y `profile`. Leemos tu nombre, tu
+correo y tu foto de perfil para crear tu cuenta de Ganju e iniciarte sesión. Nada más.
+
+**Gmail** — se piden solo cuando conectas una cuenta de Gmail para sus herramientas:
+
+| Permiso | Para qué lo necesitan las herramientas |
+| --- | --- |
+| `gmail.readonly` | Listar, buscar y leer mensajes e hilos, para que tu asistente pueda responder preguntas sobre tu correo y leer una conversación antes de contestarla |
+| `gmail.send` | Enviar los mensajes y respuestas que tú o tu asistente redacten |
+| `gmail.compose` | Crear y actualizar borradores, para que una respuesta quede escrita y tú la revises antes de que salga |
+| `gmail.modify` | Marcar mensajes como leídos o no leídos, archivarlos y aplicar etiquetas cuando lo pidas |
+| `gmail.labels` | Listar y administrar etiquetas, para archivar el correo donde tú quieras |
+
+**Google Drive** — `drive.readonly` y `drive.metadata.readonly`. Listamos tus carpetas
+y archivos para que elijas cuáles sincronizar en un proyecto, y leemos el contenido de
+los que elegiste para que tu asistente pueda responder con ellos. **Nunca pedimos
+permiso de escritura sobre Drive.**
+
+**Google Calendar** — `calendar.readonly` y `calendar.events`. Leemos tus calendarios
+y eventos para que tu asistente pueda responder preguntas de agenda, y creamos,
+actualizamos y eliminamos los eventos que le pidas.
+
+### Cómo los usamos
+
+Los datos de usuario de Google se usan para una sola cosa: **prestar las funciones que
+activaste**. Una herramienta corre cuando tú, un compañero de equipo o un asistente de
+IA que actúa por ti la invoca — nunca por iniciativa nuestra ni de forma
+especulativa.
+
+**No** usamos datos de usuario de Google para publicidad de ningún tipo. **No** los
+vendemos. **No** los usamos para construir perfiles, para dar funciones a otros
+clientes, ni para ningún fin que tú no hayas habilitado.
+
+### Qué guardamos y por cuánto tiempo
+
+- **Los tokens de OAuth** — token de acceso, token de refresco, vencimiento y permisos
+  otorgados — cifrados con XChaCha20-Poly1305 antes de llegar a la base de datos,
+  nunca devueltos al navegador en texto plano, nunca escritos en registros.
+- **El contenido de mensajes, archivos y eventos se consulta en el momento en que
+  corre la herramienta y se entrega directamente a quien la invocó.** No hacemos una
+  copia de tu buzón, tu unidad ni tu calendario en nuestra base de datos.
+- **La excepción que tú eliges**: los archivos de Drive que sincronizas
+  deliberadamente en un proyecto se guardan como recursos — los bytes del archivo en
+  Cloudflare R2, el texto extraído y sus vectores en nuestra base de datos — porque esa
+  es precisamente la función que pediste. Borrar el recurso borra todo eso.
+- **Registros de auditoría** de cada ejecución de herramienta, que incluyen los
+  argumentos enviados y el resultado devuelto, para que puedas ver qué hizo tu
+  asistente. Se eliminan automáticamente a los **90 días**.
+
+### A quién llegan
+
+Los datos de usuario de Google llegan a un tercero solo en dos situaciones, y las dos
+las controlas tú:
+
+- **El modelo de IA que responde.** Cuando una herramienta devuelve contenido de
+  Gmail, Drive o Calendar en medio de una conversación, ese contenido va al modelo que
+  la está atendiendo para que pueda usarlo en la respuesta: la API de Gemini de Google
+  con nuestra llave si usas el modelo compartido, el proveedor cuya llave configuraste
+  si trajiste la tuya, o —en el caso de clientes MCP— el proveedor detrás de Claude,
+  ChatGPT o Cursor. El texto que sincronizas desde Drive como recurso también se envía
+  a la API de Gemini de Google para convertirlo en vectores de búsqueda.
+- **Un destino que tú mismo configuraste**, si armaste una herramienta
+  `http-endpoint` o `mcp-proxy` que los envía allí.
+
+**No usamos datos de usuario de Google — ni permitimos que nuestros proveedores los
+usen — para desarrollar, mejorar o entrenar modelos de IA o de aprendizaje automático
+de propósito general.** Los proveedores de modelos los reciben únicamente para
+inferencia, es decir, para producir la respuesta que pediste.
+
+Ninguna persona de Ganju lee tus datos de usuario de Google. Las excepciones son las
+que permite la política de Google: con tu consentimiento expreso (por ejemplo, cuando
+nos pides ayuda para depurar algo), cuando es necesario por seguridad —investigar un
+abuso o una vulnerabilidad— o cuando la ley nos obliga.
+
+### Uso limitado
+
+**El uso y la transferencia por parte de Ganju, hacia cualquier otra aplicación, de la
+información recibida de las APIs de Google se ajustará a la [Política de Datos de
+Usuario de los Servicios de API de
+Google](https://developers.google.com/terms/api-services-user-data-policy), incluidos
+los requisitos de Uso Limitado.**
+
+### Revocar el acceso y borrar los datos
+
+- **En Ganju**: desconecta la cuenta desde el panel. Los tokens guardados se borran
+  con ella.
+- **En Google**: revoca el acceso de Ganju en
+  [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+- **Los recursos sincronizados desde Drive** se eliminan al borrar el recurso, el
+  proyecto o la organización — cada borrado arrastra el archivo guardado, su texto
+  extraído y sus vectores.
+- Borrar tu cuenta de Ganju elimina las conexiones y todo lo que cuelga de ellas. Ve a
+  [Cuánto tiempo conservamos los datos](#cuánto-tiempo-conservamos-los-datos).
 
 ## Canales de chat y sus usuarios finales
 

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: August 31, 2026 · Effective: August 31, 2026**
+**Last updated: September 5, 2026 · Effective: September 5, 2026**
 
 This policy explains what Ganju collects when you use the hosted service at
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai`, and `mcp.ganju.ai`, why we collect it,
@@ -19,6 +19,7 @@ the data, and we never see it. Everything below is about the hosted service we r
 - [How we use it](#how-we-use-it)
 - [AI models, embeddings, and your content](#ai-models-embeddings-and-your-content)
 - [Connected accounts and tools](#connected-accounts-and-tools)
+- [Google user data](#google-user-data)
 - [Chat channels and their end users](#chat-channels-and-their-end-users)
 - [Who we share data with](#who-we-share-data-with)
 - [Cookies and tracking](#cookies-and-tracking)
@@ -241,6 +242,111 @@ similar). Requests to both are screened against private and loopback address ran
 but once data leaves for a destination you configured, that destination's operator
 handles it. You can disconnect any account from the dashboard at any time, and
 revoke access at the provider as well.
+
+## Google user data
+
+Ganju's Gmail, Google Drive, and Google Calendar tools call Google Workspace APIs, and
+"Sign in with Google" calls Google's identity APIs. Everything in this policy applies
+to that data; this section says specifically what we ask Google for, why, and what
+happens to it afterwards.
+
+Nothing here is granted when you sign up. **You connect each Google account yourself,
+one at a time, from the dashboard**, and only when you want the matching tools to
+work. You can disconnect it at any time — see [Revoking access and deleting
+it](#revoking-access-and-deleting-it).
+
+### What we request, and why
+
+**Signing in with Google** uses `openid`, `email`, and `profile`. We read your name,
+email address, and profile picture to create your Ganju account and sign you in.
+Nothing more.
+
+**Gmail** — requested only when you connect a Gmail account for the Gmail tools:
+
+| Scope | Why the tools need it |
+| --- | --- |
+| `gmail.readonly` | List, search, and read messages and threads, so your assistant can answer questions about your mail and read a conversation before replying to it |
+| `gmail.send` | Send the messages and replies you or your assistant compose |
+| `gmail.compose` | Create and update drafts, so a reply can be written for you to review before it goes out |
+| `gmail.modify` | Mark messages read or unread, archive them, and apply labels when you ask |
+| `gmail.labels` | List and manage labels, so mail can be filed where you want it |
+
+**Google Drive** — `drive.readonly` and `drive.metadata.readonly`. We list your
+folders and files so you can pick which to sync into a project, and read the contents
+of the ones you picked so your assistant can answer from them. **We never request
+write access to Drive.**
+
+**Google Calendar** — `calendar.readonly` and `calendar.events`. We read your
+calendars and events so your assistant can answer scheduling questions, and create,
+update, and delete the events you ask it to.
+
+### How we use it
+
+Google user data is used for one thing: **providing the features you turned on**. A
+tool runs when you, a teammate, or a connected AI assistant acting on your behalf
+invokes it — never on a schedule of our own, and never speculatively.
+
+We do **not** use Google user data for advertising of any kind. We do **not** sell it.
+We do **not** use it to build profiles, to power features for other customers, or for
+any purpose you did not enable.
+
+### What we store, and for how long
+
+- **The OAuth tokens themselves** — access token, refresh token, expiry, and granted
+  scopes — encrypted with XChaCha20-Poly1305 before they reach the database, never
+  returned to a browser in plaintext, never written to logs.
+- **Message, file, and event content is fetched at the moment a tool runs and passed
+  straight to the caller.** We do not mirror your mailbox, your Drive, or your
+  calendar into our database.
+- **The exception you choose**: Drive files you deliberately sync into a project are
+  stored as project resources — the file bytes in Cloudflare R2, the extracted text
+  and its embedding vectors in our database — because that is the feature you asked
+  for. Deleting the resource deletes all of it.
+- **Audit records** of tool runs, which include the arguments sent and the result
+  returned, so you can see what your assistant did. These are deleted automatically
+  after **90 days**.
+
+### Who it goes to
+
+Google user data reaches a third party in only two situations, both of which you
+control:
+
+- **The AI model that answers your question.** When a tool returns Gmail, Drive, or
+  Calendar content mid-conversation, that content goes to the model running the
+  conversation so it can be used in the answer — Google's Gemini API under our key on
+  the shared model, the provider whose key you configured if you brought your own, or,
+  for MCP clients, the provider behind Claude, ChatGPT, or Cursor. Text you sync from
+  Drive as a resource is also sent to Google's Gemini API to be embedded for search.
+- **A destination you configured yourself**, if you built an `http-endpoint` or
+  `mcp-proxy` tool that sends it there.
+
+**We do not use Google user data — and we do not permit our providers to use it — to
+develop, improve, or train generalized AI or machine-learning models.** Model
+providers receive it for inference only, to produce the response you asked for.
+
+No human at Ganju reads your Google user data. The narrow exceptions are the ones
+Google's policy allows: with your explicit consent (for example, when you ask us to
+debug something), where it is necessary for security purposes such as investigating
+abuse or a vulnerability, or where we are legally required to.
+
+### Limited Use
+
+**Ganju's use and transfer to any other app of information received from Google APIs
+will adhere to the [Google API Services User Data
+Policy](https://developers.google.com/terms/api-services-user-data-policy), including
+the Limited Use requirements.**
+
+### Revoking access and deleting it
+
+- **In Ganju**: disconnect the account from the dashboard. The stored tokens are
+  deleted with it.
+- **At Google**: revoke Ganju's access at
+  [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+- **Synced Drive resources** are removed by deleting the resource, the project, or the
+  organization — each deletion cascades to the stored file, its extracted text, and
+  its embeddings.
+- Deleting your Ganju account removes the connections and everything under them. See
+  [How long we keep data](#how-long-we-keep-data).
 
 ## Chat channels and their end users
 

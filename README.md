@@ -6,6 +6,8 @@ Ganju is an open-source platform for building and hosting [Model Context Protoco
 
 It runs almost entirely on the **Cloudflare** developer platform (Workers, Queues, R2, Hyperdrive, Containers, Durable Objects) with Postgres + `pgvector` for storage and retrieval.
 
+**Ganju is live at [ganju.ai](https://ganju.ai)** — dashboard at [app.ganju.ai](https://app.ganju.ai), MCP servers at `https://mcp.ganju.ai/<slug>`, docs at [ganju.ai/docs](https://ganju.ai/docs). The Free plan needs no card. Everything here is Apache-2.0, so [running your own instance](docs/DEPLOYMENT.md) is a supported path rather than a fallback — self-hosting has no plan caps.
+
 ## Features
 
 - **Hosted MCP servers** — each "artifact" becomes a stateless MCP server with its own slug, OAuth, and tool set.
@@ -13,6 +15,7 @@ It runs almost entirely on the **Cloudflare** developer platform (Workers, Queue
 - **A growing tool catalog** — native integrations (Gmail, Outlook, Slack, Google Calendar, Cal.com, Tavily web search) plus two generic, no-code definitions:
   - **`http-endpoint`** — expose your own HTTP API as a tool.
   - **`mcp-proxy`** — connect a vendor's official MCP server (Notion, GitHub, …) and re-expose its tools.
+- **Tools you write yourself** — when the catalog doesn't cover a case, write a tool in JavaScript and it runs on Workers for Platforms, with connected accounts, resource access and file-sending handed to it as host capabilities so your code never holds a refresh token. Author it in the dashboard's editor or from the [`ganju` CLI](packages/cli), test it against real connections before publishing, and roll back by moving a pointer. See [docs/CUSTOM_TOOLS.md](docs/CUSTOM_TOOLS.md).
 - **Chat-channel bots** — the same artifact can drive Telegram / Slack / WhatsApp / Discord bots through an LLM tool-calling loop (Gemini, Claude, or OpenAI).
 - **Multi-tenant** — organizations → projects → artifacts, with invitations and roles.
 - **Audit & usage trails** — every MCP request, tool call, and channel message is recorded.
@@ -102,6 +105,8 @@ Full setup (prerequisites, environment variables, database, per-app commands) is
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | Local setup, env vars, commands, troubleshooting    |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                     | Database entities and relationships                 |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                     | Deploying to Cloudflare, environments, secrets      |
+| [docs/CUSTOM_TOOLS.md](docs/CUSTOM_TOOLS.md)                 | User-written tools: runtime, broker, SDK, CLI       |
+| [docs/PRICING.md](docs/PRICING.md)                           | Cost model, plan limits, metering and Stripe        |
 | [docs/ABUSE.md](docs/ABUSE.md)                               | Responding to abuse of user-authored tools          |
 | [apps/mcp/src/tools/README.md](apps/mcp/src/tools/README.md) | How tools work and how to add one                   |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Contribution workflow and conventions               |

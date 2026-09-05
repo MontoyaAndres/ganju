@@ -8,6 +8,11 @@
 //   PROBE_MCP_URL=https://development-mcp.example.com \
 //   PROBE_CLI=./node_modules/@ganju/cli/dist/index.js node scripts/probe-cli.mjs
 //
+// Against production, the env file and the dispatch namespace move together:
+//   PROBE_ENV_FILE=.env.prod PROBE_NAMESPACE=ganju-tools-production \
+//   PROBE_API_URL=https://api.ganju.ai PROBE_MCP_URL=https://mcp.ganju.ai \
+//   node scripts/probe-cli.mjs
+//
 // Everything the CLI does was previously exercised against a stand-in server,
 // which proves the request sequences and nothing about the server. This runs the
 // installed binary as a subprocess against an API on localhost backed by the
@@ -34,7 +39,13 @@ import postgres from 'postgres';
 import { v7 as uuid } from 'uuid';
 
 const root = new URL('..', import.meta.url).pathname;
-const env = fs.readFileSync(root + '.env', 'utf8');
+// Which deployment's credentials to read. Defaults to development, because that
+// is where this is normally run; point it at `.env.prod` to drive production.
+// The namespace below has to move with it — they are one environment, and a
+// run that read production's database while deploying into the development
+// namespace would report a green publish against a script nothing serves.
+const ENV_FILE = process.env.PROBE_ENV_FILE ?? '.env';
+const env = fs.readFileSync(root + ENV_FILE, 'utf8');
 const read = key => env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.trim();
 
 const DATABASE_URL = read('DATABASE_URL');
@@ -45,7 +56,7 @@ const CF_TOKEN = read('CUSTOM_CODE_CF_API_TOKEN');
 
 const API = process.env.PROBE_API_URL ?? 'http://localhost:8080';
 const MCP_ORIGIN = process.env.PROBE_MCP_URL ?? 'http://localhost:8081';
-const NAMESPACE = 'ganju-tools-development';
+const NAMESPACE = process.env.PROBE_NAMESPACE ?? 'ganju-tools-development';
 // Defaults to the workspace build. Point it at an installed binary to check the
 // artifact people actually get:
 //   PROBE_CLI=$(npm root -g)/@ganju/cli/dist/index.js node scripts/probe-cli.mjs
@@ -207,12 +218,38 @@ const listTools = async () => {
   return (await rpc('tools/list')).tools || [];
 };
 
+// `ctx.secret` is here to reach the BROKER, not to read a secret.
+//
+// Everything else this tool does stays inside the isolate — `ctx.log` is
+// buffered and returned with the result, so a run could pass end to end without
+// a single broker call. That left the one fact secrets cannot be read back to
+// confirm: that `CUSTOM_CODE_TOKEN_SECRET` holds the same value on apps/api,
+// which mints the token at upload time, and on apps/tool-broker, which verifies
+// it. A mismatch is invisible until a customer's first `ctx.*` call.
+//
+// So the tool asks for a name nothing has set, and reports which way it failed.
+// "not found" means the broker authenticated the script and simply had no row;
+// an auth failure means the two secrets disagree. Both are a rejected call —
+// only the message tells them apart.
 const HANDLER = `import { defineTool } from '@ganju/sdk';
 import { shout } from './lib/shout.ts';
 
 export default defineTool(async (input, ctx) => {
   ctx.log('probe-echo saw ' + input.word);
-  return { word: shout(input.word), length: input.word.length };
+
+  let broker = 'unreachable';
+  try {
+    await ctx.secret('probe-absent-secret');
+    broker = 'authenticated';
+  } catch (error) {
+    const message = String(error && error.message ? error.message : error);
+    broker = /401|unauthor|forbidden|invalid token/i.test(message)
+      ? 'rejected: ' + message
+      : 'authenticated';
+    ctx.log('broker said: ' + message);
+  }
+
+  return { word: shout(input.word), length: input.word.length, broker };
 });
 `;
 
@@ -230,7 +267,12 @@ const ECHO_TOOL = {
   },
   output: {
     type: 'object',
-    properties: { word: { type: 'string' }, length: { type: 'number' } }
+    properties: {
+      word: { type: 'string' },
+      length: { type: 'number' },
+      // How the broker answered — see HANDLER above.
+      broker: { type: 'string' }
+    }
   }
 };
 
@@ -576,6 +618,15 @@ try {
       called?.structuredContent?.word === 'HELLO' &&
         called?.structuredContent?.length === 5,
       JSON.stringify(called?.structuredContent)
+    );
+    // The only check in this file that leaves the isolate. See HANDLER: a
+    // mismatched CUSTOM_CODE_TOKEN_SECRET between apps/api and apps/tool-broker
+    // is invisible everywhere else, because secrets cannot be read back and
+    // every other capability here is answered inside the script.
+    check(
+      'the script reached the broker — CUSTOM_CODE_TOKEN_SECRET agrees across api and tool-broker',
+      called?.structuredContent?.broker === 'authenticated',
+      String(called?.structuredContent?.broker)
     );
   } catch (error) {
     check('MCP round trip', false, String(error).slice(0, 200));

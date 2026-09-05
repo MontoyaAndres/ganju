@@ -14,6 +14,10 @@ ganju link
 ganju deploy
 ```
 
+Out of the box this talks to **`https://api.ganju.ai`**, so a fresh install needs
+no configuration. Point it somewhere else — your own instance, or a local API —
+with `GANJU_API_URL`.
+
 ## Commands
 
 | Command | What it does |

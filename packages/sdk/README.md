@@ -11,6 +11,11 @@ A custom tool is a Cloudflare Worker you write, deployed to Ganju with
 tools on your project. This package is what makes `ctx` autocomplete while you
 write one.
 
+Tools run on [ganju.ai](https://ganju.ai) — see the
+[Functions](https://ganju.ai/docs/tools/functions) and
+[CLI](https://ganju.ai/docs/tools/cli) guides — or on your own instance, since
+the platform is Apache-2.0.
+
 ```js
 import { defineTool } from '@ganju/sdk';
 

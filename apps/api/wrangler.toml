@@ -169,6 +169,9 @@ new_sqlite_classes = ["MessageBufferDO"]
 
 [env.production]
 name = "ganju-api-production"
+routes = [
+  { pattern = "api.ganju.ai", custom_domain = true }
+]
 [env.production.triggers]
 crons = ["0 * * * *", "*/15 * * * *"]
 [env.production.observability]

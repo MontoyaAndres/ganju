@@ -118,3 +118,6 @@ shipped rather than choices left open:
 Not started, and deliberately not blocking the custom-tools CLI: it is a large
 surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
+
+## Make a skill for ganju cli
+## Verify google and stripe

@@ -311,9 +311,7 @@ None of this is code; all of it was account state this branch could not create. 
 3. **Both workers deployed** — `ganju-tool-broker-development` and `ganju-tool-outbound-development` are live, and the `ganju-tools-development` dispatch namespace exists.
 4. ~~Seed `custom-code` on production~~ — obsolete. The catalog is code now, so there is nothing to seed; see [Phase 6](#1-the-tool-catalog-is-code-not-rows).
 
-Production has none of it, and is a separate exercise.
-
-What remains is a deploy rather than a setting: every deployed development worker predates the dashboard work, while the development database is already migrated past it. See [Operational state](#operational-state).
+~~Production has none of it, and is a separate exercise.~~ — **done, 5 Sep.** Production now holds the same three: its own `CUSTOM_CODE_CF_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` on `ganju-api-production`, a `CUSTOM_CODE_TOKEN_SECRET` shared by `ganju-api-production` and `ganju-tool-broker-production`, and both workers deployed against the `ganju-tools-production` namespace. See [Operational state](#operational-state).
 
 ### Phase 4 — Channel runner ✅
 
@@ -710,7 +708,27 @@ Nothing is open on this list any more, and with the [browser pass](#verified) ab
 
 #### Operational state
 
-**Migrations.** Dev is migrated through **0070** — verified: `artifact_tool` has `tool_key` and `enabled`, `tool_definition` / `tool_group` are gone, `artifact_tool_version` carries `script_name`, `access_token` exists, and `subscription` carries `tool_call_count`. Production has none of them, and they must land with the deploy: the API writes `tool_key` and reads `enabled` from the first request, dispatches to `script_name` at boot, reads `access_token` on any request carrying a `ganju_pat_` bearer token, and both workers read the tool-call counter on every custom tool call.
+**Production is live as of 5 Sep 2026**, on `api.ganju.ai`, `mcp.ganju.ai` and `app.ganju.ai`. Verified against the account and the deployed database rather than from memory:
+
+| | |
+|---|---|
+| Workers | all five deployed — api, mcp, tool-broker, tool-outbound, web |
+| Migrations | 71 applied, through `0070` |
+| Secrets | 31 — api 19, mcp 3, tool-broker 9 (tool-outbound and web need none) |
+| Bot OAuth client | provisioned; `oauth_client` holds its row |
+| Dispatch namespace | `ganju-tools-production`, with egress through `ganju-tool-outbound-production` |
+| `mcp_server_catalog` | copied from development — GitHub and Notion render |
+| End-to-end | [probe-cli.mjs](../scripts/probe-cli.mjs) run against production: **61 checks, all passing** |
+| Stripe | **nothing** — see below |
+
+Two things production does *not* have, both deliberate rather than forgotten:
+
+- **No Stripe.** The account is not through activation, so live mode has no keys, meters or prices. This does not block anything except payment: `createStripe` answers `null` on a missing key, the hourly metering sweep returns early, and `getPlan` / `getStatus` never touch Stripe at all — so **the whole Free tier works, and the usage counters keep incrementing in Postgres regardless**. Only `createCheckout`, `createPortal` and `webhook` refuse. Granting a paid plan by hand in the meantime means setting `plan = 'PRO'` and an entitled `status`; **not `ENTERPRISE`**, which differs from Pro in exactly one field — `toolCallHardCap: null` — and so buys the customer nothing while removing the only monthly ceiling on their compute.
+- **One trap for the day Stripe is switched on.** `meterOrganization` reports `current − reported` and advances the `reported_*` marks only when an event lands. With no Stripe client it returns before either, so those marks sit at 0 while usage accrues. The first run after Stripe is configured would therefore report the *entire* period — including anything already invoiced out of band. Enable it just after a period rollover, or set each `reported_*` column to its current counterpart first.
+
+**The bootstrap that a first deploy needs is recorded in [DEPLOYMENT.md](DEPLOYMENT.md#first-deploy-order-matters)** rather than here. In short: apps/api and apps/mcp bind each other, so neither can be created with both bindings in place, and the cycle has to be broken once. It cost two failed deploys to find, which is exactly the kind of thing worth writing down before the next environment.
+
+**Migrations.** Both environments are migrated through **0070**. Production was migrated on 5 Sep — verified against the deployed database: 71 migrations applied, 37 tables, `artifact_tool` carrying `tool_key` and `enabled`, `artifact_tool_version` carrying `script_name`, `access_token` present, and `subscription` carrying `tool_call_count`. They had to land with the deploy rather than after it: the API writes `tool_key` and reads `enabled` from the first request, dispatches to `script_name` at boot, reads `access_token` on any request carrying a `ganju_pat_` bearer token, and both workers read the tool-call counter on every custom tool call.
 
 ```
 npm run migrate-prod --workspace=@ganju/db
@@ -720,7 +738,13 @@ npm run migrate-prod --workspace=@ganju/db
 
 **A build step, and a gitignored directory.** `apps/web`'s `build` and `dev` scripts run `scripts/copy-monaco.mjs` first, filling `apps/web/public/monaco/` — 10.6MB of static assets that ship with the deployment and are never committed. Two call sites rather than a `pre*` hook per command: `opennextjs-cloudflare build` runs the app's own `build` script, so `cf-build` and both deploys pick it up through that, and only `next dev` needs the second mention. A build that skips dev dependencies has no `monaco-editor` to copy from.
 
-~~**What blocks a publish on development is a deploy, not a secret.**~~ — done. Development is deployed and current: the probe drives publish, the test panel's preview tokens and the custom-code logs endpoint against it, all of which are new here, and all of which answer. Production has none of it and is a separate exercise; it still needs **migrations 0064–0070** and the same secrets, applied together, since the code writes `tool_key` and reads `enabled` from the first request, dispatches to `script_name` at boot, reads `access_token` on any `ganju_pat_` bearer, and reads the tool-call counter on every custom tool call. This said 0064–0067 for a while after 0068, 0069 and 0070 had landed — a stale range in a sentence somebody follows cold is worse than no range, so it is written against [Operational state](#operational-state) above rather than restated from memory.
+~~**What blocks a publish on development is a deploy, not a secret.**~~ — done, and the same is now true of production. Development is deployed and current: the probe drives publish, the test panel's preview tokens and the custom-code logs endpoint against it, all of which answer.
+
+**Production went live on 5 Sep**, and everything this paragraph used to list as outstanding is done — all five Workers deployed, 71 migrations applied, secrets set on api, mcp and tool-broker, the bot OAuth client provisioned, and [probe-cli.mjs](../scripts/probe-cli.mjs) driving the whole custom-tools path against it: publish into `ganju-tools-production`, an MCP client calling the deployed script, `ganju test`, logs, secrets, tokens, rollback and both refusals. 61 checks, all passing, with the namespace back to `script_count: 0` afterwards.
+
+**That run is also what closed the one fact secrets cannot be read back to confirm** — that `CUSTOM_CODE_TOKEN_SECRET` holds the same value on apps/api, which mints the broker token at upload time, and on apps/tool-broker, which verifies it. Every other capability the probe exercised is answered inside the isolate: `ctx.log` is buffered and returned with the result, so a run could pass end to end without a single broker call, and the first run against production did exactly that. The tool now asks for a secret nothing has set and reports which way it failed — *"No secret named …"* means the broker authenticated the script and had no row, where a mismatch would have been a 401. Only the message tells them apart, and a mismatch is otherwise invisible until a customer's first `ctx.*` call.
+
+An earlier version of this said "migrations 0064–0070" and, for a while, "0064–0067" after 0068 through 0070 had landed. A stale range in a sentence somebody follows cold is worse than no range, which is why the current state lives in [Operational state](#operational-state) above rather than being restated from memory here.
 
 ### Phase 7 — CLI ✅
 
@@ -758,7 +782,7 @@ Each package also carries the `LICENSE` and `NOTICE` that Apache-2.0 §4(d) requ
 
 `@ganju/sdk` declares `@ganju/utils` as `*`, so every existing install follows whatever version is latest — and they have already diverged: the SDK is on 0.0.3 while utils has had five releases. **Deliberately left as `*`.** What the SDK actually takes from utils is a handful of constants and types that no release has touched, so following latest costs nothing and pinning would mean a lockstep release every time utils moves for a reason the SDK does not care about. The tripwire is narrow and worth naming: pin it the first time a utils change reaches something [types.ts](../packages/sdk/src/types.ts) depends on — until then the range is carrying no risk, only convenience.
 
-One thing still true of the published CLI: `DEFAULT_API_URL` is `https://api.ganju.ai`, which is not deployed. Development is, so `GANJU_API_URL=https://development-api…` is how the CLI is useful today, and the first release worth pointing a stranger at is the one after production exists.
+~~One thing still true of the published CLI: `DEFAULT_API_URL` is `https://api.ganju.ai`, which is not deployed.~~ — **it is now.** The published CLI's default target answers as of 5 Sep, so `ganju login` out of a fresh `npm i -g @ganju/cli` reaches production with no `GANJU_API_URL` in front of it. That was the condition on pointing a stranger at a release, and it is met.
 
 #### The login flow is not the one this plan named
 

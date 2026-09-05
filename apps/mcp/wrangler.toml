@@ -100,3 +100,4 @@ service = "ganju-api-production"
 binding = "DISPATCH"
 namespace = "ganju-tools-production"
 outbound = { service = "ganju-tool-outbound-production", parameters = ["artifactId", "allowedHosts"] }
+remote = true
