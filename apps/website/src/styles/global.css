@@ -1293,7 +1293,13 @@ svg {
   text-decoration: underline;
 }
 
-.reveal {
+/*
+ * Hidden only once scripting is confirmed. `.js` is set on <html> by an inline
+ * script in the document head, so a renderer that never reaches the observer —
+ * scripting off, or a headless fetcher that judges the page without scrolling
+ * it — is served the settled state rather than a page of invisible elements.
+ */
+:root.js .reveal {
   opacity: 0;
   transform: translateY(24px);
   transition:
@@ -1301,7 +1307,7 @@ svg {
     transform 0.7s var(--ease);
 }
 
-.reveal.visible {
+:root.js .reveal.visible {
   opacity: 1;
   transform: none;
 }
@@ -1836,7 +1842,7 @@ svg {
     transition-duration: 0.001ms !important;
   }
 
-  .reveal {
+  :root.js .reveal {
     opacity: 1;
     transform: none;
   }

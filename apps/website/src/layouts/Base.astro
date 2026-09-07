@@ -44,6 +44,17 @@ const {
     <link rel="icon" href="/icons/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
 
+    {/*
+      Scroll-reveal is opt-in, and this is the opt-in. Inline and in the head so
+      it lands before first paint: a real browser starts the animation from
+      hidden with no flash of the settled state, while anything that does not
+      run scripts — including the fetchers that render the page to judge it —
+      keeps every section visible instead of reading a blank page.
+    */}
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
+
     <Font cssVariable="--font-fustat" preload />
 
     <Seo

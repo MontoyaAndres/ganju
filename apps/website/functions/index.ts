@@ -36,7 +36,7 @@ const COOKIE_MAX_AGE = utils.constants.LANGUAGE_COOKIE_MAX_AGE;
 const SPANISH_COUNTRIES = new Set(utils.constants.SPANISH_COUNTRIES);
 
 const BOT =
-  /bot|crawler|crawling|spider|slurp|facebookexternalhit|embedly|preview|lighthouse|headless/i;
+  /bot|crawler|crawling|spider|slurp|facebookexternalhit|embedly|preview|lighthouse|headless|google(?:other|-inspectiontool|-site-verification|-safety|-read-aloud|-extended)/i;
 
 type Lang = 'en' | 'es';
 
