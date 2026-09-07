@@ -11,8 +11,8 @@ export const SITE = {
   description:
     'Ganju connects AI assistants like Claude, ChatGPT, and Gemini — and your Telegram, Slack, WhatsApp, and Discord bots — to your own files, tools, and apps. Set it up in minutes, no coding required. Open source.',
   social: {
-    x: 'https://x.com/ganju_ai',
-    linkedin: 'https://www.linkedin.com/company/ganju',
+    x: 'https://x.com/Ganju1123',
+    instagram: 'https://www.instagram.com/ganju1123/',
     github: 'https://github.com/MontoyaAndres/ganju'
   }
 } as const;
@@ -23,12 +23,12 @@ export const SITE = {
  * address for judicial notice, phone, and email where a buyer can see them —
  * which is why this ends up in the footer, not just in the legal pages.
  *
- * `nit` is rendered only when set: leave it empty until the RUT is issued
- * rather than shipping a placeholder that reads as a real number.
+ * `nit` is rendered only when set, so the footer stays correct for as long as
+ * the number is unknown rather than showing a placeholder that reads as real.
  */
 export const LEGAL = {
   entity: 'Ganju S.A.S.',
-  nit: '',
+  nit: '902088116-6',
   address: 'Bogotá, D.C., Colombia',
   phone: '+57 312 4678519',
   // E.164, for `tel:` links — humans read `phone`, dialers read this.
@@ -59,7 +59,7 @@ export const ORGANIZATION_SCHEMA = {
   logo: `${SITE.url}/icons/favicon.svg`,
   description: SITE.description,
   email: SITE.email,
-  sameAs: [SITE.social.x, SITE.social.linkedin, SITE.social.github]
+  sameAs: [SITE.social.x, SITE.social.instagram, SITE.social.github]
 } as const;
 
 export const WEBSITE_SCHEMA = {

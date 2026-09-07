@@ -33,7 +33,7 @@ necesitas un DPA nuestro en absoluto — ningún dato llega hasta nosotros.
 
 ## Partes y roles
 
-Este DPA se celebra entre **Ganju S.A.S.**, NIT en trámite de registro, Bogotá, D.C.,
+Este DPA se celebra entre **Ganju S.A.S.**, NIT 902088116-6, Bogotá, D.C.,
 Colombia ("Ganju", "nosotros", "encargado") y la organización que aceptó los Términos
 y Condiciones ("tú", "Cliente", "responsable").
 

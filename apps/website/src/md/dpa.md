@@ -28,7 +28,7 @@ from us at all — no data reaches us.
 
 ## Parties and roles
 
-This DPA is between **Ganju S.A.S.**, NIT pending registration, Bogotá, D.C.,
+This DPA is between **Ganju S.A.S.**, NIT 902088116-6, Bogotá, D.C.,
 Colombia ("Ganju", "we", "processor") and the organization that accepted the Terms of
 Service ("you", "Customer", "controller").
 
