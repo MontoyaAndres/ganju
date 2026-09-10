@@ -4,8 +4,8 @@ import { db } from '@ganju/db';
 import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
-import { Plan, createStripe, stripeCryptoProvider } from '../../utils';
-import type { Stripe } from '../../utils/stripe';
+import { Plan, createPolar, verifyPolarWebhook } from '../../utils';
+import type { PolarSubscription, PolarWebhookEvent } from '../../utils/polar';
 
 // types
 import { AppEnv } from '../../types';
@@ -46,7 +46,7 @@ const getStatus = async (c: Context<AppEnv>) => {
           cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
           currentPeriodEnd: subscription.currentPeriodEnd,
           customDomain: subscription.customDomain,
-          hasBillingAccount: !!subscription.stripeCustomerId
+          hasBillingAccount: !!subscription.billingCustomerId
         }
       : null,
     pricing: {
@@ -64,42 +64,12 @@ const getStatus = async (c: Context<AppEnv>) => {
   });
 };
 
-const ensureStripeCustomer = async (
-  c: Context<AppEnv>,
-  stripe: Stripe,
-  dbInstance: DbExecutor,
-  organizationId: string
-): Promise<string> => {
-  await Plan.ensureSubscription(dbInstance, organizationId);
-  const [sub] = await dbInstance
-    .select()
-    .from(db.schema.subscription)
-    .where(eq(db.schema.subscription.organizationId, organizationId))
-    .limit(1);
-
-  if (sub?.stripeCustomerId) return sub.stripeCustomerId;
-
-  const user = c.get('user');
-  const customer = await stripe.customers.create({
-    email: user.email,
-    name: user.name || undefined,
-    metadata: { organizationId }
-  });
-
-  await dbInstance
-    .update(db.schema.subscription)
-    .set({ stripeCustomerId: customer.id })
-    .where(eq(db.schema.subscription.organizationId, organizationId));
-
-  return customer.id;
-};
-
 /**
- * The Stripe locale for this request, from the language the dashboard is in.
+ * The checkout locale for this request, from the language the dashboard is in.
  *
- * Stripe accepts far more locales than we ship, so this narrows to the two we
- * actually have rather than forwarding whatever arrived — an unknown tag is a
- * 400 from Stripe, and the checkout is the last page to fail on a detail like
+ * Polar takes an IETF BCP 47 tag and ships Spanish, but accepts far more than we
+ * do, so this narrows to the two we actually have rather than forwarding
+ * whatever arrived — the checkout is the last page to fail on a detail like
  * that.
  */
 const checkoutLocale = (c: Context<AppEnv>): 'en' | 'es' =>
@@ -112,11 +82,11 @@ const createCheckout = async (c: Context<AppEnv>) => {
   const organizationId = c.req.param('organizationId');
   if (!organizationId) throw new Error('organizationId is required');
 
-  const stripe = createStripe(c);
-  if (!stripe) throw new Error('Billing is not configured');
+  const polar = createPolar(c);
+  if (!polar) throw new Error('Billing is not configured');
 
-  const priceId = utils.getEnv(c, 'STRIPE_PRICE_PRO');
-  if (!priceId) throw new Error('Missing env: STRIPE_PRICE_PRO');
+  const productId = utils.getEnv(c, 'POLAR_PRODUCT_PRO');
+  if (!productId) throw new Error('Missing env: POLAR_PRODUCT_PRO');
 
   const dbInstance = db.create(c);
 
@@ -126,75 +96,44 @@ const createCheckout = async (c: Context<AppEnv>) => {
     throw new Error('This organization is already on a paid plan');
   }
 
-  const customerId = await ensureStripeCustomer(
-    c,
-    stripe,
-    dbInstance,
-    organizationId
-  );
+  // The row has to exist before the webhook comes back looking for it.
+  await Plan.ensureSubscription(dbInstance, organizationId);
 
   const webUrl = utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL') || '';
   const returnBase = `${webUrl}/organization/${organizationId}/settings`;
+  const user = c.get('user');
 
-  // Base Pro price plus the metered overage prices (when configured). Metered
-  // line items carry no quantity — usage is reported to their meters by cron.
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-    { price: priceId, quantity: 1 }
-  ];
-  const messageOveragePrice = utils.getEnv(c, 'STRIPE_PRICE_MESSAGE_OVERAGE');
-  if (messageOveragePrice) lineItems.push({ price: messageOveragePrice });
-  // Turns on our model bill at their own, higher rate — a separate price against
-  // a separate meter. Without this line item the metering cron still reports the
-  // usage but nothing prices it, so shared inference is served for free.
-  const sharedOveragePrice = utils.getEnv(
-    c,
-    'STRIPE_PRICE_SHARED_MESSAGE_OVERAGE'
-  );
-  if (sharedOveragePrice) lineItems.push({ price: sharedOveragePrice });
-  const embeddedOveragePrice = utils.getEnv(c, 'STRIPE_PRICE_EMBEDDED_OVERAGE');
-  if (embeddedOveragePrice) lineItems.push({ price: embeddedOveragePrice });
-  // Custom-tool invocations past the included allowance. Same silent-skip rule
-  // as the lines above, and the same consequence: unset means apps/mcp goes on
-  // counting the calls and the cron goes on reporting them, with no price to
-  // turn them into a charge.
-  const toolCallOveragePrice = utils.getEnv(
-    c,
-    'STRIPE_PRICE_TOOL_CALL_OVERAGE'
-  );
-  if (toolCallOveragePrice) lineItems.push({ price: toolCallOveragePrice });
-
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: customerId,
-    line_items: lineItems,
-    client_reference_id: organizationId,
-    subscription_data: { metadata: { organizationId } },
-    allow_promotion_codes: true,
-    // Stripe's own chrome — the pay button, "Subtotal", "Billed monthly", the
-    // card form — is localized by this. The default is `auto`, which reads the
-    // BROWSER's language, and that is not the language the user picked in the
-    // dashboard: someone reading Ganju in Spanish on an English-configured
-    // browser lands on an English checkout. The dashboard sends its own choice
-    // on `Accept-Language` (the shared fetcher sets it), which is the same
-    // header the invitation emails are written from.
+  // One product carries the $29 base and all four metered prices, so there is
+  // nothing to assemble here and no rate that can be silently left off. The
+  // organization id goes straight on as `external_customer_id`: Polar creates
+  // the customer at checkout and hands the same id back on every webhook.
+  const { url } = await polar.createCheckout({
+    productId,
+    organizationId,
+    customerEmail: user.email,
+    successUrl: `${returnBase}?billing=success`,
+    // Polar's own chrome — the pay button, "Subtotal", the card form — is
+    // localized by this. Left unset it reads the BROWSER's language, and that
+    // is not the language the user picked in the dashboard: someone reading
+    // Ganju in Spanish on an English-configured browser would land on an
+    // English checkout. The dashboard sends its own choice on `Accept-Language`
+    // (the shared fetcher sets it), the same header the invitation emails are
+    // written from.
     //
-    // It does NOT translate the product name or description on each line —
-    // those come from the Stripe Product and Stripe has no per-locale copy for
-    // them.
-    locale: checkoutLocale(c),
-    success_url: `${returnBase}?billing=success`,
-    cancel_url: `${returnBase}?billing=cancelled`
+    // It does NOT translate the product name or description — those come from
+    // the Polar Product, which has no per-locale copy.
+    locale: checkoutLocale(c)
   });
 
-  return c.json({ url: session.url });
+  return c.json({ url });
 };
 
 const createPortal = async (c: Context<AppEnv>) => {
   const organizationId = c.req.param('organizationId');
   if (!organizationId) throw new Error('organizationId is required');
 
-  const stripe = createStripe(c);
-  if (!stripe) throw new Error('Billing is not configured');
+  const polar = createPolar(c);
+  if (!polar) throw new Error('Billing is not configured');
 
   const dbInstance = db.create(c);
   const [sub] = await dbInstance
@@ -203,76 +142,66 @@ const createPortal = async (c: Context<AppEnv>) => {
     .where(eq(db.schema.subscription.organizationId, organizationId))
     .limit(1);
 
-  if (!sub?.stripeCustomerId) {
+  if (!sub?.billingCustomerId) {
     throw new Error('This organization has no billing account yet');
   }
 
   const webUrl = utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL') || '';
-  const session = await stripe.billingPortal.sessions.create({
-    customer: sub.stripeCustomerId,
-    // Same reasoning as checkout above: the portal is where a subscription is
-    // cancelled, and a cancel flow in the wrong language is the worst place to
-    // make someone guess.
-    locale: checkoutLocale(c),
-    return_url: `${webUrl}/organization/${organizationId}/settings`
-  });
+  // The session expires, which is why this is minted per click rather than
+  // stored. Portal localization is still in beta at Polar and scoped to
+  // checkout, so this page may render untranslated.
+  const { customerPortalUrl } = await polar.createCustomerSession(
+    organizationId,
+    `${webUrl}/organization/${organizationId}/settings`
+  );
 
-  return c.json({ url: session.url });
+  return c.json({ url: customerPortalUrl });
+};
+
+// Epoch ms for when the subscription itself last changed. Not when Polar sent
+// the notification — a subscription's own clock is what ordering wants, and it
+// is the one thing every delivery carries.
+const subscriptionChangedAt = (sub: PolarSubscription): number => {
+  const stamp = sub.modified_at || sub.created_at;
+  const parsed = stamp ? Date.parse(stamp) : NaN;
+  return Number.isFinite(parsed) ? parsed : Date.now();
 };
 
 const syncSubscription = async (
-  stripe: Stripe,
   dbInstance: DbExecutor,
-  sub: Stripe.Subscription,
-  priceToPlan: Record<string, string>,
-  eventCreatedAt: number
+  sub: PolarSubscription,
+  productToPlan: Record<string, string>
 ): Promise<void> => {
-  // Prefer the explicit metadata we set at checkout; otherwise match by the
-  // stored Stripe customer id.
-  let organizationId =
-    (sub.metadata?.organizationId as string | undefined) || undefined;
+  const customerId = sub.customer?.id || sub.customer_id || null;
 
-  const customerId =
-    typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+  // Every delivery carries our own id on the customer. The lookup below is for
+  // a subscription created by hand for an Enterprise customer, which has no
+  // external id because no checkout of ours made it.
+  let organizationId = sub.customer?.external_id || undefined;
 
-  if (!organizationId) {
+  if (!organizationId && customerId) {
     const [byCustomer] = await dbInstance
       .select({ organizationId: db.schema.subscription.organizationId })
       .from(db.schema.subscription)
-      .where(eq(db.schema.subscription.stripeCustomerId, customerId))
+      .where(eq(db.schema.subscription.billingCustomerId, customerId))
       .limit(1);
     organizationId = byCustomer?.organizationId;
   }
 
-  // Last resort (e.g. an Enterprise subscription created by hand in Stripe with
-  // no subscription metadata and no prior self-serve customer row): read the
-  // organizationId off the customer's metadata.
-  if (!organizationId) {
-    try {
-      const customer = await stripe.customers.retrieve(customerId);
-      if (!customer.deleted) {
-        organizationId =
-          (customer.metadata?.organizationId as string | undefined) ||
-          undefined;
-      }
-    } catch {
-      // ignore — fall through to the no-op below
-    }
-  }
-
   if (!organizationId) return;
 
-  // Drop stale, out-of-order deliveries: if we've already applied a newer event
+  // Drop stale, out-of-order deliveries: if we've already applied a newer change
   // for this subscription, ignore this one (e.g. a late `updated` arriving after
-  // a `deleted`). Equal timestamps are reapplied — the update is idempotent.
+  // a `revoked`). Equal timestamps are reapplied — the update is idempotent.
+  const changedAt = subscriptionChangedAt(sub);
   const [current] = await dbInstance
-    .select({ lastStripeEventAt: db.schema.subscription.lastStripeEventAt })
+    .select({ lastBillingEventAt: db.schema.subscription.lastBillingEventAt })
     .from(db.schema.subscription)
     .where(eq(db.schema.subscription.organizationId, organizationId))
     .limit(1);
   if (
-    current?.lastStripeEventAt != null &&
-    eventCreatedAt < current.lastStripeEventAt
+    current?.lastBillingEventAt != null &&
+    changedAt < current.lastBillingEventAt
   ) {
     return;
   }
@@ -281,122 +210,89 @@ const syncSubscription = async (
   const entitled = (
     constants.SUBSCRIPTION_ENTITLED_STATUSES as readonly string[]
   ).includes(status);
-  const priceId = sub.items.data[0]?.price?.id ?? null;
+  const productId = sub.product_id ?? null;
 
-  // Resolve the plan from the subscribed price (Pro vs Enterprise). An entitled
-  // subscription against an unmapped price still grants Pro (back-compat);
-  // anything not entitled falls back to Free limits.
+  // Resolve the plan from the subscribed product (Pro vs Enterprise). An
+  // entitled subscription against an unmapped product still grants Pro
+  // (back-compat); anything not entitled falls back to Free limits.
   const plan = entitled
-    ? (priceId && priceToPlan[priceId]) || constants.PLAN_PRO
+    ? (productId && productToPlan[productId]) || constants.PLAN_PRO
     : constants.PLAN_FREE;
 
-  // Period fields moved onto the subscription item in recent API versions —
-  // read from either location.
-  const item = sub.items.data[0] as unknown as {
-    current_period_start?: number;
-    current_period_end?: number;
-  };
-  const subAny = sub as unknown as {
-    current_period_start?: number;
-    current_period_end?: number;
-  };
-  const periodStartUnix =
-    item?.current_period_start ?? subAny.current_period_start;
-  const periodEndUnix = item?.current_period_end ?? subAny.current_period_end;
+  const periodStart = sub.current_period_start
+    ? new Date(sub.current_period_start)
+    : null;
+  const periodEnd = sub.current_period_end
+    ? new Date(sub.current_period_end)
+    : null;
 
   await dbInstance
     .update(db.schema.subscription)
     .set({
       plan,
       status,
-      stripeSubscriptionId: sub.id,
-      stripePriceId: priceId,
-      stripeCustomerId:
-        typeof sub.customer === 'string' ? sub.customer : sub.customer.id,
-      currentPeriodStart: periodStartUnix
-        ? new Date(periodStartUnix * 1000)
-        : null,
-      currentPeriodEnd: periodEndUnix ? new Date(periodEndUnix * 1000) : null,
+      billingSubscriptionId: sub.id,
+      billingProductId: productId,
+      billingCustomerId: customerId,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
-      lastStripeEventAt: eventCreatedAt
+      lastBillingEventAt: changedAt
     })
     .where(eq(db.schema.subscription.organizationId, organizationId));
 };
 
 const webhook = async (c: Context<AppEnv>) => {
-  const stripe = createStripe(c);
-  const webhookSecret = utils.getEnv(c, 'STRIPE_WEBHOOK_SECRET');
-  if (!stripe || !webhookSecret) {
+  const polar = createPolar(c);
+  const webhookSecret = utils.getEnv(c, 'POLAR_WEBHOOK_SECRET');
+  if (!polar || !webhookSecret) {
     return c.json({ error: 'Billing is not configured' }, 503);
   }
 
-  const signature = c.req.header('stripe-signature');
-  if (!signature) return c.json({ error: 'Missing signature' }, 400);
-
   const payload = await c.req.text();
 
-  let event: Stripe.Event;
+  // Standard Webhooks: the three headers below sign `{id}.{timestamp}.{body}`,
+  // which is why the raw text is read rather than the parsed JSON.
+  const verified = await verifyPolarWebhook(
+    webhookSecret,
+    {
+      id: c.req.header('webhook-id'),
+      timestamp: c.req.header('webhook-timestamp'),
+      signature: c.req.header('webhook-signature')
+    },
+    payload
+  );
+  if (!verified) {
+    return c.json({ error: 'Webhook signature verification failed' }, 400);
+  }
+
+  let event: PolarWebhookEvent;
   try {
-    event = await stripe.webhooks.constructEventAsync(
-      payload,
-      signature,
-      webhookSecret,
-      undefined,
-      stripeCryptoProvider()
-    );
-  } catch (error) {
-    return c.json(
-      { error: `Webhook signature verification failed: ${String(error)}` },
-      400
-    );
+    event = JSON.parse(payload) as PolarWebhookEvent;
+  } catch {
+    return c.json({ error: 'Malformed webhook payload' }, 400);
   }
 
   const dbInstance = db.create(c);
 
-  // Build the price → plan map from the configured price ids.
-  const priceToPlan: Record<string, string> = {};
-  const proPrice = utils.getEnv(c, 'STRIPE_PRICE_PRO');
-  if (proPrice) priceToPlan[proPrice] = constants.PLAN_PRO;
-  const enterprisePrice = utils.getEnv(c, 'STRIPE_PRICE_ENTERPRISE');
-  if (enterprisePrice) priceToPlan[enterprisePrice] = constants.PLAN_ENTERPRISE;
+  // Build the product → plan map from the configured product ids.
+  const productToPlan: Record<string, string> = {};
+  const proProduct = utils.getEnv(c, 'POLAR_PRODUCT_PRO');
+  if (proProduct) productToPlan[proProduct] = constants.PLAN_PRO;
+  const enterpriseProduct = utils.getEnv(c, 'POLAR_PRODUCT_ENTERPRISE');
+  if (enterpriseProduct) {
+    productToPlan[enterpriseProduct] = constants.PLAN_ENTERPRISE;
+  }
 
+  // `subscription.updated` is Polar's catch-all for state transitions, so these
+  // three cover every change the row cares about. There is no checkout event to
+  // handle: the subscription already carries the customer, and the customer
+  // already carries the organization id.
   switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      if (session.subscription) {
-        const subscriptionId =
-          typeof session.subscription === 'string'
-            ? session.subscription
-            : session.subscription.id;
-        const full = await stripe.subscriptions.retrieve(subscriptionId);
-        // Carry the checkout's org reference onto the subscription metadata so
-        // syncSubscription can resolve it even before our row has the ids.
-        if (!full.metadata?.organizationId && session.client_reference_id) {
-          full.metadata = {
-            ...full.metadata,
-            organizationId: session.client_reference_id
-          };
-        }
-        await syncSubscription(
-          stripe,
-          dbInstance,
-          full,
-          priceToPlan,
-          event.created
-        );
-      }
-      break;
-    }
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted': {
-      await syncSubscription(
-        stripe,
-        dbInstance,
-        event.data.object as Stripe.Subscription,
-        priceToPlan,
-        event.created
-      );
+    case 'subscription.created':
+    case 'subscription.updated':
+    case 'subscription.revoked': {
+      await syncSubscription(dbInstance, event.data, productToPlan);
       break;
     }
     default:

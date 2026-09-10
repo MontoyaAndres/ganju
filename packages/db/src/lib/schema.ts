@@ -369,9 +369,9 @@ export const subscription = pgTable(
     status: text('status')
       .notNull()
       .default(utils.constants.SUBSCRIPTION_STATUS_ACTIVE),
-    stripeCustomerId: text('stripe_customer_id'),
-    stripeSubscriptionId: text('stripe_subscription_id'),
-    stripePriceId: text('stripe_price_id'),
+    billingCustomerId: text('billing_customer_id'),
+    billingSubscriptionId: text('billing_subscription_id'),
+    billingProductId: text('billing_product_id'),
     currentPeriodStart: timestamp('current_period_start', { mode: 'date' }),
     currentPeriodEnd: timestamp('current_period_end', { mode: 'date' }),
     cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
@@ -394,7 +394,16 @@ export const subscription = pgTable(
     reportedToolCallOverage: integer('reported_tool_call_overage')
       .notNull()
       .default(0),
-    lastStripeEventAt: bigint('last_stripe_event_at', { mode: 'number' }),
+    // High-water mark of TOTAL embedded storage this period, in whole MB — not
+    // the overage. Storage is a level rather than a counter, so the figure worth
+    // invoicing is the most that was held, and reading it at period close would
+    // miss a customer who loaded 50GB and deleted it on the 28th. Tracked for
+    // every paid org, including those with no provider customer, which is what
+    // makes an Enterprise period reconstructable.
+    peakEmbeddedMb: bigint('peak_embedded_mb', { mode: 'number' })
+      .notNull()
+      .default(0),
+    lastBillingEventAt: bigint('last_billing_event_at', { mode: 'number' }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
       .notNull()
@@ -403,10 +412,70 @@ export const subscription = pgTable(
   },
   table => [
     index('subscription_organization_idx').on(table.organizationId),
-    index('subscription_stripe_customer_idx').on(table.stripeCustomerId),
-    index('subscription_stripe_subscription_idx').on(table.stripeSubscriptionId)
+    index('subscription_billing_customer_idx').on(table.billingCustomerId),
+    index('subscription_billing_subscription_idx').on(
+      table.billingSubscriptionId
+    )
   ]
 );
+
+export const usagePeriod = pgTable(
+  'usage_period',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    // The period this row closes: [start, end). `end` is the start of the
+    // period that replaced it, so consecutive rows tile without a gap.
+    periodStart: timestamp('period_start', { mode: 'date' }).notNull(),
+    periodEnd: timestamp('period_end', { mode: 'date' }).notNull(),
+    // The plan in force when the period closed. Stored rather than joined: an
+    // org that moves to Enterprise in March must not restate February.
+    plan: text('plan').notNull(),
+    messageCount: integer('message_count').notNull().default(0),
+    sharedMessageCount: integer('shared_message_count').notNull().default(0),
+    toolCallCount: integer('tool_call_count').notNull().default(0),
+    peakEmbeddedMb: bigint('peak_embedded_mb', { mode: 'number' })
+      .notNull()
+      .default(0),
+    // What was actually reported to the billing provider for this period. Zero
+    // for an org billed outside it, which is how a hand-invoiced period is told
+    // apart from one that was charged automatically.
+    reportedMessageOverage: integer('reported_message_overage')
+      .notNull()
+      .default(0),
+    reportedSharedMessageOverage: integer('reported_shared_message_overage')
+      .notNull()
+      .default(0),
+    reportedEmbeddedOverageMb: bigint('reported_embedded_overage_mb', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedToolCallOverage: integer('reported_tool_call_overage')
+      .notNull()
+      .default(0),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [
+    uniqueIndex('usage_period_organization_start_idx').on(
+      table.organizationId,
+      table.periodStart
+    ),
+    index('usage_period_organizationId_idx').on(table.organizationId),
+    index('usage_period_periodStart_idx').on(table.periodStart)
+  ]
+);
+
+export const usagePeriodRelations = relations(usagePeriod, ({ one }) => ({
+  organization: one(organization, {
+    fields: [usagePeriod.organizationId],
+    references: [organization.id]
+  })
+}));
 
 export const project = pgTable('project', {
   id: text('id')

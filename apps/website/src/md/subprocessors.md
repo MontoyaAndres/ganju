@@ -1,6 +1,6 @@
 # Subprocessors
 
-**Last updated: August 1, 2026**
+**Last updated: September 10, 2026**
 
 A subprocessor is a company we use to deliver the hosted Ganju service that may
 handle personal data on our behalf. This page is the authoritative list. It's part of
@@ -37,7 +37,7 @@ service.
 | **Cloudflare, Inc.** | Application hosting, CDN, object storage (R2), queues, containers, transactional email routing | All traffic; uploaded files; queued jobs; outbound email | United States / global edge |
 | **Neon, Inc.** (on AWS) | Managed Postgres with `pgvector` — our system of record | Accounts, workspaces, Customer Content, text chunks and embeddings, conversations, audit and error logs | AWS `us-east-1`, United States |
 | **Google LLC** (Gemini API) | Generating embeddings for every resource and search query | Resource text and search queries | United States / global |
-| **Stripe, Inc.** | Subscription billing and payment processing | Name, email, billing address, payment method, usage counts | United States / global |
+| **Polar Software, Inc.** | Merchant of record for paid plans — subscription billing, payment processing, and sales-tax collection and remittance | Name, email, billing address, payment method, usage counts | United States / global |
 
 **Google appears in this tier deliberately.** Embeddings run on our key for every
 customer on every plan, so resource text reaches Google whether or not you've

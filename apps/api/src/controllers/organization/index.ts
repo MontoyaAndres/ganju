@@ -4,7 +4,7 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
 
-import { Plan, createStripe } from '../../utils';
+import { Plan, createPolar } from '../../utils';
 
 // types
 import { AppEnv } from '../../types';
@@ -34,7 +34,7 @@ const create = async (c: Context<AppEnv>) => {
       .returning();
 
     // Every org starts on the Free plan; the row backs all later quota checks
-    // and the Stripe upgrade flow.
+    // and the upgrade flow.
     await Plan.ensureSubscription(tx, org.id);
 
     await tx
@@ -270,20 +270,20 @@ const remove = async (c: Context<AppEnv>) => {
 
   const [sub] = await dbInstance
     .select({
-      stripeSubscriptionId: db.schema.subscription.stripeSubscriptionId
+      billingSubscriptionId: db.schema.subscription.billingSubscriptionId
     })
     .from(db.schema.subscription)
     .where(eq(db.schema.subscription.organizationId, currentValues.id))
     .limit(1);
 
-  if (sub?.stripeSubscriptionId) {
-    const stripe = createStripe(c);
-    if (stripe) {
+  if (sub?.billingSubscriptionId) {
+    const polar = createPolar(c);
+    if (polar) {
       try {
-        await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
+        await polar.revokeSubscription(sub.billingSubscriptionId);
       } catch (err) {
         console.error(
-          `Failed to cancel Stripe subscription ${sub.stripeSubscriptionId} for org ${currentValues.id}:`,
+          `Failed to revoke subscription ${sub.billingSubscriptionId} for org ${currentValues.id}:`,
           err
         );
       }

@@ -1,6 +1,6 @@
 # Subencargados
 
-**Última actualización: 1 de agosto de 2026**
+**Última actualización: 10 de septiembre de 2026**
 
 Un subencargado es una empresa que usamos para prestar el servicio alojado de Ganju y
 que puede tratar datos personales por cuenta nuestra. Esta página es la lista
@@ -44,7 +44,7 @@ servicio alojado.
 | **Cloudflare, Inc.** | Alojamiento de la aplicación, CDN, almacenamiento de objetos (R2), colas, contenedores, enrutamiento de correo transaccional | Todo el tráfico; archivos subidos; trabajos en cola; correo saliente | Estados Unidos / red global |
 | **Neon, Inc.** (sobre AWS) | Postgres administrado con `pgvector` — nuestro sistema de registro | Cuentas, espacios de trabajo, Contenido de Cliente, fragmentos de texto y embeddings, conversaciones, registros de auditoría y de error | AWS `us-east-1`, Estados Unidos |
 | **Google LLC** (API de Gemini) | Generación de embeddings para cada recurso y cada consulta de búsqueda | Texto de los recursos y consultas de búsqueda | Estados Unidos / global |
-| **Stripe, Inc.** | Facturación de suscripciones y procesamiento de pagos | Nombre, correo, dirección de facturación, medio de pago, contadores de consumo | Estados Unidos / global |
+| **Polar Software, Inc.** | Comercializador registrado (*merchant of record*) de los planes pagos — facturación de suscripciones, procesamiento de pagos y recaudo y remisión de impuestos sobre las ventas | Nombre, correo, dirección de facturación, medio de pago, contadores de consumo | Estados Unidos / global |
 
 **Google aparece en este nivel deliberadamente.** Los embeddings corren con nuestra
 llave para todos los clientes en todos los planes, así que el texto de tus recursos

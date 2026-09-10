@@ -1,6 +1,6 @@
 # Términos y Condiciones del Servicio
 
-**Última actualización: 31 de agosto de 2026 · Vigente desde: 31 de agosto de 2026**
+**Última actualización: 10 de septiembre de 2026 · Vigente desde: 10 de septiembre de 2026**
 
 Estos términos son el acuerdo entre tú y **Ganju S.A.S.**, sociedad por acciones
 simplificada constituida bajo las leyes de Colombia con domicilio en Bogotá, D.C.,
@@ -142,19 +142,27 @@ contactaríamos antes de aplicarlos.
 
 ### Pago
 
-Los planes pagos se facturan a través de **Stripe**. Las suscripciones se renuevan
-automáticamente cada período hasta que se cancelen, y los cargos por consumo se
-facturan al vencimiento del período en que se causaron. **Todos los precios están en
-dólares estadounidenses** y no incluyen impuestos; cuando debamos recaudar IVA
-colombiano, VAT, impuesto sobre ventas o un gravamen similar, se agrega al momento del
-pago. Los costos de conversión de divisa y las comisiones por transacción
-internacional de tu banco corren por tu cuenta.
+Los planes pagos se venden y facturan a través de **Polar Software, Inc.** ("Polar"),
+que actúa como nuestro **comercializador registrado** (*merchant of record*). Esto
+significa que Polar — y no Ganju — es el vendedor en la compra: el pago se hace a
+Polar, Polar emite la factura o el recibo, y Polar recauda y remite el IVA, VAT o
+impuesto sobre las ventas que corresponda. El uso del Servicio sigue rigiéndose por
+estos términos y tu relación por el Servicio sigue siendo con nosotros; lo que se
+celebra con Polar es la *transacción de compra*, y a ella se aplican además los
+términos propios de Polar.
 
-Puedes cancelar en cualquier momento desde el portal de facturación de Stripe. **La
-cancelación surte efecto al final del período vigente** — conservas las funciones
-pagas hasta entonces y no se reembolsa el remanente. Salvo por el derecho de retracto
-que se describe enseguida, las sumas ya pagadas no son reembolsables, excepto cuando
-la ley lo exija.
+Las suscripciones se renuevan automáticamente cada período hasta que se cancelen, y
+los cargos por consumo se facturan al vencimiento del período en que se causaron.
+**Todos los precios están en dólares estadounidenses** y no incluyen impuestos, que se
+agregan al momento del pago cuando corresponda. Los costos de conversión de divisa y
+las comisiones por transacción internacional de tu banco corren por tu cuenta.
+
+Puedes cancelar en cualquier momento desde el portal de facturación. **La cancelación
+surte efecto al final del período vigente** — conservas las funciones pagas hasta
+entonces y no se reembolsa el remanente. Salvo por el derecho de retracto que se
+describe enseguida, las sumas ya pagadas no son reembolsables, excepto cuando la ley
+lo exija. Como Polar es el vendedor, los reembolsos los emite Polar; escríbenos a
+**hello@ganju.ai** y lo gestionamos con ellos por ti.
 
 ### Derecho de retracto
 

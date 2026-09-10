@@ -68,7 +68,7 @@ In rough order of how early they fire:
 4. **Cloudflare.** `wrangler tail --env <env>` on the outbound worker shows
    refused hosts in real time; the dashboard shows namespace CPU. The outbound
    worker is the only place that sees where a script is trying to go.
-5. **Stripe.** An overage that arrives faster than the customer's traffic
+5. **The billing meters.** An overage that arrives faster than the customer's traffic
    explains. Slower than the rest of this list, but it catches the case where
    nothing is failing and nothing is being refused — the bill is the only symptom
    of a script that works perfectly and shouldn't exist.

@@ -203,8 +203,8 @@ export const BillingManager = (props: BillingManagerProps) => {
   }, [router.query.billing]);
 
   // Kick off Checkout (Free → Pro) or open the Customer Portal (paid). Both
-  // return a Stripe-hosted URL we redirect the browser to.
-  const goToStripe = async (action: 'checkout' | 'portal') => {
+  // return a provider-hosted URL we redirect the browser to.
+  const goToBilling = async (action: 'checkout' | 'portal') => {
     if (acting) return;
     setActing(true);
     try {
@@ -319,7 +319,7 @@ export const BillingManager = (props: BillingManagerProps) => {
           variant="contained"
           size="small"
           disabled={acting}
-          onClick={() => goToStripe(isFree ? 'checkout' : 'portal')}
+          onClick={() => goToBilling(isFree ? 'checkout' : 'portal')}
         >
           {acting
             ? t('opening')

@@ -38,7 +38,7 @@ Ganju deploys to Cloudflare. Each Worker app has a `wrangler.toml` with `develop
 | Bot OAuth client | ✅ row provisioned | `select count(*) from oauth_client` |
 | `mcp_server_catalog` | ✅ 2 rows (GitHub, Notion) | `select count(*) from mcp_server_catalog` |
 | End-to-end CLI probe | ✅ 61/61 against production | [probe-cli.mjs](../scripts/probe-cli.mjs) |
-| **Stripe live mode** | ❌ empty — account not activated | [PRICING.md](PRICING.md) |
+| **Polar production** | ❌ not set up — sandbox only | [POLAR_MIGRATION.md](POLAR_MIGRATION.md) |
 
 **Verified end to end on 5 Sep** by pointing the CLI probe at production — 61 checks, all passing: OAuth login through dynamic registration, `ganju deploy` publishing into `ganju-tools-production`, an MCP client listing and calling the tool and getting its `structuredContent` back, `ganju test` against a real preview script, logs, secrets, project-scoped access tokens, rollback, and both refusals (a reserved tool name, and the plan gate on FREE). It scaffolds a throwaway PRO org and removes it; the namespace was back to `script_count: 0` afterwards.
 
@@ -52,7 +52,7 @@ node scripts/probe-cli.mjs
 
 One thing remains, and it is not code:
 
-- **Stripe is blocked on account activation**, which is a business step rather than a technical one. It blocks payment and nothing else — `createStripe` returns `null` on a missing key, the metering sweep returns early, and `getPlan` / `getStatus` never touch Stripe, so the entire Free tier works and the usage counters keep incrementing in Postgres. Only `createCheckout`, `createPortal` and `webhook` refuse. **Leave `STRIPE_SECRET_KEY` unset rather than filling it with a placeholder** — unset is the handled path; a bogus key builds a real client that throws hourly.
+- **Billing is blocked on the Polar production organization**, which is a business step rather than a technical one — KYC through Stripe Connect Express, with Colombian bank details. It blocks payment and nothing else: `createPolar` returns `null` on a missing token, the reporting half of the metering sweep is skipped, and `getPlan` / `getStatus` never touch the provider. The entire Free tier works, the usage counters keep incrementing in Postgres, and the sweep still measures — only `createCheckout`, `createPortal` and `webhook` refuse. **Leave `POLAR_ACCESS_TOKEN` unset rather than filling it with a placeholder** — unset is the handled path; a bogus token builds a real client that fails hourly.
 
 ## Cloudflare resources
 
@@ -83,15 +83,13 @@ ALERT_EMAIL                 EMAIL_FROM              MICROSOFT_CLIENT_ID
 BOT_OAUTH_CLIENT_ID         EMBEDDING_API_KEY       MICROSOFT_CLIENT_SECRET
 BOT_OAUTH_CLIENT_SECRET     GITHUB_CLIENT_ID        SLACK_CLIENT_ID
 CLOUDFLARE_ACCOUNT_ID       GITHUB_CLIENT_SECRET    SLACK_CLIENT_SECRET
-CRYPTO_SECRET               GOOGLE_CLIENT_ID        STRIPE_SECRET_KEY
-CUSTOM_CODE_CF_API_TOKEN    GOOGLE_CLIENT_SECRET    STRIPE_WEBHOOK_SECRET
-CUSTOM_CODE_TOKEN_SECRET    JWT_SECRET              STRIPE_PRICE_PRO
-                            MCP_INTERNAL_SECRET     STRIPE_PRICE_ENTERPRISE
-                                                    STRIPE_PRICE_MESSAGE_OVERAGE
-                                                    STRIPE_PRICE_SHARED_MESSAGE_OVERAGE
-                                                    STRIPE_PRICE_EMBEDDED_OVERAGE
-                                                    STRIPE_PRICE_TOOL_CALL_OVERAGE
+CRYPTO_SECRET               GOOGLE_CLIENT_ID        POLAR_ACCESS_TOKEN
+CUSTOM_CODE_CF_API_TOKEN    GOOGLE_CLIENT_SECRET    POLAR_WEBHOOK_SECRET
+CUSTOM_CODE_TOKEN_SECRET    JWT_SECRET              POLAR_PRODUCT_PRO
+                            MCP_INTERNAL_SECRET     POLAR_PRODUCT_ENTERPRISE
 ```
+
+`POLAR_SERVER` is **not** a secret — it selects the sandbox or production API host and lives in `[env.<env>.vars]` in [apps/api/wrangler.toml](../apps/api/wrangler.toml), `sandbox` in development and `production` in production. Anything other than the exact string `production` reads as sandbox, so a missing value fails safe.
 
 **apps/mcp** — 3: `CRYPTO_SECRET`, `EMBEDDING_API_KEY`, `MCP_INTERNAL_SECRET`
 
@@ -121,7 +119,7 @@ wrangler secret put JWT_SECRET --env production
 
 **Two are read from a secret and skipped in silence when unset**, which is the failure mode worth knowing because nothing errors:
 
-- `STRIPE_PRICE_*` — checkout omits any overage line whose variable is unset. Deliberate, so the base plan can launch before the meters exist, but an unset `STRIPE_PRICE_TOOL_CALL_OVERAGE` serves custom tool calls for free while the hourly cron still reports the usage.
+- `POLAR_PRODUCT_ENTERPRISE` — the webhook maps a subscribed product to a plan. Unset, an Enterprise subscription created by hand still resolves to Pro rather than failing, because an entitled subscription against an unmapped product falls back to Pro. Nothing errors; the org simply gets Pro's limits.
 - `CUSTOM_CODE_CF_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` — publishing a customer's tool uploads through the Cloudflare API with these. Without them the dashboard's Deploy button and `ganju deploy` fail at the upload step, well after the plan gate has passed.
 
 `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET` also need a matching row in `oauth_client`, or channel `/link` fails. After setting the secrets, provision it against the same environment's database:
@@ -190,9 +188,17 @@ Migrate first. A Worker reading a column that does not exist yet fails on its fi
 
 **A note on reading a suspended or empty artifact:** an MCP server with nothing registered advertises no `tools` capability, so `tools/list` answers `-32601 Method not found` rather than an empty list. That is the correct state, not a broken server.
 
-## Stripe
+## Billing
 
-Live mode is a separate exercise from the deploy and **nothing carries over from test mode**. It needs, in order: four meters whose event names match `STRIPE_METER_*` in [constants.ts](../packages/utils/src/constants.ts) exactly (a typo means events are discarded silently); five package prices on the Pro product; a webhook at `https://api.ganju.ai/billing/webhook` for `checkout.session.completed` and `customer.subscription.{created,updated,deleted}`; and the `STRIPE_*` secrets above. Full detail, including why the tool-call price is packaged per 1,000 rather than per million, is in [PRICING.md](PRICING.md).
+Polar, as merchant of record. Production is a **separate account from sandbox** — a sandbox token is rejected by the production host and nothing carries over, so the whole setup is done twice.
+
+It needs, in order: an organization with Stripe Connect Express KYC completed; four meters whose filters match `BILLING_METER_*` in [constants.ts](../packages/utils/src/constants.ts) exactly, each aggregating `sum` over `units` (a name that matches no meter is accepted and silently unbilled); a **Pro** product carrying the $29 base and four metered prices; an **Enterprise** product, private and metered-only; a webhook at `https://api.ganju.ai/billing/webhook` in **Raw** format for `subscription.created`, `subscription.updated` and `subscription.revoked`; and the `POLAR_*` secrets above.
+
+**Disable Bot Fight Mode** (Security → Bots) or webhook deliveries are answered with 403 before they reach the Worker. IP allowlists and WAF rules do not fix this.
+
+**Align the reported marks before setting the token.** `meterOrganization` reports `current − reported`, and every `reported_*` mark sits at 0 while the counters have been accruing. Enabling billing without aligning them bills the entire accumulated period as overage on the customer's first invoice. Either enable immediately after a period rollover, or set each mark to its current overage in the same change window.
+
+Setup detail, per-unit rates and the reasoning behind them are in [POLAR_MIGRATION.md](POLAR_MIGRATION.md); the cost model is in [PRICING.md](PRICING.md).
 
 ## Observability
 

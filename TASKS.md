@@ -120,4 +120,5 @@ surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
 
 ## Make a skill for ganju cli
-## Verify google and stripe
+## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
+## Work on examples folder for the functions users can integrate

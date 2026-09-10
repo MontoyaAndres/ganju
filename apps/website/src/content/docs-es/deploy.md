@@ -49,7 +49,7 @@ Puertos locales por defecto: API `8080`, MCP `8081`, resource-handler `8082`, we
 `pgvector`. El `.env` cubre las credenciales de la base de datos, los secretos de
 autenticación y cifrado, una llave de embeddings de Gemini, los client IDs y
 secretos de OAuth de los proveedores que quieras (Google, GitHub, Microsoft, Slack)
-y — solo si quieres facturación — tus llaves de Stripe.
+y — solo si quieres facturación — tus llaves de Polar.
 
 ## Aprovisiona los recursos de Cloudflare
 

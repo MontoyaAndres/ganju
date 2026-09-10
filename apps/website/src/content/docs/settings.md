@@ -17,7 +17,7 @@ members it has, and lets you rename it.
 ## Billing & plan
 
 **Billing & plan** shows your current plan, its renewal date, and your usage
-against each allowance. **Manage billing** opens the Stripe customer portal; on the
+against each allowance. **Manage billing** opens the billing portal; on the
 Free plan you'll see **Upgrade to Pro** instead. The screenshot below shows a **Pro**
 organization — `Pro plan · active`, with assistant replies tracked against the
 `3,000` included.

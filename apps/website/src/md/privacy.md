@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: September 5, 2026 · Effective: September 5, 2026**
+**Last updated: September 10, 2026 · Effective: September 10, 2026**
 
 This policy explains what Ganju collects when you use the hosted service at
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai`, and `mcp.ganju.ai`, why we collect it,
@@ -79,13 +79,15 @@ token, and whether it was accepted, declined, or expired.
 ### Billing and usage
 
 Plan and subscription status, current billing period, cancellation flags, and your
-Stripe customer and subscription identifiers. We meter three things per organization:
-**assistant replies** on chat channels, **embedded (searchable) content in
-megabytes**, and **calls to tools you wrote in code**, plus the overage already
-reported to Stripe.
+customer and subscription identifiers at our billing provider. We meter three things
+per organization: **assistant replies** on chat channels, **embedded (searchable)
+content in megabytes**, and **calls to tools you wrote in code**, plus the overage
+already reported for billing. We also keep a per-period record of those counts after
+the period closes, so an invoice can be explained after the fact.
 
-**We never see or store your card details.** Payment methods are collected and held
-by Stripe; we only receive identifiers and subscription status back.
+**We never see or store your card details.** Paid plans are sold through **Polar
+Software, Inc.**, which acts as merchant of record: payment methods are collected and
+held by Polar, and we only receive identifiers and subscription status back.
 
 ### Customer Content
 
@@ -160,7 +162,8 @@ We use the data above to:
 - **Show you what happened** — the Activity chart, usage counters, and recent-activity
   feed on each project's Home page are built from the audit records above.
 - **Bill you correctly** — count assistant replies and embedded storage against your
-  plan's allowance, enforce Free-plan caps, and report overage to Stripe.
+  plan's allowance, enforce Free-plan caps, and report overage to our billing
+  provider.
 - **Keep things safe** — detect abuse, debug failures, screen outbound requests, and
   investigate security incidents.
 - **Talk to you** — transactional email such as invitations, plus replies to support
@@ -377,7 +380,7 @@ to telling you before a new one starts handling your content.
 | **Neon** (Postgres on AWS, `us-east-1`) | The primary database: accounts, workspaces, content, chunks, embeddings, logs | Our system of record |
 | **Google** (Gemini API) | Resource text and search queries; chat content when running on the shared model | Embeddings and the default shared model |
 | **Anthropic**, **OpenAI**, or an OpenAI-compatible endpoint | Chat content | Only when you configure your own model |
-| **Stripe** | Name, email, billing details, payment method, usage counts | Payments and subscription management |
+| **Polar** (Polar Software, Inc.) | Name, email, billing details, payment method, usage counts | Merchant of record: payments, subscriptions and sales tax |
 | **Tavily** | Your search queries and target URLs | Only if you install the web-search tools |
 | **Telegram**, **Slack**, **Meta (WhatsApp)**, **Discord** | Messages to and from your bot | Only for the channels you connect |
 | **Google**, **Microsoft**, **Slack**, **Cal.com** | Requests your tools make | Only for the accounts you connect |
@@ -446,7 +449,7 @@ configuration — is kept until you delete it.
   channel, conversation, message, credential, model configuration, invitation, and
   audit record under it goes with it. This is irreversible.
 - **Uploaded files** in R2 are removed with the resource that references them.
-- **Billing records** are retained by us and by Stripe for as long as tax and
+- **Billing records** are retained by us and by Polar for as long as tax and
   accounting law requires, even after you leave.
 - **Backups** roll off on our provider's schedule, so deleted data can persist in
   backups for a short window after deletion.

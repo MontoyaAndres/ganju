@@ -76,7 +76,7 @@ import {
   syncDiscordCommandsForArtifact
 } from './discordCommands';
 import { Plan } from './plan';
-import { createStripe, stripeCryptoProvider } from './stripe';
+import { createPolar, verifyPolarWebhook } from './polar';
 import { runOverageMetering } from './metering';
 import { runRetentionPurge } from './retention';
 import { runCustomCodeScriptSweep } from './customCodeSweep';
@@ -99,8 +99,8 @@ export {
   recordConsent,
   getConsentStatus,
   listConsents,
-  createStripe,
-  stripeCryptoProvider,
+  createPolar,
+  verifyPolarWebhook,
   runOverageMetering,
   createAuth,
   sendInvitationEmail,

@@ -69,14 +69,12 @@ export default function PricingCalculator({
     const extraMessages = Math.max(0, messages - includedMessages);
     const extraStorage = Math.max(0, storageGb - includedStorageGb);
 
-    // Stripe bills these meters in whole packages ("round up to nearest complete
-    // package": 1,000 messages, 1 GB), so mirror that here — otherwise the
-    // estimate could quote less than the real invoice for partial blocks.
-    const messageBlocks = Math.ceil(extraMessages / 1_000);
-    const storageBlocks = Math.ceil(extraStorage);
-
-    const messageCost = messageBlocks * messagePer1k;
-    const storageCost = storageBlocks * storagePerGb;
+    // Both meters price per single unit, so a partial block bills as the
+    // fraction it is — there is no rounding up to a whole 1,000 messages or a
+    // whole GB. Storage is metered in whole MB (that is what the hourly sweep
+    // reports), which is finer than this slider moves.
+    const messageCost = (extraMessages / 1_000) * messagePer1k;
+    const storageCost = extraStorage * storagePerGb;
     const domainCost = customDomain ? customDomainPrice : 0;
     const total = proBase + messageCost + storageCost + domainCost;
 

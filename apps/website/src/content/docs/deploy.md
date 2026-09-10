@@ -47,7 +47,7 @@ Default local ports: API `8080`, MCP `8081`, resource-handler `8082`, web `3000`
 You'll need Node, npm, and a Postgres database with the `pgvector` extension. The
 `.env` covers database credentials, auth/crypto secrets, a Gemini embedding key, the
 OAuth client IDs/secrets for the providers you want (Google, GitHub, Microsoft,
-Slack), and — only if you want billing — your Stripe keys.
+Slack), and — only if you want billing — your Polar keys.
 
 ## Provision Cloudflare resources
 

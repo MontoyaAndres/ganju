@@ -156,7 +156,7 @@ app
     ContactController.create
   )
 
-  // Stripe webhook (public, verified by the stripe-signature header)
+  // Billing webhook (public, verified by the Standard Webhooks headers)
   .post('/billing/webhook', BillingController.webhook)
 
   // The containment link a usage alert carries. Public, because the authority is

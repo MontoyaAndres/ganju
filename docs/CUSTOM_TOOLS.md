@@ -719,12 +719,15 @@ Nothing is open on this list any more, and with the [browser pass](#verified) ab
 | Dispatch namespace | `ganju-tools-production`, with egress through `ganju-tool-outbound-production` |
 | `mcp_server_catalog` | copied from development — GitHub and Notion render |
 | End-to-end | [probe-cli.mjs](../scripts/probe-cli.mjs) run against production: **61 checks, all passing** |
-| Stripe | **nothing** — see below |
+| Billing | **nothing** — see below |
 
 Two things production does *not* have, both deliberate rather than forgotten:
 
-- **No Stripe.** The account is not through activation, so live mode has no keys, meters or prices. This does not block anything except payment: `createStripe` answers `null` on a missing key, the hourly metering sweep returns early, and `getPlan` / `getStatus` never touch Stripe at all — so **the whole Free tier works, and the usage counters keep incrementing in Postgres regardless**. Only `createCheckout`, `createPortal` and `webhook` refuse. Granting a paid plan by hand in the meantime means setting `plan = 'PRO'` and an entitled `status`; **not `ENTERPRISE`**, which differs from Pro in exactly one field — `toolCallHardCap: null` — and so buys the customer nothing while removing the only monthly ceiling on their compute.
-- **One trap for the day Stripe is switched on.** `meterOrganization` reports `current − reported` and advances the `reported_*` marks only when an event lands. With no Stripe client it returns before either, so those marks sit at 0 while usage accrues. The first run after Stripe is configured would therefore report the *entire* period — including anything already invoiced out of band. Enable it just after a period rollover, or set each `reported_*` column to its current counterpart first.
+- **No billing provider.** Production has no Polar organization yet, so there is no token, and there are no live meters or products. This does not block anything except payment: `createPolar` answers `null` on a missing token, the reporting half of the hourly sweep is skipped, and `getPlan` / `getStatus` never touch the provider at all — so **the whole Free tier works, and the usage counters keep incrementing in Postgres regardless**. Only `createCheckout`, `createPortal` and `webhook` refuse. Granting a paid plan by hand in the meantime means setting `plan = 'PRO'` and an entitled `status`; **not `ENTERPRISE`**, which differs from Pro in exactly one field — `toolCallHardCap: null` — and so buys the customer nothing while removing the only monthly ceiling on their compute.
+
+  Measuring is not skipped. The sweep still rolls periods, tracks the storage high-water and writes a `usage_period` row at each rollover, with no provider configured at all — which is what makes a hand-invoiced organization reconstructable. See [DATA_MODEL.md](DATA_MODEL.md#billing--metering).
+
+- **One trap for the day billing is switched on.** `meterOrganization` reports `current − reported` and advances the `reported_*` marks only when an event lands. Without a client it returns before either, so those marks sit at 0 while usage accrues. The first run after a token is configured would therefore report the *entire* period — including anything already invoiced out of band. Enable it just after a period rollover, or set each `reported_*` column to its current counterpart first.
 
 **The bootstrap that a first deploy needs is recorded in [DEPLOYMENT.md](DEPLOYMENT.md#first-deploy-order-matters)** rather than here. In short: apps/api and apps/mcp bind each other, so neither can be created with both bindings in place, and the cycle has to be broken once. It cost two failed deploys to find, which is exactly the kind of thing worth writing down before the next environment.
 
@@ -939,7 +942,7 @@ The hazard this phase was written around is still real and still worth knowing, 
 ### Phase 10 — Plans, quotas, abuse ✅
 
 - [x] `PLAN_FEATURE_CUSTOM_CODE` in [plan.ts](../apps/api/src/utils/plan.ts); Free = `http-endpoint` only, capped at 3 — see [Phase 6](#3-custom-code-is-a-paid-feature-with-a-server-side-gate)
-- [x] Meter custom-tool invocations — a fourth counter, a fourth Stripe meter, and the hard cap that bounds the month
+- [x] Meter custom-tool invocations — a fourth counter, a fourth billing meter, and the hard cap that bounds the month
 - [x] Abuse response process — [ABUSE.md](ABUSE.md), and the one command it leans on
 
 #### Invocations are billed; CPU is only enforced
@@ -1013,6 +1016,13 @@ to tools the customer wrote include a million a month and then bill. Terms,
 privacy, the pricing page, the docs and the plan tables all said "only two things
 are metered" and now say three, in both languages.
 
+> **These three scripts still target Stripe and have not been ported.** They call
+> `api.stripe.com` directly and `--live-stripe` names a Stripe key, so they cannot
+> run against Polar as written. The arithmetic they cover is unchanged by the
+> move — it is the provider calls around it that need rewriting. Until then, read
+> this section as a record of what was verified under Stripe rather than as
+> something reproducible today.
+
 **Verified** by [scripts/verify-tool-call-metering.mjs](../scripts/verify-tool-call-metering.mjs)
 — 64 checks, all passing, driving the real modules rather than restating their
 arithmetic: apps/mcp's `flushRequests` for the counting, `@ganju/db`'s budget for
@@ -1060,14 +1070,17 @@ loses that usage for good, because the mark is the only memory of what was
 billed, while a mark that stays put costs one retry. The run after the meter
 exists reports everything the rejections missed, in full.
 
-**The Stripe objects exist in test mode.** `ganju_custom_tool_calls` is an active
-meter with the same shape as the other three, and the Pro product carries a
-metered price at **$0.005 per 1,000 calls** — $5 per million, in a package small
-enough that Stripe's round-up costs half a cent rather than $5. Confirmed by the
-three things that fail silently otherwise: the meter accepts an event carrying our
-exact payload keys, the price resolves and is active, and the five
-`STRIPE_PRICE_*` values assemble into a valid five-item checkout session. Live
-mode still has none of the four.
+**Superseded: billing moved to Polar.** The paragraph that stood here described
+the Stripe test-mode objects — four meters, and a Pro product carrying the
+tool-call rate as a **package of 1,000 at $0.005**, sized so that Stripe's
+round-up of a partial package cost half a cent rather than $5.
+
+None of that survives the move. Polar prices metered usage **per single unit**
+and has no package pricing, so there is no partial package and nothing to round:
+the rate is `0.0005` cents per call, displayed as $5.00 / 1,000,000 by the
+meter's unit multiplier. The four meters and both products now exist in Polar
+**sandbox**; production has none of them. Setup and the per-unit rates are in
+[POLAR_MIGRATION.md](POLAR_MIGRATION.md).
 
 **Verified on the deployed development environment** by
 [probe-tool-call-metering.mjs](../scripts/probe-tool-call-metering.mjs) — 37
@@ -1349,7 +1362,7 @@ Custom code adds a third, and it's the first one a user can turn against us:
 | **Compute** (custom tool execution) | usage **or malice** — an infinite loop, a miner | **yes** |
 | **Script slots** (artifacts) | projects created | no, but it's a fixed monthly floor per unit |
 
-Compute is now metered and capped like the other two — `subscription.tool_call_count`, a fourth Stripe meter, and a monthly ceiling per plan. Script slots still are not, and still don't need to be: two cents a month is not a thing to bill.
+Compute is now metered and capped like the other two — `subscription.tool_call_count`, a fourth billing meter, and a monthly ceiling per plan. Script slots still are not, and still don't need to be: two cents a month is not a thing to bill.
 
 ### Fix 1 — cap the tail technically, bill on the legible unit ✅
 

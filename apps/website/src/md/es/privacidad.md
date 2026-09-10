@@ -1,6 +1,6 @@
 # Política de Privacidad y Tratamiento de Datos Personales
 
-**Última actualización: 5 de septiembre de 2026 · Vigente desde: 5 de septiembre de 2026**
+**Última actualización: 10 de septiembre de 2026 · Vigente desde: 10 de septiembre de 2026**
 
 Esta política explica qué datos recoge Ganju cuando usas el servicio alojado en
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai` y `mcp.ganju.ai`, para qué los usamos,
@@ -82,14 +82,17 @@ token de la invitación y si fue aceptada, rechazada o venció.
 ### Facturación y consumo
 
 Plan y estado de la suscripción, período de facturación vigente, indicadores de
-cancelación e identificadores de cliente y suscripción en Stripe. Medimos tres cosas
-por organización: **respuestas del asistente** en canales de chat, **contenido
-indexado (embebido) en megabytes** y **llamadas a las funciones que escribiste en
-código**, además del excedente ya reportado a Stripe.
+cancelación e identificadores de cliente y suscripción en nuestro proveedor de
+facturación. Medimos tres cosas por organización: **respuestas del asistente** en
+canales de chat, **contenido indexado (embebido) en megabytes** y **llamadas a las
+funciones que escribiste en código**, además del excedente ya reportado para
+facturación. También conservamos un registro por período de esas cifras una vez que el
+período cierra, de modo que una factura pueda explicarse después.
 
-**Nunca vemos ni almacenamos los datos de tu tarjeta.** Los medios de pago los recoge
-y custodia Stripe; nosotros solo recibimos identificadores y el estado de la
-suscripción.
+**Nunca vemos ni almacenamos los datos de tu tarjeta.** Los planes pagos se venden a
+través de **Polar Software, Inc.**, que actúa como comercializador registrado
+(*merchant of record*): los medios de pago los recoge y custodia Polar, y nosotros
+solo recibimos identificadores y el estado de la suscripción.
 
 ### Contenido de Cliente
 
@@ -169,7 +172,7 @@ Usamos los datos anteriores para:
   historial reciente de cada proyecto se construyen con los registros descritos arriba.
 - **Facturarte correctamente** — contar respuestas del asistente y almacenamiento
   indexado contra el cupo de tu plan, aplicar los topes del plan Gratis y reportar el
-  excedente a Stripe.
+  excedente a nuestro proveedor de facturación.
 - **Mantener todo seguro** — detectar abusos, depurar fallas, filtrar solicitudes
   salientes e investigar incidentes de seguridad.
 - **Comunicarnos contigo** — correos transaccionales como las invitaciones, y
@@ -394,7 +397,7 @@ contenido.
 | **Neon** (Postgres sobre AWS, `us-east-1`) | La base de datos principal: cuentas, espacios de trabajo, contenido, fragmentos, embeddings y registros | Nuestro sistema de registro |
 | **Google** (API de Gemini) | Texto de recursos y consultas de búsqueda; contenido de chat cuando se usa el modelo compartido | Embeddings y modelo compartido por defecto |
 | **Anthropic**, **OpenAI** o un endpoint compatible | Contenido de chat | Solo cuando configuras tu propio modelo |
-| **Stripe** | Nombre, correo, datos de facturación, medio de pago, conteos de consumo | Pagos y administración de suscripciones |
+| **Polar** (Polar Software, Inc.) | Nombre, correo, datos de facturación, medio de pago, conteos de consumo | Comercializador registrado: pagos, suscripciones e impuestos sobre las ventas |
 | **Tavily** | Tus consultas de búsqueda y URL objetivo | Solo si instalas las herramientas de búsqueda web |
 | **Telegram**, **Slack**, **Meta (WhatsApp)**, **Discord** | Mensajes hacia y desde tu bot | Solo para los canales que conectes |
 | **Google**, **Microsoft**, **Slack**, **Cal.com** | Las solicitudes que hagan tus herramientas | Solo para las cuentas que conectes |
@@ -465,7 +468,7 @@ configuraciones — se conserva hasta que tú lo borres.
   fragmento, canal, conversación, mensaje, credencial, configuración de modelo,
   invitación y registro de auditoría. Es irreversible.
 - **Los archivos cargados** en R2 se eliminan junto con el recurso que los referencia.
-- **Los registros de facturación** los conservamos nosotros y Stripe por el tiempo que
+- **Los registros de facturación** los conservamos nosotros y Polar por el tiempo que
   exijan las normas tributarias y contables, incluso después de que te vayas.
 - **Las copias de respaldo** se rotan según el calendario de nuestro proveedor, así
   que los datos borrados pueden persistir en respaldos durante un período corto.

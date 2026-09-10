@@ -17,7 +17,7 @@ tiene, y te permite renombrarla.
 ## Facturación y plan
 
 **Billing & plan** muestra tu plan actual, su fecha de renovación y tu consumo
-frente a cada cuota. **Manage billing** abre el portal de clientes de Stripe; en el
+frente a cada cuota. **Manage billing** abre el portal de facturación; en el
 plan Gratis verás **Upgrade to Pro** en su lugar. La captura de abajo muestra una
 organización **Pro** — `Pro plan · active`, con las respuestas del asistente
 medidas contra las `3,000` incluidas.

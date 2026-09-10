@@ -8,7 +8,8 @@ The schema is defined with Drizzle in [`packages/db/src/lib/schema.ts`](../packa
 user
  └── organization        (ownerId → user)
       ├── organizationUser     (role: ADMIN)   membership
-      ├── subscription         the plan, its Stripe ids, and the usage counters (one per org)
+      ├── subscription         the plan, its billing ids, and the usage counters (one per org)
+      ├── usagePeriod          one closed usage period per org, written at rollover
       ├── organizationLlm      org-level LLM configs (provider, model, apiKey, systemPrompt)
       ├── accessToken         a machine credential, scoped to one project, acting as one user
       ├── invitation           org/project invites (token, status, expiry)
@@ -94,7 +95,7 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
 
 ## Billing & metering
 
-**`subscription`** is one row per organization (unique FK, cascade) holding the plan and everything billing needs: `plan`, `status`, the three Stripe ids (`stripeCustomerId` / `stripeSubscriptionId` / `stripePriceId`), the Stripe period (`currentPeriodStart` / `currentPeriodEnd`), `cancelAtPeriodEnd`, and the `customDomain` add-on. Plan **limits** are not here — they live in code, in [`PLAN_LIMITS`](../packages/utils/src/constants.ts), so a plan's allowances are the same everywhere and a row cannot disagree with them.
+**`subscription`** is one row per organization (unique FK, cascade) holding the plan and everything billing needs: `plan`, `status`, the three provider ids (`billingCustomerId` / `billingSubscriptionId` / `billingProductId`), the provider's period (`currentPeriodStart` / `currentPeriodEnd`), `cancelAtPeriodEnd`, and the `customDomain` add-on. The ids are provider-neutral by name because the counters beside them already are. `billingProductId` is a **product**, not a price: the base fee and all four metered rates hang off one product, so the product is what identifies the plan. Plan **limits** are not here — they live in code, in [`PLAN_LIMITS`](../packages/utils/src/constants.ts), so a plan's allowances are the same everywhere and a row cannot disagree with them.
 
 Three axes are metered, and each is a counter plus a mark:
 
@@ -103,14 +104,19 @@ Three axes are metered, and each is a counter plus a mark:
 | Channel messages on the customer's own LLM key | `messageCount` | `reportedMessageOverage` |
 | Channel messages on our shared key | `sharedMessageCount` | `reportedSharedMessageOverage` |
 | Custom tool calls (dispatches into user code) | `toolCallCount` | `reportedToolCallOverage` |
-| Embedded storage | — live sum over resource chunks | `reportedEmbeddedOverageMb` |
+| Embedded storage | `peakEmbeddedMb`, the period's high-water | `reportedEmbeddedOverageMb` |
 
 - **The counters are columns, not queries.** `mcpRequest` holds one row per call and counting them would answer the same question — but that table is purged on a 90-day retention window, which is shorter than some billing disputes, and an hourly cron scanning every artifact in an organization is a scan where reading one row is a read.
-- **The marks are the only memory of what was already billed.** The hourly sweep reports the delta between an axis's counter and its mark, then advances the mark — so a mark that moves without its Stripe event landing loses that usage for good, while a mark that stays put costs one retry. Each meter therefore reports independently: one rejected event must not abort the others or strand their marks.
-- **`messagePeriodStart` is the usage period, and it is not the Stripe period.** A rollover zeroes every counter and every mark together. A null value reads as a period that has ended, so `ensureSubscription` stamps it at creation — usage recorded before a row's first budget check would otherwise be discarded.
+- **The marks are the only memory of what was already billed.** The hourly sweep reports the delta between an axis's counter and its mark, then advances the mark — so a mark that moves without its event landing loses that usage for good, while a mark that stays put costs one retry. Each meter therefore reports independently: one rejected event must not abort the others or strand their marks. Each event also carries a stable `external_id` built from the subscription, meter, period and new mark, so a retry after a failed mark advance deduplicates at the provider rather than double-billing.
+- **`messagePeriodStart` is the usage period, and it is not the provider's period.** A rollover zeroes every counter and every mark together. A null value reads as a period that has ended, so `ensureSubscription` stamps it at creation — usage recorded before a row's first budget check would otherwise be discarded.
+- **Storage is a level, not a counter**, so `peakEmbeddedMb` records the high-water within the period. Reading storage at period close would miss an organization that held 50GB for three weeks and deleted it on the 28th. The measuring half of the hourly sweep maintains it for every entitled paid org — including one with no provider customer, which is what makes an Enterprise period billable by hand.
 - **Only custom tool calls count as tool calls.** A shipped integration or a proxied remote server is one screened fetch from a Worker we already pay for; metering those would bill for something that rounds to zero and turn the tool list into a thing to ration.
 
-`lastStripeEventAt` guards webhook ordering — a stale event arriving after a newer one is ignored rather than reapplied.
+`lastBillingEventAt` guards webhook ordering — a delivery describing an older state than the one already applied is ignored rather than reapplied. It holds the subscription's own `modified_at` (falling back to `created_at`) as epoch ms, so ordering follows when the subscription actually changed rather than when a message about it was sent.
+
+**`usagePeriod`** is one immutable row per organization per closed period, written by the rollover *before* it zeroes the counters. It carries the three counters, `peakEmbeddedMb`, the plan in force, the period bounds, and what was reported to the provider.
+
+Without it the first of the month destroys the evidence for the month just ended, which is what an invoice is written from. It matters most for Enterprise — billed by hand, against real consumption, by clients paying outside the provider entirely — but it is also the only surviving record of what a Pro organization was charged for once its marks reset. Unique on `(organizationId, periodStart)`, so the rollover's insert is idempotent: a retry after a partial rollover finds the row rather than writing a second one.
 
 ## Observability & audit tables
 

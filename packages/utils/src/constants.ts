@@ -1811,7 +1811,8 @@ const PLAN_PRO = 'PRO' as 'PRO';
 const PLAN_ENTERPRISE = 'ENTERPRISE' as 'ENTERPRISE';
 const PLANS = [PLAN_FREE, PLAN_PRO, PLAN_ENTERPRISE];
 
-// Mirror Stripe's subscription statuses so the webhook can store them verbatim.
+// The provider's subscription statuses, mirrored so the webhook can store them
+// verbatim.
 const SUBSCRIPTION_STATUS_ACTIVE = 'active' as 'active';
 const SUBSCRIPTION_STATUS_TRIALING = 'trialing' as 'trialing';
 const SUBSCRIPTION_STATUS_PAST_DUE = 'past_due' as 'past_due';
@@ -2084,27 +2085,41 @@ const PLAN_FEATURE_TOOL_CALL = 'toolCall' as 'toolCall';
 // Stable code returned on a quota block so clients can branch on it (402).
 const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
 
-// Stripe Billing Meter event names. The metering cron reports per-period
-// OVERAGE (usage above the plan's included allowance) to these meters; the
-// meters' prices on the subscription turn that into charges. Embedded storage
-// is reported in whole MB, messages as a raw count.
+// Billing meter event names. The metering cron reports per-period OVERAGE
+// (usage above the plan's included allowance) to these meters; the meters'
+// prices on the subscribed product turn that into charges. Embedded storage is
+// reported in whole MB, messages as a raw count.
+//
+// Each name must match the filter on its meter exactly. A mismatch is not an
+// error at either end — the event is accepted, matches no meter, and the usage
+// is silently unbilled.
 //
 // Messages report to two separate meters because the two kinds of turn bill at
 // different rates — a turn on the org's own key is a platform fee, a turn on our
 // model is inference we bought. One meter can't price both.
-const STRIPE_METER_MESSAGES = 'ganju_channel_messages';
-const STRIPE_METER_SHARED_MESSAGES = 'ganju_shared_messages';
-const STRIPE_METER_EMBEDDED = 'ganju_embedded_storage';
+const BILLING_METER_MESSAGES = 'ganju_channel_messages';
+const BILLING_METER_SHARED_MESSAGES = 'ganju_shared_messages';
+const BILLING_METER_EMBEDDED = 'ganju_embedded_storage';
 // Custom-tool invocations, reported as a raw count of the calls above the
-// included allowance. Its price is a package of 1,000 at $0.005 rather than
-// per-unit — $5/1,000,000 renders per-unit as $0.000005, which no invoice line
-// should have to say. The other direction is worse for a different reason:
-// Stripe rounds a PARTIAL package up, so at 1,000,000 a customer ten calls past
-// the allowance would owe the whole $5, and one 2.5 million past would owe $15
-// against the $12.50 every page of ours quotes. At 1,000 the rounding
-// disappears into the noise of a million-call allowance, and the invoice reads
-// as usage — `2,500 × $0.005`.
-const STRIPE_METER_TOOL_CALLS = 'ganju_custom_tool_calls';
+// included allowance and priced per call at $5/1,000,000. Metered prices are
+// per single unit, so a partial block is billed as the fraction it is — a
+// customer 2.5 million past the allowance owes $12.50, which is what every page
+// of ours quotes.
+const BILLING_METER_TOOL_CALLS = 'ganju_custom_tool_calls';
+
+// The metadata property every meter aggregates (`sum` over it). Ingested events
+// carry the increment under this key, so it has to agree with the aggregation
+// configured on all four meters — which is why it lives beside their names
+// rather than at the call site.
+const BILLING_METER_UNITS_KEY = 'units';
+
+// Polar API hosts. Sandbox is a separate host rather than a mode flag, so the
+// account, products, meters and webhook secret there are all distinct from
+// production's — which is what `POLAR_SERVER` selects between.
+const POLAR_API_BASE = 'https://api.polar.sh';
+const POLAR_SANDBOX_API_BASE = 'https://sandbox-api.polar.sh';
+const POLAR_SERVER_SANDBOX = 'sandbox' as 'sandbox';
+const POLAR_SERVER_PRODUCTION = 'production' as 'production';
 
 // Legal documents a user accepts, and the version they're on. Bump the version
 // when the document changes materially — existing users are then re-prompted,
@@ -2113,7 +2128,7 @@ const STRIPE_METER_TOOL_CALLS = 'ganju_custom_tool_calls';
 const CONSENT_DOCUMENT_TERMS = 'terms' as 'terms';
 const CONSENT_DOCUMENT_PRIVACY = 'privacy' as 'privacy';
 const CONSENT_DOCUMENTS = [CONSENT_DOCUMENT_TERMS, CONSENT_DOCUMENT_PRIVACY];
-const CONSENT_CURRENT_VERSION = '2026-08-31';
+const CONSENT_CURRENT_VERSION = '2026-09-10';
 
 const CONSENT_SOURCE_SIGNUP = 'signup' as 'signup';
 const CONSENT_SOURCE_REACCEPT = 'reaccept' as 'reaccept';
@@ -2249,10 +2264,15 @@ export const constants = {
   PLAN_FEATURE_MESSAGE,
   PLAN_FEATURE_TOOL_CALL,
   PLAN_LIMIT_ERROR_CODE,
-  STRIPE_METER_MESSAGES,
-  STRIPE_METER_SHARED_MESSAGES,
-  STRIPE_METER_EMBEDDED,
-  STRIPE_METER_TOOL_CALLS,
+  BILLING_METER_MESSAGES,
+  BILLING_METER_SHARED_MESSAGES,
+  BILLING_METER_EMBEDDED,
+  BILLING_METER_TOOL_CALLS,
+  BILLING_METER_UNITS_KEY,
+  POLAR_API_BASE,
+  POLAR_SANDBOX_API_BASE,
+  POLAR_SERVER_SANDBOX,
+  POLAR_SERVER_PRODUCTION,
   CONSENT_DOCUMENT_TERMS,
   CONSENT_DOCUMENT_PRIVACY,
   CONSENT_DOCUMENTS,

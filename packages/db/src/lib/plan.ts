@@ -16,7 +16,7 @@ const { constants, PlanLimitError } = utils;
 // caps every dispatch into a user's script, and it is likewise not allowed to
 // import from apps/api.
 //
-// Message caps and everything Stripe-facing stay in apps/api: they have one
+// Message caps and everything billing-facing stay in apps/api: they have one
 // caller, and moving them would drag the billing surface into a package three
 // workers import.
 //
@@ -144,12 +144,12 @@ export const assertEmbeddedStorageQuota = async (
 // usage period — shared by every metered counter on the subscription row
 
 // Start of the current calendar month in UTC. What a Free org is measured
-// against: it has no Stripe subscription, so there is no billing period to read.
+// against: it has no paid subscription, so there is no billing period to read.
 const monthStartUtc = (now: Date): Date =>
   new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
 /**
- * The period every usage counter on this subscription belongs to: the Stripe
+ * The period every usage counter on this subscription belongs to: the provider's
  * billing period on a paid plan, the calendar month otherwise.
  *
  * One definition, because two would disagree the first time an org's billing
@@ -201,6 +201,38 @@ export const rollUsagePeriodIfDue = async (
     };
   }
 
+  // Close the outgoing period BEFORE zeroing it. The counters below are the only
+  // record of what this organization used, and the update that follows destroys
+  // them — so the snapshot is what any invoice written after the first of the
+  // month is read from.
+  //
+  // Insert first, then zero. The unique key on (organization, period start)
+  // makes the insert idempotent, so a failure between the two statements leaves
+  // a snapshot that the retry finds already written rather than a duplicate. The
+  // other order would lose the period outright.
+  //
+  // A row with no `messagePeriodStart` has no period to close: it was stamped at
+  // creation and has never been rolled, so its counters are zero by definition.
+  if (sub.messagePeriodStart) {
+    await executor
+      .insert(schema.usagePeriod)
+      .values({
+        organizationId: sub.organizationId,
+        periodStart: sub.messagePeriodStart,
+        periodEnd: periodStart,
+        plan: sub.plan,
+        messageCount: sub.messageCount,
+        sharedMessageCount: sub.sharedMessageCount,
+        toolCallCount: sub.toolCallCount,
+        peakEmbeddedMb: sub.peakEmbeddedMb,
+        reportedMessageOverage: sub.reportedMessageOverage,
+        reportedSharedMessageOverage: sub.reportedSharedMessageOverage,
+        reportedEmbeddedOverageMb: sub.reportedEmbeddedOverageMb,
+        reportedToolCallOverage: sub.reportedToolCallOverage
+      })
+      .onConflictDoNothing();
+  }
+
   await executor
     .update(schema.subscription)
     .set({
@@ -211,7 +243,8 @@ export const rollUsagePeriodIfDue = async (
       reportedMessageOverage: 0,
       reportedSharedMessageOverage: 0,
       reportedEmbeddedOverageMb: 0,
-      reportedToolCallOverage: 0
+      reportedToolCallOverage: 0,
+      peakEmbeddedMb: 0
     })
     .where(eq(schema.subscription.id, sub.id));
 

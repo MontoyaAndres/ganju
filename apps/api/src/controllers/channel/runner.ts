@@ -913,7 +913,7 @@ export const runChannelTurn = async (
 
   // Count this assistant turn against the org's monthly budget synchronously.
   // This single cheap UPDATE is billing-grade — `checkMessageCap` reads it to
-  // enforce the Free cap and the hourly meter reports it to Stripe as overage —
+  // enforce the Free cap and the hourly meter reports it as overage —
   // so it must not ride on waitUntil, which can silently drop work if the isolate
   // is evicted (dropping it lets Free bots overrun and under-reports revenue).
   // Best-effort still: a metering failure must never break delivery.

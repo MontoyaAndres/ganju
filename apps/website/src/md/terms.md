@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated: August 31, 2026 · Effective: August 31, 2026**
+**Last updated: September 10, 2026 · Effective: September 10, 2026**
 
 These terms are the agreement between you and **Ganju S.A.S.**, a *sociedad por
 acciones simplificada* incorporated under the laws of Colombia with its registered
@@ -136,17 +136,25 @@ acting on this.
 
 ### Payment
 
-Paid plans are billed through **Stripe**. Subscriptions renew automatically each
-period until cancelled, and usage-based charges are billed in arrears for the period
-in which they accrued. **All prices are in US dollars** and exclude taxes; where we're
-required to collect Colombian IVA, VAT, sales tax, or a similar levy, it's added at
-checkout. Your bank's currency conversion and international transaction fees are
-yours.
+Paid plans are sold and billed through **Polar Software, Inc.** ("Polar"), which acts
+as our **merchant of record**. This means Polar — not Ganju — is the seller on the
+purchase: your payment is made to Polar, Polar issues the invoice or receipt, and
+Polar collects and remits any applicable sales tax, VAT, or IVA. Your use of the
+Service is still governed by these terms and your relationship for the Service is
+still with us; it is the *purchase transaction* that is with Polar, and Polar's own
+terms apply to it.
 
-You can cancel any time from the Stripe billing portal. **Cancellation takes effect
-at the end of the current period** — you keep paid features until then, and no refund
-is issued for the remainder. Outside the withdrawal right below, fees already paid
-are non-refundable except where the law requires otherwise.
+Subscriptions renew automatically each period until cancelled, and usage-based charges
+are billed in arrears for the period in which they accrued. **All prices are in US
+dollars** and exclude taxes, which are added at checkout where required. Your bank's
+currency conversion and international transaction fees are yours.
+
+You can cancel any time from the billing portal. **Cancellation takes effect at the
+end of the current period** — you keep paid features until then, and no refund is
+issued for the remainder. Outside the withdrawal right below, fees already paid are
+non-refundable except where the law requires otherwise. Because Polar is the seller,
+refunds are issued by Polar; contact us at **hello@ganju.ai** and we will raise it
+with them on your behalf.
 
 ### Right of withdrawal (derecho de retracto)
 

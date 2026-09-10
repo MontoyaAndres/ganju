@@ -5,7 +5,7 @@ import type { Catalog } from '../core';
  * members. One catalog for the three, because they share a page and a register:
  * `settings-section-title` says the same kind of thing in all of them.
  *
- * Plan names (`Free`, `Pro`, `Enterprise`) and Stripe's subscription status are
+ * Plan names (`Free`, `Pro`, `Enterprise`) and the subscription status are
  * product vocabulary and stay as they are. So do the prices, which arrive from
  * the API already formatted in dollars.
  */
