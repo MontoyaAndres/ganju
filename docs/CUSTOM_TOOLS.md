@@ -1016,18 +1016,11 @@ to tools the customer wrote include a million a month and then bill. Terms,
 privacy, the pricing page, the docs and the plan tables all said "only two things
 are metered" and now say three, in both languages.
 
-> **These three scripts still target Stripe and have not been ported.** They call
-> `api.stripe.com` directly and `--live-stripe` names a Stripe key, so they cannot
-> run against Polar as written. The arithmetic they cover is unchanged by the
-> move — it is the provider calls around it that need rewriting. Until then, read
-> this section as a record of what was verified under Stripe rather than as
-> something reproducible today.
-
 **Verified** by [scripts/verify-tool-call-metering.mjs](../scripts/verify-tool-call-metering.mjs)
-— 64 checks, all passing, driving the real modules rather than restating their
+— 76 checks, all passing, driving the real modules rather than restating their
 arithmetic: apps/mcp's `flushRequests` for the counting, `@ganju/db`'s budget for
-the cap, and apps/api's `meterOrganization` for what reaches Stripe, with a stub
-that records meter events instead of billing them. It scaffolds a throwaway PRO
+the cap, and apps/api's `meterOrganization` for what reaches the provider, with a
+stub that records ingested events instead of billing them. It scaffolds a throwaway PRO
 org and removes it.
 
 What it covers: native tools not counting while custom ones do, and a mixed
@@ -1051,15 +1044,24 @@ module, so the snapshots, deltas, thresholds and cooldown under test are real.
 drive it without the sweep rolling every other organization's period. Only the
 cron calls `runOverageMetering`.
 
-**`--live-stripe` reports one real overage to the real meter**, through the same
-function the hourly cron calls, against a throwaway customer it deletes
-afterwards. Off by default, because every other check needs no key and bills
-nothing — and on, it is the only thing that proves the event our code sends is
-one the meter actually counts: 12,345 calls reported, accepted, and aggregated to
-exactly 12,345.
+**`--live-polar` reports one real overage to the real sandbox meter**, through
+the same function the hourly cron calls, keyed on the run's own throwaway
+organization — there is no customer object to create or delete, because ingestion
+resolves the customer from `external_customer_id`. Off by default, because every
+other check needs no token and bills nothing.
 
-**Adding a fourth meter found a fault in how three were reported.** Stripe
-rejects an event whose name matches no active meter, and `ganju_custom_tool_calls`
+It is the only thing that proves the event our code sends is one a meter actually
+counts, and that takes two separate facts. **Acceptance is not counting**: an
+event whose name matches no meter filter is answered `200` and aggregated by
+nothing, which is the one failure invisible from our side. So the run asserts the
+endpoint accepted it, that a meter filters on that exact event name, and that the
+aggregate came back equal — 12,345 reported, accepted, counted as 12,345. The
+last two need `meters:read`, which the runtime token does not need and should not
+have; without it they report as pending rather than passing.
+
+**Adding a fourth meter found a fault in how three were reported.** (Under
+Stripe. Kept because the fix it produced is still exactly what the code does.)
+Stripe rejects an event whose name matches no active meter, and `ganju_custom_tool_calls`
 does not exist yet — so the reporting order mattered in a way it never had to
 before. The rejection escaped `reportMeter` and aborted the organization's whole
 run *after* the message and storage events had been sent and *before* the marks
@@ -1083,7 +1085,7 @@ meter's unit multiplier. The four meters and both products now exist in Polar
 [POLAR_MIGRATION.md](POLAR_MIGRATION.md).
 
 **Verified on the deployed development environment** by
-[probe-tool-call-metering.mjs](../scripts/probe-tool-call-metering.mjs) — 37
+[probe-tool-call-metering.mjs](../scripts/probe-tool-call-metering.mjs) — 52
 checks, all passing. The verify script drives the modules as
 functions, which proves the arithmetic and nothing about the deployment: not that
 the boot loop passes the organization id, not that the gate runs before the

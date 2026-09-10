@@ -11,7 +11,10 @@
 // This goes through the network at whatever is actually serving.
 //
 // It needs .env: DATABASE_URL, JWT_SECRET (which signs the session cookie),
-// MCP_INTERNAL_SECRET, CLOUDFLARE_ACCOUNT_ID, CUSTOM_CODE_CF_API_TOKEN.
+// MCP_INTERNAL_SECRET, CLOUDFLARE_ACCOUNT_ID, CUSTOM_CODE_CF_API_TOKEN and
+// POLAR_ACCESS_TOKEN. Reading the product and meters back additionally wants
+// `products:read` and `meters:read` on that token; without them those checks
+// report as pending rather than failing.
 //
 // Scaffolds a throwaway user + PRO organization + project + artifact and removes
 // everything it created, including any script left in the dispatch namespace.
@@ -48,7 +51,7 @@ for (const [k, v] of Object.entries({
   MCP_INTERNAL_SECRET: MCP_SECRET,
   CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
   CUSTOM_CODE_CF_API_TOKEN: CF_TOKEN,
-  STRIPE_SECRET_KEY: read('STRIPE_SECRET_KEY')
+  POLAR_ACCESS_TOKEN: read('POLAR_ACCESS_TOKEN')
 })) {
   if (!v) throw new Error(`Missing ${k} in .env`);
 }
@@ -196,25 +199,51 @@ const counterReaches = async (expected, tries = 25) => {
   return false;
 };
 
-// Stripe, read directly, to check what the DEPLOYED worker built. A checkout
-// session is the only place the price ids are assembled, and the worker reads
-// them from secrets — so a correct .env proves nothing about it.
-const STRIPE_KEY = read('STRIPE_SECRET_KEY');
-const stripe = async (path, params) => {
-  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
-    method: params ? 'POST' : 'GET',
+// Polar, read directly, to check the objects the DEPLOYED worker bills against.
+// The worker reads the product id from a secret, so a correct .env proves
+// nothing about what it actually charges.
+const POLAR_TOKEN = read('POLAR_ACCESS_TOKEN');
+const POLAR_HOST =
+  read('POLAR_SERVER') === 'production'
+    ? 'https://api.polar.sh'
+    : 'https://sandbox-api.polar.sh';
+const polar = async path => {
+  const res = await fetch(`${POLAR_HOST}/v1/${path}`, {
     headers: {
-      Authorization: `Basic ${Buffer.from(`${STRIPE_KEY}:`).toString('base64')}`,
-      ...(params ? { 'content-type': 'application/x-www-form-urlencoded' } : {})
-    },
-    ...(params ? { body: new URLSearchParams(params) } : {})
+      Authorization: `Bearer ${POLAR_TOKEN}`,
+      Accept: 'application/json'
+    }
   });
-  return res.json();
+  const text = await res.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = { raw: text };
+  }
+  // Read scopes are separate from the write scopes the runtime needs, so a 403
+  // here means an under-scoped token rather than a missing object.
+  return { status: res.status, forbidden: res.status === 403, body };
 };
 
-// Anything created in Stripe by this run, undone in the finally block.
-let checkoutSessionId = null;
-let stripeCustomerId = null;
+// A meter's `name` is a display name; the event name it matches lives in its
+// filter, as an `eq` clause on the `name` property. That indirection is why a
+// mismatch is silent — the meter reads fine and counts nothing.
+const eventNameOf = meter => {
+  const walk = node => {
+    if (!node) return undefined;
+    for (const clause of node.clauses || []) {
+      if (clause.clauses) {
+        const nested = walk(clause);
+        if (nested) return nested;
+      } else if (clause.property === 'name' && clause.operator === 'eq') {
+        return clause.value;
+      }
+    }
+    return undefined;
+  };
+  return walk(meter.filter);
+};
 
 const artifactBase = `/organization/${orgId}/project/${projectId}/artifact`;
 const ccBase = `${artifactBase}/custom-code`;
@@ -262,7 +291,12 @@ try {
   await sql`insert into "user" ${sql({
     id: userId,
     name: 'probe metering',
-    email: `probe-meter-${Date.now()}@example.invalid`,
+    // A real domain, not `@example.invalid`. The checkout below forwards this
+    // address to the provider, which validates it and refuses reserved or
+    // special-use TLDs with a 422 — where Stripe accepted anything. Nothing is
+    // ever sent here: an unpaid checkout session emails nobody, and the user is
+    // deleted in the finally block.
+    email: `probe-meter-${Date.now()}@ganju.ai`,
     email_verified: true
   })}`;
   await sql`insert into session ${sql({
@@ -629,7 +663,7 @@ try {
   await sql`update artifact_tool set enabled = true where artifact_id = ${artifactId} and tool_key = 'custom-code'`;
 
   // --- 9. checkout, built by the deployed worker --------------------------
-  section('the price the deployed worker puts in a checkout session');
+  section('the checkout the deployed worker builds');
 
   // Checkout refuses an organization that is already paid, so this asks as a
   // Free one — which is also the only shape that ever reaches this route.
@@ -645,61 +679,112 @@ try {
   );
 
   if (checkout.body?.url) {
-    const sessionId = new URL(checkout.body.url).pathname.split('/').pop();
-    // The hosted URL carries a `cs_test_…#fid…` fragment; the id is the part
-    // before the fragment, and Stripe's own id is what the API is keyed by.
+    const host = new URL(checkout.body.url).hostname;
+    check(
+      '  ...on the provider host this environment is pointed at',
+      host.endsWith('polar.sh'),
+      host
+    );
+
+    // The design change worth asserting: nothing is created up front. The
+    // organization id goes out as `external_customer_id` and Polar makes the
+    // customer at checkout, which is what deleted `ensureStripeCustomer` and the
+    // ordering it forced. A row that already had an id here would mean the old
+    // pre-create path had somehow survived.
     const [sub] = await sql`
-      select stripe_customer_id from subscription where organization_id = ${orgId}`;
-    stripeCustomerId = sub?.stripe_customer_id ?? null;
+      select billing_customer_id from subscription where organization_id = ${orgId}`;
     check(
-      '  ...against a Stripe customer it created for the org',
-      typeof stripeCustomerId === 'string' &&
-        stripeCustomerId.startsWith('cus_'),
-      String(stripeCustomerId)
+      '  ...without pre-creating a billing customer',
+      sub?.billing_customer_id == null,
+      'the webhook fills this in once the customer actually pays'
     );
+  }
 
-    // Find the session by customer rather than by parsing the hosted URL, which
-    // is not a documented shape.
-    const sessions = await stripe(
-      `checkout/sessions?customer=${stripeCustomerId}&limit=1`
+  // --- 10. the product every rate hangs off -------------------------------
+  section('the product the deployed worker charges against');
+
+  // This replaces the five-line-item assertion the Stripe path needed. There are
+  // no line items to assemble any more: one product carries the base fee and all
+  // four metered rates, so the product IS the pricing, and checking it is
+  // checking what a customer would actually be billed.
+  const productId = read('POLAR_PRODUCT_PRO');
+  check('POLAR_PRODUCT_PRO is set', !!productId, productId || 'unset');
+
+  const product = productId
+    ? await polar(`products/${productId}`)
+    : { forbidden: false, status: 0, body: {} };
+
+  if (product.forbidden) {
+    console.log(
+      '  pend   the product cannot be read — POLAR_ACCESS_TOKEN lacks products:read'
     );
-    const session = sessions.data?.[0];
-    checkoutSessionId = session?.id ?? null;
+  } else if (productId) {
     check(
-      '  ...that Stripe can be asked about',
-      !!session,
-      session?.id || sessions.error?.message || sessionId
+      'the product the secret names exists',
+      product.status === 200,
+      product.status === 200 ? product.body.name : `HTTP ${product.status}`
     );
 
-    if (session) {
-      const items = await stripe(`checkout/sessions/${session.id}/line_items`);
-      const priceIds = (items.data || []).map(li => li.price.id);
-      check(
-        'the session carries all five line items',
-        priceIds.length === 5,
-        `${priceIds.length} items`
-      );
-      // The whole point of setting the secret: an unset one is skipped in
-      // silence, and the customer is served custom tool calls for free.
-      const toolCallPrice = read('STRIPE_PRICE_TOOL_CALL_OVERAGE');
-      check(
-        '  ...including the custom tool call price the secret names',
-        priceIds.includes(toolCallPrice),
-        priceIds.join(', ')
-      );
+    const prices = product.body?.prices || [];
+    const fixed = prices.filter(pr => pr.amount_type === 'fixed');
+    const metered = prices.filter(pr => pr.amount_type === 'metered_unit');
 
-      const price = await stripe(`prices/${toolCallPrice}`);
-      check(
-        '  ...priced per 1,000 calls, not per million',
-        price.transform_quantity?.divide_by === 1000 &&
-          price.unit_amount_decimal === '0.5',
-        `${price.unit_amount_decimal}¢ per ${price.transform_quantity?.divide_by}`
+    check(
+      '  ...billed monthly',
+      product.body?.recurring_interval === 'month',
+      String(product.body?.recurring_interval)
+    );
+    check(
+      '  ...with the $29 base price',
+      fixed.length === 1 && fixed[0].price_amount === 2900,
+      fixed.length ? `${fixed[0].price_amount} cents` : 'no fixed price'
+    );
+    check(
+      '  ...and all four metered rates on the same product',
+      metered.length === 4,
+      `${metered.length} metered prices`
+    );
+
+    // An unset rate used to be a silent skip in checkout; now the equivalent
+    // failure is a product missing a metered price, which is equally silent —
+    // the cron goes on reporting usage that nothing prices.
+    const meters = await polar('meters/?limit=100');
+    if (meters.forbidden) {
+      console.log(
+        '  pend   the meters cannot be read — POLAR_ACCESS_TOKEN lacks meters:read'
+      );
+      console.log(
+        '         the four rates are present; that they point at OUR meters is unverified.'
+      );
+    } else {
+      const nameById = Object.fromEntries(
+        (meters.body.items || []).map(m => [m.id, eventNameOf(m)])
+      );
+      const wired = metered.map(pr => nameById[pr.meter_id]).filter(Boolean);
+      // Written out rather than imported, for the same reason as the plan
+      // numbers above: importing the constant would have this file and the code
+      // agree with each other about a name neither of them checks against the
+      // meter. These four are what the meters must filter on.
+      for (const expected of [
+        'ganju_channel_messages',
+        'ganju_shared_messages',
+        'ganju_embedded_storage',
+        'ganju_custom_tool_calls'
+      ]) {
+        check(
+          `  ...one priced against ${expected}`,
+          wired.includes(expected),
+          wired.join(', ') || 'none matched'
+        );
+      }
+
+      const toolCallPrice = metered.find(
+        pr => nameById[pr.meter_id] === 'ganju_custom_tool_calls'
       );
       check(
-        '  ...against the meter apps/api reports to',
-        price.recurring?.meter &&
-          (await stripe(`billing/meters/${price.recurring.meter}`))
-            .event_name === 'ganju_custom_tool_calls'
+        '  ...the tool-call rate priced per single call',
+        Number(toolCallPrice?.unit_amount) === 0.0005,
+        `${toolCallPrice?.unit_amount} cents per call — $5 per million`
       );
     }
   }
@@ -716,30 +801,10 @@ try {
     );
   }
 
-  if (checkoutSessionId) {
-    const expired = await stripe(
-      `checkout/sessions/${checkoutSessionId}/expire`,
-      {}
-    );
-    console.log(
-      `  ${expired?.status === 'expired' ? 'expired' : 'FAILED '} checkout session ${checkoutSessionId}`
-    );
-  }
-  if (stripeCustomerId) {
-    const res = await fetch(
-      `https://api.stripe.com/v1/customers/${stripeCustomerId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${STRIPE_KEY}:`).toString('base64')}`
-        }
-      }
-    );
-    const body = await res.json().catch(() => ({}));
-    console.log(
-      `  ${body.deleted ? 'deleted' : 'FAILED '} stripe customer ${stripeCustomerId}`
-    );
-  }
+  // Nothing to undo at the provider. The checkout session this run opened was
+  // never paid and expires on its own, and no customer was created — the whole
+  // point of `external_customer_id` is that there is no object to clean up until
+  // somebody actually buys something.
 
   await sql`delete from mcp_request where session_id in (select id from mcp_session where artifact_id = ${artifactId})`;
   await sql`delete from mcp_session where artifact_id = ${artifactId}`;

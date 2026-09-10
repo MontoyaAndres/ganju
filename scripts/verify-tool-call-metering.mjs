@@ -1,13 +1,13 @@
 // Verifies the custom-tool metering path against the dev database, driving the
 // REAL modules rather than a re-implementation of their arithmetic: apps/mcp's
 // flushRequests for the counting, @ganju/db's budget for the cap, and apps/api's
-// meterOrganization for what reaches Stripe.
+// meterOrganization for what reaches the billing provider.
 //
 //   node scripts/verify-tool-call-metering.mjs           # dev  (.env)
 //   node scripts/verify-tool-call-metering.mjs --prod    # prod (.env.prod)
 //
-// Stripe is a stub that records the events it was handed, so nothing is billed
-// and no key is needed. Everything else is real, including the writes — the
+// Polar is a stub that records the events it was handed, so nothing is billed
+// and no token is needed. Everything else is real, including the writes — the
 // scaffold is a throwaway organization → project → artifact, and it is removed
 // at the end.
 //
@@ -22,11 +22,13 @@ import postgres from 'postgres';
 import { v7 as uuid } from 'uuid';
 
 const isProd = process.argv.includes('--prod');
-// Opt-in: report one real overage to the real Stripe test meter, through the same
-// function the hourly cron calls, and read the aggregate back. Off by default
-// because every other check here needs no key and bills nothing; on, it is the
-// only proof that the event our code sends is one the meter actually counts.
-const liveStripe = process.argv.includes('--live-stripe');
+// Opt-in: report one real overage to the real Polar sandbox meter, through the
+// same function the hourly cron calls, and read the aggregate back. Off by
+// default because every other check here needs no token and bills nothing; on,
+// it is the only proof that the event our code sends is one the meter actually
+// counts. Reading the aggregate back additionally needs `meters:read`, which the
+// runtime token does not carry — without it that last check reports as pending.
+const livePolar = process.argv.includes('--live-polar');
 const envFile = isProd ? '../.env.prod' : '../.env';
 const env = fs.readFileSync(new URL(envFile, import.meta.url), 'utf8');
 const read = key => env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.trim();
@@ -143,36 +145,43 @@ const dbInstance = db.create(source);
 const { constants } = utils;
 const LIMITS = constants.PLAN_LIMITS;
 
-// A Stripe stand-in that records what it was asked to bill. Same shape the real
+// A Polar stand-in that records what it was asked to bill. Same shape the real
 // client exposes, and nothing else — meterOrganization only ever calls this one
 // method.
-// `rejecting` names meters that answer the way Stripe answers an event whose
-// name matches no active meter — which is the state every rate is in between
-// shipping the code that reports it and creating the objects behind it.
-const makeStripe = (rejecting = []) => {
+//
+// `rejecting` names meters that answer the way the ingest endpoint answers an
+// event it refuses — the state every rate is in between shipping the code that
+// reports it and creating the meter behind it. Note that a name matching NO
+// meter is not one of those: Polar accepts it, counts it against nothing, and
+// answers 200. That silence is the trap, and it is why --live-polar exists.
+//
+// The stub also models deduplication, because the real endpoint does: an event
+// whose `external_id` has been seen before is answered as a duplicate rather
+// than stored twice.
+const makePolar = (rejecting = []) => {
   const events = [];
   return {
     events,
-    billing: {
-      meterEvents: {
-        async create(event) {
-          if (rejecting.includes(event.event_name)) {
-            throw new Error(
-              `Event name '${event.event_name}' does not match any active meter`
-            );
-          }
-          events.push(event);
-          return event;
-        }
+    async ingestEvent(event) {
+      if (rejecting.includes(event.name)) {
+        throw new Error(
+          `Polar /v1/events/ingest failed (422): '${event.name}' rejected`
+        );
       }
+      const duplicate = events.some(e => e.external_id === event.external_id);
+      if (!duplicate) events.push(event);
+      return { inserted: duplicate ? 0 : 1, duplicates: duplicate ? 1 : 0 };
     }
   };
 };
 
-const totalFor = (stripe, eventName) =>
-  stripe.events
-    .filter(e => e.event_name === eventName)
-    .reduce((n, e) => n + Number(e.payload.value), 0);
+const totalFor = (polar, eventName) =>
+  polar.events
+    .filter(e => e.name === eventName)
+    .reduce(
+      (n, e) => n + Number(e.metadata[constants.BILLING_METER_UNITS_KEY]),
+      0
+    );
 
 // plan constants — no database needed, so these run before anything is scaffolded
 
@@ -202,9 +211,9 @@ check(
   LIMITS.ENTERPRISE.toolCallHardCap === null
 );
 check(
-  'the meter event name is the one the Stripe meter must carry',
-  constants.STRIPE_METER_TOOL_CALLS === 'ganju_custom_tool_calls',
-  constants.STRIPE_METER_TOOL_CALLS
+  'the meter event name is the one the meter filter must carry',
+  constants.BILLING_METER_TOOL_CALLS === 'ganju_custom_tool_calls',
+  constants.BILLING_METER_TOOL_CALLS
 );
 
 // scaffold
@@ -217,7 +226,9 @@ const orgId = uuid();
 const projectId = uuid();
 const artifactId = uuid();
 const toolId = uuid();
-const customerId = `cus_verify_${Date.now()}`;
+// A provider customer id only has to be non-null — it is what gates whether an
+// organization is reported at all. Ingestion keys on the ORGANIZATION id.
+const customerId = uuid();
 const slug = `verify-tool-calls-${Date.now()}`;
 
 console.log(`\nScaffolding org ${orgId}\n`);
@@ -227,7 +238,7 @@ await sql`insert into organization ${sql({ id: orgId, name: 'verify-tool-call-me
 // starting state is part of what is under test here, and an insert written in
 // this file could stamp a period the real path forgets to.
 await Plan.ensureSubscription(dbInstance, orgId);
-await sql`update subscription set plan = 'PRO', status = 'active', stripe_customer_id = ${customerId} where organization_id = ${orgId}`;
+await sql`update subscription set plan = 'PRO', status = 'active', billing_customer_id = ${customerId} where organization_id = ${orgId}`;
 await sql`insert into project ${sql({ id: projectId, name: 'verify', created_by_id: owner.id, organization_id: orgId })}`;
 await sql`insert into artifact ${sql({ id: artifactId, slug, project_id: projectId })}`;
 await sql`insert into artifact_tool ${sql({
@@ -421,7 +432,7 @@ try {
   );
   await setCounters({ status: 'active' });
 
-  console.log('\nreporting to Stripe\n');
+  console.log('\nreporting to the provider\n');
 
   const included = LIMITS.PRO.includedToolCalls;
   await setPlan('PRO');
@@ -433,12 +444,12 @@ try {
     message_period_start: new Date()
   });
 
-  let stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  let polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'nothing is reported below the included allowance',
-    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 0,
-    `${stripe.events.length} events`
+    totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 0,
+    `${polar.events.length} events`
   );
   check(
     '  ...and the mark stays at zero',
@@ -446,20 +457,23 @@ try {
   );
 
   await setCounters({ tool_call_count: included + 250 });
-  stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'the overage above the allowance is reported',
-    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 250,
-    `${totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS)} calls`
+    totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 250,
+    `${totalFor(polar, constants.BILLING_METER_TOOL_CALLS)} calls`
   );
   check(
     '  ...as a raw call count against the tool-call meter',
-    stripe.events.some(
+    polar.events.some(
       e =>
-        e.event_name === constants.STRIPE_METER_TOOL_CALLS &&
-        e.payload.stripe_customer_id === customerId &&
-        e.payload.value === '250'
+        e.name === constants.BILLING_METER_TOOL_CALLS &&
+        // The ORGANIZATION id, not the provider's customer id: Polar resolves
+        // the customer from our own identifier, which is what removed the
+        // pre-created customer the Stripe path needed.
+        e.external_customer_id === orgId &&
+        e.metadata[constants.BILLING_METER_UNITS_KEY] === 250
     )
   );
   check(
@@ -468,30 +482,65 @@ try {
   );
   check(
     '  ...without touching the message meters',
-    totalFor(stripe, constants.STRIPE_METER_MESSAGES) === 0 &&
-      totalFor(stripe, constants.STRIPE_METER_SHARED_MESSAGES) === 0,
+    totalFor(polar, constants.BILLING_METER_MESSAGES) === 0 &&
+      totalFor(polar, constants.BILLING_METER_SHARED_MESSAGES) === 0,
     'each axis bills on its own counter'
   );
 
-  stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'a second run with no new usage reports nothing',
-    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 0,
+    totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 0,
     'this is what keeps the hourly cron from re-billing the same calls'
   );
 
   await setCounters({ tool_call_count: included + 400 });
-  stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'only the increment since the last run is reported',
-    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 150,
+    totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 150,
     '400 owed, 250 already billed'
   );
   check(
     '  ...and the mark catches up',
     (await subRow()).reported_tool_call_overage === 400
+  );
+
+  console.log('\na retry after a mark that never landed\n');
+
+  // The one failure the marks cannot defend against on their own: the event is
+  // accepted, and the write that records it does not happen. The next run
+  // recomputes the same delta and sends it again — which under a provider with
+  // no idempotency would bill the same calls twice.
+  //
+  // `external_id` is what closes it. It is built from the subscription, the
+  // meter, the period and the NEW mark, so a retry of the same increment repeats
+  // exactly while a genuinely new increment differs.
+  await setCounters({ tool_call_count: included + 600 });
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
+  const firstTry = polar.events.length;
+  check(
+    'the increment is reported once',
+    firstTry === 1 &&
+      totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 200,
+    `${firstTry} event, 200 calls`
+  );
+
+  // Rewind only the mark, leaving the counter — exactly the state a crash
+  // between the ingest and the mark write would leave behind.
+  await setCounters({ reported_tool_call_overage: 400 });
+  await meterOrganization(dbInstance, polar, orgId);
+  check(
+    '  ...and a retry of it is deduplicated, not billed again',
+    polar.events.length === firstTry,
+    `still ${polar.events.length} event — the provider answered duplicates:1`
+  );
+  check(
+    '  ...while the mark still advances, so the retry ends',
+    (await subRow()).reported_tool_call_overage === 600
   );
 
   console.log('\na meter that does not exist yet\n');
@@ -508,12 +557,12 @@ try {
     reported_tool_call_overage: 0
   });
 
-  stripe = makeStripe([constants.STRIPE_METER_TOOL_CALLS]);
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar([constants.BILLING_METER_TOOL_CALLS]);
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'a rejected meter does not stop the others reporting',
-    totalFor(stripe, constants.STRIPE_METER_MESSAGES) === 300,
-    `${totalFor(stripe, constants.STRIPE_METER_MESSAGES)} messages reported`
+    totalFor(polar, constants.BILLING_METER_MESSAGES) === 300,
+    `${totalFor(polar, constants.BILLING_METER_MESSAGES)} messages reported`
   );
   let marks = await subRow();
   check(
@@ -528,16 +577,16 @@ try {
   );
 
   // And once the meter exists, the usage it missed is still owed in full.
-  stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'the next run reports everything the rejection missed',
-    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 900,
-    `${totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS)} calls`
+    totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 900,
+    `${totalFor(polar, constants.BILLING_METER_TOOL_CALLS)} calls`
   );
   check(
     '  ...and does not re-report what already landed',
-    totalFor(stripe, constants.STRIPE_METER_MESSAGES) === 0
+    totalFor(polar, constants.BILLING_METER_MESSAGES) === 0
   );
   marks = await subRow();
   check(
@@ -574,100 +623,138 @@ try {
     'one period, one boundary'
   );
 
-  stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'the fresh period reports nothing on the new counter',
-    totalFor(stripe, constants.STRIPE_METER_TOOL_CALLS) === 0
+    totalFor(polar, constants.BILLING_METER_TOOL_CALLS) === 0
   );
 
-  if (liveStripe) {
-    console.log('\nthe real Stripe meter\n');
+  if (livePolar) {
+    console.log('\nthe real Polar meter\n');
 
-    const SK = read('STRIPE_SECRET_KEY');
-    const auth = `Basic ${Buffer.from(`${SK}:`).toString('base64')}`;
-    const call = async (path, params) => {
-      const res = await fetch(`https://api.stripe.com/v1/${path}`, {
-        method: params ? 'POST' : 'GET',
+    const TOKEN = read('POLAR_ACCESS_TOKEN');
+    const HOST =
+      read('POLAR_SERVER') === 'production'
+        ? 'https://api.polar.sh'
+        : 'https://sandbox-api.polar.sh';
+    const call = async (path, body) => {
+      const res = await fetch(`${HOST}/v1/${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
         headers: {
-          Authorization: auth,
-          ...(params
-            ? { 'content-type': 'application/x-www-form-urlencoded' }
-            : {})
+          Authorization: `Bearer ${TOKEN}`,
+          Accept: 'application/json',
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' })
         },
-        ...(params ? { body: new URLSearchParams(params) } : {})
+        ...(body === undefined ? {} : { body: JSON.stringify(body) })
       });
-      return res.json();
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = { raw: text };
+      }
+      return { status: res.status, json };
     };
 
-    // A customer of its own, so the events this run reports land somewhere that
-    // is deleted afterwards rather than on anyone's real test subscription.
-    const customer = await call('customers', {
-      email: 'verify-tool-call-metering@example.invalid',
-      name: 'verify tool call metering'
+    // No throwaway customer to create and delete. Polar keys ingestion on
+    // `external_customer_id`, which here is this run's own scaffold
+    // organization — itself removed in the finally block. The Stripe path had to
+    // create a customer object first and remember to delete it; this one has
+    // nothing to leak.
+    await setCounters({
+      message_count: 0,
+      shared_message_count: 0,
+      reported_message_overage: 0,
+      reported_shared_message_overage: 0,
+      tool_call_count: included + 12_345,
+      reported_tool_call_overage: 0,
+      message_period_start: new Date()
     });
-    check('a throwaway Stripe customer is created', !!customer.id, customer.id);
 
-    try {
-      await setCounters({
-        stripe_customer_id: customer.id,
-        message_count: 0,
-        shared_message_count: 0,
-        reported_message_overage: 0,
-        reported_shared_message_overage: 0,
-        tool_call_count: included + 12_345,
-        reported_tool_call_overage: 0,
-        message_period_start: new Date()
-      });
-
-      // The real client, not the stub — this is the hourly cron's own call.
-      const realStripe = {
-        billing: {
-          meterEvents: {
-            create: event =>
-              call('billing/meter_events', {
-                event_name: event.event_name,
-                'payload[stripe_customer_id]': event.payload.stripe_customer_id,
-                'payload[value]': event.payload.value
-              }).then(r => {
-                if (r.error) throw new Error(r.error.message);
-                return r;
-              })
-          }
+    // The real client's shape, not the stub — this is the hourly cron's own call.
+    const realPolar = {
+      ingestEvent: async event => {
+        const r = await call('events/ingest', { events: [event] });
+        if (r.status >= 300) {
+          throw new Error(
+            `Polar ingest failed (${r.status}): ${JSON.stringify(r.json).slice(0, 200)}`
+          );
         }
-      };
+        return r.json;
+      }
+    };
 
-      await meterOrganization(dbInstance, realStripe, orgId);
-      const marked = Number((await subRow()).reported_tool_call_overage);
+    await meterOrganization(dbInstance, realPolar, orgId);
+    const marked = Number((await subRow()).reported_tool_call_overage);
+    check(
+      'the real endpoint accepted the overage',
+      marked === 12_345,
+      `mark ${marked} — a rejection would have left it at 0`
+    );
+
+    // Acceptance is NOT the same as being counted. An event whose name matches
+    // no meter filter is accepted with a 200 and aggregated by nothing, which is
+    // the one failure mode that is invisible from our side. Only reading the
+    // meter back settles it.
+    const meters = await call('meters/?limit=100');
+    if (meters.status === 403) {
+      console.log(
+        '  pend   the aggregate cannot be read — POLAR_ACCESS_TOKEN lacks meters:read'
+      );
+      console.log(
+        '         acceptance is proven above; that the METER counted it is not.'
+      );
+    } else if (meters.status >= 300) {
       check(
-        'the real meter accepted the overage',
-        marked === 12_345,
-        `mark ${marked} — a rejection would have left it at 0`
+        '  ...and the meters can be listed',
+        false,
+        `HTTP ${meters.status}`
       );
-
-      // Stripe aggregates asynchronously, so "not visible yet" is a third state
-      // rather than a failure: the mark above already proves the event was
-      // accepted, and this only asks whether it has been counted yet.
-      const meters = await call('billing/meters?limit=100');
-      const meter = (meters.data || []).find(
-        m => m.event_name === constants.STRIPE_METER_TOOL_CALLS
+    } else {
+      // A meter's `name` is its display name; the event name it matches lives in
+      // its filter, as an `eq` clause on the `name` property.
+      const eventNameOf = meter => {
+        const walk = node => {
+          if (!node) return undefined;
+          for (const clause of node.clauses || []) {
+            if (clause.clauses) {
+              const nested = walk(clause);
+              if (nested) return nested;
+            } else if (clause.property === 'name' && clause.operator === 'eq') {
+              return clause.value;
+            }
+          }
+          return undefined;
+        };
+        return walk(meter.filter);
+      };
+      const meter = (meters.json.items || []).find(
+        m => eventNameOf(m) === constants.BILLING_METER_TOOL_CALLS
       );
-      check('  ...and the meter exists to count it', !!meter, meter?.id);
+      check(
+        '  ...and a meter filters on that exact event name',
+        !!meter,
+        meter ? meter.id : 'no meter matches — usage would be silently unbilled'
+      );
 
       let total = 0;
       if (meter) {
-        const DAY = 86_400;
-        const start = Math.floor(Date.now() / 1000 / DAY) * DAY;
-        const end = Math.ceil((Date.now() / 1000 + 60) / DAY) * DAY;
+        const DAY = 86_400_000;
+        const startIso = new Date(
+          Math.floor(Date.now() / DAY) * DAY
+        ).toISOString();
+        const endIso = new Date(
+          Math.ceil((Date.now() + 60_000) / DAY) * DAY
+        ).toISOString();
         for (let i = 0; i < 20 && total === 0; i++) {
-          const summary = await call(
-            `billing/meters/${meter.id}/event_summaries?customer=${customer.id}` +
-              `&start_time=${start}&end_time=${end}&value_grouping_window=day`
+          const q = await call(
+            `meters/${meter.id}/quantities?start_timestamp=${encodeURIComponent(startIso)}` +
+              `&end_timestamp=${encodeURIComponent(endIso)}&interval=day` +
+              `&external_customer_id=${encodeURIComponent(orgId)}`
           );
-          total = (summary.data || []).reduce(
-            (n, x) => n + x.aggregated_value,
-            0
-          );
+          total = Number(q.json?.total) || 0;
           if (total === 0) await new Promise(r => setTimeout(r, 3_000));
         }
       }
@@ -675,16 +762,9 @@ try {
         check('  ...and aggregated exactly what was reported', true, '12,345');
       } else {
         console.log(
-          `  pend   the aggregate has not surfaced yet — got ${total}, Stripe counts asynchronously`
+          `  pend   the aggregate has not surfaced yet — got ${total}, ingestion is asynchronous`
         );
       }
-    } finally {
-      const deleted = await fetch(
-        `https://api.stripe.com/v1/customers/${customer.id}`,
-        { method: 'DELETE', headers: { Authorization: auth } }
-      ).then(r => r.json());
-      check('the throwaway customer is deleted', deleted.deleted === true);
-      await setCounters({ stripe_customer_id: customerId });
     }
   }
 
@@ -905,19 +985,27 @@ try {
     usage.includedToolCalls === LIMITS.PRO.includedToolCalls
   );
 
-  // An org with no Stripe customer has nothing to report to. Free orgs are the
-  // ordinary case, and the sweep skips them before it reads anything else.
+  // An org with no provider customer has nothing to report to — an Enterprise
+  // client invoiced by bank transfer is the permanent case, a Free org the
+  // ordinary one. It is still MEASURED: the reporting half is what stops, which
+  // is the split that lets a hand-invoiced period stay reconstructable.
   await setCounters({
-    stripe_customer_id: null,
+    billing_customer_id: null,
     tool_call_count: included + 10
   });
-  stripe = makeStripe();
-  await meterOrganization(dbInstance, stripe, orgId);
+  polar = makePolar();
+  await meterOrganization(dbInstance, polar, orgId);
   check(
     'an org with no billing account reports nothing',
-    stripe.events.length === 0,
+    polar.events.length === 0,
     'and its counter is left alone'
   );
+  check(
+    '  ...but is still measured, so its period stays reconstructable',
+    (await subRow()).message_period_start !== null,
+    'the measure pass runs with no provider at all'
+  );
+  await setCounters({ billing_customer_id: customerId });
 } finally {
   console.log('\nCleaning up\n');
   await sql`delete from mcp_request where session_id in (select id from mcp_session where artifact_id = ${artifactId})`;
@@ -927,6 +1015,9 @@ try {
   await sql`delete from artifact where id = ${artifactId}`;
   await sql`delete from project where id = ${projectId}`;
   await sql`delete from alert_state where key like ${'%' + orgId}`;
+  // Written by every rollover this run triggers. Cascades with the
+  // organization anyway; deleted explicitly to match the rest of this block.
+  await sql`delete from usage_period where organization_id = ${orgId}`;
   await sql`delete from subscription where organization_id = ${orgId}`;
   await sql`delete from organization where id = ${orgId}`;
   const leftover =

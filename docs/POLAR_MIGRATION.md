@@ -271,15 +271,27 @@ The `isNotNull(billingCustomerId)` filter on the org listing is gone with it. It
 
 ## Phase 8 — Verification and cutover
 
-Three scripts call `api.stripe.com` directly and are the regression net for the delta arithmetic — port them **before** trusting a sweep:
+The three verification scripts are **ported and green against sandbox** — they are the regression net over the delta arithmetic, and none of it changed in the move:
 
-- [`scripts/verify-shared-metering.mjs`](../scripts/verify-shared-metering.mjs)
-- [`scripts/verify-tool-call-metering.mjs`](../scripts/verify-tool-call-metering.mjs) — its `--live-stripe` flag becomes `--live-polar`
-- [`scripts/probe-tool-call-metering.mjs`](../scripts/probe-tool-call-metering.mjs)
+- [`scripts/verify-shared-metering.mjs`](../scripts/verify-shared-metering.mjs) — reads the meter back and compares it against the stored mark
+- [`scripts/verify-tool-call-metering.mjs`](../scripts/verify-tool-call-metering.mjs) — 76 checks, 79 with `--live-polar` (was `--live-stripe`)
+- [`scripts/probe-tool-call-metering.mjs`](../scripts/probe-tool-call-metering.mjs) — 52 checks against the deployed stack
 
-`billing/meters/{id}/event_summaries` becomes Polar's meter quantities endpoint; customer assertions move from `cus_…` prefixes to the org's `external_customer_id`.
+`billing/meters/{id}/event_summaries` became `GET /v1/meters/{id}/quantities`, which takes ISO timestamps, an `interval`, and — better than what it replaces — an `external_customer_id`, so a meter can be read for an organization without knowing the provider's id for it. It answers a top-level `total`, so there are no buckets to sum.
 
-Then, in sandbox, end to end: a real checkout in both languages, a real webhook delivery landing in `subscription`, one real metered event visible on the meter, a portal session, and a cancel. Only after that does production get a secret.
+Three things about the port worth knowing:
+
+**A meter's event name is not its name.** `name` is a display label; the event name lives in the meter's `filter`, as an `eq` clause on the `name` property. Every script walks the filter to map event name → meter id, and that indirection is exactly why a mismatch is silent: the meter reads fine and counts nothing.
+
+**Acceptance is not counting.** Polar answers `200` to an event matching no meter, so a script that only checks the ingest response proves nothing. `--live-polar` therefore asserts three separate things — accepted, a meter filters on that exact name, and the aggregate came back equal.
+
+**Reading needs scopes the runtime does not.** `meters:read` and `products:read` are verification-only; the runtime token writes events and nothing else. Where they are absent the scripts report **pending** rather than failing, so an under-scoped token cannot be mistaken for a broken meter.
+
+The checkout probe changed shape rather than being translated. There are no line items to count any more, so instead of asserting five of them it reads the Pro product and checks the base price, that all four metered rates hang off it, and that each points at the right meter *by filter*. It also asserts that checkout does **not** pre-create a customer — the behaviour that deleted `ensureStripeCustomer`.
+
+One incidental find: Polar validates `customer_email` and rejects reserved TLDs where Stripe accepted anything. The probe's throwaway user was on `@example.invalid` and every checkout 422'd until it moved to a real domain. Worth remembering if a checkout ever fails for one user and no one else.
+
+Then, in sandbox, end to end:Then, in sandbox, end to end: a real checkout in both languages, a real webhook delivery landing in `subscription`, one real metered event visible on the meter, a portal session, and a cancel. Only after that does production get a secret.
 
 ### The trap to clear first
 
