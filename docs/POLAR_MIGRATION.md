@@ -2,7 +2,16 @@
 
 The plan for replacing the Stripe integration with [Polar](https://polar.sh). Companion to [PRICING.md](PRICING.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
 
-**Status: phases 1–6 are applied.** The code is on Polar end to end — constants, env, schema, provider client, controller, metering and every caller — and the working tree typechecks and builds. Phase 0 (the Polar dashboard, manual), phase 7 (docs and the legal surface) and phase 8 (the verification scripts and the sandbox pass) are not. Nothing is live either way: with `POLAR_ACCESS_TOKEN` unset the platform runs exactly as it does today. Two things below turned out differently from what was planned — the migration file, and the package-pricing claim; both are marked where they occur.
+**Status: everything except production is done.**
+
+- **Phases 1–6 (code)** — applied. Constants, env, schema, provider client, controller, metering and every caller are on Polar. Stripe is gone from the codebase, the dependency, and the development Worker's secrets.
+- **Phase 0 (Polar dashboard)** — done in **sandbox**: four meters, the Pro and Enterprise products, the webhook. Production has none of it.
+- **Phase 7 (docs)** — done. The legal documents are redrafted but **unreviewed**; the questions for counsel are in [POLAR_LEGAL_REVIEW.md](POLAR_LEGAL_REVIEW.md).
+- **Phase 8 (verification)** — the scripts are ported and the sandbox pass is complete: **146 checks green** across the three suites, plus a full subscription lifecycle driven through a real paid checkout.
+
+**Production is untouched and deliberately so** — no Polar organization, no secrets, and the Stripe secrets still in place there. With `POLAR_ACCESS_TOKEN` unset the platform runs exactly as it did before any of this.
+
+Five things turned out differently from what was planned — the migration file, the package-pricing claim, checkout localization, `customer.external_id`, and the Enterprise base price. Each is marked where it occurs.
 
 ## Why
 
@@ -31,7 +40,7 @@ This is a replacement, not a migration. The word "migration" in the title is abo
 
 | Stripe today | Polar |
 | --- | --- |
-| Customer created up-front by `ensureStripeCustomer` | `external_customer_id` = `organizationId`, created implicitly at checkout |
+| Customer created up-front by `ensureStripeCustomer` | `external_customer_id` = `organizationId`, customer created implicitly at checkout — and deduplicated by email, so it is **not** a per-organization identifier |
 | Pro **product** + 5 separate **prices**, assembled as checkout line items | One Pro **product** carrying the base price and all four metered prices |
 | `checkout.sessions.create` | `POST /v1/checkouts/` |
 | `billingPortal.sessions.create` | `POST /v1/customer-sessions/` → `customer_portal_url` |
@@ -47,7 +56,11 @@ Three of these are simplifications rather than swaps, and they are where the cod
 
 **`external_customer_id` removes the pre-created customer.** `ensureStripeCustomer` exists only so a checkout has a customer id to attach and so the webhook has something to resolve an org from. Polar takes our own id directly, at checkout, at portal, and at event ingestion. That deletes the helper and the "already on a paid plan?" ordering it forces.
 
-**The org reference stops being a scavenger hunt.** `syncSubscription` currently tries subscription metadata, then a stored customer id, then the customer's metadata. Polar's subscription payload carries `customer.external_id`, which is the org id, on every event. Keep one fallback by stored customer id for hand-made Enterprise subscriptions; drop the rest.
+**The org reference gets shorter, but not as short as it first looked.** `syncSubscription` under Stripe tried subscription metadata, then a stored customer id, then the customer's metadata. Polar's subscription payload carries `customer.external_id`, which looks like it makes all of that unnecessary — and it does not.
+
+**Polar matches customers by email.** A second organization belonging to someone who has already subscribed reuses the first organization's customer record, and that record's `external_id` still names the FIRST organization. Reading it applies the new subscription to the wrong organization and leaves the paying one on Free, silently, because both ids are well-formed UUIDs. This was caught by [verify-subscription-lifecycle.mjs](../scripts/verify-subscription-lifecycle.mjs) — two organizations, one owner, and the second one's payment landed on the first.
+
+So the order is: `subscription.metadata.organizationId` first, which is stamped at checkout and belongs to that subscription alone; `customer.external_id` as the fallback; then a lookup by stored customer id for a hand-made Enterprise subscription that has neither. Two of the three Stripe lookups are gone, not all three.
 
 There is also one event fewer to handle. `checkout.session.completed` exists in the current handler only to carry `client_reference_id` onto a subscription that does not yet have it. Polar's `subscription.created` already has the customer attached, so the checkout event is not needed.
 
@@ -181,7 +194,11 @@ Remove `stripe` from [`apps/api/package.json`](../apps/api/package.json).
 
 **`createCheckout`** — `POST /v1/checkouts/` with `products: [POLAR_PRODUCT_PRO]`, `external_customer_id: organizationId`, `customer_email`, `metadata: { organizationId }`, `success_url`, and `locale`. Read `.url` off the response.
 
-The `checkoutLocale` helper survives unchanged. Polar's checkout takes an IETF BCP 47 locale and ships Spanish, so the reason that helper exists — that a browser's language is not the language the user picked in the dashboard — still holds and still works. Note that Polar's localization is in beta and **scoped to the checkout page**, so the customer portal may render untranslated. That is a real regression against Stripe's localized portal; it is small, and it is the only one in this plan.
+The `checkoutLocale` helper survives unchanged, and the code is correct — but **checkout localization does not work until the beta feature flag is enabled on the Polar organization.** With it off, Polar accepts `locale` and stores `en` regardless: a direct API call sending `locale: "es"` answers `201` and comes back `"en"`. Nothing errors, so the only way to notice is to read a checkout back and compare. Turn the flag on in the Polar dashboard; the code needs no change.
+
+Once enabled, the precedence is explicit locale → `?locale=` query string → browser language, so the value we send wins, which is the reason the helper exists: a browser's language is not the language the user picked in the dashboard.
+
+Polar's localization is beta and **scoped to the checkout page** — error messages, transactional email and the portal stay English. That is a real regression against Stripe's localized portal; it is small, and it is the only one in this plan.
 
 `ensureStripeCustomer` is deleted.
 
@@ -234,11 +251,13 @@ Straightforward updates: [DEPLOYMENT.md](DEPLOYMENT.md) (the readiness table and
 
 [PRICING.md](PRICING.md) needs rework rather than edits. Its margin model is built on Stripe's rates; the real number is now ~7–8% effective. Nothing breaks — the conclusion that storage and inference are what to meter is unchanged — but the document should state the rate it is actually reasoning about.
 
-**The legal documents are the part not to rush.** [`privacy.md`](../apps/website/src/md/privacy.md), [`terms.md`](../apps/website/src/md/terms.md), [`subprocessors.md`](../apps/website/src/md/subprocessors.md) and the Spanish mirrors ([`privacidad.md`](../apps/website/src/md/es/privacidad.md), [`terminos.md`](../apps/website/src/md/es/terminos.md), [`subencargados.md`](../apps/website/src/md/es/subencargados.md)) all name Stripe, Inc.
+**The legal documents are the part not to rush.** The questions are written up for counsel in [POLAR_LEGAL_REVIEW.md](POLAR_LEGAL_REVIEW.md), which also carries the one item with a deadline on it: the DPA promises 30 days' notice before a new subprocessor starts processing, and that is free only while production has no paying customer to notify.
 
-A merchant of record is not a swapped vendor name. **Polar becomes the seller of record on every transaction** — the party the customer contracts with, invoices from, and claims refunds against. That changes what `terms.md` says about who is selling, not just which processor appears in a table. Have someone who knows Colombian and EU consumer law read that section. This can run in parallel with the code and is the item most likely to be the long pole.
+[`privacy.md`](../apps/website/src/md/privacy.md), [`terms.md`](../apps/website/src/md/terms.md), [`subprocessors.md`](../apps/website/src/md/subprocessors.md) and the Spanish mirrors ([`privacidad.md`](../apps/website/src/md/es/privacidad.md), [`terminos.md`](../apps/website/src/md/es/terminos.md), [`subencargados.md`](../apps/website/src/md/es/subencargados.md)) have been updated: Stripe, Inc. is gone, Polar Software, Inc. is named as merchant of record, and the Payment section now says Polar is the seller.
 
-If the consent documents change materially, bump `CONSENT_CURRENT_VERSION` (currently `2026-08-31`) so existing users are re-prompted, and update the "Last updated" date on `terms.md` / `privacy.md` to match, per the note beside those constants.
+**That drafting is unreviewed.** A merchant of record is not a swapped vendor name — Polar becomes the party the customer contracts with, invoices from, and claims refunds against — so what changed is who is selling, not which processor appears in a table. Three clauses turn on that and none of them should ship on an engineer's judgement: the *derecho de retracto* refund mechanics now that Polar holds the money, the "service is with us / purchase is with Polar" split against the joint-liability and abusive-clause rules, and whether *reversión del pago* reaches a transaction acquired by a foreign merchant of record at all. The `retracto` section was deliberately left untouched for that reason: narrowing a consumer right is not a change to make speculatively.
+
+`CONSENT_CURRENT_VERSION` is already bumped to `2026-09-10` and the four documents carry matching dates. **Land the legal review before that ships**: if counsel changes the wording afterwards it has to be bumped again, and every user is asked to re-accept twice.
 
 ## Usage history, and billing Enterprise by hand
 
@@ -291,23 +310,32 @@ The checkout probe changed shape rather than being translated. There are no line
 
 One incidental find: Polar validates `customer_email` and rejects reserved TLDs where Stripe accepted anything. The probe's throwaway user was on `@example.invalid` and every checkout 422'd until it moved to a real domain. Worth remembering if a checkout ever fails for one user and no one else.
 
-Then, in sandbox, end to end:Then, in sandbox, end to end: a real checkout in both languages, a real webhook delivery landing in `subscription`, one real metered event visible on the meter, a portal session, and a cancel. Only after that does production get a secret.
+A fourth script covers what the other three cannot reach:
+
+- [`scripts/verify-subscription-lifecycle.mjs`](../scripts/verify-subscription-lifecycle.mjs) — 18 checks. It scaffolds its own user and two organizations, drives a **real checkout paid with a sandbox test card** in Playwright, and follows the subscription through `subscription.created`, a revoke through `subscription.revoked`, and an organization deletion that has to take its subscription with it.
+
+Those last two are the only webhook branches nothing else reaches: everything else exercises an upgrade, and only a cancellation exercises a downgrade. It is also what caught the `customer.external_id` defect above — two organizations, one owner, and the second one's payment landing on the first.
+
+Two mechanics it had to learn, both of which would otherwise read as a captcha problem: the checkout form requires a **billing country**, and paying two checkouts in one browser context takes a different path through the form, so each payment gets a fresh context.
+
+**The sandbox pass is complete.** A real checkout, a real webhook landing in `subscription`, a real metered event accepted *and* aggregated by its meter, a portal session, a cancel, and a deletion. The one item outstanding is a checkout **in Spanish**, which is blocked on the localization feature flag rather than on us.
 
 ### The trap to clear first
 
 [CUSTOM_TOOLS.md](CUSTOM_TOOLS.md) documents this for Stripe and it applies harder here. `meterOrganization` reports `current − reported`. Because billing has never run in production, **every `reported_*` mark is sitting at 0 while the counters have been accruing for months.** The first sweep after `POLAR_ACCESS_TOKEN` is set would report the entire accumulated period as overage, on the customer's first invoice.
 
-Before enabling, either switch it on immediately after a period rollover, or align every mark with its counterpart:
+[`scripts/align-reported-marks.mjs`](../scripts/align-reported-marks.mjs) does this, and does it without hand-written SQL:
 
-```sql
-update subscription set
-  reported_message_overage        = <current overage>,
-  reported_shared_message_overage = <current overage>,
-  reported_embedded_overage_mb    = <current overage>,
-  reported_tool_call_overage      = <current overage>;
+```bash
+node scripts/align-reported-marks.mjs --prod              # report only
+node scripts/align-reported-marks.mjs --prod --confirm    # apply
 ```
 
-Do this in the same change window as setting the secret, not afterwards.
+It runs the **real `meterOrganization`** against a client that records events instead of sending them, so the marks advance by exactly the arithmetic the cron uses rather than by a copy of it that could drift — and what the stub captured is what the first sweep would have billed, which is what the report prints. Without `--confirm` the whole pass runs inside a transaction that is rolled back, so the report comes from the code path that would do the work rather than a preview of it.
+
+**Run it in the same change window as setting the secret, immediately before.** Not afterwards: the hourly sweep may fire in between. Switching on just after a period rollover works too, but it is a timing argument rather than a guarantee.
+
+A note on what it will find in production today: nothing, if the token is set before the first paying customer. There are no paid organizations to align, and any organization onboarded after the token is set starts from zero on both sides. The trap only exists for an organization whose counters ran while billing was off — which is the entire current population, and none of them are paying yet.
 
 ### Rollback
 

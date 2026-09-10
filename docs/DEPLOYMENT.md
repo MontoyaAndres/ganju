@@ -196,7 +196,7 @@ It needs, in order: an organization with Stripe Connect Express KYC completed; f
 
 **Disable Bot Fight Mode** (Security → Bots) or webhook deliveries are answered with 403 before they reach the Worker. IP allowlists and WAF rules do not fix this.
 
-**Align the reported marks before setting the token.** `meterOrganization` reports `current − reported`, and every `reported_*` mark sits at 0 while the counters have been accruing. Enabling billing without aligning them bills the entire accumulated period as overage on the customer's first invoice. Either enable immediately after a period rollover, or set each mark to its current overage in the same change window.
+**Align the reported marks before setting the token.** `meterOrganization` reports `current − reported`, and every `reported_*` mark sits at 0 while the counters have been accruing. Enabling billing without aligning them bills the entire accumulated period as overage on the customer's first invoice. [`scripts/align-reported-marks.mjs`](../scripts/align-reported-marks.mjs) does it — `--prod` to report, `--prod --confirm` to apply — in the same change window as setting the secret, immediately before it.
 
 Setup detail, per-unit rates and the reasoning behind them are in [POLAR_MIGRATION.md](POLAR_MIGRATION.md); the cost model is in [PRICING.md](PRICING.md).
 

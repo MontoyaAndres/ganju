@@ -174,10 +174,25 @@ const syncSubscription = async (
 ): Promise<void> => {
   const customerId = sub.customer?.id || sub.customer_id || null;
 
-  // Every delivery carries our own id on the customer. The lookup below is for
-  // a subscription created by hand for an Enterprise customer, which has no
-  // external id because no checkout of ours made it.
-  let organizationId = sub.customer?.external_id || undefined;
+  // Prefer the organization stamped on the checkout, which rides onto the
+  // subscription as metadata and belongs to that subscription alone.
+  //
+  // `customer.external_id` looks like it should be enough and is not. Polar
+  // matches a customer by EMAIL: a second organization belonging to someone who
+  // already subscribed reuses the first organization's customer record, and that
+  // record's external id still names the FIRST organization. Reading it would
+  // apply the new subscription to the wrong organization and leave the paying
+  // one on Free — silently, because both ids are well-formed.
+  //
+  // It stays as the fallback for a subscription created by hand for an
+  // Enterprise customer, which has no metadata because no checkout of ours made
+  // it.
+  let organizationId =
+    (typeof sub.metadata?.organizationId === 'string'
+      ? sub.metadata.organizationId
+      : undefined) ||
+    sub.customer?.external_id ||
+    undefined;
 
   if (!organizationId && customerId) {
     const [byCustomer] = await dbInstance
