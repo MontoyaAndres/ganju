@@ -512,6 +512,13 @@
       "when": 1789050207863,
       "tag": "0072_usage_period",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789479157840,
+      "tag": "0073_artifact_child_indexes",
+      "breakpoints": true
     }
   ]
 }

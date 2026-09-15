@@ -122,3 +122,4 @@ needed for someone to write and ship a tool.
 ## Make a skill for ganju cli
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
 ## Work on examples folder for the functions users can integrate
+## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba

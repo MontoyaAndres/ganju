@@ -2,6 +2,7 @@ import { utils } from '@ganju/utils';
 import type { GmailSendRequest, GmailSendResponse } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
+import { withResourceContent } from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -115,10 +116,15 @@ const sendViaContainer = async (
     const resource = context.resources.find(r => r.uri === uri);
     if (!resource) return { ok: false, error: `Resource not found: ${uri}` };
 
-    const resolved = await utils.resolveAttachment(resource, async key => {
-      const obj = await context.bucket.get(key);
-      return obj ? await obj.arrayBuffer() : null;
-    });
+    const resolved = await utils.resolveAttachment(
+      resource.fileKey
+        ? resource
+        : await withResourceContent(context.db, resource),
+      async key => {
+        const obj = await context.bucket.get(key);
+        return obj ? await obj.arrayBuffer() : null;
+      }
+    );
     if (!resolved.ok) return { ok: false, error: resolved.error };
 
     const { bytes, mimeType, filename } = resolved.attachment;

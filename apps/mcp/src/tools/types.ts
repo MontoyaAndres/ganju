@@ -1,11 +1,9 @@
 import { JsonSchema } from '@ganju/utils';
-import { db, Database } from '@ganju/db';
-import { InferSelectModel } from 'drizzle-orm';
+import { Database } from '@ganju/db';
 import { R2Bucket } from '@cloudflare/workers-types';
 
 import type { Bindings } from '../types';
-
-type ArtifactResource = InferSelectModel<typeof db.schema.artifactResource>;
+import type { BootResource } from '../utils';
 
 export interface ToolCredential {
   provider: string;
@@ -45,7 +43,7 @@ export interface PromptInventoryItem {
 export interface ToolContext {
   config: Record<string, unknown>;
   credentials: ToolCredential[];
-  resources: ArtifactResource[];
+  resources: BootResource[];
   prompts: PromptInventoryItem[];
   channelPlatform: string | null;
   bucket: R2Bucket;

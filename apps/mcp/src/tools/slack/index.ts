@@ -1,6 +1,8 @@
 import { utils } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
+import { withResourceContent } from '../../utils';
+
 // types
 import type { SlackSendRequest, SlackSendResponse } from '@ganju/utils';
 import { ToolContext, ToolDefinition } from '../types';
@@ -117,7 +119,9 @@ const sendViaContainer = async (
     }
 
     const resolved = await utils.resolveAttachment(
-      resource,
+      resource.fileKey
+        ? resource
+        : await withResourceContent(context.db, resource),
       async key => {
         const obj = await context.bucket.get(key);
         return obj ? await obj.arrayBuffer() : null;

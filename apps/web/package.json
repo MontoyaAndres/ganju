@@ -6,7 +6,7 @@
     "dev": "node scripts/copy-monaco.mjs && dotenv -e ../../.env next dev",
     "start": "next start",
     "clean": "rm -rf .next && rm -rf .open-next && rm -rf node_modules",
-    "cf-build": "opennextjs-cloudflare build",
+    "cf-build": "opennextjs-cloudflare build && node scripts/strip-server-env.mjs",
     "deploy-dev": "opennextjs-cloudflare deploy --env development",
     "deploy-prod": "opennextjs-cloudflare deploy --env production",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"

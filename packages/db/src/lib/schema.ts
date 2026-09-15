@@ -954,24 +954,28 @@ export const channelMessageUsage = pgTable(
   table => [index('channel_message_usage_messageId_idx').on(table.messageId)]
 );
 
-export const artifactPrompt = pgTable('artifact_prompt', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => uuid()),
-  title: text('title').notNull(),
-  description: text('description'),
-  messages: json('messages').notNull().default([]),
-  schema: json('schema'),
-  metadata: json('metadata'),
-  artifactId: text('artifact_id')
-    .notNull()
-    .references(() => artifact.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date())
-});
+export const artifactPrompt = pgTable(
+  'artifact_prompt',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    title: text('title').notNull(),
+    description: text('description'),
+    messages: json('messages').notNull().default([]),
+    schema: json('schema'),
+    metadata: json('metadata'),
+    artifactId: text('artifact_id')
+      .notNull()
+      .references(() => artifact.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [index('artifact_prompt_artifact_idx').on(table.artifactId)]
+);
 
 export const mcpServerCatalog = pgTable('mcp_server_catalog', {
   id: text('id')
@@ -1017,7 +1021,8 @@ export const artifactTool = pgTable(
       .$onUpdate(() => new Date())
   },
   table => [
-    index('artifact_tool_mcp_server_catalog_idx').on(table.mcpServerCatalogId)
+    index('artifact_tool_mcp_server_catalog_idx').on(table.mcpServerCatalogId),
+    index('artifact_tool_artifact_idx').on(table.artifactId)
   ]
 );
 
@@ -1093,25 +1098,29 @@ export const artifactToolVersion = pgTable(
   ]
 );
 
-export const artifactCredential = pgTable('artifact_credential', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => uuid()),
-  provider: text('provider').notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token'),
-  expiresAt: timestamp('expires_at'),
-  scopes: text('scopes'),
-  metadata: json('metadata'),
-  artifactId: text('artifact_id')
-    .notNull()
-    .references(() => artifact.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { mode: 'date' })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date())
-});
+export const artifactCredential = pgTable(
+  'artifact_credential',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    provider: text('provider').notNull(),
+    accessToken: text('access_token').notNull(),
+    refreshToken: text('refresh_token'),
+    expiresAt: timestamp('expires_at'),
+    scopes: text('scopes'),
+    metadata: json('metadata'),
+    artifactId: text('artifact_id')
+      .notNull()
+      .references(() => artifact.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [index('artifact_credential_artifact_idx').on(table.artifactId)]
+);
 
 export const artifactResource = pgTable(
   'artifact_resource',

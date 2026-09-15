@@ -1,4 +1,9 @@
-import { readResourceContent } from './readResourceContent';
+import {
+  readResourceContent,
+  withResourceContent,
+  BOOT_RESOURCE_COLUMNS,
+  type BootResource
+} from './readResourceContent';
 import { refreshCredentialIfNeeded } from './refreshCredential';
 import { generateEmbedding } from './embedding';
 import { resolveArtifactSlug } from './resolveArtifactSlug';
@@ -21,6 +26,8 @@ import {
 
 export {
   readResourceContent,
+  withResourceContent,
+  BOOT_RESOURCE_COLUMNS,
   refreshCredentialIfNeeded,
   generateEmbedding,
   resolveArtifactSlug,
@@ -36,6 +43,7 @@ export {
 };
 
 export type {
+  BootResource,
   PendingRequest,
   InterpolationMode,
   RemoteMcpAuthHeader,

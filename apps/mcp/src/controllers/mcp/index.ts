@@ -25,6 +25,8 @@ import {
 } from '../../tools';
 import {
   readResourceContent,
+  withResourceContent,
+  BOOT_RESOURCE_COLUMNS,
   refreshCredentialIfNeeded,
   generateEmbedding,
   resolveArtifactSlug,
@@ -74,7 +76,7 @@ const business = async (c: Context<AppEnv>) => {
     where: eq(db.schema.artifact.slug, slug),
     with: {
       artifactPrompts: true,
-      artifactResources: true,
+      artifactResources: { columns: BOOT_RESOURCE_COLUMNS },
       artifactTools: true,
       artifactCredentials: true,
       project: {
@@ -263,7 +265,11 @@ const business = async (c: Context<AppEnv>) => {
         async (uri: URL, variables) => {
           const startedAt = Date.now();
           try {
-            const result = await readResourceContent(resource, uri, bucket);
+            const result = await readResourceContent(
+              await withResourceContent(dbInstance, resource),
+              uri,
+              bucket
+            );
 
             for (const content of result.contents) {
               if ('text' in content && content.text) {
@@ -316,7 +322,11 @@ const business = async (c: Context<AppEnv>) => {
       async (uri: URL) => {
         const startedAt = Date.now();
         try {
-          const result = await readResourceContent(resource, uri, bucket);
+          const result = await readResourceContent(
+            await withResourceContent(dbInstance, resource),
+            uri,
+            bucket
+          );
           pendingRequests.push({
             method: utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ,
             resourceUri: uri.toString(),

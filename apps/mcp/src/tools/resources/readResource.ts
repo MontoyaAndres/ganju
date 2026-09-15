@@ -1,6 +1,6 @@
 import { utils } from '@ganju/utils';
 
-import { readResourceContent } from '../../utils';
+import { readResourceContent, withResourceContent } from '../../utils';
 
 import { ToolDefinition } from '../types';
 
@@ -20,13 +20,15 @@ export const readResource: ToolDefinition = {
   },
   handler: async (args, context) => {
     const uri = String(args.uri);
-    const resource = context.resources.find(r => r.uri === uri);
+    const listed = context.resources.find(r => r.uri === uri);
 
-    if (!resource) {
+    if (!listed) {
       return {
         content: [{ type: 'text', text: `Resource not found: ${uri}` }]
       };
     }
+
+    const resource = await withResourceContent(context.db, listed);
 
     // Binary resources can't be inlined in a tool response on Cloudflare
     // Workers — base64 + JSON re-serialization holds 4-5 simultaneous copies
