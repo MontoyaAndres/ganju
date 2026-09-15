@@ -9,9 +9,6 @@ preview_urls = false
 [limits]
 cpu_ms = 30000
 
-[placement]
-region = "aws:us-east-1"
-
 [build]
 command = "npm run build"
 
