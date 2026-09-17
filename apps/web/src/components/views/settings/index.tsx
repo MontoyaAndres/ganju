@@ -69,10 +69,13 @@ interface OrganizationLlm {
   updatedAt: string;
 }
 
+const CUSTOM_KEY = utils.constants.LLM_CATALOG_CUSTOM_KEY;
+
 const INITIAL_LLM_FORM = {
   id: '' as string | null,
   name: '',
   catalogKey: '',
+  model: '',
   apiKey: '',
   baseUrl: '',
   systemPrompt: ''
@@ -90,9 +93,17 @@ const findCatalogEntry = (key: string) => {
   );
 };
 
-const llmCatalogKey = (llm: OrganizationLlm) => `${llm.provider}::${llm.model}`;
+const isCustomLlm = (llm: OrganizationLlm) =>
+  llm.provider === utils.constants.LLM_PROVIDER_OPENAI_COMPATIBLE;
+
+const llmCatalogKey = (llm: OrganizationLlm) =>
+  isCustomLlm(llm) ? CUSTOM_KEY : `${llm.provider}::${llm.model}`;
 
 const llmCatalogLabel = (llm: OrganizationLlm) => {
+  // A custom row has no catalog label, and its model id is the only thing that
+  // identifies it to whoever configured it — show that rather than the
+  // provider slug.
+  if (isCustomLlm(llm)) return llm.model;
   const entry = findCatalogEntry(llmCatalogKey(llm));
   if (entry) return entry.label;
   return `${llm.provider} / ${llm.model}`;
@@ -470,6 +481,7 @@ export const Settings = (props: SettingsProps) => {
       id: llm.id,
       name: llm.name,
       catalogKey: llmCatalogKey(llm),
+      model: llm.model,
       apiKey: '',
       baseUrl: llm.baseUrl || '',
       systemPrompt: llm.systemPrompt || ''
@@ -485,27 +497,40 @@ export const Settings = (props: SettingsProps) => {
     if (!llmForm || llmSubmitting) return;
     const isEdit = !!llmForm.id;
 
+    const isCustom = llmForm.catalogKey === CUSTOM_KEY;
+
     const errors: Record<string, string> = {};
     if (!llmForm.name.trim()) errors.name = t('nameRequired');
     if (!llmForm.catalogKey) errors.catalogKey = t('modelPickError');
     if (!isEdit && !llmForm.apiKey.trim())
       errors.apiKey = t('modelApiKeyRequired');
+    if (isCustom) {
+      if (!llmForm.model.trim()) errors.model = t('modelIdRequired');
+      // The API enforces this too — the form checks it so the person sees which
+      // field is missing instead of a toast.
+      if (!llmForm.baseUrl.trim())
+        errors.baseUrl = t('modelBaseUrlRequiredError');
+      else if (!/^https:\/\//i.test(llmForm.baseUrl.trim()))
+        errors.baseUrl = t('modelBaseUrlInvalid');
+    }
 
     if (Object.keys(errors).length > 0) {
       setLlmErrors(errors);
       return;
     }
 
-    const catalog = findCatalogEntry(llmForm.catalogKey);
-    if (!catalog) {
+    const catalog = isCustom ? null : findCatalogEntry(llmForm.catalogKey);
+    if (!isCustom && !catalog) {
       setLlmErrors({ catalogKey: t('modelUnknown') });
       return;
     }
 
     const body: Record<string, unknown> = {
       name: llmForm.name.trim(),
-      provider: catalog.provider,
-      model: catalog.model
+      provider: catalog
+        ? catalog.provider
+        : utils.constants.LLM_PROVIDER_OPENAI_COMPATIBLE,
+      model: catalog ? catalog.model : llmForm.model.trim()
     };
     if (llmForm.apiKey.trim()) body.apiKey = llmForm.apiKey.trim();
     if (llmForm.baseUrl.trim()) body.baseUrl = llmForm.baseUrl.trim();
@@ -561,6 +586,14 @@ export const Settings = (props: SettingsProps) => {
 
   const renderLlmForm = () => {
     if (!llmForm) return null;
+    const isCustom = llmForm.catalogKey === CUSTOM_KEY;
+    // The presets, plus one escape hatch for everything they don't cover. Its
+    // label is translated, so the list is built here rather than at module
+    // scope with the catalog rows.
+    const modelOptions = [
+      ...catalogOptions,
+      { label: t('modelCustom'), value: CUSTOM_KEY }
+    ];
     return (
       <div className="llm-form">
         <p className="llm-form-title">
@@ -594,7 +627,7 @@ export const Settings = (props: SettingsProps) => {
           disabled={llmSubmitting}
           error={!!llmErrors.catalogKey}
           helperText={llmErrors.catalogKey}
-          options={catalogOptions}
+          options={modelOptions}
           onChange={e => {
             const v = e.target.value as string;
             setLlmForm(prev => (prev ? { ...prev, catalogKey: v } : prev));
@@ -606,6 +639,32 @@ export const Settings = (props: SettingsProps) => {
               });
           }}
         />
+
+        {isCustom && (
+          <>
+            <p className="llm-form-hint">{t('modelCustomHint')}</p>
+
+            <UI.Input
+              label={t('modelId')}
+              name="llmModel"
+              placeholder={t('modelIdPlaceholder')}
+              value={llmForm.model}
+              disabled={llmSubmitting}
+              error={!!llmErrors.model}
+              helperText={llmErrors.model}
+              onChange={e => {
+                const v = e.target.value;
+                setLlmForm(prev => (prev ? { ...prev, model: v } : prev));
+                if (llmErrors.model)
+                  setLlmErrors(prev => {
+                    const n = { ...prev };
+                    delete n.model;
+                    return n;
+                  });
+              }}
+            />
+          </>
+        )}
 
         <UI.Input
           label={t(llmForm.id ? 'modelApiKeyKeep' : 'modelApiKey')}
@@ -629,14 +688,22 @@ export const Settings = (props: SettingsProps) => {
         />
 
         <UI.Input
-          label={t('modelBaseUrl')}
+          label={t(isCustom ? 'modelBaseUrlRequired' : 'modelBaseUrl')}
           name="llmBaseUrl"
-          placeholder="https://..."
+          placeholder={isCustom ? t('modelBaseUrlPlaceholder') : 'https://...'}
           value={llmForm.baseUrl}
           disabled={llmSubmitting}
+          error={!!llmErrors.baseUrl}
+          helperText={llmErrors.baseUrl}
           onChange={e => {
             const v = e.target.value;
             setLlmForm(prev => (prev ? { ...prev, baseUrl: v } : prev));
+            if (llmErrors.baseUrl)
+              setLlmErrors(prev => {
+                const n = { ...prev };
+                delete n.baseUrl;
+                return n;
+              });
           }}
         />
 

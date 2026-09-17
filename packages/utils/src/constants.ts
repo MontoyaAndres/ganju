@@ -622,8 +622,8 @@ const LLM_CATALOG: ReadonlyArray<{
 }> = [
   {
     provider: LLM_PROVIDER_GOOGLE,
-    model: 'gemini-3-flash-preview',
-    label: 'Gemini 3 Flash'
+    model: 'gemini-3.8-flash',
+    label: 'Gemini 3.8 Flash'
   },
   {
     provider: LLM_PROVIDER_GOOGLE,
@@ -632,13 +632,13 @@ const LLM_CATALOG: ReadonlyArray<{
   },
   {
     provider: LLM_PROVIDER_OPENAI,
-    model: 'gpt-4o-mini',
-    label: 'GPT-4o mini'
+    model: 'gpt-5.4-mini',
+    label: 'GPT-5.4 mini'
   },
   {
     provider: LLM_PROVIDER_OPENAI,
-    model: 'gpt-4o',
-    label: 'GPT-4o'
+    model: 'gpt-5.5',
+    label: 'GPT-5.5'
   },
   {
     provider: LLM_PROVIDER_ANTHROPIC,
@@ -647,15 +647,34 @@ const LLM_CATALOG: ReadonlyArray<{
   },
   {
     provider: LLM_PROVIDER_ANTHROPIC,
-    model: 'claude-sonnet-4-6',
-    label: 'Claude Sonnet 4.6'
+    model: 'claude-sonnet-5',
+    label: 'Claude Sonnet 5'
   },
   {
     provider: LLM_PROVIDER_ANTHROPIC,
-    model: 'claude-opus-4.7',
-    label: 'Claude Sonnet 4.7'
+    model: 'claude-opus-5',
+    label: 'Claude Opus 5'
   }
 ];
+
+// The picker's escape hatch. Anything that speaks the OpenAI chat-completions
+// protocol — a gateway, an aggregator, a self-hosted server — is reachable
+// without a catalog row: the customer supplies the model id and the base URL,
+// and the request goes out through the OpenAI adapter. Not a provider value, so
+// it can never reach the database; the dashboard translates it into
+// LLM_PROVIDER_OPENAI_COMPATIBLE on submit.
+const LLM_CATALOG_CUSTOM_KEY = 'custom';
+
+// Validation messages for an organization LLM's base URL. Constants rather than
+// inline strings because localizeZodIssue keys its translations on the exact
+// English text, so the two files have to name the same value. Both also carry a
+// word matchStatus recognises ("required", "must be"): the update path re-checks
+// the merged row and throws the message as a plain Error, and anything
+// unrecognised there becomes an opaque 500 instead of a 400.
+const LLM_BASE_URL_REQUIRED_MESSAGE =
+  'A base URL is required for an OpenAI-compatible model';
+const LLM_BASE_URL_INVALID_MESSAGE =
+  'Base URL must be a public https:// address';
 
 const LLM_SYSTEM_DEFAULT = 'SYSTEM_DEFAULT';
 
@@ -2506,6 +2525,9 @@ export const constants = {
   DEFAULT_LLM_MODEL,
   DEFAULT_LLM_SYSTEM_PROMPT,
   LLM_CATALOG,
+  LLM_CATALOG_CUSTOM_KEY,
+  LLM_BASE_URL_REQUIRED_MESSAGE,
+  LLM_BASE_URL_INVALID_MESSAGE,
   LLM_SYSTEM_DEFAULT,
   MAX_TOOL_LOOPS,
   CHANNEL_HISTORY_LIMIT,

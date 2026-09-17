@@ -380,6 +380,13 @@ export const Wrapper = styled.div`
         margin: 0 0 4px;
       }
 
+      .llm-form-hint {
+        font-size: ${theme.fonts.sm};
+        color: ${theme.colors.bastille}99;
+        line-height: 1.5;
+        margin: -4px 0 0;
+      }
+
       .llm-form-actions {
         display: flex;
         gap: 8px;

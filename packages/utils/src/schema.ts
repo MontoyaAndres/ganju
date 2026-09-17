@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { constants } from './constants';
+import { isAllowedLlmBaseUrl, requiresLlmBaseUrl } from './llmBaseUrl';
 import { isReservedSlug, isValidSlugFormat } from './slug';
 import { isReservedToolName } from './reservedToolName';
 import { slugifyTitle } from './slugifyTitle';
@@ -572,11 +573,33 @@ const ORGANIZATION_LIST_LLM = z.object({
   organizationId: z.uuid()
 });
 
-const ORGANIZATION_CREATE_LLM = z.object({
+// The two rules live in `llmBaseUrl.ts`, because the update controller applies
+// them again to the merged row — the only place both halves are visible. Here
+// they are just the field validator and the cross-field check.
+const LLM_BASE_URL = z
+  .url()
+  .max(500)
+  .refine(isAllowedLlmBaseUrl, constants.LLM_BASE_URL_INVALID_MESSAGE);
+
+const BASE_URL_REQUIRED = {
+  message: constants.LLM_BASE_URL_REQUIRED_MESSAGE,
+  path: ['baseUrl']
+};
+
+const hasBaseUrlWhenRequired = (
+  provider: string | undefined,
+  baseUrl: unknown
+) => !requiresLlmBaseUrl(provider) || !!baseUrl;
+
+// The base-URL rule is a cross-field check, and zod cannot `.omit()` from a
+// schema that already carries one. So the shape stays a plain object — the
+// `_VIEW` variants below derive from it — and the refinement is applied last,
+// to each schema in turn, which also keeps the two in step.
+const ORGANIZATION_CREATE_LLM_SHAPE = z.object({
   name: z.string().min(1).max(200),
   provider: z.enum(constants.LLM_PROVIDERS),
   model: z.string().min(1).max(200),
-  baseUrl: z.url().optional().or(z.literal('')),
+  baseUrl: LLM_BASE_URL.optional().or(z.literal('')),
   apiKey: z.string().min(1).max(500),
   systemPrompt: z.string().max(10000).optional(),
   config: z.record(z.string(), z.any()).optional(),
@@ -584,18 +607,42 @@ const ORGANIZATION_CREATE_LLM = z.object({
   organizationId: z.uuid()
 });
 
-const ORGANIZATION_UPDATE_LLM = z.object({
+const ORGANIZATION_CREATE_LLM = ORGANIZATION_CREATE_LLM_SHAPE.refine(
+  v => hasBaseUrlWhenRequired(v.provider, v.baseUrl),
+  BASE_URL_REQUIRED
+);
+
+// An update is a partial: an omitted field keeps its stored value, so the
+// base-URL rule can only be checked here when the caller sends the provider and
+// the base URL together. The controller re-checks it against the merged row,
+// which is the only place both halves are known.
+const ORGANIZATION_UPDATE_LLM_SHAPE = z.object({
   llmId: z.uuid(),
   name: z.string().min(1).max(200).optional(),
   provider: z.enum(constants.LLM_PROVIDERS).optional(),
   model: z.string().min(1).max(200).optional(),
-  baseUrl: z.url().optional().or(z.literal('')).nullable(),
+  baseUrl: LLM_BASE_URL.optional().or(z.literal('')).nullable(),
   apiKey: z.string().min(1).max(500).optional(),
   systemPrompt: z.string().max(10000).optional().nullable(),
   config: z.record(z.string(), z.any()).optional().nullable(),
   userId: z.uuid(),
   organizationId: z.uuid()
 });
+
+const refineUpdateBaseUrl = <
+  T extends z.ZodType<{ provider?: string; baseUrl?: unknown }>
+>(
+  schema: T
+) =>
+  schema.refine(
+    v =>
+      v.baseUrl === undefined || hasBaseUrlWhenRequired(v.provider, v.baseUrl),
+    BASE_URL_REQUIRED
+  );
+
+const ORGANIZATION_UPDATE_LLM = refineUpdateBaseUrl(
+  ORGANIZATION_UPDATE_LLM_SHAPE
+);
 
 const ORGANIZATION_REMOVE_LLM = z.object({
   llmId: z.uuid(),
@@ -649,16 +696,21 @@ const ACCESS_TOKEN_CREATE_VIEW = ACCESS_TOKEN_CREATE.omit({
   projectId: true
 });
 
-const ORGANIZATION_CREATE_LLM_VIEW = ORGANIZATION_CREATE_LLM.omit({
+const ORGANIZATION_CREATE_LLM_VIEW = ORGANIZATION_CREATE_LLM_SHAPE.omit({
   userId: true,
   organizationId: true
-});
+}).refine(
+  v => hasBaseUrlWhenRequired(v.provider, v.baseUrl),
+  BASE_URL_REQUIRED
+);
 
-const ORGANIZATION_UPDATE_LLM_VIEW = ORGANIZATION_UPDATE_LLM.omit({
-  llmId: true,
-  userId: true,
-  organizationId: true
-});
+const ORGANIZATION_UPDATE_LLM_VIEW = refineUpdateBaseUrl(
+  ORGANIZATION_UPDATE_LLM_SHAPE.omit({
+    llmId: true,
+    userId: true,
+    organizationId: true
+  })
+);
 
 // `channel.config` is an open bag, so this stays loose — it only pins down the
 // keys we actually read, and passes everything else through untouched.

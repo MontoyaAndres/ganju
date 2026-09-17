@@ -74,6 +74,12 @@ const CUSTOM_MESSAGES: Record<string, Record<string, string>> = {
   },
   [constants.CUSTOM_CODE_RESOURCE_FILE_TOO_LARGE_MESSAGE]: {
     es: `Los bytes del archivo superan el límite de ${constants.CUSTOM_CODE_MAX_RESOURCE_FILE_BYTES / (1024 * 1024)}MB`
+  },
+  [constants.LLM_BASE_URL_REQUIRED_MESSAGE]: {
+    es: 'Se requiere una URL base para un modelo compatible con OpenAI'
+  },
+  [constants.LLM_BASE_URL_INVALID_MESSAGE]: {
+    es: 'La URL base debe ser una dirección https:// pública'
   }
 };
 

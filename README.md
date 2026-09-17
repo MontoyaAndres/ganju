@@ -107,6 +107,7 @@ Full setup (prerequisites, environment variables, database, per-app commands) is
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                     | Deploying to Cloudflare, environments, secrets      |
 | [docs/CUSTOM_TOOLS.md](docs/CUSTOM_TOOLS.md)                 | User-written tools: runtime, broker, SDK, CLI       |
 | [docs/PRICING.md](docs/PRICING.md)                           | Cost model, plan limits, metering and billing       |
+| [docs/MODELS.md](docs/MODELS.md)                             | LLM tiers, the adapter layer, custom providers      |
 | [docs/ABUSE.md](docs/ABUSE.md)                               | Responding to abuse of user-authored tools          |
 | [apps/mcp/src/tools/README.md](apps/mcp/src/tools/README.md) | How tools work and how to add one                   |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Contribution workflow and conventions               |

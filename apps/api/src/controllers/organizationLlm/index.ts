@@ -120,6 +120,22 @@ const update = async (c: Context<AppEnv>) => {
     updates.systemPrompt = currentValues.systemPrompt || null;
   if (currentValues.config !== undefined)
     updates.config = currentValues.config || null;
+
+  // The same rule the create schema applies, against the row this update would
+  // produce. An update is a partial, so neither side knows the pair on its own:
+  // switching a row to the OpenAI-compatible provider without sending a base
+  // URL, or clearing the base URL of a row already on it, each pass their own
+  // half of the check and would leave the adapter pointing at api.openai.com
+  // with a key meant for somewhere else.
+  const mergedProvider = (
+    'provider' in updates ? updates.provider : existing.provider
+  ) as string;
+  const mergedBaseUrl = (
+    'baseUrl' in updates ? updates.baseUrl : existing.baseUrl
+  ) as string | null;
+  const baseUrlIssue = utils.llmBaseUrlIssue(mergedProvider, mergedBaseUrl);
+  if (baseUrlIssue) throw new Error(baseUrlIssue);
+
   if (currentValues.apiKey !== undefined) {
     const encryptionKey = utils.getCredentialEncryptionKey(c);
     updates.apiKey = utils.encryptString(currentValues.apiKey, encryptionKey);

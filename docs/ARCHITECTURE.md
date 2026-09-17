@@ -116,7 +116,7 @@ sequenceDiagram
 
 ### Channel bot turn
 
-A chat platform posts a webhook to `apps/api`, which runs an LLM tool-calling loop (the org's configured model) against the artifact's MCP `Client`, then replies on the platform. Resources reach the agent through the native `resources` tool group, and MCP prompts surface as slash commands — both detailed in the [tools README](../apps/mcp/src/tools/README.md#channel-bots-telegram).
+A chat platform posts a webhook to `apps/api`, which runs an LLM tool-calling loop (the org's configured model, or the shared platform one — see [MODELS.md](MODELS.md)) against the artifact's MCP `Client`, then replies on the platform. Resources reach the agent through the native `resources` tool group, and MCP prompts surface as slash commands — both detailed in the [tools README](../apps/mcp/src/tools/README.md#channel-bots-telegram).
 
 ## Cloudflare bindings
 

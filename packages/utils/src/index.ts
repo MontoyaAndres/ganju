@@ -134,6 +134,11 @@ import type {
   ResolveAttachmentResult
 } from './attachment';
 import { ipv4InPrivateRange, isBlockedHost } from './ssrf';
+import {
+  requiresLlmBaseUrl,
+  isAllowedLlmBaseUrl,
+  llmBaseUrlIssue
+} from './llmBaseUrl';
 import { formatRelative } from './formatRelative';
 import { formatRelativeTime } from './formatRelativeTime';
 import { languageCookieDomain } from './languageCookieDomain';
@@ -297,6 +302,9 @@ export const utils = {
   projectPathIssue,
   ipv4InPrivateRange,
   isBlockedHost,
+  requiresLlmBaseUrl,
+  isAllowedLlmBaseUrl,
+  llmBaseUrlIssue,
   validateMessageVariables,
   formatRelative,
   formatRelativeTime,
