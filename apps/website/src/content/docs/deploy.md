@@ -118,5 +118,5 @@ and [DATA_MODEL.md](https://github.com/MontoyaAndres/ganju/blob/main/docs/DATA_M
 in the repo.
 
 Prefer not to run any of this? The [hosted version](https://app.ganju.ai) handles all
-of it — start on the Free plan and [upgrade](/docs/settings#billing--plan) when you
+of it — start on the Free plan and [upgrade](/docs/settings/#billing--plan) when you
 grow.

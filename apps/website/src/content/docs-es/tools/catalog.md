@@ -20,7 +20,7 @@ Tres tarjetas no son integraciones en realidad:
 
 - **Integradas** — las cinco herramientas de recursos y prompts que trae todo
   proyecto, activas desde el primer día. No requieren conexión. Mira
-  [Integradas](/es/docs/tools/built-in).
+  [Integradas](/es/docs/tools/built-in/).
 - **Saludo** — una herramienta única de prueba, para confirmar que un servidor
   nuevo está vivo.
 - **Servidores MCP remotos** — GitHub y Notion publican sus propios servidores MCP,
@@ -68,9 +68,9 @@ Una cuenta conectada es una propiedad del asistente, no de una herramienta. Eso
 significa que la misma conexión de Gmail está disponible para:
 
 - todas las herramientas de Gmail del catálogo;
-- un [endpoint HTTP](/es/docs/tools/http-endpoints) que use autenticación OAuth,
+- un [endpoint HTTP](/es/docs/tools/http-endpoints/) que use autenticación OAuth,
   en lugar de guardar una segunda copia de la credencial;
-- una [función](/es/docs/tools/functions), vía `ctx.connection('google-gmail')` —
+- una [función](/es/docs/tools/functions/), vía `ctx.connection('google-gmail')` —
   pero solo si listaste el proveedor en los ajustes de esa función. Tu código
   nunca recibe el refresh token, solo un access token de vida corta.
 
@@ -80,23 +80,23 @@ Desconectar una integración afecta a las tres.
 
 | | |
 | --- | --- |
-| **[Integradas](/es/docs/tools/built-in)** | Las cinco herramientas base de recursos y prompts |
-| **[Gmail](/es/docs/tools/gmail)** | Enviar, leer, buscar y gestionar correo (18 herramientas) |
-| **[Outlook](/es/docs/tools/outlook)** | Correo de Microsoft 365 vía Graph (18 herramientas) |
-| **[Slack](/es/docs/tools/slack)** | Publicar mensajes, explorar canales, subir archivos |
-| **[Búsqueda en Slack](/es/docs/tools/slack-search)** | Búsqueda de mensajes en todo el workspace |
-| **[Google Calendar](/es/docs/tools/google-calendar)** | Crear y gestionar eventos, encontrar huecos libres |
-| **[Cal.com](/es/docs/tools/calcom)** | Consultar disponibilidad y agendar o cancelar reuniones |
-| **[Búsqueda web](/es/docs/tools/web-search)** | Buscar en la web en vivo y extraer páginas |
-| **[GitHub](/es/docs/tools/github)** | El servidor MCP remoto oficial de GitHub |
-| **[Notion](/es/docs/tools/notion)** | El servidor MCP remoto oficial de Notion |
-| **[Saludo](/es/docs/tools/greeting)** | Una herramienta de demostración para probar un servidor nuevo |
+| **[Integradas](/es/docs/tools/built-in/)** | Las cinco herramientas base de recursos y prompts |
+| **[Gmail](/es/docs/tools/gmail/)** | Enviar, leer, buscar y gestionar correo (18 herramientas) |
+| **[Outlook](/es/docs/tools/outlook/)** | Correo de Microsoft 365 vía Graph (18 herramientas) |
+| **[Slack](/es/docs/tools/slack/)** | Publicar mensajes, explorar canales, subir archivos |
+| **[Búsqueda en Slack](/es/docs/tools/slack-search/)** | Búsqueda de mensajes en todo el workspace |
+| **[Google Calendar](/es/docs/tools/google-calendar/)** | Crear y gestionar eventos, encontrar huecos libres |
+| **[Cal.com](/es/docs/tools/calcom/)** | Consultar disponibilidad y agendar o cancelar reuniones |
+| **[Búsqueda web](/es/docs/tools/web-search/)** | Buscar en la web en vivo y extraer páginas |
+| **[GitHub](/es/docs/tools/github/)** | El servidor MCP remoto oficial de GitHub |
+| **[Notion](/es/docs/tools/notion/)** | El servidor MCP remoto oficial de Notion |
+| **[Saludo](/es/docs/tools/greeting/)** | Una herramienta de demostración para probar un servidor nuevo |
 
 ## ¿No está aquí?
 
 Dos salidas de emergencia, en orden de esfuerzo:
 
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — una petición contra una
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — una petición contra una
   API que ya tienes, descrita en un formulario. Disponible en todos los planes.
-- **[Funciones](/es/docs/tools/functions)** — tu propio código, cuando necesitas
+- **[Funciones](/es/docs/tools/functions/)** — tu propio código, cuando necesitas
   lógica y no una sola llamada.

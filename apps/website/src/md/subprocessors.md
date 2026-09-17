@@ -4,7 +4,7 @@
 
 A subprocessor is a company we use to deliver the hosted Ganju service that may
 handle personal data on our behalf. This page is the authoritative list. It's part of
-our [Privacy Policy](/privacy) and our [Data Processing Agreement](/dpa).
+our [Privacy Policy](/privacy/) and our [Data Processing Agreement](/dpa/).
 
 **If you self-host Ganju, none of this applies to you** — you choose your own
 providers, and the only ones you inherit are the ones you configure yourself.
@@ -42,7 +42,7 @@ service.
 **Google appears in this tier deliberately.** Embeddings run on our key for every
 customer on every plan, so resource text reaches Google whether or not you've
 configured anything. See
-[AI models, embeddings, and your content](/privacy#ai-models-embeddings-and-your-content).
+[AI models, embeddings, and your content](/privacy/#ai-models-embeddings-and-your-content).
 
 ## Conditional — only if you enable them
 

@@ -44,7 +44,7 @@ medidas contra las `3,000` incluidas.
 Pro sin límites de proyectos, herramientas, prompts ni canales, una dirección web
 y herramientas a la medida, y un contacto asignado para soporte. El precio, las
 cuotas y las condiciones contractuales se acuerdan directamente —
-[habla con ventas](/es/contacto).
+[habla con ventas](/es/contacto/).
 
 ### Cómo funciona de verdad la cuota de mensajes
 
@@ -109,7 +109,7 @@ traer el tuyo. Selecciona **Add model** y completa:
 - **System prompt** _(opcional)_ — una instrucción persistente que define cómo se
   comporta este modelo.
 
-Agrega un modelo una vez y reutilízalo en cualquier [canal](/es/docs/channels) de la
+Agrega un modelo una vez y reutilízalo en cualquier [canal](/es/docs/channels/) de la
 organización — cada canal puede elegir uno de tus modelos configurados o volver al
 modelo del sistema.
 

@@ -18,9 +18,9 @@ with anyone.
 
 ## Start here
 
-- **[Getting started](/docs/getting-started)** — create your first workspace and
+- **[Getting started](/docs/getting-started/)** — create your first workspace and
   connect your AI in a few minutes.
-- **[Organizations & projects](/docs/organizations-and-projects)** — how Ganju is
+- **[Organizations & projects](/docs/organizations-and-projects/)** — how Ganju is
   structured: an organization for your team and billing, a project per assistant.
 
 ## Explore what Ganju can do
@@ -28,30 +28,30 @@ with anyone.
 Once you're set up, these guides go deeper on each capability — the building blocks
 you combine to shape exactly what your assistant knows, does, and where it lives:
 
-- **[Prompts](/docs/prompts)** — reusable, multi-turn templates with typed
+- **[Prompts](/docs/prompts/)** — reusable, multi-turn templates with typed
   variables that become **slash commands** in every channel.
-- **[Resources](/docs/resources)** — ground your AI in your own knowledge: import
+- **[Resources](/docs/resources/)** — ground your AI in your own knowledge: import
   from Google Drive or OneDrive, crawl a website, or upload files, all searchable
   with citations.
-- **[Tools](/docs/tools)** — let it take action: email (Gmail, Outlook), Slack,
+- **[Tools](/docs/tools/)** — let it take action: email (Gmail, Outlook), Slack,
   calendars (Google, Cal.com), web search, remote MCP servers like GitHub and
   Notion, or your own HTTP APIs.
-- **[Functions](/docs/tools/functions)** — when the catalog doesn't cover your
+- **[Functions](/docs/tools/functions/)** — when the catalog doesn't cover your
   case, write the tool yourself in JavaScript. It runs on the edge with your
   connected accounts and file-sending handed to it as host capabilities, so
   there's still no server for you to run.
-- **[The `ganju` CLI](/docs/tools/cli)** — put those functions in a repository:
+- **[The `ganju` CLI](/docs/tools/cli/)** — put those functions in a repository:
   build, deploy, test against real connections, read their logs, roll back, and
   ship from CI.
-- **[Channels](/docs/channels)** — deliver it to real people on Telegram, WhatsApp,
+- **[Channels](/docs/channels/)** — deliver it to real people on Telegram, WhatsApp,
   Slack, and Discord, with step-by-step setup for each.
-- **[MCP clients](/docs/mcp)** — connect the same assistant to Claude, ChatGPT,
+- **[MCP clients](/docs/mcp/)** — connect the same assistant to Claude, ChatGPT,
   Cursor, or VS Code with one URL.
-- **[Analytics](/docs/analytics)** — see activity over time across channels and
+- **[Analytics](/docs/analytics/)** — see activity over time across channels and
   clients, resource/tool/prompt usage, and a live recent-activity feed.
-- **[Settings](/docs/settings)** — manage your plan and billing, invite your team,
+- **[Settings](/docs/settings/)** — manage your plan and billing, invite your team,
   and bring your own language model.
-- **[Deploy it yourself](/docs/deploy)** — Ganju is open source (Apache-2.0); run
+- **[Deploy it yourself](/docs/deploy/)** — Ganju is open source (Apache-2.0); run
   your own instance on Cloudflare and Postgres, with no plan caps.
 
 > Every page on this site is also available as Markdown — just add `.md` to the

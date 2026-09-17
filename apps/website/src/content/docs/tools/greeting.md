@@ -17,5 +17,5 @@ side effects.
   calling it.
 
 Once you've confirmed the server works, move on to a real integration like
-[Gmail](/docs/tools/gmail), [Slack](/docs/tools/slack), or
-[Web Search](/docs/tools/web-search).
+[Gmail](/docs/tools/gmail/), [Slack](/docs/tools/slack/), or
+[Web Search](/docs/tools/web-search/).

@@ -10,7 +10,7 @@ each area — **Organization**, **Billing & plan**, **Members**, **Projects**,
 **Models**, and the **Danger zone**.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Settings](/docs/settings)** guide explains how the Free, Pro, and Enterprise
+> **[Settings](/docs/settings/)** guide explains how the Free, Pro, and Enterprise
 > plans really work, billing and overage, members, and bringing your own model.
 
 ## Organization & billing
@@ -49,4 +49,4 @@ can't be undone, so it asks you to confirm.
 
 ![The Danger zone with the Remove organization action and its permanent-delete warning](/images/settings-3.webp)
 
-Next: open a [channel](/docs/getting-started/channels) to go live.
+Next: open a [channel](/docs/getting-started/channels/) to go live.

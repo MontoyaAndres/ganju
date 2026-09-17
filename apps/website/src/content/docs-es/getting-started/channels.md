@@ -11,9 +11,9 @@ tu equipo o individuos. Conecta **Telegram**, **Slack**, **WhatsApp** o
 configuraste — prompts, recursos y herramientas — viaja automáticamente con él.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Canales](/es/docs/channels)** trae la configuración paso a paso de
+> de **[Canales](/es/docs/channels/)** trae la configuración paso a paso de
 > Telegram, WhatsApp, Slack y Discord, además de cómo conectar
-> [clientes MCP](/es/docs/mcp).
+> [clientes MCP](/es/docs/mcp/).
 
 ## Agrega un canal
 
@@ -69,4 +69,4 @@ muestra los recursos que envió como adjuntos.
 ![La página de Canales mostrando los conteos de conversaciones y mensajes junto al PDF entregado como adjunto](/images/channe-show-messages.webp)
 
 Sigue con: adminístralo en el tiempo desde
-[configuración](/es/docs/getting-started/settings).
+[configuración](/es/docs/getting-started/settings/).

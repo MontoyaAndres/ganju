@@ -41,9 +41,10 @@ const {
 } = Astro.props;
 
 /**
- * Astro builds directory-style, so canonical URLs end in a slash. `alternates`
- * is written without one — normalise, or an `hreflang` self-reference points
- * at a URL that is not the canonical one and search engines drop the pairing.
+ * Astro builds directory-style, so canonical URLs end in a slash. Callers may
+ * pass `alternates` either way, so normalise — an `hreflang` self-reference
+ * that points at a URL which is not the canonical one gets the whole pairing
+ * dropped.
  */
 const canonicalise = (path: string) =>
   new URL(path.endsWith('/') ? path : `${path}/`, SITE.url).href;

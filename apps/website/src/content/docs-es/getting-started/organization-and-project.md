@@ -39,5 +39,5 @@ quieras desde el catálogo.
 Invita a tus compañeros desde la configuración de la organización y asígnales
 roles para que las personas correctas te ayuden a administrar el proyecto.
 
-Sigue con: agregar [prompts](/es/docs/getting-started/prompts) para definir cómo
+Sigue con: agregar [prompts](/es/docs/getting-started/prompts/) para definir cómo
 se comporta tu asistente.

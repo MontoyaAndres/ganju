@@ -6,8 +6,8 @@ updated: 2026-07-07
 ---
 
 **Channels** are how you put your assistant in front of other people. Everything
-you've built — [prompts](/docs/prompts), [resources](/docs/resources), and
-[tools](/docs/tools) — comes along automatically; you just choose where people
+you've built — [prompts](/docs/prompts/), [resources](/docs/resources/), and
+[tools](/docs/tools/) — comes along automatically; you just choose where people
 reach it. Connect a **messaging app** so clients and teammates chat with your AI
 where they already are, or connect any **MCP client** for a power-user workflow.
 
@@ -18,7 +18,7 @@ where they already are, or connect any **MCP client** for a power-user workflow.
 - **One assistant, delivered everywhere.** Every channel serves the same prompts,
   resources, and tools, so answers stay consistent across apps.
 - **Bring your own model.** Each channel can run on the system default or a
-  language model you configure — see [Settings](/docs/settings).
+  language model you configure — see [Settings](/docs/settings/).
 - **Watch it work.** Every conversation is logged in the dashboard so you can see
   exactly how people use your AI.
 
@@ -27,10 +27,10 @@ where they already are, or connect any **MCP client** for a power-user workflow.
 Ganju supports four messaging platforms. Each has its own page with step-by-step
 instructions for creating the credentials it needs:
 
-- **[Telegram](/docs/channels/telegram)** — a single bot token from @BotFather.
-- **[WhatsApp](/docs/channels/whatsapp)** — the WhatsApp Business (Meta) Cloud API.
-- **[Slack](/docs/channels/slack)** — a Slack app with a bot token and scopes.
-- **[Discord](/docs/channels/discord)** — a Discord application and bot.
+- **[Telegram](/docs/channels/telegram/)** — a single bot token from @BotFather.
+- **[WhatsApp](/docs/channels/whatsapp/)** — the WhatsApp Business (Meta) Cloud API.
+- **[Slack](/docs/channels/slack/)** — a Slack app with a bot token and scopes.
+- **[Discord](/docs/channels/discord/)** — a Discord application and bot.
 
 ## How it works
 
@@ -51,7 +51,7 @@ Once connected, the channel goes **Active**. From its **Overview** you can toggl
 
 Every channel runs on a language model. By default that's the **System default**,
 but you can bring your own — your own provider and API key, configured once and
-reused across channels. We cover how to add one in [Settings](/docs/settings);
+reused across channels. We cover how to add one in [Settings](/docs/settings/);
 until then, new channels simply use the system default.
 
 ## Connect any MCP client
@@ -62,7 +62,7 @@ Context Protocol (MCP) server**, so any MCP-compatible client — **Claude**,
 prompts, resources, and tools available. Channels are for the people you serve;
 MCP clients are for wiring your AI into your own tools and workflows. Both point at
 one project. We'll cover connecting a client in detail in the
-[MCP clients](/docs/mcp) guide.
+[MCP clients](/docs/mcp/) guide.
 
 ## Monitor conversations
 
@@ -76,4 +76,4 @@ reply shows the resources it delivered as attachments.
 
 ![The Channels page showing conversation and message counts alongside a delivered file attachment](/images/channe-show-messages.webp)
 
-Next: manage models, members, and billing in [Settings](/docs/settings).
+Next: manage models, members, and billing in [Settings](/docs/settings/).

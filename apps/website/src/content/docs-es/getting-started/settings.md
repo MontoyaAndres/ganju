@@ -10,7 +10,7 @@ salta entre cada área — **Organization**, **Billing & plan**, **Members**,
 **Projects**, **Models** y la **Danger zone**.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Configuración](/es/docs/settings)** explica cómo funcionan de verdad los
+> de **[Configuración](/es/docs/settings/)** explica cómo funcionan de verdad los
 > planes Gratis, Pro y Empresarial, la facturación y el consumo adicional, los
 > miembros y cómo traer tu propio modelo.
 
@@ -52,4 +52,4 @@ herramienta y modelo. No se puede deshacer, así que te pide confirmar.
 
 ![La Danger zone con la acción Remove organization y su advertencia de eliminación permanente](/images/settings-3.webp)
 
-Sigue con: abre un [canal](/es/docs/getting-started/channels) para salir en vivo.
+Sigue con: abre un [canal](/es/docs/getting-started/channels/) para salir en vivo.

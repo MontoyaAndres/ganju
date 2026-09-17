@@ -7,13 +7,13 @@ updated: 2026-09-05
 
 **Tools** are the actions your assistant can take on your behalf — from built-in
 resource helpers to integrations like Gmail, Slack, and Google Calendar. The
-**Tools** page has three tabs: **[Functions](/docs/tools/functions)** (code you
-write), **[HTTP Endpoints](/docs/tools/http-endpoints)** (an API you already
-run), and **[Catalog](/docs/tools/catalog)** (the integrations we ship). This
+**Tools** page has three tabs: **[Functions](/docs/tools/functions/)** (code you
+write), **[HTTP Endpoints](/docs/tools/http-endpoints/)** (an API you already
+run), and **[Catalog](/docs/tools/catalog/)** (the integrations we ship). This
 page is about the last one — it's where everyone starts.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Tools](/docs/tools)** guide documents every integration — Gmail, Outlook,
+> **[Tools](/docs/tools/)** guide documents every integration — Gmail, Outlook,
 > Slack, calendars, web search, GitHub, Notion — plus your own HTTP endpoints and
 > functions, tool by tool.
 
@@ -63,17 +63,17 @@ on every turn and makes the model's choice harder.
 
 Two escape hatches, on the other two tabs, in order of effort:
 
-- **[HTTP Endpoints](/docs/tools/http-endpoints)** — describe one request against
+- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — describe one request against
   an API you already run and it becomes a named tool. No code, and it's on every
   plan.
-- **[Functions](/docs/tools/functions)** — write the tool yourself in JavaScript
+- **[Functions](/docs/tools/functions/)** — write the tool yourself in JavaScript
   when you need logic rather than a single call: several steps, a transform, or
   combining a credential with a computation. Declare it, and the editor writes
   the handler stub with `ctx` fully typed; test it against real connections
   before anyone sees it, then deploy. Pro.
 
-Prefer to work in a terminal? **[The `ganju` CLI](/docs/tools/cli)** does the same
+Prefer to work in a terminal? **[The `ganju` CLI](/docs/tools/cli/)** does the same
 thing from a repository — `ganju init`, `ganju login`, `ganju link`,
 `ganju deploy` — plus testing, logs, rollback, and deploying from CI.
 
-Next: decide where people use it — set up [channels](/docs/getting-started/channels).
+Next: decide where people use it — set up [channels](/docs/getting-started/channels/).

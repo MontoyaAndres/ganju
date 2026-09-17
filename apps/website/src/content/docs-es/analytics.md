@@ -13,8 +13,8 @@ asistente: actividad en el tiempo, qué se está usando y quién hizo qué.
 
 - **Ve uso real, no suposiciones.** Observa las interacciones por día y detecta
   cuándo tu asistente está ocupado — o en silencio.
-- **Sabe qué canales y clientes importan.** Cada [canal](/es/docs/channels) y cada
-  [cliente MCP](/es/docs/mcp) es su propia línea, así distingues de dónde viene tu
+- **Sabe qué canales y clientes importan.** Cada [canal](/es/docs/channels/) y cada
+  [cliente MCP](/es/docs/mcp/) es su propia línea, así distingues de dónde viene tu
   tráfico.
 - **Vigila la facturación.** La gráfica es clara sobre qué cuenta: solo las
   respuestas del asistente se facturan — los mensajes entrantes son gratis.
@@ -31,7 +31,7 @@ en una entrada de la leyenda para mostrar u ocultar esa serie.
 
 > Solo las **respuestas** de tu asistente cuentan para la facturación — los
 > mensajes entrantes de esta gráfica son gratis. Mira
-> [Configuración → Facturación y plan](/es/docs/settings#facturación-y-plan).
+> [Configuración → Facturación y plan](/es/docs/settings/#facturación-y-plan).
 
 ![El panel Home del proyecto con la URL de MCP y una gráfica de Activity mostrando interacciones por día en Telegram, un canal y un cliente MCP](/images/home-1.webp)
 
@@ -54,4 +54,4 @@ confirmar que tu asistente está haciendo lo que esperas.
 ![Las tarjetas de Resources, Tools y Prompts del panel Home sobre un flujo de Recent activity que lista lecturas, ejecuciones y usos por origen y fecha](/images/home-2.webp)
 
 La **URL de MCP** para conectar clientes también vive en la parte superior de esta
-página — mira [clientes MCP](/es/docs/mcp) para saber cómo usarla.
+página — mira [clientes MCP](/es/docs/mcp/) para saber cómo usarla.

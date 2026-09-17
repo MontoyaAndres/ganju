@@ -7,9 +7,9 @@ updated: 2026-07-07
 
 Every Ganju project is a **Model Context Protocol (MCP) server**. That means any
 MCP-compatible client — **Claude**, **ChatGPT**, **Cursor**, **VS Code**, and more
-— can connect to it and get all your [prompts](/docs/prompts),
-[resources](/docs/resources), and [tools](/docs/tools). Where
-[channels](/docs/channels) deliver your assistant to other people, MCP clients wire
+— can connect to it and get all your [prompts](/docs/prompts/),
+[resources](/docs/resources/), and [tools](/docs/tools/). Where
+[channels](/docs/channels/) deliver your assistant to other people, MCP clients wire
 it into your own workflow.
 
 ## Copy your MCP URL
@@ -70,4 +70,4 @@ https://my-company.mcp.ganju.ai
 ```
 
 Change it any time — just reconnect your clients with the new URL. See
-[Settings → Billing & plan](/docs/settings#billing--plan) for what Pro includes.
+[Settings → Billing & plan](/docs/settings/#billing--plan) for what Pro includes.

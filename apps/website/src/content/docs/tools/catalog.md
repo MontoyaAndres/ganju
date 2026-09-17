@@ -20,7 +20,7 @@ Three cards are not integrations at all:
 
 - **Built-in** — the five resource and prompt tools every project ships with,
   enabled from day one. No connection needed. See
-  [Built-in](/docs/tools/built-in).
+  [Built-in](/docs/tools/built-in/).
 - **Greeting** — a one-tool smoke test, for confirming a new server is alive.
 - **Remote MCP servers** — GitHub and Notion publish their own MCP servers, and
   connecting one brings its whole maintained toolset rather than a single
@@ -66,9 +66,9 @@ A connected account is a property of the assistant, not of one tool. That means
 the same Gmail connection is available to:
 
 - every Gmail tool in the catalog;
-- an [HTTP endpoint](/docs/tools/http-endpoints) using OAuth authentication,
+- an [HTTP endpoint](/docs/tools/http-endpoints/) using OAuth authentication,
   instead of holding a second copy of the credential;
-- a [function](/docs/tools/functions), through `ctx.connection('google-gmail')`
+- a [function](/docs/tools/functions/), through `ctx.connection('google-gmail')`
   — but only if you listed the provider in that function's settings. Your code
   never receives the refresh token, only a short-lived access token.
 
@@ -78,23 +78,23 @@ Disconnecting an integration affects all three.
 
 | | |
 | --- | --- |
-| **[Built-in](/docs/tools/built-in)** | The five core resource and prompt tools |
-| **[Gmail](/docs/tools/gmail)** | Send, read, search and manage email (18 tools) |
-| **[Outlook](/docs/tools/outlook)** | Microsoft 365 mail via Graph (18 tools) |
-| **[Slack](/docs/tools/slack)** | Post messages, browse channels, upload files |
-| **[Slack Search](/docs/tools/slack-search)** | Workspace-wide message search |
-| **[Google Calendar](/docs/tools/google-calendar)** | Create and manage events, find open slots |
-| **[Cal.com](/docs/tools/calcom)** | Check availability and book or cancel meetings |
-| **[Web Search](/docs/tools/web-search)** | Search the live web and extract pages |
-| **[GitHub](/docs/tools/github)** | GitHub's official remote MCP server |
-| **[Notion](/docs/tools/notion)** | Notion's official remote MCP server |
-| **[Greeting](/docs/tools/greeting)** | A tiny demo tool for testing a new server |
+| **[Built-in](/docs/tools/built-in/)** | The five core resource and prompt tools |
+| **[Gmail](/docs/tools/gmail/)** | Send, read, search and manage email (18 tools) |
+| **[Outlook](/docs/tools/outlook/)** | Microsoft 365 mail via Graph (18 tools) |
+| **[Slack](/docs/tools/slack/)** | Post messages, browse channels, upload files |
+| **[Slack Search](/docs/tools/slack-search/)** | Workspace-wide message search |
+| **[Google Calendar](/docs/tools/google-calendar/)** | Create and manage events, find open slots |
+| **[Cal.com](/docs/tools/calcom/)** | Check availability and book or cancel meetings |
+| **[Web Search](/docs/tools/web-search/)** | Search the live web and extract pages |
+| **[GitHub](/docs/tools/github/)** | GitHub's official remote MCP server |
+| **[Notion](/docs/tools/notion/)** | Notion's official remote MCP server |
+| **[Greeting](/docs/tools/greeting/)** | A tiny demo tool for testing a new server |
 
 ## Not here?
 
 Two escape hatches, in order of effort:
 
-- **[HTTP Endpoints](/docs/tools/http-endpoints)** — one request against an API
+- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — one request against an API
   you already run, described in a form. Available on every plan.
-- **[Functions](/docs/tools/functions)** — your own code, when you need logic
+- **[Functions](/docs/tools/functions/)** — your own code, when you need logic
   rather than a single call.

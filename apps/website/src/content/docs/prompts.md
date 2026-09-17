@@ -93,4 +93,4 @@ description, and messages. From any linked channel, type the command (like
 substituted — as if you'd written the whole thing by hand.
 
 Next: give your prompts something to work with — add
-[resources](/docs/getting-started/resources).
+[resources](/docs/getting-started/resources/).

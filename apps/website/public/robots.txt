@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /*?lang=
 
 Sitemap: https://ganju.ai/sitemap-index.xml

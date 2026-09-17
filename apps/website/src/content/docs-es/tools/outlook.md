@@ -7,7 +7,7 @@ updated: 2026-07-07
 
 La integración de **Outlook** le da a tu asistente el correo de Microsoft 365,
 respaldado por **Microsoft Graph**. Replica la superficie de
-[Gmail](/es/docs/tools/gmail) — enviar, leer, organizar y redactar — con **18
+[Gmail](/es/docs/tools/gmail/) — enviar, leer, organizar y redactar — con **18
 herramientas**, usando *carpetas* de correo donde Gmail usa etiquetas.
 
 ## Conéctala

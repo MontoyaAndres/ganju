@@ -12,7 +12,7 @@ vuelve un atajo de una sola palabra. Usa `{{variables}}` en un mensaje para los
 valores que se completan al ejecutarlo.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Prompts](/es/docs/prompts)** cubre plantillas de varios turnos, variables
+> de **[Prompts](/es/docs/prompts/)** cubre plantillas de varios turnos, variables
 > tipadas y edición de mensajes como JSON.
 
 ## Crea un prompt
@@ -41,4 +41,4 @@ vinculado.
 ![El prompt "start" guardado, mostrado como tarjeta con su comando /start y el detalle del mensaje](/images/prompt-start.webp)
 
 Sigue con: dale con qué trabajar — agrega
-[recursos](/es/docs/getting-started/resources).
+[recursos](/es/docs/getting-started/resources/).

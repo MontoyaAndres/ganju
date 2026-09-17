@@ -6,10 +6,10 @@ updated: 2026-07-07
 ---
 
 Ganju has two levels. Your **organization** represents your team or company — it's
-where members, billing, and your [plan](/docs/settings) live. Inside it, each
+where members, billing, and your [plan](/docs/settings/) live. Inside it, each
 **project** is a self-contained workspace for one assistant, with its own
-[prompts](/docs/prompts), [resources](/docs/resources), [tools](/docs/tools), and
-[channels](/docs/channels), and its own [MCP URL](/docs/mcp). One organization can
+[prompts](/docs/prompts/), [resources](/docs/resources/), [tools](/docs/tools/), and
+[channels](/docs/channels/), and its own [MCP URL](/docs/mcp/). One organization can
 hold many projects.
 
 ## Why two levels
@@ -49,6 +49,6 @@ different team or company).
 ![The Organizations page with cards showing Owner/Free and Owner/Pro badges, project and member counts, and Invite and Settings actions](/images/new-org.webp)
 
 Each organization has its own plan and billing — dig into those, along with members
-and models, in [Settings](/docs/settings).
+and models, in [Settings](/docs/settings/).
 
-Next: shape how your assistant behaves with [prompts](/docs/prompts).
+Next: shape how your assistant behaves with [prompts](/docs/prompts/).

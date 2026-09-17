@@ -41,7 +41,7 @@ para `search.messages`.
 ## Buscar en el espacio de trabajo
 
 La búsqueda de mensajes es una integración **aparte** —
-[Búsqueda en Slack](/es/docs/tools/slack-search) — porque Slack impide que los bot
+[Búsqueda en Slack](/es/docs/tools/slack-search/) — porque Slack impide que los bot
 tokens busquen y exige un token de usuario. Conéctala para agregar la herramienta
 **Search Messages** y luego busca el contexto previo antes de responder con Send
 Message.

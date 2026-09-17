@@ -3,7 +3,7 @@
 Empieza gratis, crece cuando estés listo — o instálalo tú mismo sin costo bajo
 Apache-2.0.
 
-> Esta es la versión en español de nuestra página de [Pricing](/pricing).
+> Esta es la versión en español de nuestra página de [Pricing](/pricing/).
 
 ## Gratis — $0/mes
 

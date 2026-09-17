@@ -6,7 +6,7 @@ updated: 2026-07-07
 ---
 
 The **Outlook** integration gives your assistant Microsoft 365 email, backed by
-**Microsoft Graph**. It mirrors the [Gmail](/docs/tools/gmail) surface — send,
+**Microsoft Graph**. It mirrors the [Gmail](/docs/tools/gmail/) surface — send,
 read, organize, and draft — with **18 tools**, using mail *folders* where Gmail
 uses labels.
 

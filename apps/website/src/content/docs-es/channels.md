@@ -6,8 +6,8 @@ updated: 2026-07-07
 ---
 
 Los **canales** son la forma de poner tu asistente frente a otras personas. Todo lo
-que construiste — [prompts](/es/docs/prompts), [recursos](/es/docs/resources) y
-[herramientas](/es/docs/tools) — viaja con él automáticamente; tú solo eliges dónde
+que construiste — [prompts](/es/docs/prompts/), [recursos](/es/docs/resources/) y
+[herramientas](/es/docs/tools/) — viaja con él automáticamente; tú solo eliges dónde
 lo alcanza la gente. Conecta una **app de mensajería** para que clientes y
 compañeros conversen con tu IA donde ya están, o conecta cualquier **cliente MCP**
 para un flujo de trabajo más avanzado.
@@ -20,7 +20,7 @@ para un flujo de trabajo más avanzado.
   prompts, recursos y herramientas, así que las respuestas son consistentes entre
   apps.
 - **Trae tu propio modelo.** Cada canal puede correr sobre el modelo del sistema o
-  sobre uno que tú configures — mira [Configuración](/es/docs/settings).
+  sobre uno que tú configures — mira [Configuración](/es/docs/settings/).
 - **Míralo funcionar.** Cada conversación queda registrada en el panel para que
   veas exactamente cómo usa la gente tu IA.
 
@@ -29,11 +29,11 @@ para un flujo de trabajo más avanzado.
 Ganju soporta cuatro plataformas de mensajería. Cada una tiene su propia página con
 instrucciones paso a paso para crear las credenciales que necesita:
 
-- **[Telegram](/es/docs/channels/telegram)** — un solo bot token de @BotFather.
-- **[WhatsApp](/es/docs/channels/whatsapp)** — la Cloud API de WhatsApp Business
+- **[Telegram](/es/docs/channels/telegram/)** — un solo bot token de @BotFather.
+- **[WhatsApp](/es/docs/channels/whatsapp/)** — la Cloud API de WhatsApp Business
   (Meta).
-- **[Slack](/es/docs/channels/slack)** — una app de Slack con bot token y permisos.
-- **[Discord](/es/docs/channels/discord)** — una aplicación y un bot de Discord.
+- **[Slack](/es/docs/channels/slack/)** — una app de Slack con bot token y permisos.
+- **[Discord](/es/docs/channels/discord/)** — una aplicación y un bot de Discord.
 
 ## Cómo funciona
 
@@ -56,7 +56,7 @@ canal.
 Cada canal corre sobre un modelo de lenguaje. Por defecto es el **System default**,
 pero puedes traer el tuyo — tu propio proveedor y tu llave de API, configurados una
 vez y reutilizados entre canales. Explicamos cómo agregar uno en
-[Configuración](/es/docs/settings); hasta entonces, los canales nuevos simplemente
+[Configuración](/es/docs/settings/); hasta entonces, los canales nuevos simplemente
 usan el modelo del sistema.
 
 ## Conecta cualquier cliente MCP
@@ -68,7 +68,7 @@ mismísimo asistente, con todos tus prompts, recursos y herramientas disponibles
 Los canales son para las personas a las que atiendes; los clientes MCP son para
 enchufar tu IA en tus propias herramientas y flujos de trabajo. Ambos apuntan a un
 mismo proyecto. Cubrimos la conexión de un cliente en detalle en la guía de
-[clientes MCP](/es/docs/mcp).
+[clientes MCP](/es/docs/mcp/).
 
 ## Monitorea las conversaciones
 
@@ -83,4 +83,4 @@ muestra los recursos que entregó como adjuntos.
 ![La página de Canales mostrando los conteos de conversaciones y mensajes junto a un archivo entregado como adjunto](/images/channe-show-messages.webp)
 
 Sigue con: administra modelos, miembros y facturación en
-[Configuración](/es/docs/settings).
+[Configuración](/es/docs/settings/).

@@ -2,7 +2,7 @@ export const SITE = {
   name: 'Ganju',
   url: 'https://ganju.ai',
   appUrl: 'https://app.ganju.ai',
-  docsUrl: '/docs',
+  docsUrl: '/docs/',
   email: 'hello@ganju.ai',
   apiUrl: 'https://api.ganju.ai',
   repo: 'https://github.com/MontoyaAndres/ganju',
@@ -77,7 +77,9 @@ export const SOFTWARE_APPLICATION_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: SITE.name,
-  url: SITE.url,
+  // The homepage's own canonical, slash included — `SITE.url` is the bare
+  // origin and is what the Organization and WebSite nodes identify by.
+  url: `${SITE.url}/`,
   description: SITE.description,
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web',
@@ -93,7 +95,7 @@ export const SOFTWARE_APPLICATION_SCHEMA = {
 /** Same application, described in Spanish for `/es`. */
 export const SOFTWARE_APPLICATION_SCHEMA_ES = {
   ...SOFTWARE_APPLICATION_SCHEMA,
-  url: `${SITE.url}/es`,
+  url: `${SITE.url}/es/`,
   description: SITE_ES.description,
   inLanguage: 'es',
   offers: {
@@ -112,7 +114,7 @@ export const PRICING_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: SITE.name,
-  url: `${SITE.url}/pricing`,
+  url: `${SITE.url}/pricing/`,
   description: SITE.description,
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web',
@@ -123,7 +125,7 @@ export const PRICING_SCHEMA = {
       name: 'Free',
       price: '0',
       priceCurrency: 'USD',
-      url: `${SITE.url}/pricing`,
+      url: `${SITE.url}/pricing/`,
       description:
         'One workspace, up to 7 tools, 3 prompts, 1 channel, and 100 channel messages a month.'
     },
@@ -132,7 +134,7 @@ export const PRICING_SCHEMA = {
       name: 'Pro',
       price: '20',
       priceCurrency: 'USD',
-      url: `${SITE.url}/pricing`,
+      url: `${SITE.url}/pricing/`,
       description:
         'Unlimited projects, teammates, tools and prompts. Includes 3,000 messages a month and 1 GB of searchable content, then usage-based pricing.'
     }
@@ -142,7 +144,7 @@ export const PRICING_SCHEMA = {
 /** The same plan prices, described in Spanish for `/es/precios`. */
 export const PRICING_SCHEMA_ES = {
   ...PRICING_SCHEMA,
-  url: `${SITE.url}/es/precios`,
+  url: `${SITE.url}/es/precios/`,
   description: SITE_ES.description,
   inLanguage: 'es',
   offers: [
@@ -151,7 +153,7 @@ export const PRICING_SCHEMA_ES = {
       name: 'Gratis',
       price: '0',
       priceCurrency: 'USD',
-      url: `${SITE.url}/es/precios`,
+      url: `${SITE.url}/es/precios/`,
       description:
         'Un espacio de trabajo, hasta 7 herramientas, 3 prompts, 1 canal y 100 mensajes de canal al mes.'
     },
@@ -160,7 +162,7 @@ export const PRICING_SCHEMA_ES = {
       name: 'Pro',
       price: '20',
       priceCurrency: 'USD',
-      url: `${SITE.url}/es/precios`,
+      url: `${SITE.url}/es/precios/`,
       description:
         'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes y 1 GB de contenido consultable; de ahí en adelante, precio por consumo.'
     }
@@ -213,7 +215,7 @@ export function blogSchema(
     '@type': 'Blog',
     '@id': `${SITE.url}/blog#blog`,
     name: `${SITE.name} Blog`,
-    url: `${SITE.url}/blog`,
+    url: `${SITE.url}/blog/`,
     description: 'Updates, guides, and stories from the Ganju team.',
     publisher: { '@id': ORG_ID },
     inLanguage: 'en',

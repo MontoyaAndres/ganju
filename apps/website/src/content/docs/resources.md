@@ -86,4 +86,4 @@ citations turned on, it names the source right under the reply.
 
 ![A Telegram chat where the bot answers a question from a crawled website and cites vocesqueabrazan.com as the source](/images/resource-chat.webp)
 
-Next: let your AI take action with [tools](/docs/getting-started/tools).
+Next: let your AI take action with [tools](/docs/getting-started/tools/).

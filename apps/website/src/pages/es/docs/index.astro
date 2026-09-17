@@ -8,19 +8,19 @@ const entry = await getEntry('docsEs', 'welcome');
 const { Content } = await render(entry!);
 const t = DOCS.es;
 
-const alternates = { en: '/docs', es: '/es/docs' };
+const alternates = { en: '/docs/', es: '/es/docs/' };
 
 const jsonLd = [
   techArticleSchema({
     title: entry!.data.title,
     description: entry!.data.description,
-    url: new URL('/es/docs', SITE.url).href,
+    url: new URL('/es/docs/', SITE.url).href,
     updated: entry!.data.updated,
     lang: 'es'
   }),
   breadcrumbSchema([
     { label: 'Inicio', href: '/es/' },
-    { label: 'Docs', href: '/es/docs' }
+    { label: 'Docs', href: '/es/docs/' }
   ])
 ];
 ---

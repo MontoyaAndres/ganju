@@ -15,8 +15,8 @@ const { entry } = Astro.props;
 const { Content } = await render(entry);
 const t = DOCS.es;
 
-const path = `/es/docs/${entry.id}`;
-const alternates = { en: `/docs/${entry.id}`, es: path };
+const path = `/es/docs/${entry.id}/`;
+const alternates = { en: `/docs/${entry.id}/`, es: path };
 const jsonLd = [
   techArticleSchema({
     title: entry.data.title,

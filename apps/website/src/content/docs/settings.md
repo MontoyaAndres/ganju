@@ -43,7 +43,7 @@ organization — `Pro plan · active`, with assistant replies tracked against th
 **Enterprise** is a custom plan for larger organizations — everything in Pro with
 no limits on projects, tools, prompts or channels, a custom web address and tools,
 and a named contact for support. Pricing, allowances and contract terms are
-arranged directly — [contact sales](/contact).
+arranged directly — [contact sales](/contact/).
 
 ### How the message allowance really works
 
@@ -104,7 +104,7 @@ can bring your own. Select **Add model**, then fill in:
 - **System prompt** _(optional)_ — a persistent instruction that shapes how this
   model behaves.
 
-Add a model once and reuse it across any [channel](/docs/channels) in the
+Add a model once and reuse it across any [channel](/docs/channels/) in the
 organization — each channel can pick one of your configured models or fall back to
 the system default.
 

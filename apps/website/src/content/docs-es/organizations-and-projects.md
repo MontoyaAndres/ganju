@@ -6,11 +6,11 @@ updated: 2026-07-07
 ---
 
 Ganju tiene dos niveles. Tu **organización** representa a tu equipo o empresa —
-ahí viven los miembros, la facturación y tu [plan](/es/docs/settings). Dentro de
+ahí viven los miembros, la facturación y tu [plan](/es/docs/settings/). Dentro de
 ella, cada **proyecto** es un espacio de trabajo independiente para un asistente,
-con sus propios [prompts](/es/docs/prompts),
-[recursos](/es/docs/resources), [herramientas](/es/docs/tools) y
-[canales](/es/docs/channels), y su propia [URL de MCP](/es/docs/mcp). Una
+con sus propios [prompts](/es/docs/prompts/),
+[recursos](/es/docs/resources/), [herramientas](/es/docs/tools/) y
+[canales](/es/docs/channels/), y su propia [URL de MCP](/es/docs/mcp/). Una
 organización puede contener muchos proyectos.
 
 ## Por qué dos niveles
@@ -53,6 +53,6 @@ otra (para un equipo o una empresa distinta).
 ![La página de Organizaciones con tarjetas que muestran distintivos Owner/Free y Owner/Pro, conteos de proyectos y miembros, y las acciones Invite y Settings](/images/new-org.webp)
 
 Cada organización tiene su propio plan y su propia facturación — profundiza en
-eso, junto con miembros y modelos, en [Configuración](/es/docs/settings).
+eso, junto con miembros y modelos, en [Configuración](/es/docs/settings/).
 
-Sigue con: define cómo se comporta tu asistente con [prompts](/es/docs/prompts).
+Sigue con: define cómo se comporta tu asistente con [prompts](/es/docs/prompts/).

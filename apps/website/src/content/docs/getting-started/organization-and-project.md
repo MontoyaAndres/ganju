@@ -39,5 +39,5 @@ tools catalog.
 Invite teammates from your organization settings and assign their roles so the
 right people can help you manage the project.
 
-Next: add [prompts](/docs/getting-started/prompts) to shape how your assistant
+Next: add [prompts](/docs/getting-started/prompts/) to shape how your assistant
 behaves.

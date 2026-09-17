@@ -73,5 +73,5 @@ access — so you never grant more than the tools you enable require.
   message ID.
 - **Delete Draft** — permanently deletes an unsent draft (does not go to Trash).
 
-Prefer Microsoft mail? See [Outlook](/docs/tools/outlook), which offers the same
+Prefer Microsoft mail? See [Outlook](/docs/tools/outlook/), which offers the same
 surface via Microsoft Graph.

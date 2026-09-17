@@ -43,7 +43,7 @@ const jsonLd = [
   faqSchema(faqs),
   breadcrumbSchema([
     { label: 'Home', href: '/' },
-    { label: 'Pricing', href: '/pricing' }
+    { label: 'Pricing', href: '/pricing/' }
   ])
 ];
 ---
@@ -100,7 +100,7 @@ const jsonLd = [
             <li>Allowances and contract terms arranged directly</li>
             <li>A named contact for support</li>
           </ul>
-          <a class="btn btn-ghost btn-block" href="/contact">Contact sales</a>
+          <a class="btn btn-ghost btn-block" href="/contact/">Contact sales</a>
         </article>
       </div>
     </div>
@@ -147,7 +147,7 @@ const jsonLd = [
         <p>Tell us what you're building and we'll help you pick — or set up a custom plan for bigger teams.</p>
       </div>
       <div class="hero-cta center reveal">
-        <a class="btn btn-primary btn-lg" href="/contact">Contact us</a>
+        <a class="btn btn-primary btn-lg" href="/contact/">Contact us</a>
         <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start free</a>
       </div>
     </div>

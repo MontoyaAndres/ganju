@@ -99,4 +99,4 @@ plantilla — con las variables sustituidas — como si la hubieras escrito ente
 mano.
 
 Sigue con: dale a tus prompts con qué trabajar — agrega
-[recursos](/es/docs/getting-started/resources).
+[recursos](/es/docs/getting-started/resources/).

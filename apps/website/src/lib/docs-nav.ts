@@ -18,7 +18,10 @@
 import type { Lang } from './i18n';
 
 /** Where each language's docs tree is rooted. */
-export const DOCS_ROOT: Record<Lang, string> = { en: '/docs', es: '/es/docs' };
+export const DOCS_ROOT: Record<Lang, string> = {
+  en: '/docs/',
+  es: '/es/docs/'
+};
 
 /** A label in every language we publish. */
 type Label = Record<Lang, string>;
@@ -153,7 +156,7 @@ const SPEC: DocNavSpec[] = [
 
 /** Absolute path of a docs page in one language. `slug` omitted → the root. */
 export function docsHref(slug: string | undefined, lang: Lang): string {
-  return slug ? `${DOCS_ROOT[lang]}/${slug}` : DOCS_ROOT[lang];
+  return slug ? `${DOCS_ROOT[lang]}${slug}/` : DOCS_ROOT[lang];
 }
 
 const resolve = (spec: DocNavSpec, lang: Lang): DocNavNode => ({
@@ -217,7 +220,8 @@ export function docsTrail(
 
   for (const node of found) {
     // `Welcome` IS the docs root — already the second crumb, so don't repeat it.
-    if (!node.href || normalizePath(node.href) === root) continue;
+    if (!node.href || normalizePath(node.href) === normalizePath(root))
+      continue;
     trail.push({ label: node.label, href: node.href });
   }
   return trail;

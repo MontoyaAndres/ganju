@@ -9,7 +9,7 @@ updated: 2026-09-05
 request — method, URL, headers, arguments — and it registers as a named tool the
 model can call. No code, no bundle, no deploy step.
 
-This is the middle rung between the catalog and [functions](/docs/tools/functions):
+This is the middle rung between the catalog and [functions](/docs/tools/functions/):
 more flexible than an integration we ship, and far less work than writing one.
 It's also the custom tool available on **every plan**, including Free.
 
@@ -45,7 +45,7 @@ who would rather write the whole config at once.
 Pick an **auth type** and the credential is stored encrypted, applied just before
 the request leaves, and never shown back to you or sent to the model. A bearer
 token, an API key header, basic auth — or **OAuth**, which lets an endpoint reuse
-an account you already connected in the [catalog](/docs/tools/catalog) instead of
+an account you already connected in the [catalog](/docs/tools/catalog/) instead of
 holding a second copy of the same credential.
 
 ### Advanced options
@@ -78,13 +78,13 @@ answer is no".
 
 | | Reach for |
 | --- | --- |
-| The vendor is in our catalog | **[Catalog](/docs/tools/catalog)** — connect once, done |
+| The vendor is in our catalog | **[Catalog](/docs/tools/catalog/)** — connect once, done |
 | The vendor publishes a remote MCP server | **Catalog** → connect the server, and get its whole maintained toolset |
 | One request against your own API | **HTTP Endpoints** |
-| Several steps, a transform, branching, or combining a credential with logic | **[Functions](/docs/tools/functions)** |
+| Several steps, a transform, branching, or combining a credential with logic | **[Functions](/docs/tools/functions/)** |
 
 ## Limits
 
 Free allows **3 endpoints** per assistant. Pro and Enterprise are unlimited. HTTP
 endpoint calls are not metered as tool calls — only dispatches into
-[your own code](/docs/tools/functions) are.
+[your own code](/docs/tools/functions/) are.

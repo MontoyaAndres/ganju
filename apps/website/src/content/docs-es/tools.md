@@ -6,7 +6,7 @@ updated: 2026-09-05
 ---
 
 Las **herramientas** son las acciones que tu asistente puede ejecutar por ti.
-Mientras los [recursos](/es/docs/resources) le dejan *leer* tu conocimiento, las
+Mientras los [recursos](/es/docs/resources/) le dejan *leer* tu conocimiento, las
 herramientas le dejan *hacer* cosas — enviar un correo, publicar en Slack, agendar
 una reunión, buscar en la web en vivo o llamar a tu propia API. Todo proyecto viene
 con un conjunto de herramientas integradas, y agregas más cuando las necesites.
@@ -18,9 +18,9 @@ puedes poner en tu servidor:
 
 | Pestaña | Qué es | Plan |
 | --- | --- | --- |
-| **[Funciones](/es/docs/tools/functions)** | Código que escribes tú. Lógica de varios pasos, transformaciones, cualquier cosa que combine una credencial con un cálculo. | Pro |
-| **[Endpoints HTTP](/es/docs/tools/http-endpoints)** | Una petición contra una API que ya tienes, descrita en un formulario. Sin código. | Todos los planes |
-| **[Catálogo](/es/docs/tools/catalog)** | Las integraciones que traemos y mantenemos — conecta una cuenta y enciende las herramientas que quieras. | Todos los planes |
+| **[Funciones](/es/docs/tools/functions/)** | Código que escribes tú. Lógica de varios pasos, transformaciones, cualquier cosa que combine una credencial con un cálculo. | Pro |
+| **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** | Una petición contra una API que ya tienes, descrita en un formulario. Sin código. | Todos los planes |
+| **[Catálogo](/es/docs/tools/catalog/)** | Las integraciones que traemos y mantenemos — conecta una cuenta y enciende las herramientas que quieras. | Todos los planes |
 
 Empieza por el catálogo. Si tu caso está cubierto ahí, conectar una cuenta es todo
 el trabajo. Si no lo está, un endpoint HTTP es el camino más corto a tu propia API,
@@ -64,8 +64,8 @@ el mismo:
 ## Herramientas por defecto
 
 Todo proyecto arranca con cinco herramientas **integradas** ya instaladas, para que
-tu asistente pueda trabajar con tus [recursos](/es/docs/resources) y
-[prompts](/es/docs/prompts) desde el primer día — sin necesidad de conexión:
+tu asistente pueda trabajar con tus [recursos](/es/docs/resources/) y
+[prompts](/es/docs/prompts/) desde el primer día — sin necesidad de conexión:
 
 - **List Resources** — lista cada recurso disponible para este asistente.
 - **Read Resource** — lee el contenido de un recurso guardado.
@@ -93,35 +93,35 @@ razón.
 Cada integración tiene su propia página que cubre qué hace, cómo conectarla y todas
 las herramientas que ofrece:
 
-- **[Integradas](/es/docs/tools/built-in)** — las cinco herramientas base de
+- **[Integradas](/es/docs/tools/built-in/)** — las cinco herramientas base de
   recursos y prompts que trae todo proyecto.
-- **[Gmail](/es/docs/tools/gmail)** — envía, lee, busca y administra correo (18
+- **[Gmail](/es/docs/tools/gmail/)** — envía, lee, busca y administra correo (18
   herramientas).
-- **[Outlook](/es/docs/tools/outlook)** — correo de Microsoft 365 vía Graph (18
+- **[Outlook](/es/docs/tools/outlook/)** — correo de Microsoft 365 vía Graph (18
   herramientas).
-- **[Slack](/es/docs/tools/slack)** — publica mensajes, navega canales y sube
+- **[Slack](/es/docs/tools/slack/)** — publica mensajes, navega canales y sube
   archivos.
-- **[Búsqueda en Slack](/es/docs/tools/slack-search)** — búsqueda de mensajes en
+- **[Búsqueda en Slack](/es/docs/tools/slack-search/)** — búsqueda de mensajes en
   todo el espacio de trabajo (conexión aparte con token de usuario).
-- **[Google Calendar](/es/docs/tools/google-calendar)** — crea y administra eventos
+- **[Google Calendar](/es/docs/tools/google-calendar/)** — crea y administra eventos
   y encuentra espacios libres.
-- **[Cal.com](/es/docs/tools/calcom)** — consulta disponibilidad y agenda o cancela
+- **[Cal.com](/es/docs/tools/calcom/)** — consulta disponibilidad y agenda o cancela
   reuniones.
-- **[Búsqueda web](/es/docs/tools/web-search)** — busca en la web en vivo y extrae
+- **[Búsqueda web](/es/docs/tools/web-search/)** — busca en la web en vivo y extrae
   el contenido de las páginas, con tecnología de Tavily.
-- **[GitHub](/es/docs/tools/github)** — conecta el servidor MCP remoto oficial de
+- **[GitHub](/es/docs/tools/github/)** — conecta el servidor MCP remoto oficial de
   GitHub para repos, issues y pull requests.
-- **[Notion](/es/docs/tools/notion)** — conecta el servidor MCP remoto oficial de
+- **[Notion](/es/docs/tools/notion/)** — conecta el servidor MCP remoto oficial de
   Notion para buscar y actualizar páginas y bases de datos.
-- **[Saludo](/es/docs/tools/greeting)** — una herramienta de demostración diminuta
+- **[Saludo](/es/docs/tools/greeting/)** — una herramienta de demostración diminuta
   para probar un servidor nuevo.
 
 Y las dos que construyes tú:
 
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — expón tus propias APIs como
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — expón tus propias APIs como
   herramientas con nombre, sin código.
-- **[Funciones](/es/docs/tools/functions)** — escribe tus propias herramientas en
-  JavaScript, desde el navegador o con la **[CLI `ganju`](/es/docs/tools/cli)**.
+- **[Funciones](/es/docs/tools/functions/)** — escribe tus propias herramientas en
+  JavaScript, desde el navegador o con la **[CLI `ganju`](/es/docs/tools/cli/)**.
 
 Sigue con: decide dónde usa la gente tu asistente — configura
-[canales](/es/docs/getting-started/channels).
+[canales](/es/docs/getting-started/channels/).

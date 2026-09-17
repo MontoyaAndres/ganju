@@ -11,8 +11,8 @@ team, or individuals. Connect **Telegram**, **Slack**, **WhatsApp**, or
 up — prompts, resources, and tools — comes along automatically.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Channels](/docs/channels)** guide has step-by-step setup for Telegram,
-> WhatsApp, Slack, and Discord, plus connecting [MCP clients](/docs/mcp).
+> **[Channels](/docs/channels/)** guide has step-by-step setup for Telegram,
+> WhatsApp, Slack, and Discord, plus connecting [MCP clients](/docs/mcp/).
 
 ## Add a channel
 
@@ -66,4 +66,4 @@ reply shows the resources it sent as attachments.
 
 ![The Channels page showing conversation and message counts alongside the delivered PDF attachment](/images/channe-show-messages.webp)
 
-Next: manage it over time in [settings](/docs/getting-started/settings).
+Next: manage it over time in [settings](/docs/getting-started/settings/).

@@ -17,5 +17,5 @@ antes de agregar algo real — no tiene efectos secundarios.
   simplemente responde directo en lugar de llamarla.
 
 Una vez que confirmes que el servidor funciona, sigue con una integración real como
-[Gmail](/es/docs/tools/gmail), [Slack](/es/docs/tools/slack) o
-[Búsqueda web](/es/docs/tools/web-search).
+[Gmail](/es/docs/tools/gmail/), [Slack](/es/docs/tools/slack/) o
+[Búsqueda web](/es/docs/tools/web-search/).

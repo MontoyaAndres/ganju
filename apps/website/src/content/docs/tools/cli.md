@@ -5,7 +5,7 @@ order: 37
 updated: 2026-09-05
 ---
 
-`ganju` is the terminal half of [Functions](/docs/tools/functions). Everything it
+`ganju` is the terminal half of [Functions](/docs/tools/functions/). Everything it
 does, the dashboard does too — it is a client of the same endpoints, not a second
 way in — so the choice between them is about where your tools live rather than
 what they can do. Reach for the CLI when your tools belong in a repository, in
@@ -322,12 +322,12 @@ built on.
 ## What the CLI does not cover
 
 Custom tools, end to end — and that's the boundary. Prompts, knowledge
-([resources](/docs/resources)), catalog tools, [channels](/docs/channels),
+([resources](/docs/resources/)), catalog tools, [channels](/docs/channels/),
 members and billing are dashboard-only for now.
 
 ## Next
 
-- **[Functions](/docs/tools/functions)** — the same work in the browser, plus the
+- **[Functions](/docs/tools/functions/)** — the same work in the browser, plus the
   reference for `ctx` and the settings these commands write.
-- **[HTTP Endpoints](/docs/tools/http-endpoints)** — when one request is all you
+- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — when one request is all you
   need, and no code.

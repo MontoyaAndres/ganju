@@ -32,5 +32,5 @@ typically searching your workspace and reading or updating pages and databases.
 After connecting, open the server in Ganju to see the current list and enable the
 ones you want.
 
-Want to connect a different vendor's server? See [GitHub](/docs/tools/github), or
-expose your own API with [HTTP Endpoints](/docs/tools/http-endpoints).
+Want to connect a different vendor's server? See [GitHub](/docs/tools/github/), or
+expose your own API with [HTTP Endpoints](/docs/tools/http-endpoints/).

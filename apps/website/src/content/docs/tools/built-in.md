@@ -6,8 +6,8 @@ updated: 2026-07-07
 ---
 
 Every project starts with five **built-in** tools already installed. They're the
-core that lets your assistant work with your [resources](/docs/resources) and
-[prompts](/docs/prompts) from day one — no connection or API key required, and they
+core that lets your assistant work with your [resources](/docs/resources/) and
+[prompts](/docs/prompts/) from day one — no connection or API key required, and they
 can't be removed. This is what makes a Ganju assistant answer from *your* content
 instead of guessing.
 
@@ -30,7 +30,7 @@ instead of guessing.
   a preview, player, or download link rather than raw text. Use it when someone
   asks to see, receive, or download a file. An optional `caption` adds a short
   message alongside it.
-- **List Prompts** — lists every [prompt](/docs/prompts) and command the server
+- **List Prompts** — lists every [prompt](/docs/prompts/) and command the server
   exposes — both the ones you created and any from connected MCP servers — along
   with the exact slash command and arguments to run each on the current channel.
 
@@ -42,5 +42,5 @@ full document, or **Send Resource** to hand the user the file. **List Resources*
 and **List Prompts** are for discovery — showing what's available and how to use
 it.
 
-Next, add capabilities beyond your own content — see [Gmail](/docs/tools/gmail),
-[Slack](/docs/tools/slack), or [Web Search](/docs/tools/web-search).
+Next, add capabilities beyond your own content — see [Gmail](/docs/tools/gmail/),
+[Slack](/docs/tools/slack/), or [Web Search](/docs/tools/web-search/).

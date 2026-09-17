@@ -8,8 +8,8 @@ updated: 2026-07-07
 Cada proyecto de Ganju es un **servidor de Model Context Protocol (MCP)**. Eso
 significa que cualquier cliente compatible con MCP — **Claude**, **ChatGPT**,
 **Cursor**, **VS Code** y más — puede conectarse y obtener todos tus
-[prompts](/es/docs/prompts), [recursos](/es/docs/resources) y
-[herramientas](/es/docs/tools). Mientras los [canales](/es/docs/channels) llevan tu
+[prompts](/es/docs/prompts/), [recursos](/es/docs/resources/) y
+[herramientas](/es/docs/tools/). Mientras los [canales](/es/docs/channels/) llevan tu
 asistente a otras personas, los clientes MCP lo enchufan en tu propio flujo de
 trabajo.
 
@@ -75,5 +75,5 @@ https://my-company.mcp.ganju.ai
 ```
 
 Cámbiala cuando quieras — solo reconecta tus clientes con la nueva URL. Mira
-[Configuración → Facturación y plan](/es/docs/settings#facturación-y-plan) para ver
+[Configuración → Facturación y plan](/es/docs/settings/#facturación-y-plan) para ver
 qué incluye Pro.

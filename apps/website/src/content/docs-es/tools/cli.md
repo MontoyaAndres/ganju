@@ -5,7 +5,7 @@ order: 37
 updated: 2026-09-05
 ---
 
-`ganju` es la mitad de terminal de las [funciones](/es/docs/tools/functions).
+`ganju` es la mitad de terminal de las [funciones](/es/docs/tools/functions/).
 Todo lo que hace lo hace también el panel — es un cliente de los mismos endpoints,
 no una segunda puerta de entrada — así que elegir entre ambos es una decisión
 sobre dónde viven tus herramientas, no sobre lo que pueden hacer. Úsala cuando tus
@@ -328,13 +328,13 @@ construir un trabajo programado.
 ## Qué no cubre la CLI
 
 Las herramientas personalizadas, de principio a fin — y ahí está el límite. Los
-prompts, el conocimiento ([recursos](/es/docs/resources)), las herramientas del
-catálogo, los [canales](/es/docs/channels), los miembros y la facturación son por
+prompts, el conocimiento ([recursos](/es/docs/resources/)), las herramientas del
+catálogo, los [canales](/es/docs/channels/), los miembros y la facturación son por
 ahora solo del panel.
 
 ## Siguiente
 
-- **[Funciones](/es/docs/tools/functions)** — el mismo trabajo en el navegador,
+- **[Funciones](/es/docs/tools/functions/)** — el mismo trabajo en el navegador,
   además de la referencia de `ctx` y de los ajustes que escriben estos comandos.
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — cuando una sola petición
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — cuando una sola petición
   es todo lo que necesitas, y sin código.

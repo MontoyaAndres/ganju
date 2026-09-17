@@ -124,4 +124,4 @@ en el repositorio.
 
 ¿Prefieres no correr nada de esto? La [versión alojada](https://app.ganju.ai) se
 encarga de todo — empieza en el plan Gratis y
-[mejora](/es/docs/settings#facturación-y-plan) cuando crezcas.
+[mejora](/es/docs/settings/#facturación-y-plan) cuando crezcas.

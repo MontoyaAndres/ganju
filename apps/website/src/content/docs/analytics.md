@@ -13,8 +13,8 @@ actually being used: activity over time, what's getting used, and who did what.
 
 - **See real usage, not guesses.** Watch interactions per day and spot when your
   assistant is busy — or quiet.
-- **Know which channels and clients matter.** Each [channel](/docs/channels) and
-  [MCP client](/docs/mcp) is its own line, so you can tell where your traffic comes
+- **Know which channels and clients matter.** Each [channel](/docs/channels/) and
+  [MCP client](/docs/mcp/) is its own line, so you can tell where your traffic comes
   from.
 - **Keep an eye on billing.** The chart is clear about what counts: only assistant
   replies bill — incoming messages are free.
@@ -30,7 +30,7 @@ each MCP client gets its own series in the legend (with its total for the range)
 click a legend entry to toggle that series on or off.
 
 > Only your assistant's **replies** count toward billing — the incoming messages in
-> this chart are free. See [Settings → Billing & plan](/docs/settings#billing--plan).
+> this chart are free. See [Settings → Billing & plan](/docs/settings/#billing--plan).
 
 ![The project Home dashboard with the MCP URL and an Activity chart showing per-day interactions across Telegram, a channel, and an MCP client](/images/home-1.webp)
 
@@ -53,4 +53,4 @@ assistant is doing what you expect.
 ![The Home dashboard's Resources, Tools, and Prompts cards above a Recent activity feed listing reads, runs, and uses by source and date](/images/home-2.webp)
 
 The **MCP URL** for connecting clients also lives at the top of this page — see
-[MCP clients](/docs/mcp) for how to use it.
+[MCP clients](/docs/mcp/) for how to use it.

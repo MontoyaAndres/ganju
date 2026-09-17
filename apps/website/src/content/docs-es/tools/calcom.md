@@ -36,4 +36,4 @@ no hay paso de OAuth.
 
 El flujo típico es List Available Slots → Create Booking. ¿Prefieres administrar un
 Google Calendar directamente? Mira
-[Google Calendar](/es/docs/tools/google-calendar).
+[Google Calendar](/es/docs/tools/google-calendar/).

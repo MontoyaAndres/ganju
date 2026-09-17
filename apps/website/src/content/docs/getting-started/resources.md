@@ -11,7 +11,7 @@ OneDrive, a website crawl, or by uploading files directly — each one gets a UR
 and, once processed, is marked **Ready**.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Resources](/docs/resources)** guide covers Google Drive and OneDrive imports,
+> **[Resources](/docs/resources/)** guide covers Google Drive and OneDrive imports,
 > website crawls, uploads, and citations.
 
 ## Where resources come from
@@ -60,4 +60,4 @@ When the crawl finishes, the site's pages are indexed and searchable — shown
 
 ![The crawled website resource marked Ready, with its source, URI, and description](/images/resource-website-done.webp)
 
-Next: let it take action with [tools](/docs/getting-started/tools).
+Next: let it take action with [tools](/docs/getting-started/tools/).

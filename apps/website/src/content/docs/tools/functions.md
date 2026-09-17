@@ -16,7 +16,7 @@ the platform's connected accounts and its file-sending as **host capabilities**,
 so your code never handles a refresh token or a 40MB attachment.
 
 > Functions are a **Pro** feature. On Free the tab shows what it would give you
-> and points at [HTTP Endpoints](/docs/tools/http-endpoints), which needs no code.
+> and points at [HTTP Endpoints](/docs/tools/http-endpoints/), which needs no code.
 
 ## The tab
 
@@ -213,7 +213,7 @@ A CLI upload is a compiled bundle, which is why the dashboard shows it read-only
 rather than inviting you to overwrite a real build with the contents of a text
 box. You can still read it there, and still roll back to it.
 
-**→ [The `ganju` CLI](/docs/tools/cli)** — install, every command, `ganju.json`,
+**→ [The `ganju` CLI](/docs/tools/cli/)** — install, every command, `ganju.json`,
 the two router shapes, secrets, signing in, and deploying from CI.
 
 ## Limits and cost
@@ -228,8 +228,8 @@ the two router shapes, secrets, signing in, and deploying from CI.
 
 ## Next
 
-- **[The `ganju` CLI](/docs/tools/cli)** — the same work from a terminal, and
+- **[The `ganju` CLI](/docs/tools/cli/)** — the same work from a terminal, and
   from CI.
-- **[HTTP Endpoints](/docs/tools/http-endpoints)** — when one request is all you
+- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — when one request is all you
   need, and no code.
-- **[Catalog](/docs/tools/catalog)** — the integrations we ship.
+- **[Catalog](/docs/tools/catalog/)** — the integrations we ship.

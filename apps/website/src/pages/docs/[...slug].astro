@@ -22,7 +22,7 @@ const { entry, hasEs } = Astro.props;
 const { Content } = await render(entry);
 const t = DOCS.en;
 
-const path = `/docs/${entry.id}`;
+const path = `/docs/${entry.id}/`;
 const alternates = hasEs ? { en: path, es: `/es${path}` } : undefined;
 const jsonLd = [
   techArticleSchema({

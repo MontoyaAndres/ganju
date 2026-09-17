@@ -36,7 +36,7 @@ adds a user token (`xoxp`) — Slack requires a user token for `search.messages`
 
 ## Searching the workspace
 
-Message search is a **separate** integration — [Slack Search](/docs/tools/slack-search) —
+Message search is a **separate** integration — [Slack Search](/docs/tools/slack-search/) —
 because Slack blocks bot tokens from searching and requires a user token. Connect
 it to add the **Search Messages** tool, then search to find prior context before
 replying with Send Message.

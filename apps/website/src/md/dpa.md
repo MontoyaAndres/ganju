@@ -4,7 +4,7 @@
 
 This Data Processing Agreement ("DPA") governs how Ganju processes personal data on
 your behalf when you use the hosted service. **It applies automatically to every
-customer** — it's incorporated into the [Terms of Service](/terms), and you don't
+customer** — it's incorporated into the [Terms of Service](/terms/), and you don't
 need to sign or request anything to be covered by it.
 
 If your procurement process needs a countersigned copy on paper, email
@@ -41,7 +41,7 @@ comparable regimes.
 
 For **account data** — who you are, how you sign in, what you pay, and the
 operational logs we keep to run and secure the service — **we are the controller**,
-and our [Privacy Policy](/privacy) governs it. This DPA does not cover that data.
+and our [Privacy Policy](/privacy/) governs it. This DPA does not cover that data.
 
 ## Scope of processing
 
@@ -94,7 +94,7 @@ You will:
 
 You give **general written authorization** for us to engage subprocessors. The
 current list, with each one's role and location, is at
-[ganju.ai/subprocessors](/subprocessors).
+[ganju.ai/subprocessors](/subprocessors/).
 
 Before a new subprocessor starts processing Customer Content we will update that page
 and give **at least 30 days' notice** to the Owner of every paid organization. If you
@@ -146,7 +146,7 @@ Taking into account the nature of the processing, we will assist you with:
 
 We are established in Colombia and host in the United States, so personal data is
 transferred internationally for every customer. See
-[Where your data lives](/privacy#where-your-data-lives).
+[Where your data lives](/privacy/#where-your-data-lives).
 
 - **Colombia.** Transfers rely on the authorization obtained under Ley 1581 de 2012
   together with the contractual safeguards in each subprocessor's terms.
@@ -188,7 +188,7 @@ window closes, we'll return a copy in a structured, machine-readable format.
 ## Liability and precedence
 
 Each party's liability under this DPA is subject to the
-[limitation of liability](/terms#limitation-of-liability) in the Terms of Service.
+[limitation of liability](/terms/#limitation-of-liability) in the Terms of Service.
 
 If this DPA conflicts with the Terms of Service, this DPA prevails on data protection
 matters. If it conflicts with the Standard Contractual Clauses, the Clauses prevail.
@@ -230,7 +230,7 @@ see [Your obligations as controller](#your-obligations-as-controller).
 
 **Frequency.** Continuous, for as long as the service is in use.
 
-**Subprocessors.** As listed at [ganju.ai/subprocessors](/subprocessors).
+**Subprocessors.** As listed at [ganju.ai/subprocessors](/subprocessors/).
 
 ## Annex B — Technical and organizational measures
 
@@ -256,7 +256,7 @@ see [Your obligations as controller](#your-obligations-as-controller).
   messages are recorded with actor, source, and timestamp.
 - **Retention limits.** Detailed request logs, error logs, and channel message
   history are purged automatically on a schedule — see
-  [How long we keep data](/privacy#how-long-we-keep-data).
+  [How long we keep data](/privacy/#how-long-we-keep-data).
 - **Personnel.** Access to production is limited to personnel who need it, under
   confidentiality obligations.
 - **Resilience.** The platform runs on managed, replicated infrastructure with

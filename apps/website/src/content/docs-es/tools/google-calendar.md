@@ -44,4 +44,4 @@ calendario.
   Event.
 
 ¿Prefieres agendar mediante una página de reservas? Mira
-[Cal.com](/es/docs/tools/calcom).
+[Cal.com](/es/docs/tools/calcom/).

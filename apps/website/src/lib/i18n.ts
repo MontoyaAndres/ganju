@@ -45,10 +45,10 @@ export const UI = {
     getStarted: 'Get started',
     nav: [
       { label: 'Features', href: '/#features' },
-      { label: 'Docs', href: '/docs' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Pricing', href: '/pricing' },
-      { label: 'Contact', href: '/contact' }
+      { label: 'Docs', href: '/docs/' },
+      { label: 'Blog', href: '/blog/' },
+      { label: 'Pricing', href: '/pricing/' },
+      { label: 'Contact', href: '/contact/' }
     ],
     footer: {
       tagline: 'Connect your AI to your files, tools, and apps.',
@@ -58,24 +58,24 @@ export const UI = {
           { label: 'Features', href: '/#features' },
           { label: 'How it works', href: '/#how' },
           { label: 'Integrations', href: '/#integrations' },
-          { label: 'Pricing', href: '/pricing' }
+          { label: 'Pricing', href: '/pricing/' }
         ]
       },
       resources: {
         title: 'Resources',
         links: [
-          { label: 'Docs', href: '/docs' },
-          { label: 'Blog', href: '/blog' },
-          { label: 'Contact', href: '/contact' }
+          { label: 'Docs', href: '/docs/' },
+          { label: 'Blog', href: '/blog/' },
+          { label: 'Contact', href: '/contact/' }
         ]
       },
       legal: {
         title: 'Legal',
         links: [
-          { label: 'Privacy', href: '/privacy' },
-          { label: 'Terms', href: '/terms' },
-          { label: 'Subprocessors', href: '/subprocessors' },
-          { label: 'DPA', href: '/dpa' }
+          { label: 'Privacy', href: '/privacy/' },
+          { label: 'Terms', href: '/terms/' },
+          { label: 'Subprocessors', href: '/subprocessors/' },
+          { label: 'DPA', href: '/dpa/' }
         ],
         license: 'License (Apache-2.0)'
       },
@@ -92,10 +92,10 @@ export const UI = {
     getStarted: 'Empezar',
     nav: [
       { label: 'Funciones', href: '/es/#features' },
-      { label: 'Docs', href: '/es/docs' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Precios', href: '/es/precios' },
-      { label: 'Contacto', href: '/es/contacto' }
+      { label: 'Docs', href: '/es/docs/' },
+      { label: 'Blog', href: '/blog/' },
+      { label: 'Precios', href: '/es/precios/' },
+      { label: 'Contacto', href: '/es/contacto/' }
     ],
     footer: {
       tagline: 'Conecta tu IA con tus archivos, herramientas y apps.',
@@ -105,24 +105,24 @@ export const UI = {
           { label: 'Funciones', href: '/es/#features' },
           { label: 'Cómo funciona', href: '/es/#how' },
           { label: 'Integraciones', href: '/es/#integrations' },
-          { label: 'Precios', href: '/es/precios' }
+          { label: 'Precios', href: '/es/precios/' }
         ]
       },
       resources: {
         title: 'Recursos',
         links: [
-          { label: 'Docs', href: '/es/docs' },
-          { label: 'Blog', href: '/blog' },
-          { label: 'Contacto', href: '/es/contacto' }
+          { label: 'Docs', href: '/es/docs/' },
+          { label: 'Blog', href: '/blog/' },
+          { label: 'Contacto', href: '/es/contacto/' }
         ]
       },
       legal: {
         title: 'Legal',
         links: [
-          { label: 'Privacidad', href: '/es/privacidad' },
-          { label: 'Términos', href: '/es/terminos' },
-          { label: 'Subencargados', href: '/es/subencargados' },
-          { label: 'DPA', href: '/es/dpa' }
+          { label: 'Privacidad', href: '/es/privacidad/' },
+          { label: 'Términos', href: '/es/terminos/' },
+          { label: 'Subencargados', href: '/es/subencargados/' },
+          { label: 'DPA', href: '/es/dpa/' }
         ],
         license: 'Licencia (Apache-2.0)'
       },

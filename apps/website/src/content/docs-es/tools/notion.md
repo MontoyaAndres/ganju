@@ -36,5 +36,5 @@ actualizar páginas y bases de datos. Después de conectarlo, abre el servidor e
 Ganju para ver la lista actual y activar las que quieras.
 
 ¿Quieres conectar el servidor de otro proveedor? Mira
-[GitHub](/es/docs/tools/github), o expón tu propia API con
-[Endpoints HTTP](/es/docs/tools/http-endpoints).
+[GitHub](/es/docs/tools/github/), o expón tu propia API con
+[Endpoints HTTP](/es/docs/tools/http-endpoints/).

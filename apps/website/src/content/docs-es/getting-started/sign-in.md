@@ -14,4 +14,4 @@ llegarás a tu panel, listo para configurar tu primera organización.
 Si alguien te invitó a una organización existente, inicia sesión con la misma
 cuenta a la que llegó la invitación y te unirás automáticamente.
 
-Sigue con: [crear una organización y un proyecto](/es/docs/getting-started/organization-and-project).
+Sigue con: [crear una organización y un proyecto](/es/docs/getting-started/organization-and-project/).

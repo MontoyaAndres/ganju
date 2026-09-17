@@ -8,13 +8,13 @@ updated: 2026-09-05
 Las **herramientas** son las acciones que tu asistente puede ejecutar por ti —
 desde los ayudantes integrados para recursos hasta integraciones como Gmail, Slack
 y Google Calendar. La página **Tools** tiene tres pestañas:
-**[Funciones](/es/docs/tools/functions)** (código que escribes tú),
-**[Endpoints HTTP](/es/docs/tools/http-endpoints)** (una API que ya tienes) y
-**[Catálogo](/es/docs/tools/catalog)** (las integraciones que traemos). Esta
+**[Funciones](/es/docs/tools/functions/)** (código que escribes tú),
+**[Endpoints HTTP](/es/docs/tools/http-endpoints/)** (una API que ya tienes) y
+**[Catálogo](/es/docs/tools/catalog/)** (las integraciones que traemos). Esta
 página trata de la última — es por donde empieza todo el mundo.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Herramientas](/es/docs/tools)** documenta cada integración — Gmail,
+> de **[Herramientas](/es/docs/tools/)** documenta cada integración — Gmail,
 > Outlook, Slack, calendarios, búsqueda web, GitHub, Notion — además de tus
 > propios endpoints HTTP y funciones, una por una.
 
@@ -64,18 +64,18 @@ lista larga cuesta tokens en cada turno y le complica la elección al modelo.
 
 Dos salidas de emergencia, en las otras dos pestañas, en orden de esfuerzo:
 
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — describe una petición
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — describe una petición
   contra una API que ya tienes y se vuelve una herramienta con nombre. Sin código,
   y disponible en todos los planes.
-- **[Funciones](/es/docs/tools/functions)** — escribe la herramienta tú en
+- **[Funciones](/es/docs/tools/functions/)** — escribe la herramienta tú en
   JavaScript cuando necesitas lógica y no una sola llamada: varios pasos, una
   transformación o combinar una credencial con un cálculo. La declaras y el editor
   escribe el esqueleto del handler con `ctx` completamente tipado; la pruebas
   contra conexiones reales antes de que nadie la vea, y luego la despliegas. Pro.
 
-¿Prefieres trabajar en una terminal? **[La CLI `ganju`](/es/docs/tools/cli)** hace
+¿Prefieres trabajar en una terminal? **[La CLI `ganju`](/es/docs/tools/cli/)** hace
 lo mismo desde un repositorio — `ganju init`, `ganju login`, `ganju link`,
 `ganju deploy` — además de pruebas, logs, rollback y despliegue desde CI.
 
 Sigue con: decide dónde lo usa la gente — configura
-[canales](/es/docs/getting-started/channels).
+[canales](/es/docs/getting-started/channels/).

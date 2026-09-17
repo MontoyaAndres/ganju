@@ -38,4 +38,4 @@ create, update, and delete tools request calendar-events access.
   Pass `durationMinutes` to require gaps of at least that length. The typical flow
   is Find Free Slots → Create Event.
 
-Booking through a scheduling page instead? See [Cal.com](/docs/tools/calcom).
+Booking through a scheduling page instead? See [Cal.com](/docs/tools/calcom/).

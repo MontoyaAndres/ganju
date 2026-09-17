@@ -87,4 +87,4 @@ citas activadas, nombra la fuente justo debajo de la respuesta.
 
 ![Un chat de Telegram donde el bot responde una pregunta a partir de un sitio web rastreado y cita vocesqueabrazan.com como fuente](/images/resource-chat.webp)
 
-Sigue con: deja que tu IA actúe con [herramientas](/es/docs/getting-started/tools).
+Sigue con: deja que tu IA actúe con [herramientas](/es/docs/getting-started/tools/).

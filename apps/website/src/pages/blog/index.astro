@@ -15,13 +15,13 @@ const jsonLd = [
     posts.map((post) => ({
       title: post.data.title,
       description: post.data.description,
-      url: new URL(`/blog/${post.id}`, SITE.url).href,
+      url: new URL(`/blog/${post.id}/`, SITE.url).href,
       date: post.data.date
     }))
   ),
   breadcrumbSchema([
     { label: 'Home', href: '/' },
-    { label: 'Blog', href: '/blog' }
+    { label: 'Blog', href: '/blog/' }
   ])
 ];
 ---
@@ -43,7 +43,7 @@ const jsonLd = [
       <ul class="doc-list reveal">
         {posts.map((post) => (
           <li>
-            <a href={`/blog/${post.id}`}>
+            <a href={`/blog/${post.id}/`}>
               <strong>{post.data.title}</strong>
               <span>
                 <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>

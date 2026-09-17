@@ -18,7 +18,7 @@ Las cuentas conectadas y el envío de archivos de la plataforma llegan como
 un adjunto de 40MB.
 
 > Las funciones son una característica **Pro**. En Free la pestaña muestra lo que
-> te daría y te apunta a los [endpoints HTTP](/es/docs/tools/http-endpoints), que
+> te daría y te apunta a los [endpoints HTTP](/es/docs/tools/http-endpoints/), que
 > no requieren código.
 
 ## La pestaña
@@ -228,7 +228,7 @@ solo lectura en vez de invitarte a sobrescribir una compilación real con el
 contenido de un cuadro de texto. Igual puedes leerla ahí, e igual puedes hacer
 rollback a ella.
 
-**→ [La CLI `ganju`](/es/docs/tools/cli)** — instalación, todos los comandos,
+**→ [La CLI `ganju`](/es/docs/tools/cli/)** — instalación, todos los comandos,
 `ganju.json`, las dos formas de router, secretos, inicio de sesión y despliegue
 desde CI.
 
@@ -244,8 +244,8 @@ desde CI.
 
 ## Siguiente
 
-- **[La CLI `ganju`](/es/docs/tools/cli)** — el mismo trabajo desde una terminal,
+- **[La CLI `ganju`](/es/docs/tools/cli/)** — el mismo trabajo desde una terminal,
   y desde CI.
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints)** — cuando una sola petición
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — cuando una sola petición
   es todo lo que necesitas, y sin código.
-- **[Catálogo](/es/docs/tools/catalog)** — las integraciones que traemos.
+- **[Catálogo](/es/docs/tools/catalog/)** — las integraciones que traemos.

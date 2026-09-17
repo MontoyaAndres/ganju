@@ -81,5 +81,5 @@ lo que requieren las herramientas que activaste.
 - **Delete Draft** — elimina permanentemente un borrador sin enviar (no va a la
   Papelera).
 
-¿Prefieres el correo de Microsoft? Mira [Outlook](/es/docs/tools/outlook), que
+¿Prefieres el correo de Microsoft? Mira [Outlook](/es/docs/tools/outlook/), que
 ofrece la misma superficie vía Microsoft Graph.

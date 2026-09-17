@@ -4,14 +4,14 @@
 
 Un subencargado es una empresa que usamos para prestar el servicio alojado de Ganju y
 que puede tratar datos personales por cuenta nuestra. Esta página es la lista
-autoritativa. Hace parte de nuestra [Política de Privacidad](/es/privacidad) y de
-nuestro [Acuerdo de Tratamiento de Datos](/es/dpa).
+autoritativa. Hace parte de nuestra [Política de Privacidad](/es/privacidad/) y de
+nuestro [Acuerdo de Tratamiento de Datos](/es/dpa/).
 
 **Si instalas Ganju en tu propia infraestructura, nada de esto te aplica**: tú eliges
 tus propios proveedores, y los únicos que heredas son los que configures tú mismo.
 
 > Esta es la traducción al español de nuestra página de
-> [Subprocessors](/subprocessors). Si hay alguna discrepancia entre las dos versiones,
+> [Subprocessors](/subprocessors/). Si hay alguna discrepancia entre las dos versiones,
 > **prevalece esta versión en español** para los titulares en Colombia.
 
 ## Cómo cambiamos esta lista
@@ -49,7 +49,7 @@ servicio alojado.
 **Google aparece en este nivel deliberadamente.** Los embeddings corren con nuestra
 llave para todos los clientes en todos los planes, así que el texto de tus recursos
 llega a Google hayas configurado algo o no. Consulta
-[Modelos de IA, embeddings y tu contenido](/es/privacidad#modelos-de-ia-embeddings-y-tu-contenido).
+[Modelos de IA, embeddings y tu contenido](/es/privacidad/#modelos-de-ia-embeddings-y-tu-contenido).
 
 ## Condicionales — solo si los activas
 

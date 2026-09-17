@@ -66,14 +66,21 @@ const year = new Date().getFullYear();
   <div class="container footer-bottom">
     <span>© {year} Ganju.</span>
 
-    {/* Explicit language choice — overrides the geo redirect on `/`. */}
+    {/*
+      Explicit language choice — overrides the geo redirect on `/`.
+
+      `nofollow` because these hrefs carry `?lang=`, which always 302s to a
+      homepage. They exist to set the cookie for a human who clicked, not as
+      pages: followed, they are crawl budget spent on redirects and they turn
+      up in Search Console as "Page with redirect".
+    */}
     <nav class="footer-lang" aria-label={f.languageAria}>
       {
         (['en', 'es'] as const).map((code) =>
           code === lang ? (
             <span aria-current="true">{UI[code].label}</span>
           ) : (
-            <a href={LANG_HREF[code]} hreflang={code} lang={code}>
+            <a href={LANG_HREF[code]} hreflang={code} lang={code} rel="nofollow">
               {UI[code].label}
             </a>
           )

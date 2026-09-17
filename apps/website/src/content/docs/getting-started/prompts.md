@@ -11,7 +11,7 @@ a common request becomes a one-word shortcut. Use `{{variables}}` in a message
 for values that get filled in when it runs.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Prompts](/docs/prompts)** guide covers multi-turn templates, typed variables,
+> **[Prompts](/docs/prompts/)** guide covers multi-turn templates, typed variables,
 > and editing messages as JSON.
 
 ## Create a prompt
@@ -37,4 +37,4 @@ description, and messages — ready to run from any linked channel.
 
 ![The saved "start" prompt shown as a card with its /start command and message detail](/images/prompt-start.webp)
 
-Next: give it something to work with — add [resources](/docs/getting-started/resources).
+Next: give it something to work with — add [resources](/docs/getting-started/resources/).

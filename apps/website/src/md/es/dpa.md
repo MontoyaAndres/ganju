@@ -5,7 +5,7 @@
 Este Acuerdo de Tratamiento de Datos ("DPA", por sus siglas en inglés) rige cómo
 Ganju trata datos personales por cuenta tuya cuando usas el servicio alojado.
 **Aplica automáticamente a todos los clientes**: está incorporado a los
-[Términos y Condiciones](/es/terminos) y no necesitas firmar ni solicitar nada para
+[Términos y Condiciones](/es/terminos/) y no necesitas firmar ni solicitar nada para
 quedar cubierto por él.
 
 Si tu proceso de compras necesita una copia firmada en papel, escríbenos a
@@ -13,7 +13,7 @@ Si tu proceso de compras necesita una copia firmada en papel, escríbenos a
 necesitas un DPA nuestro en absoluto — ningún dato llega hasta nosotros.
 
 > Esta es la traducción al español de nuestro
-> [Data Processing Agreement](/dpa). Si hay alguna discrepancia entre las dos
+> [Data Processing Agreement](/dpa/). Si hay alguna discrepancia entre las dos
 > versiones, **prevalece esta versión en español** para los clientes en Colombia.
 
 - [Partes y roles](#partes-y-roles)
@@ -48,7 +48,7 @@ comparables.
 Respecto de los **datos de cuenta** — quién eres, cómo inicias sesión, qué pagas y los
 registros de operación que conservamos para prestar y asegurar el servicio —
 **nosotros somos el responsable**, y los rige nuestra
-[Política de Privacidad](/es/privacidad). Este DPA no cubre esos datos.
+[Política de Privacidad](/es/privacidad/). Este DPA no cubre esos datos.
 
 ## Alcance del tratamiento
 
@@ -107,7 +107,7 @@ Te comprometes a:
 
 Nos otorgas **autorización general por escrito** para vincular subencargados. La lista
 vigente, con el rol y la ubicación de cada uno, está en
-[ganju.ai/es/subencargados](/es/subencargados).
+[ganju.ai/es/subencargados](/es/subencargados/).
 
 Antes de que un nuevo subencargado empiece a tratar Contenido de Cliente,
 actualizaremos esa página y daremos **aviso con al menos 30 días** de anticipación al
@@ -163,7 +163,7 @@ Teniendo en cuenta la naturaleza del tratamiento, te asistiremos con:
 
 Estamos establecidos en Colombia y alojamos en Estados Unidos, así que hay
 transferencia internacional de datos personales para todos los clientes. Consulta
-[Dónde están tus datos](/es/privacidad#dónde-están-tus-datos).
+[Dónde están tus datos](/es/privacidad/#dónde-están-tus-datos).
 
 - **Colombia.** Las transferencias se apoyan en la autorización obtenida conforme a la
   Ley 1581 de 2012, junto con las garantías contractuales previstas en las condiciones
@@ -209,7 +209,7 @@ esa ventana, devolveremos una copia en un formato estructurado y legible por má
 ## Responsabilidad y prelación
 
 La responsabilidad de cada parte bajo este DPA está sujeta a la
-[limitación de responsabilidad](/es/terminos#limitación-de-responsabilidad) de los
+[limitación de responsabilidad](/es/terminos/#limitación-de-responsabilidad) de los
 Términos y Condiciones.
 
 Si este DPA entra en conflicto con los Términos y Condiciones, prevalece este DPA en
@@ -255,7 +255,7 @@ cuentas que conectas.
 
 **Frecuencia.** Continua, mientras el servicio esté en uso.
 
-**Subencargados.** Los listados en [ganju.ai/es/subencargados](/es/subencargados).
+**Subencargados.** Los listados en [ganju.ai/es/subencargados](/es/subencargados/).
 
 ## Anexo B — Medidas técnicas y organizativas
 
@@ -283,7 +283,7 @@ cuentas que conectas.
 - **Límites de conservación.** Los registros detallados de peticiones, los registros de
   error y el historial de mensajes de canal se purgan automáticamente según un
   calendario — consulta
-  [Cuánto tiempo conservamos los datos](/es/privacidad#cuánto-tiempo-conservamos-los-datos).
+  [Cuánto tiempo conservamos los datos](/es/privacidad/#cuánto-tiempo-conservamos-los-datos).
 - **Personal.** El acceso a producción se limita al personal que lo necesita, bajo
   obligaciones de confidencialidad.
 - **Resiliencia.** La plataforma corre sobre infraestructura administrada y replicada,

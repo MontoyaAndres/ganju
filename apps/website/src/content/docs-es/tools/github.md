@@ -36,5 +36,5 @@ flujos de trabajo relacionados. Después de conectarlo, abre el servidor en Ganj
 para ver la lista actual y activar las que quieras.
 
 ¿Quieres conectar el servidor de otro proveedor? Mira
-[Notion](/es/docs/tools/notion), o expón tu propia API con
-[Endpoints HTTP](/es/docs/tools/http-endpoints).
+[Notion](/es/docs/tools/notion/), o expón tu propia API con
+[Endpoints HTTP](/es/docs/tools/http-endpoints/).

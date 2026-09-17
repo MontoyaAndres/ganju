@@ -14,4 +14,4 @@ you'll land in your dashboard ready to set up your first organization.
 If someone invited you to an existing organization, sign in with the same account
 the invite was sent to and you'll join it automatically.
 
-Next: [create an organization & project](/docs/getting-started/organization-and-project).
+Next: [create an organization & project](/docs/getting-started/organization-and-project/).

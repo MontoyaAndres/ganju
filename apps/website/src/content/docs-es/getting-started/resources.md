@@ -12,7 +12,7 @@ directamente — cada uno recibe una URI y, una vez procesado, queda marcado com
 **Ready**.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Recursos](/es/docs/resources)** cubre las importaciones desde Google Drive
+> de **[Recursos](/es/docs/resources/)** cubre las importaciones desde Google Drive
 > y OneDrive, los rastreos de sitios web, los archivos subidos y las citas.
 
 ## De dónde vienen los recursos
@@ -62,4 +62,4 @@ marcadas **Ready** como cualquier otro recurso.
 
 ![El recurso del sitio web rastreado marcado como Ready, con su origen, URI y descripción](/images/resource-website-done.webp)
 
-Sigue con: déjala actuar con [herramientas](/es/docs/getting-started/tools).
+Sigue con: déjala actuar con [herramientas](/es/docs/getting-started/tools/).

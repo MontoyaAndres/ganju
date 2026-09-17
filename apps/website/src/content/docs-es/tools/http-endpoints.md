@@ -11,7 +11,7 @@ una herramienta con nombre que el modelo puede llamar. Sin código, sin bundle,
 sin paso de despliegue.
 
 Este es el escalón intermedio entre el catálogo y las
-[funciones](/es/docs/tools/functions): más flexible que una integración que
+[funciones](/es/docs/tools/functions/): más flexible que una integración que
 traigamos nosotros, y mucho menos trabajo que escribir una. Además es la
 herramienta personalizada disponible en **todos los planes**, incluido Free.
 
@@ -49,7 +49,7 @@ Elige un **tipo de autenticación** y la credencial se guarda cifrada, se aplica
 justo antes de que salga la petición, y nunca se te devuelve ni se le muestra al
 modelo. Un bearer token, un encabezado con llave de API, autenticación básica — o
 **OAuth**, que deja a un endpoint reutilizar una cuenta que ya conectaste en el
-[catálogo](/es/docs/tools/catalog) en lugar de guardar una segunda copia de la
+[catálogo](/es/docs/tools/catalog/) en lugar de guardar una segunda copia de la
 misma credencial.
 
 ### Opciones avanzadas
@@ -83,13 +83,13 @@ llamada falló" de "la respuesta es no".
 
 | | Usa |
 | --- | --- |
-| El proveedor está en nuestro catálogo | **[Catálogo](/es/docs/tools/catalog)** — conectas una vez y listo |
+| El proveedor está en nuestro catálogo | **[Catálogo](/es/docs/tools/catalog/)** — conectas una vez y listo |
 | El proveedor publica un servidor MCP remoto | **Catálogo** → conecta el servidor y obtén todo su conjunto mantenido |
 | Una petición contra tu propia API | **Endpoints HTTP** |
-| Varios pasos, una transformación, ramificaciones o combinar una credencial con lógica | **[Funciones](/es/docs/tools/functions)** |
+| Varios pasos, una transformación, ramificaciones o combinar una credencial con lógica | **[Funciones](/es/docs/tools/functions/)** |
 
 ## Límites
 
 Free permite **3 endpoints** por asistente. Pro y Enterprise son ilimitados. Las
 llamadas a endpoints HTTP no se miden como llamadas de herramienta — solo se miden
-los despachos a [tu propio código](/es/docs/tools/functions).
+los despachos a [tu propio código](/es/docs/tools/functions/).

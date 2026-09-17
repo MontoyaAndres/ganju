@@ -11,7 +11,7 @@ infrastructure, this policy does not apply to you** — you run the servers, you
 the data, and we never see it. Everything below is about the hosted service we run.
 
 > Esta política también está disponible en
-> [español](/es/privacidad). Para los titulares en Colombia, **prevalece la versión en
+> [español](/es/privacidad/). Para los titulares en Colombia, **prevalece la versión en
 > español**.
 
 - [Who we are and what role we play](#who-we-are-and-what-role-we-play)
@@ -371,7 +371,7 @@ contact the organization that runs the bot. If you can't identify them, write to
 
 We don't sell data. We share it only with the providers that make the service work.
 The table below is the summary; the always-current list, with each provider's role
-and location, lives on the [subprocessors page](/subprocessors), where we also commit
+and location, lives on the [subprocessors page](/subprocessors/), where we also commit
 to telling you before a new one starts handling your content.
 
 | Provider | What they process | Why |
@@ -388,7 +388,7 @@ to telling you before a new one starts handling your content.
 | Any **remote MCP server** or **HTTP endpoint** you configure | Whatever your tools send | You chose the destination |
 
 We may also disclose data when we're legally required to, to enforce our
-[Terms](/terms), or to protect the rights and safety of users and the public. If
+[Terms](/terms/), or to protect the rights and safety of users and the public. If
 Ganju is ever involved in a merger, acquisition, or asset sale, data may transfer as
 part of it — you'll be told before it becomes subject to a different policy.
 
@@ -476,7 +476,7 @@ country you're in.
 - **EEA, UK, Switzerland.** Transfers rely on the Standard Contractual Clauses and
   equivalent safeguards in our providers' data processing terms.
 
-Our [Data Processing Agreement](/dpa) applies automatically to every customer — you
+Our [Data Processing Agreement](/dpa/) applies automatically to every customer — you
 don't need to sign anything to get it. If you need it countersigned on paper, write to
 **hello@ganju.ai**.
 
@@ -546,4 +546,4 @@ Questions, requests, or complaints about privacy:
 - **Email** — hello@ganju.ai
 - **Phone** — +57 312 4678519
 - **Post** — Ganju S.A.S., Bogotá, D.C., Colombia
-- **Form** — [ganju.ai/contact](/contact)
+- **Form** — [ganju.ai/contact](/contact/)

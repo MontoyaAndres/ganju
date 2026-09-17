@@ -6,8 +6,8 @@ updated: 2026-07-07
 ---
 
 Todo proyecto arranca con cinco herramientas **integradas** ya instaladas. Son la
-base que le permite a tu asistente trabajar con tus [recursos](/es/docs/resources) y
-[prompts](/es/docs/prompts) desde el primer día — sin conexión ni llave de API, y no
+base que le permite a tu asistente trabajar con tus [recursos](/es/docs/resources/) y
+[prompts](/es/docs/prompts/) desde el primer día — sin conexión ni llave de API, y no
 se pueden quitar. Esto es lo que hace que un asistente de Ganju responda con *tu*
 contenido en lugar de adivinar.
 
@@ -31,7 +31,7 @@ contenido en lugar de adivinar.
   vista previa, un reproductor o un enlace de descarga, en vez de texto plano.
   Úsala cuando alguien pide ver, recibir o descargar un archivo. Un `caption`
   opcional agrega un mensaje corto al lado.
-- **List Prompts** — lista cada [prompt](/es/docs/prompts) y comando que expone el
+- **List Prompts** — lista cada [prompt](/es/docs/prompts/) y comando que expone el
   servidor — tanto los que creaste como los de servidores MCP conectados — junto
   con el comando de barra exacto y los argumentos para ejecutar cada uno en el
   canal actual.
@@ -45,5 +45,5 @@ archivo al usuario. **List Resources** y **List Prompts** son para descubrir —
 mostrar qué hay disponible y cómo usarlo.
 
 Sigue con: agrega capacidades más allá de tu propio contenido — mira
-[Gmail](/es/docs/tools/gmail), [Slack](/es/docs/tools/slack) o
-[Búsqueda web](/es/docs/tools/web-search).
+[Gmail](/es/docs/tools/gmail/), [Slack](/es/docs/tools/slack/) o
+[Búsqueda web](/es/docs/tools/web-search/).

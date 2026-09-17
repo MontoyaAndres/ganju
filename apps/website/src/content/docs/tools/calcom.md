@@ -31,4 +31,4 @@ there's no OAuth step.
   attendee is notified. Call only when the user has clearly decided to cancel.
 
 The typical flow is List Available Slots → Create Booking. Managing a Google
-Calendar directly instead? See [Google Calendar](/docs/tools/google-calendar).
+Calendar directly instead? See [Google Calendar](/docs/tools/google-calendar/).

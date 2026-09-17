@@ -6,7 +6,7 @@ updated: 2026-07-07
 ---
 
 **Búsqueda en Slack** le agrega a tu asistente la búsqueda de mensajes en todo el
-espacio de trabajo. Es una integración separada de [Slack](/es/docs/tools/slack) por
+espacio de trabajo. Es una integración separada de [Slack](/es/docs/tools/slack/) por
 una razón técnica: Slack **no** permite que los bot tokens llamen a
 `search.messages`, así que la búsqueda necesita un **token de usuario** (`xoxp`) en
 lugar del bot token que usan las herramientas base de Slack.
@@ -27,5 +27,5 @@ error estándar de credencial no conectada.
   forma de recuperar contexto previo ("¿qué dijo soporte sobre X?") antes de que el
   asistente redacte una respuesta.
 
-Combínala con las herramientas base de [Slack](/es/docs/tools/slack): busca para
+Combínala con las herramientas base de [Slack](/es/docs/tools/slack/): busca para
 encontrar el hilo relevante y luego usa Send Message para responder dentro de él.

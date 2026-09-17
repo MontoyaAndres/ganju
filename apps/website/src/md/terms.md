@@ -14,7 +14,7 @@ and that licence — not this document — governs what you may do with the code
 terms cover only the hosted service we operate. Self-host it and none of this applies.
 
 > Estos términos también están disponibles en
-> [español](/es/terminos). Para los usuarios en Colombia, **prevalece la versión en
+> [español](/es/terminos/). Para los usuarios en Colombia, **prevalece la versión en
 > español**.
 
 - [Definitions](#definitions)
@@ -187,7 +187,7 @@ To run the Service, you grant us a worldwide, non-exclusive, royalty-free licenc
 host, store, copy, transmit, chunk, embed, index, display, and process your Customer
 Content — and to transmit it to the model, tool, and platform providers you've
 configured — solely to provide the Service to you and as described in our
-[Privacy Policy](/privacy). This licence ends when you delete the content or your
+[Privacy Policy](/privacy/). This licence ends when you delete the content or your
 account, except for copies in routine backups that roll off on schedule.
 
 **We do not use your Customer Content to train AI models.**
@@ -197,9 +197,9 @@ processing as described above is lawful — including any personal data belongin
 your End Users, employees, or customers. For that content you are the controller —
 the *responsable del tratamiento* under Colombia's Ley 1581 de 2012 — and we act as
 your processor (*encargado*), including under GDPR, UK GDPR, and similar regimes. Our
-[Data Processing Agreement](/dpa) is incorporated into these terms and applies to
+[Data Processing Agreement](/dpa/) is incorporated into these terms and applies to
 every customer automatically; the providers it permits us to use are listed on the
-[subprocessors page](/subprocessors).
+[subprocessors page](/subprocessors/).
 
 You are responsible for keeping your own copies. We are not a backup service.
 
@@ -303,7 +303,7 @@ you rely on, or discontinue the Service entirely, we'll give at least 30 days' n
 by email so you can export your content. Features labelled beta or experimental may
 change or disappear without notice and carry no availability commitment.
 
-Support levels are the ones described on the [pricing page](/pricing) for your plan.
+Support levels are the ones described on the [pricing page](/pricing/) for your plan.
 
 ## Suspension and termination
 
@@ -407,7 +407,7 @@ before then.
 
 ## General
 
-- **Entire agreement.** These terms, the [Privacy Policy](/privacy), and any
+- **Entire agreement.** These terms, the [Privacy Policy](/privacy/), and any
   Enterprise order form are the whole agreement between us on this subject, and
   replace anything said earlier. Where an Enterprise agreement conflicts with these
   terms, that agreement wins.
@@ -430,4 +430,4 @@ before then.
 - **Email** — hello@ganju.ai
 - **Phone** — +57 312 4678519
 - **Post** — Ganju S.A.S., Bogotá, D.C., Colombia
-- **Form** — [ganju.ai/contact](/contact)
+- **Form** — [ganju.ai/contact](/contact/)
