@@ -831,7 +831,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
     publishFailed: 'La v{version} no se pudo publicar — {error}',
 
     readOnlyBannerBefore:
-      'Esta versión se subió desde la CLI, así que su código es un bundle compilado y no se puede editar aquí.',
+      'Esta versión se subió desde el CLI, así que su código es un bundle compilado y no se puede editar aquí.',
     readOnlyBannerAction: 'Empieza un script nuevo',
     readOnlyBannerAfter: 'para editarlo en el panel.',
 
@@ -842,7 +842,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
     metaCreated: 'Creada',
     metaPublished: 'Publicada',
     sourceEditor: 'Editor del panel',
-    sourceCli: 'Bundle de la CLI',
+    sourceCli: 'Bundle del CLI',
 
     fnEmptyTitle: 'Aún no hay funciones',
     fnEmptyText:
@@ -974,7 +974,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
     jsonSchemaItems: 'Para un arreglo: la forma de cada entrada.',
 
     markerRequire:
-      'require() no está disponible — el script desplegado es un módulo ES y nada resuelve módulos en tiempo de ejecución. Para usar un paquete, empaquétalo en tu máquina y súbelo con la CLI.',
+      'require() no está disponible — el script desplegado es un módulo ES y nada resuelve módulos en tiempo de ejecución. Para usar un paquete, empaquétalo en tu máquina y súbelo con el CLI.',
     markerProcess:
       'process no está disponible. Los Workers de Cloudflare corren sin los built-ins de Node; lee la configuración con ctx.secret() en su lugar.',
     markerNodeGlobals:
@@ -984,7 +984,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
     markerBrowser:
       'Aquí no hay navegador — este código corre en el servidor, dentro de un isolate de Worker.',
     markerBareImport:
-      'Aquí solo se pueden importar archivos de este proyecto y ./ganju-sdk.js — no hay paso de instalación. Para usar un paquete, empaquétalo en tu máquina y súbelo con la CLI.',
+      'Aquí solo se pueden importar archivos de este proyecto y ./ganju-sdk.js — no hay paso de instalación. Para usar un paquete, empaquétalo en tu máquina y súbelo con el CLI.',
 
     settings: 'Ajustes',
     settingsTitle: 'Ajustes de las funciones',

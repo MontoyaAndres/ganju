@@ -213,7 +213,7 @@ A CLI upload is a compiled bundle, which is why the dashboard shows it read-only
 rather than inviting you to overwrite a real build with the contents of a text
 box. You can still read it there, and still roll back to it.
 
-**→ [The `ganju` CLI](/docs/tools/cli/)** — install, every command, `ganju.json`,
+**→ [`ganju` CLI](/docs/tools/cli/)** — install, every command, `ganju.json`,
 the two router shapes, secrets, signing in, and deploying from CI.
 
 ## Limits and cost
@@ -228,7 +228,7 @@ the two router shapes, secrets, signing in, and deploying from CI.
 
 ## Next
 
-- **[The `ganju` CLI](/docs/tools/cli/)** — the same work from a terminal, and
+- **[`ganju` CLI](/docs/tools/cli/)** — the same work from a terminal, and
   from CI.
 - **[Examples](/docs/tools/examples/)** — five ready-to-deploy projects, one per
   `ctx` capability.

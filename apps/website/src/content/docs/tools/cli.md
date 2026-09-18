@@ -329,6 +329,8 @@ members and billing are dashboard-only for now.
 
 - **[Examples](/docs/tools/examples/)** — five projects to deploy with these
   commands, one per host capability.
+- **[Agent skill](/docs/tools/agent-skill/)** — teach Claude Code and other
+  coding agents to use these commands for you.
 - **[Functions](/docs/tools/functions/)** — the same work in the browser, plus the
   reference for `ctx` and the settings these commands write.
 - **[HTTP Endpoints](/docs/tools/http-endpoints/)** — when one request is all you

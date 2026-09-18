@@ -1,6 +1,6 @@
 ---
 title: Funciones
-description: Escribe tus propias herramientas en JavaScript — declara una función, edítala en el navegador o despliégala desde la CLI, pruébala antes de que nadie la vea y vuelve atrás cuando lo necesites.
+description: Escribe tus propias herramientas en JavaScript — declara una función, edítala en el navegador o despliégala desde el CLI, pruébala antes de que nadie la vea y vuelve atrás cuando lo necesites.
 order: 36
 updated: 2026-09-05
 ---
@@ -182,7 +182,7 @@ esquemas.
 ![Un script desplegado con cuatro funciones, un selector de versión con v21 en vivo y un bundle de CLI en solo lectura](/images/functions-existing.webp)
 
 El encabezado dice qué versión está abierta, su estado, cuántas funciones tiene,
-si el código vino del editor o de la CLI, y cuándo se creó y se publicó. El
+si el código vino del editor o del CLI, y cuándo se creó y se publicó. El
 historial es un **selector**, no una lista — eliges cualquier versión y se abre su
 código. Deploy publica lo que está abierto; una versión publicada que no es la
 que está en vivo ofrece **Roll back** en su lugar.
@@ -193,12 +193,12 @@ herramientas te está costando tokens en cada llamada al modelo — y tu código
 queda intacto. El manifiesto es lo que tu código *puede* hacer; los interruptores
 son lo que el servidor ofrece ahora mismo.
 
-Una versión subida desde la CLI es un bundle compilado, así que el editor la
+Una versión subida desde el CLI es un bundle compilado, así que el editor la
 muestra en solo lectura en lugar de invitarte a sobrescribir una compilación real
 con el contenido de un cuadro de texto. Igual puedes leerla, e igual puedes hacer
 rollback a ella.
 
-## La CLI
+## CLI
 
 Todo lo anterior tiene su equivalente en terminal. `ganju` es un cliente de los
 mismos endpoints que usa el panel — no una segunda puerta de escritura — así que
@@ -223,12 +223,12 @@ necesita se revisen juntos — y un archivo de handler por herramienta.
 terminal lo que hacen arriba los paneles en el navegador, y `ganju token create`
 genera una credencial con la que CI puede desplegar.
 
-Una subida desde la CLI es un bundle compilado, y por eso el panel la muestra en
+Una subida desde el CLI es un bundle compilado, y por eso el panel la muestra en
 solo lectura en vez de invitarte a sobrescribir una compilación real con el
 contenido de un cuadro de texto. Igual puedes leerla ahí, e igual puedes hacer
 rollback a ella.
 
-**→ [La CLI `ganju`](/es/docs/tools/cli/)** — instalación, todos los comandos,
+**→ [`ganju` CLI](/es/docs/tools/cli/)** — instalación, todos los comandos,
 `ganju.json`, las dos formas de router, secretos, inicio de sesión y despliegue
 desde CI.
 
@@ -244,7 +244,7 @@ desde CI.
 
 ## Siguiente
 
-- **[La CLI `ganju`](/es/docs/tools/cli/)** — el mismo trabajo desde una terminal,
+- **[`ganju` CLI](/es/docs/tools/cli/)** — el mismo trabajo desde una terminal,
   y desde CI.
 - **[Ejemplos](/es/docs/tools/examples/)** — cinco proyectos listos para
   desplegar, cada uno con una capacidad de `ctx`.

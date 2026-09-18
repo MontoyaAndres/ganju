@@ -41,7 +41,7 @@ combinas para definir exactamente qué sabe tu asistente, qué hace y dónde viv
   escribe la herramienta tú en JavaScript. Corre en el edge, con tus cuentas
   conectadas y el envío de archivos entregados como capacidades del anfitrión, así
   que sigue sin haber un servidor que administres.
-- **[La CLI `ganju`](/es/docs/tools/cli/)** — pon esas funciones en un repositorio:
+- **[`ganju` CLI](/es/docs/tools/cli/)** — pon esas funciones en un repositorio:
   compila, despliega, prueba contra conexiones reales, lee sus logs, vuelve atrás
   y publica desde CI.
 - **[Canales](/es/docs/channels/)** — llévala a personas reales en Telegram,

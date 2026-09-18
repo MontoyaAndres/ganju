@@ -324,7 +324,9 @@ The quickest way to write a new tool is to copy the example closest to it:
 
 ## Next
 
-- **[The `ganju` CLI](/docs/tools/cli/)**: every command these examples use,
+- **[`ganju` CLI](/docs/tools/cli/)**: every command these examples use,
   and deploying from CI.
 - **[Functions](/docs/tools/functions/)**: the full `ctx` reference, settings
   and limits.
+- **[Agent skill](/docs/tools/agent-skill/)**: let a coding agent adapt these
+  examples for you.

@@ -2,7 +2,7 @@
   "name": "ganju-example-team-notes",
   "private": true,
   "devDependencies": {
-    "@ganju/cli": "^0.0.4",
-    "@ganju/sdk": "^0.0.3"
+    "@ganju/cli": "latest",
+    "@ganju/sdk": "latest"
   }
 }

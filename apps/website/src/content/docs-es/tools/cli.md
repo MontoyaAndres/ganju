@@ -163,7 +163,7 @@ TypeScript funciona. Los tipos se **quitan, no se verifican** — un bundle ya e
 compilado cuando llega al endpoint de subida — así que corre `tsc` tú si quieres
 que se apliquen.
 
-Una subida desde la CLI se guarda como un `bundle` compilado, y por eso el panel
+Una subida desde el CLI se guarda como un `bundle` compilado, y por eso el panel
 la muestra en solo lectura en vez de invitarte a sobrescribir una compilación real
 con el contenido de un cuadro de texto. Igual puedes leerla ahí, e igual puedes
 hacer rollback a ella.
@@ -242,7 +242,7 @@ Son los valores que lee `ctx.secret('ACME_KEY')`. Tres cosas que saber:
   alcanzable por nada, así que poner un nombre existente borra la fila anterior
   primero.
 - **`list` nunca puede imprimir un valor.** El endpoint lo quita de cada fila que
-  devuelve, así que la CLI no tiene manera de mostrarte a qué está puesto un
+  devuelve, así que el CLI no tiene manera de mostrarte a qué está puesto un
   secreto. Pon uno nuevo para cambiarlo.
 - **Un secreto está vivo desde la siguiente llamada**, sin desplegar después.
 
@@ -253,7 +253,7 @@ shell — `GANJU_SECRET_VALUE` existe para que el camino feliz no lo filtre a
 ## Iniciar sesión
 
 `ganju login` es un **redirect de loopback** (RFC 8252), el mismo flujo que usan
-`gh` y `wrangler`: la CLI mantiene un puerto abierto, manda tu navegador al
+`gh` y `wrangler`: el CLI mantiene un puerto abierto, manda tu navegador al
 endpoint de autorización y lee el código del redirect. El cliente es público — sin
 secreto, con PKCE en su lugar, porque un secreto publicado en un paquete de npm es
 un secreto que tiene cada usuario de ese paquete. Se registra solo en el primer
@@ -270,7 +270,7 @@ cliente nunca es un acto de delegación total.
 
 ## CI
 
-Un login por navegador produce un token que vive una hora, y la CLI nunca renueva
+Un login por navegador produce un token que vive una hora, y el CLI nunca renueva
 uno que le llega por el entorno — no tiene dónde escribir el valor nuevo. Está
 bien para un trabajo que arrancas a mano, e inservible para uno programado cuya
 segunda corrida siempre es después de esa hora.
@@ -325,7 +325,7 @@ construir un trabajo programado.
 | `GANJU_SECRET_VALUE` | `ganju secret set NAME` lee el valor de aquí, para mantenerlo fuera del historial de la shell. |
 | `GANJU_CONFIG_DIR` | Dónde vive el almacén de tokens. Por defecto `~/.ganju`. |
 
-## Qué no cubre la CLI
+## Qué no cubre el CLI
 
 Las herramientas personalizadas, de principio a fin — y ahí está el límite. Los
 prompts, el conocimiento ([recursos](/es/docs/resources/)), las herramientas del
@@ -336,6 +336,8 @@ ahora solo del panel.
 
 - **[Ejemplos](/es/docs/tools/examples/)** — cinco proyectos para desplegar con
   estos comandos, uno por capacidad del anfitrión.
+- **[Skill para agentes](/es/docs/tools/agent-skill/)** — enséñale a Claude Code
+  y a otros agentes de programación a usar estos comandos por ti.
 - **[Funciones](/es/docs/tools/functions/)** — el mismo trabajo en el navegador,
   además de la referencia de `ctx` y de los ajustes que escriben estos comandos.
 - **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — cuando una sola petición

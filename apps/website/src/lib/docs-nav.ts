@@ -103,6 +103,10 @@ const SPEC: DocNavSpec[] = [
           {
             slug: 'tools/examples',
             label: { en: 'Examples', es: 'Ejemplos' }
+          },
+          {
+            slug: 'tools/agent-skill',
+            label: { en: 'Agent skill', es: 'Skill para agentes' }
           }
         ]
       },

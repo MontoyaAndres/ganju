@@ -40,7 +40,7 @@ you combine to shape exactly what your assistant knows, does, and where it lives
   case, write the tool yourself in JavaScript. It runs on the edge with your
   connected accounts and file-sending handed to it as host capabilities, so
   there's still no server for you to run.
-- **[The `ganju` CLI](/docs/tools/cli/)** — put those functions in a repository:
+- **[`ganju` CLI](/docs/tools/cli/)** — put those functions in a repository:
   build, deploy, test against real connections, read their logs, roll back, and
   ship from CI.
 - **[Channels](/docs/channels/)** — deliver it to real people on Telegram, WhatsApp,

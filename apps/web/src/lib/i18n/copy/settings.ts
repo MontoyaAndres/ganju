@@ -538,7 +538,7 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     tokenMintedWarning:
       'Cópialo ahora: es la única vez que se muestra. Guardamos su hash, así que nadie, nosotros incluidos, puede volver a enseñártelo. Si lo pierdes, revócalo y crea otro.',
     tokenMintedUsage:
-      'Configúralo como GANJU_API_TOKEN donde se ejecute la CLI. Funciona con `ganju deploy` sin cambiar nada, y solo puede actuar sobre este proyecto.',
+      'Configúralo como GANJU_API_TOKEN donde se ejecute el CLI. Funciona con `ganju deploy` sin cambiar nada, y solo puede actuar sobre este proyecto.',
     tokenMintedEnvLabel: 'Variable de entorno',
     tokenMintedDone: 'Ya lo copié',
     toastTokenCopied: 'Token copiado',

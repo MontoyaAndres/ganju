@@ -330,7 +330,9 @@ más se le parezca:
 
 ## Siguiente
 
-- **[La CLI `ganju`](/es/docs/tools/cli/)**: todos los comandos que usan estos
+- **[`ganju` CLI](/es/docs/tools/cli/)**: todos los comandos que usan estos
   ejemplos, y cómo desplegar desde CI.
 - **[Funciones](/es/docs/tools/functions/)**: la referencia completa de `ctx`,
   los ajustes y los límites.
+- **[Skill para agentes](/es/docs/tools/agent-skill/)**: deja que un agente de
+  programación adapte estos ejemplos por ti.

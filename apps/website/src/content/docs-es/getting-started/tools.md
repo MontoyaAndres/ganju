@@ -73,7 +73,7 @@ Dos salidas de emergencia, en las otras dos pestañas, en orden de esfuerzo:
   escribe el esqueleto del handler con `ctx` completamente tipado; la pruebas
   contra conexiones reales antes de que nadie la vea, y luego la despliegas. Pro.
 
-¿Prefieres trabajar en una terminal? **[La CLI `ganju`](/es/docs/tools/cli/)** hace
+¿Prefieres trabajar en una terminal? **[`ganju` CLI](/es/docs/tools/cli/)** hace
 lo mismo desde un repositorio — `ganju init`, `ganju login`, `ganju link`,
 `ganju deploy` — además de pruebas, logs, rollback y despliegue desde CI.
 

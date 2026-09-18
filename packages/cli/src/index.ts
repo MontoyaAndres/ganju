@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 
-import { isCliError } from './errors.js';
+import { CliError, isCliError } from './errors.js';
 import { color, fail, note, say } from './output.js';
 import { build } from './commands/build.js';
 import { deploy } from './commands/deploy.js';
@@ -21,6 +21,30 @@ import { rollback, versions } from './commands/versions.js';
  * before it is useful to them, so every dependency is weight they carry to find
  * out whether they wanted it.
  */
+
+/**
+ * Every flag any command takes, in one parser shared by all of them. A flag
+ * meaningless to a command (`ganju build --follow`) is accepted and ignored;
+ * one that no command defines is an error.
+ */
+const FLAGS = {
+  help: { type: 'boolean', short: 'h' },
+  draft: { type: 'boolean' },
+  // parseArgs has no negation of its own, so the off switch is its own
+  // option. Spelled the way people type it.
+  'no-minify': { type: 'boolean' },
+  json: { type: 'boolean' },
+  follow: { type: 'boolean' },
+  input: { type: 'string' },
+  'input-file': { type: 'string' },
+  version: { type: 'string' },
+  tool: { type: 'string' },
+  limit: { type: 'string' },
+  organization: { type: 'string' },
+  project: { type: 'string' },
+  expires: { type: 'string' },
+  status: { type: 'boolean' }
+} as const;
 
 declare const __GANJU_CLI_VERSION__: string;
 const VERSION =
@@ -51,7 +75,8 @@ ${color.bold('Other')}
   ganju logout                  forget the stored token
 
 ${color.bold('Flags')}
-  --draft                       deploy: save the version without publishing it
+  -h, --help                    this message, from any command
+  --draft                      deploy: save the version without publishing it
   --no-minify                   build/deploy: keep the bundle readable
   --input '<json>'              test: the arguments to call the tool with
   --input-file <path>           test: the same, from a file
@@ -87,34 +112,32 @@ const main = async (argv: string[]): Promise<void> => {
     return;
   }
 
-  // `strict: false` because the positionals differ per command and a shared
-  // parser that knew every one of them would be a second place to keep the
-  // command list.
-  const { values, positionals } = parseArgs({
-    args: rest,
-    allowPositionals: true,
-    strict: false,
-    options: {
-      draft: { type: 'boolean' },
-      // parseArgs has no negation of its own, so the off switch is its own
-      // option. Spelled the way people type it.
-      'no-minify': { type: 'boolean' },
-      json: { type: 'boolean' },
-      follow: { type: 'boolean' },
-      input: { type: 'string' },
-      'input-file': { type: 'string' },
-      version: { type: 'string' },
-      tool: { type: 'string' },
-      limit: { type: 'string' },
-      organization: { type: 'string' },
-      project: { type: 'string' },
-      expires: { type: 'string' },
-      status: { type: 'boolean' }
-    }
-  });
+  // Strict, so a flag nobody defined is an error rather than ignored: ignored,
+  // `ganju init --help` scaffolded a project in the current directory and
+  // `ganju deploy --dry-run` published. Positionals stay open, because they
+  // differ per command and each command checks its own.
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: rest,
+      allowPositionals: true,
+      strict: true,
+      options: FLAGS
+    });
+  } catch (error) {
+    throw new CliError(error instanceof Error ? error.message : String(error), {
+      hint: 'Run `ganju help` to see the flags each command takes.'
+    });
+  }
+  const { values, positionals } = parsed;
+
+  if (values.help) {
+    usage();
+    return;
+  }
 
   const flag = <T>(name: string): T | undefined =>
-    values[name] as T | undefined;
+    values[name as keyof typeof values] as T | undefined;
   const limit = flag<string>('limit');
   const minify = !flag<boolean>('no-minify');
 

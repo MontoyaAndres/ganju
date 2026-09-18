@@ -72,7 +72,7 @@ Two escape hatches, on the other two tabs, in order of effort:
   the handler stub with `ctx` fully typed; test it against real connections
   before anyone sees it, then deploy. Pro.
 
-Prefer to work in a terminal? **[The `ganju` CLI](/docs/tools/cli/)** does the same
+Prefer to work in a terminal? **[`ganju` CLI](/docs/tools/cli/)** does the same
 thing from a repository — `ganju init`, `ganju login`, `ganju link`,
 `ganju deploy` — plus testing, logs, rollback, and deploying from CI.
 
