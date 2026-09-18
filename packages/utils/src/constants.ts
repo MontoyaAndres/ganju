@@ -1207,8 +1207,7 @@ const MCP_PROXY_TOOL_NAME_MAX = 64;
 //
 // The row's config holds only `activeVersionId` plus the egress/limit settings;
 // names and schemas live on the version. That's what keeps MCP boot off the
-// dispatcher — a slow or broken script must never break tools/list. See
-// docs/CUSTOM_TOOLS.md ("Boot contract").
+// dispatcher — a slow or broken script must never break tools/list.
 const TOOL_DEFINITION_KEY_CUSTOM_CODE = 'custom-code';
 
 // A version is uploaded as `draft`, becomes `published` when it is made active,

@@ -33,12 +33,12 @@ Ganju deploys to Cloudflare. Each Worker app has a `wrangler.toml` with `develop
 | Pages `ganju-website-production` | ✅ | `wrangler pages project list` |
 | The five Workers | ✅ all deployed | `wrangler deployments list --env production` |
 | Custom domains | ✅ `api` / `mcp` / `app`.ganju.ai all answering | `curl -o /dev/null -w '%{http_code}' https://api.ganju.ai/.well-known/oauth-authorization-server` |
-| Secrets | ✅ 31 — api 19, mcp 3, tool-broker 9 | `wrangler secret list --env production` |
+| Secrets | ✅ 35 — api 23, mcp 3, tool-broker 9 | `wrangler secret list --env production` |
 | Migrations | ✅ 71 applied, through `0070` | `select count(*) from drizzle.__drizzle_migrations` |
 | Bot OAuth client | ✅ row provisioned | `select count(*) from oauth_client` |
 | `mcp_server_catalog` | ✅ 2 rows (GitHub, Notion) | `select count(*) from mcp_server_catalog` |
 | End-to-end CLI probe | ✅ 61/61 against production | [probe-cli.mjs](../scripts/probe-cli.mjs) |
-| **Polar production** | ❌ not set up — sandbox only | [POLAR_MIGRATION.md](POLAR_MIGRATION.md) |
+| Polar billing | ✅ live — the four `POLAR_*` secrets set on api | `wrangler secret list --env production` in apps/api; see [Billing](#billing) |
 
 **Verified end to end on 5 Sep** by pointing the CLI probe at production — 61 checks, all passing: OAuth login through dynamic registration, `ganju deploy` publishing into `ganju-tools-production`, an MCP client listing and calling the tool and getting its `structuredContent` back, `ganju test` against a real preview script, logs, secrets, project-scoped access tokens, rollback, and both refusals (a reserved tool name, and the plan gate on FREE). It scaffolds a throwaway PRO org and removes it; the namespace was back to `script_count: 0` afterwards.
 
@@ -50,10 +50,6 @@ node scripts/probe-cli.mjs
 
 **The env file and the namespace move together.** A run that read production's database while deploying into the development namespace would report a green publish against a script nothing serves.
 
-One thing remains, and it is not code:
-
-- **Billing is blocked on the Polar production organization**, which is a business step rather than a technical one — KYC through Stripe Connect Express, with Colombian bank details. It blocks payment and nothing else: `createPolar` returns `null` on a missing token, the reporting half of the metering sweep is skipped, and `getPlan` / `getStatus` never touch the provider. The entire Free tier works, the usage counters keep incrementing in Postgres, and the sweep still measures — only `createCheckout`, `createPortal` and `webhook` refuse. **Leave `POLAR_ACCESS_TOKEN` unset rather than filling it with a placeholder** — unset is the handled path; a bogus token builds a real client that fails hourly.
-
 ## Cloudflare resources
 
 For a fresh instance. Names must match the `wrangler.toml` for each env, or update the toml.
@@ -63,7 +59,7 @@ For a fresh instance. Names must match the `wrangler.toml` for each env, or upda
 - **KV namespace** — `<env>-JWKS_CACHE`, bound in apps/mcp as `JWKS_CACHE`.
 - **Queues**, each with a dead-letter queue: `ganju-index`, `ganju-crawl-discover`, `ganju-crawl-page`, `ganju-gdrive-discover`, `ganju-gdrive-file`, `ganju-onedrive-discover`, `ganju-onedrive-file` — each suffixed `-<env>`, plus a `-dlq-<env>` twin. See [apps/api/wrangler.toml](../apps/api/wrangler.toml).
 - **Email Service** (`SEND_EMAIL`) — onboard the sending domain under Email Service in the dashboard (it adds the MX/SPF/DKIM/DMARC records). Until that's done the binding only delivers to verified Email Routing destinations; once onboarded it sends to any recipient. Workers Paid includes 3,000 sends/month, then $0.35 per 1,000 — sends to verified destinations stay free.
-- **Workers for Platforms dispatch namespace** — `ganju-tools-<env>`, which is what customer-written tools deploy into. The $25/mo is a per-account platform fee and namespaces are not a billed unit, so the charge starts with the first script. Bound in **both** apps/api (to upload and smoke-test a publish) and apps/mcp (to run a call). See [CUSTOM_TOOLS.md](CUSTOM_TOOLS.md).
+- **Workers for Platforms dispatch namespace** — `ganju-tools-<env>`, which is what customer-written tools deploy into. The $25/mo is a per-account platform fee and namespaces are not a billed unit, so the charge starts with the first script. Bound in **both** apps/api (to upload and smoke-test a publish) and apps/mcp (to run a call). See [ARCHITECTURE.md](ARCHITECTURE.md).
 - **Containers** — the `ResourceHandler` container (`instance_type = standard-1`) is built from [apps/resource-handler/Dockerfile](../apps/resource-handler/Dockerfile) during the api deploy. Requires a **paid** Workers plan.
 - **Durable Objects** — `ResourceHandler`, `DiscordGatewayDO` and `MessageBufferDO`, created by the `v1`/`v2`/`v3` migrations in apps/api's toml. All three classes live in apps/api; apps/mcp and apps/tool-broker reach `ResourceHandler` through `script_name = "ganju-api-production"`.
 - **Custom domains** — `api`, `mcp` and `app` under your zone. apps/mcp also claims `*.mcp.<domain>/*` for per-artifact subdomains.
@@ -76,7 +72,7 @@ For a fresh instance. Names must match the `wrangler.toml` for each env, or upda
 
 The exact set each Worker needs, taken from what development actually has:
 
-**apps/api** — 27
+**apps/api** — 23
 
 ```
 ALERT_EMAIL                 EMAIL_FROM              MICROSOFT_CLIENT_ID
@@ -190,15 +186,58 @@ Migrate first. A Worker reading a column that does not exist yet fails on its fi
 
 ## Billing
 
-Polar, as merchant of record. Production is a **separate account from sandbox** — a sandbox token is rejected by the production host and nothing carries over, so the whole setup is done twice.
+[Polar](https://polar.sh), as merchant of record, **live in production**. Polar sells the subscription, invoices the customer and collects the tax; Ganju reports usage to it. The cost model and why Polar rather than Stripe are in [PRICING.md](PRICING.md).
 
-It needs, in order: an organization with Stripe Connect Express KYC completed; four meters whose filters match `BILLING_METER_*` in [constants.ts](../packages/utils/src/constants.ts) exactly, each aggregating `sum` over `units` (a name that matches no meter is accepted and silently unbilled); a **Pro** product carrying the $29 base and four metered prices; an **Enterprise** product, private and metered-only; a webhook at `https://api.ganju.ai/billing/webhook` in **Raw** format for `subscription.created`, `subscription.updated` and `subscription.revoked`; and the `POLAR_*` secrets above.
+### How it works
 
-**Disable Bot Fight Mode** (Security → Bots) or webhook deliveries are answered with 403 before they reach the Worker. IP allowlists and WAF rules do not fix this.
+- **Checkout** — `POST /v1/checkouts/` for the Pro product, with `external_customer_id` = the organization id and `metadata.organizationId`. No customer is created up front.
+- **Webhook** — `POST /billing/webhook`, Standard Webhooks signatures verified by hand against WebCrypto. `subscription.created` / `.updated` / `.revoked` all go through one `syncSubscription`, which resolves the organization from `subscription.metadata.organizationId` first, then `customer.external_id`, then the stored `billing_customer_id`. **That order matters:** Polar deduplicates customers by email, so a second organization owned by the same person reuses a customer whose `external_id` names the first one.
+- **Metering** — the hourly cron measures every entitled Pro and Enterprise org (period rollover, storage peak), then reports each overage delta to its meter with `POST /v1/events/ingest`: four separate calls, never batched, each with a stable `external_id`, so Polar deduplicates a retry instead of billing it twice.
+- **Portal** — `POST /v1/customer-sessions/`, redirecting to `customer_portal_url`.
+- **No token, no billing.** With `POLAR_ACCESS_TOKEN` unset, `createPolar` answers `null`: the Free tier works, counters keep incrementing, and only checkout, portal and webhook refuse. Unset is the handled path; a placeholder token builds a real client that fails every hour.
 
-**Align the reported marks before setting the token.** `meterOrganization` reports `current − reported`, and every `reported_*` mark sits at 0 while the counters have been accruing. Enabling billing without aligning them bills the entire accumulated period as overage on the customer's first invoice. [`scripts/align-reported-marks.mjs`](../scripts/align-reported-marks.mjs) does it — `--prod` to report, `--prod --confirm` to apply — in the same change window as setting the secret, immediately before it.
+### Setting it up on a new instance
 
-Setup detail, per-unit rates and the reasoning behind them are in [POLAR_MIGRATION.md](POLAR_MIGRATION.md); the cost model is in [PRICING.md](PRICING.md).
+Sandbox (`sandbox.polar.sh`) and production are **separate accounts** — a sandbox token is rejected by the production host and nothing carries over, so this is done once per environment.
+
+1. **Organization** — with Stripe Connect Express KYC completed.
+2. **Four meters, before the product** (a metered price points at a meter). Each filters on `name` equals the event name and aggregates **`sum` over `units`**. The event names are `BILLING_METER_*` in [constants.ts](../packages/utils/src/constants.ts), exactly: an event matching no meter is accepted with a 200 and silently unbilled.
+3. **Pro product** — the $29/mo fixed price plus four metered prices. `unit_amount` is in cents per single unit; the unit label and multiplier are presentation only:
+
+   | Meter | Event name | `unit_amount` | Label, multiplier | Shows as |
+   | --- | --- | --- | --- | --- |
+   | Messages | `ganju_channel_messages` | `0.2` | `messages`, ×1,000 | $2.00 / 1,000 messages |
+   | Shared messages | `ganju_shared_messages` | `1.5` | `messages`, ×1,000 | $15.00 / 1,000 messages |
+   | Embedded storage | `ganju_embedded_storage` | `0.1953125` | `MB`, ×1,024 | $2.00 / 1,024 MB |
+   | Custom-tool calls | `ganju_custom_tool_calls` | `0.0005` | `calls`, ×1,000,000 | $5.00 / 1,000,000 calls |
+
+   **Leave `included_units` and `cap_amount` unset** on every metered price. The allowance is subtracted in `meterOrganization` already; an included tier would apply it twice and under-bill every paid org. Label storage `MB`, not `GB` — the label names the raw unit, and `GB` renders "$2.00 / 1,024 GB".
+4. **Enterprise product** — Private, the same four metered prices, **no fixed price** (Polar rejects $0, and the negotiated fee is invoiced outside Polar). It only exists for an enterprise client who pays by card; see below.
+5. **Webhook** — `https://api.ganju.ai/billing/webhook` (development: `https://development-api.vocesqueabrazan.com/billing/webhook`), **Raw** format, subscribed to `subscription.created`, `subscription.updated`, `subscription.revoked`. `updated` is the catch-all, including `cycled`, which carries the new period start the metering reads.
+6. **Organization Access Token** (*Settings → Developers*), with `checkouts:write`, `customer_sessions:write`, `events:write` and `subscriptions:write`. No expiry, or one long enough to notice: when it lapses, checkout, portal and the metering sweep all fail at once, and the sweep fails quietly. The verification scripts additionally want `meters:read` and `products:read`.
+7. **Secrets** on apps/api — `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_PRO`, `POLAR_PRODUCT_ENTERPRISE`. `POLAR_SERVER` is a plain var (see [Secrets](#secrets)).
+8. **Disable Bot Fight Mode** (Cloudflare → Security → Bots), or webhook deliveries are answered with 403 before they reach the Worker. IP allowlists and WAF rules do not fix this.
+9. **Spanish checkout** needs Polar's checkout-localization feature flag enabled on the organization. Without it Polar accepts `locale: "es"` and silently stores `en`. It covers the checkout page only; email and the portal stay English.
+
+**Switching billing on for an instance that already has usage:** `meterOrganization` reports `current − reported`, and every `reported_*` mark sits at 0 while billing is off. Align them first with [`scripts/align-reported-marks.mjs`](../scripts/align-reported-marks.mjs) (`--prod` to report, `--prod --confirm` to apply), in the same change window as setting the token and immediately before it — otherwise the first sweep bills the whole accumulated period as overage.
+
+### Enterprise and hand-granted plans
+
+Enterprise clients normally pay by bank transfer and never touch Polar: set `plan = 'ENTERPRISE', status = 'active'` on their `subscription` row and leave `billing_customer_id` null. Invoice them from `usage_period`, one immutable row per organization per closed period:
+
+```sql
+select period_start, period_end, plan,
+       message_count, shared_message_count, tool_call_count, peak_embedded_mb
+  from usage_period
+ where organization_id = '<org>'
+ order by period_start desc;
+```
+
+The period in progress is on `subscription` itself. **Granting a paid plan by hand to anyone else means `PRO`, never `ENTERPRISE`**: the two differ only in `toolCallHardCap`, which Enterprise sets to `null`, so Enterprise gives a hand-granted customer nothing extra while removing the only monthly ceiling on their compute.
+
+### Verifying
+
+[`verify-shared-metering`](../scripts/verify-shared-metering.mjs), [`verify-tool-call-metering`](../scripts/verify-tool-call-metering.mjs) (`--live-polar` sends one real overage and reads the meter back), [`probe-tool-call-metering`](../scripts/probe-tool-call-metering.mjs) and [`verify-subscription-lifecycle`](../scripts/verify-subscription-lifecycle.mjs), which drives a real test-card checkout through created, revoked and organization deletion. Polar validates `customer_email` and rejects reserved TLDs such as `.invalid`, so test users need a real domain.
 
 ## Observability
 

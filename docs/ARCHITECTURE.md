@@ -53,7 +53,7 @@ A small Worker ([`apps/tool-outbound/src/index.ts`](../apps/tool-outbound/src/in
 
 **Enforcement is here rather than in the SDK on purpose** — anything inside the isolate is user-editable and therefore not a control. An empty `allowedHosts` means unrestricted rather than blocked, but `isBlockedHost` applies whatever the list says. Note it screens global `fetch` only: a container binding is not intercepted, which is why the embedding host needs an exemption and the `sendFile` container call never did.
 
-Both Workers are deployed per environment (`ganju-tool-broker-development`, `ganju-tool-outbound-development`) and are described in full, with the reasoning, in [CUSTOM_TOOLS.md](CUSTOM_TOOLS.md).
+Both Workers are deployed per environment (`ganju-tool-broker-development`, `ganju-tool-outbound-development`). What a tool author sees of them — `ctx`, settings, limits — is documented in [the Functions docs](../apps/website/src/content/docs/tools/functions.md) and the [`@ganju/sdk`](../packages/sdk) and [`ganju` CLI](../packages/cli) READMEs.
 
 ### `apps/web` — dashboard
 

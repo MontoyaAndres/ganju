@@ -58,7 +58,7 @@ Pro - $20/mo base + usage (base includes an allowance):
 - MCP-client tool calls: bundled (metered separately, never as "messages")
 - Add-on (NOT bundled): custom slug https://<mycompany>.mcp.ganju.ai/ at $15/mo —
   covers Cloudflare ACM ($10/mo) + margin; only some users want it
-- User can create custom tools (programming — Workers for Platforms; see docs/CUSTOM_TOOLS.md)
+- User can create custom tools (programming — Workers for Platforms)
 - Support 24/7
 
 Enterprise - Contact us:
@@ -121,3 +121,162 @@ needed for someone to write and ship a tool.
 
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
+
+---
+
+## Make the assistant better at using Ganju
+
+What AI clients actually lack when they talk to an MCP server: few but relevant
+chunks, answers they can cite, knowledge that is not stale, tools they pick
+correctly, and a way to stop them doing something irreversible by mistake.
+Seven items to do, in priority order, then the ones that can wait.
+
+Size: **S** = days, **M** = a week or two, **L** = more.
+
+### Priority
+
+**1. Hybrid search, then reranking — M**
+
+`search-resources` is the tool every client is told to call first, and it is
+pure cosine distance. Vector search misses exact tokens (order ids, SKUs, error
+codes, names), which are most of what support and sales bots get asked.
+
+- Migration: a generated `tsvector` column on `artifact_resource_chunk`
+  (`to_tsvector('simple', content)`, 'simple' because content is mixed
+  Spanish/English) plus a GIN index. Generated, so the index job does not
+  change and existing rows are filled by the migration — but adding a stored
+  column rewrites the table, so run it in a quiet window.
+- Query: top ~50 by vector and top ~50 by `websearch_to_tsquery`, merged with
+  reciprocal rank fusion (k = 60), cut to `limit`. One function in `@ganju/db`
+  shared by `apps/mcp` (`search-resources`) and `apps/tool-broker`
+  (`ctx.resources.search`), which today are two copies of the same query.
+- Reranking second, behind a flag, only if fusion is not enough: ~30
+  candidates → reranker model → `limit`. It costs a model call per query.
+- A small golden set (query → expected uri) per test project to measure it;
+  this is the first real use of the promptfoo evals task above.
+- Done when: an order id or error code lands in the top 3, and semantic
+  queries do not get worse on the golden set.
+
+**2. Citations and metadata in results — S** (ship with 1: same query, same
+response)
+
+- Each result returns, besides `uri`/`title`/`score`/`excerpt`: `source` (the
+  page URL for crawled sites, the Drive/OneDrive link), `page` or `section`,
+  `updatedAt` (resource update or `lastSyncedAt`), and `chunkIndex`.
+- `artifact_resource_chunk.metadata` already exists and the chunker already
+  tracks pages; add the heading path for Markdown/HTML.
+- The tool description tells the model to cite as "title, p. N" / the URL.
+- Same fields added (optional, so nothing breaks) to `ResourceMatch` in
+  `@ganju/sdk`.
+- Done when: an answer from a PDF cites its page and one from a crawled site
+  cites its URL.
+
+**3. Automatic sync — M**
+
+Drive, OneDrive and crawl imports record `lastSyncedAt`, but nothing re-syncs
+on its own: the API's crons only run error alerts and overage metering.
+
+- A `runResourceSync` job on the existing hourly cron picks sources whose last
+  sync is older than their interval and enqueues the discover jobs that already
+  exist (`gdriveDiscover`, `onedriveDiscover`, `crawlDiscover`).
+- Only reindex what changed: Drive/OneDrive by modified time or etag, crawled
+  pages by `ETag` / `Last-Modified` or a content hash. Remove what disappeared
+  at the source. Embedding cost is then only for changed content.
+- A per-source interval (off / daily / weekly), with Free limited to the
+  slowest one. "Last synced" and "Sync now" on the Resources page.
+- Done when: editing a Drive document shows up in search within its interval
+  with no manual step.
+
+**4. Human confirmation for sensitive tools — M**
+
+- MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+  `openWorldHint`) on every built-in tool: read-only for search/list/read,
+  destructive for sends and deletes, open-world for web. No tool sets them
+  today.
+- Custom tools declare them too: an `annotations` field in `ganju.json`, the
+  manifest schema and the dashboard dialog, passed through at registration.
+- Channels, where the confirmation can actually be enforced, since
+  `channel/runner.ts` runs the loop itself: a per-tool "requires confirmation"
+  setting (on by default for destructive built-ins). When the model calls such
+  a tool, the runner stores the pending call on the conversation, asks
+  "I'm about to send this email to X — confirm?", and runs it only on yes.
+  Buttons on Telegram, Slack and Discord where they are supported.
+- MCP clients: the annotations are hints the client decides on. Use
+  elicitation for confirmation where the client supports it.
+- Done when: `gmail-send` from a Telegram bot asks before sending.
+
+**5. Tool linter — S**
+
+- One rule set in `@ganju/utils`, used by `ganju build` (warnings, `--strict`
+  to fail), by the API when a version is created (warnings in the response),
+  and by the dashboard's New function dialog.
+- Rules: missing or very short description; description that never says when
+  to use the tool; a write tool that does not ask the model to confirm; input
+  properties without a description; two tools whose names or descriptions
+  overlap (the main cause of the model picking the wrong one); too many enabled
+  tools (every one costs tokens on every call).
+- Later: an "improve this description" suggestion from a model in the
+  dashboard.
+
+**6. Observability for tools — M**
+
+The data is already there: `mcp_request` stores tool name, input, output,
+latency, error and session for every call, and channel turns are stored.
+
+- On Home: a per-tool table (calls, error rate, p95 latency, last used), the
+  most common errors, and "unused in 30 days" with a one-click disable (the
+  per-tool switches already exist).
+- Confusion signals: calls rejected by the input schema, the same tool retried
+  back to back, an error followed by a different tool.
+- Session replay: one timeline per MCP session or channel conversation, with
+  messages and tool calls, inputs and outputs. Admin-only, under the existing
+  retention, because it holds user data.
+- Done when: an owner can find a failing tool and open the exact call that
+  failed.
+
+**7. Label untrusted content (prompt injection) — S**
+
+Proxied MCP tool descriptions are already marked as untrusted; do the same for
+content.
+
+- Wrap what comes from outside — `read-resource`, `search-resources` excerpts,
+  Gmail/Outlook reads, web extracts, proxied MCP results — in clear delimiters
+  (`<untrusted_content source="…">`), and say in the server instructions and
+  the channel system prompt that such content is data, never instructions.
+- At index time, flag documents with instruction-like text ("ignore previous
+  instructions", "send this to…") as a warning on the Resources page. Flag,
+  do not block, and never market it as protection.
+- Works together with 4: a destructive tool call made after reading untrusted
+  content always asks.
+
+Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
++ 7 (both in the channel runner), then 5 + 6.
+
+### Nice to have
+
+- **Templates by sector** — support, sales, e-commerce: preset prompts, a tool
+  selection and sample resources. Little engineering, good for onboarding; goes
+  with the Chatbase-style introduction view.
+- **Cross-model testing** — run the same scripted task with Claude, GPT and
+  Gemini against a project's tools and report which tool each one picked.
+  Strong differentiator but expensive; build it on the evals work and after the
+  linter.
+- **Pagination for large outputs** — a cursor on `list-resources`, and one
+  consistent "truncated, call again with cursor X" shape for custom-code, HTTP
+  endpoint and proxied results (they already truncate).
+- **Per-user limits on channels** — calls or messages per participant per day,
+  for abuse and cost on public bots. Only per-tool limits exist today.
+- **Custom code calling built-in tools** — `ctx.tools.call('gmail-send', …)`,
+  the small version of workflows.
+
+### Maybe
+
+- **Persistent memory** — Claude and ChatGPT already have their own; mainly
+  useful for channel bots. The team-notes example shows the pattern with
+  resources today.
+- **Visual multi-step workflows** — Functions already chain steps in code; a
+  builder means competing with n8n and Zapier.
+- **Long-running async tasks** — MCP support is still experimental and few
+  tools need it yet.
+- **Automatic summaries of large outputs** — costs a model call and hides data
+  from the model; pagination solves most of the same problem.

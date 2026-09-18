@@ -1,6 +1,6 @@
 # Pricing math
 
-Worked cost model for the three plans, in plain numbers. Companion to [CUSTOM_TOOLS.md](CUSTOM_TOOLS.md). Supersedes the pricing sketch in [TASKS.md](../TASKS.md).
+Worked cost model for the three plans, in plain numbers. Supersedes the pricing sketch in [TASKS.md](../TASKS.md).
 
 ## Part 1 — What things actually cost us
 
@@ -92,7 +92,7 @@ This is the number worth trusting from the re-measure. The 5-tool row went from 
 | 40 | ~40k | $0.011 | $11 |
 | 80 | ~80k | $0.021 | $21 |
 
-This is the "tool-list explosion" risk from [CUSTOM_TOOLS.md](CUSTOM_TOOLS.md#risks), now measured rather than theoretical. Custom tools invite exactly this growth. **Mitigation: cap the number of tools exposed to a channel (~40).** It bounds our cost per turn *and* improves the agent's tool selection, which degrades badly past a few dozen options anyway. MCP-client traffic doesn't need the cap — that token cost lands on the customer's own model.
+This is the "tool-list explosion" risk that custom tools were expected to bring, now measured rather than theoretical. Custom tools invite exactly this growth. **Mitigation: cap the number of tools exposed to a channel (~40).** It bounds our cost per turn *and* improves the agent's tool selection, which degrades badly past a few dozen options anyway. MCP-client traffic doesn't need the cap — that token cost lands on the customer's own model.
 
 **Planning number used below: $0.004/turn** — the 12-tool artifact's real cost, not the $0.00035 average, because artifacts that install custom tools will be tool-rich. The re-measure put that row at **$0.0036**, so the planning figure stands with ~10% headroom. Every worked example in Part 5 still uses $0.004.
 
@@ -387,13 +387,13 @@ The guardrails the model depends on are now in code:
 - **An abuse process, not just controls** — the runbook in [ABUSE.md](ABUSE.md), and the one command it leans on.
 - **Shared-key turns are sold, not blocked.** The runner's old gate stopped a channel at the shared allowance; it now only trips at `PRICING_SHARED_KEY_HARD_CAP` (100,000/mo) as an abuse backstop. Between the allowance and the backstop, shared turns keep running and report to a second meter (`ganju_shared_messages`) at $15/1,000. Own-key turns keep reporting to the original meter at $2/1,000, and no turn bills to both. The metering split reproduces every worked example in Part 5.
 
-### Billing — Polar, sandbox done, production pending
+### Billing — Polar, live
 
-**The provider changed.** Stripe does not support Colombia as a seller country, and an account would have meant incorporating abroad — $500 for Atlas plus $1,300–2,500 a year in agent fees, franchise tax and US federal filings. Polar is a merchant of record that pays out through Stripe Connect Express, supports Colombian payouts, needs no entity, and is the only alternative found with real usage metering. The reasoning, the break-even and the full setup are in [POLAR_MIGRATION.md](POLAR_MIGRATION.md). **There were no live Stripe customers**, so nothing migrated — this was a replacement, not a data move.
+**The provider changed.** Stripe does not support Colombia as a seller country, and an account would have meant incorporating abroad — $500 for Atlas plus $1,300–2,500 a year in agent fees, franchise tax and US federal filings. Polar is a merchant of record that pays out through Stripe Connect Express, supports Colombian payouts, needs no entity, and is the only alternative found with real usage metering. Paddle and Lemon Squeezy do not clearly publish Colombia as a seller country, and local gateways have no metering at all. **There were no live Stripe customers**, so nothing migrated — this was a replacement, not a data move. The break-even against incorporating abroad and using Stripe directly is roughly 135 concurrent paying organizations; revisit if that is ever crossed.
 
 **What it costs.** Polar's Starter tier is 5% + 50¢, plus 1.5% on international cards, plus the Connect payout and COP conversion — call it **~7–8% effective**, against Stripe's ~3.9%. The margin tables above are computed against *inference and storage* cost and are gross of payment processing, so they still read correctly; net of processing, take another ~7–8% off the top. On $29 with ~$1.05 of inference behind it, that is a change from roughly 90% to roughly 86% gross margin — not a number that moves any decision in this document. Polar's own Pro tier ($20/mo) drops the rate to 3.8% + 40¢ and pays for itself around $1,379/mo in sales; stay on Starter until then.
 
-**Sandbox is complete.** One **Pro** product carrying the $29 base and four metered prices, one **Enterprise** product (private, metered-only), and four meters filtering on event `name` and aggregating `sum` over `units`:
+**Live in production** with one **Pro** product carrying the $29 base and four metered prices, one **Enterprise** product (private, metered-only), and four meters filtering on event `name` and aggregating `sum` over `units`:
 
 | Meter | Event name | `unit_amount` (cents/unit) | Displays as |
 | --- | --- | --- | --- |
@@ -402,39 +402,20 @@ The guardrails the model depends on are now in code:
 | Embedded storage | `ganju_embedded_storage` | `0.1953125` | $2.00 / 1,024 MB |
 | Custom-tool calls | `ganju_custom_tool_calls` | `0.0005` | $5.00 / 1,000,000 calls |
 
+How it is wired, the setup for a new instance and the traps are in [DEPLOYMENT.md](DEPLOYMENT.md#billing).
+
 **Package pricing is gone, and it was load-bearing.** Under Stripe the tool-call rate was deliberately a package of 1,000 at $0.005 rather than $5 per million, because Stripe rounds a partial package **up**: a customer ten calls past the allowance would owe the whole $5. Polar has no package pricing at all — metered prices are per single unit, entered as the cost of one unit, with unit/volume/graduated tiers and no rounding. So the trap the package size was defending against does not exist, and the readability it bought comes instead from the meter's **unit multiplier**, which is presentation only: `0.0005` cents per call still renders as "$5.00 / 1,000,000 calls" on the invoice.
 
 The consequence was not only editorial. The marketing estimator was mirroring Stripe's round-up with `Math.ceil(extraMessages / 1_000)`, which under Polar quotes **above** the real invoice — 1,200 messages past the allowance estimated $4.00 against an actual $2.40. It now computes exact per-unit.
 
 **Storage is metered in MB and labelled in MB.** `$2/GB` is `2 ÷ 1024` cents per reported MB, because `MB` and `GB` in [constants.ts](../packages/utils/src/constants.ts) are binary and the sweep reports whole MB. The meter's unit label names the *raw* event unit — labelling it `GB` renders "$2.00 / 1,024 GB", a claim that $2 buys a terabyte.
 
-**Production has none of it**, and the blocker is the same shape as before: a Polar organization with Stripe Connect Express KYC completed, which is a business step rather than a technical one. It gates payment only. Production runs the Free tier fine without it, because `createPolar` answers `null` on a missing token, the reporting half of the sweep is skipped, and `getPlan` / `getStatus` never touch the provider.
-
-Two things follow while it waits. **Leave `POLAR_ACCESS_TOKEN` unset** rather than filling it with a placeholder — unset is the handled path, a bogus token builds a real client that fails every hour. And **granting a paid plan by hand means `plan = 'PRO'` with an entitled status, never `ENTERPRISE`**: the two differ in exactly one field, `toolCallHardCap`, which Enterprise sets to `null` — so Enterprise gives a hand-granted customer nothing extra while removing the only monthly ceiling on their compute. Enterprise is for a client actually invoiced against real consumption, which is what `usage_period` now records.
-
-**One trap for the day it is switched on.** `meterOrganization` reports `current − reported` and advances the `reported_*` marks only when an event lands; with no client it returns before both, so those marks sit at 0 while usage accrues. The first run after a token is configured would report the *entire* period, including anything already invoiced out of band. Enable it just after a period rollover, or set each `reported_*` column to its current counterpart first.
-
-Production needs, in order:
-
-1. A Polar organization, KYC completed, **separate from sandbox** — a sandbox token is rejected by the production host and nothing carries over.
-2. Four meters — filters must match `BILLING_METER_*` in [constants.ts](../packages/utils/src/constants.ts) exactly, aggregating `sum` over `units`. A name matching no meter is accepted and silently unbilled.
-3. The **Pro** and **Enterprise** products at the rates above. Leave `included_units` unset on every metered price: the allowance is already subtracted in `meterOrganization`, so an included tier would apply it twice and under-bill every paid org.
-4. A webhook at `https://api.ganju.ai/billing/webhook`, **Raw** format, for `subscription.created`, `subscription.updated`, `subscription.revoked`. Bot Fight Mode must be off or deliveries are answered with 403.
-5. `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_PRO`, `POLAR_PRODUCT_ENTERPRISE` as Worker secrets: `npx wrangler secret put <NAME> --env production`. `POLAR_SERVER` is a plain var in `wrangler.toml`, already `production` there.
-
-The failure mode worth knowing is still silent, and the deployed Worker still reads **secrets, not `.env`** — a correct local file proves nothing about what checkout actually builds.
-
-Unlike Stripe, a Polar price is not immutable: changing a product's pricing model affects **new customers only**, and existing subscribers keep the model they signed up under. That is the same practical outcome as archiving a Stripe price, reached without creating a second object.
+**Changing a price.** Unlike Stripe, a Polar price is not immutable: changing a product's pricing model affects **new customers only**, and existing subscribers keep the model they signed up under. That is the same practical outcome as archiving a Stripe price, reached without creating a second object.
 
 ### Still open
 
 1. **Re-measure once there's production traffic.** Still open, and the 13 Aug re-measure doesn't close it — 2,317 of its 2,356 turns are one artifact's synthetic traffic, so the *per-tool-count* effect is now well established while the *distribution* of real customer behaviour remains entirely unmeasured. What would actually settle it: several artifacts, several tool counts, human-paced conversations.
 2. **Confirm retrieval quality on live traffic after the 1536 change.** Shipped on dev (Part 2.5) and the cost is now ~$2.41/GB, so the $2 price holds and the ~$5/GB fallback is off the table. The residual risk is narrow: the equivalence test used `RETRIEVAL_QUERY` vectors, while documents embed with `RETRIEVAL_DOCUMENT`. Matryoshka shouldn't care, but one real search against freshly-ingested content confirms it for free.
-3. **The per-USER-script CPU ceiling** is not the item above — it's a limit on the WfP dispatch namespace and can't exist until Phase 2. Cloudflare's max is 30 seconds; ~5 seconds is plenty and caps the adversarial worst case.
-4. **Apply migrations 0061, 0062 and 0063 to *production*** (`npm run migrate-prod`). Dev is done. Until prod has them, the deployed code writes to columns that don't exist — and 0063 changes a column type, so code and migration must ship together or inserts fail on the dimension mismatch.
-5. **Repeat the Polar setup in production**, per the checklist above. Sandbox is complete — four meters, both products, the webhook; production has none of it and needs KYC first.
-6. **Run the sandbox pass end to end.** Nothing on the Polar side has been exercised beyond creating the objects: a real checkout in both languages, a webhook delivery landing in `subscription`, one metered event visible on a meter, a portal session, and a cancel. The line-item assembly that used to be the risk here is gone — one product carries every rate, so there is no longer a way to configure four-fifths of a checkout. What replaces it as the thing to watch is the webhook signature path, which is hand-rolled against WebCrypto, and the first real period rollover writing a `usage_period` row.
-
-   The three verification scripts are ported and green against sandbox: `verify-tool-call-metering` at 76 checks (79 with `--live-polar`) and `probe-tool-call-metering` at 52, which now checks the Pro product's four metered prices point at the four meters by their filter rather than by their display name.
-7. **The marketing estimator models only the own-key rate.** A two-rate slider tested worse than one, so the calculator quotes $2/1,000 and its hint says the estimate assumes your own key. Revisit if support questions say otherwise.
-8. **Backfill note:** existing subscription rows start at `shared_message_count = 0`, so any org mid-period gets its shared allowance re-granted once. Harmless while Pro is unlaunched; Free is unaffected because its hard total cap blocks first.
+3. **Watch the first real billing cycle in production.** The two paths nothing but a real month exercises: the hand-rolled webhook signature check on a live `subscription.updated` (`cycled`), and the period rollover writing its `usage_period` row and resetting the `reported_*` marks before the next sweep.
+4. **Confirm the checkout speaks Spanish.** It needs Polar's checkout-localization flag on the *production* organization; without it `locale: "es"` is accepted and silently stored as `en`, so the only check is reading a checkout back.
+5. **The marketing estimator models only the own-key rate.** A two-rate slider tested worse than one, so the calculator quotes $2/1,000 and its hint says the estimate assumes your own key. Revisit if support questions say otherwise.

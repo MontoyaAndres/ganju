@@ -5,7 +5,7 @@ the platform where a customer can spend our money on purpose. This is the proces
 for when someone does — written before it happens, because the thing that makes an
 abuse response bad is inventing it at 2am.
 
-Scope is custom tools ([CUSTOM_TOOLS.md](CUSTOM_TOOLS.md)) and the egress they
+Scope is custom tools ([ARCHITECTURE.md](ARCHITECTURE.md)) and the egress they
 get. Spam sent through a connected mailbox and prompt-injected channel bots are
 real too, and most of this applies to them; the containment steps at the end are
 specific to code.
