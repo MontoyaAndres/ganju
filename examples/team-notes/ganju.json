@@ -1,0 +1,135 @@
+{
+  "connections": [],
+  "allowedHosts": [],
+  "timeoutMs": 10000,
+  "resourceAccess": "own",
+  "tools": [
+    {
+      "name": "save-note",
+      "title": "Save a note",
+      "description": "Save a note for the team: a decision, a how-to, meeting minutes, anything worth remembering. Saving with the title of an existing note replaces it. Use when someone says to note, remember, write down or record something.",
+      "entry": "src/saveNote.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "A short, specific title, e.g. Release checklist"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The note itself, in Markdown"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional labels, e.g. [\"release\", \"ops\"]"
+          }
+        },
+        "required": ["title", "body"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "uri": { "type": "string" },
+          "title": { "type": "string" },
+          "created": { "type": "boolean" },
+          "indexed": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "name": "list-notes",
+      "title": "List notes",
+      "description": "List the titles of every saved note. Use when someone asks what notes exist, or before reading one whose exact title you do not know.",
+      "entry": "src/listNotes.ts",
+      "input": { "type": "object", "properties": {} },
+      "output": {
+        "type": "object",
+        "properties": {
+          "count": { "type": "number" },
+          "notes": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    {
+      "name": "read-note",
+      "title": "Read a note",
+      "description": "Read one note in full, by its title or its uri.",
+      "entry": "src/readNote.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "description": "The note's title, or its uri from list-notes or find-notes"
+          }
+        },
+        "required": ["note"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "uri": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "find-notes",
+      "title": "Find notes",
+      "description": "Search the saved notes by meaning and return the most relevant passages. Use when someone asks a question the team may have written down, and you do not know which note holds the answer.",
+      "entry": "src/findNotes.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What to look for, in plain words"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "How many notes to return. Defaults to 5"
+          }
+        },
+        "required": ["query"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "results": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    {
+      "name": "delete-note",
+      "title": "Delete a note",
+      "description": "Delete one note, by its title or its uri. Confirm with the person first.",
+      "entry": "src/deleteNote.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "description": "The note's title, or its uri"
+          }
+        },
+        "required": ["note"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "uri": { "type": "string" },
+          "deleted": { "type": "boolean" }
+        }
+      }
+    }
+  ]
+}

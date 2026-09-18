@@ -1,0 +1,64 @@
+{
+  "connections": ["google-gmail"],
+  "allowedHosts": ["hacker-news.firebaseio.com"],
+  "timeoutMs": 20000,
+  "resourceAccess": "own",
+  "tools": [
+    {
+      "name": "hn-top-stories",
+      "title": "Hacker News top stories",
+      "description": "List what is on the Hacker News front page right now, with points, comment counts and links. Use when someone asks what is happening in tech today or what people are talking about on Hacker News.",
+      "entry": "src/topStories.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 15,
+            "description": "How many stories. Defaults to 10"
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "count": { "type": "number" },
+          "stories": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    {
+      "name": "email-hn-digest",
+      "title": "Email a Hacker News digest",
+      "description": "Email today's Hacker News front page to someone, from the connected Gmail account, with the list attached as a Markdown file. Confirm the recipient's address with the person before calling this.",
+      "entry": "src/emailDigest.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "description": "The recipient's email address"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 15,
+            "description": "How many stories. Defaults to 10"
+          }
+        },
+        "required": ["to"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "sentTo": { "type": "string" },
+          "stories": { "type": "number" },
+          "resourceUri": { "type": "string" },
+          "messageId": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

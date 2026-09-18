@@ -230,6 +230,8 @@ the two router shapes, secrets, signing in, and deploying from CI.
 
 - **[The `ganju` CLI](/docs/tools/cli/)** — the same work from a terminal, and
   from CI.
+- **[Examples](/docs/tools/examples/)** — five ready-to-deploy projects, one per
+  `ctx` capability.
 - **[HTTP Endpoints](/docs/tools/http-endpoints/)** — when one request is all you
   need, and no code.
 - **[Catalog](/docs/tools/catalog/)** — the integrations we ship.

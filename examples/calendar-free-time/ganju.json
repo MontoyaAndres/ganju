@@ -1,0 +1,51 @@
+{
+  "connections": ["google-calendar"],
+  "allowedHosts": ["www.googleapis.com"],
+  "timeoutMs": 10000,
+  "tools": [
+    {
+      "name": "find-free-time",
+      "title": "Find free time",
+      "description": "Find the open slots on one day of the connected Google Calendar that are long enough for a meeting, within working hours. Use when someone asks when they are free, or wants to propose times for a meeting. Returns times in the calendar's own time zone.",
+      "entry": "src/findFreeTime.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The day to check, as YYYY-MM-DD"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "minimum": 15,
+            "maximum": 480,
+            "description": "How long the meeting is, in minutes"
+          },
+          "startHour": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 23,
+            "description": "When the working day starts, 0–23. Defaults to 9"
+          },
+          "endHour": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 24,
+            "description": "When the working day ends, 1–24. Defaults to 17"
+          }
+        },
+        "required": ["date", "durationMinutes"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string" },
+          "timeZone": { "type": "string" },
+          "busy": { "type": "array", "items": { "type": "object" } },
+          "free": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    }
+  ]
+}

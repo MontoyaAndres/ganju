@@ -246,6 +246,8 @@ desde CI.
 
 - **[La CLI `ganju`](/es/docs/tools/cli/)** — el mismo trabajo desde una terminal,
   y desde CI.
+- **[Ejemplos](/es/docs/tools/examples/)** — cinco proyectos listos para
+  desplegar, cada uno con una capacidad de `ctx`.
 - **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — cuando una sola petición
   es todo lo que necesitas, y sin código.
 - **[Catálogo](/es/docs/tools/catalog/)** — las integraciones que traemos.

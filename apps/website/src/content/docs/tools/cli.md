@@ -327,6 +327,8 @@ members and billing are dashboard-only for now.
 
 ## Next
 
+- **[Examples](/docs/tools/examples/)** — five projects to deploy with these
+  commands, one per host capability.
 - **[Functions](/docs/tools/functions/)** — the same work in the browser, plus the
   reference for `ctx` and the settings these commands write.
 - **[HTTP Endpoints](/docs/tools/http-endpoints/)** — when one request is all you

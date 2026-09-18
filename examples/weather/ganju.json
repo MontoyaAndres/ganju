@@ -1,0 +1,66 @@
+{
+  "connections": [],
+  "allowedHosts": ["open-meteo.com"],
+  "timeoutMs": 10000,
+  "tools": [
+    {
+      "name": "current-weather",
+      "title": "Current weather",
+      "description": "Get the weather right now in a city: conditions, temperature, feels-like, humidity and wind. Use when someone asks what the weather is like somewhere today or at the moment.",
+      "entry": "src/currentWeather.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "A city name, e.g. Bogotá, Tokyo or San Francisco"
+          }
+        },
+        "required": ["city"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "place": { "type": "string" },
+          "country": { "type": "string" },
+          "conditions": { "type": "string" },
+          "temperatureC": { "type": "number" },
+          "feelsLikeC": { "type": "number" },
+          "humidityPercent": { "type": "number" },
+          "windKmh": { "type": "number" },
+          "localTime": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "weather-forecast",
+      "title": "Weather forecast",
+      "description": "Get a day-by-day forecast for a city, up to 7 days ahead, with highs, lows and the chance of rain. Use when someone is planning ahead: a trip, an event, what to wear this week.",
+      "entry": "src/weatherForecast.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "A city name, e.g. Lisbon"
+          },
+          "days": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "How many days, including today. Defaults to 3"
+          }
+        },
+        "required": ["city"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "place": { "type": "string" },
+          "country": { "type": "string" },
+          "days": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    }
+  ]
+}

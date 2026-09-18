@@ -98,7 +98,13 @@ const SPEC: DocNavSpec[] = [
       {
         slug: 'tools/functions',
         label: { en: 'Functions', es: 'Funciones' },
-        items: [{ slug: 'tools/cli', label: { en: 'CLI', es: 'CLI' } }]
+        items: [
+          { slug: 'tools/cli', label: { en: 'CLI', es: 'CLI' } },
+          {
+            slug: 'tools/examples',
+            label: { en: 'Examples', es: 'Ejemplos' }
+          }
+        ]
       },
       {
         slug: 'tools/http-endpoints',

@@ -334,6 +334,8 @@ ahora solo del panel.
 
 ## Siguiente
 
+- **[Ejemplos](/es/docs/tools/examples/)** — cinco proyectos para desplegar con
+  estos comandos, uno por capacidad del anfitrión.
 - **[Funciones](/es/docs/tools/functions/)** — el mismo trabajo en el navegador,
   además de la referencia de `ctx` y de los ajustes que escriben estos comandos.
 - **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — cuando una sola petición

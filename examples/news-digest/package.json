@@ -1,0 +1,8 @@
+{
+  "name": "ganju-example-news-digest",
+  "private": true,
+  "devDependencies": {
+    "@ganju/cli": "^0.0.4",
+    "@ganju/sdk": "^0.0.3"
+  }
+}

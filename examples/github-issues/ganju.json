@@ -1,0 +1,82 @@
+{
+  "connections": [],
+  "allowedHosts": ["api.github.com"],
+  "timeoutMs": 10000,
+  "tools": [
+    {
+      "name": "github-list-issues",
+      "title": "List GitHub issues",
+      "description": "List the most recently updated issues in a GitHub repository, with their labels, author and comment count. Use when someone asks what is open, what changed recently, or whether an issue already exists before filing one.",
+      "entry": "src/listIssues.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "description": "The repository as owner/name, e.g. acme/website"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["open", "closed", "all"],
+            "description": "Which issues to include. Defaults to open"
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "How many issues to return. Defaults to 10"
+          }
+        },
+        "required": ["repo"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string" },
+          "count": { "type": "number" },
+          "issues": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    {
+      "name": "github-create-issue",
+      "title": "Create a GitHub issue",
+      "description": "Open a new issue in a GitHub repository. Always confirm the repository, title and body with the person before calling this, and check with github-list-issues that it has not already been filed.",
+      "entry": "src/createIssue.ts",
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "description": "The repository as owner/name, e.g. acme/website"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "A short summary of the problem or request"
+          },
+          "body": {
+            "type": "string",
+            "description": "The details, in Markdown"
+          },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Labels to apply. They must already exist in the repository"
+          }
+        },
+        "required": ["repo", "title"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "number": { "type": "number" },
+          "url": { "type": "string" }
+        }
+      }
+    }
+  ]
+}
