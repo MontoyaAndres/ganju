@@ -195,8 +195,15 @@ response)
   lands on the shared-key Free envelope; trimming those two is the follow-up.
   Channel footers take `page` from the search result, and query chunk metadata
   only for results from an MCP worker that predates it.
-  Still to check: real questions against a PDF and a crawled site, reading the
-  answer text for the citation (the eval script measures ranking only).
+  Verified on dev (2026-09-24) through a Telegram bot on claude-opus-5: a
+  Markdown answer cited "Refunds → Gift orders", a crawled page cited its URL
+  and section, a PDF answer cited pages. Two fixes after that run, not yet
+  re-verified on dev: the description now says to cite the `page` field (the
+  PDF viewer's number), not a page printed in the excerpt — the model had cited
+  mml-book's printed pages, 6 off from the footer link; and the channel footer
+  keeps only sources the answer names (title, file name or URL, and the pages
+  it cites), falling back to the top 3 hits when it names none, instead of
+  listing every search hit (replayed on the three turns: 9 → 1, 6 → 1, 10 → 8).
 
 **3. Automatic sync — M**
 

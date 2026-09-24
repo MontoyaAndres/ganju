@@ -3,7 +3,7 @@ import { eq, sql, and, inArray, InferSelectModel } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
-import { collectSources } from './sources';
+import { collectSources, selectCitedSources } from './sources';
 import { extractToolText } from './toolText';
 import {
   createMcpClient,
@@ -866,11 +866,14 @@ export const runChannelTurn = async (
     await mcp.close().catch(() => undefined);
   }
 
-  const sources = await collectSources(
-    dbInstance,
-    usageEvents,
-    artifactResourceByUri,
-    artifactResourceById
+  const sources = selectCitedSources(
+    await collectSources(
+      dbInstance,
+      usageEvents,
+      artifactResourceByUri,
+      artifactResourceById
+    ),
+    assistantText
   );
 
   let sourcesFooter: string | null = null;
