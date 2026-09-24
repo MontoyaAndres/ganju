@@ -192,18 +192,22 @@ response)
   caption, which is what carries the citation guidance to clients. That raises
   the tool-description cost of every turn: all 62 native tools went from ~790
   to ~6,300 tokens, Gmail alone from ~215 to ~1,700 and Outlook similar, which
-  lands on the shared-key Free envelope; trimming those two is the follow-up.
+  lands on the shared-key Free envelope. Gmail and Outlook were then trimmed to
+  what the model needs to choose between them (~640 and ~620 tokens), bringing
+  the total to ~4,200.
   Channel footers take `page` from the search result, and query chunk metadata
   only for results from an MCP worker that predates it.
   Verified on dev (2026-09-24) through a Telegram bot on claude-opus-5: a
   Markdown answer cited "Refunds → Gift orders", a crawled page cited its URL
-  and section, a PDF answer cited pages. Two fixes after that run, not yet
+  and section, a PDF answer cited pages. Two fixes after that run, both
   re-verified on dev: the description now says to cite the `page` field (the
   PDF viewer's number), not a page printed in the excerpt — the model had cited
   mml-book's printed pages, 6 off from the footer link; and the channel footer
   keeps only sources the answer names (title, file name or URL, and the pages
   it cites), falling back to the top 3 hits when it names none, instead of
   listing every search hit (replayed on the three turns: 9 → 1, 6 → 1, 10 → 8).
+  After deploy the same PDF question cited "mml-book.pdf, p. 125" … "pp.
+  125–135" — PDF pages, matching the footer links — where it had said p. 119.
 
 **3. Automatic sync — M**
 

@@ -181,7 +181,7 @@ const sendViaContainer = async (
 export const sendEmail: ToolDefinition = {
   title: 'Outlook: Send Email',
   description:
-    "Send a brand-new email from the connected Outlook (Microsoft 365) account. Use only when starting a fresh thread; to continue an existing conversation use outlook-reply-email so threading and conversationId are preserved. Body is treated as HTML by default — pass contentType='text' for plain text. Pass attachmentUris (URIs from list-resources or search-resources) to attach files; individual files >150MB are rejected, and files >3MB are uploaded via Graph's chunked upload session. Returns the resulting message ID and conversation ID (empty ID is returned when Graph 202s sendMail without saveToSentItems metadata).",
+    'Send a new email, starting a new conversation. To answer an existing email use outlook-reply-email instead, so it stays in the same conversation. If you are not sure the user wants it sent now, use outlook-create-draft.',
   schema: {
     type: 'object',
     properties: {
@@ -249,7 +249,7 @@ export const sendEmail: ToolDefinition = {
 export const replyEmail: ToolDefinition = {
   title: 'Outlook: Reply',
   description:
-    "Reply to an existing Outlook message, preserving its conversation via Graph's createReply / createReplyAll flow. Set replyAll=true to include all original recipients. Pass attachmentUris (from list-resources or search-resources) to attach files. Use this — not outlook-send-email — whenever continuing an existing conversation, so the reply lands in the same thread on the recipient side. Returns the new message ID and conversation ID.",
+    'Reply to a message in its existing conversation (replyAll=true includes all original recipients). Use this, not outlook-send-email, whenever continuing a conversation.',
   schema: {
     type: 'object',
     properties: {
@@ -309,7 +309,7 @@ export const replyEmail: ToolDefinition = {
 export const forwardEmail: ToolDefinition = {
   title: 'Outlook: Forward',
   description:
-    "Forward an existing Outlook message to a new recipient via Graph's createForward flow. The forwarded copy starts a new conversation — it does NOT continue the original; use outlook-reply-email for that. Optional intro body is prepended above the quoted original (Graph keeps the quoted original automatically). Use when the user wants to share an email with someone outside the original thread.",
+    'Forward a message to someone new, with an optional intro above it. Starts a new conversation; to continue the original use outlook-reply-email.',
   schema: {
     type: 'object',
     properties: {
@@ -365,7 +365,7 @@ export const forwardEmail: ToolDefinition = {
 export const listEmails: ToolDefinition = {
   title: 'Outlook: List Emails',
   description:
-    'List Outlook inbox messages, optionally filtered with a full-text search query (Graph $search). Examples: "invoice", "from:user@example.com" (note: Graph $search treats the colon as a literal — for field-scoped search prefer outlook-list-folders + folder-scoped read). Returns up to maxResults summary lines (from / subject / received date / message ID), default 10 / max 50. Use for triage; call outlook-read-email with a returned ID to view a specific message in full. For conversation-level browsing prefer outlook-list-threads.',
+    'List messages (from, subject, date, ID), optionally with a full-text search. Field operators like "from:" are matched as literal text, not as filters. Open one with outlook-read-email; for conversations use outlook-list-threads.',
   schema: {
     type: 'object',
     properties: {
@@ -434,7 +434,7 @@ export const listEmails: ToolDefinition = {
 export const readEmail: ToolDefinition = {
   title: 'Outlook: Read Email',
   description:
-    'Read the full contents of one Outlook message by ID — from / to / cc / subject / date / conversationId and the decoded body. HTML bodies are stripped to plain text for the model. Use after outlook-list-emails returns a candidate ID. To read every message in a conversation, prefer outlook-get-thread to scan summaries first and then call this for the specific message you want to dig into.',
+    'Read one message in full by ID (from outlook-list-emails or outlook-get-thread).',
   schema: {
     type: 'object',
     properties: {
@@ -487,7 +487,7 @@ export const readEmail: ToolDefinition = {
 export const trashEmail: ToolDefinition = {
   title: 'Outlook: Move to Trash',
   description:
-    "Move an Outlook message to Deleted Items. Reversible — restore from the Deleted Items folder until Outlook purges it. Idempotent: calling on an already-trashed message returns 404 from Graph and is reported as an error. Returns confirmation with the message ID. Prefer this whenever the user asks to 'delete' an email.",
+    'Move a message to Deleted Items, where it can still be restored. Use this when the user asks to delete an email.',
   schema: {
     type: 'object',
     properties: {
@@ -522,7 +522,7 @@ export const trashEmail: ToolDefinition = {
 export const listFolders: ToolDefinition = {
   title: 'Outlook: List Folders',
   description:
-    'List every mail folder on the Outlook account, including well-known system folders (inbox, drafts, sentitems, deleteditems, junkemail, archive) and user-created folders. Returns name, total/unread counts, and the folder ID for each. Call this first to discover the IDs you need before invoking outlook-move-message or scoping outlook-list-emails / outlook-list-drafts to a specific folder.',
+    'List all mail folders with their IDs and unread counts, including inbox, archive, junkemail and deleteditems. Use to find a folder for outlook-move-message or outlook-list-emails.',
   schema: { type: 'object', properties: {} },
   handler: async (_args, context) => {
     const auth = getAccessToken(context);
@@ -553,7 +553,7 @@ export const listFolders: ToolDefinition = {
 export const moveMessage: ToolDefinition = {
   title: 'Outlook: Move Message',
   description:
-    'Move a single Outlook message to a different folder. Common operations: archive = move to the "archive" well-known folder; mark spam = move to "junkemail"; restore from trash = move out of "deleteditems" back to "inbox" or a user folder. Pass either a well-known name (inbox, drafts, sentitems, deleteditems, junkemail, archive) or a folder ID from outlook-list-folders. For >10 messages prefer outlook-batch-move-messages.',
+    'Move one message to another folder: archive = "archive", spam = "junkemail", restore = move out of "deleteditems". For more than a few messages use outlook-batch-move-messages.',
   schema: {
     type: 'object',
     properties: {
@@ -591,8 +591,7 @@ export const moveMessage: ToolDefinition = {
 
 export const batchMoveMessages: ToolDefinition = {
   title: 'Outlook: Batch Move Messages',
-  description:
-    'Move up to 20 Outlook messages to the same destination folder in one call. Graph has no native batch endpoint for /move, so this loops the per-message call under the hood — still cheaper than the model invoking outlook-move-message in a loop. Same destination semantics as outlook-move-message. Returns success/failure counts.',
+  description: 'Move up to 20 messages to the same folder in one call.',
   schema: {
     type: 'object',
     properties: {
@@ -641,7 +640,7 @@ export const batchMoveMessages: ToolDefinition = {
 export const listThreads: ToolDefinition = {
   title: 'Outlook: List Threads',
   description:
-    "List Outlook conversation threads in the inbox, optionally filtered by search. Returns one entry per unique conversationId (the most recent message of each thread) with the thread's conversationId, last subject, last sender, and last receivedDateTime. Use this when the user is asking about an ongoing back-and-forth, then call outlook-get-thread with the conversationId to drill in. Prefer outlook-list-emails when the user is asking about individual messages rather than conversations.",
+    'List conversations (conversation ID, latest subject and sender). Open one with outlook-get-thread. For individual messages use outlook-list-emails.',
   schema: {
     type: 'object',
     properties: {
@@ -713,7 +712,7 @@ export const listThreads: ToolDefinition = {
 export const getThread: ToolDefinition = {
   title: 'Outlook: Get Thread',
   description:
-    'Get a per-message summary of every message in an Outlook conversation (conversationId from outlook-list-threads or returned by outlook-read-email). Returns one line per message with date / from / subject / snippet plus the message ID. Does NOT return full bodies — call outlook-read-email afterwards with a specific message ID when you need the full content. Use this to scan a conversation cheaply.',
+    'Summarize every message in a conversation (date, from, subject, snippet, message ID) without full bodies; then read one with outlook-read-email.',
   schema: {
     type: 'object',
     properties: {
@@ -767,7 +766,7 @@ export const getThread: ToolDefinition = {
 export const createDraft: ToolDefinition = {
   title: 'Outlook: Create Draft',
   description:
-    "Create a draft email saved in Outlook's Drafts folder. The draft is NOT sent — call outlook-send-draft when the user is ready, outlook-update-draft to revise, or outlook-delete-draft to abandon. Pass attachmentUris (from list-resources or search-resources) to attach files; >3MB files are uploaded via Graph's chunked upload session. Use whenever the user wants to compose now and review/send later, or whenever you are unsure if the user actually wants to send. Returns the draft ID.",
+    'Save an email as a draft without sending it. Use when the user wants to review first, or when you are unsure they want it sent; send later with outlook-send-draft.',
   schema: {
     type: 'object',
     properties: {
@@ -821,7 +820,7 @@ export const createDraft: ToolDefinition = {
 export const listDrafts: ToolDefinition = {
   title: 'Outlook: List Drafts',
   description:
-    "List drafts saved in Outlook's Drafts folder, up to maxResults (default 10, max 50). Returns draft message ID, recipient, subject, and last modified time for each. Use to find a draft to send (outlook-send-draft), edit (outlook-update-draft), inspect (outlook-get-draft), or delete (outlook-delete-draft).",
+    'List drafts with their IDs, recipients, subjects and last-modified times.',
   schema: {
     type: 'object',
     properties: {
@@ -872,7 +871,7 @@ export const listDrafts: ToolDefinition = {
 export const getDraft: ToolDefinition = {
   title: 'Outlook: Get Draft',
   description:
-    'Read the full contents of a draft by its draft (message) ID — recipient, cc, subject, and decoded body. Use to confirm exactly what will be sent before calling outlook-send-draft, especially for drafts the user wrote earlier and may want to verify.',
+    'Read a draft in full by ID, e.g. to confirm what will be sent before outlook-send-draft.',
   schema: {
     type: 'object',
     properties: {
@@ -932,7 +931,7 @@ export const getDraft: ToolDefinition = {
 export const updateDraft: ToolDefinition = {
   title: 'Outlook: Update Draft',
   description:
-    "Replace the contents of an existing Outlook draft. Body, subject, and recipients you pass overwrite the previous draft. If you pass attachmentUris, every existing attachment is deleted and replaced with the new list — omit attachmentUris (don't pass an empty array) to leave existing attachments untouched. Use after outlook-get-draft when the user requests changes. Does NOT send the draft (use outlook-send-draft for that).",
+    'Change a draft: the fields you pass overwrite the old ones. Passing attachmentUris replaces every attachment; omit it to keep them. Does not send it.',
   schema: {
     type: 'object',
     properties: {
@@ -991,7 +990,7 @@ export const updateDraft: ToolDefinition = {
 export const deleteDraft: ToolDefinition = {
   title: 'Outlook: Delete Draft',
   description:
-    'Permanently delete an Outlook draft (the unsent draft itself — NOT a sent message). The draft is removed immediately, not moved to Deleted Items. Use only when the user has explicitly abandoned a draft. To send the draft instead, use outlook-send-draft. To move an already-sent message to Deleted Items, use outlook-trash-email.',
+    'Permanently delete an unsent draft; it does not go to Deleted Items. Only when the user has abandoned it. For a sent email use outlook-trash-email.',
   schema: {
     type: 'object',
     properties: {
@@ -1023,7 +1022,7 @@ export const deleteDraft: ToolDefinition = {
 export const sendDraft: ToolDefinition = {
   title: 'Outlook: Send Draft',
   description:
-    'Send an existing Outlook draft as-is. The draft is moved out of Drafts and delivered to its recipient(s). Returns confirmation. Prefer this over outlook-send-email when the user has already drafted the message and is asking to "send it now".',
+    'Send an existing draft as it is. Use when the user has a draft ready and says to send it.',
   schema: {
     type: 'object',
     properties: {
@@ -1055,7 +1054,7 @@ export const sendDraft: ToolDefinition = {
 export const getProfile: ToolDefinition = {
   title: 'Outlook: Get Profile',
   description:
-    "Get the connected Outlook account's profile: display name, email address (mail), userPrincipalName, and inbox totals. Use to confirm WHICH Outlook account is connected (helpful when the user asks 'what email is this connected to?'), or to capture the user's address for use in a signature or self-reference.",
+    "Get the connected Outlook account's name, address and inbox counts — e.g. when asked which account is connected.",
   schema: { type: 'object', properties: {} },
   handler: async (_args, context) => {
     const auth = getAccessToken(context);

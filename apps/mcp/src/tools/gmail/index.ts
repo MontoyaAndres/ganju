@@ -199,7 +199,7 @@ const ensurePrefix = (subject: string, prefix: string): string => {
 export const sendEmail: ToolDefinition = {
   title: 'Gmail: Send Email',
   description:
-    "Send a brand-new email from the connected Gmail account. Use only when starting a fresh thread; to continue an existing conversation use gmail-reply-email so threading and References headers are preserved. Body is treated as HTML and Content-Type is set to text/html. Non-ASCII subjects and bodies are encoded automatically. Pass attachmentUris (URIs from list-resources or search-resources) to attach files from the MCP's resources — combined raw size must stay under ~18 MB to fit Gmail's 24 MB encoded limit. Returns the new message ID and thread ID.",
+    'Send a new email, starting a new thread. To answer an existing email use gmail-reply-email instead, so it stays in the same thread. If you are not sure the user wants it sent now, use gmail-create-draft.',
   schema: {
     type: 'object',
     properties: {
@@ -257,7 +257,7 @@ export const sendEmail: ToolDefinition = {
 export const replyEmail: ToolDefinition = {
   title: 'Gmail: Reply',
   description:
-    'Reply to an existing email, preserving its Gmail thread by setting In-Reply-To, References, and threadId. Subject is auto-prefixed with "Re:" if not already present. Set replyAll=true to also include the original To and Cc recipients. Pass attachmentUris (from list-resources or search-resources) to attach files. Use this — not gmail-send-email — whenever continuing an existing conversation, so the reply lands in the same thread on the recipient side. Returns the new message ID and thread ID.',
+    'Reply to an email in its existing thread (replyAll=true also includes the original To and Cc). Use this, not gmail-send-email, whenever continuing a conversation.',
   schema: {
     type: 'object',
     properties: {
@@ -344,7 +344,7 @@ export const replyEmail: ToolDefinition = {
 export const forwardEmail: ToolDefinition = {
   title: 'Gmail: Forward',
   description:
-    'Forward an existing email to a new recipient. Pulls the original body (text/plain when available, falls back to text/html), prepends an optional intro, and adds a "Fwd:" subject prefix. The forwarded copy starts a new thread — it does NOT continue the original conversation; use gmail-reply-email for that. Use this when the user wants to share an email with someone outside the original thread.',
+    'Forward an email to someone new, with an optional intro above it. Starts a new thread; to continue the original conversation use gmail-reply-email.',
   schema: {
     type: 'object',
     properties: {
@@ -418,7 +418,7 @@ export const forwardEmail: ToolDefinition = {
 export const listEmails: ToolDefinition = {
   title: 'Gmail: List Emails',
   description:
-    'List inbox messages, optionally filtered with Gmail search syntax (e.g. "is:unread", "from:user@example.com", "subject:invoice", "after:2025/01/01", "label:LABEL_ID", "has:attachment"). Returns up to maxResults summary lines (from / subject / date / message ID) — default 10, max 50. Use for triage; call gmail-read-email with a returned ID to view a specific message in full. For conversation-level browsing prefer gmail-list-threads.',
+    'List messages (from, subject, date, ID), filtered with Gmail search syntax such as "is:unread", "from:a@b.com", "after:2025/01/01", "has:attachment". Open one with gmail-read-email; for conversations use gmail-list-threads.',
   schema: {
     type: 'object',
     properties: {
@@ -485,7 +485,7 @@ export const listEmails: ToolDefinition = {
 export const readEmail: ToolDefinition = {
   title: 'Gmail: Read Email',
   description:
-    'Read the full contents of one Gmail message by ID. Returns from / to / cc / subject / date / threadId and the decoded body (prefers text/plain, falls back to text/html). Use after gmail-list-emails returns a candidate ID. To read every message in a conversation, prefer gmail-get-thread to scan summaries first and then call this for the specific message you want to dig into.',
+    'Read one message in full by ID (from gmail-list-emails or gmail-get-thread).',
   schema: {
     type: 'object',
     properties: {
@@ -531,7 +531,7 @@ export const readEmail: ToolDefinition = {
 export const trashEmail: ToolDefinition = {
   title: 'Gmail: Move to Trash',
   description:
-    'Move a Gmail message to Trash. Reversible — Gmail keeps trashed messages for 30 days before purging them, so prefer this whenever the user asks to "delete" an email. Idempotent: calling on an already-trashed message is a safe no-op. Returns confirmation with the message ID.',
+    'Move a message to Trash, where Gmail keeps it for 30 days. Use this when the user asks to delete an email.',
   schema: {
     type: 'object',
     properties: {
@@ -560,7 +560,7 @@ export const trashEmail: ToolDefinition = {
 export const listLabels: ToolDefinition = {
   title: 'Gmail: List Labels',
   description:
-    'List every label (folder) on the Gmail account, including system labels (INBOX, UNREAD, STARRED, IMPORTANT, SENT, DRAFT, TRASH, SPAM) and user-created labels. Returns name, type (system|user), and the label ID for each. Call this first to discover the IDs you need before invoking gmail-modify-labels or gmail-batch-modify-labels — those tools take label IDs, not names.',
+    'List all labels with their IDs, including system ones (INBOX, UNREAD, STARRED, IMPORTANT, SPAM). Call before gmail-modify-labels or gmail-batch-modify-labels, which take label IDs, not names.',
   schema: { type: 'object', properties: {} },
   handler: async (_args, context) => {
     const auth = getAccessToken(context);
@@ -583,7 +583,7 @@ export const listLabels: ToolDefinition = {
 export const modifyLabels: ToolDefinition = {
   title: 'Gmail: Modify Labels',
   description:
-    'Add or remove labels on a single Gmail message. Common operations: archive = remove INBOX; mark as read = remove UNREAD; star = add STARRED; mark important = add IMPORTANT. Pass label IDs (not names) — discover them with gmail-list-labels. At least one of addLabelIds / removeLabelIds is required. For >10 messages, use gmail-batch-modify-labels instead to avoid one HTTP call per message.',
+    'Add or remove labels on one message: archive = remove INBOX, mark read = remove UNREAD, star = add STARRED. Takes label IDs from gmail-list-labels. For more than a few messages use gmail-batch-modify-labels.',
   schema: {
     type: 'object',
     properties: {
@@ -633,7 +633,7 @@ export const modifyLabels: ToolDefinition = {
 export const batchModifyLabels: ToolDefinition = {
   title: 'Gmail: Batch Modify Labels',
   description:
-    'Add or remove labels on up to 1000 Gmail messages in one call. Far cheaper than calling gmail-modify-labels in a loop. Same label-ID semantics: pass IDs from gmail-list-labels, and at least one of addLabelIds / removeLabelIds. Returns no per-message detail — Gmail applies it as all-or-nothing. Common use cases: bulk archive, mark-all-as-read, label a batch of search results.',
+    'Add or remove labels on up to 1000 messages in one call (bulk archive, mark all read). Same label IDs as gmail-modify-labels.',
   schema: {
     type: 'object',
     properties: {
@@ -678,7 +678,7 @@ export const batchModifyLabels: ToolDefinition = {
 export const listThreads: ToolDefinition = {
   title: 'Gmail: List Threads',
   description:
-    'List Gmail threads (conversations), optionally filtered with Gmail search syntax. Returns thread ID + last-message snippet for each, up to maxResults (default 10, max 50). Use this when the user is asking about an ongoing conversation or back-and-forth, then call gmail-get-thread to drill in. Prefer gmail-list-emails when the user is asking about individual messages rather than conversations.',
+    'List conversations (thread ID and latest snippet), filtered with Gmail search syntax. Open one with gmail-get-thread. For individual messages use gmail-list-emails.',
   schema: {
     type: 'object',
     properties: {
@@ -725,7 +725,7 @@ export const listThreads: ToolDefinition = {
 export const getThread: ToolDefinition = {
   title: 'Gmail: Get Thread',
   description:
-    'Get a per-message summary of every message in a Gmail thread (threadId from gmail-list-threads or returned by gmail-read-email). Returns one line per message with date / from / subject / snippet plus the message ID. Does NOT return full bodies — call gmail-read-email afterwards with a specific message ID when you need the full content. Use this to scan a conversation cheaply.',
+    'Summarize every message in a thread (date, from, subject, snippet, message ID) without full bodies; then read one with gmail-read-email.',
   schema: {
     type: 'object',
     properties: {
@@ -769,7 +769,7 @@ export const getThread: ToolDefinition = {
 export const createDraft: ToolDefinition = {
   title: 'Gmail: Create Draft',
   description:
-    "Create a draft email saved in Gmail's Drafts folder. The draft is NOT sent — call gmail-send-draft when the user is ready, gmail-update-draft to revise, or gmail-delete-draft to abandon. Pass attachmentUris (from list-resources or search-resources) to attach files. Use whenever the user wants to compose now and review/send later, or whenever you are unsure if the user wants to actually send. Returns the draft ID.",
+    'Save an email as a draft without sending it. Use when the user wants to review first, or when you are unsure they want it sent; send later with gmail-send-draft.',
   schema: {
     type: 'object',
     properties: {
@@ -814,8 +814,7 @@ export const createDraft: ToolDefinition = {
 
 export const listDrafts: ToolDefinition = {
   title: 'Gmail: List Drafts',
-  description:
-    "List drafts saved in Gmail's Drafts folder, up to maxResults (default 10, max 50). Returns draft ID, recipient, subject, and the underlying message ID for each. Use to find a draft to send (gmail-send-draft), edit (gmail-update-draft), inspect (gmail-get-draft), or delete (gmail-delete-draft).",
+  description: 'List drafts with their draft IDs, recipients and subjects.',
   schema: {
     type: 'object',
     properties: {
@@ -874,7 +873,7 @@ export const listDrafts: ToolDefinition = {
 export const getDraft: ToolDefinition = {
   title: 'Gmail: Get Draft',
   description:
-    'Read the full contents of a draft by its draft ID — recipient, cc, subject, and decoded body. Use to confirm exactly what will be sent before calling gmail-send-draft, especially for drafts the user wrote earlier and may want to verify.',
+    'Read a draft in full by draft ID, e.g. to confirm what will be sent before gmail-send-draft.',
   schema: {
     type: 'object',
     properties: {
@@ -918,7 +917,7 @@ export const getDraft: ToolDefinition = {
 export const updateDraft: ToolDefinition = {
   title: 'Gmail: Update Draft',
   description:
-    'Replace the contents of an existing draft entirely. This does NOT merge — every field you pass overwrites the previous draft, so include the full to / subject / body even when only revising one of them. Pass attachmentUris (from list-resources or search-resources) to attach files; omitting it removes any previously-attached files. Use after gmail-get-draft when the user requests changes. Does not send the draft (use gmail-send-draft for that).',
+    'Replace a draft entirely: pass the full to, subject and body even when changing one of them, and attachmentUris again to keep attachments — anything omitted is removed. Does not send it.',
   schema: {
     type: 'object',
     properties: {
@@ -968,7 +967,7 @@ export const updateDraft: ToolDefinition = {
 export const deleteDraft: ToolDefinition = {
   title: 'Gmail: Delete Draft',
   description:
-    'Permanently delete a draft email (the unsent draft itself — NOT a sent message). Cannot be undone; the draft does not go to Trash. Use only when the user has explicitly abandoned a draft. To send the draft instead, use gmail-send-draft. To trash an already-sent message, use gmail-trash-email.',
+    'Permanently delete an unsent draft; it does not go to Trash. Only when the user has abandoned it. For a sent email use gmail-trash-email.',
   schema: {
     type: 'object',
     properties: {
@@ -999,7 +998,7 @@ export const deleteDraft: ToolDefinition = {
 export const sendDraft: ToolDefinition = {
   title: 'Gmail: Send Draft',
   description:
-    'Send an existing draft as-is. The draft is moved out of Drafts and delivered to its recipient(s). Returns the resulting Gmail message ID — usable afterwards with gmail-reply-email, gmail-trash-email, gmail-modify-labels, etc. Prefer this over gmail-send-email when the user has already drafted the message and is asking to "send it now".',
+    'Send an existing draft as it is. Use when the user has a draft ready and says to send it.',
   schema: {
     type: 'object',
     properties: {
@@ -1028,7 +1027,7 @@ export const sendDraft: ToolDefinition = {
 export const getProfile: ToolDefinition = {
   title: 'Gmail: Get Profile',
   description:
-    "Get the connected Gmail account's profile: email address, total messages, total threads, and current history ID. Use to confirm WHICH Gmail account is connected (helpful when the user asks 'what email is this connected to?'), or to capture the user's address for use in a signature or self-reference.",
+    "Get the connected Gmail account's address and message counts — e.g. when asked which account is connected.",
   schema: { type: 'object', properties: {} },
   handler: async (_args, context) => {
     const auth = getAccessToken(context);
