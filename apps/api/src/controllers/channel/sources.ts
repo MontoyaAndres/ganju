@@ -12,6 +12,8 @@ interface SearchHit {
   chunkIndex: number;
   score?: number;
   excerpt?: string;
+  page?: number;
+  updatedAt?: string;
 }
 
 const parseSearchHits = (output: unknown): SearchHit[] => {
@@ -74,15 +76,25 @@ export const collectSources = async (
 
   if (orderedHits.length === 0) return [];
 
+  // Search results carry their page now. The chunk lookup below is only for
+  // results that predate that — an MCP worker older than this one, since the
+  // two deploy separately.
+  const pageByKey = new Map<string, number>();
+  for (const { resource, hit } of orderedHits) {
+    if (typeof hit?.page === 'number') {
+      pageByKey.set(`${resource.id}|${hit.chunkIndex}`, hit.page);
+    }
+  }
+
   const fileLookups = orderedHits
     .filter(
       h =>
         h.resource.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_FILE &&
-        h.hit !== undefined
+        h.hit !== undefined &&
+        typeof h.hit.updatedAt !== 'string'
     )
     .map(h => ({ resourceId: h.resource.id, chunkIndex: h.hit!.chunkIndex }));
 
-  const pageByKey = new Map<string, number>();
   if (fileLookups.length > 0) {
     const resourceIds = Array.from(new Set(fileLookups.map(l => l.resourceId)));
     const indexes = Array.from(new Set(fileLookups.map(l => l.chunkIndex)));

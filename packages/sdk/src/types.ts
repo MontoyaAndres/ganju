@@ -21,6 +21,14 @@ export interface ResourceMatch {
   title: string;
   description?: string;
   mimeType: string | null;
+  /** A link to the original — the web page, or the file in Drive or OneDrive. Absent for uploads. */
+  source?: string;
+  /** The page (or slide) the excerpt is on, for documents that have pages. */
+  page?: number;
+  /** The heading path ("Returns > Gift orders"), a spreadsheet's sheet, or a slide's title. */
+  section?: string;
+  /** When the indexed copy was last refreshed (ISO 8601): the last sync for an imported file, otherwise the last change. */
+  updatedAt?: string;
   chunkIndex: number;
   score: number;
   excerpt: string;

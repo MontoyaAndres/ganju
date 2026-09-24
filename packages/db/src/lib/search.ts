@@ -35,6 +35,20 @@ export interface ResourceChunkMatch {
   // didn't surface the chunk. Kept for evaluating the search, not for clients.
   vectorRank: number | null;
   lexicalRank: number | null;
+  sourceType: string;
+  // Where a reader can open what this chunk came from: the page for a crawled
+  // site, the file in Drive or OneDrive. Null for an upload, which has no
+  // address outside Ganju.
+  source: string | null;
+  // The page (or slide) the chunk is on, when the document has pages worth
+  // citing — never for a spreadsheet, a web page or a plain text file.
+  page: number | null;
+  // The heading path ("Returns > Gift orders"), a spreadsheet's sheet, or a
+  // slide's title.
+  section: string | null;
+  // When our copy was last refreshed: the last sync for an imported file,
+  // otherwise the last change to the resource. ISO 8601.
+  updatedAt: string;
 }
 
 type Row = {
@@ -48,10 +62,63 @@ type Row = {
   similarity: number | string;
   vectorRank: number | string | null;
   lexicalRank: number | string | null;
+  sourceType: string;
+  sourceLink: string | null;
+  pageNumber: string | null;
+  totalPages: string | null;
+  sheetName: string | null;
+  slideTitle: string | null;
+  headingPath: string | null;
+  lastSyncedAt: string | null;
+  updatedAt: string;
 };
 
 const toNumber = (value: number | string | null): number | null =>
   value === null ? null : Number(value);
+
+// Only a link a reader can follow. The metadata a source link comes from can be
+// written by a user's own tool, so anything but http(s) is dropped.
+const toWebUrl = (value: string | null): string | null => {
+  if (!value || !URL.canParse(value)) return null;
+  const { protocol } = new URL(value);
+  return protocol === 'https:' || protocol === 'http:' ? value : null;
+};
+
+const toIso = (value: string | null): string | null => {
+  if (!value) return null;
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
+};
+
+const parseHeadingPath = (value: string | null): string[] => {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((h): h is string => typeof h === 'string' && !!h)
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const resolvePage = (row: Row): number | null => {
+  const page = toNumber(row.pageNumber);
+  if (!page || row.sheetName) return null;
+  // Every extracted document has a page number, most of them "1 of 1": a web
+  // page, a text file, a Word file with no page breaks. Citing "p. 1" there
+  // points at nothing, so only a PDF or a document with real pages gets one.
+  const paged =
+    row.mimeType === utils.constants.MIMETYPE_APPLICATION_PDF ||
+    (toNumber(row.totalPages) ?? 1) > 1;
+  return paged ? page : null;
+};
+
+const resolveSection = (row: Row): string | null => {
+  const headingPath = parseHeadingPath(row.headingPath);
+  if (headingPath.length > 0) return headingPath.join(' > ');
+  return row.sheetName || row.slideTitle || null;
+};
 
 /**
  * Hybrid search over an artifact's indexed chunks: the nearest chunks by
@@ -162,7 +229,19 @@ export const searchResourceChunks = async (
       c.content AS "content",
       1 - (c.embedding <=> ${vector}::halfvec) AS "similarity",
       f.vector_rank AS "vectorRank",
-      f.lexical_rank AS "lexicalRank"
+      f.lexical_rank AS "lexicalRank",
+      -- Citation fields, read as single paths rather than whole columns: a
+      -- crawled page's resource metadata holds its SEO snapshot, and every one
+      -- of its chunks repeats it.
+      r.source_type AS "sourceType",
+      coalesce(r.metadata->>'webViewLink', r.metadata->>'webUrl') AS "sourceLink",
+      c.metadata->'loc'->>'pageNumber' AS "pageNumber",
+      c.metadata->'loc'->>'totalPages' AS "totalPages",
+      c.metadata->'loc'->>'sheetName' AS "sheetName",
+      c.metadata->'loc'->>'slideTitle' AS "slideTitle",
+      c.metadata->>'headingPath' AS "headingPath",
+      r.metadata->>'lastSyncedAt' AS "lastSyncedAt",
+      to_char(r.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt"
     FROM fused f
     JOIN artifact_resource_chunk c ON c.id = f.id
     JOIN artifact_resource r ON r.id = c.resource_id
@@ -182,7 +261,16 @@ export const searchResourceChunks = async (
     content: row.content,
     similarity: Number(row.similarity),
     vectorRank: toNumber(row.vectorRank),
-    lexicalRank: toNumber(row.lexicalRank)
+    lexicalRank: toNumber(row.lexicalRank),
+    sourceType: row.sourceType,
+    source:
+      toWebUrl(row.sourceLink) ??
+      (row.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE
+        ? toWebUrl(row.uri)
+        : null),
+    page: resolvePage(row),
+    section: resolveSection(row),
+    updatedAt: toIso(row.lastSyncedAt) ?? toIso(row.updatedAt) ?? row.updatedAt
   }));
 
   if (!params.rerank || matches.length <= 1) {
@@ -208,3 +296,37 @@ export const searchResourceChunks = async (
     .slice(0, params.limit)
     .map(({ match }) => match);
 };
+
+// What a search result looks like to whoever asked — the search-resources tool
+// and a custom tool's ctx.resources.search answer with exactly this, so a model
+// and a script see the same fields. Citation fields are left out rather than
+// sent as null when a chunk has none: the model reads every key it is given.
+export interface ResourceSearchResult {
+  uri: string;
+  title: string;
+  description?: string;
+  mimeType: string | null;
+  source?: string;
+  page?: number;
+  section?: string;
+  updatedAt: string;
+  chunkIndex: number;
+  score: number;
+  excerpt: string;
+}
+
+export const toResourceSearchResult = (
+  match: ResourceChunkMatch
+): ResourceSearchResult => ({
+  uri: match.uri,
+  title: match.title,
+  description: match.description || undefined,
+  mimeType: match.mimeType,
+  ...(match.source ? { source: match.source } : {}),
+  ...(match.page ? { page: match.page } : {}),
+  ...(match.section ? { section: match.section } : {}),
+  updatedAt: match.updatedAt,
+  chunkIndex: match.chunkIndex,
+  score: Number(match.similarity.toFixed(4)),
+  excerpt: match.content
+});

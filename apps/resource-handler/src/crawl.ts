@@ -149,7 +149,17 @@ const extractFullText = ($: any): string => {
       ? $('article').first()
       : $('body');
   stripBoilerplate($, root);
-  const text = root
+  // Headings are written back as Markdown lines: flattened to text they would
+  // be indistinguishable from the paragraphs under them, and the chunker needs
+  // them to split on and to record which section each chunk sits under. On a
+  // copy, because buildSeo reads the same headings off the page afterwards.
+  const marked = root.clone();
+  marked.find('h1, h2, h3, h4, h5, h6').each((_: number, el: any) => {
+    const level = Number((el.tagName || el.name || '').slice(1));
+    const heading = $(el).text().replace(/\s+/g, ' ').trim();
+    $(el).text(heading ? `\n\n${'#'.repeat(level)} ${heading}\n\n` : '');
+  });
+  const text = marked
     .text()
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')

@@ -93,7 +93,8 @@ export const reindexResourceChunks = async (
   const prepared = utils.prepareChunks(
     header,
     resource.documents ?? null,
-    resource.content ?? null
+    resource.content ?? null,
+    { mimeType: resource.mimeType, fileName: resource.fileName }
   );
 
   const dbInstance = db.create(source);

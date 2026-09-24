@@ -179,6 +179,24 @@ response)
   `@ganju/sdk`.
 - Done when: an answer from a PDF cites its page and one from a crawled site
   cites its URL.
+- Status: built, not deployed. `db.searchResourceChunks` resolves the fields
+  and `db.toResourceSearchResult` is the one result shape both `search-resources`
+  and `ctx.resources.search` return (fields omitted, not null, when unknown).
+  `page` only for PDFs and documents with real pages; `section` is the heading
+  path, sheet name or slide title. The chunker records `headingPath` for
+  Markdown and HTML, and the crawler now keeps headings as `#` lines — so
+  existing crawled sites and Markdown files get sections only once re-indexed.
+  Checked on the dev corpus: PDF hits return `page`, crawled pages and Drive
+  files return `source`. Native tools now register with the handler's
+  description (written for the model) instead of the catalog's one-line card
+  caption, which is what carries the citation guidance to clients. That raises
+  the tool-description cost of every turn: all 62 native tools went from ~790
+  to ~6,300 tokens, Gmail alone from ~215 to ~1,700 and Outlook similar, which
+  lands on the shared-key Free envelope; trimming those two is the follow-up.
+  Channel footers take `page` from the search result, and query chunk metadata
+  only for results from an MCP worker that predates it.
+  Still to check: real questions against a PDF and a crawled site, reading the
+  answer text for the citation (the eval script measures ranking only).
 
 **3. Automatic sync — M**
 

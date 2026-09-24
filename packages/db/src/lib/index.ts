@@ -1,7 +1,7 @@
 import { create } from './db';
 import * as schema from './schema';
 import { incrementArtifactUsage } from './usage';
-import { searchResourceChunks } from './search';
+import { searchResourceChunks, toResourceSearchResult } from './search';
 import {
   limitsFor,
   isEntitled,
@@ -23,7 +23,8 @@ export type { EffectivePlan, UsageCounters, ToolCallBudget } from './plan';
 export type {
   ResourceChunkSearch,
   ResourceChunkMatch,
-  ResourceReranker
+  ResourceReranker,
+  ResourceSearchResult
 } from './search';
 
 export const plan = {
@@ -41,4 +42,10 @@ export const plan = {
   incrementToolCallUsage
 };
 
-export { create, schema, incrementArtifactUsage, searchResourceChunks };
+export {
+  create,
+  schema,
+  incrementArtifactUsage,
+  searchResourceChunks,
+  toResourceSearchResult
+};

@@ -1175,7 +1175,11 @@ const business = async (c: Context<AppEnv>) => {
       toolDef.key,
       {
         title: toolDef.title || handler.title,
-        description: toolDef.description || handler.description,
+        // The handler's description is the one written for the model — when to
+        // call the tool, what to pass, how to cite what it returns. The
+        // catalog's is a one-line card caption for the dashboard, and sending
+        // it instead left every native tool without its guidance.
+        description: handler.description || toolDef.description || undefined,
         inputSchema: schema,
         ...(nativeOutputSchema ? { outputSchema: nativeOutputSchema } : {})
       },

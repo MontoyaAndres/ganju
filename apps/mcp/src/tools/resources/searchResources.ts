@@ -9,7 +9,7 @@ const MAX_LIMIT = 20;
 export const searchResources: ToolDefinition = {
   title: 'Search Resources',
   description:
-    "REQUIRED FIRST CALL on every user message before composing your answer. Pass the user's question (or a slightly rephrased natural-language version) as `query` — this searches every resource attached to this MCP server by meaning AND by exact words, so it finds paraphrases as well as literal ids, codes, SKUs and names, and returns the most relevant chunks first. Keep exact identifiers from the user's message verbatim in the query. ALWAYS call this before answering anything about the user's data, project, or any domain-specific topic; skipping it means answering blind and risking hallucination. Returns up to `limit` excerpts (default 5, max 20) with uri/title/score/excerpt, most relevant first (score is semantic similarity; an exact-match hit can outrank a higher score) — cite them directly, or call read-resource for full content / send-resource to deliver the file. Only skip on pure chit-chat with no factual content (greetings, thanks).",
+    "REQUIRED FIRST CALL on every user message before composing your answer. Pass the user's question (or a slightly rephrased natural-language version) as `query` — this searches every resource attached to this MCP server by meaning AND by exact words, so it finds paraphrases as well as literal ids, codes, SKUs and names, and returns the most relevant chunks first. Keep exact identifiers from the user's message verbatim in the query. ALWAYS call this before answering anything about the user's data, project, or any domain-specific topic; skipping it means answering blind and risking hallucination. Returns up to `limit` excerpts (default 5, max 20) with uri/title/score/excerpt, most relevant first (score is semantic similarity; an exact-match hit can outrank a higher score), plus, when known, `source` (a link to the original: the web page, or the file in Drive/OneDrive), `page`, `section` (heading path, sheet or slide) and `updatedAt`. Cite what you use: \"title, p. N\" when there is a page, the section when there is one, and the `source` URL when there is one; mention `updatedAt` when the answer depends on how current the information is. Call read-resource for full content / send-resource to deliver the file. Only skip on pure chit-chat with no factual content (greetings, thanks).",
   schema: {
     type: 'object',
     properties: {
@@ -67,15 +67,7 @@ export const searchResources: ToolDefinition = {
       };
     }
 
-    const results = rows.map(row => ({
-      uri: row.uri,
-      title: row.title,
-      description: row.description || undefined,
-      mimeType: row.mimeType,
-      chunkIndex: row.chunkIndex,
-      score: Number(row.similarity.toFixed(4)),
-      excerpt: row.content
-    }));
+    const results = rows.map(db.toResourceSearchResult);
 
     return {
       content: [{ type: 'text', text: JSON.stringify(results) }]

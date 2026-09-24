@@ -178,15 +178,7 @@ const searchResources = async (c: Context<AppEnv>) => {
   });
 
   return c.json({
-    results: rows.map(row => ({
-      uri: row.uri,
-      title: row.title,
-      description: row.description || undefined,
-      mimeType: row.mimeType,
-      chunkIndex: row.chunkIndex,
-      score: Number(row.similarity.toFixed(4)),
-      excerpt: row.content
-    }))
+    results: rows.map(db.toResourceSearchResult)
   });
 };
 

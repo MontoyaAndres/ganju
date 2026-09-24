@@ -3,6 +3,7 @@ import {
   schema,
   incrementArtifactUsage,
   searchResourceChunks,
+  toResourceSearchResult,
   plan
 } from './lib';
 import { handleError } from './utils';
@@ -12,6 +13,7 @@ export const db = {
   schema,
   incrementArtifactUsage,
   searchResourceChunks,
+  toResourceSearchResult,
   plan
 };
 export const utils = {
@@ -27,5 +29,6 @@ export type {
   ToolCallBudget,
   ResourceChunkSearch,
   ResourceChunkMatch,
-  ResourceReranker
+  ResourceReranker,
+  ResourceSearchResult
 } from './lib';
