@@ -850,6 +850,25 @@ const CHUNK_TARGET_CHARS = 2000;
 const CHUNK_OVERLAP_CHARS = 200;
 const EMBED_BATCH_SIZE = 96;
 
+// Hybrid resource search. Each ranker contributes its top candidates, and the
+// two lists are merged with reciprocal rank fusion: score = sum of 1/(k + rank).
+// Fusion reads ranks, never raw scores, so a cosine distance and a ts_rank never
+// have to be put on one scale. k = 60 is the constant from the original RRF
+// paper; it keeps one list's #1 from outweighing a chunk both lists agree on.
+const RESOURCE_SEARCH_CANDIDATES = 50;
+const RESOURCE_SEARCH_RRF_K = 60;
+// A query word found in more than 1 of every 10 chunks of the artifact is
+// dropped from the lexical query — never below 5 chunks, so a small artifact
+// keeps its words.
+const RESOURCE_SEARCH_COMMON_TERM_DIVISOR = 10;
+const RESOURCE_SEARCH_COMMON_TERM_MIN = 5;
+// Second stage, on wherever the Worker has an AI binding: the top fused
+// candidates are re-scored by a cross-encoder, which reads query and chunk
+// together instead of comparing two independently computed vectors. One model
+// call per search; a failure falls back to the fused order.
+const RESOURCE_SEARCH_RERANK_CANDIDATES = 30;
+const RESOURCE_SEARCH_RERANK_MODEL = '@cf/baai/bge-reranker-base';
+
 const RESOURCE_HANDLER_SLEEP_AFTER = '10m';
 
 const DOCS_URL = 'https://docs.ganju.ai';
@@ -2596,6 +2615,12 @@ export const constants = {
   CHUNK_TARGET_CHARS,
   CHUNK_OVERLAP_CHARS,
   EMBED_BATCH_SIZE,
+  RESOURCE_SEARCH_CANDIDATES,
+  RESOURCE_SEARCH_RRF_K,
+  RESOURCE_SEARCH_COMMON_TERM_DIVISOR,
+  RESOURCE_SEARCH_COMMON_TERM_MIN,
+  RESOURCE_SEARCH_RERANK_CANDIDATES,
+  RESOURCE_SEARCH_RERANK_MODEL,
   RESOURCE_HANDLER_SLEEP_AFTER,
   DOCS_URL,
   BASE64_DATA_URI_RE,

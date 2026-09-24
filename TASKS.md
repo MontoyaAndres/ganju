@@ -156,6 +156,15 @@ codes, names), which are most of what support and sales bots get asked.
   this is the first real use of the promptfoo evals task above.
 - Done when: an order id or error code lands in the top 3, and semantic
   queries do not get worse on the golden set.
+- Status: built and tested locally, not deployed. Migration `0074` (tsvector +
+  GIN, and `hnsw.iterative_scan = relaxed_order` as a database default — needs
+  pgvector ≥ 0.8), `db.searchResourceChunks` (RRF, used by both callers), the
+  reranker (Workers AI `bge-reranker-base`, on wherever the `AI` binding is),
+  and `scripts/eval-resource-search.mjs`. The lexical side ORs the query's
+  words, minus stopwords and words common in that artifact, not websearch's
+  AND. On a local ES/EN test corpus with real embeddings: exact tokens in the
+  top 3 went 9/12 → 12/12, semantic stayed 8/8. Still to do: golden sets for
+  real projects and a baseline before deploying.
 
 **2. Citations and metadata in results — S** (ship with 1: same query, same
 response)

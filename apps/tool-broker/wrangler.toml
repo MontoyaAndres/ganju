@@ -25,6 +25,8 @@ invocation_logs = true
 enabled = false
 [env.development.vars]
 NODE_ENV = "production"
+[env.development.ai]
+binding = "AI"
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "bf3f371679734af2af0b11302b3cb971"
@@ -57,6 +59,8 @@ invocation_logs = true
 enabled = false
 [env.production.vars]
 NODE_ENV = "production"
+[env.production.ai]
+binding = "AI"
 [[env.production.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "c552a4fd338d4025b0442e4737a8635b"

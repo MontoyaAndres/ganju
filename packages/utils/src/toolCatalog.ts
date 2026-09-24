@@ -469,7 +469,7 @@ export const TOOL_CATALOG = [
         key: 'search-resources',
         title: 'Search Resources',
         description:
-          'Find the resources most relevant to a question using semantic search.',
+          'Find the resources most relevant to a question, by meaning and by exact keywords.',
         requiredScopes: null
       },
       {

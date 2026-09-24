@@ -1,10 +1,17 @@
-import { create, schema, incrementArtifactUsage, plan } from './lib';
+import {
+  create,
+  schema,
+  incrementArtifactUsage,
+  searchResourceChunks,
+  plan
+} from './lib';
 import { handleError } from './utils';
 
 export const db = {
   create,
   schema,
   incrementArtifactUsage,
+  searchResourceChunks,
   plan
 };
 export const utils = {
@@ -17,5 +24,8 @@ export type {
   UsageCounts,
   EffectivePlan,
   UsageCounters,
-  ToolCallBudget
+  ToolCallBudget,
+  ResourceChunkSearch,
+  ResourceChunkMatch,
+  ResourceReranker
 } from './lib';

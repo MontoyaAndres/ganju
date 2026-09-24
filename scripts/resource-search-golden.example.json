@@ -1,0 +1,30 @@
+{
+  "slug": "your-artifact-slug",
+  "cases": [
+    {
+      "query": "ORD-48213",
+      "expect": "https://example.com/orders/48213",
+      "kind": "exact"
+    },
+    {
+      "query": "what does error E-1042 mean",
+      "expect": "file://troubleshooting.pdf",
+      "kind": "exact"
+    },
+    {
+      "query": "SKU AB-77X stock",
+      "expect": "file://inventory.xlsx",
+      "kind": "exact"
+    },
+    {
+      "query": "can I return something I bought as a gift?",
+      "expect": ["file://refund-policy.pdf", "https://example.com/returns"],
+      "kind": "semantic"
+    },
+    {
+      "query": "¿cuánto tarda el envío?",
+      "expect": "https://example.com/envios",
+      "kind": "semantic"
+    }
+  ]
+}

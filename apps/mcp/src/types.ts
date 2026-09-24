@@ -6,6 +6,7 @@ import type {
   R2Bucket
 } from '@cloudflare/workers-types';
 import type { ResourceHandler } from '@ganju/containers';
+import type { RerankAiBinding } from '@ganju/utils';
 
 export type Variables = {
   authContext: {
@@ -29,6 +30,7 @@ export type Bindings = {
   API: Fetcher;
   DISPATCH?: DispatchNamespace;
   HTTP_ENDPOINT_RATE_LIMITER?: RateLimitBinding;
+  AI?: RerankAiBinding;
   DATABASE_URL?: string;
   NODE_ENV?: string;
   NEXT_PUBLIC_API_URL?: string;

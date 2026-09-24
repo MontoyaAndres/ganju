@@ -1,5 +1,6 @@
 import type { Hyperdrive, Queue, R2Bucket } from '@cloudflare/workers-types';
 import type { ResourceHandler } from '@ganju/containers';
+import type { RerankAiBinding } from '@ganju/utils';
 import type { CustomCodeToolConfig } from '@ganju/utils';
 
 export type Variables = {
@@ -26,6 +27,7 @@ export type Bindings = {
   INDEX_QUEUE?: Queue<{ resourceId: string }>;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
   HTTP_ENDPOINT_RATE_LIMITER?: RateLimitBinding;
+  AI?: RerankAiBinding;
   DATABASE_URL?: string;
   NODE_ENV?: string;
   CRYPTO_SECRET?: string;

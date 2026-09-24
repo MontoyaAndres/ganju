@@ -10,11 +10,16 @@ import {
   primaryKey,
   boolean,
   halfvec,
+  customType,
   type AnyPgColumn
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { v7 as uuid } from 'uuid';
 import { utils } from '@ganju/utils';
+
+const tsvector = customType<{ data: string }>({
+  dataType: () => 'tsvector'
+});
 
 export const user = pgTable(
   'user',
@@ -1187,6 +1192,15 @@ export const artifactResourceChunk = pgTable(
       dimensions: utils.constants.EMBEDDING_DIMENSIONS
     }).notNull(),
     metadata: json('metadata'),
+    // The lexical half of hybrid search: exact tokens (order ids, SKUs, error
+    // codes, names) that a vector puts near, but not on, the right chunk.
+    // 'simple' rather than a language config because the corpus mixes Spanish
+    // and English — no stemming or stop words, just lowercased tokens, which is
+    // exactly what an identifier needs. Generated, so the index job never writes
+    // it and every existing row was filled when the column was added.
+    contentTsv: tsvector('content_tsv').generatedAlwaysAs(
+      sql`to_tsvector('simple', content)`
+    ),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
   },
   table => [
@@ -1195,6 +1209,10 @@ export const artifactResourceChunk = pgTable(
     index('artifact_resource_chunk_embedding_idx').using(
       'hnsw',
       table.embedding.op('halfvec_cosine_ops')
+    ),
+    index('artifact_resource_chunk_content_tsv_idx').using(
+      'gin',
+      table.contentTsv
     )
   ]
 );

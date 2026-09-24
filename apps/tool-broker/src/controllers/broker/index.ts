@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
@@ -151,7 +151,7 @@ const secret = async (c: Context<AppEnv>) => {
 };
 
 /**
- * Semantic search over the artifact's indexed resources — the same query the
+ * Hybrid search over the artifact's indexed resources — the same search the
  * native search-resources tool runs, exposed to user code so a custom tool can
  * ground itself in the customer's own documents without reimplementing RAG.
  */
@@ -169,31 +169,13 @@ const searchResources = async (c: Context<AppEnv>) => {
     return c.json({ error: 'The embedding service is not configured' }, 503);
   }
 
-  const literal = `[${embedding.join(',')}]`;
-  const distanceExpr = sql<number>`${db.schema.artifactResourceChunk.embedding} <=> ${literal}::halfvec`;
-
-  const rows = await db
-    .create(c)
-    .select({
-      chunkIndex: db.schema.artifactResourceChunk.chunkIndex,
-      content: db.schema.artifactResourceChunk.content,
-      uri: db.schema.artifactResource.uri,
-      title: db.schema.artifactResource.title,
-      description: db.schema.artifactResource.description,
-      mimeType: db.schema.artifactResource.mimeType,
-      distance: distanceExpr
-    })
-    .from(db.schema.artifactResourceChunk)
-    .innerJoin(
-      db.schema.artifactResource,
-      eq(
-        db.schema.artifactResource.id,
-        db.schema.artifactResourceChunk.resourceId
-      )
-    )
-    .where(eq(db.schema.artifactResourceChunk.artifactId, tool.artifactId))
-    .orderBy(distanceExpr)
-    .limit(parsed.data.limit);
+  const rows = await db.searchResourceChunks(db.create(c), {
+    artifactId: tool.artifactId,
+    query: parsed.data.query,
+    embedding,
+    limit: parsed.data.limit,
+    rerank: utils.createResourceReranker(c)
+  });
 
   return c.json({
     results: rows.map(row => ({
@@ -202,7 +184,7 @@ const searchResources = async (c: Context<AppEnv>) => {
       description: row.description || undefined,
       mimeType: row.mimeType,
       chunkIndex: row.chunkIndex,
-      score: Number((1 - Number(row.distance)).toFixed(4)),
+      score: Number(row.similarity.toFixed(4)),
       excerpt: row.content
     }))
   });

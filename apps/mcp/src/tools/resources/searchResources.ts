@@ -1,5 +1,5 @@
 import { db } from '@ganju/db';
-import { eq, sql } from 'drizzle-orm';
+import { utils } from '@ganju/utils';
 
 import { ToolDefinition } from '../types';
 
@@ -9,7 +9,7 @@ const MAX_LIMIT = 20;
 export const searchResources: ToolDefinition = {
   title: 'Search Resources',
   description:
-    "REQUIRED FIRST CALL on every user message before composing your answer. Pass the user's question (or a slightly rephrased natural-language version) as `query` — this semantic-searches every resource attached to this MCP server and returns the chunks most relevant to it, ranked by cosine similarity. ALWAYS call this before answering anything about the user's data, project, or any domain-specific topic; skipping it means answering blind and risking hallucination. Returns up to `limit` excerpts (default 5, max 20) with uri/title/score/excerpt — cite them directly, or call read-resource for full content / send-resource to deliver the file. Only skip on pure chit-chat with no factual content (greetings, thanks).",
+    "REQUIRED FIRST CALL on every user message before composing your answer. Pass the user's question (or a slightly rephrased natural-language version) as `query` — this searches every resource attached to this MCP server by meaning AND by exact words, so it finds paraphrases as well as literal ids, codes, SKUs and names, and returns the most relevant chunks first. Keep exact identifiers from the user's message verbatim in the query. ALWAYS call this before answering anything about the user's data, project, or any domain-specific topic; skipping it means answering blind and risking hallucination. Returns up to `limit` excerpts (default 5, max 20) with uri/title/score/excerpt, most relevant first (score is semantic similarity; an exact-match hit can outrank a higher score) — cite them directly, or call read-resource for full content / send-resource to deliver the file. Only skip on pure chit-chat with no factual content (greetings, thanks).",
   schema: {
     type: 'object',
     properties: {
@@ -48,31 +48,13 @@ export const searchResources: ToolDefinition = {
       };
     }
 
-    const literal = `[${queryEmbedding.join(',')}]`;
-    const distanceExpr = sql<number>`${db.schema.artifactResourceChunk.embedding} <=> ${literal}::halfvec`;
-
-    const rows = await context.db
-      .select({
-        resourceId: db.schema.artifactResourceChunk.resourceId,
-        chunkIndex: db.schema.artifactResourceChunk.chunkIndex,
-        content: db.schema.artifactResourceChunk.content,
-        uri: db.schema.artifactResource.uri,
-        title: db.schema.artifactResource.title,
-        description: db.schema.artifactResource.description,
-        mimeType: db.schema.artifactResource.mimeType,
-        distance: distanceExpr
-      })
-      .from(db.schema.artifactResourceChunk)
-      .innerJoin(
-        db.schema.artifactResource,
-        eq(
-          db.schema.artifactResource.id,
-          db.schema.artifactResourceChunk.resourceId
-        )
-      )
-      .where(eq(db.schema.artifactResourceChunk.artifactId, context.artifactId))
-      .orderBy(distanceExpr)
-      .limit(limit);
+    const rows = await db.searchResourceChunks(context.db, {
+      artifactId: context.artifactId,
+      query,
+      embedding: queryEmbedding,
+      limit,
+      rerank: utils.createResourceReranker({ env: context.env })
+    });
 
     if (rows.length === 0) {
       return {
@@ -91,7 +73,7 @@ export const searchResources: ToolDefinition = {
       description: row.description || undefined,
       mimeType: row.mimeType,
       chunkIndex: row.chunkIndex,
-      score: Number((1 - Number(row.distance)).toFixed(4)),
+      score: Number(row.similarity.toFixed(4)),
       excerpt: row.content
     }));
 

@@ -94,7 +94,7 @@ sequenceDiagram
   API->>DB: mark resource COMPLETED
 ```
 
-Vector search then runs as a cosine HNSW query over `artifact_resource_chunk.embedding` (3072-dim `halfvec`).
+Search is hybrid: the top 50 chunks by cosine distance over `artifact_resource_chunk.embedding` (1536-dim `halfvec`, HNSW) and the top 50 full-text matches over the generated `content_tsv` column (`to_tsvector('simple', content)`, GIN) are merged with reciprocal rank fusion (k = 60). The full-text query ORs the query's words, leaving out English/Spanish stopwords and any word found in more than a tenth of the artifact's chunks, so "estado del pedido ORD-48215" still finds the English order line. `hnsw.iterative_scan = relaxed_order` is set on the database so the `artifact_id` filter doesn't starve the HNSW scan of candidates. One function, `db.searchResourceChunks`, serves both `search-resources` and `ctx.resources.search`. A cross-encoder rerank (Workers AI `bge-reranker-base`, via the `AI` binding) then reorders the top 30 before the cut to `limit`; if it fails, the fused order stands.
 
 ### Answering an MCP tool call
 

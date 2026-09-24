@@ -29,6 +29,8 @@ NEXT_PUBLIC_API_URL = "https://development-api.vocesqueabrazan.com"
 NEXT_PUBLIC_MCP_URL = "https://development-mcp.vocesqueabrazan.com"
 NEXT_PUBLIC_WEB_URL = "https://development-app.vocesqueabrazan.com"
 NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
+[env.development.ai]
+binding = "AI"
 [[env.development.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "bf3f371679734af2af0b11302b3cb971"
@@ -75,6 +77,8 @@ NEXT_PUBLIC_API_URL = "https://api.ganju.ai"
 NEXT_PUBLIC_MCP_URL = "https://mcp.ganju.ai"
 NEXT_PUBLIC_WEB_URL = "https://app.ganju.ai"
 NEXT_PUBLIC_DOMAIN = "ganju.ai"
+[env.production.ai]
+binding = "AI"
 [[env.production.hyperdrive]]
 binding = "HYPERDRIVE"
 id = "c552a4fd338d4025b0442e4737a8635b"

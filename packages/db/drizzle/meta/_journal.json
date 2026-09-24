@@ -519,6 +519,13 @@
       "when": 1789479157840,
       "tag": "0073_artifact_child_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1790274939968,
+      "tag": "0074_resource_chunk_tsvector",
+      "breakpoints": true
     }
   ]
 }

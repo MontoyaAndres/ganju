@@ -31,7 +31,7 @@ The **artifact** is the unit that becomes an MCP server (one per project, addres
 artifact (slug, projectId, …counters)
  ├── artifactPrompt        title, messages[], optional input schema
  ├── artifactResource      a file / website / drive item (see Resources)
- │    └── artifactResourceChunk   embedded text chunk (halfvec[1536], HNSW cosine index)
+ │    └── artifactResourceChunk   embedded text chunk (halfvec[1536] HNSW + tsvector GIN)
  ├── artifactTool          an installed tool instance (→ toolDefinition, optional → mcpServerCatalog)
  │    └── artifactToolVersion     a custom-code release (script + tool manifest)
  ├── artifactCredential    encrypted secret (OAuth tokens / API keys / per-tool secrets)
@@ -46,7 +46,7 @@ artifact (slug, projectId, …counters)
 
 `CUSTOM_CODE` is provenance rather than a kind of file: it marks a row a user's tool wrote through `ctx.resources.create`, and it is what `artifact_tool.config.resourceAccess` is checked against — `own` (the default) confines a script to rows carrying it, `all` lets it replace and remove uploaded and crawled resources too. A created resource is **not** indexed unless the call asked for it, so script output stays out of the search corpus by default: listable and sendable, searchable only on request.
 
-Embeddable resources are chunked into `artifactResourceChunk` rows, each holding the chunk text and a 1536-dimension `halfvec` embedding indexed with HNSW cosine — this backs the `search-resources` tool.
+Embeddable resources are chunked into `artifactResourceChunk` rows, each holding the chunk text, a 1536-dimension `halfvec` embedding indexed with HNSW cosine, and a generated `content_tsv` (`to_tsvector('simple', content)`) indexed with GIN. The two are fused (reciprocal rank fusion) to back the `search-resources` tool, so exact tokens like order ids and error codes are found as well as paraphrases.
 
 ### Tools catalog
 
