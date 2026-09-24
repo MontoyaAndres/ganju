@@ -18,6 +18,20 @@ export interface ResourceChunkSearch {
   embedding: number[];
   limit: number;
   rerank?: ResourceReranker;
+  // Filled in as the search runs, for a caller that wants to report where the
+  // time went. Left untouched for a stage that didn't run.
+  timings?: ResourceSearchTimings;
+}
+
+export interface ResourceSearchTimings {
+  // The fused query: both rankers, fusion and the citation fields.
+  sqlMs?: number;
+  rerankMs?: number;
+  // How many fused candidates went to the reranker (or were returned).
+  candidates?: number;
+  // Whether the reranker's order was used: false when it failed or returned
+  // an incomplete ranking and the fused order was kept.
+  reranked?: boolean;
 }
 
 export interface ResourceChunkMatch {
@@ -145,6 +159,7 @@ export const searchResourceChunks = async (
   const commonDivisor = utils.constants.RESOURCE_SEARCH_COMMON_TERM_DIVISOR;
   const minCommon = utils.constants.RESOURCE_SEARCH_COMMON_TERM_MIN;
 
+  const sqlStartedAt = Date.now();
   const rows = (await executor.execute(sql`
     WITH vec AS (
       SELECT id, row_number() OVER (ORDER BY distance, id) AS rank
@@ -273,11 +288,17 @@ export const searchResourceChunks = async (
     updatedAt: toIso(row.lastSyncedAt) ?? toIso(row.updatedAt) ?? row.updatedAt
   }));
 
+  if (params.timings) {
+    params.timings.sqlMs = Date.now() - sqlStartedAt;
+    params.timings.candidates = matches.length;
+  }
+
   if (!params.rerank || matches.length <= 1) {
     return matches.slice(0, params.limit);
   }
 
   let scores: number[] | null = null;
+  const rerankStartedAt = Date.now();
   try {
     scores = await params.rerank(
       params.query,
@@ -286,7 +307,12 @@ export const searchResourceChunks = async (
   } catch (error) {
     console.error('Resource rerank failed; keeping the fused order', error);
   }
-  if (!scores || scores.length !== matches.length) {
+  const reranked = !!scores && scores.length === matches.length;
+  if (params.timings) {
+    params.timings.rerankMs = Date.now() - rerankStartedAt;
+    params.timings.reranked = reranked;
+  }
+  if (!scores || !reranked) {
     return matches.slice(0, params.limit);
   }
 

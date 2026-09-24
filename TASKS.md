@@ -204,10 +204,17 @@ response)
   PDF viewer's number), not a page printed in the excerpt — the model had cited
   mml-book's printed pages, 6 off from the footer link; and the channel footer
   keeps only sources the answer names (title, file name or URL, and the pages
-  it cites), falling back to the top 3 hits when it names none, instead of
+  it cites), and none when it names nothing — so a greeting gets no footer —
+  instead of
   listing every search hit (replayed on the three turns: 9 → 1, 6 → 1, 10 → 8).
   After deploy the same PDF question cited "mml-book.pdf, p. 125" … "pp.
   125–135" — PDF pages, matching the footer links — where it had said p. 119.
+  Later, not yet deployed: a URL counts as cited only where it ends (a
+  trailing slash or #fragment allowed), so citing /docs/api no longer keeps
+  /docs and the site root; and search-resources logs one
+  `search-resources.timing` line per call (embedMs, sqlMs, rerankMs,
+  candidates, reranked) to find where its 1.5–2.3 s on dev goes before
+  changing the reranker.
 
 **3. Automatic sync — M**
 

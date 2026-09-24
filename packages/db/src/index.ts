@@ -30,5 +30,6 @@ export type {
   ResourceChunkSearch,
   ResourceChunkMatch,
   ResourceReranker,
-  ResourceSearchResult
+  ResourceSearchResult,
+  ResourceSearchTimings
 } from './lib';

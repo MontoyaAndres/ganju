@@ -1,4 +1,4 @@
-import { db } from '@ganju/db';
+import { db, type ResourceSearchTimings } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import { ToolDefinition } from '../types';
@@ -36,7 +36,9 @@ export const searchResources: ToolDefinition = {
     const requestedLimit = Number(args.limit) || DEFAULT_LIMIT;
     const limit = Math.max(1, Math.min(MAX_LIMIT, requestedLimit));
 
+    const startedAt = Date.now();
     const queryEmbedding = await context.embedQuery(query);
+    const embedMs = Date.now() - startedAt;
     if (!queryEmbedding) {
       return {
         content: [
@@ -48,13 +50,31 @@ export const searchResources: ToolDefinition = {
       };
     }
 
+    const timings: ResourceSearchTimings = {};
     const rows = await db.searchResourceChunks(context.db, {
       artifactId: context.artifactId,
       query,
       embedding: queryEmbedding,
       limit,
-      rerank: utils.createResourceReranker({ env: context.env })
+      rerank: utils.createResourceReranker({ env: context.env }),
+      timings
     });
+
+    // One line per search, to see where its time goes: the embedding call, the
+    // fused query and the reranker. The rest of a tools/call — assembling the
+    // server, the transport — is the gap between totalMs and the request's own
+    // wall time in the invocation log. No query text: that is user content.
+    console.log(
+      JSON.stringify({
+        event: 'search-resources.timing',
+        artifactId: context.artifactId,
+        totalMs: Date.now() - startedAt,
+        embedMs,
+        ...timings,
+        limit,
+        results: rows.length
+      })
+    );
 
     if (rows.length === 0) {
       return {

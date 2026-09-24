@@ -24,7 +24,8 @@ export type {
   ResourceChunkSearch,
   ResourceChunkMatch,
   ResourceReranker,
-  ResourceSearchResult
+  ResourceSearchResult,
+  ResourceSearchTimings
 } from './search';
 
 export const plan = {

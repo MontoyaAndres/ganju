@@ -156,11 +156,6 @@ export const collectSources = async (
   return [...searchEntries, ...readEntries];
 };
 
-// When an answer names none of what it searched, the footer still shows where
-// the answer most likely came from — the top of the ranking — rather than
-// nothing, or every hit.
-const UNCITED_SOURCE_FALLBACK = 3;
-
 // "p. 125", "pp. 123–126", "page 12", "págs. 4-5".
 const PAGE_REFERENCE =
   /\b(?:pp?|pages?|p[aá]gs?|p[aá]ginas?)\.?\s*(\d{1,5})(?:\s*(?:[-–—]|to|a)\s*(\d{1,5}))?/gi;
@@ -190,6 +185,35 @@ const namesFor = (source: Source): string[] => {
   return names.map(normalize).filter(name => name.trim().length >= 4);
 };
 
+// The characters that can carry a URL on past the point we matched. Brackets,
+// quotes and whitespace end it — that is how a URL sits inside Markdown links,
+// parentheses and prose.
+const URL_CONTINUATION = /^[^\s<>()[\]{}"'`|]*/;
+// Punctuation that closes a sentence around a URL rather than belonging to it.
+const TRAILING_PUNCTUATION = /[.,;:!?*_]+$/;
+
+// Whether the answer cites this exact URL, not merely one that starts with it:
+// on a crawled docs site the index page is a prefix of every page beneath it,
+// so a plain substring test kept "/docs" and the site root in the footer of an
+// answer that cited "/docs/api". A trailing slash and a #fragment still count
+// as the same page.
+const citesUrl = (answer: string, url: string): boolean => {
+  const target = url.replace(/\/+$/, '');
+  if (!target) return false;
+  for (
+    let at = answer.indexOf(target);
+    at !== -1;
+    at = answer.indexOf(target, at + 1)
+  ) {
+    const rest = answer
+      .slice(at + target.length)
+      .match(URL_CONTINUATION)![0]
+      .replace(TRAILING_PUNCTUATION, '');
+    if (/^\/*(#.*)?$/.test(rest)) return true;
+  }
+  return false;
+};
+
 const citedPages = (answer: string): Set<number> => {
   const pages = new Set<number>();
   for (const match of answer.matchAll(PAGE_REFERENCE)) {
@@ -213,6 +237,11 @@ const citedPages = (answer: string): Set<number> => {
  * file name or URL — and, for a paged file, only the pages the answer cites
  * (or the best-ranked one, when it cites none). Resources the model read whole
  * are always kept: reading one is itself the citation.
+ *
+ * An answer that names nothing gets no search sources at all. The model is told
+ * to cite what it uses, so a reply that names nothing is a greeting or "I
+ * couldn't find that" — and a footer under it would claim sources it never
+ * used, just because search runs on every message.
  */
 export const selectCitedSources = (
   sources: Source[],
@@ -228,7 +257,7 @@ export const selectCitedSources = (
     searchEntries
       .filter(
         s =>
-          answerText.includes(s.uri.replace(/\/+$/, '')) ||
+          citesUrl(answerText, s.uri) ||
           namesFor(s).some(name => answer.includes(name))
       )
       .map(s => s.resourceId)
@@ -243,9 +272,6 @@ export const selectCitedSources = (
     kept.push(...(onCitedPage.length > 0 ? onCitedPage : entries.slice(0, 1)));
   }
 
-  const cited =
-    kept.length > 0
-      ? searchEntries.filter(s => kept.includes(s))
-      : searchEntries.slice(0, UNCITED_SOURCE_FALLBACK);
+  const cited = searchEntries.filter(s => kept.includes(s));
   return [...cited, ...readEntries];
 };
