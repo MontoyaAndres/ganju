@@ -71,6 +71,7 @@ const business = async (c: Context<AppEnv>) => {
   }
 
   const dbInstance = db.create(c);
+  const bootStartedAt = Date.now();
 
   const artifact = await dbInstance.query.artifact.findFirst({
     where: eq(db.schema.artifact.slug, slug),
@@ -93,6 +94,8 @@ const business = async (c: Context<AppEnv>) => {
     }
   });
 
+  const loadMs = Date.now() - bootStartedAt;
+
   if (!artifact) {
     throw new Error('MCP Server not found');
   }
@@ -110,9 +113,12 @@ const business = async (c: Context<AppEnv>) => {
     utils.isExposedResource(r)
   );
 
+  const credentialsStartedAt = Date.now();
   const refreshedCredentials = await Promise.all(
     artifact.artifactCredentials.map(cred => refreshCredentialIfNeeded(c, cred))
   );
+  const credentialsMs = Date.now() - credentialsStartedAt;
+  const registerStartedAt = Date.now();
 
   // Channel-relayed self-fetches from the API worker tag themselves so we can
   // distinguish them from direct MCP clients (Claude Desktop, mcp-inspector).
@@ -1244,6 +1250,7 @@ const business = async (c: Context<AppEnv>) => {
   }
 
   await mcpServer.connect(transport);
+  const registerMs = Date.now() - registerStartedAt;
 
   // Read the body once so we can both inspect JSON-RPC method names (for
   // list/discovery calls the SDK auto-handles) and forward it to the transport.
@@ -1260,7 +1267,27 @@ const business = async (c: Context<AppEnv>) => {
   const messages = parseJsonRpcMessages(parsedBody);
   const bodyOnly = collectBodyOnlyRequests(messages);
 
+  const handleStartedAt = Date.now();
   const response = await transport.handleRequest(c, parsedBody);
+
+  // One line per request: what assembling this server cost next to the work
+  // the request asked for. The server is rebuilt on every request — initialize
+  // and tools/list included — so bootMs is paid by each of them.
+  console.log(
+    JSON.stringify({
+      event: 'mcp.boot',
+      artifactId: artifact.id,
+      methods: messages.map(m => m.method).filter(Boolean),
+      bootMs: loadMs + credentialsMs + registerMs,
+      loadMs,
+      credentialsMs,
+      registerMs,
+      handleMs: Date.now() - handleStartedAt,
+      resources: artifact.artifactResources.length,
+      tools: registeredToolNames.size,
+      credentials: artifact.artifactCredentials.length
+    })
+  );
 
   // Drop notifications (no `id`) and ping if nothing actually happened.
   const allRequests: PendingRequest[] = [...bodyOnly, ...pendingRequests];

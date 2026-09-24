@@ -215,6 +215,14 @@ response)
   `search-resources.timing` line per call (embedMs, sqlMs, rerankMs,
   candidates, reranked) to find where its 1.5–2.3 s on dev goes before
   changing the reranker.
+  Measured after deploy (dev, 5 searches): warm calls take 1.5–1.7 s — about
+  0.6 s assembling the server, 0.5–0.6 s rerank, 0.2–0.25 s embedding, 0.1–0.2 s
+  SQL; the first call took 9 s (reranker cold start 6 s, connection 2 s).
+  Rerank depth stays at 30: over 12 queries, 44 of 120 results came from fused
+  positions 16–30, and those include the reranker's best catches (the exact
+  `v1-list-all-backups` page, which fusion ranked outside its top 3, came back
+  #1). Next: an `mcp.boot` log line per request (loadMs, credentialsMs,
+  registerMs, handleMs) to see what the 0.6 s is before touching it.
 
 **3. Automatic sync — M**
 
