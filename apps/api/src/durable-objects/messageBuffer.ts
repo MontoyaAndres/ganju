@@ -24,6 +24,13 @@ interface FlushRequestBody {
 }
 
 export class MessageBufferDO extends DurableObject<Bindings> {
+  // A hand-off lasts as long as the turn it runs — half a minute for a long
+  // answer — and storage is only cleared once it returns. A second flush in
+  // that window (the message cap reached mid-turn) would read the same batch
+  // and answer it twice, so it waits for the first instead. In memory is
+  // enough: the object stays alive while its own request is in flight.
+  private flushing = false;
+
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
   }
@@ -74,24 +81,16 @@ export class MessageBufferDO extends DurableObject<Bindings> {
 
     // The window restarts on every message so it tracks the typist, but never
     // past MAX_WAIT from the first one — otherwise someone who keeps typing
-    // never gets an answer.
-    const target = Math.min(
-      now + debounceMs,
-      firstAt + utils.constants.CHANNEL_DEBOUNCE_MAX_WAIT_MS
-    );
+    // never gets an answer. A batch holding an immediate message (a command, or
+    // a channel with buffering off) flushes now, and a plain message typed
+    // right after it must not push that back.
+    const target = messages.some(m => m.immediate)
+      ? now
+      : Math.min(
+          now + debounceMs,
+          firstAt + utils.constants.CHANNEL_DEBOUNCE_MAX_WAIT_MS
+        );
     await this.ctx.storage.setAlarm(target);
-  }
-
-  // Take everything buffered and clear it, without flushing. A slash command is
-  // an explicit "answer me now", so its handler drains whatever the user typed
-  // just before it and folds those messages into the same turn — the pending
-  // text isn't lost, and it isn't answered separately a moment later either.
-  async drain(): Promise<BufferedChannelMessage[]> {
-    const messages =
-      (await this.ctx.storage.get<BufferedChannelMessage[]>('messages')) || [];
-    if (messages.length === 0) return [];
-    await this.clear();
-    return messages;
   }
 
   async alarm(): Promise<void> {
@@ -109,6 +108,23 @@ export class MessageBufferDO extends DurableObject<Bindings> {
   }
 
   private async flush(): Promise<void> {
+    if (this.flushing) {
+      // Not the channel's window, which may be zero: this only has to outlast
+      // the flush in flight, which re-arms for whatever it leaves behind.
+      await this.ctx.storage.setAlarm(
+        Date.now() + utils.constants.CHANNEL_DEBOUNCE_RETRY_MS
+      );
+      return;
+    }
+    this.flushing = true;
+    try {
+      await this.flushBatch();
+    } finally {
+      this.flushing = false;
+    }
+  }
+
+  private async flushBatch(): Promise<void> {
     const messages =
       (await this.ctx.storage.get<BufferedChannelMessage[]>('messages')) || [];
     const envelope =
@@ -150,7 +166,9 @@ export class MessageBufferDO extends DurableObject<Bindings> {
         (await this.ctx.storage.get<number>('debounceMs')) ??
         utils.constants.CHANNEL_DEBOUNCE_DEFAULT_MS;
       await this.ctx.storage.put({ messages: leftover, firstAt: Date.now() });
-      await this.ctx.storage.setAlarm(Date.now() + debounceMs);
+      await this.ctx.storage.setAlarm(
+        Date.now() + (leftover.some(m => m.immediate) ? 0 : debounceMs)
+      );
       return;
     }
 

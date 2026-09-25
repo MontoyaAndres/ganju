@@ -206,10 +206,12 @@ import type { ChannelNotifier, ToolStatusEvent } from './channelNotifier';
 import {
   resolveDebounceMs,
   channelBufferKey,
-  joinBufferedMessages
+  joinBufferedMessages,
+  batchCommand
 } from './channelDebounce';
 import type {
   BufferedChannelMessage,
+  BufferedChannelCommand,
   ChannelBufferEnvelope,
   ChannelBufferFlush
 } from './channelDebounce';
@@ -347,6 +349,7 @@ export const utils = {
   getToolStatusMessage,
   resolveDebounceMs,
   channelBufferKey,
+  batchCommand,
   joinBufferedMessages,
   isResourceSourceEnabled,
   isDownloadableSource,
@@ -417,6 +420,7 @@ export type {
   ChannelNotifier,
   ToolStatusEvent,
   BufferedChannelMessage,
+  BufferedChannelCommand,
   ChannelBufferEnvelope,
   ChannelBufferFlush,
   Source,

@@ -11,11 +11,7 @@ import { getResourceHandler } from '@ganju/containers';
 
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
-import {
-  bufferChannelMessage,
-  drainChannelBuffer,
-  toRunUserMessages
-} from './debounce';
+import { bufferChannelMessage, toRunUserMessages } from './debounce';
 import { markdownToWhatsapp } from '../../utils';
 import { startChannelLink } from './link';
 
@@ -186,8 +182,10 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
   const contact = value?.contacts?.[0];
   const displayName = contact?.profile?.name || `user-${message.from}`;
 
-  // Run the turn after acking so Meta doesn't time out and resend (which would
-  // duplicate the work). Mirrors the Slack path.
+  // Hand the message on after acking, so Meta doesn't time out and resend
+  // (which would duplicate the work). This only classifies and buffers it —
+  // the turn runs from the buffer, beyond waitUntil's 30-second reach. Mirrors
+  // the Slack path.
   c.executionCtx.waitUntil(
     processWhatsappMessage(c, channelRow, credentials, {
       from: message.from,
@@ -298,32 +296,27 @@ const processWhatsappMessage = async (
     delivery: { to: message.from, replyToMessageId: message.messageId }
   };
 
+  // A command is answered immediately and takes any pending text with it;
+  // plain text waits for the burst to settle.
   const buffered: BufferedChannelMessage = {
     text: cleanText,
     externalMessageId: message.messageId,
-    receivedAt: Date.now()
+    receivedAt: Date.now(),
+    immediate: !!promptMatch,
+    command: promptMatch
   };
 
-  // A command is answered immediately and takes any pending text with it;
-  // plain text waits for the burst to settle.
-  if (!promptMatch) {
-    const held = await bufferChannelMessage(
-      c,
-      channelRow.config,
-      envelope,
-      buffered
-    );
-    if (held) return;
+  if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
+    return;
   }
 
-  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
-
+  // The buffer is unreachable: answer inline rather than drop the message.
   await runWhatsappTurnAndReply(
     c,
     channelRow,
     credentials,
     envelope,
-    [...toRunUserMessages(pending), buffered],
+    [buffered],
     promptMatch
   );
 };
@@ -343,7 +336,7 @@ export const handleWhatsappDebouncedBatch = async (
     credentials,
     envelope,
     toRunUserMessages(messages),
-    null
+    utils.batchCommand(messages)
   );
 };
 

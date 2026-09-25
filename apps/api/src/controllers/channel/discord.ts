@@ -12,11 +12,7 @@ import { getResourceHandler } from '@ganju/containers';
 
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
-import {
-  bufferChannelMessage,
-  drainChannelBuffer,
-  toRunUserMessages
-} from './debounce';
+import { bufferChannelMessage, toRunUserMessages } from './debounce';
 import { markdownToDiscord } from '../../utils';
 import { startChannelLink } from './link';
 
@@ -443,33 +439,29 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
     delivery: { replyToMessageId: message.id }
   };
 
+  // A command is answered immediately and takes any pending text with it;
+  // plain text waits for the burst to settle.
   const buffered: BufferedChannelMessage = {
     text: cleanText,
     externalMessageId: message.id,
-    receivedAt: Date.now()
+    receivedAt: Date.now(),
+    immediate: !!promptMatch,
+    command: promptMatch
   };
 
-  // A command is answered immediately and takes any pending text with it;
-  // plain text waits for the burst to settle.
-  if (!promptMatch) {
-    const held = await bufferChannelMessage(
-      c,
-      channelRow.config,
-      envelope,
-      buffered
-    );
-    if (held) return c.json({ ok: true });
+  if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
+    return c.json({ ok: true });
   }
 
-  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
-
+  // The buffer is unreachable: answer inline rather than drop the message.
   await runDiscordBatchAndReply(
     c,
     channelRow,
-    credentials.botToken,
+    credentials,
     envelope,
-    [...toRunUserMessages(pending), buffered],
-    promptMatch
+    [buffered],
+    promptMatch,
+    null
   );
 
   return c.json({ ok: true });
@@ -484,34 +476,53 @@ export const handleDiscordDebouncedBatch = async (
   messages: BufferedChannelMessage[]
 ): Promise<void> => {
   const credentials = loadCredentials(c, channelRow.credentials);
-  await sendDiscordTyping(
-    credentials.botToken,
-    envelope.externalConversationId
-  );
+  const interactionToken = pendingInteractionToken(messages);
+  // A deferred interaction already shows Discord's own "thinking…" state.
+  if (!interactionToken) {
+    await sendDiscordTyping(
+      credentials.botToken,
+      envelope.externalConversationId
+    );
+  }
   await runDiscordBatchAndReply(
     c,
     channelRow,
-    credentials.botToken,
+    credentials,
     envelope,
     toRunUserMessages(messages),
-    null
+    utils.batchCommand(messages),
+    interactionToken
   );
+};
+
+// The newest slash-command interaction in the batch still waiting on its
+// deferred response. When there is one, the batch is answered by editing it —
+// otherwise it would be left "thinking…" until Discord gave up on it.
+const pendingInteractionToken = (
+  messages: BufferedChannelMessage[]
+): string | null => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const token = messages[i].reply?.interactionToken;
+    if (typeof token === 'string' && token) return token;
+  }
+  return null;
 };
 
 type DiscordPromptMatch = Awaited<ReturnType<typeof resolveSlashPrompt>>;
 
-// Run one turn for a Gateway conversation and post the reply into the Discord
-// channel. Shared by the inline path (commands, buffering disabled) and the
-// debounced flush. The interaction path replies differently (it edits its
-// deferred response), so it keeps using runDiscordTurn directly.
+// Run one turn and deliver the reply: by editing a slash command's deferred
+// interaction response when the batch carries one, otherwise as a message in
+// the Discord channel. Shared by the buffer's flush and the inline fallback.
 const runDiscordBatchAndReply = async (
   c: Context<AppEnv>,
   channelRow: { id: string },
-  botToken: string,
+  credentials: DiscordCredentials,
   envelope: ChannelBufferEnvelope,
   userMessages: RunUserMessage[],
-  promptMatch: DiscordPromptMatch
+  promptMatch: DiscordPromptMatch,
+  interactionToken: string | null
 ): Promise<void> => {
+  const { botToken } = credentials;
   const delivery = envelope.delivery as { replyToMessageId?: unknown };
   const replyToMessageId =
     typeof delivery.replyToMessageId === 'string'
@@ -534,19 +545,28 @@ const runDiscordBatchAndReply = async (
     promptArgs: promptMatch?.args || undefined
   });
 
-  await sendDiscordMessage(
-    botToken,
-    conversationId,
-    replyToMessageId,
-    result.replyText,
-    result.sourceButtons
-  );
+  if (interactionToken) {
+    await editInteractionOriginal(
+      credentials.applicationId,
+      interactionToken,
+      result.replyText,
+      result.sourceButtons
+    );
+  } else {
+    await sendDiscordMessage(
+      botToken,
+      conversationId,
+      replyToMessageId,
+      result.replyText,
+      result.sourceButtons
+    );
+  }
 
   for (const attachment of result.attachments) {
     await sendDiscordAttachment(
       botToken,
       conversationId,
-      replyToMessageId,
+      interactionToken ? null : replyToMessageId,
       attachment,
       c.env
     ).catch(err =>
@@ -748,54 +768,57 @@ export const handleDiscordInteraction = async (c: Context<AppEnv>) => {
   const displayName = interactionUserName(interaction);
   const interactionToken = interaction.token;
 
-  // Ack with a deferred response so Discord doesn't time out (3s), then edit the
-  // original message once the turn finishes.
-  c.executionCtx.waitUntil(
-    (async () => {
-      const result = await runDiscordTurn(c, channelRow, credentials.botToken, {
-        channelId: channelRow.id,
-        externalConversationId: conversationId,
-        conversationScope: scope,
-        externalParticipantId: userId,
-        participantDisplayName: displayName,
-        participantMetadata: {
-          viaSlashCommand: true,
-          guildId: interaction.guild_id || null
-        },
-        userMessages: [{ text: trailingText || `/${name}` }],
-        promptId: promptMatch?.promptId || null,
-        promptArtifactId: promptMatch?.artifactPromptId ?? null,
-        promptTitle: promptMatch?.promptTitle ?? null,
-        promptArgs: promptMatch?.args || undefined
-      });
-      await editInteractionOriginal(
-        credentials.applicationId,
-        interactionToken,
-        result.replyText,
-        result.sourceButtons
-      );
-      for (const attachment of result.attachments) {
-        await sendDiscordAttachment(
-          credentials.botToken,
-          conversationId,
-          null,
-          attachment,
-          c.env
-        ).catch(() => undefined);
-      }
-    })().catch(err =>
-      dbUtils.handleError(c, err, {
-        service: utils.constants.SERVICE_NAME_API,
-        metadata: {
-          source: 'channel-runner',
-          platform: utils.constants.CHANNEL_PLATFORM_DISCORD,
-          channelId: channelRow.id,
-          channel: conversationId,
-          command: name
-        }
-      })
-    )
-  );
+  // Ack with a deferred response so Discord doesn't time out (3s); the buffer
+  // runs the turn and edits that response when it finishes. Not waitUntil: a
+  // long answer outlives the ~30 seconds it gets after the ack.
+  const envelope: ChannelBufferEnvelope = {
+    channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_DISCORD,
+    externalConversationId: conversationId,
+    conversationTitle: null,
+    conversationScope: scope,
+    externalParticipantId: userId,
+    participantDisplayName: displayName,
+    participantMetadata: {
+      viaSlashCommand: true,
+      guildId: interaction.guild_id || null
+    },
+    delivery: {}
+  };
+  const buffered: BufferedChannelMessage = {
+    text: trailingText || `/${name}`,
+    externalMessageId: null,
+    receivedAt: Date.now(),
+    immediate: true,
+    command: promptMatch,
+    reply: { interactionToken }
+  };
+
+  if (!(await bufferChannelMessage(c, null, envelope, buffered))) {
+    // The buffer is unreachable: fall back to running the turn after the ack.
+    c.executionCtx.waitUntil(
+      runDiscordBatchAndReply(
+        c,
+        channelRow,
+        credentials,
+        envelope,
+        [buffered],
+        promptMatch,
+        interactionToken
+      ).catch(err =>
+        dbUtils.handleError(c, err, {
+          service: utils.constants.SERVICE_NAME_API,
+          metadata: {
+            source: 'channel-runner',
+            platform: utils.constants.CHANNEL_PLATFORM_DISCORD,
+            channelId: channelRow.id,
+            channel: conversationId,
+            command: name
+          }
+        })
+      )
+    );
+  }
 
   return c.json({
     type: utils.constants.DISCORD_INTERACTION_RESPONSE_DEFERRED

@@ -606,24 +606,28 @@ const debouncedIngest = async (c: Context<AppEnv>) => {
     );
   }
 
-  // Ack before running the turn. The DO only needs to know we took ownership of
-  // the batch — holding its alarm open for the whole model loop would be a long
-  // hand-off for no benefit, and a slow one risks a retry that answers twice.
+  // Run the turn inside this request and answer the buffer when it is done.
+  // Acking first and running it in waitUntil looked cheaper, but waitUntil
+  // work is cancelled about 30 seconds after the response — and a model loop
+  // with a long answer takes that long, so the turn was killed mid-flight with
+  // no reply sent and nothing logged. The buffer's alarm is a patient caller
+  // (it may wait up to 15 minutes), and a request has no wall-clock limit while
+  // its caller is still waiting; the turn itself is almost all I/O.
+  //
   // Failures past this point are the turn's own to report: it replies with an
-  // error reference rather than throwing back to the buffer.
-  c.executionCtx.waitUntil(
-    runBatch(c, channelRow, envelope, messages).catch(err =>
-      dbUtils.handleError(c, err, {
-        service: utils.constants.SERVICE_NAME_API,
-        metadata: {
-          source: 'channel-debounced-ingest',
-          platform: channelRow.platform,
-          channelId: channelRow.id,
-          conversation: envelope.externalConversationId,
-          messageCount: messages.length
-        }
-      })
-    )
+  // error reference and we still answer ok, so the buffer never retries a turn
+  // that already ran — a retry would answer twice.
+  await runBatch(c, channelRow, envelope, messages).catch(err =>
+    dbUtils.handleError(c, err, {
+      service: utils.constants.SERVICE_NAME_API,
+      metadata: {
+        source: 'channel-debounced-ingest',
+        platform: channelRow.platform,
+        channelId: channelRow.id,
+        conversation: envelope.externalConversationId,
+        messageCount: messages.length
+      }
+    })
   );
 
   return c.json({ ok: true });

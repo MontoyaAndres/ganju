@@ -12,7 +12,40 @@ export interface BufferedChannelMessage {
   text: string;
   externalMessageId: string | null;
   receivedAt: number;
+  // Answer without waiting for the burst to settle: an explicit command, or a
+  // message on a channel with buffering turned off. It still goes through the
+  // buffer — that is what runs the turn under a caller patient enough for a
+  // long answer — it just flushes at once, taking any pending text with it.
+  immediate?: boolean;
+  // The prompt this message invoked, when it was a slash command.
+  command?: BufferedChannelCommand | null;
+  // Where this message must be answered, when that isn't the envelope's
+  // `delivery` — a Discord interaction waiting on its deferred response. Kept
+  // on the message because the envelope is replaced by every newer push, and a
+  // plain message typed a moment later must not orphan the interaction.
+  reply?: Record<string, unknown> | null;
 }
+
+// A resolved slash-command prompt, carried with the message that invoked it so
+// the flush can run it exactly as the webhook would have.
+export interface BufferedChannelCommand {
+  promptId: string;
+  artifactPromptId: string | null;
+  promptTitle: string;
+  args: Record<string, string>;
+}
+
+// The prompt a batch runs: the newest command in it, since that is the one the
+// participant asked for last. Null for a batch of plain text.
+export const batchCommand = (
+  messages: BufferedChannelMessage[]
+): BufferedChannelCommand | null => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const command = messages[i].command;
+    if (command) return command;
+  }
+  return null;
+};
 
 // Everything the flush needs to run the turn and deliver the reply, minus the
 // message texts themselves. The newest push wins: a display name or thread id

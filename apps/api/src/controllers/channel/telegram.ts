@@ -13,11 +13,7 @@ import { getResourceHandler } from '@ganju/containers';
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { startChannelLink } from './link';
-import {
-  bufferChannelMessage,
-  drainChannelBuffer,
-  toRunUserMessages
-} from './debounce';
+import { bufferChannelMessage, toRunUserMessages } from './debounce';
 import { markdownToTelegramHtml } from '../../utils';
 
 import type { ParsedSlashCommand } from './slashPrompt';
@@ -185,33 +181,28 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
     }
   };
 
+  // A command is an explicit "answer me now", so it flushes at once — taking
+  // any messages typed just before it along, so nothing the user said is
+  // answered separately a moment later.
   const buffered: BufferedChannelMessage = {
     text: cleanText,
     externalMessageId: String(message.message_id),
-    receivedAt: Date.now()
+    receivedAt: Date.now(),
+    immediate: !!promptMatch,
+    command: promptMatch
   };
 
-  // A command is an explicit "answer me now", so it skips the buffer — but it
-  // takes any messages typed just before it along for the ride, so nothing the
-  // user said is answered separately a moment later.
-  if (!promptMatch) {
-    const held = await bufferChannelMessage(
-      c,
-      channelRow.config,
-      envelope,
-      buffered
-    );
-    if (held) return c.json({ ok: true });
+  if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
+    return c.json({ ok: true });
   }
 
-  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
-
+  // The buffer is unreachable: answer inline rather than drop the message.
   await runTelegramTurnAndReply(
     c,
     channelRow,
     credentials.botToken,
     envelope,
-    [...toRunUserMessages(pending), buffered],
+    [buffered],
     promptMatch
   );
 
@@ -241,7 +232,7 @@ export const handleTelegramDebouncedBatch = async (
     credentials.botToken,
     envelope,
     toRunUserMessages(messages),
-    null
+    utils.batchCommand(messages)
   );
 };
 

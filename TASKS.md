@@ -156,15 +156,20 @@ codes, names), which are most of what support and sales bots get asked.
   this is the first real use of the promptfoo evals task above.
 - Done when: an order id or error code lands in the top 3, and semantic
   queries do not get worse on the golden set.
-- Status: built and tested locally, not deployed. Migration `0074` (tsvector +
-  GIN, and `hnsw.iterative_scan = relaxed_order` as a database default — needs
-  pgvector ≥ 0.8), `db.searchResourceChunks` (RRF, used by both callers), the
-  reranker (Workers AI `bge-reranker-base`, on wherever the `AI` binding is),
-  and `scripts/eval-resource-search.mjs`. The lexical side ORs the query's
-  words, minus stopwords and words common in that artifact, not websearch's
-  AND. On a local ES/EN test corpus with real embeddings: exact tokens in the
-  top 3 went 9/12 → 12/12, semantic stayed 8/8. Still to do: golden sets for
-  real projects and a baseline before deploying.
+- Status: done on dev (2026-09-24), production pending. Migration `0074`
+  (tsvector + GIN, and `hnsw.iterative_scan = relaxed_order` as a database
+  default so the `artifact_id` filter doesn't starve HNSW of candidates) is
+  applied on dev, which runs pgvector 0.8.1. `db.searchResourceChunks` (RRF) is
+  the one search behind both callers. The lexical side ORs the query's words,
+  minus stopwords and words common in that artifact, rather than websearch's
+  AND. The reranker (Workers AI `bge-reranker-base`) is on by default wherever
+  the `AI` binding exists — no flag — and falls back to the fused order if it
+  fails. On a local ES/EN corpus with real embeddings: exact tokens in the top
+  3 went 9/12 → 12/12, semantic stayed 8/8.
+- Before production: check prod runs pgvector ≥ 0.8 (the migration fails
+  otherwise), run `0074` in a quiet window (it rewrites the chunk table), and
+  write golden sets for real projects with `scripts/eval-resource-search.mjs`
+  to take a baseline first.
 
 **2. Citations and metadata in results — S** (ship with 1: same query, same
 response)
@@ -179,50 +184,41 @@ response)
   `@ganju/sdk`.
 - Done when: an answer from a PDF cites its page and one from a crawled site
   cites its URL.
-- Status: built, not deployed. `db.searchResourceChunks` resolves the fields
-  and `db.toResourceSearchResult` is the one result shape both `search-resources`
-  and `ctx.resources.search` return (fields omitted, not null, when unknown).
-  `page` only for PDFs and documents with real pages; `section` is the heading
-  path, sheet name or slide title. The chunker records `headingPath` for
-  Markdown and HTML, and the crawler now keeps headings as `#` lines — so
-  existing crawled sites and Markdown files get sections only once re-indexed.
-  Checked on the dev corpus: PDF hits return `page`, crawled pages and Drive
-  files return `source`. Native tools now register with the handler's
-  description (written for the model) instead of the catalog's one-line card
-  caption, which is what carries the citation guidance to clients. That raises
-  the tool-description cost of every turn: all 62 native tools went from ~790
-  to ~6,300 tokens, Gmail alone from ~215 to ~1,700 and Outlook similar, which
-  lands on the shared-key Free envelope. Gmail and Outlook were then trimmed to
-  what the model needs to choose between them (~640 and ~620 tokens), bringing
-  the total to ~4,200.
-  Channel footers take `page` from the search result, and query chunk metadata
-  only for results from an MCP worker that predates it.
-  Verified on dev (2026-09-24) through a Telegram bot on claude-opus-5: a
-  Markdown answer cited "Refunds → Gift orders", a crawled page cited its URL
-  and section, a PDF answer cited pages. Two fixes after that run, both
-  re-verified on dev: the description now says to cite the `page` field (the
-  PDF viewer's number), not a page printed in the excerpt — the model had cited
-  mml-book's printed pages, 6 off from the footer link; and the channel footer
-  keeps only sources the answer names (title, file name or URL, and the pages
-  it cites), and none when it names nothing — so a greeting gets no footer —
-  instead of
-  listing every search hit (replayed on the three turns: 9 → 1, 6 → 1, 10 → 8).
-  After deploy the same PDF question cited "mml-book.pdf, p. 125" … "pp.
-  125–135" — PDF pages, matching the footer links — where it had said p. 119.
-  Later, not yet deployed: a URL counts as cited only where it ends (a
-  trailing slash or #fragment allowed), so citing /docs/api no longer keeps
-  /docs and the site root; and search-resources logs one
-  `search-resources.timing` line per call (embedMs, sqlMs, rerankMs,
-  candidates, reranked) to find where its 1.5–2.3 s on dev goes before
-  changing the reranker.
-  Measured after deploy (dev, 5 searches): warm calls take 1.5–1.7 s — about
-  0.6 s assembling the server, 0.5–0.6 s rerank, 0.2–0.25 s embedding, 0.1–0.2 s
-  SQL; the first call took 9 s (reranker cold start 6 s, connection 2 s).
-  Rerank depth stays at 30: over 12 queries, 44 of 120 results came from fused
-  positions 16–30, and those include the reranker's best catches (the exact
-  `v1-list-all-backups` page, which fusion ranked outside its top 3, came back
-  #1). Next: an `mcp.boot` log line per request (loadMs, credentialsMs,
-  registerMs, handleMs) to see what the 0.6 s is before touching it.
+- Status: done on dev (2026-09-24), production pending. Ships with 1.
+  - Fields: `db.toResourceSearchResult` is the one result shape for
+    `search-resources` and `ctx.resources.search`; unknown fields are left out,
+    never null. `page` only for PDFs and documents with real pages; `section`
+    is the heading path, sheet name or slide title. The chunker records
+    `headingPath` for Markdown and HTML, and the crawler keeps headings as `#`
+    lines, so existing crawled sites and Markdown files get sections only once
+    re-indexed (3 does that on its own).
+  - Tool guidance: native tools now register with the handler's description
+    (written for the model) instead of the catalog's one-line caption, so the
+    citation rules and "REQUIRED FIRST CALL" reach clients. Built-in tool
+    descriptions total ~4,200 tokens (from ~790) after trimming Gmail and
+    Outlook to ~640 and ~620.
+  - Channel footers: keep only the sources the answer names (title, file name,
+    or a URL where it ends — citing /docs/api no longer keeps /docs), only the
+    pages it cites, and nothing when it names none, so a greeting has no
+    footer. Replayed on three turns: 9 → 1, 6 → 1, 10 → 8 lines. `page` comes
+    from the search result; chunk metadata is queried only for results from an
+    older MCP worker.
+  - Verified on dev through a Telegram bot on claude-opus-5: a PDF answer
+    cited "mml-book.pdf, p. 125" … "pp. 125–135", matching the footer links
+    (the description says to cite the `page` field, not a page printed in the
+    text); a crawled page cited its URL and section; a Markdown answer cited
+    "Refunds → Gift orders".
+  - Known edge: a home page titled with just the brand ("Acme") stays in the
+    footer whenever the answer names the brand or the site's URL. One extra
+    line; leave it unless it shows up.
+- Search latency, measured on dev: warm `search-resources` calls take 1.5–1.7 s
+  — ~0.6 s assembling the server, 0.5–0.6 s rerank, 0.2–0.25 s embedding,
+  0.1–0.2 s SQL; the first call took 9 s (reranker cold start 6 s, connection
+  2 s). Rerank depth stays at 30: over 12 queries, 44 of 120 results came from
+  fused positions 16–30, including the reranker's best catches. The
+  `search-resources.timing` and `mcp.boot` log lines are live on dev (neither
+  logs query text); next is reading `mcp.boot` to see what the 0.6 s of server
+  assembly is before changing it.
 
 **3. Automatic sync — M**
 

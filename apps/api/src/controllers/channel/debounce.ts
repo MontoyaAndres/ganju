@@ -9,9 +9,14 @@ import type { AppEnv } from '../../types';
 
 // The webhook side of message debouncing. Each platform handler decides what a
 // message *is* (mentions stripped, bot posts ignored, slash commands resolved)
-// and then either buffers it here or — for an explicit command — drains the
-// buffer and answers immediately. The MessageBufferDO holds the burst; the
-// `/channel/:id/ingest/debounced` route runs the turn once it flushes.
+// and hands it to the MessageBufferDO, which holds a burst until the typist
+// pauses and then runs the turn through the `/channel/:id/ingest/debounced`
+// route. Commands go through it too, flagged to flush at once.
+//
+// The buffer is also what makes a long turn safe. Its alarm waits on the ingest
+// route for as long as the turn takes, while a webhook that ran the turn in
+// waitUntil would be cancelled about 30 seconds after answering the platform —
+// and platforms want an answer within a few seconds.
 
 const bufferStub = (
   c: Context<AppEnv>,
@@ -32,12 +37,12 @@ const bufferStub = (
   );
 };
 
-// Hold one inbound message until the participant stops typing. Returns false
-// when the caller should answer it inline instead — either because this channel
-// has buffering turned off (`config.debounceMs === 0`), or because the buffer
-// couldn't be reached. Falling back to an immediate answer degrades to the old
-// message-at-a-time behavior, which is far better than dropping what the user
-// said because a Durable Object was unavailable.
+// Hand one inbound message to the buffer. It waits for the burst to settle,
+// unless the message is `immediate` or the channel has buffering turned off
+// (`config.debounceMs === 0`), in which case it flushes at once — with any text
+// the participant typed just before it. Returns false only when the buffer
+// couldn't be reached: the caller then answers inline, which is far better than
+// dropping what the user said because a Durable Object was unavailable.
 export const bufferChannelMessage = async (
   c: Context<AppEnv>,
   channelConfig: unknown,
@@ -45,10 +50,16 @@ export const bufferChannelMessage = async (
   message: BufferedChannelMessage
 ): Promise<boolean> => {
   const debounceMs = utils.resolveDebounceMs(channelConfig);
-  if (debounceMs === utils.constants.CHANNEL_DEBOUNCE_DISABLED) return false;
+  const immediate =
+    message.immediate === true ||
+    debounceMs === utils.constants.CHANNEL_DEBOUNCE_DISABLED;
 
   try {
-    await bufferStub(c, envelope).push(envelope, message, debounceMs);
+    await bufferStub(c, envelope).push(
+      envelope,
+      { ...message, immediate },
+      debounceMs
+    );
     return true;
   } catch (error) {
     console.error('Failed to buffer channel message; answering inline', error);
@@ -56,25 +67,7 @@ export const bufferChannelMessage = async (
   }
 };
 
-// Take whatever the participant typed just before an explicit command, so those
-// messages ride along in the same turn instead of being answered separately a
-// moment later. Best-effort: if the buffer can't be reached the command still
-// runs, it just doesn't pick up the pending text.
-export const drainChannelBuffer = async (
-  c: Context<AppEnv>,
-  envelope: Pick<
-    ChannelBufferEnvelope,
-    'channelId' | 'externalConversationId' | 'externalParticipantId'
-  >
-): Promise<BufferedChannelMessage[]> => {
-  try {
-    return await bufferStub(c, envelope).drain();
-  } catch {
-    return [];
-  }
-};
-
-// A buffered batch (or a drained one) as the runner wants it.
+// A buffered batch as the runner wants it.
 export const toRunUserMessages = (
   messages: BufferedChannelMessage[]
 ): Array<{ text: string; externalMessageId: string | null }> =>

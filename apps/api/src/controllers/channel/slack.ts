@@ -9,11 +9,7 @@ import type {
 } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import {
-  bufferChannelMessage,
-  drainChannelBuffer,
-  toRunUserMessages
-} from './debounce';
+import { bufferChannelMessage, toRunUserMessages } from './debounce';
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { markdownToSlackMrkdwn } from '../../utils';
@@ -22,6 +18,7 @@ import { startChannelLink } from './link';
 import type { ChannelAttachment, RunUserMessage } from './runner';
 import type { ParsedSlashCommand } from './slashPrompt';
 import type {
+  BufferedChannelCommand,
   BufferedChannelMessage,
   ChannelBufferEnvelope
 } from '@ganju/utils';
@@ -154,7 +151,9 @@ export const handleSlackWebhook = async (c: Context<AppEnv>) => {
     return c.json({ ok: true });
   }
 
-  // Run the turn after acking so Slack doesn't time out and retry.
+  // Hand the event on after acking so Slack doesn't time out and retry. This
+  // only classifies and buffers it — the turn runs from the buffer, beyond
+  // waitUntil's 30-second reach.
   c.executionCtx.waitUntil(
     processSlackEvent(c, channelRow, credentials.botToken, botMeta, {
       ...event,
@@ -261,27 +260,22 @@ const processSlackEvent = async (
     delivery: { channel: event.channel, threadTs: replyThreadTs }
   };
 
+  // A command is answered immediately; plain text waits for the burst to
+  // settle. Either way nothing typed before it is lost — a command flushes the
+  // buffer and folds those messages into the same turn.
   const buffered: BufferedChannelMessage = {
     text: cleanText,
     externalMessageId: event.ts || null,
-    receivedAt: Date.now()
+    receivedAt: Date.now(),
+    immediate: !!promptMatch,
+    command: promptMatch
   };
 
-  // A command is answered immediately; plain text waits for the burst to
-  // settle. Either way nothing typed before it is lost — a command drains the
-  // buffer and folds those messages into the same turn.
-  if (!promptMatch) {
-    const held = await bufferChannelMessage(
-      c,
-      channelRow.config,
-      envelope,
-      buffered
-    );
-    if (held) return;
+  if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
+    return;
   }
 
-  const pending = promptMatch ? await drainChannelBuffer(c, envelope) : [];
-
+  // The buffer is unreachable: answer inline rather than drop the message.
   await runSlackTurnAndReply(
     c,
     channelRow,
@@ -297,7 +291,7 @@ const processSlackEvent = async (
         teamId: event.team_id,
         channelType: event.channel_type
       },
-      userMessages: [...toRunUserMessages(pending), buffered],
+      userMessages: [buffered],
       promptId: promptMatch?.promptId || null,
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
@@ -344,12 +338,25 @@ export const handleSlackDebouncedBatch = async (
       externalParticipantId: envelope.externalParticipantId,
       participantDisplayName: envelope.participantDisplayName,
       participantMetadata: envelope.participantMetadata || undefined,
-      userMessages: toRunUserMessages(messages)
+      userMessages: toRunUserMessages(messages),
+      ...promptOptions(utils.batchCommand(messages))
     },
     replyChannel,
     replyThreadTs
   );
 };
+
+const promptOptions = (
+  command: BufferedChannelCommand | null
+): Pick<
+  SlackRunOptions,
+  'promptId' | 'promptArtifactId' | 'promptTitle' | 'promptArgs'
+> => ({
+  promptId: command?.promptId || null,
+  promptArtifactId: command?.artifactPromptId ?? null,
+  promptTitle: command?.promptTitle ?? null,
+  promptArgs: command?.args || undefined
+});
 
 // Native Slack slash command — a form-encoded POST to the same Request URL.
 // Already signature-verified by the caller. `/link` replies ephemerally (only
@@ -400,38 +407,59 @@ const handleSlashCommand = async (
   });
 
   // Slash commands carry no message ts to thread on, so the reply is posted
-  // top-level into the originating channel.
-  c.executionCtx.waitUntil(
-    runSlackTurnAndReply(
-      c,
-      channelRow,
-      botToken,
-      {
-        channelId: channelRow.id,
-        externalConversationId: conversationId,
-        conversationScope: scope,
-        externalParticipantId,
-        participantMetadata: { viaSlashCommand: true },
-        userMessages: [{ text: trailingText || `/${name}` }],
-        promptId: promptMatch?.promptId || null,
-        promptArtifactId: promptMatch?.artifactPromptId ?? null,
-        promptTitle: promptMatch?.promptTitle ?? null,
-        promptArgs: promptMatch?.args || undefined
-      },
-      conversationId
-    ).catch(err =>
-      dbUtils.handleError(c, err, {
-        service: utils.constants.SERVICE_NAME_API,
-        metadata: {
-          source: 'channel-runner',
-          platform: utils.constants.CHANNEL_PLATFORM_SLACK,
+  // top-level into the originating channel. The turn runs from the buffer, not
+  // here: Slack wants its answer within 3 seconds, and a turn run in waitUntil
+  // after that is cancelled once a long answer passes about 30 seconds.
+  const envelope: ChannelBufferEnvelope = {
+    channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_SLACK,
+    externalConversationId: conversationId,
+    conversationTitle: null,
+    conversationScope: scope,
+    externalParticipantId,
+    participantDisplayName: null,
+    participantMetadata: { viaSlashCommand: true },
+    delivery: { channel: conversationId }
+  };
+  const buffered: BufferedChannelMessage = {
+    text: trailingText || `/${name}`,
+    externalMessageId: null,
+    receivedAt: Date.now(),
+    immediate: true,
+    command: promptMatch
+  };
+
+  if (!(await bufferChannelMessage(c, null, envelope, buffered))) {
+    // The buffer is unreachable: fall back to running the turn after the ack.
+    c.executionCtx.waitUntil(
+      runSlackTurnAndReply(
+        c,
+        channelRow,
+        botToken,
+        {
           channelId: channelRow.id,
-          channel: conversationId,
-          command: name
-        }
-      })
-    )
-  );
+          externalConversationId: conversationId,
+          conversationScope: scope,
+          externalParticipantId,
+          participantMetadata: { viaSlashCommand: true },
+          userMessages: [buffered],
+          ...promptOptions(promptMatch)
+        },
+        conversationId
+      ).catch(err =>
+        dbUtils.handleError(c, err, {
+          service: utils.constants.SERVICE_NAME_API,
+          metadata: {
+            source: 'channel-runner',
+            platform: utils.constants.CHANNEL_PLATFORM_SLACK,
+            channelId: channelRow.id,
+            channel: conversationId,
+            command: name
+          }
+        })
+      )
+    );
+  }
 
   return c.json({ response_type: 'ephemeral', text: 'On it…' });
 };
