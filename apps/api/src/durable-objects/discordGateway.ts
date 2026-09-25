@@ -328,7 +328,7 @@ export class DiscordGatewayDO extends DurableObject<Bindings> {
     };
 
     try {
-      await this.env.API.fetch(
+      const response = await this.env.API.fetch(
         `https://ganju-discord-gateway/channel/${channelId}/ingest/discord`,
         {
           method: 'POST',
@@ -339,6 +339,9 @@ export class DiscordGatewayDO extends DurableObject<Bindings> {
           body: JSON.stringify(body)
         }
       );
+      // Read the body, or the ingest request stays open until this object
+      // shuts down and is logged as canceled.
+      await response.arrayBuffer().catch(() => undefined);
     } catch {
       // A failed ingest must not crash the socket loop; the user can retry.
     }

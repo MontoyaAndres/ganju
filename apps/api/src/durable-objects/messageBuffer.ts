@@ -229,6 +229,10 @@ export class MessageBufferDO extends DurableObject<Bindings> {
           body: JSON.stringify(body)
         }
       );
+      // Read the body even though only the status matters. Left unread, it
+      // holds the ingest request open until this object shuts down, and the
+      // turn that already answered is logged as canceled.
+      await response.arrayBuffer().catch(() => undefined);
       return response.ok;
     } catch {
       return false;
