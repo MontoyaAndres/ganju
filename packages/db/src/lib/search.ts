@@ -245,17 +245,23 @@ export const searchResourceChunks = async (
       1 - (c.embedding <=> ${vector}::halfvec) AS "similarity",
       f.vector_rank AS "vectorRank",
       f.lexical_rank AS "lexicalRank",
-      -- Citation fields, read as single paths rather than whole columns: a
-      -- crawled page's resource metadata holds its SEO snapshot, and every one
-      -- of its chunks repeats it.
+      -- Citation fields, read as single paths rather than whole columns. A
+      -- crawled page's resource metadata is skipped outright: it holds the
+      -- page's SEO snapshot, and a json column is parsed whole to read one key
+      -- — tens of milliseconds a search on a large site. A page has neither
+      -- key anyway; its link is its uri.
       r.source_type AS "sourceType",
-      coalesce(r.metadata->>'webViewLink', r.metadata->>'webUrl') AS "sourceLink",
+      CASE WHEN r.source_type <> ${utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE}
+        THEN coalesce(r.metadata->>'webViewLink', r.metadata->>'webUrl')
+      END AS "sourceLink",
       c.metadata->'loc'->>'pageNumber' AS "pageNumber",
       c.metadata->'loc'->>'totalPages' AS "totalPages",
       c.metadata->'loc'->>'sheetName' AS "sheetName",
       c.metadata->'loc'->>'slideTitle' AS "slideTitle",
       c.metadata->>'headingPath' AS "headingPath",
-      r.metadata->>'lastSyncedAt' AS "lastSyncedAt",
+      CASE WHEN r.source_type <> ${utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE}
+        THEN r.metadata->>'lastSyncedAt'
+      END AS "lastSyncedAt",
       to_char(r.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt"
     FROM fused f
     JOIN artifact_resource_chunk c ON c.id = f.id

@@ -18,8 +18,9 @@ Billable units (we already meter all of this — see the schema):
   as tool calls / RAG queries, or bundle it generously.
 - Storage is split by where the cost actually lives:
   - Raw file storage (R2, ~$0.015/GB) — cheap, bundle generously.
-  - Embedded/RAG content (pgvector in Postgres: 3072-dim halfvec + HNSW index, the
-    real recurring cost) — this is what the $0.50/GB rate is for.
+  - Embedded/RAG content (pgvector in Postgres: 1536-dim halfvec + HNSW index, the
+    real recurring cost — on dev the index is ~90% of the chunk table's 142 MB)
+    — this is what the $0.50/GB rate is for.
 - Inference is usually on the org's OWN LLM key (organizationLlm.apiKey), so the
   per-message charge is mostly a PLATFORM fee (hosting/runner/RAG), priced low. If we
   ever supply a default Ganju model, that path passes tokens through with margin.
@@ -169,7 +170,10 @@ codes, names), which are most of what support and sales bots get asked.
 - Before production: check prod runs pgvector ≥ 0.8 (the migration fails
   otherwise), run `0074` in a quiet window (it rewrites the chunk table), and
   write golden sets for real projects with `scripts/eval-resource-search.mjs`
-  to take a baseline first.
+  to take a baseline first. Re-checked 2026-09-25: dev has pgvector 0.8.1,
+  `content_tsv` + its GIN index and the `iterative_scan` default in place.
+  Prod runs the same pgvector version as dev (0.8.1), so `0074` will apply;
+  what's left is the quiet window and the golden-set baseline.
 
 **2. Citations and metadata in results — S** (ship with 1: same query, same
 response)
@@ -206,19 +210,39 @@ response)
   - Verified on dev through a Telegram bot on claude-opus-5: a PDF answer
     cited "mml-book.pdf, p. 125" … "pp. 125–135", matching the footer links
     (the description says to cite the `page` field, not a page printed in the
-    text); a crawled page cited its URL and section; a Markdown answer cited
-    "Refunds → Gift orders".
+    text); a crawled page cited its URL.
+  - `section` is NOT verified. On 2026-09-25 none of dev's 9,521 chunks had a
+    `headingPath`: nothing has been indexed there since 2026-09-10, and dev
+    holds no Markdown or HTML resources. The section-looking citations in that
+    run ("Refunds → Gift orders", a crawled page's section) were the model
+    reading headings out of the excerpt text. To verify: re-crawl a site on
+    dev or upload a `.md` file, then check `headingPath` on its chunks.
   - Known edge: a home page titled with just the brand ("Acme") stays in the
     footer whenever the answer names the brand or the site's URL. One extra
     line; leave it unless it shows up.
 - Search latency, measured on dev: warm `search-resources` calls take 1.5–1.7 s
-  — ~0.6 s assembling the server, 0.5–0.6 s rerank, 0.2–0.25 s embedding,
-  0.1–0.2 s SQL; the first call took 9 s (reranker cold start 6 s, connection
-  2 s). Rerank depth stays at 30: over 12 queries, 44 of 120 results came from
-  fused positions 16–30, including the reranker's best catches. The
-  `search-resources.timing` and `mcp.boot` log lines are live on dev (neither
-  logs query text); next is reading `mcp.boot` to see what the 0.6 s of server
-  assembly is before changing it.
+  — 0.5–0.9 s rerank, 0.2–0.35 s embedding, SQL and boot as below; the first
+  call took 9 s (reranker cold start 6 s, connection 2 s). Rerank depth stays
+  at 30: over 12 queries, 44 of 120 results came from fused positions 16–30,
+  including the reranker's best catches.
+- `mcp.boot`, read 2026-09-25 (21 requests on three dev artifacts): there is no
+  0.6 s of server assembly. That figure was the invocation's wallTime minus
+  the search, and wallTime also counts the usage writes run in `waitUntil`
+  after the response (0.25–0.45 s). What a client waits on is `loadMs`, the
+  artifact query: 76–150 ms with 3 resources, 184–389 ms with 1,198 — it
+  grows with the resource count. Registering tools is cheap: 13–116 ms of CPU
+  for the whole request. `registerMs` was dropped from the log line — a
+  Worker's clock doesn't move during CPU work, so it read 0 — and
+  `versionsMs` (the custom-code versions query) replaces it.
+- SQL is 0.1–0.2 s only on small artifacts with a warm connection. On the
+  7,027-chunk dev artifact the worker logged 0.6–0.8 s. In the database the
+  query runs in 50–90 ms; the lexical side, common-word counting included, is
+  ~7 ms. The rest is the first query on a fresh connection, which grows with
+  the artifact: 286 / 328 / 500–670 ms cold against 80 / 120 / 130 ms warm.
+  Reading the resource metadata of crawled pages (their SEO snapshot, parsed
+  whole from a `json` column) cost another 20–40 ms per search and is now
+  skipped. Next, if search latency matters: a smaller artifact query at boot,
+  then connection warmth on the SQL side.
 
 **3. Automatic sync — M**
 
@@ -233,6 +257,12 @@ on its own: the API's crons only run error alerts and overage metering.
   at the source. Embedding cost is then only for changed content.
 - A per-source interval (off / daily / weekly), with Free limited to the
   slowest one. "Last synced" and "Sync now" on the Resources page.
+- Websites start further behind than Drive and OneDrive. A crawl is queued
+  only when the resource is created — there is no sync route for it — and
+  re-running `crawlDiscover` only inserts URLs it hasn't seen: a changed page
+  is never re-crawled and a removed one is never deleted. None of dev's 1,393
+  website resources has a `lastSyncedAt`. Drive already has what's needed
+  (`hasFileChanged` on version / modifiedTime / md5, and deletion).
 - Done when: editing a Drive document shows up in search within its interval
   with no manual step.
 

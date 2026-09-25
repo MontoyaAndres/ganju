@@ -35,6 +35,7 @@ import type { SlackBotInfo } from './slack';
 import type { DiscordBotInfo } from './discord';
 import type { WhatsappBotInfo } from './whatsapp';
 import { loadCommandPrompts } from './proxiedPrompts';
+import { claimBufferedBatch } from './debounce';
 import { assertNoChannelConflict } from './conflicts';
 import {
   registerTelegramBotCommands,
@@ -562,6 +563,7 @@ const debouncedIngest = async (c: Context<AppEnv>) => {
   const body = (await c.req.json().catch(() => null)) as {
     envelope?: ChannelBufferEnvelope;
     messages?: BufferedChannelMessage[];
+    batchId?: unknown;
   } | null;
 
   const envelope = body?.envelope;
@@ -604,6 +606,19 @@ const debouncedIngest = async (c: Context<AppEnv>) => {
       { ok: false, error: `Unsupported platform: ${channelRow.platform}` },
       400
     );
+  }
+
+  const batchId =
+    typeof body?.batchId === 'string' && body.batchId ? body.batchId : null;
+  if (batchId) {
+    const claim = await claimBufferedBatch(
+      dbInstance,
+      channelRow.id,
+      envelope.externalConversationId,
+      batchId
+    );
+    if (claim === 'answered') return c.json({ ok: true, skipped: 'answered' });
+    c.set('bufferBatchId', batchId);
   }
 
   // Run the turn inside this request and answer the buffer when it is done.

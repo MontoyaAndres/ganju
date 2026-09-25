@@ -343,6 +343,17 @@ export const runChannelTurn = async (
   // while the model sees a single coherent question.
   const mergedUserText = utils.joinBufferedMessages(options.userMessages);
 
+  // Present when the turn came from the message buffer. Written on the turn's
+  // rows so a re-sent batch can be told apart from a new one.
+  const bufferBatchId = c.get('bufferBatchId');
+  const userMetadata =
+    options.messageMetadata || bufferBatchId
+      ? {
+          ...options.messageMetadata,
+          ...(bufferBatchId ? { bufferBatchId } : {})
+        }
+      : null;
+
   // One row per message the user actually sent, in arrival order.
   const userMessageRows = await dbInstance
     .insert(db.schema.channelMessage)
@@ -353,7 +364,7 @@ export const runChannelTurn = async (
         externalMessageId: message.externalMessageId || null,
         conversationId: conversation.id,
         participantId: participant.id,
-        metadata: options.messageMetadata || null
+        metadata: userMetadata
       }))
     )
     .returning();
@@ -903,6 +914,7 @@ export const runChannelTurn = async (
       latencyMs: totalLatency,
       metadata: {
         ...(sources.length > 0 ? { sources } : {}),
+        ...(bufferBatchId ? { bufferBatchId } : {}),
         llm: {
           provider: llmRow.provider,
           model: llmRow.model,

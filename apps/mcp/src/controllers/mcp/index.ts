@@ -118,7 +118,6 @@ const business = async (c: Context<AppEnv>) => {
     artifact.artifactCredentials.map(cred => refreshCredentialIfNeeded(c, cred))
   );
   const credentialsMs = Date.now() - credentialsStartedAt;
-  const registerStartedAt = Date.now();
 
   // Channel-relayed self-fetches from the API worker tag themselves so we can
   // distinguish them from direct MCP clients (Claude Desktop, mcp-inspector).
@@ -420,6 +419,7 @@ const business = async (c: Context<AppEnv>) => {
     string,
     { tools: unknown; scriptName: string | null }
   >();
+  const versionsStartedAt = Date.now();
   if (activeVersionIds.length > 0) {
     const versions = await dbInstance
       .select({
@@ -436,6 +436,7 @@ const business = async (c: Context<AppEnv>) => {
       });
     }
   }
+  const versionsMs = Date.now() - versionsStartedAt;
 
   // The organization's custom-tool budget for this period, loaded at most once
   // per request and only when something actually dispatches. An artifact whose
@@ -1250,7 +1251,6 @@ const business = async (c: Context<AppEnv>) => {
   }
 
   await mcpServer.connect(transport);
-  const registerMs = Date.now() - registerStartedAt;
 
   // Read the body once so we can both inspect JSON-RPC method names (for
   // list/discovery calls the SDK auto-handles) and forward it to the transport.
@@ -1273,15 +1273,20 @@ const business = async (c: Context<AppEnv>) => {
   // One line per request: what assembling this server cost next to the work
   // the request asked for. The server is rebuilt on every request — initialize
   // and tools/list included — so bootMs is paid by each of them.
+  //
+  // Only waits are timed. A Worker's clock stands still during CPU work, so
+  // registering the tools reads as 0 however long it takes; the CPU a request
+  // spent is the invocation log's cpuTime. That log's wallTime also counts the
+  // usage writes below, which run after the response has gone out.
   console.log(
     JSON.stringify({
       event: 'mcp.boot',
       artifactId: artifact.id,
       methods: messages.map(m => m.method).filter(Boolean),
-      bootMs: loadMs + credentialsMs + registerMs,
+      bootMs: loadMs + credentialsMs + versionsMs,
       loadMs,
       credentialsMs,
-      registerMs,
+      versionsMs,
       handleMs: Date.now() - handleStartedAt,
       resources: artifact.artifactResources.length,
       tools: registeredToolNames.size,

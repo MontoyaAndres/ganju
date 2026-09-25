@@ -5,7 +5,7 @@ How to get Ganju running on your machine and the day-to-day commands.
 ## Prerequisites
 
 - **Node.js** ≥ 20 and **npm** 11 (the repo pins `npm@11.17.0` via `packageManager`).
-- **A Postgres database** with the [`pgvector`](https://github.com/pgvector/pgvector) extension (Neon works well; any Postgres 15+ with `pgvector` is fine). The embedding column is a 3072-dim `halfvec`, so `pgvector` ≥ 0.7 is required.
+- **A Postgres database** with the [`pgvector`](https://github.com/pgvector/pgvector) extension (Neon works well; any Postgres 15+ with `pgvector` is fine). The embedding column is a 1536-dim `halfvec`, and search relies on HNSW iterative scans (set as a database default by migration `0074`), so `pgvector` ≥ 0.8 is required.
 - **Docker** — needed to run the `resource-handler` container locally via Wrangler.
 - **A Cloudflare account** — Wrangler runs the Workers locally and provisions Queues/R2/Hyperdrive for deploys. A free account is enough to start; some bindings (Containers) require a paid plan to deploy.
 - API keys for the integrations you want to exercise (Google, GitHub, Microsoft, Slack OAuth apps; a Gemini/embedding key; etc.). You can start with a subset.

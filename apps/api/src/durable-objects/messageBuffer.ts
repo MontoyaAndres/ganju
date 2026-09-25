@@ -3,7 +3,8 @@ import { utils } from '@ganju/utils';
 
 import type {
   BufferedChannelMessage,
-  ChannelBufferEnvelope
+  ChannelBufferEnvelope,
+  ChannelBufferFlush
 } from '@ganju/utils';
 import type { Bindings } from '../types';
 
@@ -18,9 +19,14 @@ import type { Bindings } from '../types';
 // binding), where the platform handlers run the turn and post the reply —
 // exactly the split DiscordGatewayDO uses for inbound Gateway messages.
 
-interface FlushRequestBody {
-  envelope: ChannelBufferEnvelope;
-  messages: BufferedChannelMessage[];
+// The batch a hand-off is carrying, written before the hand-off starts and
+// removed once it ends. If the object restarts mid-turn (a deploy restarts it
+// along with the worker), the retried alarm finds this and re-sends the same
+// batch under the same id, rather than a fresh one the worker can't recognise
+// as a turn it may already have answered.
+interface InFlightBatch {
+  batchId: string;
+  count: number;
 }
 
 export class MessageBufferDO extends DurableObject<Bindings> {
@@ -102,7 +108,8 @@ export class MessageBufferDO extends DurableObject<Bindings> {
       'messages',
       'envelope',
       'firstAt',
-      'debounceMs'
+      'debounceMs',
+      'inFlight'
     ]);
     await this.ctx.storage.deleteAlarm();
   }
@@ -146,7 +153,21 @@ export class MessageBufferDO extends DurableObject<Bindings> {
       return;
     }
 
-    const body: FlushRequestBody = { envelope, messages };
+    // A batch whose hand-off already started keeps its id and its size: the
+    // messages pushed since then are the next batch, not part of this one.
+    const pending = await this.ctx.storage.get<InFlightBatch>('inFlight');
+    const inFlight: InFlightBatch =
+      pending && pending.count > 0 && pending.count <= messages.length
+        ? pending
+        : { batchId: crypto.randomUUID(), count: messages.length };
+    if (inFlight !== pending) await this.ctx.storage.put('inFlight', inFlight);
+    const batch = messages.slice(0, inFlight.count);
+
+    const body: ChannelBufferFlush = {
+      envelope,
+      messages: batch,
+      batchId: inFlight.batchId
+    };
     const delivered = await this.deliver(secret, body);
 
     if (delivered) {
@@ -156,8 +177,8 @@ export class MessageBufferDO extends DurableObject<Bindings> {
       const current =
         (await this.ctx.storage.get<BufferedChannelMessage[]>('messages')) ||
         [];
-      const leftover = current.slice(messages.length);
-      await this.ctx.storage.delete('attempts');
+      const leftover = current.slice(batch.length);
+      await this.ctx.storage.delete(['attempts', 'inFlight']);
       if (leftover.length === 0) {
         await this.clear();
         return;
@@ -173,8 +194,9 @@ export class MessageBufferDO extends DurableObject<Bindings> {
     }
 
     // Hand-off failed. Keep the batch and try again shortly — a dropped batch
-    // reads to the user as the bot ignoring them. Give up after a few attempts
-    // so a permanently broken route can't loop forever.
+    // reads to the user as the bot ignoring them. The retry carries the same
+    // batch id, because the worker may have answered before the failure. Give
+    // up after a few attempts so a permanently broken route can't loop forever.
     const attempts =
       ((await this.ctx.storage.get<number>('attempts')) ?? 0) + 1;
     if (attempts >= utils.constants.CHANNEL_DEBOUNCE_MAX_ATTEMPTS) {
@@ -193,7 +215,7 @@ export class MessageBufferDO extends DurableObject<Bindings> {
 
   private async deliver(
     secret: string,
-    body: FlushRequestBody
+    body: ChannelBufferFlush
   ): Promise<boolean> {
     try {
       const response = await this.env.API.fetch(

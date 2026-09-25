@@ -68,6 +68,9 @@ export interface ChannelBufferEnvelope {
 export interface ChannelBufferFlush {
   envelope: ChannelBufferEnvelope;
   messages: BufferedChannelMessage[];
+  // Stable across every hand-off of the same batch, so the worker can tell a
+  // retry of a turn it already answered from a new one.
+  batchId: string;
 }
 
 // Read the channel's debounce window off its `config`, clamped to the supported

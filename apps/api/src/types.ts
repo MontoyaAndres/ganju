@@ -25,6 +25,9 @@ export type Variables = {
   user: Auth['$Infer']['Session']['user'];
   session: Auth['$Infer']['Session']['session'];
   apiToken: { id: string; projectId: string; organizationId: string };
+  // Set on the buffer's ingest route: the id the runner tags the turn's rows
+  // with, so a re-sent batch is recognised.
+  bufferBatchId?: string;
 };
 
 export interface RateLimiter {
