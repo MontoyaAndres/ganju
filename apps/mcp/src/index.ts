@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
 import { utils as dbUtils } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
@@ -32,6 +33,14 @@ app
     })
   )
   .onError(async (error, c) => {
+    // The MCP transport turns away a request it can't serve — an unsupported
+    // protocol version, a second initialize, a bad session — with a finished
+    // JSON-RPC response that says why. Clients read it to negotiate or fall
+    // back, so it goes out as it is; recording it would log every such probe
+    // as a server error and replace the reason with a generic one.
+    if (error instanceof HTTPException && error.status < 500) {
+      return error.getResponse();
+    }
     const { status, body } = await dbUtils.handleError(c, error, {
       service: utils.constants.SERVICE_NAME_MCP
     });
