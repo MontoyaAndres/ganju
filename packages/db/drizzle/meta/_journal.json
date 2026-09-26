@@ -526,6 +526,13 @@
       "when": 1790274939968,
       "tag": "0074_resource_chunk_tsvector",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1790379822685,
+      "tag": "0075_resource_sync",
+      "breakpoints": true
     }
   ]
 }

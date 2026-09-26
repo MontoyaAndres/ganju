@@ -134,6 +134,36 @@ const fetchHtml = async (
   }
 };
 
+// Whether the site says a page no longer exists — 404 or 410, and nothing
+// else. Asked only after a fetch failed, so the failure can be told apart:
+// a page that is gone gets removed by a sync, while a timeout, a 500 or a
+// login wall keeps the copy already indexed.
+export const isPageGone = async (url: string): Promise<boolean> => {
+  const normalized = normalizeUrl(url);
+  if (!normalized) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    utils.constants.CRAWL_PAGE_FETCH_TIMEOUT_MS
+  );
+  try {
+    const response = await fetch(normalized, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: {
+        'user-agent': utils.constants.CRAWL_USER_AGENT,
+        accept: 'text/html,application/xhtml+xml'
+      }
+    });
+    await response.body?.cancel().catch(() => undefined);
+    return response.status === 404 || response.status === 410;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const stripBoilerplate = ($: any, root: any): void => {
   $(root)
     .find(

@@ -82,7 +82,10 @@ const extractDriveFileId = (
   return null;
 };
 
-const hasFileChanged = async (
+// Whether a Drive file needs fetching again: its version, modified time or
+// checksum moved, the last attempt failed, or our stored copy is gone. Shared
+// with the single-file sync, which runs it before downloading anything.
+export const hasFileChanged = async (
   bucket: R2Bucket | undefined,
   existingRow: {
     metadata: unknown;

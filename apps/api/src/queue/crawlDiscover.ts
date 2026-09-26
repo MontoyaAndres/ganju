@@ -78,8 +78,20 @@ const discoverOne = async (
 
   const mergedParentMetadata = {
     ...(resource.metadata as Record<string, unknown> | null),
-    ...(seed ? { seo: seed } : {})
+    ...(seed ? { seo: seed } : {}),
+    lastSyncedAt: new Date().toISOString()
   };
+
+  // The pages this site already has. A first crawl has none; a sync re-crawls
+  // every one of them, including any this discovery didn't reach — that is how
+  // an edited page gets re-indexed and a deleted one gets noticed (the page job
+  // re-embeds only when the text changed, and removes a page that answers
+  // 404/410). A page is never removed for being missing from discovery alone:
+  // maxPages and link changes make that an unreliable signal.
+  const knownPages = await dbInstance
+    .select({ id: db.schema.artifactResource.id })
+    .from(db.schema.artifactResource)
+    .where(eq(db.schema.artifactResource.parentResourceId, resource.id));
 
   const candidateUris = Array.from(new Set(pages.map(p => p.url)));
   const existingRows =
@@ -104,14 +116,28 @@ const discoverOne = async (
     return true;
   });
 
+  // Cloudflare Queues caps sendBatch at 100 messages / 256 KB per call, so
+  // pages are sent in chunks to avoid "Payload Too Large" on large crawls.
+  const enqueuePages = async (ids: string[]): Promise<void> => {
+    if (!env.CRAWL_PAGE_QUEUE || ids.length === 0) return;
+    const messages = ids.map(id => ({
+      body: { resourceId: id, parentResourceId: resource.id } satisfies PageJob
+    }));
+    const batchSize = utils.constants.CRAWL_PAGE_QUEUE_BATCH_SIZE;
+    for (let i = 0; i < messages.length; i += batchSize) {
+      await env.CRAWL_PAGE_QUEUE.sendBatch(messages.slice(i, i + batchSize));
+    }
+  };
+
   if (newPages.length === 0) {
     await dbInstance
       .update(db.schema.artifactResource)
       .set({
         status: utils.constants.STATUS_COMPLETED,
-        ...(seed ? { metadata: mergedParentMetadata } : {})
+        metadata: mergedParentMetadata
       })
       .where(eq(db.schema.artifactResource.id, resourceId));
+    await enqueuePages(knownPages.map(p => p.id));
     return;
   }
 
@@ -144,29 +170,19 @@ const discoverOne = async (
     await tx
       .update(db.schema.artifactResource)
       .set({
-        childResourceCount: newPages.length,
+        childResourceCount: knownPages.length + newPages.length,
         status: utils.constants.STATUS_PENDING,
-        ...(seed ? { metadata: mergedParentMetadata } : {})
+        metadata: mergedParentMetadata
       })
       .where(eq(db.schema.artifactResource.id, resourceId));
 
     return rows;
   });
 
-  if (env.CRAWL_PAGE_QUEUE) {
-    // Cloudflare Queues caps sendBatch at 100 messages / 256 KB per call, so we
-    // chunk the inserted pages to avoid "Payload Too Large" on large crawls.
-    const messages = inserted.map(({ id }) => ({
-      body: {
-        resourceId: id,
-        parentResourceId: resource.id
-      } satisfies PageJob
-    }));
-    const batchSize = utils.constants.CRAWL_PAGE_QUEUE_BATCH_SIZE;
-    for (let i = 0; i < messages.length; i += batchSize) {
-      await env.CRAWL_PAGE_QUEUE.sendBatch(messages.slice(i, i + batchSize));
-    }
-  }
+  await enqueuePages([
+    ...inserted.map(({ id }) => id),
+    ...knownPages.map(p => p.id)
+  ]);
 };
 
 export const handleCrawlDiscoverBatch = async (

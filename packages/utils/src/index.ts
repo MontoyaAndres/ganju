@@ -117,6 +117,11 @@ import type { OAuthProviderConfig } from './oauthProviders';
 import { resolveAttachment } from './attachment';
 import { isExposedResource } from './exposedResource';
 import type { ExposableResource } from './exposedResource';
+import { isSyncableResource, resourceSyncProvider } from './syncableResource';
+import type {
+  SyncableResource,
+  ResourceSyncProvider
+} from './syncableResource';
 import { describeVendorError } from './vendorError';
 import { withDeadline, isDeadlineError } from './deadline';
 import {
@@ -295,6 +300,8 @@ export const utils = {
   oauthProviders,
   resolveAttachment,
   isExposedResource,
+  isSyncableResource,
+  resourceSyncProvider,
   describeVendorError,
   withDeadline,
   isDeadlineError,
@@ -446,6 +453,8 @@ export type {
   ResolvedAttachment,
   ResolveAttachmentResult,
   ExposableResource,
+  SyncableResource,
+  ResourceSyncProvider,
   PlanLimitDetails,
   PlanLimits
 };

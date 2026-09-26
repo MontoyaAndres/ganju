@@ -79,6 +79,7 @@ import { Plan } from './plan';
 import { createPolar, verifyPolarWebhook } from './polar';
 import { runOverageMetering } from './metering';
 import { runRetentionPurge } from './retention';
+import { runResourceSync, startResourceSync } from './resourceSync';
 import { runCustomCodeScriptSweep } from './customCodeSweep';
 import { runErrorAlerts, runToolCallAlerts, recentErrors } from './alerting';
 import {
@@ -91,6 +92,8 @@ import {
 export {
   Plan,
   runRetentionPurge,
+  runResourceSync,
+  startResourceSync,
   runCustomCodeScriptSweep,
   runErrorAlerts,
   runToolCallAlerts,

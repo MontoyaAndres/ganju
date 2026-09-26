@@ -60,22 +60,22 @@ export const enqueueGdriveDiscover = async (
 
 export const enqueueGdriveFile = async (
   env: Bindings,
-  resourceIds: string | string[]
+  resourceIds: string | string[],
+  options: { onlyIfChanged?: boolean } = {}
 ): Promise<void> => {
   const ids = Array.isArray(resourceIds) ? resourceIds : [resourceIds];
   if (ids.length === 0) return;
   if (!env.GDRIVE_FILE_QUEUE) return;
 
+  const body = (resourceId: string): GdriveFileJob =>
+    options.onlyIfChanged ? { resourceId, onlyIfChanged: true } : { resourceId };
+
   if (ids.length === 1) {
-    await env.GDRIVE_FILE_QUEUE.send({
-      resourceId: ids[0]
-    } satisfies GdriveFileJob);
+    await env.GDRIVE_FILE_QUEUE.send(body(ids[0]));
     return;
   }
 
-  await env.GDRIVE_FILE_QUEUE.sendBatch(
-    ids.map(id => ({ body: { resourceId: id } satisfies GdriveFileJob }))
-  );
+  await env.GDRIVE_FILE_QUEUE.sendBatch(ids.map(id => ({ body: body(id) })));
 };
 
 export const enqueueOnedriveDiscover = async (
@@ -102,20 +102,20 @@ export const enqueueOnedriveDiscover = async (
 
 export const enqueueOnedriveFile = async (
   env: Bindings,
-  resourceIds: string | string[]
+  resourceIds: string | string[],
+  options: { onlyIfChanged?: boolean } = {}
 ): Promise<void> => {
   const ids = Array.isArray(resourceIds) ? resourceIds : [resourceIds];
   if (ids.length === 0) return;
   if (!env.ONEDRIVE_FILE_QUEUE) return;
 
+  const body = (resourceId: string): OnedriveFileJob =>
+    options.onlyIfChanged ? { resourceId, onlyIfChanged: true } : { resourceId };
+
   if (ids.length === 1) {
-    await env.ONEDRIVE_FILE_QUEUE.send({
-      resourceId: ids[0]
-    } satisfies OnedriveFileJob);
+    await env.ONEDRIVE_FILE_QUEUE.send(body(ids[0]));
     return;
   }
 
-  await env.ONEDRIVE_FILE_QUEUE.sendBatch(
-    ids.map(id => ({ body: { resourceId: id } satisfies OnedriveFileJob }))
-  );
+  await env.ONEDRIVE_FILE_QUEUE.sendBatch(ids.map(id => ({ body: body(id) })));
 };

@@ -232,6 +232,11 @@ const parseContentLength = (
   response: Response,
   fallback: number | null = null
 ): number | null => {
+  // A compressed response is decompressed on the way in while its
+  // content-length still counts the compressed bytes, so it can't size the
+  // stream the body is written through.
+  const encoding = response.headers.get('content-encoding');
+  if (encoding && encoding !== 'identity') return fallback;
   const header = response.headers.get('content-length');
   if (header) {
     const parsed = Number.parseInt(header, 10);

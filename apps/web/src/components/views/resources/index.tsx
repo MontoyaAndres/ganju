@@ -4,6 +4,7 @@ import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import IconButton from '@mui/material/IconButton';
 import Switch from '@mui/material/Switch';
+import Popover from '@mui/material/Popover';
 import {
   Add,
   Close,
@@ -22,6 +23,7 @@ import {
   GridViewOutlined,
   Search,
   Sync,
+  TuneOutlined,
   PictureAsPdfOutlined,
   DescriptionOutlined,
   TableChartOutlined,
@@ -40,6 +42,7 @@ import { i18n } from '../../../lib';
 
 import type { CloudDriveItem } from '@ganju/ui';
 import type { Translate } from '../../../lib';
+import type { Plan } from '../../../utils';
 
 interface Resource {
   id: string;
@@ -62,6 +65,8 @@ interface Resource {
   crawlConfig: { maxPages?: number; maxDepth?: number } | null;
   parentResourceId: string | null;
   childResourceCount: number;
+  syncInterval: string;
+  syncStartedAt: string | null;
   artifactId: string;
   createdAt: string;
   updatedAt: string;
@@ -235,7 +240,11 @@ const INITIAL_WEBSITE_VALUES = {
   maxDepth: String(utils.constants.CRAWL_DEFAULT_MAX_DEPTH)
 };
 
-export const Resources = () => {
+interface ResourcesProps {
+  plan: Plan | null;
+}
+
+export const Resources = ({ plan }: ResourcesProps) => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
   const t = i18n.useT(i18n.copy.RESOURCES);
@@ -289,6 +298,10 @@ export const Resources = () => {
   const [submitting, setSubmitting] = useState(false);
   const [sourceVisibilityUpdating, setSourceVisibilityUpdating] =
     useState(false);
+  const [syncStarting, setSyncStarting] = useState(false);
+  const [syncIntervalUpdating, setSyncIntervalUpdating] = useState(false);
+  const [syncSettingsAnchor, setSyncSettingsAnchor] =
+    useState<HTMLElement | null>(null);
   const [contentMode, setContentMode] = useState<'text' | 'file'>('file');
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
@@ -318,6 +331,14 @@ export const Resources = () => {
   const gdriveApiBase = `/organization/${organizationId}/project/${projectId}/artifact/google-drive`;
   const onedriveApiBase = `/organization/${organizationId}/project/${projectId}/artifact/one-drive`;
   const isCreating = addingType !== null;
+  // Optimistic when the plan could not be resolved: the API still enforces it.
+  const autoSyncIntervals: readonly string[] = plan
+    ? plan.limits.autoSyncIntervals
+    : [
+        utils.constants.RESOURCE_SYNC_INTERVAL_DAILY,
+        utils.constants.RESOURCE_SYNC_INTERVAL_WEEKLY
+      ];
+  const canAutoSync = autoSyncIntervals.length > 0;
 
   const [gdriveOpen, setGdriveOpen] = useState(false);
   const [gdriveToken, setGdriveToken] = useState<string | null>(null);
@@ -417,6 +438,13 @@ export const Resources = () => {
       if (found) return found;
     }
     return undefined;
+  };
+
+  // Inside a website or an imported folder, sync belongs to its root: the site,
+  // or the folder that was imported. Null anywhere else.
+  const currentSyncRoot = (): Resource | null => {
+    const root = folderPath.length > 0 ? findResourceById(folderPath[0]) : null;
+    return root && utils.isSyncableResource(root) ? root : null;
   };
 
   const computeAncestry = (resourceId: string): string[] => {
@@ -1056,6 +1084,185 @@ export const Resources = () => {
     } finally {
       setSourceVisibilityUpdating(false);
     }
+  };
+
+  const handleSyncNow = async (resource: Resource) => {
+    if (syncStarting) return;
+    setSyncStarting(true);
+    try {
+      const data = await utils.fetcher({
+        url: `${apiBase}/${resource.id}/sync`,
+        config: { method: 'POST', credentials: 'include' }
+      });
+      if (data && !data.error) {
+        snackbar.success(t('toastSyncStarted'));
+        fetchResources();
+        if (selectedResource?.id === resource.id) {
+          fetchResourceDetail(resource.id);
+        }
+      } else {
+        snackbar.error(data?.error || t('toastSyncFailed'));
+      }
+    } catch {
+      snackbar.error(t('toastSyncFailed'));
+    } finally {
+      setSyncStarting(false);
+    }
+  };
+
+  const handleSyncIntervalChange = async (
+    resource: Resource,
+    syncInterval: string
+  ) => {
+    if (syncIntervalUpdating) return;
+    setSyncIntervalUpdating(true);
+    try {
+      const data = await utils.fetcher({
+        url: `${apiBase}/${resource.id}/sync-interval`,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ syncInterval })
+        }
+      });
+      if (data && !data.error) {
+        if (selectedResource?.id === resource.id) setSelectedResource(data);
+        fetchResources();
+        snackbar.success(t('toastSyncIntervalUpdated'));
+      } else {
+        snackbar.error(data?.error || t('toastSyncIntervalFailed'));
+      }
+    } catch {
+      snackbar.error(t('toastSyncIntervalFailed'));
+    } finally {
+      setSyncIntervalUpdating(false);
+    }
+  };
+
+  // When a sync root last synced, and what a sync does.
+  const renderLastSynced = (resource: Resource) => {
+    const lastSyncedAt =
+      typeof resource.metadata?.lastSyncedAt === 'string'
+        ? resource.metadata.lastSyncedAt
+        : null;
+    return (
+      <div>
+        <p className="sync-card-label">
+          {lastSyncedAt
+            ? t('syncLastSynced', { when: t.relative(lastSyncedAt) })
+            : t('syncNever')}
+        </p>
+        <p className="sync-card-hint">{t('syncHint')}</p>
+      </div>
+    );
+  };
+
+  // The automatic-sync switch and, while it is on, how often.
+  const renderAutoSyncSettings = (resource: Resource) => {
+    const autoOn =
+      canAutoSync &&
+      resource.syncInterval !== utils.constants.RESOURCE_SYNC_INTERVAL_OFF;
+    // Turning it back on restores the interval the source had, or weekly.
+    const onInterval = autoSyncIntervals.includes(resource.syncInterval)
+      ? resource.syncInterval
+      : autoSyncIntervals.includes(
+            utils.constants.RESOURCE_SYNC_INTERVAL_WEEKLY
+          )
+        ? utils.constants.RESOURCE_SYNC_INTERVAL_WEEKLY
+        : autoSyncIntervals[0];
+    const intervalLabels: Record<string, string> = {
+      [utils.constants.RESOURCE_SYNC_INTERVAL_DAILY]: t('syncIntervalDaily'),
+      [utils.constants.RESOURCE_SYNC_INTERVAL_WEEKLY]: t('syncIntervalWeekly')
+    };
+
+    return (
+      <>
+        <div className="sync-card-row">
+          <div>
+            <p className="sync-card-label">{t('syncIntervalLabel')}</p>
+            <p className="sync-card-hint">
+              {!canAutoSync ? (
+                <>
+                  {t('syncLockedHint')}{' '}
+                  <a
+                    href={`/organization/${organizationId}/settings`}
+                    onClick={e => {
+                      e.preventDefault();
+                      router.push(`/organization/${organizationId}/settings`);
+                    }}
+                  >
+                    {t('syncUpgrade')}
+                  </a>
+                </>
+              ) : autoOn ? (
+                t('syncAutoOnHint', {
+                  every: (
+                    intervalLabels[resource.syncInterval] ??
+                    resource.syncInterval
+                  ).toLowerCase()
+                })
+              ) : (
+                t('syncAutoOffHint')
+              )}
+            </p>
+          </div>
+          <Switch
+            checked={autoOn}
+            disabled={!canAutoSync || syncIntervalUpdating}
+            onChange={() =>
+              handleSyncIntervalChange(
+                resource,
+                autoOn ? utils.constants.RESOURCE_SYNC_INTERVAL_OFF : onInterval
+              )
+            }
+          />
+        </div>
+        {autoOn && autoSyncIntervals.length > 1 && (
+          <div className="sync-card-controls">
+            <UI.Select
+              label={t('syncFrequencyLabel')}
+              name="syncInterval"
+              size="small"
+              value={resource.syncInterval}
+              disabled={syncIntervalUpdating}
+              onChange={e =>
+                handleSyncIntervalChange(resource, e.target.value as string)
+              }
+              options={autoSyncIntervals.map(value => ({
+                label: intervalLabels[value] ?? value,
+                value
+              }))}
+            />
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // The side panel's sync card, for a Drive/OneDrive file imported on its own
+  // — the one sync root that opens in the panel rather than as a folder.
+  const renderSyncCard = (resource: Resource) => {
+    const syncing =
+      syncStarting || resource.status === utils.constants.STATUS_PENDING;
+    return (
+      <div className="sync-card">
+        <div className="sync-card-row">
+          {renderLastSynced(resource)}
+          <UI.Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleSyncNow(resource)}
+            disabled={syncing}
+          >
+            <Sync />
+            <span className="button-text">
+              {syncing ? t('syncing') : t('syncNow')}
+            </span>
+          </UI.Button>
+        </div>
+        {renderAutoSyncSettings(resource)}
+      </div>
+    );
   };
 
   const handleUpdate = async () => {
@@ -1993,8 +2200,75 @@ export const Resources = () => {
                 </span>
               </UI.Button>
             )}
+            {(() => {
+              const root = currentSyncRoot();
+              if (!root) return null;
+              // Drive and OneDrive already have their Sync button above; a
+              // website gets the same one here.
+              const needsSyncButton =
+                folder !== 'gdrive' &&
+                folder !== 'onedrive' &&
+                utils.resourceSyncProvider(root) === 'website';
+              const syncing =
+                syncStarting || root.status === utils.constants.STATUS_PENDING;
+              return (
+                <>
+                  {needsSyncButton && (
+                    <UI.Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleSyncNow(root)}
+                      disabled={syncing}
+                    >
+                      <Sync />
+                      <span className="button-text">
+                        {syncing ? t('syncing') : t('sync')}
+                      </span>
+                    </UI.Button>
+                  )}
+                  <UI.Button
+                    variant="outlined"
+                    size="small"
+                    className="resources-sync-settings"
+                    aria-label={t('syncSettings')}
+                    title={t('syncSettings')}
+                    onClick={e => setSyncSettingsAnchor(e.currentTarget)}
+                  >
+                    <span className="button-text">
+                      <TuneOutlined />
+                    </span>
+                  </UI.Button>
+                </>
+              );
+            })()}
           </div>
         )}
+        {(() => {
+          // Outside the toolbar on purpose: the toolbar styles every
+          // ButtonBase in it as a button, and a Switch's thumb is one.
+          const root = currentSyncRoot();
+          if (!root) return null;
+          return (
+            <Popover
+              open={syncSettingsAnchor !== null}
+              anchorEl={syncSettingsAnchor}
+              // In place rather than portalled, so the page's own sync
+              // card styles reach it.
+              disablePortal
+              onClose={() => setSyncSettingsAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{
+                paper: { className: 'resources-sync-popover' }
+              }}
+            >
+              <div className="sync-card">
+                {renderLastSynced(root)}
+                {renderAutoSyncSettings(root)}
+              </div>
+            </Popover>
+          );
+        })()}
         {view === 'sources' && folder !== null && folderPath.length === 0 && (
           <h2 className="resources-folder-heading">{folderTitle}</h2>
         )}
@@ -2778,6 +3052,12 @@ export const Resources = () => {
                     />
                   </div>
                 </div>
+                {utils.isSyncableResource(selectedResource) && (
+                  <div className="panel-section">
+                    <h3 className="panel-section-label">{t('sectionSync')}</h3>
+                    {renderSyncCard(selectedResource)}
+                  </div>
+                )}
                 {selectedResource.description && (
                   <div className="panel-section">
                     <h3 className="panel-section-label">

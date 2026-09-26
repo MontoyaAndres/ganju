@@ -278,6 +278,33 @@ const RESOURCE_SOURCE_TYPES = [
   RESOURCE_SOURCE_TYPE_CUSTOM_CODE
 ];
 
+// How often a source that lives somewhere else — a crawled website, a Drive or
+// OneDrive folder, a file imported from either — is refreshed from it. Every
+// source is stored with an interval, weekly unless its owner changes it; the
+// hourly sync job only acts on it for a plan that includes automatic sync, so a
+// Free org's sources start syncing the moment it upgrades.
+const RESOURCE_SYNC_INTERVAL_OFF = 'off' as 'off';
+const RESOURCE_SYNC_INTERVAL_DAILY = 'daily' as 'daily';
+const RESOURCE_SYNC_INTERVAL_WEEKLY = 'weekly' as 'weekly';
+const RESOURCE_SYNC_INTERVALS = [
+  RESOURCE_SYNC_INTERVAL_OFF,
+  RESOURCE_SYNC_INTERVAL_DAILY,
+  RESOURCE_SYNC_INTERVAL_WEEKLY
+] as const;
+const RESOURCE_SYNC_INTERVAL_DEFAULT = RESOURCE_SYNC_INTERVAL_WEEKLY;
+const RESOURCE_SYNC_INTERVAL_MS = {
+  [RESOURCE_SYNC_INTERVAL_DAILY]: 24 * 60 * 60 * 1000,
+  [RESOURCE_SYNC_INTERVAL_WEEKLY]: 7 * 24 * 60 * 60 * 1000
+} as const;
+// Sources started per hourly run. A sync is cheap to start and expensive to
+// run — a website re-crawls every page — so the job works through a backlog
+// over several hours rather than launching all of it at once.
+const RESOURCE_SYNC_BATCH_SIZE = 50;
+// How soon a source can be synced by hand again. Manual sync is open to every
+// plan, and a website sync re-crawls every page, so it can't be a button to
+// press in a loop.
+const RESOURCE_SYNC_MANUAL_COOLDOWN_MS = 5 * 60 * 1000;
+
 const CRAWL_RENDERER_CHEERIO = 'cheerio' as 'cheerio';
 const CRAWL_RENDERER_PLAYWRIGHT = 'playwright' as 'playwright';
 const CRAWL_RENDERERS = [CRAWL_RENDERER_CHEERIO, CRAWL_RENDERER_PLAYWRIGHT];
@@ -2014,6 +2041,12 @@ interface PlanLimits {
   // against). Not used for blocking.
   includedMessages: number;
   includedEmbeddedBytes: number;
+  // The intervals the hourly job will sync a source on. Empty = no automatic
+  // sync: the org can still sync a source by hand. Refreshing costs crawl or
+  // Drive fetches plus embeddings for whatever changed, all on our side.
+  autoSyncIntervals: ReadonlyArray<
+    typeof RESOURCE_SYNC_INTERVAL_DAILY | typeof RESOURCE_SYNC_INTERVAL_WEEKLY
+  >;
 }
 
 const PLAN_LIMITS: Record<
@@ -2053,7 +2086,8 @@ const PLAN_LIMITS: Record<
     includedToolCalls: 0,
     toolCallHardCap: 10_000,
     includedMessages: 100,
-    includedEmbeddedBytes: 5 * MB
+    includedEmbeddedBytes: 5 * MB,
+    autoSyncIntervals: []
   },
   PRO: {
     maxProjects: null,
@@ -2076,7 +2110,11 @@ const PLAN_LIMITS: Record<
     includedToolCalls: PRICING_INCLUDED_TOOL_CALLS,
     toolCallHardCap: PRICING_TOOL_CALL_HARD_CAP,
     includedMessages: PRICING_INCLUDED_MESSAGES,
-    includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
+    includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB,
+    autoSyncIntervals: [
+      RESOURCE_SYNC_INTERVAL_DAILY,
+      RESOURCE_SYNC_INTERVAL_WEEKLY
+    ]
   },
   ENTERPRISE: {
     maxProjects: null,
@@ -2099,7 +2137,11 @@ const PLAN_LIMITS: Record<
     // contract; don't make one plan's abuse limit another plan's product limit.
     toolCallHardCap: null,
     includedMessages: PRICING_INCLUDED_MESSAGES,
-    includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB
+    includedEmbeddedBytes: PRICING_INCLUDED_EMBEDDED_GB * GB,
+    autoSyncIntervals: [
+      RESOURCE_SYNC_INTERVAL_DAILY,
+      RESOURCE_SYNC_INTERVAL_WEEKLY
+    ]
   }
 };
 
@@ -2118,6 +2160,7 @@ const PLAN_FEATURE_RAW_STORAGE = 'rawStorage' as 'rawStorage';
 const PLAN_FEATURE_EMBEDDED_STORAGE = 'embeddedStorage' as 'embeddedStorage';
 const PLAN_FEATURE_MESSAGE = 'message' as 'message';
 const PLAN_FEATURE_TOOL_CALL = 'toolCall' as 'toolCall';
+const PLAN_FEATURE_RESOURCE_SYNC = 'resourceSync' as 'resourceSync';
 
 // Stable code returned on a quota block so clients can branch on it (402).
 const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
@@ -2300,6 +2343,7 @@ export const constants = {
   PLAN_FEATURE_EMBEDDED_STORAGE,
   PLAN_FEATURE_MESSAGE,
   PLAN_FEATURE_TOOL_CALL,
+  PLAN_FEATURE_RESOURCE_SYNC,
   PLAN_LIMIT_ERROR_CODE,
   BILLING_METER_MESSAGES,
   BILLING_METER_SHARED_MESSAGES,
@@ -2494,6 +2538,14 @@ export const constants = {
   RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER,
   RESOURCE_SOURCE_TYPE_CUSTOM_CODE,
   RESOURCE_SOURCE_TYPES,
+  RESOURCE_SYNC_INTERVAL_OFF,
+  RESOURCE_SYNC_INTERVAL_DAILY,
+  RESOURCE_SYNC_INTERVAL_WEEKLY,
+  RESOURCE_SYNC_INTERVALS,
+  RESOURCE_SYNC_INTERVAL_DEFAULT,
+  RESOURCE_SYNC_INTERVAL_MS,
+  RESOURCE_SYNC_BATCH_SIZE,
+  RESOURCE_SYNC_MANUAL_COOLDOWN_MS,
   CRAWL_RENDERER_CHEERIO,
   CRAWL_RENDERER_PLAYWRIGHT,
   CRAWL_RENDERERS,

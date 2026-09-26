@@ -265,6 +265,36 @@ on its own: the API's crons only run error alerts and overage metering.
   (`hasFileChanged` on version / modifiedTime / md5, and deletion).
 - Done when: editing a Drive document shows up in search within its interval
   with no manual step.
+- Status: built 2026-09-26, on dev. Decisions: every source defaults to
+  weekly; automatic sync is Pro/Enterprise only (daily or weekly), Free keeps
+  "Sync now"; a website page is deleted only when the site answers 404/410.
+  - Migration `0075`: `artifact_resource.sync_interval` (default `weekly`) and
+    `sync_started_at`. Adding a column with a constant default doesn't rewrite
+    the table.
+  - `runResourceSync` on the hourly cron starts up to 50 due roots per run,
+    oldest first, skipping ones already PENDING. A root with no sync yet
+    counts from its creation, so existing sources spread over their first
+    interval. Plans come from `PLAN_LIMITS.autoSyncIntervals`.
+  - Drive/OneDrive single files: a scheduled sync checks version / modified
+    time / checksum (cTag / eTag for OneDrive) and skips the download when
+    nothing moved. Folders already did this.
+  - Websites: discovery re-queues every known page plus new ones; the page job
+    skips re-embedding when the SHA-256 of the extracted text is unchanged, and
+    deletes the page when the container reports 404/410 (new 410 from
+    `/crawl/page`; any other failure keeps the indexed copy).
+  - `PUT …/resource/:id/sync-interval` (plan-checked against the project's own
+    organization) and `POST …/resource/:id/sync` (every plan, 5-minute
+    cooldown). Dashboard: inside a website or an imported folder, the
+    toolbar's Sync button plus a settings button whose popover shows "Last
+    synced", an automatic-sync switch and the frequency (locked on Free with
+    an upgrade link); a Drive/OneDrive file imported on its own has the same
+    controls in its side panel.
+  - Deployed to dev 2026-09-26, UI checked there. Fixed on the way: a native
+    Google Doc/Sheet/Slides failed to import ("too many bytes through a
+    FixedLengthStream") because the job sized the export by Drive's `size`,
+    which for those is the native file's 1,024-byte quota.
+  - To deploy to prod: run `0075` first, then `ganju-api`, the
+    resource-handler container, and the web app.
 
 **4. Human confirmation for sensitive tools — M**
 

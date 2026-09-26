@@ -255,7 +255,14 @@ export const downloadOneDriveFile = async (
     response.headers.get('content-type') ||
     utils.constants.MIMETYPE_APPLICATION_OCTET_STREAM;
 
-  const header = response.headers.get('content-length');
+  // A compressed response is decompressed on the way in while its
+  // content-length still counts the compressed bytes, so only an unencoded
+  // one can size the stream the body is written through.
+  const encoding = response.headers.get('content-encoding');
+  const header =
+    encoding && encoding !== 'identity'
+      ? null
+      : response.headers.get('content-length');
   let contentLength: number | null = null;
   if (header) {
     const parsed = Number.parseInt(header, 10);

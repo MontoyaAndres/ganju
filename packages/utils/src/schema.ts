@@ -1449,6 +1449,21 @@ const ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE = z.object({
   organizationId: z.uuid()
 });
 
+const ARTIFACT_UPDATE_RESOURCE_SYNC_INTERVAL = z.object({
+  resourceId: z.uuid(),
+  syncInterval: z.enum(constants.RESOURCE_SYNC_INTERVALS),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+const ARTIFACT_SYNC_RESOURCE = z.object({
+  resourceId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
 const ARTIFACT_GET = z.object({
   projectId: z.uuid(),
   userId: z.uuid(),
@@ -1625,6 +1640,8 @@ export const Schema = {
   CHANNEL_LIST_CONVERSATIONS,
   CHANNEL_LIST_MESSAGES,
   ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE,
+  ARTIFACT_UPDATE_RESOURCE_SYNC_INTERVAL,
+  ARTIFACT_SYNC_RESOURCE,
   HTTP_ENDPOINT_CONFIG,
   HTTP_ENDPOINT_CONFIG_WRITE,
   MCP_PROXY_CONFIG,

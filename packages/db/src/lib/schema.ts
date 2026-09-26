@@ -1154,6 +1154,18 @@ export const artifactResource = pgTable(
     icons: json('icons'),
     metadata: json('metadata'),
     crawlConfig: json('crawl_config'),
+    // Only meaningful on a sync root (a website seed, a Drive/OneDrive folder,
+    // a file imported from either). The hourly job reads it only for plans that
+    // include automatic sync.
+    syncInterval: text('sync_interval')
+      .notNull()
+      .default(utils.constants.RESOURCE_SYNC_INTERVAL_DEFAULT),
+    // When the last sync of this root was started — by the job or by hand. The
+    // job's clock: a root is due once this is older than its interval (its
+    // creation time when it has never been synced). Set when the sync is
+    // queued, not when it ends, so a sync that keeps failing is retried on the
+    // next interval rather than on every hourly run.
+    syncStartedAt: timestamp('sync_started_at', { mode: 'date' }),
     parentResourceId: text('parent_resource_id').references(
       (): AnyPgColumn => artifactResource.id,
       { onDelete: 'cascade' }

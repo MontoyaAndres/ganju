@@ -11,11 +11,13 @@ import {
   buildDriveResourceMetadata
 } from '../utils';
 import { markResourceFailed, putR2Stream, reportQueueError } from './shared';
+import { hasFileChanged } from './gdriveDiscover';
 
 import type { Bindings } from '../types';
 
 export interface GdriveFileJob {
   resourceId: string;
+  onlyIfChanged?: boolean;
 }
 
 const removeMissingFile = async (
@@ -61,7 +63,10 @@ const removeMissingFile = async (
   }
 };
 
-const syncOne = async (env: Bindings, resourceId: string): Promise<void> => {
+const syncOne = async (
+  env: Bindings,
+  { resourceId, onlyIfChanged }: GdriveFileJob
+): Promise<void> => {
   const source = { env };
   const dbInstance = db.create(source);
 
@@ -104,6 +109,20 @@ const syncOne = async (env: Bindings, resourceId: string): Promise<void> => {
       parentResourceId: resource.parentResourceId,
       fileKey: resource.fileKey
     });
+    return;
+  }
+
+  // Unchanged since the last fetch: record that it was checked and stop, so
+  // a scheduled sync costs one metadata call rather than a download and a
+  // fresh set of embeddings.
+  if (
+    onlyIfChanged &&
+    !(await hasFileChanged(env.STORAGE_BUCKET, resource, file))
+  ) {
+    await dbInstance
+      .update(db.schema.artifactResource)
+      .set({ metadata: { ...meta, lastSyncedAt: new Date().toISOString() } })
+      .where(eq(db.schema.artifactResource.id, resource.id));
     return;
   }
 
@@ -153,7 +172,10 @@ const syncOne = async (env: Bindings, resourceId: string): Promise<void> => {
     bucket,
     key,
     downloaded.body,
-    downloaded.contentLength ?? declaredSize,
+    // Not Drive's own `size`: for a Google Doc, Sheet or Slides that is the
+    // native file's quota (1,024 bytes), not the size of the export being
+    // written. The download helper already falls back to it where it is real.
+    downloaded.contentLength,
     { contentType: downloaded.mimeType }
   );
   const storedSize = putResult?.size ?? declaredSize ?? 0;
@@ -194,7 +216,7 @@ export const handleGdriveFileBatch = async (
   _ctx: ExecutionContext
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
-    process: async ({ resourceId }) => syncOne(env, resourceId),
+    process: async job => syncOne(env, job),
     onError: async (error, { resourceId }, queueName) => {
       await reportQueueError(env, '/gdrive/file', error, {
         resourceId,

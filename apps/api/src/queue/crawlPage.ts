@@ -1,7 +1,7 @@
 import type { ExecutionContext, MessageBatch } from '@cloudflare/workers-types';
 import { db } from '@ganju/db';
 import { utils, ExtractedDocument } from '@ganju/utils';
-import { eq, and, ne } from 'drizzle-orm';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { getResourceHandler } from '@ganju/containers';
 
 import { reindexResourceChunks } from '../utils';
@@ -51,6 +51,15 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
     body: JSON.stringify({ url: resource.uri })
   });
 
+  // The site answered 404/410: the page is gone, so is our copy. Any other
+  // failure throws below and leaves the indexed copy as it was.
+  if (response.status === 410) {
+    await response.body?.cancel();
+    await removeGonePage(env, resource);
+    await maybeCompleteParent(env, resource.parentResourceId);
+    return;
+  }
+
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
     throw new Error(
@@ -59,6 +68,22 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
   }
 
   const payload: CrawlPageResponse = await response.json();
+
+  // A sync re-crawls every page of the site; only one whose text changed is
+  // worth new embeddings. The hash is of the extracted text, not the HTML, so
+  // a rotating ad or a new nonce in the markup doesn't count as a change.
+  const previousMetadata = resource.metadata as Record<string, unknown> | null;
+  const contentHash = await utils.sha256Hex(payload.text);
+  if (
+    previousMetadata?.contentHash === contentHash &&
+    resource.status === utils.constants.STATUS_COMPLETED
+  ) {
+    await maybeCompleteParent(
+      env,
+      job.parentResourceId || resource.parentResourceId
+    );
+    return;
+  }
 
   await dbInstance
     .update(db.schema.artifactResource)
@@ -70,9 +95,10 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
       encoding: payload.encoding || utils.constants.ENCODING_UTF8,
       size: payload.size,
       metadata: {
-        ...(resource.metadata as Record<string, unknown> | null),
+        ...previousMetadata,
         seo: payload.seo,
-        renderer: payload.renderer
+        renderer: payload.renderer,
+        contentHash
       }
     })
     .where(eq(db.schema.artifactResource.id, resource.id));
@@ -98,6 +124,40 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
     env,
     job.parentResourceId || resource.parentResourceId
   );
+};
+
+// Remove a page the site no longer serves, and take it off the counts its
+// parent and the artifact keep. Chunks go with it (they cascade).
+const removeGonePage = async (
+  env: Bindings,
+  resource: { id: string; artifactId: string; parentResourceId: string | null }
+): Promise<void> => {
+  // Only a page under a site. The seed is the crawl's starting point and is
+  // never fetched by this job.
+  if (!resource.parentResourceId) return;
+  const parentResourceId = resource.parentResourceId;
+  const dbInstance = db.create({ env });
+  await dbInstance.transaction(async tx => {
+    const deleted = await tx
+      .delete(db.schema.artifactResource)
+      .where(eq(db.schema.artifactResource.id, resource.id))
+      .returning({ id: db.schema.artifactResource.id });
+    if (deleted.length === 0) return;
+
+    await tx
+      .update(db.schema.artifact)
+      .set({
+        artifactResourceCount: sql`GREATEST(${db.schema.artifact.artifactResourceCount}::int - 1, 0)`
+      })
+      .where(eq(db.schema.artifact.id, resource.artifactId));
+
+    await tx
+      .update(db.schema.artifactResource)
+      .set({
+        childResourceCount: sql`GREATEST(${db.schema.artifactResource.childResourceCount}::int - 1, 0)`
+      })
+      .where(eq(db.schema.artifactResource.id, parentResourceId));
+  });
 };
 
 const maybeCompleteParent = async (

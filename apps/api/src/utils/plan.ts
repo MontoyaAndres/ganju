@@ -156,6 +156,24 @@ export const assertCustomCodeAllowed = ({
   }
 };
 
+// Automatic sync on an interval. Syncing by hand is open to every plan; what a
+// plan buys is the hourly job doing it on its own, which costs crawls, Drive
+// calls and re-embedding on our side for as long as the source exists.
+export const assertAutoSyncAllowed = (
+  { plan, limits }: Pick<EffectivePlan, 'plan' | 'limits'>,
+  interval: string
+): void => {
+  if (interval === constants.RESOURCE_SYNC_INTERVAL_OFF) return;
+  if (!(limits.autoSyncIntervals as readonly string[]).includes(interval)) {
+    throw new PlanLimitError(
+      limits.autoSyncIntervals.length === 0
+        ? 'Automatic sync is a Pro feature. Upgrade this organization to keep sources up to date on their own, or sync them by hand.'
+        : `The ${plan} plan doesn't sync ${interval}.`,
+      { feature: constants.PLAN_FEATURE_RESOURCE_SYNC, plan }
+    );
+  }
+};
+
 // How many http-endpoint tools one artifact may hold. Free is capped rather than
 // blocked: this IS its custom tool, and the cap is what keeps the tool list —
 // and therefore the per-turn token cost on our own model key — bounded.
@@ -413,6 +431,7 @@ export const Plan = {
   assertInviteAllowed,
   assertCustomLlmAllowed,
   assertCustomCodeAllowed,
+  assertAutoSyncAllowed,
   assertHttpEndpointQuota,
   assertProjectQuota,
   assertOrganizationCreation,

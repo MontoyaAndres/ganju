@@ -30,6 +30,7 @@ import {
   requestedMcpAudience,
   runOverageMetering,
   runRetentionPurge,
+  runResourceSync,
   runCustomCodeScriptSweep,
   runErrorAlerts,
   runToolCallAlerts
@@ -384,6 +385,16 @@ app
     UserMiddleware.verify,
     ArtifactController.updateResourceShowSource
   )
+  .put(
+    '/organization/:organizationId/project/:projectId/artifact/resource/:resourceId/sync-interval',
+    UserMiddleware.verify,
+    ArtifactController.updateResourceSyncInterval
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/resource/:resourceId/sync',
+    UserMiddleware.verify,
+    ArtifactController.syncResource
+  )
 
   // Google Drive artifact controller
   .get(
@@ -680,6 +691,10 @@ export default {
     // Enforce the retention windows the privacy policy publishes. Batched, so
     // a long backlog drains over several hourly runs.
     ctx.waitUntil(runRetentionPurge({ env }));
+    // Refresh synced sources (websites, Drive and OneDrive) whose interval has
+    // passed. It only queues the jobs; the crawling and re-indexing run on the
+    // queues, which re-embed only what changed.
+    ctx.waitUntil(runResourceSync({ env }));
     // Collect dispatch-namespace scripts nothing points at. Every publish, test
     // run and rejected bundle now writes to a name of its own — which is what
     // makes a deploy read-your-writes — so superseded scripts accumulate until

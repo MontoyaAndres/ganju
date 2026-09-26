@@ -17,6 +17,77 @@ export const Wrapper = styled.div<IProps>`
       height: 100vh;
     }
 
+    .sync-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid ${theme.colors.alto};
+      border-radius: 8px;
+
+      .sync-card-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .sync-card-label {
+        font-size: ${theme.fonts.sm};
+        font-weight: 600;
+        color: ${theme.colors.bastille};
+        margin: 0;
+      }
+
+      .sync-card-hint {
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.saltBox};
+        margin: 2px 0 0 0;
+        line-height: 1.4;
+      }
+
+      .sync-card-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+
+        .MuiTextField-root {
+          flex: 1 1 160px;
+        }
+      }
+
+      .MuiSwitch-root .MuiButtonBase-root {
+        padding: 9px;
+        border-radius: 50%;
+      }
+    }
+
+    .resources-sync-settings {
+      min-width: 0;
+
+      .button-text {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .button-text svg {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .resources-sync-popover {
+      width: 380px;
+      max-width: calc(100vw - 32px);
+      margin-top: 6px;
+      border-radius: 8px;
+
+      .sync-card {
+        border: none;
+      }
+    }
+
     .resources-list {
       flex: 1;
       overflow-y: auto;

@@ -233,7 +233,7 @@ const sync = async (c: Context<AppEnv>) => {
 
   await dbInstance
     .update(db.schema.artifactResource)
-    .set({ status: utils.constants.STATUS_PENDING })
+    .set({ status: utils.constants.STATUS_PENDING, syncStartedAt: new Date() })
     .where(eq(db.schema.artifactResource.id, resource.id));
 
   if (

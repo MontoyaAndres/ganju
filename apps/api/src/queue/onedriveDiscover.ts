@@ -87,7 +87,10 @@ const extractItemRef = (
   return parseOneDriveUri(row.uri);
 };
 
-const hasFileChanged = async (
+// Whether a OneDrive file needs fetching again: its cTag, eTag or modified
+// time moved, the last attempt failed, or our stored copy is gone. Shared with
+// the single-file sync, which runs it before downloading anything.
+export const hasFileChanged = async (
   bucket: R2Bucket | undefined,
   existingRow: {
     metadata: unknown;

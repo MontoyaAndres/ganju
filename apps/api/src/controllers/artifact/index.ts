@@ -35,6 +35,7 @@ import {
   invokeCustomCodeScript,
   deleteCustomCodeScript,
   customCodeScriptExists,
+  startResourceSync,
   Plan
 } from '../../utils';
 
@@ -3134,6 +3135,117 @@ const updateResourceShowSource = async (c: Context<AppEnv>) => {
   return c.json(updated);
 };
 
+// The sync root a request names, scoped to the project's artifact. Throws for
+// a resource that has nothing to sync from (an upload, a page under a site, a
+// file inside an imported folder), so neither route below can act on one.
+const loadSyncRoot = async (
+  dbInstance: ReturnType<typeof db.create>,
+  projectId: string,
+  resourceId: string
+) => {
+  const [row] = await dbInstance
+    .select({
+      resource: db.schema.artifactResource,
+      organizationId: db.schema.project.organizationId
+    })
+    .from(db.schema.artifactResource)
+    .innerJoin(
+      db.schema.artifact,
+      eq(db.schema.artifact.id, db.schema.artifactResource.artifactId)
+    )
+    .innerJoin(
+      db.schema.project,
+      eq(db.schema.project.id, db.schema.artifact.projectId)
+    )
+    .where(
+      and(
+        eq(db.schema.artifactResource.id, resourceId),
+        eq(db.schema.artifact.projectId, projectId)
+      )
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new Error('Resource not found');
+  }
+  if (!utils.isSyncableResource(row.resource)) {
+    throw new Error('This resource has nothing to sync from');
+  }
+  return row;
+};
+
+// How often a synced source refreshes on its own. `off` is open to every plan;
+// an interval has to be one the organization's plan includes.
+const updateResourceSyncInterval = async (c: Context<AppEnv>) => {
+  const body = await c.req.json();
+  const currentValues =
+    await utils.Schema.ARTIFACT_UPDATE_RESOURCE_SYNC_INTERVAL.parseAsync({
+      ...body,
+      resourceId: c.req.param('resourceId'),
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  const dbInstance = db.create(c);
+  const { resource, organizationId } = await loadSyncRoot(
+    dbInstance,
+    currentValues.projectId,
+    currentValues.resourceId
+  );
+
+  // The plan of the organization that owns the project, never the one named
+  // in the URL: access is checked on the project, not on that pairing.
+  Plan.assertAutoSyncAllowed(
+    await Plan.getEffectivePlan(dbInstance, organizationId),
+    currentValues.syncInterval
+  );
+
+  const [updated] = await dbInstance
+    .update(db.schema.artifactResource)
+    .set({ syncInterval: currentValues.syncInterval })
+    .where(eq(db.schema.artifactResource.id, resource.id))
+    .returning();
+
+  return c.json(updated);
+};
+
+// Sync a source now: a website re-crawls, a folder is walked again, a file is
+// fetched again. Open to every plan, with a short cooldown, because a website
+// sync re-crawls every page of the site.
+const syncResource = async (c: Context<AppEnv>) => {
+  const currentValues = await utils.Schema.ARTIFACT_SYNC_RESOURCE.parseAsync({
+    resourceId: c.req.param('resourceId'),
+    projectId: c.req.param('projectId'),
+    userId: c.get('user').id,
+    organizationId: c.req.param('organizationId')
+  });
+
+  const dbInstance = db.create(c);
+  const { resource } = await loadSyncRoot(
+    dbInstance,
+    currentValues.projectId,
+    currentValues.resourceId
+  );
+
+  if (resource.status === utils.constants.STATUS_PENDING) {
+    throw new Error('This source is already syncing');
+  }
+  const startedAt = resource.syncStartedAt?.getTime() ?? 0;
+  if (
+    Date.now() - startedAt <
+    utils.constants.RESOURCE_SYNC_MANUAL_COOLDOWN_MS
+  ) {
+    throw new Error(
+      'This source was synced a moment ago. Try again in a few minutes.'
+    );
+  }
+
+  await startResourceSync(c.env, dbInstance, resource, { scheduled: false });
+
+  return c.json({ resourceId: resource.id, status: 'queued' });
+};
+
 const get = async (c: Context<AppEnv>) => {
   const currentValues = await utils.Schema.ARTIFACT_GET.parseAsync({
     projectId: c.req.param('projectId'),
@@ -3224,6 +3336,8 @@ export const ArtifactController = {
   uploadResourceFile,
   downloadResourceFile,
   updateResourceShowSource,
+  updateResourceSyncInterval,
+  syncResource,
   createTool,
   updateTool,
   setToolEnabled,

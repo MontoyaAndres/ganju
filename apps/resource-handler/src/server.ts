@@ -13,7 +13,7 @@ import { handleDiscordSend } from './discordSend.js';
 import { handleDiscordSendRemoteResource } from './discordSendRemoteResource.js';
 import { handleWhatsappSend } from './whatsappSend.js';
 import { handleWhatsappSendRemoteResource } from './whatsappSendRemoteResource.js';
-import { crawlDiscover, crawlPage } from './crawl.js';
+import { crawlDiscover, crawlPage, isPageGone } from './crawl.js';
 import { utils as serverUtils } from './utils/index.js';
 
 const handleExtract = async (
@@ -80,6 +80,12 @@ const handleCrawlPage = async (
   }
   const result = await crawlPage(body.url, body.renderer);
   if (!result) {
+    // 410 only when the site itself said the page is gone; every other
+    // failure stays a 422, which leaves the indexed copy in place.
+    if (await isPageGone(body.url)) {
+      serverUtils.sendJson(res, 410, { error: 'page gone' });
+      return;
+    }
     serverUtils.sendJson(res, 422, { error: 'failed to extract page' });
     return;
   }
