@@ -304,6 +304,16 @@ const RESOURCE_SYNC_BATCH_SIZE = 50;
 // plan, and a website sync re-crawls every page, so it can't be a button to
 // press in a loop.
 const RESOURCE_SYNC_MANUAL_COOLDOWN_MS = 5 * 60 * 1000;
+// How long a sync may stay PENDING before it counts as stuck rather than
+// running. A lost queue message or a job that exhausted its retries never
+// completes its root, and a root that stays PENDING would otherwise be skipped
+// by the hourly job and refused by "Sync now" forever. Twelve hours outlasts
+// any realistic wait: the crawl-page queue runs 5 at a time for every org, and
+// one hourly run can queue 50 sites — thousands of pages, hours of backlog. A
+// shorter window restarts syncs that are merely queued, re-fetching every page
+// into the same backlog; a longer one leaves a stuck daily source missing more
+// than one sync.
+const RESOURCE_SYNC_STALE_MS = 12 * 60 * 60 * 1000;
 
 const CRAWL_RENDERER_CHEERIO = 'cheerio' as 'cheerio';
 const CRAWL_RENDERER_PLAYWRIGHT = 'playwright' as 'playwright';
@@ -2546,6 +2556,7 @@ export const constants = {
   RESOURCE_SYNC_INTERVAL_MS,
   RESOURCE_SYNC_BATCH_SIZE,
   RESOURCE_SYNC_MANUAL_COOLDOWN_MS,
+  RESOURCE_SYNC_STALE_MS,
   CRAWL_RENDERER_CHEERIO,
   CRAWL_RENDERER_PLAYWRIGHT,
   CRAWL_RENDERERS,

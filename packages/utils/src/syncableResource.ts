@@ -46,3 +46,23 @@ export const resourceSyncProvider = (
 
 export const isSyncableResource = (resource: SyncableResource): boolean =>
   resourceSyncProvider(resource) !== null;
+
+// Whether a sync root is still genuinely syncing: PENDING, and started within
+// RESOURCE_SYNC_STALE_MS. Past that, a PENDING root is stuck — a job was lost
+// or gave up — and may be synced again, which re-queues whatever it left
+// unfinished. A root that never synced counts from its creation, so a first
+// import that stalled recovers too.
+export const isResourceSyncInProgress = (
+  resource: {
+    status: string;
+    syncStartedAt?: Date | string | null;
+    createdAt: Date | string;
+  },
+  now: number = Date.now()
+): boolean => {
+  if (resource.status !== constants.STATUS_PENDING) return false;
+  const startedAt = new Date(
+    resource.syncStartedAt ?? resource.createdAt
+  ).getTime();
+  return now - startedAt < constants.RESOURCE_SYNC_STALE_MS;
+};

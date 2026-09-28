@@ -55,7 +55,8 @@ export const startResourceSync = async (
   const isFolder =
     resource.sourceType ===
       utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER ||
-    resource.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER;
+    resource.sourceType ===
+      utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER;
 
   if (provider === 'website') {
     await enqueueCrawlDiscover(env, resource.id);
@@ -91,7 +92,8 @@ const plansFor = (
  * A source that has never synced counts from when it was created, so the
  * sources that existed before this job are spread over their first interval
  * instead of all starting in the same hour. One that is already syncing
- * (status PENDING) is left for the next run.
+ * (status PENDING) is left for the next run, unless it has been PENDING long
+ * enough to count as stuck.
  */
 export const runResourceSync = async (
   source: ApiEnvSource
@@ -133,12 +135,22 @@ export const runResourceSync = async (
     )
     .innerJoin(
       db.schema.subscription,
-      eq(db.schema.subscription.organizationId, db.schema.project.organizationId)
+      eq(
+        db.schema.subscription.organizationId,
+        db.schema.project.organizationId
+      )
     )
     .where(
       and(
         sql`${r.parentResourceId} IS NULL`,
-        sql`${r.status} <> ${constants.STATUS_PENDING}`,
+        // Not one that is still syncing — but one PENDING for longer than
+        // RESOURCE_SYNC_STALE_MS is stuck, and starting it again is what
+        // recovers it. Same rule as utils.isResourceSyncInProgress.
+        sql`(
+          ${r.status} <> ${constants.STATUS_PENDING}
+          OR coalesce(${r.syncStartedAt}, ${r.createdAt})
+            < now() - make_interval(secs => ${constants.RESOURCE_SYNC_STALE_MS / 1000})
+        )`,
         inArray(db.schema.subscription.status, [
           ...constants.SUBSCRIPTION_ENTITLED_STATUSES
         ]),

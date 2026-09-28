@@ -130,10 +130,15 @@ const discoverOne = async (
   };
 
   if (newPages.length === 0) {
+    // With pages to re-crawl, the site is done when they are: the last page
+    // job completes it. Its status is left as the sync found it — PENDING
+    // after "Sync now", untouched by the hourly job. Only a site with nothing
+    // to crawl is complete now.
+    const pagesQueued = knownPages.length > 0 && !!env.CRAWL_PAGE_QUEUE;
     await dbInstance
       .update(db.schema.artifactResource)
       .set({
-        status: utils.constants.STATUS_COMPLETED,
+        ...(pagesQueued ? {} : { status: utils.constants.STATUS_COMPLETED }),
         metadata: mergedParentMetadata
       })
       .where(eq(db.schema.artifactResource.id, resourceId));

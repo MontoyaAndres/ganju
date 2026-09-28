@@ -200,6 +200,13 @@ export const handleCrawlPageBatch = async (
         queue: queueName
       });
       await markResourceFailed(env, job.resourceId);
+      // A failed page counts as finished for its site. Without this, a site
+      // whose last page failed would stay PENDING for good: only a page that
+      // succeeds checks whether its siblings are done. A retry that later
+      // succeeds checks again.
+      await maybeCompleteParent(env, job.parentResourceId).catch(
+        () => undefined
+      );
     }
   });
 };

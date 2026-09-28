@@ -1242,8 +1242,7 @@ export const Resources = ({ plan }: ResourcesProps) => {
   // The side panel's sync card, for a Drive/OneDrive file imported on its own
   // — the one sync root that opens in the panel rather than as a folder.
   const renderSyncCard = (resource: Resource) => {
-    const syncing =
-      syncStarting || resource.status === utils.constants.STATUS_PENDING;
+    const syncing = syncStarting || utils.isResourceSyncInProgress(resource);
     return (
       <div className="sync-card">
         <div className="sync-card-row">
@@ -2210,7 +2209,7 @@ export const Resources = ({ plan }: ResourcesProps) => {
                 folder !== 'onedrive' &&
                 utils.resourceSyncProvider(root) === 'website';
               const syncing =
-                syncStarting || root.status === utils.constants.STATUS_PENDING;
+                syncStarting || utils.isResourceSyncInProgress(root);
               return (
                 <>
                   {needsSyncButton && (

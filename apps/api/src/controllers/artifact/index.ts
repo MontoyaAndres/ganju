@@ -3228,7 +3228,9 @@ const syncResource = async (c: Context<AppEnv>) => {
     currentValues.resourceId
   );
 
-  if (resource.status === utils.constants.STATUS_PENDING) {
+  // A source PENDING for too long is stuck, not syncing, and syncing it again
+  // is how it recovers.
+  if (utils.isResourceSyncInProgress(resource)) {
     throw new Error('This source is already syncing');
   }
   const startedAt = resource.syncStartedAt?.getTime() ?? 0;
