@@ -23,6 +23,7 @@ import {
   flushRequests,
   type PendingRequest
 } from './recordUsage';
+import { confirmSensitiveTools } from './toolConfirmation';
 
 export {
   readResourceContent,
@@ -39,7 +40,8 @@ export {
   parseClient,
   resolveExternalSessionId,
   upsertSession,
-  flushRequests
+  flushRequests,
+  confirmSensitiveTools
 };
 
 export type {

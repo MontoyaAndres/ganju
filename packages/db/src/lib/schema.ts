@@ -891,6 +891,23 @@ export const mcpRequest = pgTable(
   ]
 );
 
+// A confirmation an MCP client's call spent: a sensitive tool runs on a second
+// call carrying a signed token from the first, and the token's id lands here
+// so one yes runs once. Rows only matter until the token expires (minutes);
+// older ones are swept as new ones are written.
+export const toolConfirmationUse = pgTable(
+  'tool_confirmation_use',
+  {
+    id: text('id').primaryKey(),
+    toolName: text('tool_name').notNull(),
+    artifactId: text('artifact_id')
+      .notNull()
+      .references(() => artifact.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [index('tool_confirmation_use_createdAt_idx').on(table.createdAt)]
+);
+
 export const errorLog = pgTable(
   'error_log',
   {

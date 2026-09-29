@@ -34,7 +34,7 @@ const en = {
   toastOrganizationRemoveFailed: 'Failed to remove organization',
   toolConfirmationTitle: 'Confirm sensitive actions',
   toolConfirmationHelp:
-    'Channel bots ask before sending an email or message, booking or changing a calendar event, deleting something, calling an HTTP endpoint that isn’t a GET, or running one of your functions or connected MCP tools that isn’t marked read-only — and act only when the person answers yes.',
+    'Channel bots ask before sending an email or message, booking or changing a calendar event, deleting something, calling an HTTP endpoint that isn’t a GET, or running one of your functions or connected MCP tools that isn’t marked read-only — and act only when the person answers yes. In MCP clients like Claude Desktop or Cursor, the assistant is told to ask first, and the action runs only on a second call after the yes.',
   toolConfirmationOn: 'Confirmation is on',
   toolConfirmationOff: 'Confirmation is off',
   toastToolConfirmationOn: 'Bots will ask before sensitive actions',
@@ -329,7 +329,7 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     toastOrganizationRemoveFailed: 'No pudimos eliminar la organización',
     toolConfirmationTitle: 'Confirmar acciones sensibles',
     toolConfirmationHelp:
-      'Los bots de los canales preguntan antes de enviar un correo o mensaje, agendar o cambiar un evento, borrar algo, llamar a un endpoint HTTP que no sea GET o ejecutar una de tus funciones o herramientas MCP conectadas que no esté marcada como de solo lectura, y solo lo hacen si la persona responde que sí.',
+      'Los bots de los canales preguntan antes de enviar un correo o mensaje, agendar o cambiar un evento, borrar algo, llamar a un endpoint HTTP que no sea GET o ejecutar una de tus funciones o herramientas MCP conectadas que no esté marcada como de solo lectura, y solo lo hacen si la persona responde que sí. En clientes MCP como Claude Desktop o Cursor, se le indica al asistente que pregunte primero, y la acción solo se ejecuta en una segunda llamada después del sí.',
     toolConfirmationOn: 'La confirmación está activada',
     toolConfirmationOff: 'La confirmación está desactivada',
     toastToolConfirmationOn: 'Los bots preguntarán antes de acciones sensibles',

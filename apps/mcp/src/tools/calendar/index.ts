@@ -124,6 +124,93 @@ const formatEventWhen = (
   return slot.dateTime || slot.date || 'unknown';
 };
 
+// Event start and end arrive as local wall-clock time in the event's zone
+// ("2026-09-30T15:00:00"), which Google reads in the slot's timeZone. That is
+// what a person means by "3 p.m." — asked for an "absolute" timestamp, models
+// wrote the local hour with a `Z` instead, and the event landed hours off. A
+// timestamp that does carry `Z` or an offset is still honoured as that exact
+// instant: it can't be told apart from a correct conversion.
+const OFFSET_SUFFIX = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+const LOCAL_DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/;
+
+type EventTime =
+  | { kind: 'instant'; value: string; date: Date }
+  | { kind: 'local'; value: string; wallClockMs: number };
+
+const parseEventTime = (raw: unknown): EventTime | null => {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (!value) return null;
+  if (OFFSET_SUFFIX.test(value)) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? null
+      : { kind: 'instant', value, date };
+  }
+  const m = LOCAL_DATE_TIME.exec(value);
+  if (!m) return null;
+  const wallClockMs = Date.UTC(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    Number(m[6] ?? 0)
+  );
+  // Written back in full (Google wants the seconds), and only if it names a
+  // real date — Date.UTC would quietly roll 2026-02-30 into March.
+  const normalized = new Date(wallClockMs).toISOString().slice(0, 19);
+  if (
+    Number.isNaN(wallClockMs) ||
+    normalized.slice(0, 10) !== value.slice(0, 10)
+  ) {
+    return null;
+  }
+  return { kind: 'local', value: normalized, wallClockMs };
+};
+
+// The end of an event that starts at `start` and lasts `minutes`, in the same
+// form: a local start gives a local end (wall-clock arithmetic), an instant
+// an instant. Mixing them was the "time range is empty" error — a local
+// start read in America/Bogota against an end computed as if it were UTC.
+const addMinutes = (start: EventTime, minutes: number): string =>
+  start.kind === 'local'
+    ? new Date(start.wallClockMs + minutes * 60000).toISOString().slice(0, 19)
+    : new Date(start.date.getTime() + minutes * 60000).toISOString();
+
+// "Wed 2026-09-30 15:00" in the zone Google stored the event in — echoed back
+// so the model (and whoever reads its reply) sees the hour that was booked,
+// not the one it meant to book.
+const describeSlot = (
+  slot: { dateTime?: string; date?: string; timeZone?: string } | undefined,
+  fallbackZone?: string
+): string | null => {
+  if (!slot) return null;
+  if (slot.date) return slot.date;
+  if (!slot.dateTime) return null;
+  const instant = new Date(slot.dateTime);
+  if (Number.isNaN(instant.getTime())) return slot.dateTime;
+  const timeZone = slot.timeZone || fallbackZone;
+  if (!timeZone) return instant.toISOString();
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short'
+  }).format(instant);
+  return `${weekday} ${formatInstant(instant, timeZone)}`;
+};
+
+const describeWhen = (ev: CalendarEvent, timeZone?: string): string => {
+  const start = describeSlot(ev.start, timeZone);
+  const end = describeSlot(ev.end, timeZone);
+  return start && end ? ` When: ${start} → ${end}.` : '';
+};
+
+const EVENT_TIME_HELP =
+  "local date and time in the event's time zone, without Z or an offset — " +
+  'e.g. 2026-09-30T15:00:00 for 3 p.m. there. The zone is timeZone, else ' +
+  "the configured default, else the calendar's own. A timestamp with Z or " +
+  'an offset is taken as that exact instant.';
+
 const buildTimeSlot = (
   iso: string,
   timeZone?: string
@@ -379,7 +466,7 @@ export const listEvents: ToolDefinition = {
 export const createEvent: ToolDefinition = {
   title: 'Calendar: Create Event',
   description:
-    'Create an event on a calendar. Pass `summary` and `startTime` (ISO 8601). Give `endTime` (ISO 8601) or `durationMinutes`; if neither is set the configured default duration is used. You (the model) convert natural language like "tomorrow at 7am" into ISO before calling. Optionally set description, location, timeZone (IANA; omit to use the zone configured on the connected Google Calendar account), and attendees (emails, who are emailed an invite). A Google Meet link is attached automatically when the integration is configured for it. Writes to the artifact\'s default calendar unless you pass calendarId. Returns the new event ID and a link.',
+    'Create an event on a calendar. Pass `summary` and `startTime` as the local time the user means, in the event\'s time zone and without Z or an offset (e.g. 2026-09-30T15:00:00). Give `endTime` the same way, or `durationMinutes`; if neither is set the configured default duration is used. You (the model) turn natural language like "tomorrow at 7am" into that form before calling. Optionally set description, location, timeZone (IANA; omit to use the zone configured on the connected Google Calendar account), and attendees (emails, who are emailed an invite). A Google Meet link is attached automatically when the integration is configured for it. Writes to the artifact\'s default calendar unless you pass calendarId. Returns the new event ID and a link.',
   schema: {
     type: 'object',
     properties: {
@@ -390,12 +477,11 @@ export const createEvent: ToolDefinition = {
       summary: { type: 'string', description: 'Event title.' },
       startTime: {
         type: 'string',
-        description: 'Event start as an ISO 8601 timestamp.'
+        description: `Event start: ${EVENT_TIME_HELP}`
       },
       endTime: {
         type: 'string',
-        description:
-          'Event end as an ISO 8601 timestamp. Optional if durationMinutes (or a configured default) is available.'
+        description: `Event end, the same way as startTime. Optional if durationMinutes (or a configured default) is available.`
       },
       durationMinutes: {
         type: 'number',
@@ -432,19 +518,29 @@ export const createEvent: ToolDefinition = {
     const timeZone = await resolveTimeZone(args, context);
     const attendees = utils.toStringArray(args.attendees);
 
-    const startIso = String(args.startTime);
-    const startDate = new Date(startIso);
-    if (Number.isNaN(startDate.getTime())) {
-      return text('Error: startTime must be a valid ISO 8601 timestamp.');
+    const start = parseEventTime(args.startTime);
+    if (!start) {
+      return text(
+        'Error: startTime must be a date and time like 2026-09-30T15:00:00.'
+      );
     }
+    const startIso = start.value;
 
-    let endIso = cfgString(args.endTime);
-    if (!endIso) {
+    let endIso: string;
+    if (cfgString(args.endTime)) {
+      const end = parseEventTime(args.endTime);
+      if (!end) {
+        return text(
+          'Error: endTime must be a date and time like 2026-09-30T15:30:00.'
+        );
+      }
+      endIso = end.value;
+    } else {
       const minutes =
         cfgNumber(args.durationMinutes) ??
         cfgNumber(config.defaultDurationMinutes) ??
         utils.constants.CALENDAR_DEFAULT_EVENT_DURATION_MINUTES;
-      endIso = new Date(startDate.getTime() + minutes * 60000).toISOString();
+      endIso = addMinutes(start, minutes);
     }
 
     const body: Record<string, unknown> = {
@@ -504,7 +600,7 @@ export const createEvent: ToolDefinition = {
       ? ` ${attendees.length} attendee(s) invited.`
       : '';
     return text(
-      `Event created on ${calendarId}. Event ID: ${ev.id}${link}.${inviteNote}${meetNote}`
+      `Event created on ${calendarId}. Event ID: ${ev.id}${link}.${describeWhen(ev, timeZone)}${inviteNote}${meetNote}`
     );
   }
 };
@@ -512,7 +608,7 @@ export const createEvent: ToolDefinition = {
 export const updateEvent: ToolDefinition = {
   title: 'Calendar: Update Event',
   description:
-    "Patch an existing event (partial update — only the fields you pass change). Requires `eventId`. Move it via startTime/endTime (ISO 8601), or change summary / description / location / timeZone / attendees. Passing attendees REPLACES the whole attendee list. Operates on the artifact's default calendar unless you pass calendarId. Returns confirmation and a link.",
+    "Patch an existing event (partial update — only the fields you pass change). Requires `eventId`. Move it via startTime/endTime (local time in the event's zone, without Z or an offset, e.g. 2026-09-30T15:00:00), or change summary / description / location / timeZone / attendees. Passing attendees REPLACES the whole attendee list. Operates on the artifact's default calendar unless you pass calendarId. Returns confirmation and a link.",
   schema: {
     type: 'object',
     properties: {
@@ -527,11 +623,11 @@ export const updateEvent: ToolDefinition = {
       summary: { type: 'string', description: 'New event title.' },
       startTime: {
         type: 'string',
-        description: 'New start as an ISO 8601 timestamp.'
+        description: `New start: ${EVENT_TIME_HELP}`
       },
       endTime: {
         type: 'string',
-        description: 'New end as an ISO 8601 timestamp.'
+        description: 'New end, the same way as startTime.'
       },
       description: { type: 'string', description: 'New description.' },
       location: { type: 'string', description: 'New location.' },
@@ -564,10 +660,22 @@ export const updateEvent: ToolDefinition = {
     }
     if (args.location !== undefined) body.location = String(args.location);
     if (args.startTime) {
-      body.start = buildTimeSlot(String(args.startTime), timeZone);
+      const start = parseEventTime(args.startTime);
+      if (!start) {
+        return text(
+          'Error: startTime must be a date and time like 2026-09-30T15:00:00.'
+        );
+      }
+      body.start = buildTimeSlot(start.value, timeZone);
     }
     if (args.endTime) {
-      body.end = buildTimeSlot(String(args.endTime), timeZone);
+      const end = parseEventTime(args.endTime);
+      if (!end) {
+        return text(
+          'Error: endTime must be a date and time like 2026-09-30T15:30:00.'
+        );
+      }
+      body.end = buildTimeSlot(end.value, timeZone);
     }
     let hasAttendees = false;
     if (args.attendees !== undefined) {
@@ -599,7 +707,9 @@ export const updateEvent: ToolDefinition = {
 
     const ev = (await response.json()) as CalendarEvent;
     const link = ev.htmlLink ? ` (${ev.htmlLink})` : '';
-    return text(`Event ${args.eventId} updated on ${calendarId}${link}.`);
+    return text(
+      `Event ${args.eventId} updated on ${calendarId}${link}.${describeWhen(ev, timeZone)}`
+    );
   }
 };
 

@@ -807,6 +807,16 @@ const TOOL_CONFIRMATION_ASK_INSTRUCTION =
   'waiting for the user to confirm them. Your reply must ask the user to ' +
   'confirm, and must not say or suggest that they were done, nor describe ' +
   'or make up any result from them.';
+// For MCP clients, whose chat the server can't see: a sensitive call without a
+// valid confirmation isn't run, and the model is told to ask the user and call
+// again with a token that binds the second call to these exact arguments.
+// How long that token stays good, and the argument that carries it.
+const MCP_TOOL_CONFIRMATION_TTL_MS = 10 * 60 * 1000;
+const MCP_TOOL_CONFIRMATION_ARG = 'confirmation';
+const MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION =
+  "Leave out on the first call. This action needs the user's yes: the " +
+  'first call returns a token; after the user says yes, call again with the ' +
+  'same arguments and that token here.';
 // The question when the model wrote none, above the runner's own summary.
 const TOOL_CONFIRMATION_FALLBACK_QUESTION =
   'Before I do this, please confirm. Reply yes to go ahead, or no to cancel.';
@@ -2669,6 +2679,9 @@ export const constants = {
   TOOL_CONFIRMATION_FALLBACK_QUESTION,
   TOOL_CONFIRMATION_ASK_INSTRUCTION,
   TOOL_CONFIRMATION_SYSTEM_NOTE,
+  MCP_TOOL_CONFIRMATION_TTL_MS,
+  MCP_TOOL_CONFIRMATION_ARG,
+  MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION,
   CHANNEL_DEBOUNCE_DEFAULT_MS,
   CHANNEL_DEBOUNCE_MIN_MS,
   CHANNEL_DEBOUNCE_MAX_MS,

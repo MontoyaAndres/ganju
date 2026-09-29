@@ -722,13 +722,9 @@ export const runChannelTurn = async (
       const toolsResponse = await mcp.client.listTools();
       if (chain.requireToolConfirmation) {
         for (const tool of toolsResponse.tools || []) {
-          // The MCP spec's defaults: a tool is read-only only if it says so,
-          // and a tool that changes things is destructive unless it says it
-          // isn't. So an unannotated custom or proxied tool is confirmed —
-          // the safe reading for an organization that asked to be asked.
-          const readOnly = tool.annotations?.readOnlyHint === true;
-          const destructive = tool.annotations?.destructiveHint !== false;
-          if (!readOnly && destructive) sensitiveToolNames.add(tool.name);
+          if (utils.isSensitiveTool(tool.annotations)) {
+            sensitiveToolNames.add(tool.name);
+          }
           toolTitles.set(
             tool.name,
             tool.title || tool.annotations?.title || tool.name
@@ -891,8 +887,13 @@ export const runChannelTurn = async (
         ? `The user's time zone is ${channelTimeZone}; resolve relative dates and times ("today", "tomorrow", "9am") in that zone.`
         : `Resolve relative dates and times in UTC unless the user specifies a zone.`
     );
+    // Not "absolute timestamps": asked for those, models wrote the user's
+    // local hour with a `Z`, and events landed hours off. Each tool's
+    // parameters say which form it takes — event start/end are local times.
     if (hasCalendarTools) {
-      contextParts.push('Pass absolute ISO 8601 timestamps to calendar tools.');
+      contextParts.push(
+        "Pass times to calendar tools in the form each tool's parameters describe; a time the user names is in their time zone."
+      );
     }
     // Models that ask before acting on their own (Claude does) would
     // otherwise ask once in their words, then again through the runner once
@@ -1248,25 +1249,9 @@ const toConfirmationCall = (
   arguments: call.arguments
 });
 
-// Two calls that would do the same thing: same tool, same arguments. Keys are
-// sorted at every depth, so the order the model happened to emit them in
-// doesn't matter.
-const stableJson = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .map(
-        key =>
-          `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`
-      )
-      .join(',')}}`;
-  }
-  return JSON.stringify(value) ?? 'null';
-};
-
+// Two calls that would do the same thing: same tool, same arguments.
 const callSignature = (call: LlmToolCall): string =>
-  `${call.name}:${stableJson(call.arguments ?? {})}`;
+  `${call.name}:${utils.stableJson(call.arguments ?? {})}`;
 
 // This participant's open question, if the conversation holds one for them.
 const readPendingConfirmation = (

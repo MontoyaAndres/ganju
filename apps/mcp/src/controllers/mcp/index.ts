@@ -37,6 +37,7 @@ import {
   resolveExternalSessionId,
   upsertSession,
   flushRequests,
+  confirmSensitiveTools,
   type PendingRequest
 } from '../../utils';
 
@@ -85,6 +86,7 @@ const business = async (c: Context<AppEnv>) => {
       artifactCredentials: true,
       project: {
         with: {
+          organization: { columns: { requireToolConfirmation: true } },
           projectUsers: jwtUserId
             ? {
                 where: eq(db.schema.projectUser.userId, jwtUserId),
@@ -143,6 +145,16 @@ const business = async (c: Context<AppEnv>) => {
     description: artifact.project.description || 'MCP Server Description',
     version: '0.0.1'
   });
+  // With the organization confirming sensitive actions, those tools run only
+  // on a second call that carries the user's yes. Not for the channel runner,
+  // which asks in its own chat and runs only what was confirmed there.
+  if (artifact.project.organization.requireToolConfirmation && !channelTrust) {
+    confirmSensitiveTools(mcpServer, {
+      artifactId: artifact.id,
+      secret: utils.getCredentialEncryptionKey(c),
+      db: dbInstance
+    });
+  }
   const transport = new StreamableHTTPTransport({
     enableJsonResponse: true
   });

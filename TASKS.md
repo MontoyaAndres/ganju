@@ -313,7 +313,7 @@ on its own: the API's crons only run error alerts and overage metering.
 - MCP clients: the annotations are hints the client decides on. Use
   elicitation for confirmation where the client supports it.
 - Done when: `gmail-send` from a Telegram bot asks before sending.
-- Status: built 2026-09-28, not deployed. Decisions: one switch per
+- Status: done 2026-09-28, on dev and production. Decisions: one switch per
   organization (Settings → Organization, "Confirm sensitive actions", off by
   default) instead of a per-tool setting; the answer is a reply — typed, or a
   Yes/No button where the platform allows one without new setup.
@@ -373,12 +373,8 @@ on its own: the API's crons only run error alerts and overage metering.
     requires a thought signature; it carries the documented sentinel
     `skip_thought_signature_validator`. Google calls it a last resort that can
     cost some quality on that step. Test once with a Gemini model.
-  - MCP-client elicitation: not built. `elicitation/create` is a request the
-    server sends mid-tool-call and waits on, with the answer arriving on the
-    same session; the MCP worker rebuilds its server per request and answers
-    in JSON mode, so it has nowhere to wait. It needs session state (e.g. a
-    Durable Object per MCP session) first. Clients already get the
-    annotations, and Claude Desktop and similar ask before tool calls anyway.
+  - MCP clients: not built — planned as 4b (the model asks yes/no in the
+    client's chat; a signed token ties the second call to the first).
   - Tested on dev 2026-09-28 over WhatsApp (org "test", Gemini 3.1 Flash
     Lite), with signed webhooks: a calendar create was held with the summary
     under the question; a tap addressed to another number was ignored; "no,
@@ -395,13 +391,16 @@ on its own: the API's crons only run error alerts and overage metering.
     create held, "si" ran it. Discord checked by hand in a guild channel
     (Claude): held with one summary block, "yes" ran the stored call. The
     other-person tap is untested (the channel has one participant).
-  - Found on Discord, fixed, not yet deployed: Claude asked "¿Le doy?" on its
+  - Found on Discord, fixed: Claude asked "¿Le doy?" on its
     own without calling the tool, then the runner asked again once it did —
     two questions for one action. With confirmation on, the system prompt now
     tells the model to ask for missing details but not to confirm itself.
     The same note asks it to call every action a request needs in one step:
     "add a Meet" (delete + re-create) took three questions — Claude's own,
     the delete, then the create, since the turn stops at the first held call.
+    After the fix, each action on Discord got a single question and missing
+    details (a title) were asked for before calling; one question for
+    several actions is not yet seen in a chat.
   - Seen on Discord, unrelated: the first confirmed run failed with Google's
     "invalid authentication credentials" and the retry a minute later
     worked — a calendar token refresh issue worth a look.
@@ -419,12 +418,96 @@ on its own: the API's crons only run error alerts and overage metering.
   - Unrelated, seen in that test: the model writes calendar times as UTC
     (`16:00Z`) while saying "4 p.m. Colombia", so the event lands at 11:00
     Bogotá; `timeZone` doesn't shift a timestamp that carries an offset. The
-    confirmation summary is what made it visible.
-  - To deploy: `0076`, then `ganju-mcp`, `ganju-api`, and the web app; publish
-    a CLI release for `annotations` in `ganju.json`. Verify on dev: switch on;
-    on Telegram (private) and Discord ask the bot to send an email, tap No,
-    ask again, tap Yes; on Discord have someone else tap and see it refused;
-    one run with a Gemini model.
+    confirmation summary is what made it visible. Fixed after (not yet
+    deployed): `calendar-create-event` / `calendar-update-event` take start
+    and end as local wall-clock time in the event's zone, no `Z` or offset
+    (one that carries them is still honoured as that instant); an end from
+    `durationMinutes` is computed in the same form as the start — the
+    "time range is empty" errors were a local start against an end computed
+    as UTC; local times are normalized to seconds and impossible dates
+    rejected; both tools echo the booked start/end in the event's zone. The
+    runner's "pass absolute ISO 8601 timestamps" hint (what pushed models to
+    `Z`) now says to follow each tool's parameters, a named time being in
+    the user's zone. Cal.com and list/free-busy keep offset timestamps.
+    Verified on dev over WhatsApp with the Gemini model that used to send
+    `Z`: "el 7 de octubre a las 3pm hora Colombia, 30 minutos" went out as
+    `2026-10-07T15:00:00` + `durationMinutes: 30`, and the tool answered
+    "When: Wed 2026-10-07 15:00 (America/Bogota) → 15:30"; the test event
+    was then deleted.
+  - Not checked by hand: another person's tap on Discord being refused, and
+    `gmail-send` itself (the test artifact had calendar tools, which take the
+    same path). A CLI release is needed for `annotations` in `ganju.json`.
+  - Follow-ups, each its own task: the calendar token refresh failure;
+    confirmation for MCP clients (4b).
+
+**4b. Confirmation for MCP clients — S, built**
+
+Channels confirm in the runner, which reads the user's reply. An MCP client
+(Claude Desktop, Claude Code, Cursor) runs its own chat, so the question has
+to come from the model there: a yes or no in the chat, then the action.
+
+- With the org's "Confirm sensitive actions" on, a sensitive tool (the
+  runner's rule: `readOnlyHint !== true && destructiveHint !== false`)
+  called without a confirmation doesn't run. It returns: not run yet — tell
+  the user exactly what this will do and ask yes or no; on yes, call again
+  with the same arguments and `confirmation: "<token>"`; on no, don't.
+- The model asks in the chat; on yes it calls again with the token. The
+  server runs the call only if the token matches this tool with these exact
+  arguments and hasn't expired (~10 minutes).
+- Token: an HMAC over tool name, canonical arguments (sorted keys) and
+  expiry, with a server secret — no sessions, no Durable Object. Used tokens
+  are recorded (small table, unique id) so one yes can't run twice.
+- Every sensitive tool's input schema gets an optional `confirmation`
+  string; it's stripped before the handler sees the arguments. Done in one
+  wrapper around `registerTool` (tools are registered in four places:
+  native, http-endpoint, custom-code, mcp-proxy).
+- Skipped for the channel runner (`channelTrust`), which confirms itself.
+- Limit: the server never sees the user's words, only a second call — it
+  relies on the model asking, which a prompt injection could skip. It still
+  stops a sensitive action from happening in one step.
+- Decided: applies to every MCP client when the switch is on, even ones that
+  also ask before tool calls themselves (they may ask twice). No separate
+  setting. Elicitation (the server asking through the client's own UI) was
+  looked at and dropped: it needs session state the stateless MCP worker
+  doesn't have.
+- Done when: with the switch on, `calendar-create-event` from Claude Code
+  first comes back "not run yet", the model asks, and it runs only after a
+  yes; the same call with an altered argument or a reused token is refused.
+- Status: done on dev 2026-09-28, production pending.
+  - `apps/mcp/src/utils/toolConfirmation.ts`: `confirmSensitiveTools`
+    replaces the server's `registerTool` right after it's created (only when
+    the org's switch is on and the request isn't `channelTrust`), so every
+    tool registered after it passes one check. Read-only tools register
+    untouched. A sensitive tool gains an optional `confirmation` argument;
+    without a good one it returns "not run yet", the summary the channels
+    show, and a token; with one it strips it and runs the tool.
+  - Token `v1.<expiresAt>.<id>.<hmac>`: HMAC-SHA256 over version, artifact,
+    tool, expiry, id and the arguments as sorted-key JSON, keyed by a key
+    derived from `CRYPTO_SECRET` (no new secret). 10-minute expiry
+    (`MCP_TOOL_CONFIRMATION_TTL_MS`). A forged token, a real one for other
+    arguments and a tampered expiry all read as "doesn't match".
+  - Migration `0077`: `tool_confirmation_use` (id = the token's id, tool,
+    artifact, created_at). The insert is the claim — of two racing calls
+    with one token only one runs; rows older than a day are swept on write.
+  - The runner and the MCP worker share `utils.isSensitiveTool` and
+    `utils.stableJson`. Settings text for the switch mentions MCP clients.
+  - Tested with the SDK's in-memory client against a real `McpServer`: a
+    read-only tool ran directly; a sensitive one came back "not run yet"
+    with a token; the token ran it (argument order didn't matter); the same
+    token again, a changed argument, a forged token and a tampered expiry
+    were refused; the tool ran once.
+  - Verified on dev with Claude Code as the MCP client (OAuth to the Shipday
+    artifact, switch on for the test): the first `calendar-create-event`
+    came back "not run yet" with the summary and a token; after the user's
+    yes, the call with the token went through to the tool (the client's
+    cached schema, from before the deploy, didn't block the new argument)
+    and its id landed in `tool_confirmation_use`; the same token again was
+    "already used"; a fresh token with a changed start time "doesn't
+    match". Shipday's Google Calendar credential is flagged for re-auth
+    since August, so the tool itself answered with that and no event was
+    made.
+  - To deploy to production: `0077`, then `ganju-mcp`, `ganju-api` (shared
+    helpers) and the web app.
 
 **5. Tool linter — S**
 

@@ -233,7 +233,9 @@ import {
   languageFromPhoneNumber,
   formatConfirmationSummary,
   annotationsForEffect,
-  TOOL_EFFECTS
+  TOOL_EFFECTS,
+  isSensitiveTool,
+  stableJson
 } from './toolConfirmation';
 import type {
   PendingToolConfirmation,
@@ -387,6 +389,8 @@ export const utils = {
   formatConfirmationSummary,
   annotationsForEffect,
   TOOL_EFFECTS,
+  isSensitiveTool,
+  stableJson,
   isResourceSourceEnabled,
   isDownloadableSource,
   safeHostname,

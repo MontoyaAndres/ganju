@@ -259,3 +259,33 @@ export const formatConfirmationSummary = (
       return [`⏳ **${titleOf(call.name)}**`, ...lines].join('\n');
     })
     .join('\n\n');
+
+/**
+ * Whether a tool needs a yes before it runs, by the MCP defaults: read-only
+ * only if it says so, and a tool that changes things is destructive unless it
+ * says it isn't. So an unannotated custom or proxied tool is confirmed — the
+ * safe reading for an organization that asked to be asked.
+ */
+export const isSensitiveTool = (
+  annotations:
+    | { readOnlyHint?: boolean; destructiveHint?: boolean }
+    | null
+    | undefined
+): boolean =>
+  annotations?.readOnlyHint !== true && annotations?.destructiveHint !== false;
+
+// JSON with keys sorted at every depth, so two argument objects that say the
+// same thing serialize the same whatever order the model emitted them in.
+export const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map(
+        key =>
+          `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`
+      )
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
