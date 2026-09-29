@@ -418,8 +418,8 @@ on its own: the API's crons only run error alerts and overage metering.
   - Unrelated, seen in that test: the model writes calendar times as UTC
     (`16:00Z`) while saying "4 p.m. Colombia", so the event lands at 11:00
     Bogotá; `timeZone` doesn't shift a timestamp that carries an offset. The
-    confirmation summary is what made it visible. Fixed after (not yet
-    deployed): `calendar-create-event` / `calendar-update-event` take start
+    confirmation summary is what made it visible. Fixed after (on dev and
+    production 2026-09-28): `calendar-create-event` / `calendar-update-event` take start
     and end as local wall-clock time in the event's zone, no `Z` or offset
     (one that carries them is still honoured as that instant); an end from
     `durationMinutes` is computed in the same form as the start — the
@@ -437,10 +437,10 @@ on its own: the API's crons only run error alerts and overage metering.
   - Not checked by hand: another person's tap on Discord being refused, and
     `gmail-send` itself (the test artifact had calendar tools, which take the
     same path). A CLI release is needed for `annotations` in `ganju.json`.
-  - Follow-ups, each its own task: the calendar token refresh failure;
-    confirmation for MCP clients (4b).
+  - Follow-ups: the calendar token refresh failure (its own task);
+    confirmation for MCP clients is 4b, done.
 
-**4b. Confirmation for MCP clients — S, built**
+**4b. Confirmation for MCP clients — S, done**
 
 Channels confirm in the runner, which reads the user's reply. An MCP client
 (Claude Desktop, Claude Code, Cursor) runs its own chat, so the question has
@@ -473,7 +473,7 @@ to come from the model there: a yes or no in the chat, then the action.
 - Done when: with the switch on, `calendar-create-event` from Claude Code
   first comes back "not run yet", the model asks, and it runs only after a
   yes; the same call with an altered argument or a reused token is refused.
-- Status: done on dev 2026-09-28, production pending.
+- Status: done 2026-09-28, on dev and production.
   - `apps/mcp/src/utils/toolConfirmation.ts`: `confirmSensitiveTools`
     replaces the server's `registerTool` right after it's created (only when
     the org's switch is on and the request isn't `channelTrust`), so every
@@ -506,8 +506,7 @@ to come from the model there: a yes or no in the chat, then the action.
     match". Shipday's Google Calendar credential is flagged for re-auth
     since August, so the tool itself answered with that and no event was
     made.
-  - To deploy to production: `0077`, then `ganju-mcp`, `ganju-api` (shared
-    helpers) and the web app.
+  - Deployed to production 2026-09-28 (`0077`, `ganju-mcp`, `ganju-api`, web).
 
 **5. Tool linter — S**
 
