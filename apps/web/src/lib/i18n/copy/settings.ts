@@ -32,6 +32,13 @@ const en = {
   toastOrganizationUpdateFailed: 'Failed to update organization',
   toastOrganizationRemoved: 'Organization removed',
   toastOrganizationRemoveFailed: 'Failed to remove organization',
+  toolConfirmationTitle: 'Confirm sensitive actions',
+  toolConfirmationHelp:
+    'Channel bots ask before sending an email or message, booking or changing a calendar event, deleting something, calling an HTTP endpoint that isn’t a GET, or running one of your functions or connected MCP tools that isn’t marked read-only — and act only when the person answers yes.',
+  toolConfirmationOn: 'Confirmation is on',
+  toolConfirmationOff: 'Confirmation is off',
+  toastToolConfirmationOn: 'Bots will ask before sensitive actions',
+  toastToolConfirmationOff: 'Bots will no longer ask before sensitive actions',
 
   // Billing.
   billingSubtitle:
@@ -320,6 +327,14 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     toastOrganizationUpdateFailed: 'No pudimos actualizar la organización',
     toastOrganizationRemoved: 'Organización eliminada',
     toastOrganizationRemoveFailed: 'No pudimos eliminar la organización',
+    toolConfirmationTitle: 'Confirmar acciones sensibles',
+    toolConfirmationHelp:
+      'Los bots de los canales preguntan antes de enviar un correo o mensaje, agendar o cambiar un evento, borrar algo, llamar a un endpoint HTTP que no sea GET o ejecutar una de tus funciones o herramientas MCP conectadas que no esté marcada como de solo lectura, y solo lo hacen si la persona responde que sí.',
+    toolConfirmationOn: 'La confirmación está activada',
+    toolConfirmationOff: 'La confirmación está desactivada',
+    toastToolConfirmationOn: 'Los bots preguntarán antes de acciones sensibles',
+    toastToolConfirmationOff:
+      'Los bots ya no preguntarán antes de acciones sensibles',
 
     billingSubtitle:
       'El plan de tu organización, su consumo actual y su suscripción. Pasa a Pro para levantar los límites del plan Gratis.',

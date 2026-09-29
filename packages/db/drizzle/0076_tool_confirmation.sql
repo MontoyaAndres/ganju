@@ -1,0 +1,2 @@
+ALTER TABLE "channel_conversation" ADD COLUMN "pending_tool_confirmation" json;--> statement-breakpoint
+ALTER TABLE "organization" ADD COLUMN "require_tool_confirmation" boolean DEFAULT false NOT NULL;

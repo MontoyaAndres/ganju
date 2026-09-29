@@ -27,6 +27,7 @@ import { ModalDialog, ModalOverlay } from './styles';
 import { i18n } from '../../../lib';
 
 // types
+import type { ToolEffect } from '@ganju/utils';
 import type { Translate } from '../../../lib';
 import type {
   ArtifactConnection,
@@ -40,7 +41,23 @@ export interface ManifestTool {
   description?: string;
   inputSchema?: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
+
+// The three answers the dialog offers to "what does it do?", and the MCP
+// annotations each one stands for. A function saved without an answer (from
+// before the question existed, or a manifest that declared none) reads as
+// sensitive — the MCP default for a tool that doesn't say it only reads.
+const effectOf = (tool: ManifestTool | null): ToolEffect => {
+  if (tool?.annotations?.readOnlyHint) return 'read';
+  if (tool?.annotations?.destructiveHint === false) return 'write';
+  return 'sensitive';
+};
 
 export interface CustomCodeVersion {
   id: string;
@@ -1381,6 +1398,7 @@ const FunctionModal = ({
   const [output, setOutput] = useState(
     initial?.outputSchema ? JSON.stringify(initial.outputSchema, null, 2) : ''
   );
+  const [effect, setEffect] = useState<ToolEffect>(effectOf(initial));
   const [error, setError] = useState<string | null>(null);
 
   const t = i18n.useT(i18n.copy.TOOLS);
@@ -1429,7 +1447,13 @@ const FunctionModal = ({
       title: title.trim() || undefined,
       description: description.trim() || undefined,
       inputSchema,
-      ...(outputSchema ? { outputSchema } : {})
+      ...(outputSchema ? { outputSchema } : {}),
+      // Any other hints the manifest carried are kept; the dialog only owns
+      // the two it asks about.
+      annotations: {
+        ...initial?.annotations,
+        ...utils.annotationsForEffect(effect)
+      }
     });
   };
 
@@ -1476,6 +1500,18 @@ const FunctionModal = ({
                 onChange={e => setDescription(e.target.value)}
               />
               <small>{t('fnFieldDescriptionHelp')}</small>
+            </label>
+            <label className="tools-field">
+              <span>{t('fnEffectLabel')}</span>
+              <select
+                value={effect}
+                onChange={e => setEffect(e.target.value as ToolEffect)}
+              >
+                <option value="read">{t('fnEffectRead')}</option>
+                <option value="write">{t('fnEffectWrite')}</option>
+                <option value="sensitive">{t('fnEffectSensitive')}</option>
+              </select>
+              <small>{t('fnEffectHelp')}</small>
             </label>
             {/* Both fields validate against the schema shape the server
                 accepts, so a key it would reject is underlined here rather than

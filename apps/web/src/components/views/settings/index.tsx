@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import IconButton from '@mui/material/IconButton';
+import Switch from '@mui/material/Switch';
 import { Add, DeleteOutlined, EditOutlined } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
@@ -51,6 +52,7 @@ interface Organization {
   projectCount: number;
   organizationUserCount: number;
   projects?: Project[];
+  requireToolConfirmation?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -175,6 +177,7 @@ export const Settings = (props: SettingsProps) => {
   const [savingOrg, setSavingOrg] = useState(false);
   const [removingOrg, setRemovingOrg] = useState(false);
   const [orgDeleteAlert, setOrgDeleteAlert] = useState(false);
+  const [savingToolConfirmation, setSavingToolConfirmation] = useState(false);
 
   // 'member' sees the full settings; 'project-only' (in a project of this org
   // but not the org itself) sees only the Projects section; 'none' has no
@@ -342,6 +345,46 @@ export const Settings = (props: SettingsProps) => {
       snackbar.error(t('toastOrganizationUpdateFailed'));
     } finally {
       setSavingOrg(false);
+    }
+  };
+
+  // Saved the moment it's flipped. The switch shows the new state right away
+  // and goes back if the save fails.
+  const handleToolConfirmationToggle = async () => {
+    if (savingToolConfirmation || !organization) return;
+    const next = !organization.requireToolConfirmation;
+    setSavingToolConfirmation(true);
+    setOrganization(prev =>
+      prev ? { ...prev, requireToolConfirmation: next } : prev
+    );
+    try {
+      const data = await utils.fetcher({
+        url: orgBase,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ requireToolConfirmation: next })
+        }
+      });
+      if (data && !data.error) {
+        snackbar.success(
+          t(next ? 'toastToolConfirmationOn' : 'toastToolConfirmationOff')
+        );
+      } else {
+        setOrganization(prev =>
+          prev ? { ...prev, requireToolConfirmation: !next } : prev
+        );
+        snackbar.error(
+          data?.error?.message || t('toastOrganizationUpdateFailed')
+        );
+      }
+    } catch {
+      setOrganization(prev =>
+        prev ? { ...prev, requireToolConfirmation: !next } : prev
+      );
+      snackbar.error(t('toastOrganizationUpdateFailed'));
+    } finally {
+      setSavingToolConfirmation(false);
     }
   };
 
@@ -839,6 +882,35 @@ export const Settings = (props: SettingsProps) => {
               </UI.Button>
             </div>
           </>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-header">
+          <div className="settings-section-text">
+            <h2 className="settings-section-title">
+              {t('toolConfirmationTitle')}
+            </h2>
+            <p className="settings-section-description">
+              {t('toolConfirmationHelp')}
+            </p>
+          </div>
+        </div>
+        {orgLoading && !organization ? (
+          <UI.Skeleton variant="rounded" width={180} height={32} />
+        ) : (
+          <label className="settings-toggle-row">
+            <Switch
+              checked={!!organization?.requireToolConfirmation}
+              disabled={!organization || savingToolConfirmation}
+              onChange={handleToolConfirmationToggle}
+            />
+            {t(
+              organization?.requireToolConfirmation
+                ? 'toolConfirmationOn'
+                : 'toolConfirmationOff'
+            )}
+          </label>
         )}
       </section>
     </section>

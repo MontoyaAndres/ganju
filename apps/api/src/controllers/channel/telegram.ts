@@ -267,6 +267,7 @@ const runTelegramTurnAndReply = async (
   let replyText: string;
   let attachments: ChannelAttachment[] = [];
   let sourceButtons: SourceButton[] = [];
+  let confirmation: 'asked' | 'answered' | null = null;
   try {
     const result = await runChannelTurn(c, {
       channelId: envelope.channelId,
@@ -286,6 +287,7 @@ const runTelegramTurnAndReply = async (
     replyText = result.assistantText;
     attachments = result.attachments;
     sourceButtons = result.sourceButtons;
+    confirmation = result.confirmation;
   } catch (error: any) {
     const { refId } = await dbUtils.handleError(c, error, {
       service: utils.constants.SERVICE_NAME_API,
@@ -302,14 +304,17 @@ const runTelegramTurnAndReply = async (
   }
 
   const chunks = chunkMessage(replyText);
-  const replyMarkup =
+  const replyMarkup = confirmationMarkup(
+    envelope,
+    confirmation,
     sourceButtons.length > 0
       ? {
           inline_keyboard: sourceButtons.map(button => [
             { text: button.text, url: button.url }
           ])
         }
-      : undefined;
+      : undefined
+  );
 
   for (let i = 0; i < chunks.length; i++) {
     const isLast = i === chunks.length - 1;
@@ -347,9 +352,57 @@ const runTelegramTurnAndReply = async (
   }
 };
 
-interface TelegramReplyMarkup {
-  inline_keyboard: Array<Array<{ text: string; url: string }>>;
-}
+type TelegramReplyMarkup =
+  | { inline_keyboard: Array<Array<{ text: string; url: string }>> }
+  | {
+      keyboard: Array<Array<{ text: string }>>;
+      one_time_keyboard: true;
+      resize_keyboard: true;
+      input_field_placeholder?: string;
+    }
+  | { remove_keyboard: true };
+
+// The markup for a reply, given whether it asks for or closes a confirmation.
+//
+// A question gets Yes/No as a reply keyboard, not inline buttons: a tap on a
+// reply keyboard sends the label as an ordinary message, which is the only
+// kind of update these webhooks are registered for, and "✅ Yes" already reads
+// as a yes. Inline buttons would need callback updates, and turning those on
+// for an existing bot means re-registering its webhook under a new secret. A
+// message carries one markup, so the keyboard takes the place of the source
+// links on that one reply.
+//
+// Private chats only: in a group the bot hears only what is addressed to it,
+// and a keyboard tap isn't, so there the question is answered by replying.
+// Once the question is closed the keyboard is taken away, unless this reply
+// needs its markup for source links — the keyboard hides itself after a tap
+// anyway.
+const confirmationMarkup = (
+  envelope: ChannelBufferEnvelope,
+  confirmation: 'asked' | 'answered' | null,
+  sourceMarkup: TelegramReplyMarkup | undefined
+): TelegramReplyMarkup | undefined => {
+  if (
+    envelope.conversationScope !==
+    utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE
+  ) {
+    return sourceMarkup;
+  }
+  if (confirmation === 'asked') {
+    const labels = utils.confirmationButtonLabels(
+      envelope.participantMetadata?.languageCode as string | undefined
+    );
+    return {
+      keyboard: [[{ text: labels.yes }, { text: labels.no }]],
+      one_time_keyboard: true,
+      resize_keyboard: true
+    };
+  }
+  if (confirmation === 'answered' && !sourceMarkup) {
+    return { remove_keyboard: true };
+  }
+  return sourceMarkup;
+};
 
 const sendTelegramMessage = async (
   botToken: string,

@@ -334,6 +334,9 @@ export const organization = pgTable('organization', {
   organizationUserCount: integer('organization_user_count')
     .notNull()
     .default(0),
+  requireToolConfirmation: boolean('require_tool_confirmation')
+    .notNull()
+    .default(false),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { mode: 'date' })
     .notNull()
@@ -732,6 +735,10 @@ export const channelConversation = pgTable(
       .notNull()
       .default(utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE),
     metadata: json('metadata'),
+    // Sensitive tool calls waiting on a participant's yes, keyed by
+    // participant id (PendingToolConfirmations), or null. Each participant's
+    // entry is cleared by their next message, whatever it says.
+    pendingToolConfirmation: json('pending_tool_confirmation'),
     messageCount: integer('message_count').notNull().default(0),
     lastMessageAt: timestamp('last_message_at', { mode: 'date' }),
     channelId: text('channel_id')

@@ -15,6 +15,45 @@
 // Adding a tool: add the entry here, add its handler to `toolRegistry` under the
 // same key. TypeScript fails the build until both exist.
 
+// MCP tool annotations: what a tool does to the world, as hints a client can
+// act on. `destructiveHint` is also what the channel runner reads when an
+// organization asks to confirm sensitive actions, so it is set on anything
+// that reaches another person or can't be taken back — a sent email, a posted
+// message, a booking or calendar change (attendees are notified), a deletion —
+// and left off drafts, labels and moves, which stay in the owner's own account
+// and can be undone.
+export interface ToolAnnotations {
+  readOnlyHint: boolean;
+  destructiveHint: boolean;
+  openWorldHint: boolean;
+}
+
+const READ_ONLY: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: false
+};
+const WEB_READ: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: true
+};
+const WRITE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: false
+};
+const REACHES_OTHERS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  openWorldHint: true
+};
+const DELETES: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  openWorldHint: false
+};
+
 export interface CatalogTool {
   // Doubles as the MCP tool name for native tools, which is why it is also what
   // `isReservedToolName` protects from user-authored tools.
@@ -25,6 +64,10 @@ export interface CatalogTool {
   // prompt for incremental re-authorization. Null when the group's grant covers
   // it.
   requiredScopes: string | null;
+  // Required, so a new tool can't ship without saying whether it is sensitive.
+  // Null for the three definitions whose tools the user authors: each
+  // installed tool is annotated on its own when it registers.
+  annotations: ToolAnnotations | null;
 }
 
 export interface CatalogGroup {
@@ -55,114 +98,132 @@ export const TOOL_CATALOG = [
         title: 'Batch Modify Labels',
         description:
           'Add or remove labels on many emails at once (archive, mark read, etc.).',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.modify'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.modify',
+        annotations: WRITE
       },
       {
         key: 'gmail-create-draft',
         title: 'Create Draft',
         description: 'Save a new draft in Gmail without sending it yet.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose',
+        annotations: WRITE
       },
       {
         key: 'gmail-delete-draft',
         title: 'Delete Draft',
         description: 'Permanently delete a draft.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose',
+        annotations: DELETES
       },
       {
         key: 'gmail-forward-email',
         title: 'Forward Email',
         description: 'Forward an email to a new recipient.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.send'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'gmail-get-draft',
         title: 'Get Draft',
         description: 'Open a saved draft to review its contents.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-get-profile',
         title: 'Get Profile',
         description:
           'Show the email address and inbox stats for the connected Gmail account.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-get-thread',
         title: 'Get Thread',
         description: 'See every message inside one conversation.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-list-drafts',
         title: 'List Drafts',
         description: 'Browse your saved drafts.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-list-emails',
         title: 'List Emails',
         description: 'Browse your Gmail inbox, with optional search filters.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-list-labels',
         title: 'List Labels',
         description: 'See all of your Gmail labels and folders.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.labels'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.labels',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-list-threads',
         title: 'List Threads',
         description: 'List your Gmail conversations.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-modify-labels',
         title: 'Modify Labels',
         description:
           'Add or remove labels on a single email — archive it, mark it read, star it, and more.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.modify'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.modify',
+        annotations: WRITE
       },
       {
         key: 'gmail-read-email',
         title: 'Read Email',
         description: 'Open and read a specific email.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'gmail-reply-email',
         title: 'Reply Email',
         description:
           'Reply to an email so the response stays in the same conversation.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.send'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'gmail-send-draft',
         title: 'Send Draft',
         description: "Send a draft you've already saved.",
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.send'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'gmail-send-email',
         title: 'Send Email',
         description:
           'Compose and send a new email from your connected Gmail account.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.send'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'gmail-trash-email',
         title: 'Move to Trash',
         description:
           'Move an email to Trash. It stays recoverable for 30 days.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.modify'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.modify',
+        annotations: DELETES
       },
       {
         key: 'gmail-update-draft',
         title: 'Update Draft',
         description: 'Edit the contents of a saved draft.',
-        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose'
+        requiredScopes: 'https://www.googleapis.com/auth/gmail.compose',
+        annotations: WRITE
       }
     ]
   },
@@ -177,110 +238,128 @@ export const TOOL_CATALOG = [
         key: 'outlook-batch-move-messages',
         title: 'Batch Move Messages',
         description: 'Move up to 20 messages to the same folder.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite'
+        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite',
+        annotations: WRITE
       },
       {
         key: 'outlook-create-draft',
         title: 'Create Draft',
         description: 'Create a draft email saved in Drafts.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite'
+        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite',
+        annotations: WRITE
       },
       {
         key: 'outlook-delete-draft',
         title: 'Delete Draft',
         description: 'Permanently delete a draft.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite'
+        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite',
+        annotations: DELETES
       },
       {
         key: 'outlook-forward-email',
         title: 'Forward',
         description: 'Forward an existing message to a new recipient.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Send'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'outlook-get-draft',
         title: 'Get Draft',
         description: 'Read the full contents of a draft.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-get-profile',
         title: 'Get Profile',
         description: "Get the connected account's profile and inbox totals.",
-        requiredScopes: 'https://graph.microsoft.com/User.Read'
+        requiredScopes: 'https://graph.microsoft.com/User.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-get-thread',
         title: 'Get Thread',
         description: 'Get summaries of every message in a conversation.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-list-drafts',
         title: 'List Drafts',
         description: 'List drafts in the Drafts folder.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-list-emails',
         title: 'List Emails',
         description: 'List inbox messages, optionally filtered by search.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-list-folders',
         title: 'List Folders',
         description: 'List every mail folder on the account.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-list-threads',
         title: 'List Threads',
         description: 'List inbox conversation threads.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-move-message',
         title: 'Move Message',
         description: 'Move a message to a different folder.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite'
+        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite',
+        annotations: WRITE
       },
       {
         key: 'outlook-read-email',
         title: 'Read Email',
         description: 'Read the full contents of one message by ID.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Read'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Read',
+        annotations: READ_ONLY
       },
       {
         key: 'outlook-reply-email',
         title: 'Reply',
         description:
           'Reply to an existing message, preserving the conversation.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Send'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'outlook-send-draft',
         title: 'Send Draft',
         description: 'Send an existing draft as-is.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Send'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'outlook-send-email',
         title: 'Send Email',
         description: 'Send a brand-new email from the connected account.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.Send'
+        requiredScopes: 'https://graph.microsoft.com/Mail.Send',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'outlook-trash-email',
         title: 'Move to Trash',
         description: 'Move a message to the Deleted Items folder.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite'
+        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite',
+        annotations: DELETES
       },
       {
         key: 'outlook-update-draft',
         title: 'Update Draft',
         description: 'Replace the contents of an existing draft.',
-        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite'
+        requiredScopes: 'https://graph.microsoft.com/Mail.ReadWrite',
+        annotations: WRITE
       }
     ]
   },
@@ -296,25 +375,29 @@ export const TOOL_CATALOG = [
         key: 'slack-get-user',
         title: 'Get User',
         description: 'Look up a Slack user by ID or email.',
-        requiredScopes: 'users:read,users:read.email'
+        requiredScopes: 'users:read,users:read.email',
+        annotations: READ_ONLY
       },
       {
         key: 'slack-list-channels',
         title: 'List Channels',
         description: 'Browse the channels and DMs the agent can see.',
-        requiredScopes: 'channels:read,groups:read,mpim:read,im:read'
+        requiredScopes: 'channels:read,groups:read,mpim:read,im:read',
+        annotations: READ_ONLY
       },
       {
         key: 'slack-send-message',
         title: 'Send Message',
         description: 'Post a message to a Slack channel, DM, or thread.',
-        requiredScopes: 'chat:write'
+        requiredScopes: 'chat:write',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'slack-upload-file',
         title: 'Upload File',
         description: 'Upload a stored resource into a Slack channel.',
-        requiredScopes: 'files:write,chat:write'
+        requiredScopes: 'files:write,chat:write',
+        annotations: REACHES_OTHERS
       }
     ]
   },
@@ -331,7 +414,8 @@ export const TOOL_CATALOG = [
         title: 'Search Messages',
         description:
           'Search messages across the workspace. Requires a Slack user token (xoxp).',
-        requiredScopes: 'search:read'
+        requiredScopes: 'search:read',
+        annotations: READ_ONLY
       }
     ]
   },
@@ -346,37 +430,43 @@ export const TOOL_CATALOG = [
         key: 'calendar-create-event',
         title: 'Create Event',
         description: 'Add a new event to a calendar.',
-        requiredScopes: 'https://www.googleapis.com/auth/calendar.events'
+        requiredScopes: 'https://www.googleapis.com/auth/calendar.events',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'calendar-delete-event',
         title: 'Delete Event',
         description: 'Permanently remove an event from a calendar.',
-        requiredScopes: 'https://www.googleapis.com/auth/calendar.events'
+        requiredScopes: 'https://www.googleapis.com/auth/calendar.events',
+        annotations: REACHES_OTHERS
       },
       {
         key: 'calendar-find-free-slots',
         title: 'Find Free Slots',
         description: 'Find open time gaps on a calendar.',
-        requiredScopes: 'https://www.googleapis.com/auth/calendar.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/calendar.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'calendar-list-calendars',
         title: 'List Calendars',
         description: 'See all calendars on the connected Google account.',
-        requiredScopes: 'https://www.googleapis.com/auth/calendar.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/calendar.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'calendar-list-events',
         title: 'List Events',
         description: 'Browse events on a calendar within a time range.',
-        requiredScopes: 'https://www.googleapis.com/auth/calendar.readonly'
+        requiredScopes: 'https://www.googleapis.com/auth/calendar.readonly',
+        annotations: READ_ONLY
       },
       {
         key: 'calendar-update-event',
         title: 'Update Event',
         description: 'Change the details of an existing event.',
-        requiredScopes: 'https://www.googleapis.com/auth/calendar.events'
+        requiredScopes: 'https://www.googleapis.com/auth/calendar.events',
+        annotations: REACHES_OTHERS
       }
     ]
   },
@@ -391,27 +481,31 @@ export const TOOL_CATALOG = [
         key: 'calcom-cancel-booking',
         title: 'Cancel Booking',
         description: 'Cancel an existing booking by its UID.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: REACHES_OTHERS
       },
       {
         key: 'calcom-create-booking',
         title: 'Create Booking',
         description: 'Book an available slot for an attendee.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: REACHES_OTHERS
       },
       {
         key: 'calcom-list-available-slots',
         title: 'List Available Slots',
         description:
           'Find open booking times for an event type in a date range.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       },
       {
         key: 'calcom-list-event-types',
         title: 'List Event Types',
         description:
           'See the bookable meeting types on the connected Cal.com account.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       }
     ]
   },
@@ -428,14 +522,16 @@ export const TOOL_CATALOG = [
         title: 'Web Extract',
         description:
           'Fetch the full cleaned text of specific web pages by URL for in-depth reading.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: WEB_READ
       },
       {
         key: 'web-search',
         title: 'Web Search',
         description:
           'Search the live web and return the top results plus a synthesized answer so the model can cite sources.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: WEB_READ
       }
     ]
   },
@@ -451,32 +547,37 @@ export const TOOL_CATALOG = [
         title: 'List Prompts',
         description:
           'List the prompts and commands this assistant exposes, and how to run them on the current channel.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       },
       {
         key: 'list-resources',
         title: 'List Resources',
         description: 'List every resource available to this assistant.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       },
       {
         key: 'read-resource',
         title: 'Read Resource',
         description: 'Read the contents of a stored resource.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       },
       {
         key: 'search-resources',
         title: 'Search Resources',
         description:
           'Find the resources most relevant to a question, by meaning and by exact keywords.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       },
       {
         key: 'send-resource',
         title: 'Send Resource',
         description: 'Deliver a resource to the user as a chat attachment.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: WRITE
       }
     ]
   },
@@ -492,7 +593,8 @@ export const TOOL_CATALOG = [
         title: 'Greeting',
         description:
           'Reply with a friendly hello in English or Spanish (demo tool).',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: READ_ONLY
       }
     ]
   },
@@ -509,7 +611,8 @@ export const TOOL_CATALOG = [
         title: 'HTTP Endpoint',
         description:
           'A user-configured HTTP request exposed to the agent as its own named tool.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: null
       }
     ]
   },
@@ -526,7 +629,8 @@ export const TOOL_CATALOG = [
         title: 'MCP Server',
         description:
           'A connected remote MCP server. Each server you add exposes its tools to the agent under a vendor prefix.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: null
       }
     ]
   },
@@ -543,7 +647,8 @@ export const TOOL_CATALOG = [
         title: 'Custom code',
         description:
           'Tools implemented by your own code. One script per artifact; names and schemas come from the published version.',
-        requiredScopes: null
+        requiredScopes: null,
+        annotations: null
       }
     ]
   }
@@ -610,6 +715,7 @@ export interface CatalogToolDescriptor {
   title: string;
   description: string | null;
   requiredScopes: string | null;
+  annotations: ToolAnnotations | null;
   group: Omit<CatalogGroup, 'tools'>;
 }
 
@@ -624,6 +730,7 @@ export const describeCatalogTool = (
     title: tool.title,
     description: tool.description,
     requiredScopes: tool.requiredScopes,
+    annotations: tool.annotations,
     group: {
       key: group.key,
       title: group.title,

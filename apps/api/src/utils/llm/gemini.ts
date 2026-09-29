@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { FunctionCallingConfigMode, GoogleGenAI } from '@google/genai';
 import { utils } from '@ganju/utils';
 import type {
   LlmAdapter,
@@ -113,6 +113,13 @@ export const geminiAdapter: LlmAdapter = {
           ? { systemInstruction: input.systemPrompt }
           : {}),
         ...(tools ? { tools } : {}),
+        ...(tools && input.toolChoice === 'none'
+          ? {
+              toolConfig: {
+                functionCallingConfig: { mode: FunctionCallingConfigMode.NONE }
+              }
+            }
+          : {}),
         ...(input.config || {})
       }
     });

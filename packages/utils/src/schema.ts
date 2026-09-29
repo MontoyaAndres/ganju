@@ -5,6 +5,7 @@ import { isAllowedLlmBaseUrl, requiresLlmBaseUrl } from './llmBaseUrl';
 import { isReservedSlug, isValidSlugFormat } from './slug';
 import { isReservedToolName } from './reservedToolName';
 import { slugifyTitle } from './slugifyTitle';
+import { TOOL_EFFECTS } from './toolConfirmation';
 
 // A prompt title becomes a slash command; it must not collide with a command
 // the channel runner handles itself (e.g. `/link`).
@@ -43,11 +44,20 @@ const ORGANIZATION_CREATE_VIEW = z.object({
   projectDescription: z.string().max(500)
 });
 
-const ORGANIZATION_UPDATE = z.object({
-  id: z.uuid(),
-  userId: z.uuid(),
-  name: z.string().min(3).max(100)
-});
+// Each setting is saved on its own — the name from its form, the switches the
+// moment they're flipped — so every field is optional, but not all at once.
+const ORGANIZATION_UPDATE = z
+  .object({
+    id: z.uuid(),
+    userId: z.uuid(),
+    name: z.string().min(3).max(100).optional(),
+    requireToolConfirmation: z.boolean().optional()
+  })
+  .refine(
+    value =>
+      value.name !== undefined || value.requireToolConfirmation !== undefined,
+    { message: 'Nothing to update' }
+  );
 
 const ORGANIZATION_GET = z.object({
   id: z.uuid(),
@@ -851,6 +861,12 @@ const HTTP_ENDPOINT_CONFIG = z
         contentType: constants.HTTP_ENDPOINT_RESPONSE_CONTENT_TYPE_AUTO,
         maxBytes: constants.HTTP_ENDPOINT_DEFAULT_MAX_BYTES
       }),
+    // What the endpoint does, as its owner says (`read`, `write` or
+    // `sensitive`). Absent means the method decides: GET and HEAD read,
+    // anything else is sensitive — right for most, but a POST that only
+    // searches needs its owner to say so, or a confirming channel asks
+    // before every search.
+    effect: z.enum(TOOL_EFFECTS).optional(),
     // Auth — credentials referenced by id, never inlined.
     auth: HTTP_ENDPOINT_AUTH.default({
       kind: constants.HTTP_ENDPOINT_AUTH_KIND_NONE
@@ -1056,6 +1072,19 @@ const CUSTOM_CODE_CONFIG_WRITE = CUSTOM_CODE_CONFIG.superRefine((cfg, ctx) => {
 // that version registering, and the owner would see tools quietly disappear with
 // only a log line to explain it. Reservation belongs to the manifest below,
 // which is the write path.
+// MCP tool annotations as a tool's author declares them — every hint optional,
+// with the spec's own defaults for what is left out. The channel runner reads
+// them to decide what to confirm, so a tool that doesn't say it is read-only
+// is treated as one that may change things.
+const TOOL_ANNOTATIONS = z
+  .object({
+    readOnlyHint: z.boolean().optional(),
+    destructiveHint: z.boolean().optional(),
+    idempotentHint: z.boolean().optional(),
+    openWorldHint: z.boolean().optional()
+  })
+  .strict();
+
 const CUSTOM_CODE_TOOL = z.object({
   name: z
     .string()
@@ -1068,7 +1097,8 @@ const CUSTOM_CODE_TOOL = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
   inputSchema: SCHEMA_DEFINITION.default({ type: 'object', properties: {} }),
-  outputSchema: SCHEMA_DEFINITION.optional()
+  outputSchema: SCHEMA_DEFINITION.optional(),
+  annotations: TOOL_ANNOTATIONS.optional()
 });
 
 // The manifest a `ganju deploy` (or the dashboard) uploads alongside a bundle.
@@ -1648,6 +1678,7 @@ export const Schema = {
   CUSTOM_CODE_CONFIG,
   CUSTOM_CODE_CONFIG_WRITE,
   CUSTOM_CODE_TOOL,
+  TOOL_ANNOTATIONS,
   CUSTOM_CODE_MANIFEST,
   ARTIFACT_CUSTOM_CODE_CREATE_VERSION,
   ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE,
@@ -1707,6 +1738,10 @@ export interface McpProxyDiscoveredTool {
   title?: string;
   description?: string;
   inputSchema: unknown;
+  // The remote's own annotations, passed through at registration. Absent on
+  // discoveries made before they were recorded — the tool then counts as one
+  // that may change things until the server is discovered again.
+  annotations?: z.infer<typeof TOOL_ANNOTATIONS>;
 }
 
 // One remote resource discovered from a proxied MCP server. Identified by uri;

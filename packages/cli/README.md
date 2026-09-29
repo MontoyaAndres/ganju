@@ -58,11 +58,20 @@ with `GANJU_API_URL`.
         "properties": { "orderId": { "type": "string" } },
         "required": ["orderId"]
       },
-      "output": { "type": "object", "properties": { "status": { "type": "string" } } }
+      "output": { "type": "object", "properties": { "status": { "type": "string" } } },
+      "annotations": { "readOnlyHint": true }
     }
   ]
 }
 ```
+
+`annotations` are the [MCP tool annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations),
+with the spec's names: `readOnlyHint`, `destructiveHint`, `idempotentHint`,
+`openWorldHint`. They reach MCP clients as hints, and they decide what a channel
+bot confirms when the organization turns on **Confirm sensitive actions**: a
+tool that declares neither `readOnlyHint: true` nor `destructiveHint: false` is
+asked about before it runs. Mark lookups read-only; leave anything that sends,
+charges or deletes unmarked.
 
 **Secrets are not in this file, and must not be.** `ctx.secret('ACME_KEY')`
 resolves a credential through the broker at call time, so a secret is something

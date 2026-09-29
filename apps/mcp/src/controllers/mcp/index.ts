@@ -52,6 +52,9 @@ const PROXIED_TOOL_KEYS = new Set([
   utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
 ]);
 
+const isReadMethod = (method: string): boolean =>
+  method === 'GET' || method === 'HEAD';
+
 const business = async (c: Context<AppEnv>) => {
   const slug = c.req.param('slug') ?? resolveArtifactSlug(c.req.raw);
 
@@ -531,7 +534,13 @@ const business = async (c: Context<AppEnv>) => {
             {
               title: remoteTool.title || remoteTool.name,
               description,
-              inputSchema: remoteSchema
+              inputSchema: remoteSchema,
+              // The remote's own hints, as it declared them. Left out when it
+              // declared none, which by the MCP defaults means "may change
+              // things" — so a confirming channel asks before calling it.
+              ...(remoteTool.annotations
+                ? { annotations: remoteTool.annotations }
+                : {})
             },
             async args => {
               const startedAt = Date.now();
@@ -869,7 +878,10 @@ const business = async (c: Context<AppEnv>) => {
               title: entry.title || entry.name,
               description: entry.description || entry.name,
               inputSchema,
-              ...(outputSchema ? { outputSchema } : {})
+              ...(outputSchema ? { outputSchema } : {}),
+              // From the author's manifest. Undeclared means "may change
+              // things", so a confirming channel asks before calling it.
+              ...(entry.annotations ? { annotations: entry.annotations } : {})
             },
             async args => {
               const startedAt = Date.now();
@@ -1047,7 +1059,18 @@ const business = async (c: Context<AppEnv>) => {
           inputSchema: endpointSchema,
           ...(endpointOutputSchema
             ? { outputSchema: endpointOutputSchema }
-            : {})
+            : {}),
+          // What the owner says the endpoint does. Left unsaid, the method is
+          // the only thing known: a GET or HEAD reads, and anything else is
+          // treated as a change the owner may want confirmed, since there's
+          // no way to tell a POST that searches from one that charges a card.
+          annotations: {
+            ...utils.annotationsForEffect(
+              endpointConfig.effect ??
+                (isReadMethod(endpointConfig.method) ? 'read' : 'sensitive')
+            ),
+            openWorldHint: true
+          }
         },
         async args => {
           const startedAt = Date.now();
@@ -1188,7 +1211,10 @@ const business = async (c: Context<AppEnv>) => {
         // it instead left every native tool without its guidance.
         description: handler.description || toolDef.description || undefined,
         inputSchema: schema,
-        ...(nativeOutputSchema ? { outputSchema: nativeOutputSchema } : {})
+        ...(nativeOutputSchema ? { outputSchema: nativeOutputSchema } : {}),
+        // Clients may use these to ask before a destructive call; the channel
+        // runner reads destructiveHint to do the same when the org asks it to.
+        ...(toolDef.annotations ? { annotations: toolDef.annotations } : {})
       },
       async args => {
         const startedAt = Date.now();

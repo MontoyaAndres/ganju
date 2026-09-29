@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
-import type { JsonSchema } from '@ganju/utils';
+import type { JsonSchema, McpProxyDiscoveredTool } from '@ganju/utils';
 import { db } from '@ganju/db';
 
 import { buildArtifactConnections } from './connections';
@@ -1182,6 +1182,93 @@ const createTool = async (c: Context<AppEnv>) => {
   }
 
   return c.json(result);
+};
+
+/**
+ * Re-read the annotations of an organization's mcp-proxy installs whose stored
+ * discovery predates them. Without annotations every proxied tool counts as
+ * one that may change things, so an organization that turns on confirmation
+ * would be asked about reads too until each server was discovered again.
+ * Only the annotations change: the enabled tools, schemas and the rest of the
+ * stored discovery stay as the owner configured them. A server that can't be
+ * reached is left as it was; best-effort, run after the response.
+ */
+export const refreshMcpProxyAnnotations = async (
+  c: Context<AppEnv>,
+  organizationId: string
+): Promise<void> => {
+  const dbInstance = db.create(c);
+  const installs = await dbInstance
+    .select({
+      id: db.schema.artifactTool.id,
+      artifactId: db.schema.artifactTool.artifactId,
+      config: db.schema.artifactTool.config,
+      metadata: db.schema.artifactTool.metadata
+    })
+    .from(db.schema.artifactTool)
+    .innerJoin(
+      db.schema.artifact,
+      eq(db.schema.artifact.id, db.schema.artifactTool.artifactId)
+    )
+    .innerJoin(
+      db.schema.project,
+      eq(db.schema.project.id, db.schema.artifact.projectId)
+    )
+    .where(
+      and(
+        eq(db.schema.project.organizationId, organizationId),
+        eq(
+          db.schema.artifactTool.toolKey,
+          utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY
+        )
+      )
+    );
+
+  for (const install of installs) {
+    const metadata = (install.metadata || {}) as Record<string, unknown>;
+    const stored = metadata.discovery as
+      | { tools?: McpProxyDiscoveredTool[] }
+      | undefined;
+    if (!Array.isArray(stored?.tools)) continue;
+    if (stored.tools.some(tool => tool.annotations)) continue;
+
+    try {
+      const { discovery } = await discoverMcpProxy(
+        c,
+        dbInstance,
+        install.artifactId,
+        install.config
+      );
+      const annotationsByName = new Map(
+        discovery.tools
+          .filter(tool => tool.annotations)
+          .map(tool => [tool.name, tool.annotations])
+      );
+      if (annotationsByName.size === 0) continue;
+      await dbInstance
+        .update(db.schema.artifactTool)
+        .set({
+          metadata: {
+            ...metadata,
+            discovery: {
+              ...stored,
+              tools: stored.tools.map(tool =>
+                annotationsByName.has(tool.name)
+                  ? { ...tool, annotations: annotationsByName.get(tool.name) }
+                  : tool
+              )
+            }
+          }
+        })
+        .where(eq(db.schema.artifactTool.id, install.id));
+    } catch (error) {
+      console.warn(
+        `mcp-proxy ${install.id}: could not refresh annotations — ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
 };
 
 const updateTool = async (c: Context<AppEnv>) => {

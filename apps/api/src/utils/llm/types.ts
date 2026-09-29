@@ -41,6 +41,9 @@ export interface LlmAdapterInput {
   systemPrompt?: string | null;
   messages: LlmMessage[];
   tools: LlmToolDefinition[];
+  // `none` keeps the tools declared (a history holding tool calls needs them)
+  // but lets the model only answer in text. Omitted means the model decides.
+  toolChoice?: 'none';
   config?: Record<string, unknown> | null;
 }
 

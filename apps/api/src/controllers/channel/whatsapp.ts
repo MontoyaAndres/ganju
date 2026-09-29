@@ -52,7 +52,31 @@ interface WhatsappInboundMessage {
   timestamp?: string;
   type: string;
   text?: { body?: string };
+  // A tap on a reply button — the Yes/No under a confirmation question.
+  interactive?: {
+    type?: string;
+    button_reply?: { id?: string; title?: string };
+  };
 }
+
+// What an inbound message says, as text: a typed message's body, or the answer
+// a confirmation button stands for when it was tapped by the participant it
+// was put to. Anything else — media, other interactive types — is null.
+const inboundText = (message: WhatsappInboundMessage): string | null => {
+  if (message.type === 'text') return message.text?.body || null;
+  if (
+    message.type === 'interactive' &&
+    message.interactive?.type === 'button_reply'
+  ) {
+    const button = utils.parseConfirmationButton(
+      message.interactive.button_reply?.id || ''
+    );
+    if (button && button.externalParticipantId === message.from) {
+      return button.text;
+    }
+  }
+  return null;
+};
 
 interface WhatsappWebhookValue {
   messaging_product?: string;
@@ -162,9 +186,11 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
 
   const value = payload.entry?.[0]?.changes?.[0]?.value;
   const message = value?.messages?.[0];
-  // Only react to inbound text messages — ignore status receipts and the
-  // media/interactive types we don't render (mirrors Telegram's text-only rule).
-  if (!message || message.type !== 'text' || !message.text?.body) {
+  // Only react to inbound text and confirmation-button taps — ignore status
+  // receipts and the media/interactive types we don't render (mirrors
+  // Telegram's text-only rule).
+  const text = message ? inboundText(message) : null;
+  if (!message || !text) {
     return c.json({ ok: true });
   }
 
@@ -190,7 +216,7 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
     processWhatsappMessage(c, channelRow, credentials, {
       from: message.from,
       messageId: message.id,
-      text: message.text.body,
+      text,
       displayName
     }).catch(err =>
       dbUtils.handleError(c, err, {
@@ -376,6 +402,7 @@ const runWhatsappTurnAndReply = async (
   let replyText: string;
   let attachments: ChannelAttachment[] = [];
   let sourcesFooter: string | null = null;
+  let confirmationAsked = false;
   try {
     const result = await runChannelTurn(c, {
       channelId: envelope.channelId,
@@ -395,6 +422,7 @@ const runWhatsappTurnAndReply = async (
     replyText = result.assistantText;
     attachments = result.attachments;
     sourcesFooter = result.sourcesFooter;
+    confirmationAsked = result.confirmation === 'asked';
   } catch (error: any) {
     const { refId } = await dbUtils.handleError(c, error, {
       service: utils.constants.SERVICE_NAME_API,
@@ -416,7 +444,8 @@ const runWhatsappTurnAndReply = async (
     to,
     replyToMessageId,
     replyText,
-    sourcesFooter
+    sourcesFooter,
+    confirmationAsked
   );
 
   for (const attachment of attachments) {
@@ -476,7 +505,8 @@ const sendWhatsappMessage = async (
   to: string,
   replyToMessageId: string | null,
   markdown: string,
-  sourcesFooter?: string | null
+  sourcesFooter?: string | null,
+  confirmationAsked = false
 ) => {
   let body = markdownToWhatsapp(markdown);
   if (sourcesFooter) {
@@ -485,13 +515,54 @@ const sendWhatsappMessage = async (
   const chunks = chunkMessage(body);
 
   for (let i = 0; i < chunks.length; i++) {
-    const payload: Record<string, unknown> = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to,
-      type: 'text',
-      text: { body: chunks[i], preview_url: false }
-    };
+    const isLast = i === chunks.length - 1;
+    // A confirmation question goes out with Yes/No reply buttons. An
+    // interactive message's body holds at most 1,024 characters, so a longer
+    // last chunk is sent as plain text and the question is answered by typing.
+    const withButtons =
+      isLast &&
+      confirmationAsked &&
+      chunks[i].length <= utils.constants.WHATSAPP_INTERACTIVE_BODY_LIMIT;
+    // WhatsApp reports no locale; the number's country is the best guess.
+    const labels = utils.confirmationButtonLabels(
+      utils.languageFromPhoneNumber(to)
+    );
+    const payload: Record<string, unknown> = withButtons
+      ? {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: { text: chunks[i] },
+            action: {
+              buttons: [
+                {
+                  type: 'reply',
+                  reply: {
+                    id: utils.confirmationButtonId('yes', to),
+                    title: labels.yes
+                  }
+                },
+                {
+                  type: 'reply',
+                  reply: {
+                    id: utils.confirmationButtonId('no', to),
+                    title: labels.no
+                  }
+                }
+              ]
+            }
+          }
+        }
+      : {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: 'text',
+          text: { body: chunks[i], preview_url: false }
+        };
     // Quote the user's message on the first chunk only.
     if (i === 0 && replyToMessageId) {
       payload.context = { message_id: replyToMessageId };

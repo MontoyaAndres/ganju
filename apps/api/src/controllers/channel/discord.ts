@@ -10,7 +10,7 @@ import type {
 } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import { runChannelTurn } from './runner';
+import { hasOpenConfirmation, runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { bufferChannelMessage, toRunUserMessages } from './debounce';
 import { markdownToDiscord } from '../../utils';
@@ -98,12 +98,24 @@ const chunkMessage = (text: string): string[] => {
   return chunks;
 };
 
-// Source links become a single action row of link buttons (≤5), mirroring
-// Telegram's inline keyboard.
-const buttonComponents = (buttons: SourceButton[]) => {
-  if (buttons.length === 0) return undefined;
-  return [
-    {
+// Who a confirmation question was put to, when a reply asks one. Its Yes/No
+// buttons carry that participant's id, so a tap by anyone else in the channel
+// is turned away instead of answering for them.
+interface ConfirmationPrompt {
+  externalParticipantId: string;
+  locale?: string | null;
+}
+
+// Source links become an action row of link buttons (≤5), mirroring
+// Telegram's inline keyboard. A confirmation question adds a row of its own
+// with Yes and No.
+const buttonComponents = (
+  buttons: SourceButton[],
+  confirm: ConfirmationPrompt | null = null
+) => {
+  const rows: Array<{ type: 1; components: Record<string, unknown>[] }> = [];
+  if (buttons.length > 0) {
+    rows.push({
       type: 1,
       components: buttons
         .slice(0, utils.constants.DISCORD_MAX_SOURCE_BUTTONS)
@@ -113,16 +125,59 @@ const buttonComponents = (buttons: SourceButton[]) => {
           label: b.text.slice(0, 80),
           url: b.url
         }))
-    }
-  ];
+    });
+  }
+  if (confirm) {
+    const labels = utils.confirmationButtonLabels(confirm.locale);
+    rows.push({
+      type: 1,
+      components: [
+        {
+          type: 2,
+          style: 3,
+          label: labels.yes,
+          custom_id: utils.confirmationButtonId(
+            'yes',
+            confirm.externalParticipantId
+          )
+        },
+        {
+          type: 2,
+          style: 4,
+          label: labels.no,
+          custom_id: utils.confirmationButtonId(
+            'no',
+            confirm.externalParticipantId
+          )
+        }
+      ]
+    });
+  }
+  return rows.length > 0 ? rows : undefined;
 };
+
+// The rows of a message without its Yes/No — what the message keeps once the
+// question has been answered.
+const withoutConfirmationRow = (rows: unknown): unknown[] =>
+  (Array.isArray(rows) ? rows : []).filter(
+    row =>
+      !(
+        (row as { components?: Array<{ custom_id?: unknown }> }).components ||
+        []
+      ).some(
+        component =>
+          typeof component.custom_id === 'string' &&
+          utils.parseConfirmationButton(component.custom_id) !== null
+      )
+  );
 
 const sendDiscordMessage = async (
   botToken: string,
   channelId: string,
   replyToMessageId: string | null,
   markdown: string,
-  sourceButtons?: SourceButton[]
+  sourceButtons?: SourceButton[],
+  confirm: ConfirmationPrompt | null = null
 ): Promise<void> => {
   const content = markdownToDiscord(markdown);
   const chunks = chunkMessage(content);
@@ -140,8 +195,8 @@ const sendDiscordMessage = async (
         fail_if_not_exists: false
       };
     }
-    if (isLast && sourceButtons && sourceButtons.length > 0) {
-      const components = buttonComponents(sourceButtons);
+    if (isLast) {
+      const components = buttonComponents(sourceButtons ?? [], confirm);
       if (components) body.components = components;
     }
     await fetch(`${DISCORD_BASE}/channels/${channelId}/messages`, {
@@ -294,6 +349,7 @@ interface DiscordTurnResult {
   replyText: string;
   attachments: ChannelAttachment[];
   sourceButtons: SourceButton[];
+  confirmation: 'asked' | 'answered' | null;
 }
 
 // Run a channel turn and capture the reply pieces (text/attachments/buttons),
@@ -313,7 +369,8 @@ const runDiscordTurn = async (
     return {
       replyText: result.assistantText,
       attachments: result.attachments,
-      sourceButtons: result.sourceButtons
+      sourceButtons: result.sourceButtons,
+      confirmation: result.confirmation
     };
   } catch (error: any) {
     const { refId } = await dbUtils.handleError(c, error, {
@@ -328,7 +385,8 @@ const runDiscordTurn = async (
     return {
       replyText: `Sorry, something went wrong while processing your message (ref: ${refId}). The team has been notified.`,
       attachments: [],
-      sourceButtons: []
+      sourceButtons: [],
+      confirmation: null
     };
   }
 };
@@ -545,12 +603,21 @@ const runDiscordBatchAndReply = async (
     promptArgs: promptMatch?.args || undefined
   });
 
+  const confirm: ConfirmationPrompt | null =
+    result.confirmation === 'asked'
+      ? {
+          externalParticipantId: envelope.externalParticipantId,
+          locale: envelope.participantMetadata?.locale as string | undefined
+        }
+      : null;
+
   if (interactionToken) {
     await editInteractionOriginal(
       credentials.applicationId,
       interactionToken,
       result.replyText,
-      result.sourceButtons
+      result.sourceButtons,
+      confirm
     );
   } else {
     await sendDiscordMessage(
@@ -558,7 +625,8 @@ const runDiscordBatchAndReply = async (
       conversationId,
       replyToMessageId,
       result.replyText,
-      result.sourceButtons
+      result.sourceButtons,
+      confirm
     );
   }
 
@@ -590,11 +658,15 @@ const runDiscordBatchAndReply = async (
 
 interface DiscordInteraction {
   type: number;
+  id?: string;
   token: string;
   data?: {
     name?: string;
     options?: Array<{ name: string; value?: unknown }>;
+    custom_id?: string;
   };
+  message?: { id: string; components?: unknown[] };
+  locale?: string;
   channel_id?: string;
   guild_id?: string;
   member?: { user?: { id: string; username?: string; global_name?: string } };
@@ -633,10 +705,11 @@ const editInteractionOriginal = async (
   applicationId: string,
   token: string,
   markdown: string,
-  sourceButtons: SourceButton[]
+  sourceButtons: SourceButton[],
+  confirm: ConfirmationPrompt | null = null
 ): Promise<void> => {
   const chunks = chunkMessage(markdownToDiscord(markdown));
-  const components = buttonComponents(sourceButtons);
+  const components = buttonComponents(sourceButtons, confirm);
   const body: Record<string, unknown> = {
     content: chunks[0],
     allowed_mentions: { parse: [] }
@@ -717,6 +790,13 @@ export const handleDiscordInteraction = async (c: Context<AppEnv>) => {
   // Interactions URL — must always be answered.
   if (interaction.type === utils.constants.DISCORD_INTERACTION_TYPE_PING) {
     return c.json({ type: utils.constants.DISCORD_INTERACTION_RESPONSE_PONG });
+  }
+
+  if (
+    interaction.type ===
+    utils.constants.DISCORD_INTERACTION_TYPE_MESSAGE_COMPONENT
+  ) {
+    return handleConfirmationButton(c, channelRow, credentials, interaction);
   }
 
   if (
@@ -889,4 +969,123 @@ export const stopGateway = async (
   } catch {
     // Nothing to stop / already gone.
   }
+};
+
+// A tap on the Yes/No under a confirmation question. It becomes the
+// participant's reply — "yes" or "no", exactly as if they had typed it — in
+// the same conversation their messages go to, and the buttons come off the
+// question in the same response, so it can't be answered twice.
+const handleConfirmationButton = async (
+  c: Context<AppEnv>,
+  channelRow: { id: string; status: string },
+  credentials: DiscordCredentials,
+  interaction: DiscordInteraction
+) => {
+  const ephemeral = (content: string) =>
+    c.json({ type: 4, data: { content, flags: 64 } });
+
+  const button = utils.parseConfirmationButton(
+    interaction.data?.custom_id || ''
+  );
+  const userId = interactionUserId(interaction);
+  const conversationId = interaction.channel_id;
+  if (!button || !userId || !conversationId || !interaction.message) {
+    return c.json({
+      type: utils.constants.DISCORD_INTERACTION_RESPONSE_UPDATE_MESSAGE,
+      data: {}
+    });
+  }
+  if (channelRow.status !== utils.constants.STATUS_ACTIVE) {
+    return ephemeral('This channel is currently disabled.');
+  }
+  if (button.externalParticipantId !== userId) {
+    return ephemeral('Only the person who was asked can answer this.');
+  }
+  // Answered by a typed reply, or left past its time: the tap would reach the
+  // model as a bare "yes" about nothing. Say so, and take the buttons off.
+  if (
+    !(await hasOpenConfirmation(
+      db.create(c),
+      channelRow.id,
+      conversationId,
+      userId
+    ))
+  ) {
+    c.executionCtx.waitUntil(
+      fetch(
+        `${DISCORD_BASE}/channels/${conversationId}/messages/${interaction.message.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bot ${credentials.botToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            components: withoutConfirmationRow(interaction.message.components)
+          })
+        }
+      ).then(
+        () => undefined,
+        () => undefined
+      )
+    );
+    return ephemeral(
+      'This question is closed. Ask again if you still want it done.'
+    );
+  }
+
+  const displayName = interactionUserName(interaction) || `user-${userId}`;
+  const scope = scopeForDiscord(!interaction.guild_id);
+  const envelope: ChannelBufferEnvelope = {
+    channelId: channelRow.id,
+    platform: utils.constants.CHANNEL_PLATFORM_DISCORD,
+    externalConversationId: conversationId,
+    conversationTitle: interaction.guild_id
+      ? `${scope} · ${conversationId}`
+      : `DM · ${displayName}`,
+    conversationScope: scope,
+    externalParticipantId: userId,
+    participantDisplayName: displayName,
+    participantMetadata: {
+      guildId: interaction.guild_id || null,
+      locale: interaction.locale || null
+    },
+    delivery: { replyToMessageId: interaction.message.id }
+  };
+  const buffered: BufferedChannelMessage = {
+    text: button.text,
+    externalMessageId: interaction.id || null,
+    receivedAt: Date.now(),
+    immediate: true
+  };
+
+  if (!(await bufferChannelMessage(c, null, envelope, buffered))) {
+    // The buffer is unreachable: run the turn after the response instead.
+    c.executionCtx.waitUntil(
+      runDiscordBatchAndReply(
+        c,
+        channelRow,
+        credentials,
+        envelope,
+        [buffered],
+        null,
+        null
+      ).catch(err =>
+        dbUtils.handleError(c, err, {
+          service: utils.constants.SERVICE_NAME_API,
+          metadata: {
+            source: 'channel-runner',
+            platform: utils.constants.CHANNEL_PLATFORM_DISCORD,
+            channelId: channelRow.id,
+            channel: conversationId
+          }
+        })
+      )
+    );
+  }
+
+  return c.json({
+    type: utils.constants.DISCORD_INTERACTION_RESPONSE_UPDATE_MESSAGE,
+    data: { components: withoutConfirmationRow(interaction.message.components) }
+  });
 };

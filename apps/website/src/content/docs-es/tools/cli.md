@@ -102,11 +102,21 @@ necesita se revisan en el mismo pull request.
         "properties": { "orderId": { "type": "string" } },
         "required": ["orderId"]
       },
-      "output": { "type": "object", "properties": { "status": { "type": "string" } } }
+      "output": { "type": "object", "properties": { "status": { "type": "string" } } },
+      "annotations": { "readOnlyHint": true }
     }
   ]
 }
 ```
+
+`annotations` son las [anotaciones de herramientas de MCP](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations),
+con los nombres de la especificación: `readOnlyHint`, `destructiveHint`,
+`idempotentHint`, `openWorldHint`. Llegan a los clientes MCP como indicaciones,
+y deciden qué confirma un bot de canal cuando la organización activa
+**Confirmar acciones sensibles**: una herramienta que no declara ni
+`readOnlyHint: true` ni `destructiveHint: false` se consulta antes de
+ejecutarse. Marca las consultas como de solo lectura; deja sin marcar lo que
+envía, cobra o borra.
 
 Esos cuatro ajustes son exactamente los que escribe el diálogo **Settings** del
 panel. Dos puertas a una misma fila — cámbialos en cualquiera de las dos y la

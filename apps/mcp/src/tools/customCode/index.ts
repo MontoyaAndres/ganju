@@ -36,6 +36,12 @@ export interface CustomCodeToolEntry {
   description?: string;
   inputSchema?: unknown;
   outputSchema?: unknown;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
 
 /**

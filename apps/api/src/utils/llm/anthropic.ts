@@ -100,6 +100,9 @@ export const anthropicAdapter: LlmAdapter = {
       messages: toAnthropicMessages(input.messages),
       ...(input.systemPrompt ? { system: input.systemPrompt } : {}),
       ...(tools ? { tools } : {}),
+      ...(tools && input.toolChoice === 'none'
+        ? { tool_choice: { type: 'none' as const } }
+        : {}),
       ...restConfig
     });
 

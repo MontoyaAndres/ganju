@@ -101,11 +101,20 @@ reviewed in the same pull request.
         "properties": { "orderId": { "type": "string" } },
         "required": ["orderId"]
       },
-      "output": { "type": "object", "properties": { "status": { "type": "string" } } }
+      "output": { "type": "object", "properties": { "status": { "type": "string" } } },
+      "annotations": { "readOnlyHint": true }
     }
   ]
 }
 ```
+
+`annotations` are the [MCP tool annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations),
+with the spec's names: `readOnlyHint`, `destructiveHint`, `idempotentHint`,
+`openWorldHint`. They reach MCP clients as hints, and they decide what a channel
+bot confirms when the organization turns on **Confirm sensitive actions**: a
+tool that declares neither `readOnlyHint: true` nor `destructiveHint: false` is
+asked about before it runs. Mark lookups read-only; leave anything that sends,
+charges or deletes unmarked.
 
 Those four settings are exactly what the dashboard's **Settings** dialog writes.
 Two doors onto one row — change them in either place and the other reflects it.

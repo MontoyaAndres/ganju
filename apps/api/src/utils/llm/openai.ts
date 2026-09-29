@@ -104,6 +104,9 @@ export const openAiAdapter: LlmAdapter = {
       model: input.model,
       messages: toOpenAiMessages(input.systemPrompt, input.messages),
       ...(tools ? { tools } : {}),
+      ...(tools && input.toolChoice === 'none'
+        ? { tool_choice: 'none' as const }
+        : {}),
       ...(input.config || {})
     });
 

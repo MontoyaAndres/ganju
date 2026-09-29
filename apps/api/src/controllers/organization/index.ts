@@ -5,6 +5,7 @@ import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
 
 import { Plan, createPolar } from '../../utils';
+import { refreshMcpProxyAnnotations } from '../artifact';
 
 // types
 import { AppEnv } from '../../types';
@@ -97,13 +98,28 @@ const update = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
 
-  // Any admin member may rename the organization — membership is already
-  // verified by UserMiddleware. Deleting it stays owner-only (see `remove`).
+  // Any admin member may rename the organization or change its settings —
+  // membership is already verified by UserMiddleware. Deleting it stays
+  // owner-only (see `remove`).
   const [org] = await dbInstance
     .update(db.schema.organization)
-    .set({ name: currentValues.name })
+    .set({
+      ...(currentValues.name !== undefined ? { name: currentValues.name } : {}),
+      ...(currentValues.requireToolConfirmation !== undefined
+        ? { requireToolConfirmation: currentValues.requireToolConfirmation }
+        : {})
+    })
     .where(eq(db.schema.organization.id, currentValues.id))
     .returning();
+
+  // Proxied tools discovered before annotations were recorded would all be
+  // confirmed; turning confirmation on is when their real hints start to
+  // matter, so fetch them now rather than wait for each server's next edit.
+  if (currentValues.requireToolConfirmation === true) {
+    c.executionCtx.waitUntil(
+      refreshMcpProxyAnnotations(c, currentValues.id).catch(() => undefined)
+    );
+  }
 
   return c.json(org);
 };

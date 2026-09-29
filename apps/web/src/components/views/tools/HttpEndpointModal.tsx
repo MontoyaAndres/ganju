@@ -72,7 +72,7 @@ const METHOD_OPTIONS = (
   utils.constants.HTTP_ENDPOINT_METHODS as readonly string[]
 ).map(m => ({ value: m, label: m }));
 /**
- * The four option lists whose labels are words rather than protocol.
+ * The option lists whose labels are words rather than protocol.
  *
  * Built from the translator rather than declared as constants: the *values* are
  * what gets stored and never vary, while the labels are read. `METHOD_OPTIONS`
@@ -85,6 +85,18 @@ const METHOD_OPTIONS = (
  * connecting happens on the Tools page.
  */
 type ToolsT = Translate<(typeof i18n.copy.TOOLS)['en']>;
+
+// `auto` is not stored: an endpoint without an `effect` is judged by its
+// method, so it stays the default and existing endpoints keep behaving as
+// they did.
+const EFFECT_AUTO = 'auto';
+
+const effectOptions = (t: ToolsT) => [
+  { value: EFFECT_AUTO, label: t('epEffectAuto') },
+  { value: 'read', label: t('fnEffectRead') },
+  { value: 'write', label: t('fnEffectWrite') },
+  { value: 'sensitive', label: t('fnEffectSensitive') }
+];
 
 const bodyKindOptions = (t: ToolsT) => [
   {
@@ -196,6 +208,7 @@ export const HttpEndpointModal = ({
   const contentTypes = useMemo(() => contentTypeOptions(t), [t]);
   const authKinds = useMemo(() => authKindOptions(t), [t]);
   const argTypes = useMemo(() => argTypeOptions(t), [t]);
+  const effects = useMemo(() => effectOptions(t), [t]);
 
   const initial = (tool?.config || {}) as Record<string, any>;
 
@@ -222,6 +235,7 @@ export const HttpEndpointModal = ({
     initial.method || utils.constants.HTTP_ENDPOINT_METHOD_GET
   );
   const [url, setUrl] = useState<string>(initial.url || '');
+  const [effect, setEffect] = useState<string>(initial.effect || EFFECT_AUTO);
   const [headers, setHeaders] = useState<KeyValue[]>(
     asKeyValues(initial.headers)
   );
@@ -372,6 +386,7 @@ export const HttpEndpointModal = ({
       description: description.trim() || undefined,
       method,
       url: url.trim(),
+      ...(effect !== EFFECT_AUTO ? { effect } : {}),
       headers: headers.filter(h => h.name.trim()),
       query: query.filter(q => q.name.trim()),
       body: { kind: bodyKind, template: bodyTemplate },
@@ -398,6 +413,7 @@ export const HttpEndpointModal = ({
     setDescription(cfg.description || '');
     setMethod(cfg.method || utils.constants.HTTP_ENDPOINT_METHOD_GET);
     setUrl(cfg.url || '');
+    setEffect(cfg.effect || EFFECT_AUTO);
     setHeaders(asKeyValues(cfg.headers));
     setQuery(asKeyValues(cfg.query));
     setBodyKind(cfg.body?.kind || utils.constants.HTTP_ENDPOINT_BODY_KIND_NONE);
@@ -654,6 +670,14 @@ export const HttpEndpointModal = ({
                     onChange={e => setUrl(e.target.value)}
                   />
                 </div>
+                <UI.Select
+                  label={t('fnEffectLabel')}
+                  value={effect}
+                  options={effects}
+                  disabled={submitting}
+                  helperText={t('epEffectHelp')}
+                  onChange={e => setEffect(e.target.value)}
+                />
                 <div className="http-endpoint-list">
                   <div className="http-endpoint-list-head">
                     <span>{t('epHeaders')}</span>

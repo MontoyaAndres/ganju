@@ -29,6 +29,18 @@ export interface ProjectTool {
   entry?: string;
   input?: Record<string, unknown>;
   output?: Record<string, unknown>;
+  /**
+   * MCP tool annotations, with the spec's names. What an organization that
+   * confirms sensitive actions reads: a tool that doesn't declare
+   * `readOnlyHint: true` (or `destructiveHint: false`) is confirmed before it
+   * runs from a channel.
+   */
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
 
 export interface ProjectFile {
@@ -183,7 +195,8 @@ export const buildManifest = (tools: ProjectTool[]) => ({
     ...(tool.title ? { title: tool.title } : {}),
     ...(tool.description ? { description: tool.description } : {}),
     ...(tool.input ? { inputSchema: tool.input } : {}),
-    ...(tool.output ? { outputSchema: tool.output } : {})
+    ...(tool.output ? { outputSchema: tool.output } : {}),
+    ...(tool.annotations ? { annotations: tool.annotations } : {})
   }))
 });
 

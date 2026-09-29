@@ -247,6 +247,14 @@ export const Wrapper = styled.div`
         }
       }
 
+      .settings-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: ${theme.fonts.sm};
+        color: ${theme.colors.bastille};
+      }
+
       .danger-button {
         background: ${theme.colors.red};
         color: ${theme.colors.white};

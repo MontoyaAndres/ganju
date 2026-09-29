@@ -313,6 +313,118 @@ on its own: the API's crons only run error alerts and overage metering.
 - MCP clients: the annotations are hints the client decides on. Use
   elicitation for confirmation where the client supports it.
 - Done when: `gmail-send` from a Telegram bot asks before sending.
+- Status: built 2026-09-28, not deployed. Decisions: one switch per
+  organization (Settings → Organization, "Confirm sensitive actions", off by
+  default) instead of a per-tool setting; the answer is a reply — typed, or a
+  Yes/No button where the platform allows one without new setup.
+  - Annotations: every catalog tool declares `annotations` (required, so a new
+    tool can't skip it) and native tools register with them. `destructiveHint`
+    is on anything that reaches another person or can't be undone: email
+    send/reply/forward/send-draft, trash and draft deletes, Slack posts and
+    uploads, calendar create/update/delete, Cal.com book/cancel. Drafts, labels
+    and moves are plain writes. HTTP endpoints: the owner can say what one
+    does ("What it does" in the endpoint dialog, stored as `effect`: `read`,
+    `write` or `sensitive`); left unset, GET/HEAD are read-only and any other
+    method destructive — so a POST that only searches can be marked as a read
+    instead of being confirmed every time.
+  - Runner: with the switch on, a call to a tool the server lists as
+    destructive isn't run; the model gets a "not run yet, ask the user" result,
+    and the turn ends with one more model step with tools off
+    (`toolChoice: 'none'`) that writes the question in the user's language.
+    Stopping there keeps the model from "correcting" the held call with a
+    second one that a yes would also run. Under the question the runner
+    appends the held calls itself — tool title and each argument, one line,
+    cut at 200 characters, in a code span — because a yes runs the stored
+    calls, not the model's description of them, which a prompt injection
+    could bend.
+  - The exact calls are stored on
+    `channel_conversation.pending_tool_confirmation`, one open question per
+    participant (keyed by participant id), so in a group one person's
+    question never replaces another's; expired entries are swept when a new
+    one is written. The same participant's next message claims theirs (by id,
+    so a re-sent batch can't run it twice): a plain yes within 30 minutes runs
+    those calls with the stored arguments and the model reports the result;
+    anything else — "no", "yes but change X", a slash command — drops it. The
+    assistant row records `toolConfirmation.requested` and how the previous
+    question ended: `confirmed`, `declined` or `expired`.
+  - Migration `0076`: `organization.require_tool_confirmation` (default false)
+    and `channel_conversation.pending_tool_confirmation`. Column adds only.
+  - Which tools are confirmed follows the MCP defaults: anything not marked
+    `readOnlyHint: true` or `destructiveHint: false`. Custom code declares
+    `annotations` per tool in `ganju.json` (or "What it does" in the
+    dashboard's function dialog); mcp-proxy passes through the remote's own
+    annotations, recorded at discovery. Unannotated custom and proxied tools
+    are confirmed. Proxy installs discovered before annotations were recorded
+    get them re-read when an organization turns the switch on (in the
+    background, annotations only; an unreachable server stays as it was).
+  - Buttons: Telegram private chats get a reply keyboard (a tap sends
+    "✅ Yes" as a normal message, so no webhook change — inline buttons would
+    need `callback_query`, and re-registering an existing bot's webhook means
+    rotating a secret stored only as a hash). Discord gets Yes/No components,
+    answered on the interactions endpoint; the ids carry the participant, so
+    only the person asked can tap, and a tap on a question already answered
+    or expired says so and takes the buttons off. WhatsApp gets reply buttons
+    when the question fits the 1,024-character interactive body, labelled in
+    Spanish or Portuguese by the number's calling code (WhatsApp reports no
+    locale). Slack stays typed:
+    buttons there need Interactivity enabled in each owner's Slack app.
+    Telegram groups stay typed (a keyboard tap isn't addressed to the bot).
+  - Gemini: a confirmed call is replayed into a new turn, where Gemini 3
+    requires a thought signature; it carries the documented sentinel
+    `skip_thought_signature_validator`. Google calls it a last resort that can
+    cost some quality on that step. Test once with a Gemini model.
+  - MCP-client elicitation: not built. `elicitation/create` is a request the
+    server sends mid-tool-call and waits on, with the answer arriving on the
+    same session; the MCP worker rebuilds its server per request and answers
+    in JSON mode, so it has nowhere to wait. It needs session state (e.g. a
+    Durable Object per MCP session) first. Clients already get the
+    annotations, and Claude Desktop and similar ask before tool calls anyway.
+  - Tested on dev 2026-09-28 over WhatsApp (org "test", Gemini 3.1 Flash
+    Lite), with signed webhooks: a calendar create was held with the summary
+    under the question; a tap addressed to another number was ignored; "no,
+    mejor a las 4pm" recorded `declined` and asked again; a Yes tap ran the
+    stored call (`confirmed`, so the Gemini thought-signature sentinel
+    works); a delete was held and ran on a typed "sí"; the unannotated
+    custom-code tool was held; a yes after 31 minutes recorded `expired` and
+    ran nothing; a No tap recorded `declined`. Found: the question step said
+    the held action was done ("He eliminado…", and an invented npm report)
+    despite the tool result. Fixed after the test — that step's system prompt
+    now says the named actions have not been done, and the summary's heading
+    carries ⏳. Re-run after deploying: the delete and the npm report now ask
+    without claiming anything. Telegram checked by hand (gpt-5.4-mini): a
+    create held, "si" ran it. Discord checked by hand in a guild channel
+    (Claude): held with one summary block, "yes" ran the stored call. The
+    other-person tap is untested (the channel has one participant).
+  - Found on Discord, fixed, not yet deployed: Claude asked "¿Le doy?" on its
+    own without calling the tool, then the runner asked again once it did —
+    two questions for one action. With confirmation on, the system prompt now
+    tells the model to ask for missing details but not to confirm itself.
+    The same note asks it to call every action a request needs in one step:
+    "add a Meet" (delete + re-create) took three questions — Claude's own,
+    the delete, then the create, since the turn stops at the first held call.
+  - Seen on Discord, unrelated: the first confirmed run failed with Google's
+    "invalid authentication credentials" and the retry a minute later
+    worked — a calendar token refresh issue worth a look.
+  - Found on the re-run, fixed and verified on dev: the model copied the
+    summary block from earlier questions in its history, so a question showed
+    two (the copy without ⏳) — and a copied block needn't match any stored
+    call. The summary now also goes on `toolConfirmation.summary`, and
+    history hands the model its question without it. Rows from before keep
+    theirs. Verified in a fresh conversation: a second question, with the
+    first one in history, carried a single block.
+  - Custom-code tools that declare no annotations are all confirmed, lookups
+    included (dev's `dragonball-character`, `pokemon-info`). Correct by the
+    MCP defaults, but the owner has to mark reads as "Only reads" in the
+    function dialog, or add `annotations` in `ganju.json`.
+  - Unrelated, seen in that test: the model writes calendar times as UTC
+    (`16:00Z`) while saying "4 p.m. Colombia", so the event lands at 11:00
+    Bogotá; `timeZone` doesn't shift a timestamp that carries an offset. The
+    confirmation summary is what made it visible.
+  - To deploy: `0076`, then `ganju-mcp`, `ganju-api`, and the web app; publish
+    a CLI release for `annotations` in `ganju.json`. Verify on dev: switch on;
+    on Telegram (private) and Discord ask the bot to send an email, tap No,
+    ask again, tap Yes; on Discord have someone else tap and see it refused;
+    one run with a Gemini model.
 
 **5. Tool linter — S**
 

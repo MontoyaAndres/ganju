@@ -2244,7 +2244,8 @@ export const ModalDialog = styled.div`
       }
 
       input,
-      textarea {
+      textarea,
+      select {
         width: 100%;
         padding: 9px 12px;
         border: 1px solid ${theme.colors.alto};

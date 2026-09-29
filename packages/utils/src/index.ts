@@ -173,6 +173,7 @@ import type {
   CatalogGroup,
   CatalogTool,
   CatalogToolDescriptor,
+  ToolAnnotations,
   ToolGroupKey,
   ToolKey
 } from './toolCatalog';
@@ -224,6 +225,21 @@ import type {
   ChannelBufferEnvelope,
   ChannelBufferFlush
 } from './channelDebounce';
+import {
+  isConfirmationReply,
+  confirmationButtonLabels,
+  confirmationButtonId,
+  parseConfirmationButton,
+  languageFromPhoneNumber,
+  formatConfirmationSummary,
+  annotationsForEffect,
+  TOOL_EFFECTS
+} from './toolConfirmation';
+import type {
+  PendingToolConfirmation,
+  PendingToolConfirmations,
+  ToolEffect
+} from './toolConfirmation';
 import {
   isResourceSourceEnabled,
   isDownloadableSource,
@@ -363,6 +379,14 @@ export const utils = {
   channelBufferKey,
   batchCommand,
   joinBufferedMessages,
+  isConfirmationReply,
+  confirmationButtonLabels,
+  confirmationButtonId,
+  parseConfirmationButton,
+  languageFromPhoneNumber,
+  formatConfirmationSummary,
+  annotationsForEffect,
+  TOOL_EFFECTS,
   isResourceSourceEnabled,
   isDownloadableSource,
   safeHostname,
@@ -391,6 +415,10 @@ export type {
   CatalogGroup,
   CatalogTool,
   CatalogToolDescriptor,
+  ToolAnnotations,
+  PendingToolConfirmation,
+  PendingToolConfirmations,
+  ToolEffect,
   ToolGroupKey,
   ToolKey,
   CalendarConfigField,

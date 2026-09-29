@@ -94,17 +94,26 @@ export const discoverRemoteMcpTools = async (
         title?: string;
         description?: string;
         inputSchema?: unknown;
+        annotations?: unknown;
       }>;
     };
 
     const tools: McpProxyDiscoveredTool[] = (listed.tools ?? [])
       .slice(0, input.maxItems)
-      .map(t => ({
-        name: t.name,
-        title: t.title,
-        description: t.description,
-        inputSchema: t.inputSchema ?? { type: 'object', properties: {} }
-      }));
+      .map(t => {
+        // Kept only when it is well-formed: anything else from the remote is
+        // dropped, and the tool then counts as one that may change things.
+        const annotations = utils.Schema.TOOL_ANNOTATIONS.strip().safeParse(
+          t.annotations
+        );
+        return {
+          name: t.name,
+          title: t.title,
+          description: t.description,
+          inputSchema: t.inputSchema ?? { type: 'object', properties: {} },
+          ...(annotations.success ? { annotations: annotations.data } : {})
+        };
+      });
 
     // Resources / prompts are optional server capabilities; only list them when
     // the remote advertises them, and tolerate a remote that errors anyway.

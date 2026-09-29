@@ -768,6 +768,49 @@ const CHANNEL_DEBOUNCE_JOIN = '\n';
 const CHANNEL_DEBOUNCE_RETRY_MS = 5000;
 const CHANNEL_DEBOUNCE_MAX_ATTEMPTS = 3;
 
+// Confirming sensitive actions, for organizations that turn it on. A channel
+// bot that wants to run a tool annotated `destructiveHint` asks first, and the
+// call runs only if the participant's next message is a plain yes.
+//
+// How long the question stays open. An answer after that is read as a new
+// message, never as consent to something asked long ago.
+const TOOL_CONFIRMATION_TTL_MS = 30 * 60 * 1000;
+// The tool result the model gets instead of running the call. It is what makes
+// the model write the question — in the participant's language, naming what
+// the call would do — rather than claiming the action happened.
+// The call's exact arguments are listed under the model's question by the
+// runner, so the model only has to say what it is about to do.
+const TOOL_CONFIRMATION_REQUIRED_RESULT =
+  'Not run yet: this action needs the user to confirm it first. In one or ' +
+  'two sentences, tell them what it will do (who it goes to, what will be ' +
+  'changed or deleted) and ask them to answer yes to go ahead or no to ' +
+  'cancel — in their own language, never quoting English words at someone ' +
+  'writing in another one. The exact details are listed for them under your ' +
+  'message. It runs only if their next message is yes. Do not say it was done.';
+// Told to the model on every turn of an organization that confirms: the
+// asking is done for it, so it calls the tool when asked instead of asking
+// first itself — and calls every action a request needs in one step, since
+// the turn stops at the first held call and each later one would be a
+// question of its own.
+const TOOL_CONFIRMATION_SYSTEM_NOTE =
+  'Actions that send, change or delete something are confirmed with the ' +
+  'user by the system before they run. Ask for any detail you are missing, ' +
+  'but once you have what the action needs, call the tool — do not ask the ' +
+  'user to confirm it yourself; the system asks them and runs it on their ' +
+  'yes. When a request needs several such actions (say, delete an event ' +
+  'and create its replacement), call them all in the same step, so the ' +
+  'user confirms them together once.';
+// The system-prompt addition for the step that writes the question, with the
+// held actions' names in place of {{actions}}.
+const TOOL_CONFIRMATION_ASK_INSTRUCTION =
+  'IMPORTANT: these actions have NOT been done: {{actions}}. They are ' +
+  'waiting for the user to confirm them. Your reply must ask the user to ' +
+  'confirm, and must not say or suggest that they were done, nor describe ' +
+  'or make up any result from them.';
+// The question when the model wrote none, above the runner's own summary.
+const TOOL_CONFIRMATION_FALLBACK_QUESTION =
+  'Before I do this, please confirm. Reply yes to go ahead, or no to cancel.';
+
 const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const TELEGRAM_MESSAGE_LIMIT = 3500;
@@ -827,8 +870,12 @@ const DISCORD_TIMESTAMP_HEADER = 'x-signature-timestamp';
 // Interaction request types and response types (Discord API).
 const DISCORD_INTERACTION_TYPE_PING = 1;
 const DISCORD_INTERACTION_TYPE_APPLICATION_COMMAND = 2;
+// A tap on a message button — the Yes/No under a confirmation question.
+const DISCORD_INTERACTION_TYPE_MESSAGE_COMPONENT = 3;
 const DISCORD_INTERACTION_RESPONSE_PONG = 1;
 const DISCORD_INTERACTION_RESPONSE_DEFERRED = 5;
+// Edits the message the tapped button is on, in the same response.
+const DISCORD_INTERACTION_RESPONSE_UPDATE_MESSAGE = 7;
 // Channel types we map to conversation scopes: DM (1) / group DM (3) = private;
 // everything else (guild text channels, threads) = channel.
 const DISCORD_CHANNEL_TYPE_DM = 1;
@@ -857,6 +904,8 @@ const WHATSAPP_API_BASE = 'https://graph.facebook.com';
 const WHATSAPP_API_VERSION = 'v25.0';
 // A WhatsApp text message body caps at 4096 chars; we chunk a bit under that.
 const WHATSAPP_MESSAGE_LIMIT = 4000;
+// The body of an interactive (reply-button) message holds at most this much.
+const WHATSAPP_INTERACTIVE_BODY_LIMIT = 1024;
 const WHATSAPP_SIGNATURE_HEADER = 'x-hub-signature-256';
 const WHATSAPP_SIGNATURE_PREFIX = 'sha256=';
 // GET-handshake query params + the expected hub.mode value.
@@ -2615,6 +2664,11 @@ export const constants = {
   SHARED_KEY_HISTORY_LIMIT,
   SHARED_KEY_MAX_TOOL_LOOPS,
   CHANNEL_MAX_TOOLS,
+  TOOL_CONFIRMATION_TTL_MS,
+  TOOL_CONFIRMATION_REQUIRED_RESULT,
+  TOOL_CONFIRMATION_FALLBACK_QUESTION,
+  TOOL_CONFIRMATION_ASK_INSTRUCTION,
+  TOOL_CONFIRMATION_SYSTEM_NOTE,
   CHANNEL_DEBOUNCE_DEFAULT_MS,
   CHANNEL_DEBOUNCE_MIN_MS,
   CHANNEL_DEBOUNCE_MAX_MS,
@@ -2647,8 +2701,10 @@ export const constants = {
   DISCORD_TIMESTAMP_HEADER,
   DISCORD_INTERACTION_TYPE_PING,
   DISCORD_INTERACTION_TYPE_APPLICATION_COMMAND,
+  DISCORD_INTERACTION_TYPE_MESSAGE_COMPONENT,
   DISCORD_INTERACTION_RESPONSE_PONG,
   DISCORD_INTERACTION_RESPONSE_DEFERRED,
+  DISCORD_INTERACTION_RESPONSE_UPDATE_MESSAGE,
   DISCORD_CHANNEL_TYPE_DM,
   DISCORD_CHANNEL_TYPE_GROUP_DM,
   DISCORD_GATEWAY_OP_DISPATCH,
@@ -2663,6 +2719,7 @@ export const constants = {
   WHATSAPP_API_BASE,
   WHATSAPP_API_VERSION,
   WHATSAPP_MESSAGE_LIMIT,
+  WHATSAPP_INTERACTIVE_BODY_LIMIT,
   WHATSAPP_SIGNATURE_HEADER,
   WHATSAPP_SIGNATURE_PREFIX,
   WHATSAPP_HUB_MODE_PARAM,

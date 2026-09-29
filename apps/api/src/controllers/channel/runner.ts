@@ -16,7 +16,13 @@ import {
 
 import type { LlmMessage, LlmToolCall, LlmToolDefinition } from '../../utils';
 import type { AppEnv } from '../../types';
-import type { ChannelNotifier, Source, SourceButton } from '@ganju/utils';
+import type {
+  ChannelNotifier,
+  PendingToolConfirmation,
+  PendingToolConfirmations,
+  Source,
+  SourceButton
+} from '@ganju/utils';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 type ArtifactResourceRow = InferSelectModel<typeof db.schema.artifactResource>;
@@ -155,6 +161,10 @@ interface RunResult {
   sources: Source[];
   sourcesFooter: string | null;
   sourceButtons: SourceButton[];
+  // `asked`: this reply asks the participant to confirm a sensitive action, so
+  // the platform offers Yes/No buttons where it can. `answered`: this turn
+  // closed such a question, so buttons left from it can go.
+  confirmation: 'asked' | 'answered' | null;
 }
 
 interface BotTokenApi {
@@ -233,7 +243,8 @@ export const runChannelTurn = async (
     .select({
       channel: db.schema.channel,
       artifact: db.schema.artifact,
-      project: db.schema.project
+      project: db.schema.project,
+      requireToolConfirmation: db.schema.organization.requireToolConfirmation
     })
     .from(db.schema.channel)
     .innerJoin(
@@ -243,6 +254,10 @@ export const runChannelTurn = async (
     .innerJoin(
       db.schema.project,
       eq(db.schema.project.id, db.schema.artifact.projectId)
+    )
+    .innerJoin(
+      db.schema.organization,
+      eq(db.schema.organization.id, db.schema.project.organizationId)
     )
     .where(eq(db.schema.channel.id, options.channelId))
     .limit(1);
@@ -385,7 +400,8 @@ export const runChannelTurn = async (
       attachments: [],
       sources: [],
       sourcesFooter: null,
-      sourceButtons: []
+      sourceButtons: [],
+      confirmation: null
     };
   }
 
@@ -419,9 +435,24 @@ export const runChannelTurn = async (
       attachments: [],
       sources: [],
       sourcesFooter: null,
-      sourceButtons: []
+      sourceButtons: [],
+      confirmation: null
     };
   }
+
+  // A sensitive call this participant was asked to confirm last turn. It is
+  // claimed now whatever the reply says — a yes runs it, anything else drops
+  // it — so a question is answered at most once. Claimed by id, so a buffer
+  // batch sent twice can't run the same calls twice.
+  const answered = await claimPendingConfirmation(
+    dbInstance,
+    conversation,
+    participant.id,
+    // A slash command is a new request, never an answer.
+    !options.promptId && utils.isConfirmationReply(mergedUserText)
+  );
+  const confirmedCalls =
+    answered?.outcome === 'confirmed' ? answered.calls : [];
 
   // custom-code registers one MCP tool per entry in its ACTIVE VERSION's
   // manifest, and that manifest lives in its own table rather than on the
@@ -655,11 +686,55 @@ export const runChannelTurn = async (
   let totalTokensOut = 0;
   const attachments: ChannelAttachment[] = [];
   const usageEvents: UsageEvent[] = [];
+  // The tools this turn must not run without asking: those the MCP server
+  // registered as destructive, when the organization asks for confirmation.
+  const sensitiveToolNames = new Set<string>();
+  // How the confirmation summary names a tool: its title, else its name.
+  const toolTitles = new Map<string, string>();
+  // Sensitive calls the model made this turn, held for the participant's yes.
+  const heldCalls: LlmToolCall[] = [];
+
+  // Every call one model step asked for, run together — there's no ordering
+  // dependency between them — so N round-trips collapse into one. The caller
+  // appends the outcomes in call order to keep accounting deterministic.
+  const runToolCalls = (calls: LlmToolCall[]) =>
+    Promise.all(
+      calls.map(async call => {
+        if (options.notifier && utils.getToolStatusMessage(call.name)) {
+          await options.notifier
+            .toolStarted({ toolName: call.name, arguments: call.arguments })
+            .catch(() => undefined);
+        }
+        return executeToolCall(
+          mcp.client,
+          call,
+          artifactToolIdByCallName,
+          artifactResourceIdByUri,
+          artifactResourceByUri,
+          resolveRemoteResource
+        );
+      })
+    );
 
   try {
     let llmTools: LlmToolDefinition[] = [];
     try {
       const toolsResponse = await mcp.client.listTools();
+      if (chain.requireToolConfirmation) {
+        for (const tool of toolsResponse.tools || []) {
+          // The MCP spec's defaults: a tool is read-only only if it says so,
+          // and a tool that changes things is destructive unless it says it
+          // isn't. So an unannotated custom or proxied tool is confirmed —
+          // the safe reading for an organization that asked to be asked.
+          const readOnly = tool.annotations?.readOnlyHint === true;
+          const destructive = tool.annotations?.destructiveHint !== false;
+          if (!readOnly && destructive) sensitiveToolNames.add(tool.name);
+          toolTitles.set(
+            tool.name,
+            tool.title || tool.annotations?.title || tool.name
+          );
+        }
+      }
       llmTools = (toolsResponse.tools || []).map(tool => ({
         name: tool.name,
         description: tool.description,
@@ -782,6 +857,28 @@ export const runChannelTurn = async (
       });
     }
 
+    // The participant said yes to the calls held last turn. They run now,
+    // exactly as they were asked about, and the model sees them as its own
+    // calls with their results — so it answers "done" (or reports the error)
+    // in its own words, without a chance to change what was confirmed.
+    if (confirmedCalls.length > 0) {
+      const outcomes = await runToolCalls(confirmedCalls);
+      messages.push({
+        role: utils.constants.ROLE_MESSAGE_ASSISTANT,
+        content: '',
+        toolCalls: confirmedCalls
+      });
+      outcomes.forEach(({ text, usageEvent, attachment }, i) => {
+        usageEvents.push(usageEvent);
+        if (attachment) attachments.push(attachment);
+        messages.push({
+          role: utils.constants.ROLE_MESSAGE_TOOL,
+          content: text,
+          toolCallId: confirmedCalls[i].id
+        });
+      });
+    }
+
     const adapter = getLlmAdapter(llmRow.provider);
 
     // Anchor the model in real time — channel clients don't inject "now", so
@@ -797,19 +894,29 @@ export const runChannelTurn = async (
     if (hasCalendarTools) {
       contextParts.push('Pass absolute ISO 8601 timestamps to calendar tools.');
     }
+    // Models that ask before acting on their own (Claude does) would
+    // otherwise ask once in their words, then again through the runner once
+    // the call is made — two questions for one action.
+    if (sensitiveToolNames.size > 0) {
+      contextParts.push(utils.constants.TOOL_CONFIRMATION_SYSTEM_NOTE);
+    }
     const systemPrompt = [contextParts.join(' '), llmRow.systemPrompt]
       .filter(Boolean)
       .join('\n\n');
 
-    for (let loop = 0; loop < maxToolLoops; loop++) {
+    const complete = async (
+      toolChoice?: 'none',
+      stepSystemPrompt: string = systemPrompt
+    ) => {
       const start = Date.now();
       const completion = await adapter.complete({
         model: llmRow.model,
         baseUrl: llmRow.baseUrl,
         apiKey: apiKeyPlain,
-        systemPrompt,
+        systemPrompt: stepSystemPrompt,
         messages,
         tools: llmTools,
+        toolChoice,
         config: (llmRow.config as Record<string, unknown>) || null
       });
       totalLatency += Date.now() - start;
@@ -819,6 +926,11 @@ export const runChannelTurn = async (
       if (completion.assistant.content) {
         assistantText += completion.assistant.content;
       }
+      return completion;
+    };
+
+    for (let loop = 0; loop < maxToolLoops; loop++) {
+      const completion = await complete();
 
       if (
         completion.stopReason !== 'tool_use' ||
@@ -838,43 +950,85 @@ export const runChannelTurn = async (
         toolCalls: completion.assistant.toolCalls
       });
 
-      // The model requested these tool calls together, so there's no ordering
-      // dependency between them — run them concurrently to collapse N sequential
-      // round-trips into one. We still append usage rows, attachments, and
-      // tool-result messages in the original call order afterward so persisted
-      // accounting and attachment delivery stay deterministic.
-      const toolOutcomes = await Promise.all(
-        completion.assistant.toolCalls.map(async call => {
-          if (options.notifier && utils.getToolStatusMessage(call.name)) {
-            await options.notifier
-              .toolStarted({ toolName: call.name, arguments: call.arguments })
-              .catch(() => undefined);
-          }
-          return executeToolCall(
-            mcp.client,
-            call,
-            artifactToolIdByCallName,
-            artifactResourceIdByUri,
-            artifactResourceByUri,
-            resolveRemoteResource
-          );
-        })
+      // A sensitive call doesn't run: it is held for the participant's yes,
+      // and the model is told to ask for it. The rest of the step runs as
+      // usual. A call repeated within the step is held once — confirming it
+      // must not run it twice.
+      const stepCalls = completion.assistant.toolCalls;
+      const isHeld = (call: LlmToolCall) => sensitiveToolNames.has(call.name);
+      for (const call of stepCalls.filter(isHeld)) {
+        const signature = callSignature(call);
+        if (!heldCalls.some(held => callSignature(held) === signature)) {
+          heldCalls.push(call);
+        }
+      }
+      const runnable = stepCalls.filter(call => !isHeld(call));
+      const outcomes = await runToolCalls(runnable);
+      const outcomeById = new Map(
+        runnable.map((call, i) => [call.id, outcomes[i]])
       );
 
-      for (let i = 0; i < toolOutcomes.length; i++) {
-        const call = completion.assistant.toolCalls[i];
-        const { text, usageEvent, attachment } = toolOutcomes[i];
-        usageEvents.push(usageEvent);
-        if (attachment) attachments.push(attachment);
+      for (const call of stepCalls) {
+        const outcome = outcomeById.get(call.id);
+        if (outcome) {
+          usageEvents.push(outcome.usageEvent);
+          if (outcome.attachment) attachments.push(outcome.attachment);
+        }
         messages.push({
           role: utils.constants.ROLE_MESSAGE_TOOL,
-          content: text,
+          content: outcome
+            ? outcome.text
+            : utils.constants.TOOL_CONFIRMATION_REQUIRED_RESULT,
           toolCallId: call.id
         });
+      }
+
+      // Once a call is held, the turn only asks. A model left to carry on
+      // tends to "fix" the held call with a second one, and a yes would then
+      // run both — so one last step writes the question, with no tools.
+      // The tool result alone doesn't stop every model from announcing the
+      // action as done (and inventing its result), so this step's system
+      // prompt says it too, naming the actions.
+      if (heldCalls.length > 0) {
+        const pendingNames = [
+          ...new Set(
+            heldCalls.map(call => toolTitles.get(call.name) || call.name)
+          )
+        ].join(', ');
+        await complete(
+          'none',
+          [
+            systemPrompt,
+            utils.constants.TOOL_CONFIRMATION_ASK_INSTRUCTION.replace(
+              '{{actions}}',
+              pendingNames
+            )
+          ].join('\n\n')
+        );
+        break;
       }
     }
   } finally {
     await mcp.close().catch(() => undefined);
+  }
+
+  // Under the model's question, what a yes actually runs — written from the
+  // stored calls, not by the model. Kept on the message's metadata too, so
+  // history can hand the model its question without it (see
+  // loadRecentHistory).
+  const confirmationSummary =
+    heldCalls.length > 0
+      ? utils.formatConfirmationSummary(
+          heldCalls,
+          name => toolTitles.get(name) || name
+        )
+      : null;
+  if (confirmationSummary) {
+    assistantText = [
+      assistantText.trim() ||
+        utils.constants.TOOL_CONFIRMATION_FALLBACK_QUESTION,
+      confirmationSummary
+    ].join('\n\n');
   }
 
   const sources = selectCitedSources(
@@ -915,6 +1069,27 @@ export const runChannelTurn = async (
       metadata: {
         ...(sources.length > 0 ? { sources } : {}),
         ...(bufferBatchId ? { bufferBatchId } : {}),
+        // What this turn asked the participant to confirm, and what became of
+        // the question they were asked last turn: run on their yes, dropped
+        // on anything else, or dropped because the yes came too late — the
+        // conversation view's record of who approved what.
+        ...(heldCalls.length > 0 || answered
+          ? {
+              toolConfirmation: {
+                ...(heldCalls.length > 0
+                  ? {
+                      requested: heldCalls.map(toConfirmationCall),
+                      summary: confirmationSummary
+                    }
+                  : {}),
+                ...(answered
+                  ? {
+                      [answered.outcome]: answered.calls.map(toConfirmationCall)
+                    }
+                  : {})
+              }
+            }
+          : {}),
         llm: {
           provider: llmRow.provider,
           model: llmRow.model,
@@ -925,6 +1100,31 @@ export const runChannelTurn = async (
     })
     .returning();
   assistantMessageId = assistantMessage.id;
+
+  // Open the question only once the reply asking it is recorded, so the
+  // participant can't answer a question they haven't been shown. It sits
+  // beside other participants' open questions — never over them — and
+  // questions past their time are swept out on the way.
+  if (heldCalls.length > 0) {
+    const pending: PendingToolConfirmation = {
+      id: crypto.randomUUID(),
+      participantId: participant.id,
+      createdAt: new Date().toISOString(),
+      calls: heldCalls.map(toConfirmationCall)
+    };
+    const column = db.schema.channelConversation.pendingToolConfirmation;
+    await dbInstance
+      .update(db.schema.channelConversation)
+      .set({
+        pendingToolConfirmation: sql`((
+          SELECT coalesce(jsonb_object_agg(entry.key, entry.value), '{}'::jsonb)
+          FROM jsonb_each(coalesce(${column}::jsonb, '{}'::jsonb)) AS entry
+          WHERE (entry.value ->> 'createdAt')::timestamptz
+            > now() - interval '${sql.raw(String(utils.constants.TOOL_CONFIRMATION_TTL_MS))} milliseconds'
+        ) || jsonb_build_object(${participant.id}::text, ${JSON.stringify(pending)}::jsonb))::json`
+      })
+      .where(eq(db.schema.channelConversation.id, conversation.id));
+  }
 
   // Count this assistant turn against the org's monthly budget synchronously.
   // This single cheap UPDATE is billing-grade — `checkMessageCap` reads it to
@@ -1035,8 +1235,158 @@ export const runChannelTurn = async (
     attachments,
     sources,
     sourcesFooter,
-    sourceButtons
+    sourceButtons,
+    confirmation: heldCalls.length > 0 ? 'asked' : answered ? 'answered' : null
   };
+};
+
+const toConfirmationCall = (
+  call: LlmToolCall
+): PendingToolConfirmation['calls'][number] => ({
+  id: call.id,
+  name: call.name,
+  arguments: call.arguments
+});
+
+// Two calls that would do the same thing: same tool, same arguments. Keys are
+// sorted at every depth, so the order the model happened to emit them in
+// doesn't matter.
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map(
+        key =>
+          `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`
+      )
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
+
+const callSignature = (call: LlmToolCall): string =>
+  `${call.name}:${stableJson(call.arguments ?? {})}`;
+
+// This participant's open question, if the conversation holds one for them.
+const readPendingConfirmation = (
+  value: unknown,
+  participantId: string
+): PendingToolConfirmation | null => {
+  const open = value as PendingToolConfirmations | null;
+  const pending = (
+    open && typeof open === 'object' ? open[participantId] : null
+  ) as Partial<PendingToolConfirmation> | null | undefined;
+  if (
+    !pending ||
+    typeof pending.id !== 'string' ||
+    pending.participantId !== participantId ||
+    typeof pending.createdAt !== 'string' ||
+    !Array.isArray(pending.calls)
+  ) {
+    return null;
+  }
+  return pending as PendingToolConfirmation;
+};
+
+/**
+ * Close the question this participant was asked, if there is one, and say how
+ * it ended: `confirmed` (the calls to run), `declined` (anything but a yes) or
+ * `expired` (a yes that came too late). Null when there was nothing to close.
+ *
+ * The UPDATE is the claim. It removes the question only if it is still the
+ * same one, and only the request that removed it may run the calls — a buffer
+ * batch delivered twice, or two messages racing, can't both act on one yes.
+ * Other participants' questions are left as they are.
+ */
+const claimPendingConfirmation = async (
+  dbInstance: ReturnType<typeof db.create>,
+  conversation: { id: string; pendingToolConfirmation: unknown },
+  participantId: string,
+  confirmed: boolean
+): Promise<{
+  outcome: 'confirmed' | 'declined' | 'expired';
+  calls: LlmToolCall[];
+} | null> => {
+  const pending = readPendingConfirmation(
+    conversation.pendingToolConfirmation,
+    participantId
+  );
+  if (!pending) return null;
+
+  const column = db.schema.channelConversation.pendingToolConfirmation;
+  const claimed = await dbInstance
+    .update(db.schema.channelConversation)
+    .set({
+      pendingToolConfirmation: sql`(${column}::jsonb - ${participantId}::text)::json`
+    })
+    .where(
+      and(
+        eq(db.schema.channelConversation.id, conversation.id),
+        sql`((${column}::jsonb -> ${participantId}::text) ->> 'id') = ${pending.id}`
+      )
+    )
+    .returning({ id: db.schema.channelConversation.id });
+  if (claimed.length === 0) return null;
+
+  const calls = pending.calls.map(call => ({
+    id: call.id,
+    name: call.name,
+    arguments: call.arguments ?? {},
+    // These calls are replayed into a new turn, where Gemini requires every
+    // function call to carry a thought signature. The one from the turn that
+    // made the call belongs to that turn's context, so the placeholder Google
+    // documents for injected calls is used instead. Other providers ignore it.
+    metadata: { thoughtSignature: 'skip_thought_signature_validator' }
+  }));
+  if (!confirmed) return { outcome: 'declined', calls };
+  const inTime =
+    Date.now() - Date.parse(pending.createdAt) <
+    utils.constants.TOOL_CONFIRMATION_TTL_MS;
+  return { outcome: inTime ? 'confirmed' : 'expired', calls };
+};
+
+/**
+ * Whether a participant, identified as the platform knows them, still has a
+ * question open in a conversation — so a button left under an answered or
+ * expired question can say so instead of reaching the model as a bare "yes".
+ */
+export const hasOpenConfirmation = async (
+  dbInstance: ReturnType<typeof db.create>,
+  channelId: string,
+  externalConversationId: string,
+  externalParticipantId: string
+): Promise<boolean> => {
+  const [row] = await dbInstance
+    .select({
+      pending: db.schema.channelConversation.pendingToolConfirmation,
+      participantId: db.schema.channelParticipant.id
+    })
+    .from(db.schema.channelConversation)
+    .innerJoin(
+      db.schema.channelParticipant,
+      and(
+        eq(db.schema.channelParticipant.channelId, channelId),
+        eq(db.schema.channelParticipant.externalUserId, externalParticipantId)
+      )
+    )
+    .where(
+      and(
+        eq(db.schema.channelConversation.channelId, channelId),
+        eq(
+          db.schema.channelConversation.externalConversationId,
+          externalConversationId
+        )
+      )
+    )
+    .limit(1);
+  if (!row) return false;
+  const pending = readPendingConfirmation(row.pending, row.participantId);
+  return (
+    pending !== null &&
+    Date.now() - Date.parse(pending.createdAt) <
+      utils.constants.TOOL_CONFIRMATION_TTL_MS
+  );
 };
 
 const upsertConversation = async (
@@ -1155,8 +1505,25 @@ const loadRecentHistory = async (
     .reverse()
     .map(r => ({
       role: r.role as 'user' | 'assistant',
-      content: r.content || ''
+      content: withoutConfirmationSummary(r.content || '', r.metadata)
     }));
+};
+
+// A confirmation question as the model wrote it, without the summary the
+// runner put under it. Left in, the model learns the block's look and starts
+// writing its own copies — a second summary under the real one, or one that
+// no stored call backs.
+const withoutConfirmationSummary = (
+  content: string,
+  metadata: unknown
+): string => {
+  const summary = (
+    metadata as { toolConfirmation?: { summary?: unknown } } | null
+  )?.toolConfirmation?.summary;
+  if (typeof summary !== 'string' || !content.endsWith(summary)) {
+    return content;
+  }
+  return content.slice(0, -summary.length).trimEnd();
 };
 
 const RESOURCE_TOOL_KEYS = new Set(utils.constants.RESOURCE_TOOL_KEYS);

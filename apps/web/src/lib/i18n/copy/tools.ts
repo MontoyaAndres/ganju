@@ -320,6 +320,12 @@ const en = {
   fnOutputSchemaLabel: 'Output schema — optional',
   fnOutputSchemaHelp:
     'Declare one and your tool must return a matching object — the MCP client gets structured output instead of text.',
+  fnEffectLabel: 'What it does',
+  fnEffectRead: 'Only reads — looks things up, changes nothing',
+  fnEffectWrite: 'Changes things that can be undone',
+  fnEffectSensitive: 'Sends, deletes, charges or can’t be undone',
+  fnEffectHelp:
+    'Sent to MCP clients as tool annotations. When the organization confirms sensitive actions, a channel bot asks before running a function of the last kind.',
   fnErrNameCharset:
     'Name may only contain letters, digits, underscore or hyphen',
   fnErrNameTaken: 'This script already declares a function by that name',
@@ -500,6 +506,10 @@ const en = {
   epMethod: 'Method',
   epUrl: 'URL',
   epUrlHelp: 'Use {{arg}} to drop in the inputs below.',
+  epEffectAuto:
+    'Decide from the method — GET reads, anything else is sensitive',
+  epEffectHelp:
+    'When the organization confirms sensitive actions, a channel bot asks before calling a sensitive endpoint. Pick “Only reads” for a POST that just searches.',
   epHeaders: 'Headers',
   epQuery: 'Query parameters',
   epAdd: 'Add',
@@ -910,6 +920,12 @@ export const TOOLS: Catalog<ToolsCopy> = {
     fnOutputSchemaLabel: 'Esquema de salida — opcional',
     fnOutputSchemaHelp:
       'Si declaras uno, tu herramienta debe devolver un objeto que coincida — el cliente MCP recibe salida estructurada en vez de texto.',
+    fnEffectLabel: 'Qué hace',
+    fnEffectRead: 'Solo lee — consulta, no cambia nada',
+    fnEffectWrite: 'Cambia cosas que se pueden deshacer',
+    fnEffectSensitive: 'Envía, borra, cobra o no se puede deshacer',
+    fnEffectHelp:
+      'Se envía a los clientes MCP como anotaciones de la herramienta. Si la organización confirma acciones sensibles, un bot de canal pregunta antes de ejecutar una función del último tipo.',
     fnErrNameCharset:
       'El nombre solo puede tener letras, dígitos, guion bajo o guion',
     fnErrNameTaken: 'Este script ya declara una función con ese nombre',
@@ -1059,6 +1075,9 @@ export const TOOLS: Catalog<ToolsCopy> = {
     epMethod: 'Método',
     epUrl: 'URL',
     epUrlHelp: 'Usa {{arg}} para insertar las entradas de abajo.',
+    epEffectAuto: 'Según el método — GET solo lee, cualquier otro es sensible',
+    epEffectHelp:
+      'Si la organización confirma acciones sensibles, un bot de canal pregunta antes de llamar a un endpoint sensible. Elige “Solo lee” para un POST que solo busca.',
     epHeaders: 'Cabeceras',
     epQuery: 'Parámetros de consulta',
     epAdd: 'Agregar',
