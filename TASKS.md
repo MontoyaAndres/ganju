@@ -641,9 +641,11 @@ to come from the model there: a yes or no in the chat, then the action.
     (deployed, then removed and dev redeployed clean): the version saved
     (v23), the response carried no warnings, and the log had "Tool linter
     failed; returning the version without it". Drafts v22–v24 there are test
-    leftovers. Still needs a `@ganju/utils` + `@ganju/cli` release (the CLI
-    bundles the linter), then production. Drafts v1–v11 on that project are
-    test leftovers.
+    leftovers. Deployed to production 2026-09-30 (`ganju-api`, web) and
+    `@ganju/utils` 0.0.14 and `@ganju/cli` 0.0.9 published; checked from
+    npm: `ganju build` on the probe project gives the four new findings
+    (two `no-usage-guidance`, the prefixed look-alike) and `--strict` exits
+    1. Drafts v1–v11 on that project are test leftovers.
 
 **6. Observability for tools — M**
 
@@ -679,6 +681,7 @@ content.
 Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
 + 7 (both in the channel runner), then 5 + 6.
 
+- Bug: when adding an mcp tool (github or notion) the switch look wrong for showing the tools in the mcp and then i allow all tools, it over pass the limit we define, it is not validated
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
