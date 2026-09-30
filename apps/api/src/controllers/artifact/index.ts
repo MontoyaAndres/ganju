@@ -1712,20 +1712,24 @@ const createCustomCodeVersion = async (c: Context<AppEnv>) => {
       })
       .returning();
 
-    // How the new functions read to a model, next to the rest of the server.
-    // Returned, never enforced: `ganju build --strict` is where an author opts
-    // into failing on them.
-    const warnings = await lintCustomCodeManifest(
-      tx,
-      artifact.id,
-      tool.id,
-      currentValues.manifest
-    );
-
-    return { ...version, warnings };
+    return { version, artifactId: artifact.id, toolId: tool.id };
   });
 
-  return c.json(result);
+  // How the new functions read to a model, next to the rest of the server.
+  // Returned, never enforced: `ganju build --strict` is where an author opts
+  // into failing on them. Run after the commit, so a linter fault can cost
+  // the warnings but never the version.
+  const warnings = await lintCustomCodeManifest(
+    dbInstance,
+    result.artifactId,
+    result.toolId,
+    currentValues.manifest
+  ).catch(error => {
+    console.error('Tool linter failed; returning the version without it', error);
+    return [];
+  });
+
+  return c.json({ ...result.version, warnings });
 };
 
 const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {

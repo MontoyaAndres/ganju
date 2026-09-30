@@ -93,9 +93,12 @@ const fold = (text: string): string =>
 // Wording that tells a model WHEN to call a tool rather than only what it does
 // — English, Spanish and Portuguese, the languages descriptions here are
 // written in. Loose on purpose: a false "says when" costs nothing, a false
-// "doesn't" nags someone whose description is fine.
+// "doesn't" nags someone whose description is fine. But not so loose that
+// words about how a tool works count: "uses the Stripe API" and "makes an API
+// call" say nothing about when to reach for it, so "call" counts only as an
+// instruction ("call this…", "call it…").
 const USAGE_GUIDANCE =
-  /\b(use|uses|using|call|calls|when|whenever|before|after|instead|only if|if the user|if you|for questions|usa|usala|usalo|usar|llama|llamala|llamar|cuando|antes de|despues de|en lugar de|si el usuario|quando|use-a|utilize|chame)\b/;
+  /\b(use|call (?:this|it)|when|whenever|before|after|instead|only if|if the user|if you|for questions|usa|usala|usalo|usar|llama|llamala|llamar|cuando|antes de|despues de|en lugar de|si el usuario|quando|use-a|utilize|chame)\b/;
 
 const STOPWORDS = new Set([
   'the',
@@ -143,9 +146,22 @@ const contentWords = (text: string): Set<string> =>
       .filter(word => word.length >= 3 && !STOPWORDS.has(word))
   );
 
+// A proxied tool is named `<server prefix>__<remote name>`. The prefix says
+// which connection it came from, not what it does, so `search_repositories`
+// and `github__search_repositories` are the same tool to a model. Kept here
+// rather than imported from constants (MCP_PROXY_TOOL_NAME_SEP), since this
+// file imports nothing.
+const PROXY_NAME_SEP = '__';
+
+const withoutProxyPrefix = (name: string): string => {
+  const at = name.lastIndexOf(PROXY_NAME_SEP);
+  const bare = at === -1 ? name : name.slice(at + PROXY_NAME_SEP.length);
+  return bare || name;
+};
+
 // `lookupOrder`, `lookup-order` and `order_lookup` name the same thing.
 const nameTokens = (name: string): string =>
-  name
+  withoutProxyPrefix(name)
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .toLowerCase()
     .split(/[^a-z0-9]+/)

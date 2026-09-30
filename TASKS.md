@@ -121,6 +121,7 @@ surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
 
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
+## Work on a view where i can chat and build the functions and this agent uses the cli to deploy them
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 
 ---
@@ -617,6 +618,32 @@ to come from the model there: a yes or no in the chat, then the action.
     renders as nothing, and was never reachable before this fix. Given its own
     value (`new-script`); deployed and checked on dev — the selector reads
     "New script · unsaved".
+  - Tightened after review (2026-09-30, not yet released or deployed):
+    `overlapping-tools` compares names without a proxy prefix, so
+    `search_repositories` is flagged next to `github__search_repositories`
+    (it wasn't: the prefix broke the name match and the proxied description
+    was too short to compare); `no-usage-guidance` no longer counts "uses",
+    "using" or a bare "call(s)" — "uses the Stripe API" and "makes an API
+    call" say how a tool works, not when to use it — while "call this / call
+    it" still counts. The API lints after the version's transaction commits,
+    and a linter error returns no warnings instead of failing the write. All
+    six examples, the `ganju init` template and the 21 template-worded probes
+    still pass. `ganju-api` and web deployed to dev and checked there with
+    `ganju deploy --draft` (local CLI build) on the probe project: the API
+    flagged "uses the Stripe API…" and "makes an API call…" and not "Call
+    this to…", still flagged `resourcesSearch` ~ `search-resources`, and
+    saved v11 as a draft. Proxy prefix checked against a real GitHub
+    mcp-proxy install (48 tools, prefix `github`) on org `019f1e2c-c660…` /
+    project `019f1e2c-c81d…`: `search_repositories` ~
+    `github__search_repositories` and `listIssues` ~ `github__list_issues`,
+    `order-lookup` not flagged, and `too-many-tools` counted 63 (3 + 12
+    natives + 48). Linter failure forced on dev with a temporary throw
+    (deployed, then removed and dev redeployed clean): the version saved
+    (v23), the response carried no warnings, and the log had "Tool linter
+    failed; returning the version without it". Drafts v22–v24 there are test
+    leftovers. Still needs a `@ganju/utils` + `@ganju/cli` release (the CLI
+    bundles the linter), then production. Drafts v1–v11 on that project are
+    test leftovers.
 
 **6. Observability for tools — M**
 
@@ -652,31 +679,11 @@ content.
 Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
 + 7 (both in the channel runner), then 5 + 6.
 
-### Nice to have
-
-- **Templates by sector** — support, sales, e-commerce: preset prompts, a tool
-  selection and sample resources. Little engineering, good for onboarding; goes
-  with the Chatbase-style introduction view.
-- **Cross-model testing** — run the same scripted task with Claude, GPT and
-  Gemini against a project's tools and report which tool each one picked.
-  Strong differentiator but expensive; build it on the evals work and after the
-  linter.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
 - **Per-user limits on channels** — calls or messages per participant per day,
   for abuse and cost on public bots. Only per-tool limits exist today.
-- **Custom code calling built-in tools** — `ctx.tools.call('gmail-send', …)`,
-  the small version of workflows.
-
-### Maybe
-
 - **Persistent memory** — Claude and ChatGPT already have their own; mainly
   useful for channel bots. The team-notes example shows the pattern with
   resources today.
-- **Visual multi-step workflows** — Functions already chain steps in code; a
-  builder means competing with n8n and Zapier.
-- **Long-running async tasks** — MCP support is still experimental and few
-  tools need it yet.
-- **Automatic summaries of large outputs** — costs a model call and hides data
-  from the model; pagination solves most of the same problem.
