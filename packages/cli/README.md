@@ -25,7 +25,7 @@ with `GANJU_API_URL`.
 | `ganju init [dir]` | Scaffold a `ganju.json` and a handler that deploys as-is |
 | `ganju login` / `logout` / `whoami` | Sign in on this machine, and out |
 | `ganju link` | Point `ganju.json` at an organization and project (`--status` to just read it) |
-| `ganju build` | Compile and minify, write `.ganju/bundle.js`, report the size |
+| `ganju build` | Lint the tools, compile and minify, write `.ganju/bundle.js`, report the size. `--strict` fails on lint warnings |
 | `ganju deploy` | Build, upload and publish (`--draft` to stop before publishing) |
 | `ganju test <tool>` | Run one tool against a sample input without publishing it |
 | `ganju logs` | Recent calls, with their `ctx.log` output (`--follow` to keep watching) |
@@ -123,6 +123,24 @@ broker it talks to.
 The upload is a `bundle`, which means the dashboard's editor shows it read-only
 rather than inviting someone to overwrite a real build with the contents of a
 text box. Use the dashboard for code you want to edit there.
+
+## The tool linter
+
+`ganju build` checks how each tool in `ganju.json` reads to a model, and warns
+about:
+
+- a missing or very short description, or one that never says when to use the
+  tool;
+- no `annotations` — the tool is then treated as one that may change things,
+  and confirmed before every call when the organization confirms sensitive
+  actions;
+- input properties with no description;
+- two tools that look alike in name or description.
+
+Warnings never stop a build unless you pass `--strict`, which is meant for CI.
+`ganju deploy` prints the same checks as run by the API, which also sees the
+server's other tools — so overlap with them, and too many enabled tools, show up
+there.
 
 ## Environment
 

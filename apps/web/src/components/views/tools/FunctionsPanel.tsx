@@ -27,7 +27,7 @@ import { ModalDialog, ModalOverlay } from './styles';
 import { i18n } from '../../../lib';
 
 // types
-import type { ToolEffect } from '@ganju/utils';
+import type { ToolEffect, ToolLintFinding, ToolLintRule } from '@ganju/utils';
 import type { Translate } from '../../../lib';
 import type {
   ArtifactConnection,
@@ -114,10 +114,14 @@ interface TestRun {
   outputViolations?: { path: string; message: string }[];
 }
 
-type ToolsT = Translate<(typeof i18n.copy.TOOLS)['en']>;
+type ToolsCopy = (typeof i18n.copy.TOOLS)['en'];
+type ToolsT = Translate<ToolsCopy>;
 
 const DRAFT = utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT;
 const MAIN = utils.constants.CUSTOM_CODE_MAIN_MODULE;
+// The version picker's entry for a blank script that has no version yet. Not
+// '': a select shows nothing for an empty value, so the entry read as blank.
+const NEW_SCRIPT = 'new-script';
 
 // What a brand-new script looks like. The import specifier is the sibling module
 // the publish pipeline attaches to every deploy — there is no build step, so what
@@ -358,6 +362,26 @@ const argCount = (tool: ManifestTool): number =>
   Object.keys((tool.inputSchema?.properties as Record<string, unknown>) || {})
     .length;
 
+// A linter finding in the reader's language. Built from the finding's fields
+// rather than its `message`, which is the English the CLI and API print.
+const LINT_KEYS = {
+  'missing-description': 'lintMissingDescription',
+  'short-description': 'lintShortDescription',
+  'no-usage-guidance': 'lintNoUsageGuidance',
+  'missing-annotations': 'lintMissingAnnotations',
+  'undescribed-input': 'lintUndescribedInput',
+  'overlapping-tools': 'lintOverlappingTools',
+  'too-many-tools': 'lintTooManyTools'
+} as const satisfies Record<ToolLintRule, keyof ToolsCopy>;
+
+const lintMessage = (t: ToolsT, finding: ToolLintFinding): string =>
+  t(LINT_KEYS[finding.rule], {
+    min: utils.TOOL_LINT_MIN_DESCRIPTION_LENGTH,
+    paths: (finding.paths ?? []).join(', '),
+    alike: (finding.alike ?? []).map(name => `"${name}"`).join(', '),
+    count: finding.count ?? 0
+  });
+
 export const FunctionsPanel = ({
   apiBase,
   loading: versionsLoading,
@@ -383,6 +407,15 @@ export const FunctionsPanel = ({
   // The version being edited. Defaults to whatever is live, so opening the tab
   // shows what the server is actually serving rather than a stale draft.
   const [openVersionId, setOpenVersionId] = useState<string | null>(null);
+  // A blank script someone chose to start, which has no version yet. Kept apart
+  // from "nothing picked yet" — both leave openVersionId null, and only the
+  // second should be filled with the live or latest version.
+  const [startedFresh, setStartedFresh] = useState(false);
+  // Open a stored version, leaving a blank script if one was being written.
+  const openStoredVersion = (id: string) => {
+    setStartedFresh(false);
+    setOpenVersionId(id);
+  };
   // The whole script, keyed by the path each file deploys as. One file is the
   // ordinary case and is simply a map of one.
   const [files, setFiles] = useState<Record<string, string>>({
@@ -393,6 +426,10 @@ export const FunctionsPanel = ({
   // is a shared prefix of paths and an empty one has no path to live in.
   const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
   const [manifest, setManifest] = useState<ManifestTool[]>([]);
+  // What the linter said about the last version saved from here. The API runs
+  // it against the whole server, so this is where overlap with tools outside
+  // the script, and the server-wide count, show up.
+  const [lintWarnings, setLintWarnings] = useState<ToolLintFinding[]>([]);
   const [editable, setEditable] = useState(true);
   const [sourceKind, setSourceKind] = useState<string | null>(null);
   // Pulling one version's stored source.
@@ -428,11 +465,15 @@ export const FunctionsPanel = ({
   const isLive = !!openVersion && openVersion.id === activeVersionId;
   const isDraft = openVersion?.status === DRAFT;
 
+  // What the tab shows before anyone picks: the live version, else the latest.
+  // Not after "start a new script" — that clears openVersionId too, and filling
+  // it back in reopened the very version (often a read-only CLI bundle) the
+  // author was trying to leave.
   useEffect(() => {
-    if (openVersionId) return;
+    if (openVersionId || startedFresh) return;
     const target = activeVersionId || latest?.id || null;
     if (target) setOpenVersionId(target);
-  }, [activeVersionId, latest, openVersionId]);
+  }, [activeVersionId, latest, openVersionId, startedFresh]);
 
   // Pull the stored source whenever the open version changes. A version with no
   // object in storage answers `source: null` — say so rather than silently
@@ -480,6 +521,7 @@ export const FunctionsPanel = ({
   }, [openVersionId]);
 
   const startFresh = () => {
+    setStartedFresh(true);
     setOpenVersionId(null);
     setFiles({ [MAIN]: STARTER_SOURCE });
     setActivePath(MAIN);
@@ -627,6 +669,7 @@ export const FunctionsPanel = ({
    * that silently didn't happen.
    */
   const createVersion = async (): Promise<CustomCodeVersion | null> => {
+    setLintWarnings([]);
     const created = await utils.fetcher({
       url: `${customCodeBase}/version`,
       config: {
@@ -639,6 +682,7 @@ export const FunctionsPanel = ({
       snackbar.error(created?.error || t('fnErrCreateVersion'));
       return null;
     }
+    setLintWarnings(Array.isArray(created.warnings) ? created.warnings : []);
 
     // Uploaded as a project envelope rather than one file's text: the server
     // stores it whole and deploys one module per file, which is what lets
@@ -658,7 +702,7 @@ export const FunctionsPanel = ({
       return null;
     }
 
-    setOpenVersionId(created.id);
+    openStoredVersion(created.id);
     setDirty(false);
     return created as CustomCodeVersion;
   };
@@ -732,7 +776,7 @@ export const FunctionsPanel = ({
     try {
       if (await activate(version.id, 'rollback')) {
         snackbar.success(t('fnOkRolledBack', { version: version.version }));
-        setOpenVersionId(version.id);
+        openStoredVersion(version.id);
       }
       await onChanged();
     } finally {
@@ -871,13 +915,13 @@ export const FunctionsPanel = ({
               <UI.Select
                 label={t('versionLabel')}
                 size="small"
-                value={openVersionId ?? ''}
+                value={openVersionId ?? NEW_SCRIPT}
                 disabled={!!busy}
                 options={[
                   // Only while a fresh script is being written: there is no row
                   // to name yet, and a blank select would read as broken.
                   ...(openVersionId === null
-                    ? [{ value: '', label: t('versionNewUnsaved') }]
+                    ? [{ value: NEW_SCRIPT, label: t('versionNewUnsaved') }]
                     : []),
                   ...versions.map(v => ({
                     value: v.id,
@@ -893,7 +937,13 @@ export const FunctionsPanel = ({
                           })
                   }))
                 ]}
-                onChange={e => setOpenVersionId(e.target.value || null)}
+                onChange={e => {
+                  // The "new, unsaved" entry is listed only while a blank
+                  // script is open — picking it keeps that script.
+                  if (e.target.value !== NEW_SCRIPT) {
+                    openStoredVersion(e.target.value);
+                  }
+                }}
               />
             </div>
           )}
@@ -965,6 +1015,34 @@ export const FunctionsPanel = ({
                   error: latest!.error as string
                 })}
           </span>
+        </div>
+      )}
+
+      {lintWarnings.length > 0 && (
+        <div className="tools-banner tools-banner-warning tools-lint-banner">
+          <Warning />
+          <span>
+            {t('lintBannerTitle')}
+            <ul>
+              {lintWarnings.map(warning => (
+                <li key={`${warning.rule}:${warning.tool ?? ''}`}>
+                  {warning.tool
+                    ? t('lintItem', {
+                        tool: warning.tool,
+                        message: lintMessage(t, warning)
+                      })
+                    : lintMessage(t, warning)}
+                </li>
+              ))}
+            </ul>
+          </span>
+          <IconButton
+            size="small"
+            aria-label={c('close')}
+            onClick={() => setLintWarnings([])}
+          >
+            <Close fontSize="small" />
+          </IconButton>
         </div>
       )}
 
@@ -1363,6 +1441,9 @@ export const FunctionsPanel = ({
         <FunctionModal
           initial={editing.mode === 'edit' ? editing.tool : null}
           existing={manifest.map(t => t.name)}
+          others={manifest.filter(
+            t => editing.mode !== 'edit' || t.name !== editing.tool.name
+          )}
           onCancel={() => setEditing(null)}
           onSave={saveFunction}
         />
@@ -1381,11 +1462,14 @@ export const FunctionsPanel = ({
 const FunctionModal = ({
   initial,
   existing,
+  others,
   onCancel,
   onSave
 }: {
   initial: ManifestTool | null;
   existing: string[];
+  // The script's other functions, which this one may be confused with.
+  others: ManifestTool[];
   onCancel: () => void;
   onSave: (tool: ManifestTool) => void;
 }) => {
@@ -1404,6 +1488,32 @@ const FunctionModal = ({
   const t = i18n.useT(i18n.copy.TOOLS);
   const c = i18n.useT(i18n.copy.COMMON);
   const schemaMetaSchema = useSchemaMetaSchema();
+
+  // The rules `ganju build` runs, on what the dialog holds right now. Shown as
+  // it is typed and never blocking — a function that reads badly to a model
+  // still works. The server-wide count isn't this dialog's to judge; the API
+  // reports it when the version is saved.
+  const warnings = useMemo(() => {
+    const trimmed = name.trim();
+    if (!trimmed) return [];
+    let inputSchema: unknown;
+    try {
+      inputSchema = JSON.parse(input);
+    } catch {
+      inputSchema = undefined;
+    }
+    return utils.lintTools(
+      [
+        {
+          name: trimmed,
+          description,
+          inputSchema,
+          annotations: utils.annotationsForEffect(effect)
+        }
+      ],
+      { others, otherCount: 0 }
+    );
+  }, [name, description, input, effect, others]);
 
   const submit = () => {
     const trimmed = name.trim();
@@ -1513,6 +1623,23 @@ const FunctionModal = ({
               </select>
               <small>{t('fnEffectHelp')}</small>
             </label>
+            {/* Under the fields they are about, not below the schema editors,
+                so they stay in view while the description is being written. */}
+            {warnings.length > 0 && (
+              <div className="tools-lint">
+                <p className="tools-lint-heading">
+                  <Warning fontSize="small" />
+                  {t('lintHeading')}
+                </p>
+                <ul>
+                  {warnings.map(warning => (
+                    <li key={`${warning.rule}:${warning.tool ?? ''}`}>
+                      {lintMessage(t, warning)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Both fields validate against the schema shape the server
                 accepts, so a key it would reject is underlined here rather than
                 returned as a 400 after Add function. */}

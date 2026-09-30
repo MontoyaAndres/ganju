@@ -42,6 +42,8 @@ const en = {
 
   // New-project modal.
   projectModalTitle: 'Create a new project',
+  projectModalOrganization: 'In {name}',
+  projectNameTooShort: 'Give the project a name of at least 3 characters.',
   projectName: 'Name',
   projectNamePlaceholder: 'Enter project name',
   projectDescription: 'Description',
@@ -112,6 +114,8 @@ export const LAYOUT: Catalog<LayoutCopy> = {
     members_other: '{count} miembros',
 
     projectModalTitle: 'Crear un proyecto',
+    projectModalOrganization: 'En {name}',
+    projectNameTooShort: 'Dale al proyecto un nombre de al menos 3 caracteres.',
     projectName: 'Nombre',
     projectNamePlaceholder: 'Escribe el nombre del proyecto',
     projectDescription: 'Descripción',

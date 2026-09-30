@@ -520,6 +520,93 @@ to come from the model there: a yes or no in the chat, then the action.
   tools (every one costs tokens on every call).
 - Later: an "improve this description" suggestion from a model in the
   dashboard.
+- Status: done on dev (2026-09-30), production pending: `ganju-api` and web.
+  `@ganju/utils` 0.0.13 and `@ganju/cli` 0.0.8 are on npm; against a
+  production API without the linter, `deploy` just prints no warnings
+  (`warnings` is optional). Warnings only, everywhere.
+  - Rules: `utils.lintTools` in `@ganju/utils` (`toolLint.ts`, imports
+    nothing, published as `@ganju/utils/toolLint` so the CLI bundles it like
+    `cliConstants`). `missing-description`; `short-description` (< 40
+    chars); `no-usage-guidance` (no "use / call / when / cuando / usa…"
+    wording, EN/ES/PT); `missing-annotations`, which replaces "a write tool
+    that does not ask the model to confirm" — since 4 the platform confirms,
+    so what hurts now is a tool that declares no hints and gets confirmed on
+    every call, lookups included; `undescribed-input` (nested properties and
+    array items too); `overlapping-tools` (same name tokens —
+    `lookupOrder` / `order_lookup` — or ≥ 60% shared description words,
+    each word weighted by how rare it is among the server's tools, so
+    descriptions written from one template are told apart by what differs;
+    one finding per tool listing every look-alike, so it grows with the
+    tool count rather than its square);
+    `too-many-tools` (> 25 enabled on the server).
+  - CLI: `ganju build` prints them before bundling, `--strict` exits 1.
+    `ganju deploy` prints the API's findings after creating the draft. The
+    `ganju init` template now passes (`annotations`, a described `orderId`).
+  - API: `POST …/custom-code/version` returns `warnings` beside the version,
+    linted against the artifact's other enabled tools (natives by catalog
+    key, http endpoints, proxied tools under their prefixed names) — that is
+    where overlap outside the script and the tool count come from.
+  - Dashboard: the function dialog lints what it holds as you type, against
+    the script's other functions; after a save or deploy the API's warnings
+    show in a dismissible banner above the function list. EN/ES copy.
+  - Checked: `ganju build` and `--strict` on a scaffolded project (the old
+    template warned twice; the new one is clean); the API function against
+    dev's custom-code artifact flags `pokemon-info` and
+    `dragonball-character` for missing annotations and
+    `npm-package-versions` for no usage guidance and an undescribed
+    `package`. The dashboard dialog and banner are typechecked, not tried in
+    a browser.
+  - To ship: a `@ganju/utils` and `@ganju/cli` release (the CLI bundles the
+    new subpath), then `ganju-api` and web. No migration.
+  - Tested 2026-09-30 from npm (`@ganju/cli@0.0.7`, `@ganju/utils@0.0.12`):
+    a fresh `ganju init` passes `--strict`; a project built to break the
+    rules got all six file-level warnings; `--strict` exits 1. That test
+    found two faults in `overlapping-tools`, fixed after the release and not
+    yet published: twenty probe tools sharing a sentence template ("Use when
+    someone asks about X") were all flagged as look-alikes — now weighted by
+    word rarity — and twenty real duplicates printed 190 pair lines — now
+    one line per tool (`alike: string[]` replaces `other`). Needs
+    `@ganju/utils` 0.0.13, `@ganju/cli` 0.0.8, `ganju-api` and web again.
+  - Checked on dev 2026-09-30 with `ganju deploy --draft` (published CLI)
+    against org `01a04ec8…` / project `01a0f40d…` (artifact `43fe9dfc…`, 5
+    natives), 21 probe tools with template-worded descriptions and one named
+    `resourcesSearch`: the draft saved as v1 (nothing published) and the API
+    returned `too-many-tools` (26) and `resourcesSearch` ~
+    `search-resources` — plus 74 probe-vs-probe look-alikes from the
+    published rule. The fixed rule, run locally on that stored draft against
+    the same artifact, returns just the two real ones. The v1 draft is still
+    in that project's versions. Dashboard dialog and banner not yet seen in a
+    browser.
+  - Published `@ganju/utils` 0.0.13 and `@ganju/cli` 0.0.8 with the fix,
+    checked from npm: the fresh template and the 21 template-worded probes
+    pass `--strict`; five duplicates give four grouped lines.
+  - `ganju-api` and web redeployed on dev; the same probe project
+    (`ganju deploy --draft`, CLI 0.0.8) came back with exactly its two real
+    warnings — `resourcesSearch` ~ `search-resources` and 26 tools — and
+    saved v2 as a draft; no version is active on that project.
+  - Dashboard checked on dev (headless Chromium, the owner's session, `/es`):
+    the function dialog warned as the description was typed — "Busca
+    documentos" → too short; a description without "when" → no usage
+    guidance; "Úsala cuando…" → none — and saving a draft showed the banner
+    with `resources_search` ~ `search-resources` (a native, which only the
+    API sees), dismissible. Found: the dialog's warnings rendered below both
+    schema editors, out of view while typing — moved under "What it does",
+    deployed and re-checked on dev: the warning sits above the input schema,
+    in view as the description is typed. Drafts v1–v4 on that project are test leftovers (v4
+    has no source: the browser closed mid-upload) — delete them.
+  - Found on the way, not linter work: "Start a new script" does nothing when
+    the latest version is a CLI bundle and none is live — `startFresh` clears
+    `openVersionId`, and the effect that picks the active-or-latest version
+    immediately reopens the read-only bundle. Fixed in `FunctionsPanel.tsx`: a
+    `startedFresh` flag the effect respects, cleared whenever a stored
+    version is opened (selector, save, rollback). Reproduced on dev before
+    the fix; after deploying, the same check passed: a blank editable script,
+    "New function" enabled and opening its dialog, v3 still reachable from
+    the selector. That check also showed the selector blank on the new
+    script — its "New script · unsaved" entry had the value '', which a select
+    renders as nothing, and was never reachable before this fix. Given its own
+    value (`new-script`); deployed and checked on dev — the selector reads
+    "New script · unsaved".
 
 **6. Observability for tools — M**
 

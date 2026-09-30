@@ -1,12 +1,19 @@
 import { bundleProject } from '../bundle.js';
 import { commandContext, describeTarget } from '../context.js';
+import { printLintFindings } from '../lint.js';
 import { color, formatBytes, note, step, success } from '../output.js';
 import { buildConfig, buildManifest, readTools } from '../project.js';
+
+import type { ToolLintFinding } from '@ganju/utils/toolLint';
 
 interface VersionRow {
   id: string;
   version: number;
   status: string;
+  // The linter's findings, run by the API against the whole server — so they
+  // include overlap with tools this project can't see. Absent from an API
+  // older than the linter.
+  warnings?: ToolLintFinding[];
 }
 
 /**
@@ -60,6 +67,8 @@ export const deploy = async (flags: {
       }
     }
   );
+
+  printLintFindings(version.warnings ?? []);
 
   step(`uploading v${version.version}`);
   await api.request(

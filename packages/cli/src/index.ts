@@ -33,6 +33,7 @@ const FLAGS = {
   // parseArgs has no negation of its own, so the off switch is its own
   // option. Spelled the way people type it.
   'no-minify': { type: 'boolean' },
+  strict: { type: 'boolean' },
   json: { type: 'boolean' },
   follow: { type: 'boolean' },
   input: { type: 'string' },
@@ -78,6 +79,7 @@ ${color.bold('Flags')}
   -h, --help                    this message, from any command
   --draft                      deploy: save the version without publishing it
   --no-minify                   build/deploy: keep the bundle readable
+  --strict                      build: fail when the tool linter has warnings
   --input '<json>'              test: the arguments to call the tool with
   --input-file <path>           test: the same, from a file
   --version <n|latest|active>   test: run an existing version instead of this code
@@ -158,7 +160,7 @@ const main = async (argv: string[]): Promise<void> => {
             project: flag('project')
           });
     case 'build':
-      return build({ minify });
+      return build({ minify, strict: flag<boolean>('strict') });
     case 'deploy':
       return deploy({ draft: flag<boolean>('draft'), minify });
     case 'test':

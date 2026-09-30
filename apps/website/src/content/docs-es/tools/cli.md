@@ -56,7 +56,7 @@ algo que corrió.
 
 | | |
 | --- | --- |
-| `ganju build` | Empaqueta y minifica a `.ganju/bundle.js`, y reporta el tamaño. `--no-minify` lo deja legible. |
+| `ganju build` | Revisa las herramientas, empaqueta y minifica a `.ganju/bundle.js`, y reporta el tamaño. `--no-minify` lo deja legible; `--strict` falla si hay advertencias. |
 | `ganju deploy` | Compila, sube y publica. `--draft` se detiene antes de publicar. |
 | `ganju test <tool>` | Corre una herramienta sin publicarla. |
 | `ganju logs` | Llamadas recientes y su salida de `ctx.log`. |
@@ -177,6 +177,28 @@ Una subida desde el CLI se guarda como un `bundle` compilado, y por eso el panel
 la muestra en solo lectura en vez de invitarte a sobrescribir una compilación real
 con el contenido de un cuadro de texto. Igual puedes leerla ahí, e igual puedes
 hacer rollback a ella.
+
+## El revisor de herramientas
+
+Antes de empaquetar, `ganju build` revisa cómo lee un modelo cada herramienta —
+lo que hace que un modelo elija la herramienta equivocada o adivine sus
+argumentos. Advierte sobre:
+
+- una **descripción ausente o muy corta**, o una que nunca dice **cuándo** usar
+  la herramienta;
+- **sin `annotations`** — la herramienta se trata entonces como una que puede
+  cambiar cosas, y se confirma antes de cada llamada cuando la organización
+  confirma acciones sensibles, consultas incluidas;
+- **propiedades de entrada sin descripción**;
+- **dos herramientas que se parecen** en nombre o descripción.
+
+Las advertencias nunca detienen la compilación. Pasa `--strict` para que la hagan
+fallar — útil en CI.
+
+`ganju deploy` muestra las mismas revisiones, hechas por la API contra todo el
+servidor, así que también cubren el parecido con las otras herramientas del
+servidor y advierten cuando hay más de 25 activas. El diálogo de funciones del
+panel las muestra mientras escribes.
 
 ## Pruebas
 

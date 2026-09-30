@@ -53,13 +53,21 @@ const projectFile = (name: string): ProjectFile => ({
       entry: EXAMPLE_ENTRY,
       input: {
         type: 'object',
-        properties: { orderId: { type: 'string' } },
+        properties: {
+          orderId: {
+            type: 'string',
+            description: 'The order number the customer gave.'
+          }
+        },
         required: ['orderId']
       },
       output: {
         type: 'object',
         properties: { status: { type: 'string' } }
-      }
+      },
+      // A lookup: said so, a confirming channel runs it without asking. The
+      // example is the first thing `ganju build` lints, so it passes.
+      annotations: { readOnlyHint: true }
     }
   ]
 });

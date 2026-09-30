@@ -1,6 +1,6 @@
 {
   "name": "@ganju/utils",
-  "version": "0.0.11",
+  "version": "0.0.13",
   "description": "Shared constants, schemas and helpers for Ganju",
   "license": "Apache-2.0",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
@@ -52,6 +52,11 @@
       "types": "./dist/cliConstants.d.ts",
       "import": "./dist/cliConstants.js",
       "require": "./dist/cliConstants.js"
+    },
+    "./toolLint": {
+      "types": "./dist/toolLint.d.ts",
+      "import": "./dist/toolLint.js",
+      "require": "./dist/toolLint.js"
     },
     "./sdkConstants": {
       "types": "./dist/sdkConstants.d.ts",

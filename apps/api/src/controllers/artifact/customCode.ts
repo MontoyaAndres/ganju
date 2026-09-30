@@ -6,7 +6,9 @@ import type {
   CustomCodeManifest,
   CustomCodeToolConfig,
   JsonSchema,
-  PlanLimits
+  LintableTool,
+  PlanLimits,
+  ToolLintFinding
 } from '@ganju/utils';
 
 import { Plan } from '../../utils';
@@ -229,6 +231,106 @@ export const validateCustomCodeManifest = (
       }
     }
   }
+};
+
+// The tool linter's findings for an uploaded manifest, with the rest of the
+// artifact as context: its other enabled tools are what a new function can be
+// confused with, and what it is counted alongside. Warnings only — the version
+// is created either way, and the caller returns these beside it.
+//
+// The other tools are read the way the MCP server registers them: natives by
+// their catalog key, http endpoints by their configured name, proxied tools
+// under their prefixed names and only the enabled subset. Descriptions are the
+// catalog's for natives, which is all the API holds; names are what matter most
+// for overlap there.
+export const lintCustomCodeManifest = async (
+  executor: DbExecutor,
+  artifactId: string,
+  customCodeToolId: string,
+  manifest: CustomCodeManifest
+): Promise<ToolLintFinding[]> => {
+  const rows = await executor
+    .select({
+      id: db.schema.artifactTool.id,
+      key: db.schema.artifactTool.toolKey,
+      config: db.schema.artifactTool.config,
+      metadata: db.schema.artifactTool.metadata
+    })
+    .from(db.schema.artifactTool)
+    .where(
+      and(
+        eq(db.schema.artifactTool.artifactId, artifactId),
+        eq(db.schema.artifactTool.enabled, true)
+      )
+    );
+
+  const others: LintableTool[] = [];
+  let customCodeConfig: CustomCodeToolConfig | null = null;
+  for (const row of rows) {
+    if (row.id === customCodeToolId) {
+      customCodeConfig = readCustomCodeConfig(row);
+      continue;
+    }
+    if (row.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT) {
+      const cfg = row.config as { name?: unknown; description?: unknown };
+      if (typeof cfg?.name === 'string') {
+        others.push({
+          name: cfg.name,
+          description:
+            typeof cfg.description === 'string' ? cfg.description : undefined
+        });
+      }
+    } else if (row.key === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY) {
+      const cfg = row.config as {
+        prefix?: unknown;
+        allowedTools?: unknown;
+      } | null;
+      const prefix = typeof cfg?.prefix === 'string' ? cfg.prefix : 'mcp';
+      const allowed =
+        Array.isArray(cfg?.allowedTools) && cfg.allowedTools.length > 0
+          ? new Set(cfg.allowedTools as string[])
+          : null;
+      const meta = row.metadata as {
+        discovery?: {
+          tools?: Array<{ name?: unknown; description?: unknown }>;
+        };
+      } | null;
+      for (const remote of meta?.discovery?.tools || []) {
+        if (typeof remote?.name !== 'string') continue;
+        if (allowed && !allowed.has(remote.name)) continue;
+        const name = utils.buildProxyToolName(prefix, remote.name);
+        if (!name) continue;
+        others.push({
+          name,
+          description:
+            typeof remote.description === 'string'
+              ? remote.description
+              : undefined
+        });
+      }
+    } else if (row.key !== utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
+      const native = utils.describeCatalogTool(row.key);
+      if (native) {
+        others.push({
+          name: native.key,
+          description: native.description ?? undefined
+        });
+      }
+    }
+  }
+
+  // Functions the owner switched off stay off in the new version, so they
+  // aren't counted — though they are still checked, since they may come back.
+  const allowedTools = customCodeConfig?.allowedTools ?? [];
+  const hidden =
+    allowedTools.length > 0
+      ? manifest.tools.filter(tool => !allowedTools.includes(tool.name)).length
+      : 0;
+
+  return utils.lintTools(manifest.tools, {
+    others,
+    otherCount: others.length - hidden
+  });
 };
 
 // Delete the artifact's custom-code secrets after its custom-code tool row is

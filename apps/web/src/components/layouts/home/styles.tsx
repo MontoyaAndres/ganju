@@ -993,6 +993,33 @@ export const ModalDialog = styled.div`
       bottom: 0;
     }
 
+    .profile-modal-subtitle {
+      margin: 2px 0 0 0;
+      font-size: ${theme.fonts.sm};
+      color: ${theme.colors.bastille}99;
+    }
+
+    .profile-modal-error {
+      margin: 0;
+      font-size: ${theme.fonts.sm};
+      color: ${theme.colors.thunderbird};
+    }
+
+    &.is-compact {
+      height: auto;
+      width: calc(100% - 32px);
+      max-height: calc(100vh - 32px);
+
+      @media (min-width: ${theme.screens.md}) {
+        width: 100%;
+        max-height: calc(100% - 10vh);
+      }
+
+      .profile-modal-actions {
+        position: static;
+      }
+    }
+
     .MuiButtonBase-root {
       font-size: ${theme.fonts.base};
       padding: 6px 16px;

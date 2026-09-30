@@ -442,6 +442,8 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
   };
 
   const handleOpenProjectModal = (orgId: string) => {
+    // The switcher it was opened from would otherwise stay open behind it.
+    setSwitcherOpen(false);
     setProjectValues({ name: '', description: '' });
     setProjectError({ name: '', description: '' });
     setProjectApiError('');
@@ -499,15 +501,28 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
         Array.isArray((err as { issues: unknown[] }).issues)
       ) {
         const formattedErrors = (
-          err as { issues: { path: string[]; message: string }[] }
+          err as {
+            issues: { path: string[]; message: string; code?: string }[];
+          }
         ).issues.reduce(
-          (acc, curr) => ({ ...acc, [curr.path[0]]: curr.message }),
+          (acc, curr) => ({
+            ...acc,
+            // The one people hit — an empty or two-letter name — in words
+            // written for it; anything else in the schema's own, translated.
+            [curr.path[0]]:
+              curr.path[0] === 'name' && curr.code === 'too_small'
+                ? t('projectNameTooShort')
+                : utils.localizeZodIssue(curr, t.lang)
+          }),
           { name: '', description: '' }
         );
         setProjectError(formattedErrors);
       }
     }
   };
+
+  const projectModalOrgName =
+    organizations?.find(org => org.id === projectModalOrgId)?.name ?? null;
 
   const selectedOrg =
     organizations?.find(org => org.id === selectedOrgId) ||
@@ -1138,16 +1153,32 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       {projectModalOrgId && (
         <UI.Portal>
           <ModalOverlay onClick={handleCloseProjectModal}>
-            <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
+            <ModalDialog
+              role="dialog"
+              className="is-compact"
+              onClick={e => e.stopPropagation()}
+            >
               <div className="profile-modal-header">
-                <h2 className="profile-modal-title">
-                  {t('projectModalTitle')}
-                </h2>
+                <div>
+                  <h2 className="profile-modal-title">
+                    {t('projectModalTitle')}
+                  </h2>
+                  {projectModalOrgName && (
+                    <p className="profile-modal-subtitle">
+                      {t('projectModalOrganization', {
+                        name: projectModalOrgName
+                      })}
+                    </p>
+                  )}
+                </div>
                 <IconButton size="small" onClick={handleCloseProjectModal}>
                   <Close />
                 </IconButton>
               </div>
-              <form onSubmit={handleProjectSubmit}>
+              {/* noValidate: the schema below checks the fields and says so
+                  in the reader's language; the browser's own check would
+                  answer first, in its own. */}
+              <form onSubmit={handleProjectSubmit} noValidate>
                 <div className="profile-modal-body">
                   <UI.Input
                     label={t('projectName')}
@@ -1156,6 +1187,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     value={projectValues.name}
                     onChange={handleProjectValueChange}
                     required
+                    autoFocus
                     error={!!projectError.name}
                     helperText={projectError.name}
                     disabled={projectStatus === 'pending'}
@@ -1173,7 +1205,9 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                     disabled={projectStatus === 'pending'}
                   />
                   {projectApiError && (
-                    <p className="profile-section-title">{projectApiError}</p>
+                    <p className="profile-modal-error" role="alert">
+                      {projectApiError}
+                    </p>
                   )}
                 </div>
                 <div className="profile-modal-actions">

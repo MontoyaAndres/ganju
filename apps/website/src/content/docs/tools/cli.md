@@ -55,7 +55,7 @@ so the next command succeeds and you edit from something that ran.
 
 | | |
 | --- | --- |
-| `ganju build` | Bundle and minify to `.ganju/bundle.js`, and report the size. `--no-minify` keeps it readable. |
+| `ganju build` | Lint the tools, bundle and minify to `.ganju/bundle.js`, and report the size. `--no-minify` keeps it readable; `--strict` fails on lint warnings. |
 | `ganju deploy` | Build, upload and publish. `--draft` stops before publishing. |
 | `ganju test <tool>` | Run one tool without publishing it. |
 | `ganju logs` | Recent calls and their `ctx.log` output. |
@@ -173,6 +173,26 @@ you want them enforced.
 A CLI upload is stored as a compiled `bundle`, which is why the dashboard shows
 it read-only rather than inviting someone to overwrite a real build with the
 contents of a text box. You can still read it there, and still roll back to it.
+
+## The tool linter
+
+Before it bundles, `ganju build` checks how each tool reads to a model — the
+things that make a model pick the wrong tool or guess at its arguments. It warns
+about:
+
+- a **missing or very short description**, or one that never says **when** to
+  use the tool;
+- **no `annotations`** — the tool is then treated as one that may change things,
+  and confirmed before every call when the organization confirms sensitive
+  actions, lookups included;
+- **input properties with no description**;
+- **two tools that look alike** in name or description.
+
+Warnings never stop a build. Pass `--strict` to make them fail it — useful in CI.
+
+`ganju deploy` prints the same checks, run by the API against the whole server,
+so they also cover overlap with the server's other tools and warn when more than
+25 are enabled. The dashboard's function dialog shows them as you type.
 
 ## Testing
 

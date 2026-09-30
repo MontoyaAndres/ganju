@@ -242,6 +242,24 @@ const en = {
     'This version was uploaded from the CLI, so its code is a compiled bundle and can’t be edited here.',
   readOnlyBannerAction: 'Start a new script',
   readOnlyBannerAfter: 'to edit in the dashboard.',
+  // The tool linter — how a function reads to a model. Warnings, never errors.
+  lintHeading: 'How this reads to a model',
+  lintBannerTitle: 'Saved, with notes on how these functions read to a model:',
+  lintItem: '{tool}: {message}',
+  lintMissingDescription:
+    'No description, so a model sees only the name when deciding whether to call it.',
+  lintShortDescription:
+    'Very short description. Say what it does and when to call it, in at least {min} characters.',
+  lintNoUsageGuidance:
+    'The description says what it does but not when to use it (e.g. "Use when the customer asks about…").',
+  lintMissingAnnotations:
+    'Not marked as read-only or undoable, so it is confirmed before every call when the organization confirms sensitive actions. Pick "What it does" if it only reads.',
+  lintUndescribedInput:
+    'Input properties with no description: {paths}. A model has to guess what to pass.',
+  lintOverlappingTools:
+    'Looks like {alike} in name or description, so a model may call one for another. Say what sets it apart.',
+  lintTooManyTools:
+    "{count} tools are enabled on this server. Each one is sent to the model on every call, and models choose worse past a few dozen — turn off the ones it doesn't need.",
 
   metaVersion: 'Version',
   metaStatus: 'Status',
@@ -844,6 +862,24 @@ export const TOOLS: Catalog<ToolsCopy> = {
       'Esta versión se subió desde el CLI, así que su código es un bundle compilado y no se puede editar aquí.',
     readOnlyBannerAction: 'Empieza un script nuevo',
     readOnlyBannerAfter: 'para editarlo en el panel.',
+    lintHeading: 'Cómo la lee un modelo',
+    lintBannerTitle:
+      'Guardado, con notas sobre cómo un modelo lee estas funciones:',
+    lintItem: '{tool}: {message}',
+    lintMissingDescription:
+      'Sin descripción: el modelo solo ve el nombre para decidir si la llama.',
+    lintShortDescription:
+      'Descripción muy corta. Di qué hace y cuándo llamarla, en al menos {min} caracteres.',
+    lintNoUsageGuidance:
+      'La descripción dice qué hace pero no cuándo usarla (p. ej. "Úsala cuando el cliente pregunte por…").',
+    lintMissingAnnotations:
+      'No está marcada como de solo lectura ni reversible, así que se confirma antes de cada llamada cuando la organización confirma acciones sensibles. Elige "Qué hace" si solo lee.',
+    lintUndescribedInput:
+      'Propiedades de entrada sin descripción: {paths}. El modelo tiene que adivinar qué pasar.',
+    lintOverlappingTools:
+      'Se parece a {alike} en nombre o descripción, así que un modelo puede llamar una por otra. Di qué la distingue.',
+    lintTooManyTools:
+      'Hay {count} herramientas activas en este servidor. Cada una se envía al modelo en cada llamada, y los modelos eligen peor pasadas unas decenas: desactiva las que no necesita.',
 
     metaVersion: 'Versión',
     metaStatus: 'Estado',

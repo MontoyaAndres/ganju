@@ -11,6 +11,7 @@ import {
   readCustomCodeConfig,
   validateCustomCodeConfig,
   validateCustomCodeManifest,
+  lintCustomCodeManifest,
   nextVersionNumber,
   loadVersionForTool,
   bundleSourceKey,
@@ -1671,7 +1672,7 @@ const createCustomCodeVersion = async (c: Context<AppEnv>) => {
   const dbInstance = db.create(c);
 
   const result = await dbInstance.transaction(async tx => {
-    const { tool } = await resolveCustomCodeTool(
+    const { artifact, tool } = await resolveCustomCodeTool(
       tx,
       currentValues.organizationId,
       currentValues.projectId
@@ -1711,7 +1712,17 @@ const createCustomCodeVersion = async (c: Context<AppEnv>) => {
       })
       .returning();
 
-    return version;
+    // How the new functions read to a model, next to the rest of the server.
+    // Returned, never enforced: `ganju build --strict` is where an author opts
+    // into failing on them.
+    const warnings = await lintCustomCodeManifest(
+      tx,
+      artifact.id,
+      tool.id,
+      currentValues.manifest
+    );
+
+    return { ...version, warnings };
   });
 
   return c.json(result);

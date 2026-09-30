@@ -243,6 +243,18 @@ import type {
   ToolEffect
 } from './toolConfirmation';
 import {
+  lintTools,
+  TOOL_LINT_RULES,
+  TOOL_LINT_MAX_TOOLS,
+  TOOL_LINT_MIN_DESCRIPTION_LENGTH
+} from './toolLint';
+import type {
+  LintableTool,
+  ToolLintFinding,
+  ToolLintOptions,
+  ToolLintRule
+} from './toolLint';
+import {
   isResourceSourceEnabled,
   isDownloadableSource,
   safeHostname,
@@ -391,6 +403,10 @@ export const utils = {
   TOOL_EFFECTS,
   isSensitiveTool,
   stableJson,
+  lintTools,
+  TOOL_LINT_RULES,
+  TOOL_LINT_MAX_TOOLS,
+  TOOL_LINT_MIN_DESCRIPTION_LENGTH,
   isResourceSourceEnabled,
   isDownloadableSource,
   safeHostname,
@@ -423,6 +439,10 @@ export type {
   PendingToolConfirmation,
   PendingToolConfirmations,
   ToolEffect,
+  LintableTool,
+  ToolLintFinding,
+  ToolLintOptions,
+  ToolLintRule,
   ToolGroupKey,
   ToolKey,
   CalendarConfigField,

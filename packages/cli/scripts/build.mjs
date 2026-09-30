@@ -11,8 +11,9 @@
 // shells out to unresolvable.
 //
 // What gets carried in is only `@ganju/utils/cliConstants` — eight values in a
-// module that imports nothing. Importing the main constants module instead would
-// inline the whole object literal here, since a bundler cannot tree-shake one.
+// module that imports nothing — and `@ganju/utils/toolLint`, which imports
+// nothing either. Importing the main constants module instead would inline the
+// whole object literal here, since a bundler cannot tree-shake one.
 import { build } from 'esbuild';
 import { chmod, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

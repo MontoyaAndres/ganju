@@ -2270,6 +2270,42 @@ export const ModalDialog = styled.div`
       color: ${theme.colors.thunderbird};
     }
 
+    .tools-lint {
+      margin: 0 0 12px 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background-color: ${theme.colors.earlyDawn};
+      color: ${theme.colors.romanCoffee};
+      font-size: ${theme.fonts.xs};
+      line-height: 1.45;
+
+      .tools-lint-heading {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 0 4px 0;
+        font-weight: 600;
+
+        svg {
+          color: ${theme.colors.tahitiGold};
+        }
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+    }
+
+    .tools-banner.tools-lint-banner {
+      align-items: flex-start;
+
+      ul {
+        margin: 6px 0 0 0;
+        padding-left: 18px;
+      }
+    }
+
     .tools-modal-body {
       padding: 20px;
       overflow-y: auto;
