@@ -175,6 +175,12 @@ codes, names), which are most of what support and sales bots get asked.
   `content_tsv` + its GIN index and the `iterative_scan` default in place.
   Prod runs the same pgvector version as dev (0.8.1), so `0074` will apply;
   what's left is the quiet window and the golden-set baseline.
+- In production (checked 2026-09-30): `0074` is applied — drizzle ran it
+  along with the later migrations — with `content_tsv`, its GIN index and
+  the `iterative_scan` default in place; prod runs pgvector 0.8.6, not 0.8.1.
+  The `ganju-mcp` deploys since then carry the fused search. So the
+  pre-migration golden-set baseline can no longer be taken; golden sets are
+  still worth writing to measure changes from here.
 
 **2. Citations and metadata in results — S** (ship with 1: same query, same
 response)
@@ -189,7 +195,7 @@ response)
   `@ganju/sdk`.
 - Done when: an answer from a PDF cites its page and one from a crawled site
   cites its URL.
-- Status: done on dev (2026-09-24), production pending. Ships with 1.
+- Status: done on dev (2026-09-24), live in production with 1 (see 1).
   - Fields: `db.toResourceSearchResult` is the one result shape for
     `search-resources` and `ctx.resources.search`; unknown fields are left out,
     never null. `page` only for PDFs and documents with real pages; `section`
@@ -216,8 +222,14 @@ response)
     `headingPath`: nothing has been indexed there since 2026-09-10, and dev
     holds no Markdown or HTML resources. The section-looking citations in that
     run ("Refunds → Gift orders", a crawled page's section) were the model
-    reading headings out of the excerpt text. To verify: re-crawl a site on
-    dev or upload a `.md` file, then check `headingPath` on its chunks.
+    reading headings out of the excerpt text. Verified 2026-09-30: the
+    Shipday site's re-crawl on 2026-09-26 wrote 883 chunks with a
+    `headingPath`, and `search-resources` on that artifact (dev MCP, "How to
+    integrate Shipday with Bbot") returned `section` ("How to integrate
+    Shipday with Bbot", "Enabling automated self-delivery for your
+    restaurant") next to `source`; results whose chunk sits before a page's
+    first heading carry none, as designed. Not checked: a model citing the
+    section in a channel answer.
   - Known edge: a home page titled with just the brand ("Acme") stays in the
     footer whenever the answer names the brand or the site's URL. One extra
     line; leave it unless it shows up.
@@ -296,6 +308,12 @@ on its own: the API's crons only run error alerts and overage metering.
     which for those is the native file's 1,024-byte quota.
   - To deploy to prod: run `0075` first, then `ganju-api`, the
     resource-handler container, and the web app.
+  - In production (checked 2026-09-30): `0075` is applied and
+    `ganju-api` has been deployed since, which also ships the
+    resource-handler (its image is built by the API's `wrangler deploy`), so
+    the 410 route and the hourly `runResourceSync` are live. Prod has one sync
+    root (weekly) and it has never started — expected if its source is under
+    a week old or its organization isn't on a plan with automatic sync.
 
 **4. Human confirmation for sensitive tools — M**
 
@@ -373,7 +391,11 @@ on its own: the API's crons only run error alerts and overage metering.
   - Gemini: a confirmed call is replayed into a new turn, where Gemini 3
     requires a thought signature; it carries the documented sentinel
     `skip_thought_signature_validator`. Google calls it a last resort that can
-    cost some quality on that step. Test once with a Gemini model.
+    cost some quality on that step. Verified 2026-09-30 through the Gemini
+    adapter, replaying a confirmed `calendar-create-event` call and its result
+    on `gemini-3.1-flash-lite`, `gemini-3.8-flash` and
+    `gemini-3.1-pro-preview`: with the sentinel all three answered; without
+    it all three returned 400 "Function call is missing a thought_signature".
   - MCP clients: not built — planned as 4b (the model asks yes/no in the
     client's chat; a signed token ties the second call to the first).
   - Tested on dev 2026-09-28 over WhatsApp (org "test", Gemini 3.1 Flash
@@ -531,7 +553,7 @@ to come from the model there: a yes or no in the chat, then the action.
   tools (every one costs tokens on every call).
 - Later: an "improve this description" suggestion from a model in the
   dashboard.
-- Status: done on dev (2026-09-30), production pending: `ganju-api` and web.
+- Status: done, on dev and production (2026-09-30).
   `@ganju/utils` 0.0.13 and `@ganju/cli` 0.0.8 are on npm; against a
   production API without the linter, `deploy` just prints no warnings
   (`warnings` is optional). Warnings only, everywhere.
@@ -646,6 +668,12 @@ to come from the model there: a yes or no in the chat, then the action.
     npm: `ganju build` on the probe project gives the four new findings
     (two `no-usage-guidance`, the prefixed look-alike) and `--strict` exits
     1. Drafts v1–v11 on that project are test leftovers.
+  - Tests: `packages/utils/test/toolLint.test.ts` (`npm test` in
+    `@ganju/utils`, or `turbo run test`; node --test, no new dependency) pins
+    the cases above — the init template, the 21 template probes, grouped
+    duplicates, siblings, native and prefixed look-alikes, the guidance
+    wording, annotations, nested input paths, the tool count. Checked that
+    reverting either 2026-09-30 fix fails its test.
 
 **6. Observability for tools — M**
 
