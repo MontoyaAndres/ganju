@@ -1153,11 +1153,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       {projectModalOrgId && (
         <UI.Portal>
           <ModalOverlay onClick={handleCloseProjectModal}>
-            <ModalDialog
-              role="dialog"
-              className="is-compact"
-              onClick={e => e.stopPropagation()}
-            >
+            <ModalDialog role="dialog" onClick={e => e.stopPropagation()}>
               <div className="profile-modal-header">
                 <div>
                   <h2 className="profile-modal-title">

@@ -967,7 +967,7 @@ const RESOURCE_SEARCH_RERANK_MODEL = '@cf/baai/bge-reranker-base';
 
 const RESOURCE_HANDLER_SLEEP_AFTER = '10m';
 
-const DOCS_URL = 'https://docs.ganju.ai';
+const DOCS_URL = 'https://ganju.ai/docs/';
 
 const BASE64_DATA_URI_RE =
   /data:image\/[a-zA-Z0-9+\-.]+;base64,[A-Za-z0-9+/=\s]+/g;

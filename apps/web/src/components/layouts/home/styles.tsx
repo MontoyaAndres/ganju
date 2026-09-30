@@ -856,16 +856,17 @@ export const ModalDialog = styled.div`
   ${({ theme }) => css`
     background-color: ${theme.colors.white};
     border-radius: 12px;
-    width: 100%;
-    height: 100vh;
+    width: calc(100% - 32px);
     max-width: 480px;
+    max-height: calc(100vh - 32px);
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
     position: relative;
 
     @media (min-width: ${theme.screens.md}) {
-      height: calc(100% - 10vh);
+      width: 100%;
+      max-height: calc(100% - 10vh);
     }
 
     .profile-modal-header {
@@ -898,6 +899,7 @@ export const ModalDialog = styled.div`
     .profile-modal-body {
       padding: 20px;
       overflow-y: auto;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -987,10 +989,7 @@ export const ModalDialog = styled.div`
       gap: 8px;
       padding: 14px 20px;
       border-top: 1px solid ${theme.colors.alto};
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      flex-shrink: 0;
     }
 
     .profile-modal-subtitle {
@@ -1003,21 +1002,6 @@ export const ModalDialog = styled.div`
       margin: 0;
       font-size: ${theme.fonts.sm};
       color: ${theme.colors.thunderbird};
-    }
-
-    &.is-compact {
-      height: auto;
-      width: calc(100% - 32px);
-      max-height: calc(100vh - 32px);
-
-      @media (min-width: ${theme.screens.md}) {
-        width: 100%;
-        max-height: calc(100% - 10vh);
-      }
-
-      .profile-modal-actions {
-        position: static;
-      }
     }
 
     .MuiButtonBase-root {
