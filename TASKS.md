@@ -507,6 +507,16 @@ to come from the model there: a yes or no in the chat, then the action.
     since August, so the tool itself answered with that and no event was
     made.
   - Deployed to production 2026-09-28 (`0077`, `ganju-mcp`, `ganju-api`, web).
+  - Example and docs (2026-09-30): `examples/order-desk` — `order-lookup`
+    (read-only), `order-add-note` (`destructiveHint: false`), `order-refund`
+    (`destructiveHint: true`), no setup, state in `ctx.resources`. The switch
+    is documented under Settings → Organization → "Confirm sensitive
+    actions" (EN/ES) and on the examples page. Every other example now
+    declares annotations; the three whose descriptions said "confirm with the
+    person first" (`github-create-issue`, `delete-note`, `email-hn-digest`)
+    lost that line, since the platform asks and the model would ask twice.
+    The `ganju-cli` agent skill says the same. All six examples pass
+    `ganju build --strict`; order-desk's tools ran on dev with `ganju test`.
 
 **5. Tool linter — S**
 

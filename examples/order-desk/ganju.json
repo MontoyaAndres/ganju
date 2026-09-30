@@ -1,0 +1,114 @@
+{
+  "connections": [],
+  "allowedHosts": [],
+  "timeoutMs": 10000,
+  "resourceAccess": "own",
+  "tools": [
+    {
+      "name": "order-lookup",
+      "title": "Look up an order",
+      "description": "Look up an order by its number: status, items, total, what has been refunded and what still can be, and any internal notes. Use when a customer asks about an order, and before adding a note or refunding one.",
+      "entry": "src/orderLookup.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": false },
+      "input": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[Aa]-[0-9]{4}$",
+            "description": "The order number the customer gave, e.g. A-1001"
+          }
+        },
+        "required": ["orderId"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string" },
+          "total": { "type": "number" },
+          "refundable": { "type": "number" },
+          "notes": { "type": "array", "items": { "type": "object" } },
+          "refunds": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    {
+      "name": "order-add-note",
+      "title": "Add an internal note",
+      "description": "Add an internal note to an order, visible to staff only, e.g. what the customer reported or what was promised. Use when someone asks to note, log or remember something about a specific order. The customer is not told.",
+      "entry": "src/orderAddNote.ts",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[Aa]-[0-9]{4}$",
+            "description": "The order number, e.g. A-1001"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "The note, in a sentence or two"
+          }
+        },
+        "required": ["orderId", "note"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "orderId": { "type": "string" },
+          "notes": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "order-refund",
+      "title": "Refund an order",
+      "description": "Send money back to the customer for a shipped, delivered or cancelled order: the full remaining amount, or `amount` for a partial refund. Use only when the customer asks for their money back and the order qualifies. A refund can't be undone.",
+      "entry": "src/orderRefund.ts",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[Aa]-[0-9]{4}$",
+            "description": "The order number, e.g. A-1001"
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "How much to refund, in the order's currency. Leave it out to refund everything not yet refunded"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300,
+            "description": "Why, in the customer's words, e.g. arrived broken"
+          }
+        },
+        "required": ["orderId", "reason"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "orderId": { "type": "string" },
+          "refunded": { "type": "number" },
+          "currency": { "type": "string" },
+          "remaining": { "type": "number" }
+        }
+      }
+    }
+  ]
+}

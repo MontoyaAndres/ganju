@@ -9,6 +9,11 @@
       "title": "Save a note",
       "description": "Save a note for the team: a decision, a how-to, meeting minutes, anything worth remembering. Saving with the title of an existing note replaces it. Use when someone says to note, remember, write down or record something.",
       "entry": "src/saveNote.ts",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
       "input": {
         "type": "object",
         "properties": {
@@ -46,6 +51,7 @@
       "title": "List notes",
       "description": "List the titles of every saved note. Use when someone asks what notes exist, or before reading one whose exact title you do not know.",
       "entry": "src/listNotes.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": false },
       "input": { "type": "object", "properties": {} },
       "output": {
         "type": "object",
@@ -58,8 +64,9 @@
     {
       "name": "read-note",
       "title": "Read a note",
-      "description": "Read one note in full, by its title or its uri.",
+      "description": "Read one note in full, by its title or its uri. Use when a search or list turned up the note someone needs, or they name a note to open.",
       "entry": "src/readNote.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": false },
       "input": {
         "type": "object",
         "properties": {
@@ -83,6 +90,7 @@
       "title": "Find notes",
       "description": "Search the saved notes by meaning and return the most relevant passages. Use when someone asks a question the team may have written down, and you do not know which note holds the answer.",
       "entry": "src/findNotes.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": false },
       "input": {
         "type": "object",
         "properties": {
@@ -111,8 +119,13 @@
     {
       "name": "delete-note",
       "title": "Delete a note",
-      "description": "Delete one note, by its title or its uri. Confirm with the person first.",
+      "description": "Delete one note, by its title or its uri. Use only when someone asks to delete or remove a specific note.",
       "entry": "src/deleteNote.ts",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
       "input": {
         "type": "object",
         "properties": {

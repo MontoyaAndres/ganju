@@ -137,7 +137,8 @@ Declare the tool in `ganju.json`:
       "output": {
         "type": "object",
         "properties": { "status": { "type": "string" }, "eta": { "type": "string" } }
-      }
+      },
+      "annotations": { "readOnlyHint": true }
     }
   ]
 }
@@ -172,8 +173,15 @@ failed deploys and failed calls:
   `createHandler({ 'tool-name': defineTool(…) })`, which is mainly for scripts
   moved out of the dashboard editor.
 - **The `description` is how the model decides to call the tool.** Say *when*
-  to use it, not just what it does. For tools that write, send, delete or spend,
-  add "Confirm with the person before calling this."
+  to use it, not just what it does, and describe every input property.
+- **Every tool declares `annotations`.** `{ "readOnlyHint": true }` for a tool
+  that only reads; `{ "destructiveHint": false }` for one whose changes can be
+  undone; `{ "destructiveHint": true }` for one that sends, deletes, spends or
+  can't be undone. When the organization turns on "Confirm sensitive actions",
+  the platform asks the person before any tool that isn't marked read-only or
+  `destructiveHint: false` — so an unannotated lookup gets asked about on every
+  call. Don't write "confirm with the person first" in a description: the
+  platform already asks, and the model would ask twice.
 - **Leave missing output fields out, never set them to `null`.** The output
   schema has one `type` per property and no nullable form, so a `null` fails
   the whole call. Use `...(x ? { x } : {})`.
@@ -274,7 +282,7 @@ and `ganju deploy` on merge.
 
 ## Starting from an example
 
-The Ganju repository has five small projects in `examples/`, each showing one
+The Ganju repository has six small projects in `examples/`, each showing one
 capability. Copying the closest one is usually faster than starting from
 `ganju init`:
 
@@ -285,13 +293,16 @@ capability. Copying the closest one is usually faster than starting from
 | `team-notes` | every `ctx.resources` method, stable uris, `index: true` |
 | `calendar-free-time` | `ctx.connection('google-calendar')`, time zones with `Intl` |
 | `news-digest` | `ctx.resources.create` then `ctx.sendFile` to Gmail |
+| `order-desk` | `annotations` for each kind of tool, and "Confirm sensitive actions" |
 
 Source: https://github.com/MontoyaAndres/ganju/tree/main/examples. Docs:
 https://ganju.ai/docs/tools/examples/
 
 ## Before you call it done
 
-- `ganju build` passes. If there's a tsconfig, `tsc --noEmit` passes too.
+- `ganju build --strict` passes, which also means the tool linter has nothing
+  to say about descriptions, inputs or annotations. If there's a tsconfig,
+  `tsc --noEmit` passes too.
 - Every tool passes `ganju test` with a realistic input and no schema
   violations, including one failure case such as a not-found or bad input,
   showing an error message the model can act on.

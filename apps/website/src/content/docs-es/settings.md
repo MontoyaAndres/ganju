@@ -2,7 +2,7 @@
 title: Configuración
 description: La sala de control de tu organización — renómbrala, administra la facturación y el consumo, invita miembros, trae tus propios modelos de lenguaje y maneja las acciones destructivas.
 order: 6
-updated: 2026-07-07
+updated: 2026-09-30
 ---
 
 **Settings** es la sala de control de tu organización. Un submenú a la izquierda
@@ -13,6 +13,53 @@ salta entre cada área — **Organization**, **Billing & plan**, **Members**,
 
 La sección **Organization** muestra cuándo se creó, cuántos proyectos y miembros
 tiene, y te permite renombrarla.
+
+### Confirmar acciones sensibles
+
+Desactivado por defecto. Al activarlo, el asistente le pregunta a la persona
+antes de cualquier acción que llegue a alguien más o que no se pueda deshacer,
+y solo la ejecuta con un sí. Aplica a todos los proyectos de la organización.
+
+- **En los canales** (Telegram, WhatsApp, Slack, Discord), el bot retiene la
+  llamada y pregunta en el chat. Debajo de su pregunta muestra exactamente lo
+  que un sí va a ejecutar — la herramienta y cada argumento —, escrito por la
+  plataforma, no por el modelo. Solo puede responder la persona a la que se le
+  preguntó. Un sí dentro de 30 minutos ejecuta esas llamadas guardadas;
+  cualquier otra respuesta, incluido "sí, pero cambia la hora", las descarta.
+  Los chats privados de Telegram, Discord y WhatsApp ofrecen botones **Sí /
+  No**; en los demás la respuesta se escribe.
+- **En los clientes MCP** (Claude, Cursor, ChatGPT), la primera llamada vuelve
+  como *aún no ejecutada* con un token de un solo uso. El asistente pregunta en
+  su propio chat y, con un sí, vuelve a llamar con el token. Solo sirve para
+  esos argumentos exactos, una vez, durante 10 minutos.
+
+**Qué cuenta como sensible** sale de las
+[anotaciones MCP](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations)
+de cada herramienta: se confirma todo lo que no esté marcado como de solo
+lectura (`readOnlyHint: true`) o reversible (`destructiveHint: false`).
+
+- **Las herramientas incluidas** ya vienen marcadas. Buscar, listar y leer
+  corren de inmediato. Enviar o reenviar correos, publicar en Slack, crear,
+  cambiar o borrar eventos y reservas, y borrar correos o borradores se
+  confirman.
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)**: elige **Qué hace** en
+  el diálogo del endpoint. Si lo dejas vacío, un `GET` cuenta como lectura y
+  cualquier otro método se confirma.
+- **[Funciones](/es/docs/tools/functions/)**: elige **Qué hace** en el diálogo
+  de la función, o declara `annotations` en `ganju.json`. El
+  [ejemplo del escritorio de pedidos](/es/docs/tools/examples/#escritorio-de-pedidos)
+  muestra una herramienta de cada tipo.
+- **Los servidores MCP conectados** usan las anotaciones que declara el
+  servidor remoto.
+
+Una herramienta que no declara nada se trata como una que puede cambiar cosas,
+así que se confirma en cada llamada, consultas incluidas. `ganju build` lo
+advierte.
+
+Lo que no hace: al asistente de un cliente MCP se le pide que pregunte, pero el
+servidor nunca ve las palabras de la persona — solo la segunda llamada. Impide
+que una acción sensible ocurra en un solo paso, no que un asistente decidido
+se salte la pregunta.
 
 ## Facturación y plan
 

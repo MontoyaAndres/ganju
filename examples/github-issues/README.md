@@ -18,7 +18,10 @@ whether a bug is already reported and file it if not.
   A bad value is refused before your code runs.
 - **Error messages the model can act on.** A 401 says to reset the secret,
   and a 404 says to check the repository name or the token's access.
-- **A write tool whose description says to confirm first.**
+- **A write tool marked as one.** `github-create-issue` declares
+  `destructiveHint: true`, so with *Confirm sensitive actions* on (Settings →
+  Organization) the person is asked before an issue is filed. Its description
+  doesn't ask the model to confirm, which would make it ask twice.
 
 ## Set up
 

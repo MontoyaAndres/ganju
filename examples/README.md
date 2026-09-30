@@ -1,6 +1,6 @@
 # Examples
 
-Five small Ganju projects you can deploy as they are, then change into your
+Six small Ganju projects you can deploy as they are, then change into your
 own. Each one is a `ganju.json` plus a few short TypeScript files, and each
 adds one host capability to what the one before it used.
 
@@ -11,6 +11,7 @@ adds one host capability to what the one before it used.
 | [team-notes](team-notes/) | `save-note`, `list-notes`, `read-note`, `find-notes`, `delete-note` | `ctx.resources` | None |
 | [calendar-free-time](calendar-free-time/) | `find-free-time` | `ctx.connection` | Google Calendar connected |
 | [news-digest](news-digest/) | `hn-top-stories`, `email-hn-digest` | `ctx.resources.create` + `ctx.sendFile` | Gmail connected |
+| [order-desk](order-desk/) | `order-lookup`, `order-add-note`, `order-refund` | `annotations` + confirming sensitive actions | None |
 
 ## Running one
 
@@ -23,6 +24,7 @@ ganju login
 
 cd examples/weather
 ganju link          # pick the organization and project to deploy to
+ganju build --strict
 ganju test current-weather --input '{"city":"Bogotá"}'
 ganju deploy
 ```
@@ -47,6 +49,7 @@ src/lib/*.ts       helpers the tools share
 ```
 
 Every tool names an `entry`, so the CLI generates the router from `ganju.json`.
-The tool name is written in exactly one place.
+The tool name is written in exactly one place. Every tool also declares
+`annotations`, and every example passes `ganju build --strict`.
 
 Full docs: <https://ganju.ai/docs/tools/examples/>

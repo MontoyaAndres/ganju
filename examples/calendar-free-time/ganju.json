@@ -8,6 +8,7 @@
       "title": "Find free time",
       "description": "Find the open slots on one day of the connected Google Calendar that are long enough for a meeting, within working hours. Use when someone asks when they are free, or wants to propose times for a meeting. Returns times in the calendar's own time zone.",
       "entry": "src/findFreeTime.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": true },
       "input": {
         "type": "object",
         "properties": {

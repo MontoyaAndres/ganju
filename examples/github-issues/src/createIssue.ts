@@ -5,9 +5,10 @@ import { github, repoPath } from './lib/github';
 /**
  * Open a new issue.
  *
- * This one writes, so its description in `ganju.json` tells the model to
- * confirm with the person first. The token decides which repositories it can
- * reach — give it Issues access on the repositories you mean, and no others.
+ * This one writes where other people see it, so `ganju.json` marks it
+ * `destructiveHint: true`: with the organization confirming sensitive actions,
+ * the person is asked before it runs. The token decides which repositories it
+ * can reach — give it Issues access on the repositories you mean, and no others.
  */
 export default defineTool<{
   repo: string;

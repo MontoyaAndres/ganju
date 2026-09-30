@@ -1,0 +1,8 @@
+{
+  "name": "ganju-example-order-desk",
+  "private": true,
+  "devDependencies": {
+    "@ganju/cli": "latest",
+    "@ganju/sdk": "latest"
+  }
+}

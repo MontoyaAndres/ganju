@@ -9,6 +9,7 @@
       "title": "Hacker News top stories",
       "description": "List what is on the Hacker News front page right now, with points, comment counts and links. Use when someone asks what is happening in tech today or what people are talking about on Hacker News.",
       "entry": "src/topStories.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": true },
       "input": {
         "type": "object",
         "properties": {
@@ -31,8 +32,13 @@
     {
       "name": "email-hn-digest",
       "title": "Email a Hacker News digest",
-      "description": "Email today's Hacker News front page to someone, from the connected Gmail account, with the list attached as a Markdown file. Confirm the recipient's address with the person before calling this.",
+      "description": "Email today's Hacker News front page to someone, from the connected Gmail account, with the list attached as a Markdown file. Use when someone asks to send or email the digest, and has given the recipient's address.",
       "entry": "src/emailDigest.ts",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
       "input": {
         "type": "object",
         "properties": {

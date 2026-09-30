@@ -2,7 +2,7 @@
 title: Settings
 description: Your organization's control room — rename it, manage billing and usage, invite members, bring your own language models, and handle destructive actions.
 order: 6
-updated: 2026-07-07
+updated: 2026-09-30
 ---
 
 **Settings** is your organization's control room. A left sub-nav jumps between each
@@ -13,6 +13,50 @@ and the **Danger zone**.
 
 The **Organization** section shows when it was created, how many projects and
 members it has, and lets you rename it.
+
+### Confirm sensitive actions
+
+Off by default. Turn it on and the assistant asks the person before any action
+that reaches someone else or can't be undone, and runs it only on a yes. It
+applies to every project in the organization.
+
+- **In channels** (Telegram, WhatsApp, Slack, Discord), the bot holds the call
+  and asks in the chat. Under its question it lists exactly what a yes will
+  run — the tool and each argument — written by the platform, not the model.
+  Only the person who was asked can answer. A yes within 30 minutes runs those
+  stored calls; anything else, including "yes, but change the time", drops
+  them. Telegram private chats, Discord and WhatsApp offer **Yes / No** buttons;
+  elsewhere the answer is typed.
+- **In MCP clients** (Claude, Cursor, ChatGPT), the first call comes back *not
+  run yet* with a one-time token. The assistant asks in its own chat and, on a
+  yes, calls again with the token. It only works for those exact arguments,
+  once, within 10 minutes.
+
+**What counts as sensitive** comes from each tool's
+[MCP annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations):
+anything not marked read-only (`readOnlyHint: true`) or safe to undo
+(`destructiveHint: false`) is confirmed.
+
+- **Built-in tools** are already marked. Searching, listing and reading run
+  straight away. Sending or forwarding email, posting to Slack, creating,
+  changing or deleting calendar events and bookings, and deleting mail or
+  drafts are confirmed.
+- **[HTTP endpoints](/docs/tools/http-endpoints/)**: choose **What it does** in
+  the endpoint dialog. Left unset, a `GET` counts as a read and any other
+  method is confirmed.
+- **[Functions](/docs/tools/functions/)**: choose **What it does** in the
+  function dialog, or declare `annotations` in `ganju.json`. The
+  [order desk example](/docs/tools/examples/#order-desk) shows one tool of
+  each kind.
+- **Connected MCP servers** use the annotations the remote server declares.
+
+A tool that declares nothing is treated as one that may change things, so it's
+confirmed on every call, lookups included. `ganju build` warns about it.
+
+What it doesn't do: an MCP client's assistant is told to ask, but the server
+never sees the person's words — only the second call. It stops a sensitive
+action from happening in one step, not an assistant set on skipping the
+question.
 
 ## Billing & plan
 

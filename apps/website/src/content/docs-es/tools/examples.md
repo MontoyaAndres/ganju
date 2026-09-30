@@ -1,15 +1,17 @@
 ---
 title: Ejemplos
-description: Cinco proyectos de funciones listos para desplegar — clima, issues de GitHub, notas del equipo, tiempo libre en el calendario y un resumen de noticias por correo — cada uno muestra una capacidad del anfitrión que puedes copiar en tus propias herramientas.
+description: Seis proyectos de funciones listos para desplegar — clima, issues de GitHub, notas del equipo, tiempo libre en el calendario, un resumen de noticias por correo y un escritorio de soporte que confirma los reembolsos — cada uno muestra algo que puedes copiar en tus propias herramientas.
 order: 38
-updated: 2026-09-18
+updated: 2026-09-30
 ---
 
-Cinco proyectos pequeños que puedes desplegar tal cual con la
+Seis proyectos pequeños que puedes desplegar tal cual con la
 [CLI](/es/docs/tools/cli/) y luego convertir en tus propias herramientas. Cada
-uno es un `ganju.json` y unos pocos archivos TypeScript cortos, y cada uno
-agrega una capacidad del anfitrión a lo que usaba el anterior. Si los lees en
-orden, habrás visto todo `ctx`.
+uno es un `ganju.json` y unos pocos archivos TypeScript cortos. Los cinco
+primeros agregan cada uno una capacidad del anfitrión a lo que usaba el
+anterior, así que leídos en orden cubren todo `ctx`. El sexto muestra cómo una
+herramienta le dice a la plataforma qué hace, para que las que no se pueden
+deshacer se confirmen antes de correr.
 
 Están en la carpeta [`examples/`](https://github.com/MontoyaAndres/ganju/tree/main/examples)
 del repositorio de Ganju.
@@ -21,6 +23,7 @@ del repositorio de Ganju.
 | [Notas del equipo](#notas-del-equipo) | `save-note`, `list-notes`, `read-note`, `find-notes`, `delete-note` | `ctx.resources` | Ninguna |
 | [Tiempo libre en el calendario](#tiempo-libre-en-el-calendario) | `find-free-time` | `ctx.connection` | Google Calendar conectado |
 | [Resumen de noticias](#resumen-de-noticias) | `hn-top-stories`, `email-hn-digest` | `ctx.resources.create` + `ctx.sendFile` | Gmail conectado |
+| [Escritorio de pedidos](#escritorio-de-pedidos) | `order-lookup`, `order-add-note`, `order-refund` | `annotations` + confirmar acciones sensibles | Ninguna |
 
 ## Antes de empezar
 
@@ -146,9 +149,13 @@ const response = await fetch(`https://api.github.com${path}`, {
 - **Los mensajes de error deben decir qué hacer.** Un 401 le dice al modelo que
   hay que restablecer el token, y un 404 que el repositorio está mal o fuera
   del alcance del token. El modelo puede transmitirlo en vez de adivinar.
-- **Las herramientas que escriben deben preguntar primero.** La descripción de
-  `github-create-issue` le indica al modelo que confirme el título y el
-  repositorio, y que busque duplicados, antes de llamarla.
+- **Marca lo que escribe y deja que la plataforma pregunte.**
+  `github-create-issue` está anotada con `destructiveHint: true`: publica donde
+  otras personas lo ven. Con
+  [Confirmar acciones sensibles](/es/docs/settings/#confirmar-acciones-sensibles)
+  activado, se le pregunta a la persona antes de abrir el issue. Su descripción
+  solo le pide al modelo que busque duplicados primero. El
+  [escritorio de pedidos](#escritorio-de-pedidos) muestra el patrón completo.
 
 `ganju test` usa el secreto real, así que probar `github-create-issue` abre un
 issue real. Usa un repositorio de pruebas.
@@ -313,6 +320,65 @@ await ctx.sendFile({
   petición, hechas en paralelo. `limit` llega hasta 15 porque cada `fetch`
   cuenta contra el presupuesto de peticiones salientes del proyecto.
 
+## Escritorio de pedidos
+
+El soporte de una tienda pequeña: buscar un pedido, dejarle una nota interna,
+reembolsarlo. No hay nada que conectar: los pedidos son datos de ejemplo en el
+código, y las notas y los reembolsos se guardan en el proyecto. Lo que enseña es
+el reembolso, que le pregunta a la persona primero sin que el código ni las
+descripciones lo mencionen.
+
+```bash
+ganju build --strict
+ganju test order-lookup --input '{"orderId":"A-1001"}'
+ganju deploy
+```
+
+Luego activa **Confirmar acciones sensibles** en **Settings → Organization** y
+pregunta *"El pedido A-1001 llegó con una taza rota, ¿me reembolsas esa taza?"*
+
+**Una herramienta por cada respuesta a "¿qué hace?":**
+
+```json
+// ganju.json (resumido)
+{ "name": "order-lookup",   "annotations": { "readOnlyHint": true } },
+{ "name": "order-add-note", "annotations": { "readOnlyHint": false, "destructiveHint": false } },
+{ "name": "order-refund",   "annotations": { "readOnlyHint": false, "destructiveHint": true } }
+```
+
+Con el interruptor activado, la búsqueda y la nota corren de inmediato. El
+reembolso no corre hasta que la persona dice que sí:
+
+- **En un canal** (Telegram, WhatsApp, Slack, Discord), el bot retiene la
+  llamada y pregunta en el chat, mostrando debajo de su pregunta exactamente lo
+  que un sí ejecuta:
+
+  ```
+  ⏳ Refund an order
+  - orderId: A-1001
+  - amount: 14
+  - reason: one mug arrived chipped
+  ```
+
+  Un sí de la misma persona dentro de 30 minutos ejecuta esa llamada guardada,
+  no una nueva que escriba el modelo. Cualquier otra respuesta la descarta.
+- **En un cliente MCP** (Claude, Cursor), la primera llamada vuelve como *aún no
+  ejecutada* con un token de un solo uso. El asistente pregunta en su propio
+  chat y, con un sí, vuelve a llamar con el token, que sirve una vez, para esos
+  argumentos exactos, durante 10 minutos.
+
+**Qué notar**
+
+- **Las anotaciones son todo el mecanismo.** Nada en `src/orderRefund.ts`
+  comprueba una confirmación; cuando corre, la persona ya dijo que sí.
+- **No pongas "confirma primero" en la descripción.** La plataforma pregunta, y
+  un modelo al que también se le pide preguntar pregunta dos veces.
+- **Una herramienta sin anotaciones se confirma siempre.** Según los valores
+  por defecto de MCP, una herramienta que no dice que solo lee puede cambiar
+  cosas, consultas incluidas. `ganju build` lo advierte y `--strict` falla.
+- **`ganju test` no pregunta.** Ejecuta la herramienta directamente, así que
+  probar `order-refund` registra un reembolso real en el pedido de ejemplo.
+
 ## Hazlo tuyo
 
 La forma más rápida de escribir una herramienta nueva es copiar el ejemplo que
@@ -323,9 +389,13 @@ más se le parezca:
    del manifiesto, así que el nombre solo vive ahí.
 3. **Reescribe la descripción.** Es lo que usa el modelo para decidir cuándo
    llamar la herramienta, así que di *cuándo* usarla, no solo qué hace.
-4. **Declara exactamente los hosts y las conexiones que necesitas.** Cualquier
+4. **Declara las `annotations`.** `readOnlyHint: true` si solo lee,
+   `destructiveHint: false` si sus cambios se pueden deshacer, `destructiveHint:
+   true` si envía, borra, cobra o no se puede deshacer. `ganju build` te dice
+   qué falta.
+5. **Declara exactamente los hosts y las conexiones que necesitas.** Cualquier
    otro se rechaza cuando la herramienta corre.
-5. **Usa `ganju test` hasta que pase y luego `ganju deploy`.** Si un despliegue
+6. **Usa `ganju test` hasta que pase y luego `ganju deploy`.** Si un despliegue
    sale mal, `ganju rollback` vuelve a poner la versión anterior.
 
 ## Siguiente

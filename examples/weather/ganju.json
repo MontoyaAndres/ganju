@@ -8,6 +8,7 @@
       "title": "Current weather",
       "description": "Get the weather right now in a city: conditions, temperature, feels-like, humidity and wind. Use when someone asks what the weather is like somewhere today or at the moment.",
       "entry": "src/currentWeather.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": true },
       "input": {
         "type": "object",
         "properties": {
@@ -37,6 +38,7 @@
       "title": "Weather forecast",
       "description": "Get a day-by-day forecast for a city, up to 7 days ahead, with highs, lows and the chance of rain. Use when someone is planning ahead: a trip, an event, what to wear this week.",
       "entry": "src/weatherForecast.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": true },
       "input": {
         "type": "object",
         "properties": {

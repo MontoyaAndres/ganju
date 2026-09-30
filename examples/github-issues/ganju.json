@@ -8,6 +8,7 @@
       "title": "List GitHub issues",
       "description": "List the most recently updated issues in a GitHub repository, with their labels, author and comment count. Use when someone asks what is open, what changed recently, or whether an issue already exists before filing one.",
       "entry": "src/listIssues.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": true },
       "input": {
         "type": "object",
         "properties": {
@@ -42,8 +43,13 @@
     {
       "name": "github-create-issue",
       "title": "Create a GitHub issue",
-      "description": "Open a new issue in a GitHub repository. Always confirm the repository, title and body with the person before calling this, and check with github-list-issues that it has not already been filed.",
+      "description": "Open a new issue in a GitHub repository. Use when someone asks to report, file or open an issue, after checking with github-list-issues that it has not already been filed.",
       "entry": "src/createIssue.ts",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
       "input": {
         "type": "object",
         "properties": {

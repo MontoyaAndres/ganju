@@ -1,14 +1,16 @@
 ---
 title: Examples
-description: Five ready-to-deploy function projects — weather, GitHub issues, team notes, calendar free time and an emailed news digest — each showing one host capability you can copy into your own tools.
+description: Six ready-to-deploy function projects — weather, GitHub issues, team notes, calendar free time, an emailed news digest and a support desk that confirms refunds — each showing one thing you can copy into your own tools.
 order: 38
-updated: 2026-09-18
+updated: 2026-09-30
 ---
 
-Five small projects you can deploy with the [CLI](/docs/tools/cli/) as they
+Six small projects you can deploy with the [CLI](/docs/tools/cli/) as they
 are, then change into your own tools. Each is a `ganju.json` and a few short
-TypeScript files, and each adds one host capability to what the one before it
-used. Read them in order and you'll have seen all of `ctx`.
+TypeScript files. The first five each add one host capability to what the one
+before used, so read in order they cover all of `ctx`. The sixth shows how a
+tool tells the platform what it does, so the ones that can't be undone are
+confirmed before they run.
 
 They live in the [`examples/`](https://github.com/MontoyaAndres/ganju/tree/main/examples)
 folder of the Ganju repository.
@@ -20,6 +22,7 @@ folder of the Ganju repository.
 | [Team notes](#team-notes) | `save-note`, `list-notes`, `read-note`, `find-notes`, `delete-note` | `ctx.resources` | None |
 | [Calendar free time](#calendar-free-time) | `find-free-time` | `ctx.connection` | Google Calendar connected |
 | [News digest](#news-digest) | `hn-top-stories`, `email-hn-digest` | `ctx.resources.create` + `ctx.sendFile` | Gmail connected |
+| [Order desk](#order-desk) | `order-lookup`, `order-add-note`, `order-refund` | `annotations` + confirming sensitive actions | None |
 
 ## Before you start
 
@@ -144,9 +147,12 @@ const response = await fetch(`https://api.github.com${path}`, {
 - **Error messages should say what to do next.** A 401 tells the model the
   token needs resetting, and a 404 says the repository is wrong or out of the
   token's reach. The model can pass that on instead of guessing.
-- **Write tools should ask first.** `github-create-issue`'s description tells
-  the model to confirm the title and repository, and to search for duplicates,
-  before calling it.
+- **Mark what writes, and let the platform ask.** `github-create-issue` is
+  annotated `destructiveHint: true`: it posts where other people see it. With
+  [Confirm sensitive actions](/docs/settings/#confirm-sensitive-actions) on, the
+  person is asked before an issue is filed. Its description only tells the
+  model to check for a duplicate first. The [order desk](#order-desk) shows the
+  pattern in full.
 
 `ganju test` uses the real secret, so testing `github-create-issue` opens a real
 issue. Use a scratch repository.
@@ -308,6 +314,63 @@ await ctx.sendFile({
   in parallel. `limit` stops at 15 because every `fetch` counts toward the
   project's outbound request budget.
 
+## Order desk
+
+A small store's support desk: look up an order, leave an internal note on it,
+refund it. Nothing to connect: the orders are sample data in the code, and
+notes and refunds are saved on the project. What it's for is the refund, which
+asks the person first without the code or the descriptions ever mentioning it.
+
+```bash
+ganju build --strict
+ganju test order-lookup --input '{"orderId":"A-1001"}'
+ganju deploy
+```
+
+Then turn on **Confirm sensitive actions** in **Settings → Organization** and
+ask *"Order A-1001 arrived with a chipped mug, can you refund that mug?"*
+
+**One tool for each answer to "what does it do?":**
+
+```json
+// ganju.json (abridged)
+{ "name": "order-lookup",   "annotations": { "readOnlyHint": true } },
+{ "name": "order-add-note", "annotations": { "readOnlyHint": false, "destructiveHint": false } },
+{ "name": "order-refund",   "annotations": { "readOnlyHint": false, "destructiveHint": true } }
+```
+
+With the switch on, the lookup and the note run straight away. The refund
+doesn't run until the person says yes:
+
+- **In a channel** (Telegram, WhatsApp, Slack, Discord), the bot holds the call
+  and asks in the chat, showing under its question exactly what a yes runs:
+
+  ```
+  ⏳ Refund an order
+  - orderId: A-1001
+  - amount: 14
+  - reason: one mug arrived chipped
+  ```
+
+  A yes from the same person within 30 minutes runs that stored call, not a
+  new one the model writes. Anything else drops it.
+- **In an MCP client** (Claude, Cursor), the first call comes back *not run
+  yet* with a one-time token. The assistant asks in its own chat, and on a yes
+  calls again with the token, which works once, for those exact arguments,
+  within 10 minutes.
+
+**What to notice**
+
+- **Annotations are the whole mechanism.** Nothing in `src/orderRefund.ts`
+  checks for a confirmation; by the time it runs, the person has said yes.
+- **Leave "confirm first" out of the description.** The platform asks, and a
+  model told to ask as well asks twice.
+- **A tool with no annotations is confirmed every time.** By the MCP defaults,
+  a tool that doesn't say it only reads may change things — lookups included.
+  `ganju build` warns about it, and `--strict` fails on it.
+- **`ganju test` doesn't ask.** It runs the tool directly, so testing
+  `order-refund` records a real refund on the sample order.
+
 ## Make it yours
 
 The quickest way to write a new tool is to copy the example closest to it:
@@ -317,9 +380,13 @@ The quickest way to write a new tool is to copy the example closest to it:
    manifest, so the name only lives there.
 3. **Rewrite the description.** It's how the model decides when to call the
    tool, so say *when* to use it, not only what it does.
-4. **List exactly the hosts and connections you need.** Anything else is
+4. **Set `annotations`.** `readOnlyHint: true` if it only reads,
+   `destructiveHint: false` if its changes can be undone, `destructiveHint:
+   true` if it sends, deletes, spends or can't be undone. `ganju build`
+   tells you what's missing.
+5. **List exactly the hosts and connections you need.** Anything else is
    refused when the tool runs.
-5. **`ganju test` until it passes, then `ganju deploy`.** If a deploy goes
+6. **`ganju test` until it passes, then `ganju deploy`.** If a deploy goes
    wrong, `ganju rollback` puts the previous version back.
 
 ## Next
