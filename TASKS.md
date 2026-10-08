@@ -123,6 +123,9 @@ needed for someone to write and ship a tool.
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
 ## Work on a view where i can chat and build the functions and this agent uses the cli to deploy them
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
+## Implement d1 database to sync data with functions
+## Support audio from user to answer
+## When an user calls the whatsapp number, it answers with (hey we just sent you a whatsapp message, let's talk there) maybe in the future, we can support a phone call channel
 
 ---
 
