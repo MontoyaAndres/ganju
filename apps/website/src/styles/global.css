@@ -224,19 +224,9 @@ svg {
 }
 
 .brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: var(--accent);
-  position: relative;
-}
-
-.brand-mark::after {
-  content: '';
-  position: absolute;
-  inset: 7px;
-  border-radius: 3px;
-  background: var(--bg);
+  width: auto;
+  height: 40px;
+  display: block;
 }
 
 .nav {
@@ -1175,6 +1165,10 @@ svg {
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 40px;
   padding-bottom: 40px;
+}
+
+.footer-brand .brand-mark {
+  height: 48px;
 }
 
 .footer-brand p {
