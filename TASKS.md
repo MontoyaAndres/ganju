@@ -898,6 +898,22 @@ content.
       server or mailbox in the probe).
     - Left as is: a channel bot's outside-content state lasts one turn
       (tool results aren't carried into the next turn's history).
+  - Re-tested 2026-10-09 after those changes reached dev and production:
+    - Dev probe 50/50. It now also checks that an HTTP endpoint with an output
+      schema keeps its structured copy and is flagged from it.
+    - Proxying can't be tested on dev: a Worker can't call its own hostname
+      (522). A local check runs the bundled proxy and labelling code against
+      a local MCP server, routed through a public-looking name because the
+      proxy correctly refuses loopback: 17/17. It covers a structured copy
+      folded into labelled JSON, no duplicate when the text already carries
+      it, images untouched, drafts flagged only when they quote instructions,
+      and errors left unlabelled.
+    - Found and fixed there: a remote tool returning only a structured copy
+      also got "(the tool returned no content)" beside the data. Deployed to
+      dev only; production needs `ganju-mcp` again.
+    - Production: `node scripts/probe-untrusted-content.mjs --prod` runs the
+      same probe there. It creates and removes a throwaway org in the
+      production database.
   - To ship to production: `0078`, then the `@ganju/utils` and `@ganju/db`
     builds, then `ganju-mcp`, `ganju-api` and web, then the backfill with
     `--prod` (report first, then `--confirm`).

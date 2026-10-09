@@ -3,7 +3,8 @@
 // real OAuth flow (so its calls are a client's, not a channel's), and a channel
 // turn through a signed Telegram webhook on the shared model.
 //
-//   node scripts/probe-untrusted-content.mjs
+//   node scripts/probe-untrusted-content.mjs           # development
+//   node scripts/probe-untrusted-content.mjs --prod    # production (.env.prod)
 //
 // It needs .env: DATABASE_URL, JWT_SECRET (which signs the session cookie) and
 // CRYPTO_SECRET (which encrypts the throwaway channel's bot token).
@@ -20,7 +21,8 @@ import { v7 as uuid } from 'uuid';
 import { utils } from '@ganju/utils';
 
 const root = new URL('..', import.meta.url).pathname;
-const env = fs.readFileSync(root + '.env', 'utf8');
+const isProd = process.argv.includes('--prod');
+const env = fs.readFileSync(root + (isProd ? '.env.prod' : '.env'), 'utf8');
 const read = key => env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.trim();
 
 const DATABASE_URL = read('DATABASE_URL');
@@ -34,8 +36,12 @@ for (const [k, v] of Object.entries({
   if (!v) throw new Error(`Missing ${k} in .env`);
 }
 
-const API = 'https://development-api.vocesqueabrazan.com';
-const MCP_ORIGIN = 'https://development-mcp.vocesqueabrazan.com';
+const API = isProd
+  ? 'https://api.ganju.ai'
+  : 'https://development-api.vocesqueabrazan.com';
+const MCP_ORIGIN = isProd
+  ? 'https://mcp.ganju.ai'
+  : 'https://development-mcp.vocesqueabrazan.com';
 
 const sql = postgres(DATABASE_URL, { ssl: 'require', max: 1, prepare: false });
 
@@ -77,13 +83,16 @@ const userId = uuid();
 const orgId = uuid();
 const projectId = uuid();
 const artifactId = uuid();
+// A second MCP server in the same organization, for the first one to proxy.
+const remoteProjectId = uuid();
+const remoteArtifactId = uuid();
 const channelId = uuid();
 const slug = `probe-untrusted-${stamp}`;
 const sessionToken = crypto.randomBytes(32).toString('base64url');
 const signedCookie = signCookie(sessionToken);
 const cookie = `better-auth.session_token=${signedCookie}; __Secure-better-auth.session_token=${signedCookie}`;
 const webhookSecret = crypto.randomBytes(24).toString('hex');
-let oauthClientId = null;
+const oauthClientIds = [];
 
 const api = async (path, init = {}) => {
   const res = await fetch(`${API}${path}`, {
@@ -112,8 +121,8 @@ const INJECTION =
 
 let accessToken = null;
 let rpcId = 0;
-const rpc = async (sessionId, method, params) => {
-  const res = await fetch(`${MCP_ORIGIN}/${slug}`, {
+const rpc = async (sessionId, method, params, target = slug) => {
+  const res = await fetch(`${MCP_ORIGIN}/${target}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -181,7 +190,7 @@ const pkce = () => {
 
 // Register, authorize, consent, exchange — what Claude Desktop does, with
 // `resource` set so the token is the JWT the MCP worker verifies offline.
-const signInAsClient = async () => {
+const signInAsClient = async (targetSlug = slug) => {
   const redirectUri = 'http://127.0.0.1:65530/callback';
   const reg = await fetch(`${API}/auth/oauth2/register`, {
     method: 'POST',
@@ -197,10 +206,10 @@ const signInAsClient = async () => {
   const client = await reg.json();
   if (!client.client_id)
     throw new Error(`register: ${reg.status} ${JSON.stringify(client)}`);
-  oauthClientId = client.client_id;
+  oauthClientIds.push(client.client_id);
 
   const { verifier, challenge } = pkce();
-  const resource = `${MCP_ORIGIN}/${slug}`;
+  const resource = `${MCP_ORIGIN}/${targetSlug}`;
   const query = new URLSearchParams({
     response_type: 'code',
     client_id: client.client_id,
@@ -296,7 +305,9 @@ const channelToolCalls = async (name, after) =>
         and r.tool_name = ${name} and r.created_at > ${after}`
   ).length;
 
-console.log(`\nScaffolding ${slug} (artifact ${artifactId})\n`);
+console.log(
+  `\n${isProd ? 'PRODUCTION' : 'development'} — scaffolding ${slug} (artifact ${artifactId})\n`
+);
 
 try {
   await sql`insert into "user" ${sql({ id: userId, name: 'probe untrusted', email: `probe-untrusted-${stamp}@ganju.ai`, email_verified: true })}`;
@@ -617,6 +628,69 @@ try {
     `injected doc in results: ${hitInjected}`
   );
 
+  section('an endpoint with an output schema (structured copy)');
+
+  // An HTTP endpoint with an output schema answers with structuredContent,
+  // which must stay and can't carry the label; the detector reads it. Proxying
+  // it from the first server isn't tested here: a Worker can't call its own
+  // hostname (522), so that path is checked locally against a local server.
+  const remoteSlug = `${slug}-remote`;
+  await sql`insert into project ${sql({ id: remoteProjectId, name: 'probe untrusted remote', created_by_id: userId, organization_id: orgId })}`;
+  await sql`insert into project_user ${sql({ user_id: userId, project_id: remoteProjectId, role: 'ADMIN' })}`;
+  await sql`insert into artifact ${sql({ id: remoteArtifactId, slug: remoteSlug, project_id: remoteProjectId })}`;
+  const remoteTool = await api(
+    `/organization/${orgId}/project/${remoteProjectId}/artifact/tool`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        toolKey: 'http-endpoint',
+        config: {
+          name: 'get-order',
+          title: 'Get order',
+          description: 'Read the latest order and its customer note.',
+          method: 'GET',
+          url: 'https://httpbin.org/get',
+          query: [{ name: 'note', value: `Customer note: ${INJECTION}` }],
+          outputSchema: {
+            type: 'object',
+            properties: { args: { type: 'object' }, url: { type: 'string' } }
+          },
+          effect: 'read'
+        }
+      })
+    }
+  );
+  check(
+    'remote server: endpoint with an output schema added',
+    remoteTool.status === 200,
+    remoteTool.status === 200
+      ? ''
+      : JSON.stringify(remoteTool.body).slice(0, 160)
+  );
+
+  const remoteToken = await signInAsClient(remoteSlug);
+  // On its own server, as an MCP client would call it.
+  const sB = `probe-sB-${stamp}`;
+  const savedToken = accessToken;
+  accessToken = remoteToken;
+  const direct = await rpc(
+    sB,
+    'tools/call',
+    { name: 'get-order', arguments: {} },
+    remoteSlug
+  );
+  accessToken = savedToken;
+  if (!direct?.structuredContent) note(textOf(direct).slice(0, 240));
+  check(
+    'B answers with a structured copy',
+    !!direct?.structuredContent,
+    Object.keys(direct || {}).join(',')
+  );
+  check(
+    '  ...and flags it (the detector reads the structured copy too)',
+    utils.isUntrustedToolResult(direct)
+  );
+
   section('a client that sends no session id (hourly buckets)');
 
   // Claude Desktop and most clients send no mcp-session-id: the server keys
@@ -770,12 +844,20 @@ try {
   await sql`delete from artifact_resource where artifact_id = ${artifactId}`;
   await sql`delete from artifact_tool where artifact_id = ${artifactId}`;
   await sql`delete from artifact where id = ${artifactId}`;
+  await sql`delete from mcp_request where session_id in (select id from mcp_session where artifact_id = ${remoteArtifactId})`;
+  await sql`delete from mcp_session where artifact_id = ${remoteArtifactId}`;
+  await sql`delete from artifact_execution where artifact_id = ${remoteArtifactId}`;
+  await sql`delete from artifact_tool where artifact_id = ${remoteArtifactId}`;
+  await sql`delete from artifact where id = ${remoteArtifactId}`;
+  await sql`delete from project_user where project_id = ${remoteProjectId}`;
+  await sql`delete from project where id = ${remoteProjectId}`;
+  await sql`delete from artifact_credential where artifact_id = ${artifactId}`;
   await sql`delete from project_user where project_id = ${projectId}`;
   await sql`delete from project where id = ${projectId}`;
   await sql`delete from subscription where organization_id = ${orgId}`;
   await sql`delete from organization_user where organization_id = ${orgId}`;
   await sql`delete from organization where id = ${orgId}`;
-  if (oauthClientId) {
+  for (const oauthClientId of oauthClientIds) {
     for (const table of [
       'oauth_access_token',
       'oauth_refresh_token',

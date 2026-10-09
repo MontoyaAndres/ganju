@@ -155,7 +155,9 @@ const shapeRemoteResult = (result: RemoteToolResult): ToolResult => {
 
   if (withinBudget) {
     const shaped = {
-      content: (content.length
+      // A structured copy alone is content: labelRemoteResult turns it into
+      // text, and "no content" beside it would contradict it.
+      content: (content.length || result.structuredContent !== undefined
         ? content
         : [
             { type: 'text', text: '(the tool returned no content)' }
