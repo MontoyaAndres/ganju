@@ -2,7 +2,11 @@ import { utils } from '@ganju/utils';
 import type { GmailSendRequest, GmailSendResponse } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import { untrustedResult, withResourceContent } from '../../utils';
+import {
+  ownWritingResult,
+  untrustedResult,
+  withResourceContent
+} from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -871,7 +875,7 @@ export const listDrafts: ToolDefinition = {
         }
       })
     );
-    return untrustedResult(
+    return ownWritingResult(
       'gmail-list-drafts',
       `Found ${drafts.length} draft(s):\n\n${lines.join('\n')}`
     );
@@ -918,7 +922,7 @@ export const getDraft: ToolDefinition = {
     ]
       .filter(Boolean)
       .join('\n');
-    return untrustedResult('gmail-get-draft', out);
+    return ownWritingResult('gmail-get-draft', out);
   }
 };
 

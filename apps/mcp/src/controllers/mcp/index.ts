@@ -7,7 +7,7 @@ import { StreamableHTTPTransport } from '@hono/mcp';
 import { JsonSchema, utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import type { ToolCallBudget } from '@ganju/db';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull } from 'drizzle-orm';
 
 import {
   toolRegistry,
@@ -37,6 +37,7 @@ import {
   toolResultError,
   parseClient,
   resolveExternalSessionId,
+  untrustedSessionScope,
   upsertSession,
   flushRequests,
   readUntrustedContent,
@@ -231,17 +232,26 @@ const business = async (c: Context<AppEnv>) => {
             mustAsk: async requestId => {
               if (readUntrustedContent(pendingRequests)) return true;
               if (readsEarlierInBatch(messages, requestId)) return true;
+              const scope = untrustedSessionScope(
+                c,
+                artifact.id,
+                jwtUserId,
+                userAgent,
+                channelConversationId
+              );
               const [session] = await dbInstance
                 .select({ id: db.schema.mcpSession.id })
                 .from(db.schema.mcpSession)
                 .where(
                   and(
                     eq(db.schema.mcpSession.artifactId, artifact.id),
-                    eq(
+                    inArray(
                       db.schema.mcpSession.externalSessionId,
-                      externalSessionId
+                      scope.externalSessionIds
                     ),
-                    isNotNull(db.schema.mcpSession.untrustedReadAt)
+                    scope.since
+                      ? gte(db.schema.mcpSession.untrustedReadAt, scope.since)
+                      : isNotNull(db.schema.mcpSession.untrustedReadAt)
                   )
                 )
                 .limit(1);

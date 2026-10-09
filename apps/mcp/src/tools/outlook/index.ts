@@ -2,7 +2,11 @@ import { utils } from '@ganju/utils';
 import type { OutlookSendRequest, OutlookSendResponse } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import { untrustedResult, withResourceContent } from '../../utils';
+import {
+  ownWritingResult,
+  untrustedResult,
+  withResourceContent
+} from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 
 const GRAPH_BASE = utils.constants.MICROSOFT_GRAPH_API_BASE;
@@ -871,7 +875,7 @@ export const listDrafts: ToolDefinition = {
       d =>
         `- Draft ${d.id} -> To: ${formatRecipients(d.toRecipients) || 'unset'} | Subject: ${d.subject || '(no subject)'} | Last modified: ${d.lastModifiedDateTime || 'unknown'}`
     );
-    return untrustedResult(
+    return ownWritingResult(
       'outlook-list-drafts',
       `Found ${drafts.length} draft(s):\n\n${lines.join('\n')}`
     );
@@ -934,7 +938,7 @@ export const getDraft: ToolDefinition = {
     ]
       .filter(Boolean)
       .join('\n');
-    return untrustedResult('outlook-get-draft', out);
+    return ownWritingResult('outlook-get-draft', out);
   }
 };
 

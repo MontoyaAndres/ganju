@@ -211,10 +211,55 @@ export const resolveExternalSessionId = (
   }
   const header = c.req.header(utils.constants.MCP_SESSION_HEADER);
   if (header) return header;
-  const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
-  return `synthetic:${artifactId}:${userId ?? 'machine'}:${
+  return syntheticSessionId(artifactId, userId, userAgent, currentHourBucket());
+};
+
+const HOUR_MS = 60 * 60 * 1000;
+
+const currentHourBucket = (): number => Math.floor(Date.now() / HOUR_MS);
+
+const syntheticSessionId = (
+  artifactId: string,
+  userId: string | undefined,
+  userAgent: string | null,
+  hourBucket: number
+): string =>
+  `synthetic:${artifactId}:${userId ?? 'machine'}:${
     userAgent ?? 'unknown'
   }:${hourBucket}`;
+
+/**
+ * Which session rows say whether this caller has read outside content lately.
+ * A session the client named (or a channel conversation) is one row, for as
+ * long as it lasts. A synthetic one is a clock-hour bucket, so an email read at
+ * 10:59 sits in the previous hour's row when the send comes at 11:01: both rows
+ * are read, and a mark counts for the 60 minutes after it — not until the
+ * bucket happens to turn over.
+ */
+export const untrustedSessionScope = (
+  c: Context<AppEnv>,
+  artifactId: string,
+  userId: string | undefined,
+  userAgent: string | null,
+  channelConversationId?: string | null
+): { externalSessionIds: string[]; since: Date | null } => {
+  const current = resolveExternalSessionId(
+    c,
+    artifactId,
+    userId,
+    userAgent,
+    channelConversationId
+  );
+  if (!current.startsWith('synthetic:')) {
+    return { externalSessionIds: [current], since: null };
+  }
+  return {
+    externalSessionIds: [
+      current,
+      syntheticSessionId(artifactId, userId, userAgent, currentHourBucket() - 1)
+    ],
+    since: new Date(Date.now() - HOUR_MS)
+  };
 };
 
 interface SessionInput {

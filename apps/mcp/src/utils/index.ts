@@ -21,6 +21,7 @@ import {
   toolResultError,
   parseClient,
   resolveExternalSessionId,
+  untrustedSessionScope,
   upsertSession,
   flushRequests,
   readUntrustedContent,
@@ -30,6 +31,7 @@ import {
 import { confirmSensitiveTools } from './toolConfirmation';
 import {
   untrustedResult,
+  ownWritingResult,
   labelOwnResult,
   type UntrustedToolResult
 } from './untrusted';
@@ -50,12 +52,14 @@ export {
   toolResultError,
   parseClient,
   resolveExternalSessionId,
+  untrustedSessionScope,
   upsertSession,
   flushRequests,
   readUntrustedContent,
   readsEarlierInBatch,
   confirmSensitiveTools,
   untrustedResult,
+  ownWritingResult,
   labelOwnResult
 };
 

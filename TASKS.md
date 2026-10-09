@@ -800,7 +800,8 @@ content.
   do not block, and never market it as protection.
 - Works together with 4: a destructive tool call made after reading untrusted
   content always asks.
-- Status: done 2026-10-09 on dev (`0078` applied); production pending.
+- Status: done 2026-10-09 on dev and production (`0078` applied on both).
+  Production backfill run: 349 resources scanned, none flagged.
   Migration `0078` (`mcp_session.untrusted_read_at`) has to run before
   `ganju-mcp` deploys, because the confirmation check reads that column.
   - `utils.wrapUntrustedContent` writes the block. A tag of ours inside the
@@ -871,6 +872,32 @@ content.
       tool, and on proxied resource reads); the flush still sets it too.
     - Re-run on dev after deploying `ganju-mcp`: 44/44, checking the mark
       exists the moment the response arrives and both batch orders.
+  - From the review of the commit (dev only so far, `ganju-mcp` alone):
+    - Hourly reset: clients that send no session id (Claude Desktop among
+      them; the transport issues none) are bucketed by user + client + clock
+      hour, so a read at 10:59 didn't count at 11:01. The check now reads
+      this hour's and the previous hour's bucket and counts a mark for 60
+      minutes after it (`untrustedSessionScope`). That also replaces "asks
+      for the rest of the hour" with "asks for an hour after the read".
+      Sessions the client names keep the exact match. The bucket is still
+      per user and client, not per conversation: the server can't see
+      conversations without a session id.
+    - `structuredContent`: a proxied tool's structured copy is folded into
+      the labelled text (as JSON, unless a text block already says exactly
+      that) and dropped. Proxied tools register no output schema, so it's
+      optional there. Custom tools and HTTP endpoints with an output schema
+      must keep it; it stays unlabelled, but the detector now reads it too,
+      so the flag doesn't depend on which copy the client shows.
+    - Drafts: `*-list-drafts` and `*-get-draft` are labelled always but
+      flagged only on instruction-like text (`ownWritingResult`), so "show
+      my drafts, then send that one" doesn't always ask.
+    - Probe: 47/47 on dev, adding a client without a session id: runs when
+      nothing was read, asks after a read 10 minutes ago in the previous
+      hour's bucket, runs again once that read is 70 minutes old. The
+      structured-copy fold and the drafts change aren't covered (no proxied
+      server or mailbox in the probe).
+    - Left as is: a channel bot's outside-content state lasts one turn
+      (tool results aren't carried into the next turn's history).
   - To ship to production: `0078`, then the `@ganju/utils` and `@ganju/db`
     builds, then `ganju-mcp`, `ganju-api` and web, then the backfill with
     `--prod` (report first, then `--confirm`).

@@ -617,6 +617,55 @@ try {
     `injected doc in results: ${hitInjected}`
   );
 
+  section('a client that sends no session id (hourly buckets)');
+
+  // Claude Desktop and most clients send no mcp-session-id: the server keys
+  // them by user + client + clock hour. A read late in one hour must still
+  // count early in the next.
+  const NO_HEADER_UA = `probe-untrusted-nohdr-${stamp}/1`;
+  const callNoHeader = async (name, args = {}) => {
+    const res = await fetch(`${MCP_ORIGIN}/${slug}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${accessToken}`,
+        'user-agent': NO_HEADER_UA
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: ++rpcId,
+        method: 'tools/call',
+        params: { name, arguments: args }
+      })
+    });
+    const text = await res.text();
+    const line = text.split('\n').find(l => l.startsWith('data:'));
+    return JSON.parse(line ? line.slice(5).trim() : text).result;
+  };
+  const hour = Math.floor(Date.now() / 3600_000);
+  const bucket = h => `synthetic:${artifactId}:${userId}:${NO_HEADER_UA}:${h}`;
+
+  r = await callNoHeader('notify-team', { message: 'sin cabecera' });
+  check('no session id, nothing read: runs', !asked(r) && ran(r));
+
+  await sql`insert into mcp_session ${sql({
+    id: uuid(),
+    external_session_id: bucket(hour - 1),
+    auth_kind: 'jwt',
+    artifact_id: artifactId,
+    user_id: userId,
+    user_agent: NO_HEADER_UA,
+    untrusted_read_at: new Date(Date.now() - 10 * 60_000)
+  })}`;
+  r = await callNoHeader('notify-team', { message: 'cruce de hora' });
+  check("a read 10 minutes ago in the previous hour's bucket: asks", asked(r));
+
+  await sql`update mcp_session set untrusted_read_at = ${new Date(Date.now() - 70 * 60_000)}
+            where artifact_id = ${artifactId} and external_session_id = ${bucket(hour - 1)}`;
+  r = await callNoHeader('notify-team', { message: 'ya paso' });
+  check('a read 70 minutes ago: runs again', !asked(r) && ran(r));
+
   section('organization confirming every sensitive action');
 
   await sql`update organization set require_tool_confirmation = true where id = ${orgId}`;

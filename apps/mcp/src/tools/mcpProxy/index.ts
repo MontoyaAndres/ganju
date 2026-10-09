@@ -108,15 +108,40 @@ const flattenContent = (content: unknown): string => {
 // server, or whoever wrote the issue, page or row it read. Every text block is
 // labelled as such, and the result flagged, so a sensitive call made after it
 // asks first. Images and other blocks pass through as they are.
-const labelRemoteResult = (shaped: ToolResult, source: string): ToolResult => ({
-  ...shaped,
-  content: shaped.content.map(block =>
-    block.type === 'text' && typeof block.text === 'string'
-      ? { ...block, text: utils.wrapUntrustedContent(source, block.text) }
-      : block
-  ),
-  _meta: { [utils.UNTRUSTED_CONTENT_META_KEY]: true }
-});
+//
+// A structured copy can't carry the label, and some clients hand the model
+// that copy instead of the text. Proxied tools register no output schema, so
+// the copy is optional here: it is folded into the labelled text (as JSON,
+// unless a text block already says exactly that) and dropped.
+const labelRemoteResult = (shaped: ToolResult, source: string): ToolResult => {
+  const { structuredContent, ...rest } = shaped as ToolResult & {
+    structuredContent?: unknown;
+  };
+  const blocks = [...rest.content];
+  if (structuredContent !== undefined) {
+    const json = utils.stableJson(structuredContent);
+    const alreadyThere = blocks.some(block => {
+      if (block.type !== 'text' || typeof block.text !== 'string') return false;
+      try {
+        return utils.stableJson(JSON.parse(block.text)) === json;
+      } catch {
+        return false;
+      }
+    });
+    if (!alreadyThere) {
+      blocks.push({ type: 'text', text: JSON.stringify(structuredContent) });
+    }
+  }
+  return {
+    ...rest,
+    content: blocks.map(block =>
+      block.type === 'text' && typeof block.text === 'string'
+        ? { ...block, text: utils.wrapUntrustedContent(source, block.text) }
+        : block
+    ),
+    _meta: { [utils.UNTRUSTED_CONTENT_META_KEY]: true }
+  };
+};
 
 const shapeRemoteResult = (result: RemoteToolResult): ToolResult => {
   const content = Array.isArray(result.content) ? result.content : [];
