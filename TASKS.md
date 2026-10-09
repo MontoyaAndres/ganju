@@ -924,8 +924,14 @@ content.
       delete pointed at a missing table: the rest was removed, the user was
       reported, exit 1 (that user was then removed by hand).
     - Dev after deploying `ganju-mcp` with the move: probe 50/50, cleanup
-      reports everything gone. Production needs `ganju-mcp` again for the
-      move; behaviour is unchanged.
+      reports everything gone. Deployed to dev and production afterwards;
+      probe re-run on both: 50/50, nothing left over.
+    - Past the response budget, a remote result was flattened from its
+      blocks alone, so a structured copy too large to keep came back as an
+      empty text block (true before the move too). The copy is now folded
+      in before the budget is applied, so a large one is flattened along
+      with the rest. Two tests added (36/36). On dev; production needs
+      `ganju-mcp`.
   - To ship to production: `0078`, then the `@ganju/utils` and `@ganju/db`
     builds, then `ganju-mcp`, `ganju-api` and web, then the backfill with
     `--prod` (report first, then `--confirm`).

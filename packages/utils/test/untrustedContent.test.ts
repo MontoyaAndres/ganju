@@ -247,6 +247,36 @@ test('proxied: past the budget the blocks are flattened into one labelled block'
   assert.ok(unwrapUntrustedContent(texts(r)[0]).includes('"type":"image"'));
 });
 
+test('proxied: a structured copy alone past the budget is kept, flattened', () => {
+  const big = {
+    rows: Array.from({ length: 50 }, (_, i) => ({ i, note: INJECTION }))
+  };
+  const r = labelProxiedToolResult(
+    { content: [], structuredContent: big },
+    'remote/big-only',
+    100
+  );
+  assert.equal(r.content.length, 1);
+  assert.equal(r.structuredContent, undefined);
+  assert.ok(allLabelled(r, 'remote/big-only'));
+  assert.equal(parsed(texts(r)[0])?.rows?.length, 50);
+});
+
+test('proxied: past the budget, text and structured copy are flattened together', () => {
+  const r = labelProxiedToolResult(
+    {
+      content: [{ type: 'text', text: 'x'.repeat(200) }],
+      structuredContent: structured
+    },
+    'remote/big-both',
+    100
+  );
+  assert.equal(r.content.length, 1);
+  const body = unwrapUntrustedContent(texts(r)[0]);
+  assert.ok(body.startsWith('x'.repeat(200)));
+  assert.ok(body.includes('"order":42'));
+});
+
 test("proxied: a remote error is still the remote's text, labelled", () => {
   const r = labelProxiedToolResult(
     { content: [{ type: 'text', text: INJECTION }], isError: true },

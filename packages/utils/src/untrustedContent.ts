@@ -282,8 +282,8 @@ const flattenContent = (content: unknown[]): string =>
  * A remote MCP server's tool result, as it goes back through the proxy.
  *
  * Within `maxBytes` the blocks are kept as they are; past it they are
- * flattened to one text block, since the SDK can't return several large
- * blocks in one result. Whatever the remote answers was written by someone
+ * flattened to one text block, structured copy included, since the SDK can't
+ * return several large blocks in one result. Whatever the remote answers was written by someone
  * else, so every text block is labelled and the result is always flagged.
  * Images and other blocks pass through.
  *
@@ -303,33 +303,32 @@ export const labelProxiedToolResult = (
     Array.isArray(raw.content) ? raw.content : []
   ) as ContentBlock[];
   const structured = raw.structuredContent;
-  const withinBudget =
-    new TextEncoder().encode(
-      JSON.stringify({ content, structuredContent: structured })
-    ).byteLength <= maxBytes;
 
-  let blocks: ContentBlock[];
-  if (!withinBudget) {
-    blocks = [{ type: 'text', text: flattenContent(content) }];
-  } else if (content.length === 0 && structured === undefined) {
-    blocks = [{ type: 'text', text: '(the tool returned no content)' }];
-  } else {
-    blocks = [...content];
-    if (structured !== undefined) {
-      const json = sortedJson(structured);
-      const alreadyThere = blocks.some(block => {
-        if (block.type !== 'text' || typeof block.text !== 'string')
-          return false;
-        try {
-          return sortedJson(JSON.parse(block.text)) === json;
-        } catch {
-          return false;
-        }
-      });
-      if (!alreadyThere) {
-        blocks.push({ type: 'text', text: JSON.stringify(structured) });
+  // The structured copy is folded in first, so the budget below applies to
+  // what is actually returned — and a copy too large for it is flattened with
+  // everything else rather than lost.
+  let blocks: ContentBlock[] = [...content];
+  if (structured !== undefined) {
+    const json = sortedJson(structured);
+    const alreadyThere = blocks.some(block => {
+      if (block.type !== 'text' || typeof block.text !== 'string') return false;
+      try {
+        return sortedJson(JSON.parse(block.text)) === json;
+      } catch {
+        return false;
       }
+    });
+    if (!alreadyThere) {
+      blocks.push({ type: 'text', text: JSON.stringify(structured) });
     }
+  }
+
+  if (blocks.length === 0) {
+    blocks = [{ type: 'text', text: '(the tool returned no content)' }];
+  } else if (
+    new TextEncoder().encode(JSON.stringify(blocks)).byteLength > maxBytes
+  ) {
+    blocks = [{ type: 'text', text: flattenContent(blocks) }];
   }
 
   return {
