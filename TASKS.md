@@ -930,8 +930,10 @@ content.
       blocks alone, so a structured copy too large to keep came back as an
       empty text block (true before the move too). The copy is now folded
       in before the budget is applied, so a large one is flattened along
-      with the rest. Two tests added (36/36). On dev; production needs
-      `ganju-mcp`.
+      with the rest. Two tests added (36/36). Deployed to dev and
+      production; probe re-run on both, 50/50 with nothing left over (it
+      can't reach a proxied server, so the unit tests are what cover this
+      path).
   - To ship to production: `0078`, then the `@ganju/utils` and `@ganju/db`
     builds, then `ganju-mcp`, `ganju-api` and web, then the backfill with
     `--prod` (report first, then `--confirm`).
