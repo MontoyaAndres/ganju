@@ -527,7 +527,9 @@ export const Channels = () => {
     return () => controller.abort();
   }, [organizationId, projectId]);
 
-  const fetchConversations = async (channelId: string) => {
+  const fetchConversations = async (
+    channelId: string
+  ): Promise<Conversation[]> => {
     setConversations([]);
     setConversationsStatus('pending');
     try {
@@ -535,10 +537,13 @@ export const Channels = () => {
         url: `${apiBase}/${channelId}/conversation`,
         config: { credentials: 'include' }
       });
-      if (data && !data.error) setConversations(data);
+      const list: Conversation[] = data && !data.error ? data : [];
+      setConversations(list);
       setConversationsStatus('resolved');
+      return list;
     } catch {
       setConversationsStatus('rejected');
+      return [];
     }
   };
 
@@ -556,6 +561,35 @@ export const Channels = () => {
       setMessagesStatus('rejected');
     }
   };
+
+  // Home's tool health links a channel's tool call to the chat it ran in, as
+  // ?channel=…&conversation=…. Opened once the channels are in, then dropped
+  // from the URL so a refresh or a click elsewhere doesn't reopen it.
+  useEffect(() => {
+    const { channel: linkedChannel, conversation: linkedConversation } =
+      router.query as { channel?: string; conversation?: string };
+    if (!linkedChannel || !linkedConversation || status !== 'resolved') return;
+
+    router.replace(
+      { pathname: router.pathname, query: { id: organizationId, projectId } },
+      undefined,
+      { shallow: true }
+    );
+
+    const channel = channels.find(ch => ch.id === linkedChannel);
+    if (!channel) return;
+    setSelectedChannel(channel);
+    setIsCreating(false);
+    setActiveTab('conversations');
+    setActiveConversation(null);
+    setMessages([]);
+    fetchConversations(channel.id).then(list => {
+      const conversation = list.find(item => item.id === linkedConversation);
+      if (!conversation) return;
+      setActiveConversation(conversation);
+      fetchMessages(channel.id, conversation.id);
+    });
+  }, [status, channels, router.query.channel, router.query.conversation]);
 
   const handleSelect = (channel: Channel) => {
     setSelectedChannel(channel);

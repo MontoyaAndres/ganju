@@ -33,6 +33,8 @@ import {
   allowProxyToolCall,
   parseJsonRpcMessages,
   collectBodyOnlyRequests,
+  collectRejectedToolCalls,
+  toolResultError,
   parseClient,
   resolveExternalSessionId,
   upsertSession,
@@ -138,6 +140,9 @@ const business = async (c: Context<AppEnv>) => {
     : null;
   const channelPlatform = channelTrust
     ? (c.req.header(utils.constants.MCP_CHANNEL_PLATFORM_HEADER) ?? null)
+    : null;
+  const channelConversationId = channelTrust
+    ? (c.req.header(utils.constants.MCP_CHANNEL_CONVERSATION_HEADER) ?? null)
     : null;
 
   const mcpServer = new McpServer({
@@ -379,7 +384,10 @@ const business = async (c: Context<AppEnv>) => {
   );
   // Guard against two rows claiming the same MCP tool name (native key or a
   // user-chosen http-endpoint name) — duplicate registration would throw.
-  const registeredToolNames = new Set<string>();
+  // Keyed by MCP tool name, valued by the install row that registered it, so a
+  // call the SDK rejects before any handler runs can still be recorded
+  // against the row it was meant for.
+  const registeredToolNames = new Map<string, string>();
   // Proxied resources/prompts register alongside native ones; track the URIs and
   // prompt names already claimed (native first, then earlier proxy installs) so a
   // duplicate is skipped instead of throwing and aborting the whole boot.
@@ -620,7 +628,7 @@ const business = async (c: Context<AppEnv>) => {
               }
             }
           );
-          registeredToolNames.add(localName);
+          registeredToolNames.set(localName, artifactTool.id);
         } catch (error) {
           console.error(
             `Failed to register proxied tool "${localName}"`,
@@ -1005,7 +1013,7 @@ const business = async (c: Context<AppEnv>) => {
               return shaped;
             }
           );
-          registeredToolNames.add(entry.name);
+          registeredToolNames.set(entry.name, artifactTool.id);
         } catch (error) {
           console.error(
             `Failed to register custom tool "${entry.name}"`,
@@ -1023,7 +1031,7 @@ const business = async (c: Context<AppEnv>) => {
       const endpointConfig = parseHttpEndpointConfig(artifactTool.config);
       if (!endpointConfig) continue;
       if (registeredToolNames.has(endpointConfig.name)) continue;
-      registeredToolNames.add(endpointConfig.name);
+      registeredToolNames.set(endpointConfig.name, artifactTool.id);
 
       const endpointSchema = utils.jsonSchemaToZodShape(
         endpointConfig.inputSchema as JsonSchema
@@ -1183,7 +1191,7 @@ const business = async (c: Context<AppEnv>) => {
     const handler = toolRegistry.get(toolDef.key);
     if (!handler) continue;
     if (registeredToolNames.has(toolDef.key)) continue;
-    registeredToolNames.add(toolDef.key);
+    registeredToolNames.set(toolDef.key, artifactTool.id);
 
     const schema = utils.jsonSchemaToZodShape(handler.schema);
     // Native tools may declare structured output too. None do yet — they return
@@ -1269,7 +1277,8 @@ const business = async (c: Context<AppEnv>) => {
             artifactToolId: artifactTool.id,
             input: args,
             output: result,
-            latencyMs: Date.now() - startedAt
+            latencyMs: Date.now() - startedAt,
+            errorMessage: toolResultError(result)
           });
           return result;
         } catch (error) {
@@ -1332,8 +1341,18 @@ const business = async (c: Context<AppEnv>) => {
     })
   );
 
+  const rejected = await collectRejectedToolCalls(
+    messages,
+    response,
+    registeredToolNames
+  );
+
   // Drop notifications (no `id`) and ping if nothing actually happened.
-  const allRequests: PendingRequest[] = [...bodyOnly, ...pendingRequests];
+  const allRequests: PendingRequest[] = [
+    ...bodyOnly,
+    ...pendingRequests,
+    ...rejected
+  ];
   if (allRequests.length === 0) return response;
 
   const userAgent = c.req.header('user-agent') ?? null;
@@ -1348,7 +1367,10 @@ const business = async (c: Context<AppEnv>) => {
     ? {
         via: 'channel',
         channelId: channelIdHeader,
-        platform: channelPlatform
+        platform: channelPlatform,
+        ...(channelConversationId
+          ? { conversationId: channelConversationId }
+          : {})
       }
     : null;
 
@@ -1356,7 +1378,8 @@ const business = async (c: Context<AppEnv>) => {
     c,
     artifact.id,
     jwtUserId,
-    userAgent
+    userAgent,
+    channelConversationId
   );
 
   c.executionCtx.waitUntil(

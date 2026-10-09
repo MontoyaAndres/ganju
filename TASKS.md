@@ -693,6 +693,73 @@ latency, error and session for every call, and channel turns are stored.
   retention, because it holds user data.
 - Done when: an owner can find a failing tool and open the exact call that
   failed.
+- Status: built 2026-10-09, on dev (no migration); production pending.
+  - Recording (`ganju-mcp`): calls the SDK answers before any handler runs —
+    arguments that fail the input schema, a tool name the server doesn't
+    have — are read back from the JSON response and recorded, so they reach
+    `mcp_request` at all. Native tools that answer `Error: …` without
+    `isError` (most of them) now count as errors. Each channel conversation
+    is its own MCP session (the runner sends the conversation id; trusted
+    callers only), and its session metadata names the conversation.
+  - API: `GET …/observability/tools?days=` (per-tool calls, errors, p95,
+    last used, the three signals, top errors, unused installs),
+    `…/observability/calls` (paged), `…/observability/calls/:id` and
+    `…/observability/sessions/:id`. Project routes are already admin-only;
+    the call and session routes also refuse personal access tokens, since
+    they return arguments and results.
+  - Signals: schema rejection; retry = same tool again within 2 minutes after
+    a failure or with identical arguments (a search re-run with a new query
+    isn't one — counting every back-to-back call gave `search-resources` 14
+    "retries" on dev; the narrower rule is not yet re-run there); gave up =
+    an error followed within 2 minutes by a different tool, counted on the
+    failed tool.
+  - "Unused" is per install row, the unit the Tools switches act on: an MCP
+    server or a script counts as used when any of its tools was called, and
+    rows younger than 30 days are left out. Disable calls the existing
+    `…/tool/:id/enabled`.
+  - Home: a "Tool health" card under the stats, on the page's 7/30/90-day
+    range; a tool opens its calls (all / errors), a call opens whole
+    (arguments, result, error) with "Open session" (timeline, outputs loaded
+    per call) and, for channel calls, "Open conversation", which deep-links
+    the Channels page (`?channel=…&conversation=…`). EN/ES copy.
+  - Checked: the health query on dev's busiest artifact (161 calls) runs in
+    ~200 ms; the SDK's rejection text matched against a real `McpServer`
+    (bad argument and unknown tool recorded, a good call not).
+  - Top errors group by the kind of failure: quoted values, uuids and
+    numbers of 5+ digits are masked (short ones like a 403 stay), so dev's
+    two Dragon Ball 403s for "Broly" and "Goku" are one row. The calls list
+    pages by the last call's id, compared to its stored (created_at, id) —
+    a timestamp cursor skipped calls from one insert, which share a time,
+    and lost the microseconds the browser never sees.
+  - Not done: channel calls recorded before this deploy sit in hourly
+    sessions with no conversation, so they get no "Open conversation".
+  - Tested on dev 2026-10-09. A probe (throwaway PRO org, real MCP calls,
+    the API with a signed session, rows read back) passed 42/42: `web-search`
+    with no Tavily key recorded its `Error:` answers as errors; a bad
+    argument and a made-up tool name were recorded (the bad argument against
+    its install, the made-up one with none); the health endpoint gave
+    web-search 3 calls / 3 errors / 1 bad-arguments / 1 retry, greeting no
+    retries across different arguments, the backdated never-called install
+    as unused, and dropped it once disabled; paging by 2 returned the same 7
+    calls as one page; a channel turn landed in session
+    `channel:<artifact>:<conversation>` and its call detail named the
+    conversation; a personal access token read tool health but got 403 on a
+    call and a session. In the browser, on the "nemo" project (30 days):
+    the Dragon Ball 403s for different names grouped as one "3×",
+    `search-resources` showed no retries (the old rule counted 14), a tool →
+    its calls → a failed call → its session all opened, and the Channels
+    deep link selected the Telegram channel, opened the conversation and
+    cleared the query.
+  - Found in that pass and fixed after: the lists kept the browser's
+    default indent; the modal's Back button was invisible (the footer paints
+    button text white, so it must be `contained`); a call's modal had an
+    empty header — it now reads "Call to <tool>". Redeployed to dev and
+    checked there: lists flush with their headings, the header names the
+    tool for a call opened from the table and from a session, and Back
+    returns from a call to its session.
+  - The calls list isn't bounded by the card's range: a tool showing 8
+    calls in 30 days lists its older calls too, back to retention.
+  - To ship: `@ganju/utils` build, then `ganju-mcp`, `ganju-api` and web.
 
 **7. Label untrusted content (prompt injection) — S**
 

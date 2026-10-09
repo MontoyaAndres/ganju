@@ -677,7 +677,8 @@ export const runChannelTurn = async (
 
   const mcp = await createMcpClient(c, artifactRow.slug, mcpAuthToken, {
     channelId: channelRow.id,
-    platform: channelRow.platform
+    platform: channelRow.platform,
+    conversationId: conversation.id
   });
   let assistantText = '';
   let assistantMessageId = '';

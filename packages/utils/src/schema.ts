@@ -1247,6 +1247,53 @@ const ARTIFACT_CUSTOM_CODE_LIST_LOGS = z.object({
   organizationId: z.uuid()
 });
 
+// Tool observability on the project home: per-tool health over a window.
+const PROJECT_TOOL_HEALTH = z.object({
+  days: z.coerce
+    .number()
+    .int()
+    .refine(days => constants.OBSERVABILITY_RANGE_DAYS.includes(days), {
+      message: 'Range is not valid'
+    })
+    .default(7),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// The calls behind a row of that table, newest first. Paged by the id of the
+// last call shown, not its time: calls written in one insert share a
+// timestamp, and the client only sees it to the millisecond.
+const PROJECT_TOOL_CALLS = z.object({
+  tool: z.string().min(1).max(256).optional(),
+  status: z.enum(['all', 'error']).default('all'),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(constants.OBSERVABILITY_CALLS_MAX_LIMIT)
+    .default(constants.OBSERVABILITY_CALLS_DEFAULT_LIMIT),
+  after: z.uuid().optional(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// One recorded call, whole, and the session timeline it belongs to.
+const PROJECT_TOOL_CALL = z.object({
+  requestId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+const PROJECT_MCP_SESSION = z.object({
+  sessionId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
 // Reads the artifact's version history and which one is currently active.
 const ARTIFACT_CUSTOM_CODE_LIST_VERSIONS = z.object({
   projectId: z.uuid(),
@@ -1688,6 +1735,10 @@ export const Schema = {
   ARTIFACT_CUSTOM_CODE_ROLLBACK,
   ARTIFACT_CUSTOM_CODE_LIST_LOGS,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,
+  PROJECT_TOOL_HEALTH,
+  PROJECT_TOOL_CALLS,
+  PROJECT_TOOL_CALL,
+  PROJECT_MCP_SESSION,
   CUSTOM_CODE_INVOKE_REQUEST,
   CUSTOM_CODE_INVOKE_RESPONSE,
   CUSTOM_CODE_BROKER_CONNECTION,

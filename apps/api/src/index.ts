@@ -12,6 +12,7 @@ import {
   OrganizationLlmController,
   AccessTokenController,
   ProjectController,
+  ObservabilityController,
   OAuthController,
   CatalogController,
   ChannelController,
@@ -93,7 +94,7 @@ app
         'Authorization',
         'mcp-protocol-version'
       ],
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
     })
   )
   .onError(async (error, c) => {
@@ -274,6 +275,28 @@ app
     '/organization/:organizationId/project/:projectId/overview',
     UserMiddleware.verify,
     ProjectController.getOverview
+  )
+
+  // Tool observability controller
+  .get(
+    '/organization/:organizationId/project/:projectId/observability/tools',
+    UserMiddleware.verify,
+    ObservabilityController.getToolHealth
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/observability/calls',
+    UserMiddleware.verify,
+    ObservabilityController.listToolCalls
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/observability/calls/:requestId',
+    UserMiddleware.verify,
+    ObservabilityController.getToolCall
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/observability/sessions/:sessionId',
+    UserMiddleware.verify,
+    ObservabilityController.getSession
   )
   .delete(
     '/organization/:organizationId/project/:projectId',

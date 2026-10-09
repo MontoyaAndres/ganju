@@ -32,6 +32,7 @@ import {
 import { Chart } from 'react-chartjs-2';
 
 import { Wrapper, McpModalBody } from './styles';
+import { ToolHealth } from './ToolHealth';
 import { i18n } from '../../../lib';
 
 import type { Theme } from '@emotion/react';
@@ -773,6 +774,7 @@ export const Overview = () => {
             </>
           )}
         </div>
+        <ToolHealth days={days} />
         <div className="overview-card overview-recent">
           <p className="overview-recent-title">{t('recentTitle')}</p>
           {loading ? (

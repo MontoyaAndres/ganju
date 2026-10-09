@@ -9,6 +9,7 @@ import type { AppEnv } from '../types';
 export interface McpClientChannelContext {
   channelId: string;
   platform: string;
+  conversationId: string;
 }
 
 export const createMcpClient = async (
@@ -54,6 +55,10 @@ export const createMcpClient = async (
         headers.set(
           utils.constants.MCP_CHANNEL_PLATFORM_HEADER,
           channelContext.platform
+        );
+        headers.set(
+          utils.constants.MCP_CHANNEL_CONVERSATION_HEADER,
+          channelContext.conversationId
         );
       }
       const forwarded = { ...(init ?? {}), headers };

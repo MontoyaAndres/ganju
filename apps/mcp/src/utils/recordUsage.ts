@@ -64,6 +64,89 @@ export const collectBodyOnlyRequests = (
       latencyMs: null
     }));
 
+// The failure a tool result reports, if any. Tools are asked to answer a
+// failure as text starting `Error:` rather than throw (see tools/README), and
+// most don't also set `isError` — both count as a failed call, or Home's error
+// rate would only ever see the ones that throw.
+export const toolResultError = (result: unknown): string | null => {
+  if (!result || typeof result !== 'object') return null;
+  const { content, isError } = result as {
+    content?: unknown;
+    isError?: unknown;
+  };
+  const first = Array.isArray(content)
+    ? (content as { type?: unknown; text?: unknown }[]).find(
+        part => part?.type === 'text' && typeof part.text === 'string'
+      )
+    : undefined;
+  const text = typeof first?.text === 'string' ? first.text.trim() : '';
+  if (isError === true) return text.slice(0, 1000) || 'Tool returned an error';
+  if (text.startsWith('Error:')) return text.slice(0, 1000);
+  return null;
+};
+
+// The SDK answers some calls itself, before any handler runs: arguments that
+// fail the tool's input schema, and a name this server doesn't have. Both are
+// a model getting a tool wrong, and no handler is there to record them. The
+// SDK turns them into an `isError` result under this fixed prefix.
+const SDK_REJECTION =
+  /^MCP error -32602: ((?:Input validation error|Tool \S+ (?:not found|disabled))[\s\S]*)$/;
+
+/**
+ * Calls the SDK rejected, read back from the response the client got and
+ * matched to the request by JSON-RPC id. Only JSON responses carry them —
+ * the server answers with `enableJsonResponse` — and the body is cloned, so
+ * the client still gets the original stream.
+ */
+export const collectRejectedToolCalls = async (
+  messages: JsonRpcRequest[],
+  response: Response | undefined,
+  toolIds: Map<string, string>
+): Promise<PendingRequest[]> => {
+  const calls = new Map(
+    messages
+      .filter(
+        m =>
+          m.method === utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL &&
+          m.id !== undefined
+      )
+      .map(m => [String(m.id), m])
+  );
+  if (calls.size === 0 || !response) return [];
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    return [];
+  }
+
+  let body: unknown;
+  try {
+    body = await response.clone().json();
+  } catch {
+    return [];
+  }
+
+  const rejected: PendingRequest[] = [];
+  for (const reply of Array.isArray(body) ? body : [body]) {
+    if (!reply || typeof reply !== 'object') continue;
+    const { id, result } = reply as { id?: unknown; result?: unknown };
+    const call = id == null ? undefined : calls.get(String(id));
+    if (!call) continue;
+    const match = toolResultError(result)?.match(SDK_REJECTION);
+    if (!match) continue;
+    const name =
+      typeof call.params?.name === 'string' ? call.params.name : null;
+    rejected.push({
+      method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
+      toolName: name,
+      artifactToolId: name ? (toolIds.get(name) ?? null) : null,
+      input: call.params?.arguments ?? null,
+      output: result,
+      latencyMs: null,
+      errorMessage: match[1]
+    });
+  }
+  return rejected;
+};
+
 // Best-effort parse of the MCP client identity from User-Agent. Real clients
 // (Claude Desktop, mcp-inspector, etc.) follow product-token form
 // `name/version (extra)`; fall back to a truncated raw UA otherwise so we
@@ -80,13 +163,19 @@ export const parseClient = (
 // Stable session key for grouping requests. Real clients echo the
 // `mcp-session-id` header issued on `initialize`; for stateless clients we
 // fall back to a synthetic per-hour bucket keyed by user + UA so a single
-// client doesn't create a new row on every request.
+// client doesn't create a new row on every request. A channel turn names its
+// conversation (trusted callers only), so each chat is one session and its
+// calls replay in order without other chats' calls mixed in.
 export const resolveExternalSessionId = (
   c: Context<AppEnv>,
   artifactId: string,
   userId: string | undefined,
-  userAgent: string | null
+  userAgent: string | null,
+  channelConversationId?: string | null
 ): string => {
+  if (channelConversationId) {
+    return `channel:${artifactId}:${channelConversationId}`;
+  }
   const header = c.req.header(utils.constants.MCP_SESSION_HEADER);
   if (header) return header;
   const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));

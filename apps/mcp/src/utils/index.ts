@@ -17,6 +17,8 @@ import {
 import {
   parseJsonRpcMessages,
   collectBodyOnlyRequests,
+  collectRejectedToolCalls,
+  toolResultError,
   parseClient,
   resolveExternalSessionId,
   upsertSession,
@@ -37,6 +39,8 @@ export {
   connectRemoteMcpClient,
   parseJsonRpcMessages,
   collectBodyOnlyRequests,
+  collectRejectedToolCalls,
+  toolResultError,
   parseClient,
   resolveExternalSessionId,
   upsertSession,

@@ -101,6 +101,12 @@ const files = (await readdir(ROOT)).filter(
 );
 
 for (const file of files.sort()) {
+  // Only modules typed as a `Catalog` pair English with its translations.
+  // toolCatalog.ts is a Spanish override map over strings the API sends in
+  // English, so it has no base language to compare against.
+  const source = await readFile(path.join(ROOT, file), 'utf8');
+  if (!/: Catalog<\w+>/.test(source)) continue;
+
   const { name, catalog } = await loadCatalog(file);
   const [base, ...others] = Object.keys(catalog);
   const at = (lang, key) => `${name}.${lang}.${key}`;

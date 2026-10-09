@@ -17,9 +17,11 @@ import { WellKnownController } from './wellKnown';
 import { ContactController } from './contact';
 import { BillingController } from './billing';
 import { ContainmentController } from './containment';
+import { ObservabilityController } from './observability';
 
 export {
   BillingController,
+  ObservabilityController,
   ContainmentController,
   ContactController,
   UserController,

@@ -1781,6 +1781,10 @@ const MCP_SESSION_HEADER = 'mcp-session-id';
 const MCP_INTERNAL_HEADER = 'x-ganju-internal-secret';
 const MCP_CHANNEL_ID_HEADER = 'x-ganju-channel-id';
 const MCP_CHANNEL_PLATFORM_HEADER = 'x-ganju-channel-platform';
+// The conversation a channel turn belongs to. The MCP worker files that turn's
+// calls under one session per conversation, so a call can be traced back to
+// the chat it ran in.
+const MCP_CHANNEL_CONVERSATION_HEADER = 'x-ganju-channel-conversation-id';
 const MCP_CHANNEL_CLIENT_USER_AGENT = 'ganju-channel/0.0.1';
 const JWKS_KV_KEY = 'jwks:v1';
 const JWKS_TTL_SECONDS = 600;
@@ -1881,6 +1885,23 @@ const ACCESS_TOKEN_SCOPE_MESSAGE =
 // Recent custom-tool invocations, as `ganju logs` reads them.
 const CUSTOM_CODE_LOGS_DEFAULT_LIMIT = 20;
 const CUSTOM_CODE_LOGS_MAX_LIMIT = 100;
+
+// Tool observability on the project home. The windows match the activity
+// chart's, and none reaches past `RETENTION_DAYS.mcpRequest`.
+const OBSERVABILITY_RANGE_DAYS = [7, 30, 90];
+// An enabled tool with no call in this many days is offered for disabling.
+const OBSERVABILITY_UNUSED_DAYS = 30;
+// Two calls in one session this close together are one attempt followed by
+// the next: a retry when it's the same tool, a switch when it's another tool
+// after an error.
+const OBSERVABILITY_FOLLOW_UP_SECONDS = 120;
+// How a call rejected by its tool's input schema reads in `error_message`.
+const OBSERVABILITY_SCHEMA_REJECTION_PREFIX = 'Input validation error';
+const OBSERVABILITY_TOP_ERRORS = 8;
+const OBSERVABILITY_CALLS_DEFAULT_LIMIT = 25;
+const OBSERVABILITY_CALLS_MAX_LIMIT = 100;
+// A session timeline is read whole up to this many calls, newest kept.
+const OBSERVABILITY_SESSION_MAX_CALLS = 500;
 
 const BOT_GRANT_TYPE = 'urn:ganju:bot-on-behalf-of';
 const EXTERNAL_LINK_VERIFICATION_PREFIX = 'external_link:';
@@ -2934,6 +2955,7 @@ export const constants = {
   MCP_INTERNAL_HEADER,
   MCP_CHANNEL_ID_HEADER,
   MCP_CHANNEL_PLATFORM_HEADER,
+  MCP_CHANNEL_CONVERSATION_HEADER,
   MCP_CHANNEL_CLIENT_USER_AGENT,
   MCP_SESSION_HEADER,
   MCP_REQUEST_METHOD_INITIALIZE,
@@ -2971,6 +2993,14 @@ export const constants = {
   ACCESS_TOKEN_SCOPE_MESSAGE,
   CUSTOM_CODE_LOGS_DEFAULT_LIMIT,
   CUSTOM_CODE_LOGS_MAX_LIMIT,
+  OBSERVABILITY_RANGE_DAYS,
+  OBSERVABILITY_UNUSED_DAYS,
+  OBSERVABILITY_FOLLOW_UP_SECONDS,
+  OBSERVABILITY_SCHEMA_REJECTION_PREFIX,
+  OBSERVABILITY_TOP_ERRORS,
+  OBSERVABILITY_CALLS_DEFAULT_LIMIT,
+  OBSERVABILITY_CALLS_MAX_LIMIT,
+  OBSERVABILITY_SESSION_MAX_CALLS,
   BOT_GRANT_TYPE,
   EXTERNAL_LINK_VERIFICATION_PREFIX,
   EXTERNAL_LINK_TTL_SECONDS,
