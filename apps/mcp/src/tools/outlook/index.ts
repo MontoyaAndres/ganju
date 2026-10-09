@@ -2,7 +2,7 @@ import { utils } from '@ganju/utils';
 import type { OutlookSendRequest, OutlookSendResponse } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import { withResourceContent } from '../../utils';
+import { untrustedResult, withResourceContent } from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 
 const GRAPH_BASE = utils.constants.MICROSOFT_GRAPH_API_BASE;
@@ -427,7 +427,10 @@ export const listEmails: ToolDefinition = {
       m =>
         `- From: ${formatRecipient(m.from)} | Subject: ${m.subject || '(no subject)'} | Date: ${m.receivedDateTime || 'unknown'} | ID: ${m.id}`
     );
-    return text(`Found ${messages.length} email(s):\n\n${lines.join('\n')}`);
+    return untrustedResult(
+      'outlook-list-emails',
+      `Found ${messages.length} email(s):\n\n${lines.join('\n')}`
+    );
   }
 };
 
@@ -480,7 +483,7 @@ export const readEmail: ToolDefinition = {
       .filter(Boolean)
       .join('\n');
 
-    return text(out);
+    return untrustedResult('outlook-read-email', out);
   }
 };
 
@@ -705,7 +708,10 @@ export const listThreads: ToolDefinition = {
       m =>
         `- Thread ${m.conversationId} :: ${m.subject || '(no subject)'} — last from ${formatRecipient(m.from)} at ${m.receivedDateTime || 'unknown'} :: ${m.bodyPreview?.slice(0, 120) || ''}`
     );
-    return text(`Found ${seen.size} thread(s):\n\n${lines.join('\n')}`);
+    return untrustedResult(
+      'outlook-list-threads',
+      `Found ${seen.size} thread(s):\n\n${lines.join('\n')}`
+    );
   }
 };
 
@@ -757,7 +763,8 @@ export const getThread: ToolDefinition = {
       return `${i + 1}. [${m.id}] ${m.receivedDateTime || ''} — From: ${formatRecipient(m.from)} — Subject: ${m.subject || '(no subject)'}\n   Snippet: ${m.bodyPreview || ''}`;
     });
 
-    return text(
+    return untrustedResult(
+      'outlook-get-thread',
       `Thread ${args.conversationId} — ${messages.length} message(s):\n\n${lines.join('\n\n')}`
     );
   }
@@ -864,7 +871,10 @@ export const listDrafts: ToolDefinition = {
       d =>
         `- Draft ${d.id} -> To: ${formatRecipients(d.toRecipients) || 'unset'} | Subject: ${d.subject || '(no subject)'} | Last modified: ${d.lastModifiedDateTime || 'unknown'}`
     );
-    return text(`Found ${drafts.length} draft(s):\n\n${lines.join('\n')}`);
+    return untrustedResult(
+      'outlook-list-drafts',
+      `Found ${drafts.length} draft(s):\n\n${lines.join('\n')}`
+    );
   }
 };
 
@@ -924,7 +934,7 @@ export const getDraft: ToolDefinition = {
     ]
       .filter(Boolean)
       .join('\n');
-    return text(out);
+    return untrustedResult('outlook-get-draft', out);
   }
 };
 

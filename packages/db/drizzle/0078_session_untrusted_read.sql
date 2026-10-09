@@ -1,0 +1,1 @@
+ALTER TABLE "mcp_session" ADD COLUMN "untrusted_read_at" timestamp;

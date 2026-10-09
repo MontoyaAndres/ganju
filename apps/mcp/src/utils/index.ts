@@ -23,9 +23,16 @@ import {
   resolveExternalSessionId,
   upsertSession,
   flushRequests,
+  readUntrustedContent,
+  readsEarlierInBatch,
   type PendingRequest
 } from './recordUsage';
 import { confirmSensitiveTools } from './toolConfirmation';
+import {
+  untrustedResult,
+  labelOwnResult,
+  type UntrustedToolResult
+} from './untrusted';
 
 export {
   readResourceContent,
@@ -45,7 +52,11 @@ export {
   resolveExternalSessionId,
   upsertSession,
   flushRequests,
-  confirmSensitiveTools
+  readUntrustedContent,
+  readsEarlierInBatch,
+  confirmSensitiveTools,
+  untrustedResult,
+  labelOwnResult
 };
 
 export type {
@@ -53,5 +64,6 @@ export type {
   PendingRequest,
   InterpolationMode,
   RemoteMcpAuthHeader,
-  RemoteMcpHandle
+  RemoteMcpHandle,
+  UntrustedToolResult
 };

@@ -1,7 +1,7 @@
 import { utils } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import { withResourceContent } from '../../utils';
+import { untrustedResult, withResourceContent } from '../../utils';
 
 // types
 import type { SlackSendRequest, SlackSendResponse } from '@ganju/utils';
@@ -367,7 +367,10 @@ export const searchMessages: ToolDefinition = {
       const snippet = (m.text || '').replace(/\s+/g, ' ').slice(0, 200);
       return `- ${where} ${m.ts} — @${who}: ${snippet}\n  ${m.permalink || ''}`;
     });
-    return text(`Found ${matches.length} match(es):\n\n${lines.join('\n')}`);
+    return untrustedResult(
+      'slack-search-messages',
+      `Found ${matches.length} match(es):\n\n${lines.join('\n')}`
+    );
   }
 };
 

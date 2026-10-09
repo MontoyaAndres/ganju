@@ -7,7 +7,7 @@ import { StreamableHTTPTransport } from '@hono/mcp';
 import { JsonSchema, utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import type { ToolCallBudget } from '@ganju/db';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 
 import {
   toolRegistry,
@@ -39,7 +39,10 @@ import {
   resolveExternalSessionId,
   upsertSession,
   flushRequests,
+  readUntrustedContent,
+  readsEarlierInBatch,
   confirmSensitiveTools,
+  labelOwnResult,
   type PendingRequest
 } from '../../utils';
 
@@ -145,19 +148,106 @@ const business = async (c: Context<AppEnv>) => {
     ? (c.req.header(utils.constants.MCP_CHANNEL_CONVERSATION_HEADER) ?? null)
     : null;
 
-  const mcpServer = new McpServer({
-    name: artifact.project.name || 'MCP Server',
-    description: artifact.project.description || 'MCP Server Description',
-    version: '0.0.1'
-  });
+  const userAgent = c.req.header('user-agent') ?? null;
+  const externalSessionId = resolveExternalSessionId(
+    c,
+    artifact.id,
+    jwtUserId,
+    userAgent,
+    channelConversationId
+  );
+  const ipAddress =
+    c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? null;
+  const client = parseClient(userAgent);
+  // channelTrust / channelIdHeader / channelPlatform are resolved once above,
+  // so the same trusted-header read drives both the list-prompts guidance and
+  // this session metadata.
+  const sessionMetadata: Record<string, unknown> | null = channelIdHeader
+    ? {
+        via: 'channel',
+        channelId: channelIdHeader,
+        platform: channelPlatform,
+        ...(channelConversationId
+          ? { conversationId: channelConversationId }
+          : {})
+      }
+    : null;
+  const sessionInput = {
+    artifactId: artifact.id,
+    externalSessionId,
+    authKind: authContext?.kind ?? utils.constants.MCP_AUTH_KIND_JWT,
+    userId: jwtUserId,
+    userAgent,
+    ipAddress,
+    clientName: client.name,
+    clientVersion: client.version,
+    metadata: sessionMetadata
+  };
+
+  // The session's record of having read outside content, written before the
+  // flagged result goes back rather than with the usage after the response —
+  // a client quick enough would otherwise send its next call before the mark
+  // lands. Once per request.
+  let untrustedMark: Promise<void> | null = null;
+  const markSessionUntrusted = () =>
+    (untrustedMark ??= (async () => {
+      const session = await upsertSession(dbInstance, sessionInput);
+      await dbInstance
+        .update(db.schema.mcpSession)
+        .set({ untrustedReadAt: new Date() })
+        .where(eq(db.schema.mcpSession.id, session.id));
+    })().catch(error => {
+      // The usage flush sets the mark too, just later.
+      console.error('Failed to mark the MCP session untrusted', error);
+    }));
+
+  const mcpServer = new McpServer(
+    {
+      name: artifact.project.name || 'MCP Server',
+      description: artifact.project.description || 'MCP Server Description',
+      version: '0.0.1'
+    },
+    // Results with outside text in them are wrapped in marks; this is where
+    // the model is told what the marks mean.
+    { instructions: utils.UNTRUSTED_CONTENT_NOTE }
+  );
   // With the organization confirming sensitive actions, those tools run only
-  // on a second call that carries the user's yes. Not for the channel runner,
+  // on a second call that carries the user's yes. Without it, they still do
+  // once the session has read outside content. Not for the channel runner,
   // which asks in its own chat and runs only what was confirmed there.
-  if (artifact.project.organization.requireToolConfirmation && !channelTrust) {
+  if (!channelTrust) {
+    const confirmAll = artifact.project.organization.requireToolConfirmation;
     confirmSensitiveTools(mcpServer, {
       artifactId: artifact.id,
       secret: utils.getCredentialEncryptionKey(c),
-      db: dbInstance
+      db: dbInstance,
+      onUntrustedResult: markSessionUntrusted,
+      ...(confirmAll
+        ? {}
+        : {
+            // This request first: what it has already read, and anything
+            // sent ahead of this call in the same batch, whose results don't
+            // exist yet. Then what earlier requests recorded.
+            mustAsk: async requestId => {
+              if (readUntrustedContent(pendingRequests)) return true;
+              if (readsEarlierInBatch(messages, requestId)) return true;
+              const [session] = await dbInstance
+                .select({ id: db.schema.mcpSession.id })
+                .from(db.schema.mcpSession)
+                .where(
+                  and(
+                    eq(db.schema.mcpSession.artifactId, artifact.id),
+                    eq(
+                      db.schema.mcpSession.externalSessionId,
+                      externalSessionId
+                    ),
+                    isNotNull(db.schema.mcpSession.untrustedReadAt)
+                  )
+                )
+                .limit(1);
+              return !!session;
+            }
+          })
     });
   }
   const transport = new StreamableHTTPTransport({
@@ -688,8 +778,10 @@ const business = async (c: Context<AppEnv>) => {
                     artifactToolId: artifactTool.id,
                     input: { uri: uri.toString() },
                     output: result,
-                    latencyMs: Date.now() - startedAt
+                    latencyMs: Date.now() - startedAt,
+                    untrusted: true
                   });
+                  if (!channelTrust) await markSessionUntrusted();
                   return result;
                 } catch (error) {
                   pendingRequests.push({
@@ -975,7 +1067,7 @@ const business = async (c: Context<AppEnv>) => {
               // structuredContent or be marked as an error — the SDK refuses to
               // serialize the result otherwise, which would turn a user's bad
               // return value into a protocol failure for the whole call.
-              const shaped =
+              const checked =
                 outputSchema && !result.structuredContent && !result.isError
                   ? {
                       ...result,
@@ -988,6 +1080,7 @@ const business = async (c: Context<AppEnv>) => {
                       ]
                     }
                   : result;
+              const shaped = labelOwnResult(checked, entry.name);
 
               pendingRequests.push({
                 method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
@@ -1131,7 +1224,7 @@ const business = async (c: Context<AppEnv>) => {
             // that didn't match into a protocol failure for the whole call.
             // Most often it means the endpoint answered with text, or with an
             // array, where the schema promised an object.
-            const shaped =
+            const checked =
               endpointOutputSchema &&
               !result.structuredContent &&
               !result.isError
@@ -1146,6 +1239,7 @@ const business = async (c: Context<AppEnv>) => {
                     ]
                   }
                 : result;
+            const shaped = labelOwnResult(checked, endpointConfig.name);
 
             pendingRequests.push({
               method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
@@ -1355,47 +1449,10 @@ const business = async (c: Context<AppEnv>) => {
   ];
   if (allRequests.length === 0) return response;
 
-  const userAgent = c.req.header('user-agent') ?? null;
-  const ipAddress =
-    c.req.header('cf-connecting-ip') ?? c.req.header('x-forwarded-for') ?? null;
-  const client = parseClient(userAgent);
-
-  // channelTrust / channelIdHeader / channelPlatform are resolved once at boot
-  // (see above) so the same trusted-header read drives both the list-prompts
-  // guidance and this session metadata.
-  const sessionMetadata: Record<string, unknown> | null = channelIdHeader
-    ? {
-        via: 'channel',
-        channelId: channelIdHeader,
-        platform: channelPlatform,
-        ...(channelConversationId
-          ? { conversationId: channelConversationId }
-          : {})
-      }
-    : null;
-
-  const externalSessionId = resolveExternalSessionId(
-    c,
-    artifact.id,
-    jwtUserId,
-    userAgent,
-    channelConversationId
-  );
-
   c.executionCtx.waitUntil(
     (async () => {
       try {
-        const session = await upsertSession(dbInstance, {
-          artifactId: artifact.id,
-          externalSessionId,
-          authKind: authContext?.kind ?? utils.constants.MCP_AUTH_KIND_JWT,
-          userId: jwtUserId,
-          userAgent,
-          ipAddress,
-          clientName: client.name,
-          clientVersion: client.version,
-          metadata: sessionMetadata
-        });
+        const session = await upsertSession(dbInstance, sessionInput);
         await flushRequests(
           dbInstance,
           session.id,

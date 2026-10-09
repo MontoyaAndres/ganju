@@ -20,7 +20,7 @@ const parseSearchHits = (output: unknown): SearchHit[] => {
   const text = extractToolText(output);
   if (!text) return [];
   try {
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(utils.unwrapUntrustedContent(text));
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
       (h): h is SearchHit =>

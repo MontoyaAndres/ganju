@@ -2,7 +2,7 @@ import { utils } from '@ganju/utils';
 import type { GmailSendRequest, GmailSendResponse } from '@ganju/utils';
 import { getResourceHandler } from '@ganju/containers';
 
-import { withResourceContent } from '../../utils';
+import { untrustedResult, withResourceContent } from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -476,7 +476,8 @@ export const listEmails: ToolDefinition = {
       })
     );
 
-    return text(
+    return untrustedResult(
+      'gmail-list-emails',
       `Found ${data.resultSizeEstimate ?? messages.length} emails (showing ${details.length}):\n\n${details.join('\n')}`
     );
   }
@@ -524,7 +525,7 @@ export const readEmail: ToolDefinition = {
       .filter(Boolean)
       .join('\n');
 
-    return text(out);
+    return untrustedResult('gmail-read-email', out);
   }
 };
 
@@ -718,7 +719,10 @@ export const listThreads: ToolDefinition = {
     if (threads.length === 0) return text('No threads found.');
 
     const lines = threads.map(t => `- Thread ${t.id} :: ${t.snippet || ''}`);
-    return text(`Found ${threads.length} thread(s):\n\n${lines.join('\n')}`);
+    return untrustedResult(
+      'gmail-list-threads',
+      `Found ${threads.length} thread(s):\n\n${lines.join('\n')}`
+    );
   }
 };
 
@@ -760,7 +764,8 @@ export const getThread: ToolDefinition = {
       return `${i + 1}. [${m.id}] ${h['date'] || ''} — From: ${h['from'] || 'unknown'} — Subject: ${h['subject'] || '(no subject)'}\n   Snippet: ${m.snippet || ''}`;
     });
 
-    return text(
+    return untrustedResult(
+      'gmail-get-thread',
       `Thread ${data.id} — ${messages.length} message(s):\n\n${lines.join('\n\n')}`
     );
   }
@@ -866,7 +871,10 @@ export const listDrafts: ToolDefinition = {
         }
       })
     );
-    return text(`Found ${drafts.length} draft(s):\n\n${lines.join('\n')}`);
+    return untrustedResult(
+      'gmail-list-drafts',
+      `Found ${drafts.length} draft(s):\n\n${lines.join('\n')}`
+    );
   }
 };
 
@@ -910,7 +918,7 @@ export const getDraft: ToolDefinition = {
     ]
       .filter(Boolean)
       .join('\n');
-    return text(out);
+    return untrustedResult('gmail-get-draft', out);
   }
 };
 

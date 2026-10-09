@@ -1,6 +1,7 @@
 import { db, type ResourceSearchTimings } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
+import { untrustedResult } from '../../utils';
 import { ToolDefinition } from '../types';
 
 const DEFAULT_LIMIT = 5;
@@ -89,8 +90,12 @@ export const searchResources: ToolDefinition = {
 
     const results = rows.map(db.toResourceSearchResult);
 
-    return {
-      content: [{ type: 'text', text: JSON.stringify(results) }]
-    };
+    // Labelled like any outside text; flagged only when an excerpt reads like
+    // instructions, since this runs before nearly every answer.
+    return untrustedResult('search-resources', JSON.stringify(results), {
+      flag: results.some(
+        r => utils.findInstructionLikeText(r.excerpt).length > 0
+      )
+    });
   }
 };

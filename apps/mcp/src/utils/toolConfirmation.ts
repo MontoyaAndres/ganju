@@ -14,6 +14,9 @@ import { utils } from '@ganju/utils';
 //
 // The server never sees the user's words, only the second call: this relies on
 // the model asking. It still means no sensitive action happens in one step.
+//
+// Where the organization doesn't confirm, the same flow still applies to a
+// session that has read outside content: from then on, a sensitive call asks.
 
 type ToolResult = { content: Array<{ type: 'text'; text: string }> };
 
@@ -37,6 +40,16 @@ interface ConfirmationOptions {
   // A server secret; the signing key is derived from it, never used as is.
   secret: string;
   db: ReturnType<typeof db.create>;
+  // Whether a call without a confirmation has to ask. Left out, every one
+  // does: the organization confirms sensitive actions. Given, only those it
+  // answers true for — a session that has read outside content, which may
+  // have been written to steer the model into this very call. Handed the
+  // call's JSON-RPC id, so a batch can be read in order.
+  mustAsk?: (requestId: string | number | undefined) => Promise<boolean>;
+  // Called before a flagged result goes back, so the next request already
+  // sees the session as having read outside content. Every tool's result is
+  // checked, sensitive or not.
+  onUntrustedResult?: () => Promise<void>;
 }
 
 const TOKEN_VERSION = 'v1';
@@ -145,6 +158,10 @@ const REASONS: Record<Exclude<TokenCheck, { ok: true }>['reason'], string> = {
   spent: 'That confirmation was already used, so nothing was run. '
 };
 
+const UNTRUSTED_REASON =
+  'This conversation has read content from outside (an email, a web page, ' +
+  "another server's answer), so sensitive actions are confirmed first. ";
+
 const notRunYet = (
   name: string,
   title: string,
@@ -168,8 +185,9 @@ const notRunYet = (
 
 /**
  * Make every sensitive tool registered on this server from here on wait for a
- * confirmed second call. Call it right after the server is created, before any
- * tool is registered; tools that only read are registered untouched.
+ * confirmed second call — always, or only when `mustAsk` says so. Call it
+ * right after the server is created, before any tool is registered; tools
+ * that only read are registered untouched.
  */
 export const confirmSensitiveTools = (
   mcpServer: McpServer,
@@ -186,12 +204,26 @@ export const confirmSensitiveTools = (
     properties: {
       [ARG]: {
         type: 'string',
-        description: utils.constants.MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION
+        description: options.mustAsk
+          ? utils.constants.MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION_CONDITIONAL
+          : utils.constants.MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION
       }
     }
   })[ARG];
 
-  const wrapped: RegisterTool = (name, config, cb) => {
+  const marking = (cb: ToolCallback): ToolCallback =>
+    options.onUntrustedResult
+      ? async (...args: unknown[]) => {
+          const result = await cb(...args);
+          if (utils.isUntrustedToolResult(result)) {
+            await options.onUntrustedResult?.();
+          }
+          return result;
+        }
+      : cb;
+
+  const wrapped: RegisterTool = (name, config, original) => {
+    const cb = marking(original);
     if (!utils.isSensitiveTool(config.annotations)) {
       return register(name, config, cb);
     }
@@ -215,6 +247,13 @@ export const confirmSensitiveTools = (
             return hadInput ? cb(args, extra) : cb(extra);
           }
           reason = REASONS[verdict.reason];
+        } else if (options.mustAsk) {
+          const requestId = (extra as { requestId?: string | number } | null)
+            ?.requestId;
+          if (!(await options.mustAsk(requestId))) {
+            return hadInput ? cb(args, extra) : cb(extra);
+          }
+          reason = UNTRUSTED_REASON;
         }
         return notRunYet(
           name,

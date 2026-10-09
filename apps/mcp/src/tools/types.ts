@@ -59,8 +59,12 @@ export interface ToolDefinition {
   schema: JsonSchema;
   outputSchema?: JsonSchema;
   configSchema?: JsonSchema;
+  // `_meta` carries the untrusted-content flag (see untrustedResult).
   handler: (
     args: Record<string, unknown>,
     context: ToolContext
-  ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>;
+  ) => Promise<{
+    content: Array<{ type: 'text'; text: string }>;
+    _meta?: Record<string, unknown>;
+  }>;
 }

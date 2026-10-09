@@ -1,6 +1,10 @@
 import { utils } from '@ganju/utils';
 
-import { readResourceContent, withResourceContent } from '../../utils';
+import {
+  readResourceContent,
+  untrustedResult,
+  withResourceContent
+} from '../../utils';
 
 import { ToolDefinition } from '../types';
 
@@ -61,8 +65,14 @@ export const readResource: ToolDefinition = {
       .filter(Boolean)
       .join('\n');
 
-    return {
-      content: [{ type: 'text', text: text || '(empty resource)' }]
-    };
+    if (!text) {
+      return { content: [{ type: 'text', text: '(empty resource)' }] };
+    }
+    // The organization's own document, but not necessarily written by it — a
+    // crawled page, a shared Drive file. Labelled always; flagged only when it
+    // reads like instructions to the model.
+    return untrustedResult(uri, text, {
+      flag: utils.findInstructionLikeText(text).length > 0
+    });
   }
 };

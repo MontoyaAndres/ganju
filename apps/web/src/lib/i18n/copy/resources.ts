@@ -229,6 +229,13 @@ const en = {
   toastSyncFailed_one: 'Sync failed for {count} item',
   toastSyncFailed_other: 'Sync failed for {count} items',
 
+  // Shown when indexing found text that addresses the AI reading the document.
+  instructionWarningShort:
+    'Contains text that reads like instructions to an AI',
+  instructionWarningTitle: 'Text that reads like instructions to an AI',
+  instructionWarningText:
+    'Indexing found passages written to the AI reading this document rather than to a person. Assistants are told to treat documents as information, never as orders, and after reading one of these passages a sensitive action asks first. No check catches every phrasing, so if you didn’t expect this text here, review the document.',
+
   /** Passed into `packages/ui`, whose own defaults are English. */
   uiIndexing: 'Indexing',
   uiReady: 'Ready',
@@ -463,6 +470,12 @@ export const RESOURCES: Catalog<ResourcesCopy> = {
     toastImportingOnedrive_other: 'Importando {count} elementos de OneDrive',
     toastSyncFailed_one: 'Falló la sincronización de {count} elemento',
     toastSyncFailed_other: 'Falló la sincronización de {count} elementos',
+
+    instructionWarningShort:
+      'Contiene texto que parece dar instrucciones a una IA',
+    instructionWarningTitle: 'Texto que parece dar instrucciones a una IA',
+    instructionWarningText:
+      'Al indexar encontramos pasajes dirigidos a la IA que lee este documento, no a una persona. Los asistentes tratan los documentos como información, nunca como órdenes, y después de leer uno de estos pasajes piden confirmación antes de una acción sensible. Ninguna revisión detecta todas las formas de decirlo, así que si no esperabas este texto aquí, revisa el documento.',
 
     uiIndexing: 'Indexando',
     uiReady: 'Listo',

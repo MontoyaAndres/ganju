@@ -687,9 +687,12 @@ export const runChannelTurn = async (
   let totalTokensOut = 0;
   const attachments: ChannelAttachment[] = [];
   const usageEvents: UsageEvent[] = [];
-  // The tools this turn must not run without asking: those the MCP server
-  // registered as destructive, when the organization asks for confirmation.
+  // The tools the MCP server registered as destructive. This turn asks before
+  // running them when the organization confirms actions, or once a tool has
+  // brought outside content into the turn — an email or a web page may have
+  // been written to steer the model into exactly that call.
   const sensitiveToolNames = new Set<string>();
+  let readUntrusted = false;
   // How the confirmation summary names a tool: its title, else its name.
   const toolTitles = new Map<string, string>();
   // Sensitive calls the model made this turn, held for the participant's yes.
@@ -721,16 +724,14 @@ export const runChannelTurn = async (
     let llmTools: LlmToolDefinition[] = [];
     try {
       const toolsResponse = await mcp.client.listTools();
-      if (chain.requireToolConfirmation) {
-        for (const tool of toolsResponse.tools || []) {
-          if (utils.isSensitiveTool(tool.annotations)) {
-            sensitiveToolNames.add(tool.name);
-          }
-          toolTitles.set(
-            tool.name,
-            tool.title || tool.annotations?.title || tool.name
-          );
+      for (const tool of toolsResponse.tools || []) {
+        if (utils.isSensitiveTool(tool.annotations)) {
+          sensitiveToolNames.add(tool.name);
         }
+        toolTitles.set(
+          tool.name,
+          tool.title || tool.annotations?.title || tool.name
+        );
       }
       llmTools = (toolsResponse.tools || []).map(tool => ({
         name: tool.name,
@@ -865,9 +866,10 @@ export const runChannelTurn = async (
         content: '',
         toolCalls: confirmedCalls
       });
-      outcomes.forEach(({ text, usageEvent, attachment }, i) => {
+      outcomes.forEach(({ text, usageEvent, attachment, untrusted }, i) => {
         usageEvents.push(usageEvent);
         if (attachment) attachments.push(attachment);
+        if (untrusted) readUntrusted = true;
         messages.push({
           role: utils.constants.ROLE_MESSAGE_TOOL,
           content: text,
@@ -899,8 +901,11 @@ export const runChannelTurn = async (
     // Models that ask before acting on their own (Claude does) would
     // otherwise ask once in their words, then again through the runner once
     // the call is made — two questions for one action.
-    if (sensitiveToolNames.size > 0) {
+    if (chain.requireToolConfirmation && sensitiveToolNames.size > 0) {
       contextParts.push(utils.constants.TOOL_CONFIRMATION_SYSTEM_NOTE);
+    }
+    if (llmTools.length > 0) {
+      contextParts.push(utils.UNTRUSTED_CONTENT_NOTE);
     }
     const systemPrompt = [contextParts.join(' '), llmRow.systemPrompt]
       .filter(Boolean)
@@ -957,7 +962,9 @@ export const runChannelTurn = async (
       // usual. A call repeated within the step is held once — confirming it
       // must not run it twice.
       const stepCalls = completion.assistant.toolCalls;
-      const isHeld = (call: LlmToolCall) => sensitiveToolNames.has(call.name);
+      const isHeld = (call: LlmToolCall) =>
+        sensitiveToolNames.has(call.name) &&
+        (chain.requireToolConfirmation || readUntrusted);
       for (const call of stepCalls.filter(isHeld)) {
         const signature = callSignature(call);
         if (!heldCalls.some(held => callSignature(held) === signature)) {
@@ -975,6 +982,7 @@ export const runChannelTurn = async (
         if (outcome) {
           usageEvents.push(outcome.usageEvent);
           if (outcome.attachment) attachments.push(outcome.attachment);
+          if (outcome.untrusted) readUntrusted = true;
         }
         messages.push({
           role: utils.constants.ROLE_MESSAGE_TOOL,
@@ -1595,6 +1603,9 @@ type ToolCallOutcome = {
   text: string;
   usageEvent: UsageEvent;
   attachment?: ChannelAttachment;
+  // The result brought outside content into the turn (see
+  // utils.isUntrustedToolResult).
+  untrusted?: boolean;
 };
 
 const executeToolCall = async (
@@ -1661,9 +1672,15 @@ const executeToolCall = async (
             : '[non-text content omitted]'
         )
         .join('\n');
-      result = {
-        content: [{ type: 'text', text: text || '(empty resource)' }]
-      };
+      // The remote's text, labelled and flagged like a proxied tool's answer.
+      result = text
+        ? {
+            content: [
+              { type: 'text', text: utils.wrapUntrustedContent(uri, text) }
+            ],
+            _meta: { [utils.UNTRUSTED_CONTENT_META_KEY]: true }
+          }
+        : { content: [{ type: 'text', text: '(empty resource)' }] };
     } else if (
       call.name === utils.constants.RESOURCE_TOOL_KEY_SEND_RESOURCE &&
       uri &&
@@ -1721,6 +1738,7 @@ const executeToolCall = async (
     return {
       text,
       attachment,
+      untrusted: utils.isUntrustedToolResult(result),
       usageEvent: {
         kind,
         toolName: call.name,

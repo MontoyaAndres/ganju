@@ -1,5 +1,6 @@
 import { utils } from '@ganju/utils';
 
+import { untrustedResult } from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 
 const TAVILY_API_BASE = utils.constants.TAVILY_API_BASE;
@@ -215,7 +216,8 @@ export const webSearch: ToolDefinition = {
     const answerBlock = data.answer?.trim()
       ? `Answer: ${data.answer.trim()}\n\n`
       : '';
-    return text(
+    return untrustedResult(
+      'web-search',
       `${answerBlock}Found ${results.length} result(s) for "${query}":\n\n${lines.join(
         '\n\n'
       )}`
@@ -293,6 +295,6 @@ export const webExtract: ToolDefinition = {
       blocks.push(`## Failed to extract\n\n${failedLines}`);
     }
 
-    return text(blocks.join('\n\n---\n\n'));
+    return untrustedResult('web-extract', blocks.join('\n\n---\n\n'));
   }
 };

@@ -817,6 +817,12 @@ const MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION =
   "Leave out on the first call. This action needs the user's yes: the " +
   'first call returns a token; after the user says yes, call again with the ' +
   'same arguments and that token here.';
+// The same argument where only some calls ask: those made after the session
+// read outside content.
+const MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION_CONDITIONAL =
+  "Leave out on the first call. If this action needs the user's yes, the " +
+  'first call returns a token instead of running; after the user says yes, ' +
+  'call again with the same arguments and that token here.';
 // The question when the model wrote none, above the runner's own summary.
 const TOOL_CONFIRMATION_FALLBACK_QUESTION =
   'Before I do this, please confirm. Reply yes to go ahead, or no to cancel.';
@@ -2703,6 +2709,7 @@ export const constants = {
   MCP_TOOL_CONFIRMATION_TTL_MS,
   MCP_TOOL_CONFIRMATION_ARG,
   MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION,
+  MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION_CONDITIONAL,
   CHANNEL_DEBOUNCE_DEFAULT_MS,
   CHANNEL_DEBOUNCE_MIN_MS,
   CHANNEL_DEBOUNCE_MAX_MS,

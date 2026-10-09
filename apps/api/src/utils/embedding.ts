@@ -1,8 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 import { db, utils as dbUtils } from '@ganju/db';
 import { utils } from '@ganju/utils';
-import type { EnvSource, ExtractedDocument } from '@ganju/utils';
-import { eq, sql } from 'drizzle-orm';
+import type {
+  EnvSource,
+  ExtractedDocument,
+  InstructionWarning
+} from '@ganju/utils';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { Bindings } from '../types';
 
@@ -160,6 +164,39 @@ export const reindexResourceChunks = async (
       }
     }
   }
+
+  // Text that reads like instructions to a model is flagged on the resource
+  // for the Resources page, and cleared when a new version reads clean. Merged
+  // in SQL so a sync writing its own keys at the same time keeps them.
+  const passages = utils.findInstructionLikeText(
+    prepared.length > 0
+      ? prepared.map(p => p.content).join('\n')
+      : (resource.content ?? '')
+  );
+  const warningKey = utils.INSTRUCTION_WARNING_METADATA_KEY;
+  const metadataColumn = db.schema.artifactResource.metadata;
+  const withoutWarning = sql`(coalesce(${metadataColumn}::jsonb, '{}'::jsonb) - ${warningKey}::text)`;
+  const warning: InstructionWarning = {
+    passages,
+    checkedAt: new Date().toISOString()
+  };
+  await dbInstance
+    .update(db.schema.artifactResource)
+    .set({
+      metadata:
+        passages.length > 0
+          ? sql`(${withoutWarning} || jsonb_build_object(${warningKey}::text, ${JSON.stringify(warning)}::jsonb))::json`
+          : sql`${withoutWarning}::json`
+    })
+    .where(
+      passages.length > 0
+        ? eq(db.schema.artifactResource.id, resource.id)
+        : // Nothing to clear on a resource that was never flagged.
+          and(
+            eq(db.schema.artifactResource.id, resource.id),
+            sql`(${metadataColumn}::jsonb -> ${warningKey}::text) is not null`
+          )
+    );
 
   // Apply the net delta to the artifact total, clamped at zero so transient
   // drift can never make it negative.

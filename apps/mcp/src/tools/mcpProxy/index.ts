@@ -6,7 +6,10 @@ import {
 } from '../../utils/remoteMcpClient';
 import { ToolDefinition } from '../types';
 
-type ToolResult = { content: Array<{ type: 'text'; text: string }> };
+type ToolResult = {
+  content: Array<{ type: 'text'; text: string }>;
+  _meta?: Record<string, unknown>;
+};
 
 const text = (value: string): ToolResult => ({
   content: [{ type: 'text', text: value }]
@@ -101,6 +104,20 @@ const flattenContent = (content: unknown): string => {
 // whole payload fits in one response; for a larger payload, flatten the blocks
 // to a single (untruncated) text block, since the SDK can't stream multiple
 // large typed blocks back in one tool result. Either way nothing is dropped.
+// Whatever the remote answers was written by someone else — the remote
+// server, or whoever wrote the issue, page or row it read. Every text block is
+// labelled as such, and the result flagged, so a sensitive call made after it
+// asks first. Images and other blocks pass through as they are.
+const labelRemoteResult = (shaped: ToolResult, source: string): ToolResult => ({
+  ...shaped,
+  content: shaped.content.map(block =>
+    block.type === 'text' && typeof block.text === 'string'
+      ? { ...block, text: utils.wrapUntrustedContent(source, block.text) }
+      : block
+  ),
+  _meta: { [utils.UNTRUSTED_CONTENT_META_KEY]: true }
+});
+
 const shapeRemoteResult = (result: RemoteToolResult): ToolResult => {
   const content = Array.isArray(result.content) ? result.content : [];
   const serialized = JSON.stringify({
@@ -179,7 +196,10 @@ export const executeMcpProxyCall = async (
       name: remoteToolName,
       arguments: args
     })) as RemoteToolResult;
-    return shapeRemoteResult(result);
+    return labelRemoteResult(
+      shapeRemoteResult(result),
+      `${config.prefix || 'mcp'}/${remoteToolName}`
+    );
   } catch (error) {
     return text(
       `Error: remote tool call failed — ${

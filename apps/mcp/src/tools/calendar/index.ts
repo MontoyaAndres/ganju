@@ -1,5 +1,6 @@
 import { utils } from '@ganju/utils';
 
+import { untrustedResult } from '../../utils';
 import { ToolContext, ToolDefinition } from '../types';
 import {
   resolveEffectiveTimeZone,
@@ -457,7 +458,8 @@ export const listEvents: ToolDefinition = {
       const loc = ev.location ? ` @ ${ev.location}` : '';
       return `- ${ev.summary || '(no title)'} | ${formatEventWhen(ev.start)} → ${formatEventWhen(ev.end)}${loc} | ID: ${ev.id}`;
     });
-    return text(
+    return untrustedResult(
+      'calendar-list-events',
       `Found ${events.length} event(s) on ${calendarId}:\n\n${lines.join('\n')}`
     );
   }

@@ -32,7 +32,8 @@ import {
   TextSnippetOutlined,
   InsertDriveFileOutlined,
   AudiotrackOutlined,
-  VideoFileOutlined
+  VideoFileOutlined,
+  WarningAmberOutlined
 } from '@mui/icons-material';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -123,6 +124,20 @@ const isOneDriveResource = (resource: {
   }
   const meta = resource.metadata as { oneDriveItemId?: string } | null;
   return !!meta?.oneDriveItemId;
+};
+
+// What indexing found in the document that reads like instructions to an AI,
+// or null when it read clean.
+const getInstructionWarning = (resource: {
+  metadata: Record<string, unknown> | null;
+}): string[] | null => {
+  const warning = resource.metadata?.[
+    utils.INSTRUCTION_WARNING_METADATA_KEY
+  ] as { passages?: unknown } | undefined;
+  const passages = Array.isArray(warning?.passages)
+    ? warning.passages.filter((p): p is string => typeof p === 'string')
+    : [];
+  return passages.length > 0 ? passages : null;
 };
 
 const ResourceFavicon = ({ favicon }: { favicon: string | null }) => {
@@ -2002,12 +2017,20 @@ export const Resources = ({ plan }: ResourcesProps) => {
           <div className="resource-item-top">
             <div className="resource-item-top-between">
               <p className="resource-item-title">{resource.title}</p>
-              <UI.Status
-                status={resource.status}
-                pendingLabel={t('uiIndexing')}
-                completedLabel={t('uiReady')}
-                failedLabel={t('uiFailed')}
-              />
+              <span className="resource-item-flags">
+                {getInstructionWarning(resource) && (
+                  <WarningAmberOutlined
+                    className="resource-item-warning"
+                    titleAccess={t('instructionWarningShort')}
+                  />
+                )}
+                <UI.Status
+                  status={resource.status}
+                  pendingLabel={t('uiIndexing')}
+                  completedLabel={t('uiReady')}
+                  failedLabel={t('uiFailed')}
+                />
+              </span>
             </div>
             <UI.TruncatedText
               text={isWebsite ? t('badgeWebsite') : resource.mimeType}
@@ -3105,6 +3128,24 @@ export const Resources = ({ plan }: ResourcesProps) => {
                     )}
                   </div>
                 )}
+                {(() => {
+                  const passages = getInstructionWarning(selectedResource);
+                  if (!passages) return null;
+                  return (
+                    <div className="panel-section panel-instruction-warning">
+                      <h3 className="panel-section-label">
+                        <WarningAmberOutlined />
+                        {t('instructionWarningTitle')}
+                      </h3>
+                      <p>{t('instructionWarningText')}</p>
+                      <ul>
+                        {passages.map(passage => (
+                          <li key={passage}>“{passage}”</li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
                 {selectedResource.content &&
                   (() => {
                     const text = selectedResource.content;

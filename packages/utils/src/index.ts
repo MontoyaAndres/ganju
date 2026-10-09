@@ -243,6 +243,17 @@ import type {
   ToolEffect
 } from './toolConfirmation';
 import {
+  wrapUntrustedContent,
+  unwrapUntrustedContent,
+  isUntrustedToolResult,
+  findInstructionLikeText,
+  UNTRUSTED_CONTENT_TAG,
+  UNTRUSTED_CONTENT_META_KEY,
+  UNTRUSTED_CONTENT_NOTE,
+  INSTRUCTION_WARNING_METADATA_KEY
+} from './untrustedContent';
+import type { InstructionWarning } from './untrustedContent';
+import {
   lintTools,
   TOOL_LINT_RULES,
   TOOL_LINT_MAX_TOOLS,
@@ -403,6 +414,14 @@ export const utils = {
   TOOL_EFFECTS,
   isSensitiveTool,
   stableJson,
+  wrapUntrustedContent,
+  unwrapUntrustedContent,
+  isUntrustedToolResult,
+  findInstructionLikeText,
+  UNTRUSTED_CONTENT_TAG,
+  UNTRUSTED_CONTENT_META_KEY,
+  UNTRUSTED_CONTENT_NOTE,
+  INSTRUCTION_WARNING_METADATA_KEY,
   lintTools,
   TOOL_LINT_RULES,
   TOOL_LINT_MAX_TOOLS,
@@ -429,6 +448,7 @@ export const utils = {
 };
 
 export type {
+  InstructionWarning,
   MintedAccessToken,
   CustomCodeProject,
   ProjectPathIssue,

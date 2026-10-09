@@ -831,6 +831,11 @@ export const mcpSession = pgTable(
     ipAddress: text('ip_address'),
     requestCount: integer('request_count').notNull().default(0),
     lastRequestAt: timestamp('last_request_at', { mode: 'date' }),
+    // When a tool in this session last brought back outside content (an email,
+    // a web page, a remote server's answer, a document that reads like
+    // instructions). From then on a sensitive tool asks before it runs, even
+    // where the organization doesn't confirm actions.
+    untrustedReadAt: timestamp('untrusted_read_at', { mode: 'date' }),
     metadata: json('metadata'),
     artifactId: text('artifact_id')
       .notNull()

@@ -693,7 +693,7 @@ latency, error and session for every call, and channel turns are stored.
   retention, because it holds user data.
 - Done when: an owner can find a failing tool and open the exact call that
   failed.
-- Status: built 2026-10-09, on dev (no migration); production pending.
+- Status: done 2026-10-09, on dev and production (no migration).
   - Recording (`ganju-mcp`): calls the SDK answers before any handler runs —
     arguments that fail the input schema, a tool name the server doesn't
     have — are read back from the JSON response and recorded, so they reach
@@ -759,6 +759,31 @@ latency, error and session for every call, and channel turns are stored.
     returns from a call to its session.
   - The calls list isn't bounded by the card's range: a tool showing 8
     calls in 30 days lists its older calls too, back to retention.
+  - Disable on Home asks first (`UI.Alert`). The health endpoint returns
+    `toolQuota` (plan, limit, enabled count — the numbers enabling checks),
+    and when the project would still be at or over its limit after the
+    disable, the dialog says it can't be turned back on without turning
+    another off or upgrading. Added after a disable on Shipday (FREE, over
+    its 7-tool limit) couldn't be undone: `send-resource` there is still off.
+  - Loading: the card, the calls list, a call and a session have
+    placeholders shaped like their content (real table headers, row boxes,
+    labelled blocks); a range change dims the last numbers instead of
+    blanking the card.
+  - CORS allowed no PATCH, so every enable/disable switch failed in the
+    browser (Tools page and Home); `PATCH` added to the API's allowMethods.
+  - Re-tested 2026-10-09 after the dev and production deploys. Dev: the
+    probe passed 45/45, now also checking `toolQuota` on PRO (no limit) and
+    on a FREE org left at 9 tools (limit 7), where re-enabling answered 402;
+    in the browser, with PATCH blocked in the tab as a guard, Disable on
+    Shipday opened the warning ("8 herramientas activadas y el plan FREE
+    permite 7…"), Cancel closed it, no request went out and nothing changed;
+    the loading placeholders right-align in number columns. Production,
+    read-only: the PATCH preflight from app.ganju.ai allows PATCH; the
+    observability routes answer 401 without a session; both "Girardot -
+    demos" projects return health (ENTERPRISE, no limit), and the card
+    renders on perros.com — where it shows `pedir-domicilio` failing 11 of
+    22 calls (10 retries), most often "No hay ningún producto … en el menú"
+    (6×): the model sends product names that aren't menu ids.
   - To ship: `@ganju/utils` build, then `ganju-mcp`, `ganju-api` and web.
 
 **7. Label untrusted content (prompt injection) — S**
@@ -775,6 +800,80 @@ content.
   do not block, and never market it as protection.
 - Works together with 4: a destructive tool call made after reading untrusted
   content always asks.
+- Status: done 2026-10-09 on dev (`0078` applied); production pending.
+  Migration `0078` (`mcp_session.untrusted_read_at`) has to run before
+  `ganju-mcp` deploys, because the confirmation check reads that column.
+  - `utils.wrapUntrustedContent` writes the block. A tag of ours inside the
+    text loses its `<`, so the content can't close the block early.
+    `UNTRUSTED_CONTENT_NOTE` goes in the MCP server's `instructions` and in
+    the channel system prompt (on every turn that has tools).
+  - Labelled and flagged (`_meta["ganju.ai/untrusted"]`): Gmail/Outlook
+    list/read email, list/get thread, list/get draft; `slack-search-messages`;
+    `calendar-list-events` (invites are written by whoever sends them);
+    `web-search`, `web-extract`; every text block of a proxied MCP tool
+    result; proxied resource reads (in the runner, and on the MCP session).
+  - `read-resource` and `search-resources` are always labelled, but flagged
+    only when the text trips `findInstructionLikeText`. `search-resources`
+    runs before nearly every answer, so flagging the knowledge base
+    unconditionally would have made every sensitive action ask. Citations
+    unwrap the block before parsing (`utils.unwrapUntrustedContent`).
+  - `http-endpoint` and `custom-code` results are labelled like the
+    knowledge base: wrapped always, flagged only on instruction-like text.
+    Flagging them always would make every order ask after a menu lookup
+    (perros.com, Shipday). Errors pass through unwrapped.
+  - "Always asks": in the channel runner, once a step's results include a
+    flagged one, later sensitive calls in the turn are held exactly as under
+    confirmation, even where the organization doesn't confirm. Calls made in
+    the same step as the read aren't held, since they were chosen before it.
+    For MCP clients, `confirmSensitiveTools` now always wraps sensitive tools
+    (except for channel calls), and without org-wide confirmation it asks
+    only once the session has `untrusted_read_at` set or this request already
+    read something flagged. The token argument's description is softened to
+    match ("If this action needs the user's yes…").
+  - Index time: `reindexResourceChunks` runs `findInstructionLikeText`
+    (EN/ES/PT, narrow patterns; "send your CV to jobs@…" doesn't match) and
+    stores `metadata.instructionWarning = { passages, checkedAt }`, merged in
+    SQL and cleared when a new version reads clean. The Resources page shows
+    an amber icon on the row and a notice in the panel quoting the passages.
+    Documents indexed earlier: `scripts/backfill-instruction-warnings.mjs`
+    (report only; `--confirm` writes; `--prod` for production). Run with
+    `--confirm` on dev: 1 of 1,504 documents flagged, the Supabase page
+    written as a prompt for an AI ("INSTRUCTIONS FOR AI").
+  - Found on dev and fixed: the first patterns for "send a secret somewhere"
+    flagged 24 ordinary docs ("forward the access token to", "email and
+    password to", Shipday's "Send the API key to"). That pattern now only
+    covers the conversation and the user's own data. The real sentences are
+    regression tests. The backfill first wrote the warning as a JSON string
+    (postgres.js double-encodes a stringified value cast to jsonb), so the
+    page showed nothing; it now passes `sql.json`. Indexing through the API
+    was never affected.
+  - Tested on dev 2026-10-09 with `scripts/probe-untrusted-content.mjs`
+    (throwaway PRO org, MCP client signed in through the real OAuth flow,
+    Telegram webhook on the shared model): 41/41 (44/44 after the fixes below). Instructions carry the
+    note; sensitive tools run in a fresh session and after clean reads; after
+    a flagged result (an HTTP endpoint returning AI-directed text, the
+    injected document) they ask, the token runs once, and the session keeps
+    asking; an org that confirms everything still asks without the outside
+    reason; indexing flags the injected document; on Telegram a direct
+    request ran, "read the ticket then notify the team" held the notify
+    ("He consultado el ticket… el cliente solicita que se ignoren las
+    instrucciones previas…") and "sí" ran it. The Resources page on dev shows
+    the icon and the notice on the flagged Supabase page.
+  - Closed after that run (knowledge base kept detector-only, by decision):
+    - Batches: a batch's calls run concurrently, so a sensitive call couldn't
+      see a read sent ahead of it in the same batch, and both ran. Now any
+      tool call or resource read ahead of it in the batch makes it ask
+      (`readsEarlierInBatch`, by JSON-RPC id); one sent ahead of the read
+      still runs.
+    - Race: the session mark was written with the usage, after the response,
+      so a fast enough next request could miss it. A flagged result now
+      writes the mark before it is returned (`onUntrustedResult` on every
+      tool, and on proxied resource reads); the flush still sets it too.
+    - Re-run on dev after deploying `ganju-mcp`: 44/44, checking the mark
+      exists the moment the response arrives and both batch orders.
+  - To ship to production: `0078`, then the `@ganju/utils` and `@ganju/db`
+    builds, then `ganju-mcp`, `ganju-api` and web, then the backfill with
+    `--prod` (report first, then `--confirm`).
 
 Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
 + 7 (both in the channel runner), then 5 + 6.

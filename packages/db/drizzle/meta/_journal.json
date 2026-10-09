@@ -547,6 +547,13 @@
       "when": 1790641234115,
       "tag": "0077_tool_confirmation_use",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1791579745313,
+      "tag": "0078_session_untrusted_read",
+      "breakpoints": true
     }
   ]
 }

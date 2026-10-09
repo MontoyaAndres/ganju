@@ -18,7 +18,35 @@ export interface PendingRequest {
   artifactResourceId?: string | null;
   artifactPromptId?: string | null;
   customCodeCall?: boolean;
+  // Brought outside content into the session where the output can't say so
+  // itself (a proxied resource read). Tool results carry the flag in `_meta`.
+  untrusted?: boolean;
 }
+
+/**
+ * Whether a message sent ahead of this one in the same batch reads something:
+ * any tool call or resource read. Their results don't exist yet when this call
+ * is checked — a batch runs concurrently — so any of them counts, flagged or
+ * not.
+ */
+export const readsEarlierInBatch = (
+  messages: JsonRpcRequest[],
+  requestId: string | number | undefined
+): boolean => {
+  if (requestId === undefined) return false;
+  const index = messages.findIndex(m => m.id === requestId);
+  return messages
+    .slice(0, Math.max(index, 0))
+    .some(
+      m =>
+        m.method === utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL ||
+        m.method === utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ
+    );
+};
+
+/** Whether any of these requests brought outside content into the session. */
+export const readUntrustedContent = (requests: PendingRequest[]): boolean =>
+  requests.some(r => r.untrusted || utils.isUntrustedToolResult(r.output));
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -79,7 +107,12 @@ export const toolResultError = (result: unknown): string | null => {
         part => part?.type === 'text' && typeof part.text === 'string'
       )
     : undefined;
-  const text = typeof first?.text === 'string' ? first.text.trim() : '';
+  // A proxied tool's error arrives labelled as outside content; the record
+  // keeps the message itself.
+  const text =
+    typeof first?.text === 'string'
+      ? utils.unwrapUntrustedContent(first.text).trim()
+      : '';
   if (isError === true) return text.slice(0, 1000) || 'Tool returned an error';
   if (text.startsWith('Error:')) return text.slice(0, 1000);
   return null;
@@ -290,11 +323,13 @@ export const flushRequests = async (
     }))
   );
 
+  const now = new Date();
   await dbInstance
     .update(db.schema.mcpSession)
     .set({
       requestCount: sql`(${db.schema.mcpSession.requestCount}::int + ${requests.length})::int`,
-      lastRequestAt: new Date()
+      lastRequestAt: now,
+      ...(readUntrustedContent(requests) ? { untrustedReadAt: now } : {})
     })
     .where(eq(db.schema.mcpSession.id, sessionId));
 

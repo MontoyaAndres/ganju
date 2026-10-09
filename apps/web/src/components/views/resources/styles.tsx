@@ -527,6 +527,19 @@ export const Wrapper = styled.div<IProps>`
               justify-content: space-between;
             }
 
+            .resource-item-flags {
+              display: inline-flex;
+              gap: 6px;
+              align-items: center;
+              flex-shrink: 0;
+            }
+
+            .resource-item-warning {
+              width: 16px;
+              height: 16px;
+              color: ${theme.colors.tahitiGold};
+            }
+
             .resource-item-title {
               font-size: ${theme.fonts.base};
               font-weight: 600;
@@ -975,6 +988,37 @@ export const Wrapper = styled.div<IProps>`
                 border-radius: 4px;
                 width: fit-content;
               }
+            }
+          }
+
+          .panel-section.panel-instruction-warning {
+            padding: 12px 14px;
+            border-radius: 8px;
+            background-color: ${theme.colors.earlyDawn};
+            color: ${theme.colors.romanCoffee};
+            font-size: ${theme.fonts.sm};
+
+            .panel-section-label {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              color: ${theme.colors.romanCoffee};
+
+              > svg {
+                width: 18px;
+                height: 18px;
+                color: ${theme.colors.tahitiGold};
+              }
+            }
+
+            p {
+              margin: 0 0 8px 0;
+            }
+
+            ul {
+              margin: 0;
+              padding-left: 18px;
+              overflow-wrap: anywhere;
             }
           }
 
