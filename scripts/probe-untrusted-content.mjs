@@ -830,52 +830,187 @@ try {
   console.log(`\n  FAIL threw — ${error.stack}`);
 } finally {
   section('cleaning up');
-  await sql`delete from channel_message where conversation_id in (select id from channel_conversation where channel_id = ${channelId})`;
-  await sql`delete from channel_participant where channel_id = ${channelId}`.catch(
-    () => {}
+
+  // Every delete runs on its own, so one that fails (a foreign key a later
+  // schema adds, a table renamed) doesn't leave everything after it behind.
+  // Failures get a second pass, since a later delete may have cleared what
+  // blocked them; then whatever is still there is listed, so a --prod run
+  // never ends quietly with a throwaway organization left in production.
+  const steps = [
+    [
+      'channel messages',
+      () =>
+        sql`delete from channel_message where conversation_id in (select id from channel_conversation where channel_id = ${channelId})`
+    ],
+    [
+      'channel participants',
+      () => sql`delete from channel_participant where channel_id = ${channelId}`
+    ],
+    [
+      'channel conversations',
+      () =>
+        sql`delete from channel_conversation where channel_id = ${channelId}`
+    ],
+    ['channel', () => sql`delete from channel where id = ${channelId}`]
+  ];
+  for (const [label, id] of [
+    ['probe', artifactId],
+    ['remote', remoteArtifactId]
+  ]) {
+    steps.push(
+      [
+        `${label} mcp requests`,
+        () =>
+          sql`delete from mcp_request where session_id in (select id from mcp_session where artifact_id = ${id})`
+      ],
+      [
+        `${label} mcp sessions`,
+        () => sql`delete from mcp_session where artifact_id = ${id}`
+      ],
+      [
+        `${label} confirmation uses`,
+        () => sql`delete from tool_confirmation_use where artifact_id = ${id}`
+      ],
+      [
+        `${label} executions`,
+        () => sql`delete from artifact_execution where artifact_id = ${id}`
+      ],
+      [
+        `${label} chunks`,
+        () => sql`delete from artifact_resource_chunk where artifact_id = ${id}`
+      ],
+      [
+        `${label} resources`,
+        () => sql`delete from artifact_resource where artifact_id = ${id}`
+      ],
+      [
+        `${label} tools`,
+        () => sql`delete from artifact_tool where artifact_id = ${id}`
+      ],
+      [
+        `${label} credentials`,
+        () => sql`delete from artifact_credential where artifact_id = ${id}`
+      ],
+      [`${label} artifact`, () => sql`delete from artifact where id = ${id}`]
+    );
+  }
+  for (const [label, id] of [
+    ['probe', projectId],
+    ['remote', remoteProjectId]
+  ]) {
+    steps.push(
+      [
+        `${label} project members`,
+        () => sql`delete from project_user where project_id = ${id}`
+      ],
+      [`${label} project`, () => sql`delete from project where id = ${id}`]
+    );
+  }
+  steps.push(
+    [
+      'subscription',
+      () => sql`delete from subscription where organization_id = ${orgId}`
+    ],
+    [
+      'organization members',
+      () => sql`delete from organization_user where organization_id = ${orgId}`
+    ],
+    ['organization', () => sql`delete from organization where id = ${orgId}`]
   );
-  await sql`delete from channel_conversation where channel_id = ${channelId}`;
-  await sql`delete from channel where id = ${channelId}`;
-  await sql`delete from mcp_request where session_id in (select id from mcp_session where artifact_id = ${artifactId})`;
-  await sql`delete from mcp_session where artifact_id = ${artifactId}`;
-  await sql`delete from tool_confirmation_use where artifact_id = ${artifactId}`;
-  await sql`delete from artifact_execution where artifact_id = ${artifactId}`;
-  await sql`delete from artifact_resource_chunk where artifact_id = ${artifactId}`;
-  await sql`delete from artifact_resource where artifact_id = ${artifactId}`;
-  await sql`delete from artifact_tool where artifact_id = ${artifactId}`;
-  await sql`delete from artifact where id = ${artifactId}`;
-  await sql`delete from mcp_request where session_id in (select id from mcp_session where artifact_id = ${remoteArtifactId})`;
-  await sql`delete from mcp_session where artifact_id = ${remoteArtifactId}`;
-  await sql`delete from artifact_execution where artifact_id = ${remoteArtifactId}`;
-  await sql`delete from artifact_tool where artifact_id = ${remoteArtifactId}`;
-  await sql`delete from artifact where id = ${remoteArtifactId}`;
-  await sql`delete from project_user where project_id = ${remoteProjectId}`;
-  await sql`delete from project where id = ${remoteProjectId}`;
-  await sql`delete from artifact_credential where artifact_id = ${artifactId}`;
-  await sql`delete from project_user where project_id = ${projectId}`;
-  await sql`delete from project where id = ${projectId}`;
-  await sql`delete from subscription where organization_id = ${orgId}`;
-  await sql`delete from organization_user where organization_id = ${orgId}`;
-  await sql`delete from organization where id = ${orgId}`;
-  for (const oauthClientId of oauthClientIds) {
+  for (const clientId of oauthClientIds) {
     for (const table of [
       'oauth_access_token',
       'oauth_refresh_token',
       'oauth_consent'
     ]) {
-      await sql`delete from ${sql(table)} where client_id = ${oauthClientId}`.catch(
-        () => {}
-      );
+      steps.push([
+        `${table} ${clientId}`,
+        () => sql`delete from ${sql(table)} where client_id = ${clientId}`
+      ]);
     }
-    await sql`delete from oauth_client where client_id = ${oauthClientId}`.catch(
-      e => note(`oauth client: ${e.message}`)
+    steps.push([
+      `oauth client ${clientId}`,
+      () => sql`delete from oauth_client where client_id = ${clientId}`
+    ]);
+  }
+  steps.push(
+    ['sessions', () => sql`delete from session where user_id = ${userId}`],
+    ['user', () => sql`delete from "user" where id = ${userId}`]
+  );
+
+  const runSteps = async list => {
+    const failed = [];
+    for (const step of list) {
+      try {
+        await step[1]();
+      } catch (error) {
+        failed.push([...step, error.message]);
+      }
+    }
+    return failed;
+  };
+  let failed = await runSteps(steps);
+  if (failed.length > 0) failed = await runSteps(failed);
+  for (const [label, , message] of failed)
+    note(`could not delete ${label}: ${message}`);
+
+  // What the probe created, looked up by id. Anything found is left over.
+  const leftovers = [];
+  const remaining = async (label, query) => {
+    try {
+      const [{ n }] = await query();
+      if (n > 0) leftovers.push(`${label}: ${n}`);
+    } catch (error) {
+      leftovers.push(`${label}: could not check (${error.message})`);
+    }
+  };
+  await remaining(
+    `user ${userId}`,
+    () => sql`select count(*)::int as n from "user" where id = ${userId}`
+  );
+  await remaining(
+    `organization ${orgId}`,
+    () => sql`select count(*)::int as n from organization where id = ${orgId}`
+  );
+  await remaining(
+    'projects',
+    () =>
+      sql`select count(*)::int as n from project where id in (${projectId}, ${remoteProjectId})`
+  );
+  await remaining(
+    'artifacts',
+    () =>
+      sql`select count(*)::int as n from artifact where id in (${artifactId}, ${remoteArtifactId})`
+  );
+  await remaining(
+    `channel ${channelId}`,
+    () => sql`select count(*)::int as n from channel where id = ${channelId}`
+  );
+  await remaining(
+    'mcp sessions',
+    () =>
+      sql`select count(*)::int as n from mcp_session where artifact_id in (${artifactId}, ${remoteArtifactId})`
+  );
+  if (oauthClientIds.length > 0) {
+    await remaining(
+      'oauth clients',
+      () =>
+        sql`select count(*)::int as n from oauth_client where client_id in ${sql(oauthClientIds)}`
     );
   }
-  await sql`delete from session where user_id = ${userId}`;
-  await sql`delete from "user" where id = ${userId}`.catch(e =>
-    note(`user: ${e.message}`)
-  );
-  await sql.end();
+
+  if (leftovers.length > 0) {
+    fail++;
+    failures.push('cleanup left rows behind');
+    console.log(
+      `\n  LEFT OVER in ${isProd ? 'PRODUCTION' : 'development'} — remove by hand:`
+    );
+    for (const line of leftovers) console.log(`    - ${line}`);
+  } else {
+    console.log('  everything the probe created is gone');
+  }
+
+  await sql.end().catch(() => {});
   console.log(
     `\n${pass} passed, ${fail} failed${failures.length ? `:\n  - ${failures.join('\n  - ')}` : ''}\n`
   );

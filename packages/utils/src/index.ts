@@ -250,9 +250,16 @@ import {
   UNTRUSTED_CONTENT_TAG,
   UNTRUSTED_CONTENT_META_KEY,
   UNTRUSTED_CONTENT_NOTE,
-  INSTRUCTION_WARNING_METADATA_KEY
+  INSTRUCTION_WARNING_METADATA_KEY,
+  untrustedToolResult,
+  ownWritingToolResult,
+  labelOwnToolResult,
+  labelProxiedToolResult
 } from './untrustedContent';
-import type { InstructionWarning } from './untrustedContent';
+import type {
+  InstructionWarning,
+  LabelledToolResult
+} from './untrustedContent';
 import {
   lintTools,
   TOOL_LINT_RULES,
@@ -422,6 +429,10 @@ export const utils = {
   UNTRUSTED_CONTENT_META_KEY,
   UNTRUSTED_CONTENT_NOTE,
   INSTRUCTION_WARNING_METADATA_KEY,
+  untrustedToolResult,
+  ownWritingToolResult,
+  labelOwnToolResult,
+  labelProxiedToolResult,
   lintTools,
   TOOL_LINT_RULES,
   TOOL_LINT_MAX_TOOLS,
@@ -449,6 +460,7 @@ export const utils = {
 
 export type {
   InstructionWarning,
+  LabelledToolResult,
   MintedAccessToken,
   CustomCodeProject,
   ProjectPathIssue,

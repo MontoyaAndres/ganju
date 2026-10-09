@@ -902,18 +902,30 @@ content.
     - Dev probe 50/50. It now also checks that an HTTP endpoint with an output
       schema keeps its structured copy and is flagged from it.
     - Proxying can't be tested on dev: a Worker can't call its own hostname
-      (522). A local check runs the bundled proxy and labelling code against
-      a local MCP server, routed through a public-looking name because the
-      proxy correctly refuses loopback: 17/17. It covers a structured copy
-      folded into labelled JSON, no duplicate when the text already carries
-      it, images untouched, drafts flagged only when they quote instructions,
-      and errors left unlabelled.
+      (522). It was first checked locally against a local MCP server; those
+      cases are now unit tests (see below).
     - Found and fixed there: a remote tool returning only a structured copy
-      also got "(the tool returned no content)" beside the data. Deployed to
-      dev only; production needs `ganju-mcp` again.
-    - Production: `node scripts/probe-untrusted-content.mjs --prod` runs the
-      same probe there. It creates and removes a throwaway org in the
-      production database.
+      also got "(the tool returned no content)" beside the data. Now on dev
+      and production.
+    - Production probe (`node scripts/probe-untrusted-content.mjs --prod`):
+      50/50, the Telegram turns included. The probe creates and removes a
+      throwaway org in the production database.
+  - From the second review:
+    - The labelling of tool results moved into `@ganju/utils`
+      (`untrustedToolResult`, `ownWritingToolResult`, `labelOwnToolResult`,
+      `labelProxiedToolResult`, the last also doing the proxy's response
+      budget and its "no content" placeholder); `apps/mcp` calls them. The
+      local check's cases are unit tests in `untrustedContent.test.ts`, plus
+      the over-budget flatten and a labelled remote error: `npm test` in
+      packages/utils, 34/34.
+    - Probe cleanup: every delete runs on its own, failures get a second
+      pass, and anything the probe created that is still there is listed as
+      LEFT OVER and fails the run. Checked on dev with a copy whose user
+      delete pointed at a missing table: the rest was removed, the user was
+      reported, exit 1 (that user was then removed by hand).
+    - Dev after deploying `ganju-mcp` with the move: probe 50/50, cleanup
+      reports everything gone. Production needs `ganju-mcp` again for the
+      move; behaviour is unchanged.
   - To ship to production: `0078`, then the `@ganju/utils` and `@ganju/db`
     builds, then `ganju-mcp`, `ganju-api` and web, then the backfill with
     `--prod` (report first, then `--confirm`).

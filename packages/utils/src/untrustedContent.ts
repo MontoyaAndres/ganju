@@ -169,3 +169,172 @@ export const findInstructionLikeText = (text: string): string[] => {
   }
   return found;
 };
+
+// --- tool results -----------------------------------------------------------
+//
+// How a tool's answer is labelled before it goes back to the model. Pure, so
+// the same functions the MCP server runs are the ones the tests check.
+
+type ContentBlock = { type: string; text?: string; [key: string]: unknown };
+
+export interface LabelledToolResult {
+  content: ContentBlock[];
+  structuredContent?: unknown;
+  isError?: boolean;
+  _meta?: Record<string, unknown>;
+}
+
+const FLAG = { [UNTRUSTED_CONTENT_META_KEY]: true };
+
+const reads = (text: string): boolean =>
+  findInstructionLikeText(text).length > 0;
+
+const labelText = (block: ContentBlock, source: string): ContentBlock =>
+  block.type === 'text' && typeof block.text === 'string'
+    ? { ...block, text: wrapUntrustedContent(source, block.text) }
+    : block;
+
+/**
+ * Outside text as a tool result: wrapped, and flagged so that a sensitive call
+ * made after it asks first. `flag: false` labels without flagging — for the
+ * organization's own knowledge base, where reading a clean document shouldn't
+ * make every later action ask.
+ */
+export const untrustedToolResult = (
+  source: string,
+  text: string,
+  options: { flag?: boolean } = {}
+): {
+  content: Array<{ type: 'text'; text: string }>;
+  _meta?: Record<string, unknown>;
+} => ({
+  content: [{ type: 'text', text: wrapUntrustedContent(source, text) }],
+  ...(options.flag === false ? {} : { _meta: FLAG })
+});
+
+/**
+ * Mostly the user's own writing, but able to quote someone else's — a draft
+ * carrying the email it replies to. Labelled always, flagged only when it
+ * reads like instructions, so "show my drafts, then send that one" doesn't
+ * ask every time.
+ */
+export const ownWritingToolResult = (source: string, text: string) =>
+  untrustedToolResult(source, text, { flag: reads(text) });
+
+/**
+ * What one of the organization's own integrations (an HTTP endpoint, a custom
+ * tool) brought back. The integration is the owner's, but the data may not be
+ * — a support ticket, a product review — so its text is wrapped. Flagged only
+ * when it reads like instructions: a menu lookup before an order is the
+ * ordinary case. A declared output schema makes the structured copy required,
+ * so it stays and can't carry the label, but it is read for instructions all
+ * the same. Errors pass through as they are.
+ */
+export const labelOwnToolResult = <T extends LabelledToolResult>(
+  result: T,
+  source: string
+): T => {
+  if (result.isError) return result;
+  let flagged =
+    result.structuredContent !== undefined &&
+    reads(JSON.stringify(result.structuredContent));
+  const content = result.content.map(block => {
+    if (
+      block.type === 'text' &&
+      typeof block.text === 'string' &&
+      reads(block.text)
+    ) {
+      flagged = true;
+    }
+    return labelText(block, source);
+  });
+  return { ...result, content, ...(flagged ? { _meta: FLAG } : {}) };
+};
+
+// JSON with keys sorted at every depth, to tell whether a text block already
+// says what the structured copy says. The same rule as stableJson in
+// toolConfirmation.ts, repeated so this module keeps importing nothing.
+const sortedJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(sortedJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map(
+        key =>
+          `${JSON.stringify(key)}:${sortedJson((value as Record<string, unknown>)[key])}`
+      )
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
+
+// Text parts pass through; anything else (image, audio, resource) is
+// stringified so the model still sees it. Never truncated.
+const flattenContent = (content: unknown[]): string =>
+  content
+    .map(item => {
+      const text = (item as { text?: unknown } | null)?.text;
+      return typeof text === 'string' ? text : JSON.stringify(item);
+    })
+    .join('\n');
+
+/**
+ * A remote MCP server's tool result, as it goes back through the proxy.
+ *
+ * Within `maxBytes` the blocks are kept as they are; past it they are
+ * flattened to one text block, since the SDK can't return several large
+ * blocks in one result. Whatever the remote answers was written by someone
+ * else, so every text block is labelled and the result is always flagged.
+ * Images and other blocks pass through.
+ *
+ * A structured copy can't carry the label, and some clients hand the model
+ * that copy instead of the text. Proxied tools register no output schema, so
+ * the copy is optional: it is folded into the labelled text (as JSON, unless a
+ * text block already says exactly that) and dropped. A copy alone counts as
+ * content — "(the tool returned no content)" is only for a result that has
+ * neither.
+ */
+export const labelProxiedToolResult = (
+  raw: { content?: unknown; structuredContent?: unknown; isError?: boolean },
+  source: string,
+  maxBytes: number
+): LabelledToolResult => {
+  const content = (
+    Array.isArray(raw.content) ? raw.content : []
+  ) as ContentBlock[];
+  const structured = raw.structuredContent;
+  const withinBudget =
+    new TextEncoder().encode(
+      JSON.stringify({ content, structuredContent: structured })
+    ).byteLength <= maxBytes;
+
+  let blocks: ContentBlock[];
+  if (!withinBudget) {
+    blocks = [{ type: 'text', text: flattenContent(content) }];
+  } else if (content.length === 0 && structured === undefined) {
+    blocks = [{ type: 'text', text: '(the tool returned no content)' }];
+  } else {
+    blocks = [...content];
+    if (structured !== undefined) {
+      const json = sortedJson(structured);
+      const alreadyThere = blocks.some(block => {
+        if (block.type !== 'text' || typeof block.text !== 'string')
+          return false;
+        try {
+          return sortedJson(JSON.parse(block.text)) === json;
+        } catch {
+          return false;
+        }
+      });
+      if (!alreadyThere) {
+        blocks.push({ type: 'text', text: JSON.stringify(structured) });
+      }
+    }
+  }
+
+  return {
+    content: blocks.map(block => labelText(block, source)),
+    ...(raw.isError ? { isError: true } : {}),
+    _meta: FLAG
+  };
+};

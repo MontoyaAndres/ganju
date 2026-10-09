@@ -79,103 +79,6 @@ type RemoteToolResult = {
   isError?: boolean;
 };
 
-// Flatten an MCP tool-call result's content array to a single string. Text
-// parts pass through; non-text parts (image/audio/resource) are JSON-stringified
-// so the model still sees something actionable. Returned in full — never
-// truncated — so nothing is silently dropped from the forwarded result.
-const flattenContent = (content: unknown): string => {
-  if (!Array.isArray(content)) {
-    return typeof content === 'string'
-      ? content
-      : JSON.stringify(content ?? null);
-  }
-  const parts = content.map(item => {
-    if (item && typeof item === 'object' && 'text' in item) {
-      const t = (item as { text?: unknown }).text;
-      if (typeof t === 'string') return t;
-    }
-    return JSON.stringify(item);
-  });
-  return parts.join('\n');
-};
-
-// Forward the remote result with as little loss as possible: preserve the
-// content blocks verbatim (text/image/resource) AND structuredContent when the
-// whole payload fits in one response; for a larger payload, flatten the blocks
-// to a single (untruncated) text block, since the SDK can't stream multiple
-// large typed blocks back in one tool result. Either way nothing is dropped.
-// Whatever the remote answers was written by someone else — the remote
-// server, or whoever wrote the issue, page or row it read. Every text block is
-// labelled as such, and the result flagged, so a sensitive call made after it
-// asks first. Images and other blocks pass through as they are.
-//
-// A structured copy can't carry the label, and some clients hand the model
-// that copy instead of the text. Proxied tools register no output schema, so
-// the copy is optional here: it is folded into the labelled text (as JSON,
-// unless a text block already says exactly that) and dropped.
-const labelRemoteResult = (shaped: ToolResult, source: string): ToolResult => {
-  const { structuredContent, ...rest } = shaped as ToolResult & {
-    structuredContent?: unknown;
-  };
-  const blocks = [...rest.content];
-  if (structuredContent !== undefined) {
-    const json = utils.stableJson(structuredContent);
-    const alreadyThere = blocks.some(block => {
-      if (block.type !== 'text' || typeof block.text !== 'string') return false;
-      try {
-        return utils.stableJson(JSON.parse(block.text)) === json;
-      } catch {
-        return false;
-      }
-    });
-    if (!alreadyThere) {
-      blocks.push({ type: 'text', text: JSON.stringify(structuredContent) });
-    }
-  }
-  return {
-    ...rest,
-    content: blocks.map(block =>
-      block.type === 'text' && typeof block.text === 'string'
-        ? { ...block, text: utils.wrapUntrustedContent(source, block.text) }
-        : block
-    ),
-    _meta: { [utils.UNTRUSTED_CONTENT_META_KEY]: true }
-  };
-};
-
-const shapeRemoteResult = (result: RemoteToolResult): ToolResult => {
-  const content = Array.isArray(result.content) ? result.content : [];
-  const serialized = JSON.stringify({
-    content,
-    structuredContent: result.structuredContent
-  });
-  const withinBudget =
-    new TextEncoder().encode(serialized).byteLength <=
-    utils.constants.MCP_PROXY_MAX_RESPONSE_BYTES;
-
-  if (withinBudget) {
-    const shaped = {
-      // A structured copy alone is content: labelRemoteResult turns it into
-      // text, and "no content" beside it would contradict it.
-      content: (content.length || result.structuredContent !== undefined
-        ? content
-        : [
-            { type: 'text', text: '(the tool returned no content)' }
-          ]) as ToolResult['content'],
-      ...(result.structuredContent !== undefined
-        ? { structuredContent: result.structuredContent }
-        : {}),
-      ...(result.isError ? { isError: true } : {})
-    };
-    return shaped as ToolResult;
-  }
-
-  return {
-    content: [{ type: 'text', text: flattenContent(content) }],
-    ...(result.isError ? { isError: true } : {})
-  } as ToolResult;
-};
-
 /**
  * Forward one tool call to the remote MCP server. Opens a fresh connection
  * (the MCP worker is stateless per request), calls the remote tool, and returns
@@ -223,10 +126,13 @@ export const executeMcpProxyCall = async (
       name: remoteToolName,
       arguments: args
     })) as RemoteToolResult;
-    return labelRemoteResult(
-      shapeRemoteResult(result),
-      `${config.prefix || 'mcp'}/${remoteToolName}`
-    );
+    // Shaped to the response budget, every text block labelled, the
+    // structured copy folded into the text, and flagged.
+    return utils.labelProxiedToolResult(
+      result,
+      `${config.prefix || 'mcp'}/${remoteToolName}`,
+      utils.constants.MCP_PROXY_MAX_RESPONSE_BYTES
+    ) as ToolResult;
   } catch (error) {
     return text(
       `Error: remote tool call failed — ${
