@@ -85,6 +85,8 @@ const en = {
     "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance.",
   toolCallsHint:
     'Only tools you wrote in code count here — calls to the integrations we ship, and to remote MCP servers, are included in your plan.',
+  usageVoiceNotes:
+    'Voice notes this period: {count} (about {minutes} min). Transcribing them is included — only the reply counts as a message.',
   toastCheckoutSuccess: 'Subscription active — welcome to Pro!',
   toastCheckoutCancelled: 'Checkout cancelled.',
   toastBillingFailed: 'Could not open billing. Try again.',
@@ -373,6 +375,8 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Aquí solo cuentan las respuestas de tu asistente. Los mensajes que te envían son gratis y no consumen tu cupo.',
     toolCallsHint:
       'Aquí solo cuentan las funciones que escribiste en código — las llamadas a las integraciones que incluimos, y a servidores MCP remotos, van incluidas en tu plan.',
+    usageVoiceNotes:
+      'Notas de voz este periodo: {count} (unos {minutes} min). Transcribirlas va incluido; solo la respuesta cuenta como mensaje.',
     toastCheckoutSuccess: 'Suscripción activa — ¡bienvenido a Pro!',
     toastCheckoutCancelled: 'Cancelaste el pago.',
     toastBillingFailed: 'No pudimos abrir la facturación. Inténtalo de nuevo.',

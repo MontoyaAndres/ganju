@@ -5,6 +5,7 @@ import { requestedMcpAudience } from './oauthResource';
 import { oauthState } from './oauthState';
 import { providers } from './providers';
 import { getLlmAdapter } from './llm';
+import { transcribeVoiceNote, transcribeWith } from './llm/transcribe';
 import { createMcpClient } from './mcpClient';
 import {
   generateEmbedding,
@@ -113,6 +114,8 @@ export {
   oauthState,
   providers,
   getLlmAdapter,
+  transcribeVoiceNote,
+  transcribeWith,
   createMcpClient,
   generateEmbedding,
   generateEmbeddings,
@@ -169,6 +172,7 @@ export {
 };
 
 export type { McpClientHandle } from './mcpClient';
+export type { Transcriber, Transcription } from './llm/transcribe';
 export type { Auth } from './better-auth';
 export type { ConsentActor, ConsentStatus } from './consent';
 export type { RetentionResult } from './retention';

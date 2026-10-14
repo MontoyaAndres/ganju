@@ -16,7 +16,7 @@ It runs almost entirely on the **Cloudflare** developer platform (Workers, Queue
   - **`http-endpoint`** — expose your own HTTP API as a tool.
   - **`mcp-proxy`** — connect a vendor's official MCP server (Notion, GitHub, …) and re-expose its tools.
 - **Tools you write yourself** — when the catalog doesn't cover a case, write a tool in JavaScript and it runs on Workers for Platforms, with connected accounts, resource access and file-sending handed to it as host capabilities so your code never holds a refresh token. Author it in the dashboard's editor or from the [`ganju` CLI](packages/cli), test it against real connections before publishing, and roll back by moving a pointer. See the [Functions docs](https://ganju.ai/docs/tools/functions/) and the [examples](examples/).
-- **Chat-channel bots** — the same artifact can drive Telegram / Slack / WhatsApp / Discord bots through an LLM tool-calling loop (Gemini, Claude, or OpenAI).
+- **Chat-channel bots** — the same artifact can drive Telegram / Slack / WhatsApp / Discord bots through an LLM tool-calling loop (Gemini, Claude, or OpenAI). They answer voice notes as well as text, can remember each customer between conversations, and cap replies per customer per day.
 - **Multi-tenant** — organizations → projects → artifacts, with invitations and roles.
 - **Audit & usage trails** — every MCP request, tool call, and channel message is recorded.
 

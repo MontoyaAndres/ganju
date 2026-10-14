@@ -8,6 +8,7 @@ import type {
   ChannelBufferEnvelope
 } from '@ganju/utils';
 import type { AppEnv } from '../../types';
+import type { RunUserMessage } from './runner';
 
 // The webhook side of message debouncing. Each platform handler decides what a
 // message *is* (mentions stripped, bot posts ignored, slash commands resolved)
@@ -127,8 +128,9 @@ export const claimBufferedBatch = async (
 // A buffered batch as the runner wants it.
 export const toRunUserMessages = (
   messages: BufferedChannelMessage[]
-): Array<{ text: string; externalMessageId: string | null }> =>
+): RunUserMessage[] =>
   messages.map(message => ({
     text: message.text,
-    externalMessageId: message.externalMessageId
+    externalMessageId: message.externalMessageId,
+    voice: message.voice ?? null
   }));

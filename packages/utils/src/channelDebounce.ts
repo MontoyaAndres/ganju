@@ -24,6 +24,23 @@ export interface BufferedChannelMessage {
   // on the message because the envelope is replaced by every newer push, and a
   // plain message typed a moment later must not orphan the interaction.
   reply?: Record<string, unknown> | null;
+  // A voice note, held as the platform's media reference with empty `text`.
+  // It is downloaded and transcribed when the batch flushes — the webhook has
+  // to answer the platform in seconds, and the flush has no such clock.
+  voice?: BufferedVoiceNote | null;
+}
+
+// Where the audio is, the platform's way: a WhatsApp media id, a Telegram
+// file_id, a Slack file's private URL, a Discord attachment URL.
+export interface BufferedVoiceNote {
+  ref: string;
+  mimeType: string | null;
+  // Bytes, when the platform says up front — a note too large is refused
+  // without downloading it.
+  size?: number | null;
+  // Seconds, when the platform says (Telegram, Discord, Slack); WhatsApp
+  // doesn't, so its notes are measured from the file.
+  durationSeconds?: number | null;
 }
 
 // A resolved slash-command prompt, carried with the message that invoked it so

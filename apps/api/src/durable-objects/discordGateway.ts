@@ -36,7 +36,42 @@ interface DiscordMessage {
   author?: DiscordAuthor;
   mentions?: Array<{ id: string }>;
   type?: number;
+  flags?: number;
+  attachments?: Array<{
+    url?: string;
+    content_type?: string;
+    size?: number;
+    duration_secs?: number;
+  }>;
 }
+
+// Discord's IS_VOICE_MESSAGE message flag.
+const VOICE_MESSAGE_FLAG = 1 << 13;
+
+// A voice message, or audio attached to a message — the worker transcribes it.
+const messageVoice = (
+  message: DiscordMessage
+): {
+  url: string;
+  contentType: string | null;
+  size: number | null;
+  durationSeconds: number | null;
+} | null => {
+  const attachment = (message.attachments || []).find(
+    a =>
+      a.url &&
+      ((message.flags ?? 0) & VOICE_MESSAGE_FLAG ||
+        a.content_type?.startsWith('audio/'))
+  );
+  return attachment?.url
+    ? {
+        url: attachment.url,
+        contentType: attachment.content_type || null,
+        size: attachment.size ?? null,
+        durationSeconds: attachment.duration_secs ?? null
+      }
+    : null;
+};
 
 export class DiscordGatewayDO extends DurableObject<Bindings> {
   private ws: WebSocket | null = null;
@@ -318,6 +353,7 @@ export class DiscordGatewayDO extends DurableObject<Bindings> {
         guildId: message.guild_id || null,
         isDm,
         content: message.content || '',
+        voice: messageVoice(message),
         botUserId: this.botUserId,
         author: {
           id: author.id,

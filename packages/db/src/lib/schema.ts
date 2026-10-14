@@ -387,6 +387,14 @@ export const subscription = pgTable(
     messageCount: integer('message_count').notNull().default(0),
     sharedMessageCount: integer('shared_message_count').notNull().default(0),
     toolCallCount: integer('tool_call_count').notNull().default(0),
+    // Voice notes transcribed this period, the seconds of audio among them
+    // (where the length was known), and how many ran on our key rather than
+    // the organization's. Tracked, not billed: the turn a note feeds is.
+    voiceNoteCount: integer('voice_note_count').notNull().default(0),
+    voiceNoteSeconds: integer('voice_note_seconds').notNull().default(0),
+    voiceNotePlatformCount: integer('voice_note_platform_count')
+      .notNull()
+      .default(0),
     messagePeriodStart: timestamp('message_period_start', { mode: 'date' }),
     reportedMessageOverage: integer('reported_message_overage')
       .notNull()
@@ -446,6 +454,11 @@ export const usagePeriod = pgTable(
     messageCount: integer('message_count').notNull().default(0),
     sharedMessageCount: integer('shared_message_count').notNull().default(0),
     toolCallCount: integer('tool_call_count').notNull().default(0),
+    voiceNoteCount: integer('voice_note_count').notNull().default(0),
+    voiceNoteSeconds: integer('voice_note_seconds').notNull().default(0),
+    voiceNotePlatformCount: integer('voice_note_platform_count')
+      .notNull()
+      .default(0),
     peakEmbeddedMb: bigint('peak_embedded_mb', { mode: 'number' })
       .notNull()
       .default(0),
@@ -768,6 +781,10 @@ export const channelParticipant = pgTable(
     externalUserId: text('external_user_id').notNull(),
     displayName: text('display_name'),
     metadata: json('metadata'),
+    // What the bot remembers about this customer between conversations
+    // (ParticipantMemory), when the channel has memory on. Null until the
+    // first fact is saved.
+    memory: json('memory'),
     linkedUserId: text('linked_user_id').references(() => user.id, {
       onDelete: 'set null'
     }),
@@ -813,7 +830,12 @@ export const channelMessage = pgTable(
   },
   table => [
     index('channel_message_conversationId_idx').on(table.conversationId),
-    index('channel_message_createdAt_idx').on(table.createdAt)
+    index('channel_message_createdAt_idx').on(table.createdAt),
+    // One customer's replies in the last day — the per-customer limit.
+    index('channel_message_participant_created_idx').on(
+      table.participantId,
+      table.createdAt
+    )
   ]
 );
 

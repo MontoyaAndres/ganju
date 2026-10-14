@@ -368,12 +368,19 @@ export const Wrapper = styled.div<IProps>`
 
         .panel-section {
           margin-bottom: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+
+          > button {
+            align-self: flex-start;
+          }
 
           .panel-section-label {
             font-size: ${theme.fonts.sm};
             font-weight: 600;
             color: ${theme.colors.bastille};
-            margin: 0 0 8px 0;
+            margin: 0;
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
@@ -661,6 +668,53 @@ export const Wrapper = styled.div<IProps>`
           flex-direction: column;
           gap: 10px;
 
+          .panel-memory {
+            padding: 10px 12px;
+            border: 1px solid ${theme.colors.alto};
+            border-radius: 8px;
+
+            .panel-memory-header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              margin-bottom: 6px;
+
+              .panel-section-label {
+                font-size: ${theme.fonts.xs};
+                font-weight: 600;
+                color: ${theme.colors.bastille};
+                margin: 0;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              }
+            }
+
+            .panel-memory-facts {
+              margin: 0;
+              display: grid;
+              gap: 4px;
+
+              > div {
+                display: grid;
+                grid-template-columns: minmax(80px, 30%) 1fr;
+                gap: 8px;
+                font-size: ${theme.fonts.sm};
+              }
+
+              dt {
+                color: ${theme.colors.saltBox};
+                text-transform: capitalize;
+              }
+
+              dd {
+                margin: 0;
+                color: ${theme.colors.bastille};
+                overflow-wrap: anywhere;
+              }
+            }
+          }
+
           .panel-message-bubble {
             padding: 10px 12px;
             border-radius: 10px;
@@ -687,6 +741,17 @@ export const Wrapper = styled.div<IProps>`
               text-transform: uppercase;
               letter-spacing: 0.5px;
               font-weight: 600;
+            }
+
+            .panel-message-tag {
+              display: inline-flex;
+              align-items: center;
+              gap: 3px;
+              padding: 1px 6px;
+              border: 1px solid ${theme.colors.alto};
+              border-radius: 999px;
+              text-transform: none;
+              letter-spacing: 0;
             }
 
             .panel-message-linked {

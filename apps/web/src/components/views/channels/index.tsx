@@ -21,7 +21,8 @@ import {
   InsertDriveFileOutlined,
   AudiotrackOutlined,
   VideocamOutlined,
-  OpenInNew
+  OpenInNew,
+  MicNoneOutlined
 } from '@mui/icons-material';
 
 import { Wrapper, UsageModalOverlay } from './styles';
@@ -139,10 +140,16 @@ interface Message {
   tokensOut: number | null;
   latencyMs: number | null;
   createdAt: string;
-  metadata: { sources?: Source[] } | null;
+  metadata: {
+    sources?: Source[];
+    voiceNote?: { transcribed?: boolean; skipped?: boolean; tooLong?: boolean };
+    participantLimit?: number;
+  } | null;
   participant: {
+    id: string;
     displayName: string | null;
     externalUserId: string;
+    memory: { facts?: Record<string, string> } | null;
     linkedUser: { id: string; name: string; image: string | null } | null;
   } | null;
   usages: MessageUsage[];
@@ -370,6 +377,7 @@ const SlackRequirements = ({ t }: { t: ChannelsT }) => (
           </code>
         ))}
       </div>
+      <p className="slack-requirements-hint">{t('scopesRequiredHint')}</p>
     </div>
     <div className="slack-requirements-group">
       <p className="slack-requirements-label">{t('scopesRecommended')}</p>
@@ -479,6 +487,8 @@ export const Channels = () => {
   const [editingLlmId, setEditingLlmId] = useState<string | null>(null);
   const [savingLlm, setSavingLlm] = useState(false);
   const [savingDebounce, setSavingDebounce] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [clearingMemory, setClearingMemory] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -692,46 +702,100 @@ export const Channels = () => {
     }
   };
 
+  // Save some keys of a channel's `config`. Only the changed keys are sent
+  // and the API merges them into what is stored, so two settings changed in
+  // quick succession both land; the merged config comes back and replaces
+  // the local copy.
+  const patchChannelConfig = async (
+    channelId: string,
+    patch: Record<string, unknown>
+  ): Promise<boolean> => {
+    const data = await utils.fetcher({
+      url: `${apiBase}/${channelId}`,
+      config: {
+        method: 'PUT',
+        credentials: 'include',
+        body: JSON.stringify({ configPatch: patch })
+      }
+    });
+    if (!data || data.error) {
+      throw new Error(data?.error?.message || '');
+    }
+    const config = data.config ?? null;
+    setSelectedChannel(prev =>
+      prev && prev.id === channelId ? { ...prev, config } : prev
+    );
+    setChannels(prev =>
+      prev.map(c => (c.id === channelId ? { ...c, config } : c))
+    );
+    return true;
+  };
+
   // How long the bot waits for a participant to stop typing before answering.
   // People send a thought across several messages; buffering lets one reply
-  // cover all of them. Sent as part of `config`, so the existing keys are
-  // preserved rather than replaced.
+  // cover all of them.
   const handleDebounceChange = async (channelId: string, value: string) => {
     if (savingDebounce) return;
     const debounceMs = Number(value);
     setSavingDebounce(true);
     try {
-      const nextConfig = {
-        ...(selectedChannel?.config || {}),
-        debounceMs
-      };
-      const data = await utils.fetcher({
-        url: `${apiBase}/${channelId}`,
-        config: {
-          method: 'PUT',
-          credentials: 'include',
-          body: JSON.stringify({ config: nextConfig })
-        }
-      });
-      if (data && !data.error) {
-        setSelectedChannel(prev =>
-          prev && prev.id === channelId ? { ...prev, config: nextConfig } : prev
-        );
-        setChannels(prev =>
-          prev.map(c => (c.id === channelId ? { ...c, config: nextConfig } : c))
-        );
-        snackbar.success(
-          debounceMs === utils.constants.CHANNEL_DEBOUNCE_DISABLED
-            ? t('toastReplyEveryMessage')
-            : t('toastReplyTimingUpdated')
-        );
-      } else {
-        snackbar.error(data?.error?.message || t('toastReplyTimingFailed'));
-      }
-    } catch {
-      snackbar.error(t('toastReplyTimingFailed'));
+      await patchChannelConfig(channelId, { debounceMs });
+      snackbar.success(
+        debounceMs === utils.constants.CHANNEL_DEBOUNCE_DISABLED
+          ? t('toastReplyEveryMessage')
+          : t('toastReplyTimingUpdated')
+      );
+    } catch (error: any) {
+      snackbar.error(error?.message || t('toastReplyTimingFailed'));
     } finally {
       setSavingDebounce(false);
+    }
+  };
+
+  const saveChannelConfig = async (
+    channelId: string,
+    patch: Record<string, unknown>,
+    successMessage: string
+  ) => {
+    if (savingConfig) return;
+    setSavingConfig(true);
+    try {
+      await patchChannelConfig(channelId, patch);
+      snackbar.success(successMessage);
+    } catch (error: any) {
+      snackbar.error(error?.message || t('toastChannelUpdateFailed'));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleClearMemory = async (
+    channelId: string,
+    participantId: string
+  ) => {
+    if (clearingMemory) return;
+    setClearingMemory(true);
+    try {
+      const data = await utils.fetcher({
+        url: `${apiBase}/${channelId}/participant/${participantId}/memory`,
+        config: { method: 'DELETE', credentials: 'include' }
+      });
+      if (data && !data.error) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.participant?.id === participantId
+              ? { ...m, participant: { ...m.participant, memory: null } }
+              : m
+          )
+        );
+        snackbar.success(t('toastMemoryCleared'));
+      } else {
+        snackbar.error(data?.error?.message || t('toastMemoryClearFailed'));
+      }
+    } catch {
+      snackbar.error(t('toastMemoryClearFailed'));
+    } finally {
+      setClearingMemory(false);
     }
   };
 
@@ -1655,6 +1719,67 @@ export const Channels = () => {
                 </div>
 
                 <div className="panel-section">
+                  <p className="panel-section-label">{t('participantLimit')}</p>
+                  <UI.Select
+                    label=""
+                    name="channelParticipantDailyLimit"
+                    value={String(
+                      utils.resolveParticipantDailyLimit(
+                        selectedChannel.config
+                      ) ?? utils.PARTICIPANT_DAILY_LIMIT_OFF
+                    )}
+                    disabled={savingConfig}
+                    helperText={t('participantLimitHelp')}
+                    options={[
+                      {
+                        label: t('participantLimitOff'),
+                        value: String(utils.PARTICIPANT_DAILY_LIMIT_OFF)
+                      },
+                      ...[20, 50, 100, 200].map(limit => ({
+                        label: t(
+                          limit === utils.PARTICIPANT_DAILY_LIMIT_DEFAULT
+                            ? 'participantLimitRecommended'
+                            : 'participantLimitValue',
+                          { count: limit }
+                        ),
+                        value: String(limit)
+                      }))
+                    ]}
+                    onChange={e => {
+                      const value = Number(e.target.value);
+                      saveChannelConfig(
+                        selectedChannel.id,
+                        { participantDailyLimit: value },
+                        t('toastParticipantLimitUpdated')
+                      );
+                    }}
+                  />
+                </div>
+
+                <div className="panel-section">
+                  <p className="panel-section-label">{t('memoryLabel')}</p>
+                  <div className="panel-toggle-row">
+                    <div>
+                      <p className="panel-toggle-label">{t('memoryToggle')}</p>
+                      <p className="panel-toggle-hint">{t('memoryHint')}</p>
+                    </div>
+                    <Switch
+                      checked={utils.resolveParticipantMemoryEnabled(
+                        selectedChannel.config
+                      )}
+                      disabled={savingConfig}
+                      onChange={(_, checked) =>
+                        saveChannelConfig(
+                          selectedChannel.id,
+                          { participantMemory: checked },
+                          t(checked ? 'toastMemoryOn' : 'toastMemoryOff')
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="panel-section">
                   <p className="panel-section-label">{t('activity')}</p>
                   <div className="panel-stats">
                     <div className="panel-stat">
@@ -1752,6 +1877,51 @@ export const Channels = () => {
                 {messagesStatus !== 'pending' && messages.length === 0 && (
                   <p className="panel-empty">{t('threadEmpty')}</p>
                 )}
+                {(() => {
+                  // What the bot remembers about the customer in this
+                  // conversation, with a way to forget it.
+                  const participant = messages.find(
+                    m =>
+                      m.role === utils.constants.ROLE_MESSAGE_USER &&
+                      m.participant
+                  )?.participant;
+                  const facts = Object.entries(
+                    participant?.memory?.facts || {}
+                  );
+                  if (!participant || facts.length === 0) return null;
+                  return (
+                    <div className="panel-memory">
+                      <div className="panel-memory-header">
+                        <p className="panel-section-label">
+                          {t('memoryRemembered')}
+                        </p>
+                        <UI.Button
+                          size="small"
+                          variant="outlined"
+                          disabled={clearingMemory}
+                          onClick={() =>
+                            handleClearMemory(
+                              selectedChannel.id,
+                              participant.id
+                            )
+                          }
+                        >
+                          <span className="button-text">
+                            {t('memoryForget')}
+                          </span>
+                        </UI.Button>
+                      </div>
+                      <dl className="panel-memory-facts">
+                        {facts.map(([key, value]) => (
+                          <div key={key}>
+                            <dt>{key.replace(/_/g, ' ')}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  );
+                })()}
                 {[...messages].reverse().map(msg => {
                   const isUser = msg.role === utils.constants.ROLE_MESSAGE_USER;
                   const attachments = collectResourceAttachments(
@@ -1805,6 +1975,25 @@ export const Channels = () => {
                         <span>{labelFor(ROLE_KEY, msg.role, t)}</span>
                         <span>·</span>
                         <span>{t.relative(msg.createdAt)}</span>
+                        {msg.metadata?.voiceNote && (
+                          <span className="panel-message-tag">
+                            <MicNoneOutlined fontSize="inherit" />
+                            {t(
+                              msg.metadata.voiceNote.transcribed
+                                ? 'tagVoiceNote'
+                                : msg.metadata.voiceNote.tooLong
+                                  ? 'tagVoiceNoteTooLong'
+                                  : msg.metadata.voiceNote.skipped
+                                    ? 'tagVoiceNoteSkipped'
+                                    : 'tagVoiceNoteUnreadable'
+                            )}
+                          </span>
+                        )}
+                        {msg.metadata?.participantLimit != null && (
+                          <span className="panel-message-tag">
+                            {t('tagParticipantLimit')}
+                          </span>
+                        )}
                       </div>
                       {msg.content ? (
                         <UI.Markdown

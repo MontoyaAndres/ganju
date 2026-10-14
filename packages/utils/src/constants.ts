@@ -847,13 +847,15 @@ const SLACK_MAX_SOURCE_BUTTONS = 10;
 
 // The Slack app configuration Ganju needs, surfaced in the UI when connecting a
 // Slack channel. Required scopes back the runner's calls (mentions, DMs,
-// posting, file upload); recommended scopes only enrich names/titles and
-// degrade gracefully; bot events are what the webhook subscribes to.
+// posting, file upload, downloading a voice clip to transcribe it);
+// recommended scopes only enrich names/titles and degrade gracefully; bot
+// events are what the webhook subscribes to.
 const SLACK_REQUIRED_SCOPES = [
   'app_mentions:read',
   'im:history',
   'chat:write',
-  'files:write'
+  'files:write',
+  'files:read'
 ];
 const SLACK_RECOMMENDED_SCOPES = ['users:read', 'channels:read', 'groups:read'];
 const SLACK_BOT_EVENTS = ['app_mention', 'message.im'];
@@ -1520,7 +1522,9 @@ const RESERVED_TOOL_NAMES = [
   TOOL_DEFINITION_KEY_HTTP_ENDPOINT,
   TOOL_DEFINITION_KEY_MCP_PROXY,
   TOOL_DEFINITION_KEY_CUSTOM_CODE,
-  CUSTOM_CODE_HEALTH_TOOL
+  CUSTOM_CODE_HEALTH_TOOL,
+  // The channel runner's own memory tool (PARTICIPANT_MEMORY_TOOL_NAME).
+  'remember-customer'
 ];
 
 // Shared by both write paths so there is one string to translate. It has to

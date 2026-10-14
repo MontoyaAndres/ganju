@@ -364,6 +364,10 @@ MCP prompts aren't part of the agent's tool loop either, so they're exposed as T
 
 The bot's command menu is registered at channel creation ([ChannelController.create](../../../api/src/controllers/channel/index.ts)) and re-pushed on **any** change to the artifact's prompt set — artifact prompt create/update/remove, or an mcp-proxy install added/updated/removed — via [`syncTelegramCommandsForArtifact`](../../../api/src/utils/telegramCommands.ts), so autocomplete tracks the current set instead of going stale until the channel is recreated. (Invoking by typing the command works regardless; the resync is only for the autocomplete menu.)
 
+### The runner's own tool: `remember-customer`
+
+When a channel has customer memory on (`config.participantMemory`) and the conversation is private, the runner adds one tool the MCP server doesn't have: `remember-customer`, which saves, changes or forgets facts about the person writing (name, address, allergies, dates) on `channel_participant.memory`. It is handled in the runner, never sent to the MCP `Client`, and the saved facts go into the system prompt on later turns. The name is in `RESERVED_TOOL_NAMES`, so no http-endpoint or custom-code tool can take it.
+
 ### Usage records
 
 Every tool / resource / prompt invocation is written to `channel_message_usage` and shown in the dashboard's per-message usage. Two adaptations for proxied definitions, which back many MCP tools per `artifact_tool` row:

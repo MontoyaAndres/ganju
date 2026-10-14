@@ -222,6 +222,7 @@ import {
 import type {
   BufferedChannelMessage,
   BufferedChannelCommand,
+  BufferedVoiceNote,
   ChannelBufferEnvelope,
   ChannelBufferFlush
 } from './channelDebounce';
@@ -260,6 +261,37 @@ import type {
   InstructionWarning,
   LabelledToolResult
 } from './untrustedContent';
+import {
+  PARTICIPANT_DAILY_LIMIT_DEFAULT,
+  PARTICIPANT_DAILY_LIMIT_MAX,
+  PARTICIPANT_DAILY_LIMIT_OFF,
+  PARTICIPANT_DAILY_LIMIT_WINDOW_MS,
+  PARTICIPANT_LIMIT_METADATA_KEY,
+  resolveParticipantDailyLimit,
+  resolveParticipantMemoryEnabled,
+  VOICE_NOTE_MAX_BYTES,
+  VOICE_NOTE_MAX_SECONDS,
+  audioDurationSeconds,
+  oggDurationSeconds,
+  VOICE_NOTE_TRANSCRIPTION_PROMPT,
+  VOICE_NOTE_METADATA_KEY,
+  VOICE_NOTE_UNREADABLE_METADATA_KEY,
+  PARTICIPANT_MEMORY_TOOL_NAME,
+  PARTICIPANT_MEMORY_MAX_FACTS,
+  PARTICIPANT_MEMORY_TOOL_DESCRIPTION,
+  PARTICIPANT_MEMORY_TOOL_SCHEMA,
+  PARTICIPANT_MEMORY_GROUP_NOTE,
+  readParticipantMemory,
+  applyParticipantMemoryUpdate,
+  formatParticipantMemoryPrompt,
+  participantLimitNotice,
+  voiceNoteUnreadableNotice,
+  voiceNoteTooLongNotice
+} from './channelCustomer';
+import type {
+  ParticipantMemory,
+  ParticipantMemoryUpdate
+} from './channelCustomer';
 import {
   lintTools,
   TOOL_LINT_RULES,
@@ -433,6 +465,31 @@ export const utils = {
   ownWritingToolResult,
   labelOwnToolResult,
   labelProxiedToolResult,
+  PARTICIPANT_DAILY_LIMIT_DEFAULT,
+  PARTICIPANT_DAILY_LIMIT_MAX,
+  PARTICIPANT_DAILY_LIMIT_OFF,
+  PARTICIPANT_DAILY_LIMIT_WINDOW_MS,
+  PARTICIPANT_LIMIT_METADATA_KEY,
+  resolveParticipantDailyLimit,
+  resolveParticipantMemoryEnabled,
+  VOICE_NOTE_MAX_BYTES,
+  VOICE_NOTE_MAX_SECONDS,
+  audioDurationSeconds,
+  oggDurationSeconds,
+  VOICE_NOTE_TRANSCRIPTION_PROMPT,
+  VOICE_NOTE_METADATA_KEY,
+  VOICE_NOTE_UNREADABLE_METADATA_KEY,
+  PARTICIPANT_MEMORY_TOOL_NAME,
+  PARTICIPANT_MEMORY_MAX_FACTS,
+  PARTICIPANT_MEMORY_TOOL_DESCRIPTION,
+  PARTICIPANT_MEMORY_TOOL_SCHEMA,
+  PARTICIPANT_MEMORY_GROUP_NOTE,
+  readParticipantMemory,
+  applyParticipantMemoryUpdate,
+  formatParticipantMemoryPrompt,
+  participantLimitNotice,
+  voiceNoteUnreadableNotice,
+  voiceNoteTooLongNotice,
   lintTools,
   TOOL_LINT_RULES,
   TOOL_LINT_MAX_TOOLS,
@@ -459,6 +516,8 @@ export const utils = {
 };
 
 export type {
+  ParticipantMemory,
+  ParticipantMemoryUpdate,
   InstructionWarning,
   LabelledToolResult,
   MintedAccessToken,
@@ -517,6 +576,7 @@ export type {
   ToolStatusEvent,
   BufferedChannelMessage,
   BufferedChannelCommand,
+  BufferedVoiceNote,
   ChannelBufferEnvelope,
   ChannelBufferFlush,
   Source,

@@ -1,9 +1,10 @@
 import { Context } from 'hono';
-import { eq, sql, and, inArray, InferSelectModel } from 'drizzle-orm';
+import { eq, sql, and, gt, inArray, InferSelectModel } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import { collectSources, selectCitedSources } from './sources';
+import { transcribeVoiceNotes } from './voiceNotes';
 import { extractToolText } from './toolText';
 import {
   createMcpClient,
@@ -14,9 +15,16 @@ import {
   Plan
 } from '../../utils';
 
-import type { LlmMessage, LlmToolCall, LlmToolDefinition } from '../../utils';
-import type { AppEnv } from '../../types';
 import type {
+  LlmMessage,
+  LlmToolCall,
+  LlmToolDefinition,
+  Transcriber
+} from '../../utils';
+import type { AppEnv } from '../../types';
+import type { VoiceNoteDownload, VoiceNoteTranscribers } from './voiceNotes';
+import type {
+  BufferedVoiceNote,
   ChannelNotifier,
   PendingToolConfirmation,
   PendingToolConfirmations,
@@ -129,6 +137,10 @@ type UsageEvent = {
 export interface RunUserMessage {
   text: string;
   externalMessageId?: string | null;
+  // Written on this message's row only (a voice note's transcription).
+  metadata?: Record<string, unknown> | null;
+  // Audio sent with the message, transcribed by the turn when it runs.
+  voice?: BufferedVoiceNote | null;
 }
 
 interface RunOptions {
@@ -148,6 +160,13 @@ interface RunOptions {
   promptTitle?: string | null;
   promptArgs?: Record<string, string>;
   notifier?: ChannelNotifier;
+  // The participant's language, for the fixed lines the runner writes itself
+  // (the daily-limit notice). Falls back to what the participant metadata
+  // carries (Telegram's language_code, Discord's locale).
+  locale?: string | null;
+  // How this platform fetches a voice note's audio. Without it voice notes
+  // are recorded but not transcribed.
+  downloadVoiceNote?: VoiceNoteDownload;
 }
 
 interface RunResult {
@@ -165,6 +184,10 @@ interface RunResult {
   // the platform offers Yes/No buttons where it can. `answered`: this turn
   // closed such a question, so buttons left from it can go.
   confirmation: 'asked' | 'answered' | null;
+  // Send nothing: the participant is past their daily limit and has already
+  // been told. Answering every message of someone flooding the bot would
+  // cost what the limit is there to save.
+  silent?: boolean;
 }
 
 interface BotTokenApi {
@@ -267,6 +290,9 @@ export const runChannelTurn = async (
   const channelRow = chain.channel;
   const artifactRow = chain.artifact;
   const projectRow = chain.project;
+  const participantDailyLimit = utils.resolveParticipantDailyLimit(
+    channelRow.config
+  );
 
   // Everything below is independent once the FK chain is resolved, so fan the
   // reads out: the turn pays one round-trip of front-matter latency instead of
@@ -280,7 +306,8 @@ export const runChannelTurn = async (
     // Resolve the participant's link for THIS channel only (set by `/link`).
     // Per-channel scoping: a link in another channel — even by the same user —
     // does not authenticate them here.
-    linkedIdentity
+    linkedIdentity,
+    participantUsage
   ] = await Promise.all([
     resolveChannelLlm(c, dbInstance, channelRow.llmId),
     Promise.all([
@@ -329,7 +356,14 @@ export const runChannelTurn = async (
         )
       )
       .limit(1)
-      .then(rows => rows[0])
+      .then(rows => rows[0]),
+    participantDailyLimit === null
+      ? Promise.resolve(null)
+      : readParticipantUsage(
+          dbInstance,
+          channelRow.id,
+          options.externalParticipantId
+        )
   ]);
 
   const llmRow = llmConfig.row;
@@ -353,10 +387,41 @@ export const runChannelTurn = async (
     ? utils.constants.SHARED_KEY_MAX_TOOL_LOOPS
     : utils.constants.MAX_TOOL_LOOPS;
 
+  // Whether this turn reaches the model at all, decided before anything is
+  // paid for: a voice note is only transcribed for a turn that will run.
+  const overSharedHardCap =
+    onSharedKey &&
+    messageCap.sharedKeyHardCap != null &&
+    messageCap.sharedUsed >= messageCap.sharedKeyHardCap;
+  const overParticipantLimit =
+    participantDailyLimit !== null &&
+    !!participantUsage &&
+    participantUsage.replies >= participantDailyLimit;
+  const willRun =
+    messageCap.allowed && !overSharedHardCap && !overParticipantLimit;
+
+  // Voice notes become text: the transcript, after any caption sent with it.
+  const userMessages: RunUserMessage[] =
+    willRun && options.downloadVoiceNote
+      ? await transcribeVoiceNotes(
+          c,
+          channelRow,
+          options.userMessages,
+          options.downloadVoiceNote,
+          voiceNoteTranscribers(c, llmRow, apiKeyPlain, onSharedKey)
+        )
+      : options.userMessages.map(markVoiceNoteSkipped);
+  // Tracked per organization, never billed: the turn a note feeds is.
+  await Plan.incrementVoiceNoteUsage(
+    dbInstance,
+    projectRow.organizationId,
+    userMessages
+  ).catch(() => undefined);
+
   // What the model is asked to answer: every buffered fragment as one user
   // turn. Recorded separately below, so the audit trail keeps the fragments
   // while the model sees a single coherent question.
-  const mergedUserText = utils.joinBufferedMessages(options.userMessages);
+  const mergedUserText = utils.joinBufferedMessages(userMessages);
 
   // Present when the turn came from the message buffer. Written on the turn's
   // rows so a re-sent batch can be told apart from a new one.
@@ -373,13 +438,16 @@ export const runChannelTurn = async (
   const userMessageRows = await dbInstance
     .insert(db.schema.channelMessage)
     .values(
-      options.userMessages.map(message => ({
+      userMessages.map(message => ({
         role: utils.constants.ROLE_MESSAGE_USER,
         content: message.text,
         externalMessageId: message.externalMessageId || null,
         conversationId: conversation.id,
         participantId: participant.id,
-        metadata: userMetadata
+        metadata:
+          userMetadata || message.metadata
+            ? { ...userMetadata, ...message.metadata }
+            : null
       }))
     )
     .returning();
@@ -421,11 +489,7 @@ export const runChannelTurn = async (
   // the owner — so keep it neutral: no plan details, no billing instructions they
   // can't act on. The actionable prompt lives in the owner's billing dashboard
   // (Settings › Billing) instead.
-  if (
-    onSharedKey &&
-    messageCap.sharedKeyHardCap != null &&
-    messageCap.sharedUsed >= messageCap.sharedKeyHardCap
-  ) {
+  if (overSharedHardCap) {
     return {
       assistantText:
         'This assistant is temporarily unavailable. Please check back later.',
@@ -438,6 +502,92 @@ export const runChannelTurn = async (
       sourceButtons: [],
       confirmation: null
     };
+  }
+
+  // The fixed lines below are written by the runner, not the model, in the
+  // participant's language where the platform says it.
+  const participantMeta = (options.participantMetadata || {}) as {
+    languageCode?: unknown;
+    locale?: unknown;
+  };
+  const locale =
+    options.locale ??
+    (typeof participantMeta.languageCode === 'string'
+      ? participantMeta.languageCode
+      : typeof participantMeta.locale === 'string'
+        ? participantMeta.locale
+        : null);
+  const fixedReply = (assistantText: string, assistantMessageId: string) => ({
+    assistantText,
+    assistantMessageId,
+    conversationId: conversation.id,
+    userMessageId: userMessage.id,
+    attachments: [],
+    sources: [],
+    sourcesFooter: null,
+    sourceButtons: [],
+    confirmation: null
+  });
+
+  // One customer past their replies for the day. Each time they reach the
+  // limit they are told once, in a row the limit doesn't count; after that the
+  // bot stays quiet until the oldest reply in the window ages out. Nothing here
+  // is billed: no model runs and the message budget isn't touched.
+  if (overParticipantLimit) {
+    const notice = utils.participantLimitNotice(locale);
+    const noticeId = await claimParticipantLimitNotice(
+      dbInstance,
+      participant.id,
+      {
+        role: utils.constants.ROLE_MESSAGE_ASSISTANT,
+        content: notice,
+        conversationId: conversation.id,
+        participantId: participant.id,
+        metadata: {
+          [utils.PARTICIPANT_LIMIT_METADATA_KEY]: participantDailyLimit,
+          ...(bufferBatchId ? { bufferBatchId } : {})
+        }
+      }
+    );
+    if (!noticeId) return { ...fixedReply('', ''), silent: true };
+    return fixedReply(notice, noticeId);
+  }
+
+  // Only voice notes that couldn't be used, and nothing typed: ask for the
+  // message in writing — or in shorter parts, when a note was too long.
+  // Recorded, so the owner sees what happened in the conversation; not billed.
+  const voiceNotes = userMessages
+    .map(
+      message =>
+        message.metadata?.[utils.VOICE_NOTE_METADATA_KEY] as
+          | { transcribed?: unknown; tooLong?: unknown }
+          | undefined
+    )
+    .filter(Boolean);
+  if (
+    !mergedUserText.trim() &&
+    voiceNotes.some(note => note?.transcribed === false)
+  ) {
+    const tooLong = voiceNotes.some(note => note?.tooLong === true);
+    const notice = tooLong
+      ? utils.voiceNoteTooLongNotice(locale)
+      : utils.voiceNoteUnreadableNotice(locale);
+    const [noticeRow] = await dbInstance
+      .insert(db.schema.channelMessage)
+      .values({
+        role: utils.constants.ROLE_MESSAGE_ASSISTANT,
+        content: notice,
+        conversationId: conversation.id,
+        participantId: participant.id,
+        metadata: {
+          [utils.VOICE_NOTE_UNREADABLE_METADATA_KEY]: tooLong
+            ? 'too_long'
+            : true,
+          ...(bufferBatchId ? { bufferBatchId } : {})
+        }
+      })
+      .returning({ id: db.schema.channelMessage.id });
+    return fixedReply(notice, noticeRow.id);
   }
 
   // A sensitive call this participant was asked to confirm last turn. It is
@@ -698,6 +848,57 @@ export const runChannelTurn = async (
   // Sensitive calls the model made this turn, held for the participant's yes.
   const heldCalls: LlmToolCall[] = [];
 
+  // What the bot remembers about this customer. Only in a private
+  // conversation: in a group the bot would read one member's address or
+  // allergies out to everyone.
+  const memoryEnabled =
+    utils.resolveParticipantMemoryEnabled(channelRow.config) &&
+    options.conversationScope ===
+      utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE;
+  // What the prompt shows is read once, here; a save applies to what is
+  // stored when it runs, under a row lock, so an owner's "Forget" during the
+  // turn isn't undone and two turns at once don't overwrite each other.
+  const memory = utils.readParticipantMemory(participant.memory);
+  const rememberCustomer = async (
+    call: LlmToolCall
+  ): Promise<ToolCallOutcome> => {
+    const start = Date.now();
+    const result = await dbInstance
+      .transaction(async tx => {
+        const [row] = await tx
+          .select({ memory: db.schema.channelParticipant.memory })
+          .from(db.schema.channelParticipant)
+          .where(eq(db.schema.channelParticipant.id, participant.id))
+          .for('update');
+        const update = utils.applyParticipantMemoryUpdate(
+          utils.readParticipantMemory(row?.memory),
+          call.arguments
+        );
+        if (update.changed) {
+          await tx
+            .update(db.schema.channelParticipant)
+            .set({ memory: update.memory })
+            .where(eq(db.schema.channelParticipant.id, participant.id));
+        }
+        return update.result;
+      })
+      .catch(
+        (error: any) => `Error saving: ${error?.message || String(error)}`
+      );
+    return {
+      text: result,
+      usageEvent: {
+        kind: utils.constants.USAGE_KIND_TOOL,
+        toolName: call.name,
+        artifactToolId: null,
+        input: call.arguments,
+        output: { content: [{ type: 'text', text: result }] },
+        latencyMs: Date.now() - start,
+        ...(result.startsWith('Error') ? { errorMessage: result } : {})
+      }
+    };
+  };
+
   // Every call one model step asked for, run together — there's no ordering
   // dependency between them — so N round-trips collapse into one. The caller
   // appends the outcomes in call order to keep accounting deterministic.
@@ -708,6 +909,9 @@ export const runChannelTurn = async (
           await options.notifier
             .toolStarted({ toolName: call.name, arguments: call.arguments })
             .catch(() => undefined);
+        }
+        if (memoryEnabled && call.name === utils.PARTICIPANT_MEMORY_TOOL_NAME) {
+          return rememberCustomer(call);
         }
         return executeToolCall(
           mcp.client,
@@ -771,6 +975,24 @@ export const runChannelTurn = async (
     } catch (error: any) {
       // -32601 = artifact has no tools registered; SDK never enabled tools/list
       if (error?.code !== -32601) throw error;
+    }
+
+    // Outside the channel cap: it is the runner's own tool, not the
+    // artifact's, and a name an artifact tool can't take (reserved).
+    if (memoryEnabled) {
+      // How a held save is named under the confirmation question.
+      toolTitles.set(
+        utils.PARTICIPANT_MEMORY_TOOL_NAME,
+        'Remember customer details'
+      );
+      llmTools = [
+        ...llmTools.filter(t => t.name !== utils.PARTICIPANT_MEMORY_TOOL_NAME),
+        {
+          name: utils.PARTICIPANT_MEMORY_TOOL_NAME,
+          description: utils.PARTICIPANT_MEMORY_TOOL_DESCRIPTION,
+          inputSchema: utils.PARTICIPANT_MEMORY_TOOL_SCHEMA
+        }
+      ];
     }
 
     let userTurn: LlmMessage[] = [
@@ -907,7 +1129,17 @@ export const runChannelTurn = async (
     if (llmTools.length > 0) {
       contextParts.push(utils.UNTRUSTED_CONTENT_NOTE);
     }
-    const systemPrompt = [contextParts.join(' '), llmRow.systemPrompt]
+    const systemPrompt = [
+      contextParts.join(' '),
+      memoryEnabled
+        ? utils.formatParticipantMemoryPrompt(memory)
+        : // Memory is on but this is a group: without the tool, a model asked
+          // to remember something says it did.
+          utils.resolveParticipantMemoryEnabled(channelRow.config)
+          ? utils.PARTICIPANT_MEMORY_GROUP_NOTE
+          : null,
+      llmRow.systemPrompt
+    ]
       .filter(Boolean)
       .join('\n\n');
 
@@ -962,9 +1194,15 @@ export const runChannelTurn = async (
       // usual. A call repeated within the step is held once — confirming it
       // must not run it twice.
       const stepCalls = completion.assistant.toolCalls;
+      // Saving to memory counts as sensitive once outside content is in the
+      // turn: text hidden in a page or document could otherwise plant a
+      // "fact" (a fake discount) in every later prompt for this customer.
       const isHeld = (call: LlmToolCall) =>
-        sensitiveToolNames.has(call.name) &&
-        (chain.requireToolConfirmation || readUntrusted);
+        (sensitiveToolNames.has(call.name) &&
+          (chain.requireToolConfirmation || readUntrusted)) ||
+        (memoryEnabled &&
+          call.name === utils.PARTICIPANT_MEMORY_TOOL_NAME &&
+          readUntrusted);
       for (const call of stepCalls.filter(isHeld)) {
         const signature = callSignature(call);
         if (!heldCalls.some(held => callSignature(held) === signature)) {
@@ -1466,6 +1704,140 @@ const upsertParticipant = async (
   return created;
 };
 
+// A customer's replies in the last 24 hours, not counting the limit notices.
+// Keyed by the platform's id so it can run beside the participant upsert
+// rather than after it.
+const readParticipantUsage = async (
+  dbInstance: ReturnType<typeof db.create>,
+  channelId: string,
+  externalParticipantId: string
+): Promise<{ replies: number }> => {
+  const [row] = await dbInstance
+    .select({ replies: sql<number>`count(*)::int` })
+    .from(db.schema.channelMessage)
+    .innerJoin(
+      db.schema.channelParticipant,
+      eq(
+        db.schema.channelParticipant.id,
+        db.schema.channelMessage.participantId
+      )
+    )
+    .where(
+      and(
+        eq(db.schema.channelParticipant.channelId, channelId),
+        eq(db.schema.channelParticipant.externalUserId, externalParticipantId),
+        eq(
+          db.schema.channelMessage.role,
+          utils.constants.ROLE_MESSAGE_ASSISTANT
+        ),
+        sql`(${db.schema.channelMessage.metadata}->>${utils.PARTICIPANT_LIMIT_METADATA_KEY}) is null`,
+        gt(
+          db.schema.channelMessage.createdAt,
+          new Date(Date.now() - utils.PARTICIPANT_DAILY_LIMIT_WINDOW_MS)
+        )
+      )
+    );
+  return { replies: row?.replies ?? 0 };
+};
+
+/**
+ * Write the limit notice unless this customer was already told since their
+ * last reply — the moment they reached the limit — and return its id, or null
+ * when the bot should stay quiet. A customer who reaches the limit again later
+ * in the day is told again. Serialized per participant, so two messages
+ * arriving together can't both be the one that gets the notice.
+ */
+const claimParticipantLimitNotice = async (
+  dbInstance: ReturnType<typeof db.create>,
+  participantId: string,
+  notice: typeof db.schema.channelMessage.$inferInsert
+): Promise<string | null> =>
+  dbInstance.transaction(async tx => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`participant-limit:${participantId}`}))`
+    );
+    const isNotice = sql`(${db.schema.channelMessage.metadata}->>${utils.PARTICIPANT_LIMIT_METADATA_KEY}) is not null`;
+    const [row] = await tx
+      .select({
+        lastReply: sql<Date | null>`max(${db.schema.channelMessage.createdAt}) filter (where not ${isNotice})`,
+        lastNotice: sql<Date | null>`max(${db.schema.channelMessage.createdAt}) filter (where ${isNotice})`
+      })
+      .from(db.schema.channelMessage)
+      .where(
+        and(
+          eq(db.schema.channelMessage.participantId, participantId),
+          eq(
+            db.schema.channelMessage.role,
+            utils.constants.ROLE_MESSAGE_ASSISTANT
+          ),
+          gt(
+            db.schema.channelMessage.createdAt,
+            new Date(Date.now() - utils.PARTICIPANT_DAILY_LIMIT_WINDOW_MS)
+          )
+        )
+      );
+    const lastNotice = row?.lastNotice ? new Date(row.lastNotice) : null;
+    const lastReply = row?.lastReply ? new Date(row.lastReply) : null;
+    if (lastNotice && (!lastReply || lastNotice > lastReply)) return null;
+    const [inserted] = await tx
+      .insert(db.schema.channelMessage)
+      .values(notice)
+      .returning({ id: db.schema.channelMessage.id });
+    return inserted.id;
+  });
+
+// Who transcribes this channel's voice notes. An organization's own key does
+// when its provider takes audio — Google (any Gemini key can call our
+// transcription model) or OpenAI — with ours behind it if that call fails.
+// Anthropic takes no audio and OpenAI-compatible endpoints don't serve the
+// OpenAI transcription model, so those channels, and the shared tier, use ours.
+const voiceNoteTranscribers = (
+  c: Context<AppEnv>,
+  llmRow: ResolvedLlm['row'],
+  apiKey: string,
+  onSharedKey: boolean
+): VoiceNoteTranscribers => {
+  const platformKey = utils.getEnv(c, 'EMBEDDING_API_KEY');
+  const platform: Transcriber | null = platformKey
+    ? { provider: 'google', apiKey: platformKey, paidBy: 'platform' }
+    : null;
+  if (onSharedKey) return { primary: platform, fallback: null };
+  if (llmRow.provider === utils.constants.LLM_PROVIDER_GOOGLE) {
+    return {
+      primary: { provider: 'google', apiKey, paidBy: 'organization' },
+      fallback: platform
+    };
+  }
+  // Only on OpenAI itself: a custom base URL (OpenRouter, Groq, …) doesn't
+  // serve our transcription model, so every note would fail there first.
+  if (
+    llmRow.provider === utils.constants.LLM_PROVIDER_OPENAI &&
+    !llmRow.baseUrl
+  ) {
+    return {
+      primary: { provider: 'openai', apiKey, paidBy: 'organization' },
+      fallback: platform
+    };
+  }
+  return { primary: platform, fallback: null };
+};
+
+// A voice note in a turn that won't run: recorded as sent, not transcribed.
+const markVoiceNoteSkipped = (message: RunUserMessage): RunUserMessage =>
+  message.voice
+    ? {
+        ...message,
+        metadata: {
+          ...message.metadata,
+          [utils.VOICE_NOTE_METADATA_KEY]: {
+            mimeType: message.voice.mimeType,
+            transcribed: false,
+            skipped: true
+          }
+        }
+      }
+    : message;
+
 const loadRecentHistory = async (
   dbInstance: ReturnType<typeof db.create>,
   conversationId: string,
@@ -1493,7 +1865,15 @@ const loadRecentHistory = async (
       r =>
         !excludeIds.has(r.id) &&
         (r.role === utils.constants.ROLE_MESSAGE_USER ||
-          r.role === utils.constants.ROLE_MESSAGE_ASSISTANT)
+          r.role === utils.constants.ROLE_MESSAGE_ASSISTANT) &&
+        // A voice note that couldn't be read left an empty row; some
+        // providers refuse an empty message.
+        !!r.content?.trim() &&
+        // The daily-limit notice wasn't the model's answer; left in, the
+        // model apologizes for it once the customer is answered again.
+        !(r.metadata as Record<string, unknown> | null)?.[
+          utils.PARTICIPANT_LIMIT_METADATA_KEY
+        ]
     )
     .slice(0, limit)
     .reverse()

@@ -124,8 +124,105 @@ needed for someone to write and ship a tool.
 ## Work on a view where i can chat and build the functions and this agent uses the cli to deploy them
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Implement d1 database to sync data with functions
-## Support audio from user to answer
-## When an user calls the whatsapp number, it answers with (hey we just sent you a whatsapp message, let's talk there) maybe in the future, we can support a phone call channel
+## Before onboarding the restaurant clients
+
+Built 2026-10-10, not deployed. Migration `0079` (`channel_participant.memory`,
+index on `channel_message (participant_id, created_at)`) has to run before
+`ganju-api` deploys; the index build locks `channel_message` writes briefly.
+Ship: `0079`, `@ganju/utils` build, `ganju-api`, web.
+
+**Voice notes on every channel — M**
+
+- WhatsApp, Telegram, Slack and Discord. Each platform holds the audio in the
+  buffer by reference, with empty text (`BufferedVoiceNote`: WhatsApp media
+  id, Telegram file_id, Slack file id, Discord attachment URL). It is
+  downloaded and transcribed when the batch flushes, not in the webhook (30 s
+  `waitUntil`), and the transcript runs as the customer's typed message. Text
+  replies only. `voiceNotes.ts` does the transcribing; each platform supplies
+  the download and the "please type it" reply.
+- What counts: WhatsApp `audio`; Telegram `voice` and `audio` (in a group,
+  only replying to the bot or a caption that mentions it); Slack a
+  `file_share` in a DM with an audio file; Discord a voice message or audio
+  attachment, in DMs or with an @mention, as before.
+- Transcribed on the shared Gemini model (`DEFAULT_LLM_MODEL`, the
+  `EMBEDDING_API_KEY`) whatever model the channel answers with. Up to 4 MB.
+  The row's `metadata.voiceNote` records type, model and tokens; the
+  conversation view tags it "Voice note".
+- Nothing readable in the batch: the customer is asked to type it (EN/ES/PT —
+  WhatsApp by calling code, Telegram by `language_code`, Discord by locale
+  when known, Slack in English) and no turn runs. A customer past the daily
+  limit isn't transcribed.
+- Downloads only from the platform's own hosts; a page instead of audio is an
+  error, not a transcript.
+- Setup: Slack needs `files:read`, now a required scope in the connector; an
+  app installed before needs the scope added and a reinstall (until then clips
+  get the "please type it" reply). Discord voice messages in servers
+  need the Message Content intent, like text.
+- Checked against the real model: a Spanish order made with `say` came back
+  word for word (286 tokens in, 32 out). Not yet tried with a real voice note
+  on any platform.
+
+**Answering WhatsApp calls — dropped for now (2026-10-13)**
+
+Built and then removed before shipping, by decision. If it comes back: decline
+the call through the Calling API (`POST /<phone-number-id>/calls`, `action:
+reject`) and write to the caller — a user-initiated call opens the 24-hour
+window even unanswered. Needs calling enabled per number (`/settings`) and the
+app's webhook subscribed to `calls`.
+
+**Per-customer limits — S–M**
+
+- Replies per customer in a rolling 24 hours, `config.participantDailyLimit`,
+  default 50, 0 = off. Over it: the first message gets a notice (a row tagged
+  `participantLimit`, not counted, not billed), later ones get nothing until
+  the window frees up. Discord answers the notice again, since a slash command
+  waits on a response.
+- Counted beside the participant upsert, no extra round trip.
+
+**Persistent memory — M**
+
+- Off by default (`config.participantMemory`), private conversations only.
+  The runner adds its own `remember-customer` tool (reserved name) and a
+  system-prompt section with the saved facts, marked as data, plus when to use
+  them (offer the saved address, mention a date in the next two weeks).
+- Up to 25 facts, one line each; an empty value forgets one, `forgetAll`
+  forgets everything. The conversation view shows them with "Forget"
+  (`DELETE …/participant/:id/memory`).
+- Not tried with a model yet.
+
+**Review fixes — 2026-10-13** (code done; dev deploy pending, then
+`scripts/probe-channel-customers.mjs`)
+
+- Discord stays quiet past the limit; only a waiting slash command gets the
+  notice again.
+- Voice notes are transcribed by the runner once the turn is known to run (cap,
+  shared backstop, daily limit), so one check decides it and over-cap orgs cost
+  no transcription. A transcript follows the caption; an unreadable note keeps
+  the caption, and with nothing else the reply asking to type it is recorded.
+- The limit notice is due each time the limit is reached (no notice since the
+  last reply), claimed under an advisory lock per participant.
+- `remember-customer` after outside content is held for a yes. Saves apply to
+  the stored row under `FOR UPDATE`, so "Forget" mid-turn holds.
+- Own Google key transcribes on that key. Anthropic/OpenAI keys still use ours,
+  unmetered (a few hundred tokens per note) — revisit if voice volume grows.
+- Dashboard settings save as `configPatch`, merged in SQL.
+- Slack file shares with only a file id are resolved through `files.info`.
+
+**Voice: length cap, own keys, tracking — 2026-10-13** (migration `0080`)
+
+- Capped at 5 minutes (`VOICE_NOTE_MAX_SECONDS`): refused before download where
+  the platform reports the length (Telegram, Discord, Slack), measured from the
+  Ogg file otherwise (WhatsApp), 5 MB backstop. Reply: "muy larga… en partes
+  más cortas o escríbenos", tagged "too long".
+- Own OpenAI / OpenAI-compatible keys transcribe with `gpt-4o-mini-transcribe`
+  on their key; own Google keys with Gemini on theirs; Anthropic and the shared
+  tier on ours. Own-key failures fall back to ours.
+- Not billed. `subscription.voice_note_count / _seconds / _platform_count`,
+  snapshotted into `usage_period`; a line on the billing page.
+- Channel settings are strict: unknown keys are refused.
+
+**perros.com delivery orders — S** — not started: the tool is only in
+production. See the observability notes above.
 
 ---
 

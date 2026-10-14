@@ -13,13 +13,16 @@ import { getResourceHandler } from '@ganju/containers';
 import { hasOpenConfirmation, runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { bufferChannelMessage, toRunUserMessages } from './debounce';
+import { fetchVoiceNoteAudio } from './voiceNotes';
 import { markdownToDiscord } from '../../utils';
 import { startChannelLink } from './link';
 
 import type { ChannelAttachment, RunUserMessage } from './runner';
 import type { ParsedSlashCommand } from './slashPrompt';
+import type { VoiceNoteDownload } from './voiceNotes';
 import type {
   BufferedChannelMessage,
+  BufferedVoiceNote,
   ChannelBufferEnvelope
 } from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
@@ -347,6 +350,8 @@ interface DiscordRunOptions {
 
 interface DiscordTurnResult {
   replyText: string;
+  // Past the daily limit and already told: nothing to send.
+  silent?: boolean;
   attachments: ChannelAttachment[];
   sourceButtons: SourceButton[];
   confirmation: 'asked' | 'answered' | null;
@@ -364,10 +369,12 @@ const runDiscordTurn = async (
   try {
     const result = await runChannelTurn(c, {
       ...options,
-      notifier: createDiscordNotifier(botToken, options.externalConversationId)
+      notifier: createDiscordNotifier(botToken, options.externalConversationId),
+      downloadVoiceNote: downloadDiscordVoiceNote
     });
     return {
       replyText: result.assistantText,
+      silent: result.silent,
       attachments: result.attachments,
       sourceButtons: result.sourceButtons,
       confirmation: result.confirmation
@@ -399,6 +406,13 @@ interface IngestBody {
     guildId: string | null;
     isDm: boolean;
     content: string;
+    // A voice message or audio attachment, by its CDN URL.
+    voice?: {
+      url: string;
+      contentType: string | null;
+      size: number | null;
+      durationSeconds?: number | null;
+    } | null;
     botUserId: string | null;
     author: {
       id: string;
@@ -449,7 +463,15 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
     : `${scope} · ${message.channelId}`;
 
   const cleanText = stripBotMention(message.content || '', message.botUserId);
-  const slashCommand = parseSlashCommandText(cleanText);
+  const voice: BufferedVoiceNote | null = message.voice?.url
+    ? {
+        ref: message.voice.url,
+        mimeType: message.voice.contentType,
+        size: message.voice.size,
+        durationSeconds: message.voice.durationSeconds ?? null
+      }
+    : null;
+  const slashCommand = voice ? null : parseSlashCommandText(cleanText);
 
   if (slashCommand?.name === utils.constants.BOT_COMMAND_LINK) {
     // A link code must never be posted where others can read it — DMs only.
@@ -471,7 +493,7 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
   }
 
   // A bare @mention with no text and no command — nothing to act on.
-  if (!cleanText && !slashCommand) return c.json({ ok: true });
+  if (!cleanText && !slashCommand && !voice) return c.json({ ok: true });
 
   const promptMatch = slashCommand
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
@@ -504,7 +526,8 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
     externalMessageId: message.id,
     receivedAt: Date.now(),
     immediate: !!promptMatch,
-    command: promptMatch
+    command: promptMatch,
+    voice
   };
 
   if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
@@ -517,7 +540,7 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
     channelRow,
     credentials,
     envelope,
-    [buffered],
+    toRunUserMessages([buffered]),
     promptMatch,
     null
   );
@@ -529,7 +552,12 @@ export const handleDiscordIngest = async (c: Context<AppEnv>) => {
 // participant's burst has settled.
 export const handleDiscordDebouncedBatch = async (
   c: Context<AppEnv>,
-  channelRow: { id: string; artifactId: string; credentials: string },
+  channelRow: {
+    id: string;
+    artifactId: string;
+    credentials: string;
+    config: unknown;
+  },
   envelope: ChannelBufferEnvelope,
   messages: BufferedChannelMessage[]
 ): Promise<void> => {
@@ -552,6 +580,14 @@ export const handleDiscordDebouncedBatch = async (
     interactionToken
   );
 };
+
+// Voice messages are attachments on Discord's CDN, behind signed URLs that
+// need no token.
+const downloadDiscordVoiceNote: VoiceNoteDownload = voice =>
+  fetchVoiceNoteAudio(voice.ref, [
+    'cdn.discordapp.com',
+    'media.discordapp.net'
+  ]);
 
 // The newest slash-command interaction in the batch still waiting on its
 // deferred response. When there is one, the batch is answered by editing it —
@@ -602,6 +638,16 @@ const runDiscordBatchAndReply = async (
     promptTitle: promptMatch?.promptTitle ?? null,
     promptArgs: promptMatch?.args || undefined
   });
+
+  // Past the daily limit and already told: a message gets nothing. A slash
+  // command still has a deferred response waiting, which must be answered or
+  // it shows "thinking…" until Discord gives up, so it gets the notice again.
+  if (result.silent) {
+    if (!interactionToken) return;
+    result.replyText = utils.participantLimitNotice(
+      envelope.participantMetadata?.locale as string | undefined
+    );
+  }
 
   const confirm: ConfirmationPrompt | null =
     result.confirmation === 'asked'

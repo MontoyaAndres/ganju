@@ -6,6 +6,10 @@ import { isReservedSlug, isValidSlugFormat } from './slug';
 import { isReservedToolName } from './reservedToolName';
 import { slugifyTitle } from './slugifyTitle';
 import { TOOL_EFFECTS } from './toolConfirmation';
+import {
+  PARTICIPANT_DAILY_LIMIT_MAX,
+  PARTICIPANT_DAILY_LIMIT_OFF
+} from './channelCustomer';
 
 // A prompt title becomes a slash command; it must not collide with a command
 // the channel runner handles itself (e.g. `/link`).
@@ -722,11 +726,11 @@ const ORGANIZATION_UPDATE_LLM_VIEW = refineUpdateBaseUrl(
   })
 );
 
-// `channel.config` is an open bag, so this stays loose — it only pins down the
-// keys we actually read, and passes everything else through untouched.
+// The channel settings an owner can write. Strict: a typo or a setting that
+// no longer exists is refused rather than stored, where nothing would read it.
 // `debounceMs` is how long a burst from one participant is buffered before the
 // agent answers it as a single turn; 0 disables buffering.
-const CHANNEL_CONFIG = z.looseObject({
+const CHANNEL_CONFIG = z.strictObject({
   debounceMs: z
     .number()
     .int()
@@ -737,7 +741,16 @@ const CHANNEL_CONFIG = z.looseObject({
           value <= constants.CHANNEL_DEBOUNCE_MAX_MS),
       `debounceMs must be 0 (disabled) or between ${constants.CHANNEL_DEBOUNCE_MIN_MS} and ${constants.CHANNEL_DEBOUNCE_MAX_MS} ms`
     )
-    .optional()
+    .optional(),
+  // Replies one customer gets in 24 hours; 0 turns the limit off.
+  participantDailyLimit: z
+    .number()
+    .int()
+    .min(PARTICIPANT_DAILY_LIMIT_OFF)
+    .max(PARTICIPANT_DAILY_LIMIT_MAX)
+    .optional(),
+  // Remember each customer's name, address, allergies and dates.
+  participantMemory: z.boolean().optional()
 });
 
 const CHANNEL_CREATE = z.object({
@@ -754,6 +767,9 @@ const CHANNEL_UPDATE = z.object({
   channelId: z.uuid(),
   status: z.enum(constants.CHANNEL_STATUS).optional(),
   config: CHANNEL_CONFIG.optional(),
+  // Keys to change on the stored config, merged by the database, so two
+  // settings saved at once don't overwrite each other.
+  configPatch: CHANNEL_CONFIG.optional(),
   credentials: z.record(z.string(), z.string()).optional(),
   llmId: z.uuid().nullable().optional(),
   projectId: z.uuid(),

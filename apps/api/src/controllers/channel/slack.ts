@@ -10,16 +10,19 @@ import type {
 import { getResourceHandler } from '@ganju/containers';
 
 import { bufferChannelMessage, toRunUserMessages } from './debounce';
+import { fetchVoiceNoteAudio } from './voiceNotes';
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { markdownToSlackMrkdwn } from '../../utils';
 import { startChannelLink } from './link';
 
 import type { ChannelAttachment, RunUserMessage } from './runner';
+import type { VoiceNoteDownload } from './voiceNotes';
 import type { ParsedSlashCommand } from './slashPrompt';
 import type {
   BufferedChannelCommand,
   BufferedChannelMessage,
+  BufferedVoiceNote,
   ChannelBufferEnvelope
 } from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
@@ -36,7 +39,92 @@ interface SlackEventMessage {
   thread_ts?: string;
   channel: string;
   channel_type?: string;
+  // Files shared with the message (subtype `file_share`); a recorded clip is
+  // one with an audio mimetype.
+  files?: SlackEventFile[];
 }
+
+interface SlackEventFile {
+  id?: string;
+  mimetype?: string;
+  size?: number;
+  // Recorded clips carry their length.
+  duration_ms?: number;
+}
+
+// The first audio file shared with a message — a recorded clip or an uploaded
+// recording — to transcribe and answer as if typed.
+const inboundVoice = (event: SlackEventMessage): BufferedVoiceNote | null => {
+  const file = (event.files || []).find(
+    f => f.id && f.mimetype?.startsWith('audio/')
+  );
+  return file?.id
+    ? {
+        ref: file.id,
+        mimeType: file.mimetype || null,
+        size: file.size ?? null,
+        durationSeconds:
+          typeof file.duration_ms === 'number' ? file.duration_ms / 1000 : null
+      }
+    : null;
+};
+
+// Slack sometimes sends a shared file as its id alone
+// (`file_access: 'check_file_info'`), so whether it is audio is only known
+// after asking files.info.
+const hasUnresolvedFile = (event: SlackEventMessage): boolean =>
+  (event.files || []).some(f => f.id && !f.mimetype);
+
+const resolveSlackFiles = async (
+  botToken: string,
+  event: SlackEventMessage
+): Promise<SlackEventMessage> => {
+  if (!hasUnresolvedFile(event)) return event;
+  const files = await Promise.all(
+    (event.files || []).map(async file => {
+      if (!file.id || file.mimetype) return file;
+      const info = await slackFileInfo(botToken, file.id).catch(() => null);
+      return info
+        ? {
+            ...file,
+            mimetype: info.mimetype,
+            size: info.size ?? file.size,
+            duration_ms: info.duration_ms ?? file.duration_ms
+          }
+        : file;
+    })
+  );
+  return { ...event, files };
+};
+
+interface SlackFileInfo {
+  mimetype?: string;
+  size?: number;
+  duration_ms?: number;
+  url_private_download?: string;
+  url_private?: string;
+}
+
+const slackFileInfo = async (
+  botToken: string,
+  fileId: string
+): Promise<SlackFileInfo> => {
+  const response = await fetch(
+    `${SLACK_BASE}/files.info?file=${encodeURIComponent(fileId)}`,
+    { headers: { Authorization: `Bearer ${botToken}` } }
+  );
+  const data = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    error?: string;
+    file?: SlackFileInfo;
+  };
+  if (!data.ok || !data.file) {
+    throw new Error(
+      `Slack files.info failed: ${data.error || response.status}`
+    );
+  }
+  return data.file;
+};
 
 interface SlackEventCallback {
   type: string;
@@ -187,7 +275,17 @@ const shouldHandleEvent = (
   if (bot && event.user === bot.userId) return false;
   if (event.type === 'app_mention') return true;
   if (event.type === 'message') {
-    if (event.subtype) return false; // edits, deletes, joins, bot posts…
+    // Edits, deletes, joins, bot posts… — and file shares, except a voice
+    // clip or other audio sent in a DM.
+    if (
+      event.subtype &&
+      !(
+        event.subtype === 'file_share' &&
+        (inboundVoice(event) || hasUnresolvedFile(event))
+      )
+    ) {
+      return false;
+    }
     return event.channel_type === 'im';
   }
   return false;
@@ -213,7 +311,11 @@ const processSlackEvent = async (
   );
 
   const cleanText = stripBotMention(event.text || '', botMeta?.userId);
-  const slashCommand = parseSlashCommandText(cleanText);
+  const voice = inboundVoice(await resolveSlackFiles(botToken, event));
+  // A file share is handled for its audio only; any other upload stays
+  // ignored, as before.
+  if (event.subtype === 'file_share' && !voice) return;
+  const slashCommand = voice ? null : parseSlashCommandText(cleanText);
   // Telegram replies to the user's message; the Slack analog is threading the
   // reply on it (thread_ts) so an existing thread is continued and a top-level
   // message starts one.
@@ -237,7 +339,7 @@ const processSlackEvent = async (
   }
 
   // A bare @mention with no text and no command — nothing to act on.
-  if (!cleanText && !slashCommand) return;
+  if (!cleanText && !slashCommand && !voice) return;
 
   const promptMatch = slashCommand
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
@@ -268,7 +370,8 @@ const processSlackEvent = async (
     externalMessageId: event.ts || null,
     receivedAt: Date.now(),
     immediate: !!promptMatch,
-    command: promptMatch
+    command: promptMatch,
+    voice
   };
 
   if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
@@ -276,6 +379,7 @@ const processSlackEvent = async (
   }
 
   // The buffer is unreachable: answer inline rather than drop the message.
+  const userMessages = toRunUserMessages([buffered]);
   await runSlackTurnAndReply(
     c,
     channelRow,
@@ -291,7 +395,7 @@ const processSlackEvent = async (
         teamId: event.team_id,
         channelType: event.channel_type
       },
-      userMessages: [buffered],
+      userMessages,
       promptId: promptMatch?.promptId || null,
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
@@ -306,7 +410,12 @@ const processSlackEvent = async (
 // participant's burst has settled.
 export const handleSlackDebouncedBatch = async (
   c: Context<AppEnv>,
-  channelRow: { id: string; artifactId: string; credentials: string },
+  channelRow: {
+    id: string;
+    artifactId: string;
+    credentials: string;
+    config: unknown;
+  },
   envelope: ChannelBufferEnvelope,
   messages: BufferedChannelMessage[]
 ): Promise<void> => {
@@ -326,6 +435,8 @@ export const handleSlackDebouncedBatch = async (
   const replyThreadTs =
     typeof delivery.threadTs === 'string' ? delivery.threadTs : undefined;
 
+  const userMessages = toRunUserMessages(messages);
+
   await runSlackTurnAndReply(
     c,
     channelRow,
@@ -338,13 +449,26 @@ export const handleSlackDebouncedBatch = async (
       externalParticipantId: envelope.externalParticipantId,
       participantDisplayName: envelope.participantDisplayName,
       participantMetadata: envelope.participantMetadata || undefined,
-      userMessages: toRunUserMessages(messages),
+      userMessages,
       ...promptOptions(utils.batchCommand(messages))
     },
     replyChannel,
     replyThreadTs
   );
 };
+
+// A shared file is downloaded from Slack's file host with the bot token,
+// which needs the `files:read` scope.
+const downloadSlackVoiceNote =
+  (botToken: string): VoiceNoteDownload =>
+  async voice => {
+    const info = await slackFileInfo(botToken, voice.ref);
+    const url = info.url_private_download || info.url_private;
+    if (!url) throw new Error('Slack file has no download URL');
+    return fetchVoiceNoteAudio(url, ['slack.com', 'slack-edge.com'], {
+      Authorization: `Bearer ${botToken}`
+    });
+  };
 
 const promptOptions = (
   command: BufferedChannelCommand | null
@@ -493,8 +617,10 @@ const runSlackTurnAndReply = async (
   try {
     const result = await runChannelTurn(c, {
       ...options,
-      notifier: createSlackNotifier(botToken, replyChannel, replyThreadTs)
+      notifier: createSlackNotifier(botToken, replyChannel, replyThreadTs),
+      downloadVoiceNote: downloadSlackVoiceNote(botToken)
     });
+    if (result.silent) return;
     replyText = result.assistantText;
     attachments = result.attachments;
     sourcesFooter = result.sourcesFooter;

@@ -346,6 +346,9 @@ const update = async (c: Context<AppEnv>) => {
 
   if (currentValues.status) updates.status = currentValues.status;
   if (currentValues.config !== undefined) updates.config = currentValues.config;
+  else if (currentValues.configPatch) {
+    updates.config = sql`(coalesce(${db.schema.channel.config}::jsonb, '{}'::jsonb) || ${JSON.stringify(currentValues.configPatch)}::jsonb)::json`;
+  }
   if (currentValues.credentials) {
     const encryptionKey = utils.getCredentialEncryptionKey(c);
     updates.credentials = utils.encryptString(
@@ -512,6 +515,53 @@ const listMessages = async (c: Context<AppEnv>) => {
   );
 };
 
+// A channel of this project, or a 404. The project routes check the caller's
+// access to the project; this checks the channel is in it.
+const loadProjectChannel = async (
+  dbInstance: ReturnType<typeof db.create>,
+  projectId: string,
+  channelId: string
+) => {
+  const [row] = await dbInstance
+    .select({ channel: db.schema.channel })
+    .from(db.schema.channel)
+    .innerJoin(
+      db.schema.artifact,
+      eq(db.schema.artifact.id, db.schema.channel.artifactId)
+    )
+    .where(
+      and(
+        eq(db.schema.channel.id, channelId),
+        eq(db.schema.artifact.projectId, projectId)
+      )
+    )
+    .limit(1);
+  return row?.channel ?? null;
+};
+
+// Forget everything the bot remembers about one customer.
+const clearParticipantMemory = async (c: Context<AppEnv>) => {
+  const dbInstance = db.create(c);
+  const channelRow = await loadProjectChannel(
+    dbInstance,
+    c.req.param('projectId') || '',
+    c.req.param('channelId') || ''
+  );
+  if (!channelRow) return c.json({ error: 'Channel not found' }, 404);
+  const [updated] = await dbInstance
+    .update(db.schema.channelParticipant)
+    .set({ memory: null })
+    .where(
+      and(
+        eq(db.schema.channelParticipant.id, c.req.param('participantId') || ''),
+        eq(db.schema.channelParticipant.channelId, channelRow.id)
+      )
+    )
+    .returning({ id: db.schema.channelParticipant.id });
+  if (!updated) return c.json({ error: 'Participant not found' }, 404);
+  return c.json({ id: updated.id, memory: null });
+};
+
 const webhook = async (c: Context<AppEnv>) => {
   const platform = c.req.param('platform');
   if (platform === utils.constants.CHANNEL_PLATFORM_TELEGRAM) {
@@ -655,6 +705,7 @@ export const ChannelController = {
   remove,
   listConversations,
   listMessages,
+  clearParticipantMemory,
   webhook,
   webhookVerify,
   discordIngest,

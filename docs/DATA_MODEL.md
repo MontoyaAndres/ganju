@@ -88,16 +88,21 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
  ├── channelConversation   one chat/DM/thread (scope: private | group | channel)
  │    └── channelMessage    a message (role, content, token/latency stats)
  │         └── channelMessageUsage   what the turn exercised (tool/prompt/resource)
- └── channelParticipant    an external user, optionally linked to a Ganju user
+ └── channelParticipant    an external user, optionally linked to a Ganju user,
+                           and what the bot remembers about them (memory)
 ```
 
 `platform` is one of `telegram` | `slack` | `whatsapp` | `discord`. `externalIdentity` links a platform user to a Ganju `user` per channel.
+
+- **`channel.config`** is an open bag validated by `CHANNEL_CONFIG`: `debounceMs` (how long a burst is buffered), `participantDailyLimit` (replies per customer in 24 hours; unset = 50, 0 = off), and `participantMemory` (off unless true). Readers go through the `resolve*` helpers in [`channelCustomer.ts`](../packages/utils/src/channelCustomer.ts), which fall back to the default on a malformed value rather than throw.
+- **`channelParticipant.memory`** is `{ facts: { key: value }, updatedAt }`, written by the runner's `remember-customer` tool: at most 25 facts, keys in snake_case, values on one line. Null until the first save; cleared from the conversation view. Personal data — allergies are health data — which is why memory is off by default and only used in private conversations.
+- **`channelMessage.metadata`** marks rows the runner wrote without the model, or that started as something other than text: `voiceNote` on a user row that carried audio (mime type, `transcribed`, provider, model, `paidBy`, `durationSeconds` and tokens; `skipped` when the turn didn't run, `tooLong` when it was over the length cap), `voiceNoteUnreadable` on the reply asking the customer to type a note that couldn't be read (`'too_long'` when it asked for shorter parts), and `participantLimit` on the notice that a customer reached the daily limit (that row isn't counted against it). The per-customer count reads assistant rows by `(participant_id, created_at)`, which has its own index.
 
 ## Billing & metering
 
 **`subscription`** is one row per organization (unique FK, cascade) holding the plan and everything billing needs: `plan`, `status`, the three provider ids (`billingCustomerId` / `billingSubscriptionId` / `billingProductId`), the provider's period (`currentPeriodStart` / `currentPeriodEnd`), `cancelAtPeriodEnd`, and the `customDomain` add-on. The ids are provider-neutral by name because the counters beside them already are. `billingProductId` is a **product**, not a price: the base fee and all four metered rates hang off one product, so the product is what identifies the plan. Plan **limits** are not here — they live in code, in [`PLAN_LIMITS`](../packages/utils/src/constants.ts), so a plan's allowances are the same everywhere and a row cannot disagree with them.
 
-Three axes are metered, and each is a counter plus a mark:
+Three axes are metered, and each is a counter plus a mark (voice notes are counted beside them — `voiceNoteCount`, `voiceNoteSeconds`, `voiceNotePlatformCount` — but never reported to billing):
 
 | Axis | Counter | Reported mark |
 | ---- | ------- | ------------- |

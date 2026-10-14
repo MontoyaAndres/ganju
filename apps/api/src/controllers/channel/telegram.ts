@@ -14,13 +14,16 @@ import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { startChannelLink } from './link';
 import { bufferChannelMessage, toRunUserMessages } from './debounce';
+import { fetchVoiceNoteAudio } from './voiceNotes';
 import { markdownToTelegramHtml } from '../../utils';
 
 import type { ParsedSlashCommand } from './slashPrompt';
 
 import type { ChannelAttachment, RunUserMessage } from './runner';
+import type { VoiceNoteDownload } from './voiceNotes';
 import type {
   BufferedChannelMessage,
+  BufferedVoiceNote,
   ChannelBufferEnvelope
 } from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
@@ -47,7 +50,34 @@ interface TelegramIncomingMessage {
   date: number;
   entities?: TelegramMessageEntity[];
   reply_to_message?: { from?: { id: number; is_bot?: boolean } };
+  // A voice note, or an audio file sent as music; either can carry a caption.
+  voice?: TelegramAudioFile;
+  audio?: TelegramAudioFile;
+  caption?: string;
+  caption_entities?: TelegramMessageEntity[];
 }
+
+interface TelegramAudioFile {
+  file_id: string;
+  mime_type?: string;
+  file_size?: number;
+  duration?: number;
+}
+
+// The audio a customer sent, to transcribe and answer as if typed.
+const inboundVoice = (
+  message: TelegramIncomingMessage
+): BufferedVoiceNote | null => {
+  const file = message.voice || message.audio;
+  return file?.file_id
+    ? {
+        ref: file.file_id,
+        mimeType: file.mime_type || null,
+        size: file.file_size ?? null,
+        durationSeconds: file.duration ?? null
+      }
+    : null;
+};
 
 interface TelegramUpdate {
   message?: TelegramIncomingMessage;
@@ -92,10 +122,20 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
   }
 
   const update: TelegramUpdate = await c.req.json();
-  const message = update.message;
-  if (!message?.text || !message.chat) {
+  const incoming = update.message;
+  const voice = incoming ? inboundVoice(incoming) : null;
+  if (!incoming?.chat || (!incoming.text && !voice)) {
     return c.json({ ok: true });
   }
+  // A voice note's caption stands in for its text: it is what can mention
+  // the bot in a group, and what is said alongside the audio.
+  const message: TelegramIncomingMessage = incoming.text
+    ? incoming
+    : {
+        ...incoming,
+        text: incoming.caption || '',
+        entities: incoming.caption_entities
+      };
 
   const encryptionKey = utils.getCredentialEncryptionKey(c);
   const credentials = JSON.parse(
@@ -127,9 +167,11 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
       ? `DM · ${participantLabel}`
       : `${message.chat.type} · ${message.chat.id}`);
 
-  const cleanText = stripBotMention(message.text, botMeta?.username);
+  const cleanText = stripBotMention(message.text || '', botMeta?.username);
 
-  const slashCommand = parseSlashCommand(message, botMeta?.username);
+  const slashCommand = voice
+    ? null
+    : parseSlashCommand(message, botMeta?.username);
 
   if (slashCommand?.name === utils.constants.BOT_COMMAND_LINK) {
     // The link code must never be posted in a group — anyone who reads it
@@ -189,7 +231,8 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
     externalMessageId: String(message.message_id),
     receivedAt: Date.now(),
     immediate: !!promptMatch,
-    command: promptMatch
+    command: promptMatch,
+    voice
   };
 
   if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
@@ -202,7 +245,7 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
     channelRow,
     credentials.botToken,
     envelope,
-    [buffered],
+    toRunUserMessages([buffered]),
     promptMatch
   );
 
@@ -214,7 +257,12 @@ export const handleTelegramWebhook = async (c: Context<AppEnv>) => {
 // the envelope at push time, so this only has to reload the bot token.
 export const handleTelegramDebouncedBatch = async (
   c: Context<AppEnv>,
-  channelRow: { id: string; artifactId: string; credentials: string },
+  channelRow: {
+    id: string;
+    artifactId: string;
+    credentials: string;
+    config: unknown;
+  },
   envelope: ChannelBufferEnvelope,
   messages: BufferedChannelMessage[]
 ): Promise<void> => {
@@ -235,6 +283,30 @@ export const handleTelegramDebouncedBatch = async (
     utils.batchCommand(messages)
   );
 };
+
+// A file_id resolves to a path on the Bot API's file host, which takes the
+// bot token in the URL.
+const downloadTelegramVoiceNote =
+  (botToken: string): VoiceNoteDownload =>
+  async voice => {
+    const response = await fetch(
+      `${utils.constants.TELEGRAM_API_BASE}/bot${botToken}/getFile?file_id=${encodeURIComponent(voice.ref)}`
+    );
+    const data = (await response.json().catch(() => ({}))) as {
+      ok?: boolean;
+      result?: { file_path?: string };
+      description?: string;
+    };
+    if (!data.ok || !data.result?.file_path) {
+      throw new Error(
+        `Telegram getFile failed: ${response.status} ${data.description || ''}`
+      );
+    }
+    return fetchVoiceNoteAudio(
+      `${utils.constants.TELEGRAM_API_BASE}/file/bot${botToken}/${data.result.file_path}`,
+      [new URL(utils.constants.TELEGRAM_API_BASE).hostname]
+    );
+  };
 
 const readTelegramDelivery = (
   envelope: ChannelBufferEnvelope
@@ -282,8 +354,10 @@ const runTelegramTurnAndReply = async (
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
       promptArgs: promptMatch?.args || undefined,
-      notifier: createTelegramNotifier(botToken, chatId, replyToMessageId)
+      notifier: createTelegramNotifier(botToken, chatId, replyToMessageId),
+      downloadVoiceNote: downloadTelegramVoiceNote(botToken)
     });
+    if (result.silent) return;
     replyText = result.assistantText;
     attachments = result.attachments;
     sourceButtons = result.sourceButtons;

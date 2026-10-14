@@ -347,6 +347,41 @@ export const incrementMessageUsage = async (
 };
 
 /**
+ * Count the voice notes a turn transcribed (a model was called for them),
+ * their seconds of audio where known, and those on our key. Tracking only:
+ * nothing is billed by these. Best-effort, like the other counters' callers.
+ */
+export const incrementVoiceNoteUsage = async (
+  executor: DbExecutor,
+  organizationId: string,
+  messages: Array<{ metadata?: Record<string, unknown> | null }>
+): Promise<void> => {
+  let count = 0;
+  let seconds = 0;
+  let platform = 0;
+  for (const message of messages) {
+    const note = message.metadata?.[utils.VOICE_NOTE_METADATA_KEY] as
+      | { model?: unknown; durationSeconds?: unknown; paidBy?: unknown }
+      | undefined;
+    if (!note || typeof note.model !== 'string') continue;
+    count++;
+    if (typeof note.durationSeconds === 'number') {
+      seconds += note.durationSeconds;
+    }
+    if (note.paidBy === 'platform') platform++;
+  }
+  if (count === 0) return;
+  await executor
+    .update(db.schema.subscription)
+    .set({
+      voiceNoteCount: sql`(${db.schema.subscription.voiceNoteCount}::int + ${count})::int`,
+      voiceNoteSeconds: sql`(${db.schema.subscription.voiceNoteSeconds}::int + ${Math.round(seconds)})::int`,
+      voiceNotePlatformCount: sql`(${db.schema.subscription.voiceNotePlatformCount}::int + ${platform})::int`
+    })
+    .where(eq(db.schema.subscription.organizationId, organizationId));
+};
+
+/**
  * Refuse a custom-tool run once the organization is at its monthly ceiling.
  *
  * The MCP worker answers this case with a tool error, because a client that
@@ -391,13 +426,15 @@ export type OrganizationUsage = {
   // inference, and the only one a customer can grow by writing a loop.
   toolCallsUsed: number;
   includedToolCalls: number;
+  // Voice notes transcribed this period: tracked, not billed.
+  voiceNotes: { count: number; seconds: number; onPlatformKey: number };
 };
 
 export const getOrganizationUsage = async (
   executor: DbExecutor,
   organizationId: string
 ): Promise<OrganizationUsage> => {
-  const [[{ projectCount }], rawBytes, embeddedBytes, cap, toolCalls] =
+  const [[{ projectCount }], rawBytes, embeddedBytes, cap, toolCalls, [voice]] =
     await Promise.all([
       executor
         .select({ projectCount: sql<number>`count(*)::int` })
@@ -406,7 +443,16 @@ export const getOrganizationUsage = async (
       sumRawStorage(executor, organizationId),
       sumEmbeddedStorage(executor, organizationId),
       checkMessageCap(executor, organizationId),
-      checkToolCallBudget(executor, organizationId)
+      checkToolCallBudget(executor, organizationId),
+      executor
+        .select({
+          count: db.schema.subscription.voiceNoteCount,
+          seconds: db.schema.subscription.voiceNoteSeconds,
+          onPlatformKey: db.schema.subscription.voiceNotePlatformCount
+        })
+        .from(db.schema.subscription)
+        .where(eq(db.schema.subscription.organizationId, organizationId))
+        .limit(1)
     ]);
 
   return {
@@ -418,7 +464,12 @@ export const getOrganizationUsage = async (
     sharedMessagesUsed: cap.sharedUsed,
     includedSharedMessages: cap.includedSharedMessages,
     toolCallsUsed: toolCalls.used,
-    includedToolCalls: toolCalls.included
+    includedToolCalls: toolCalls.included,
+    voiceNotes: {
+      count: voice?.count ?? 0,
+      seconds: voice?.seconds ?? 0,
+      onPlatformKey: voice?.onPlatformKey ?? 0
+    }
   };
 };
 
@@ -439,6 +490,7 @@ export const Plan = {
   assertEmbeddedStorageQuota,
   checkMessageCap,
   incrementMessageUsage,
+  incrementVoiceNoteUsage,
   checkToolCallBudget,
   assertToolCallBudget,
   incrementToolCallUsage,

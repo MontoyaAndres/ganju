@@ -554,6 +554,20 @@
       "when": 1791579745313,
       "tag": "0078_session_untrusted_read",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1791639916576,
+      "tag": "0079_participant_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1791927200608,
+      "tag": "0080_voice_note_usage",
+      "breakpoints": true
     }
   ]
 }

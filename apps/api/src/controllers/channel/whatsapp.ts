@@ -12,6 +12,7 @@ import { getResourceHandler } from '@ganju/containers';
 import { runChannelTurn } from './runner';
 import { resolveSlashPrompt } from './slashPrompt';
 import { bufferChannelMessage, toRunUserMessages } from './debounce';
+import { VoiceNoteTooLong } from './voiceNotes';
 import { markdownToWhatsapp } from '../../utils';
 import { startChannelLink } from './link';
 
@@ -19,6 +20,7 @@ import type { ChannelAttachment, RunUserMessage } from './runner';
 import type { ParsedSlashCommand } from './slashPrompt';
 import type {
   BufferedChannelMessage,
+  BufferedVoiceNote,
   ChannelBufferEnvelope
 } from '@ganju/utils';
 import type { AppEnv, Bindings } from '../../types';
@@ -52,6 +54,8 @@ interface WhatsappInboundMessage {
   timestamp?: string;
   type: string;
   text?: { body?: string };
+  // A voice note (`voice: true`) or a forwarded audio file.
+  audio?: { id?: string; mime_type?: string; voice?: boolean };
   // A tap on a reply button — the Yes/No under a confirmation question.
   interactive?: {
     type?: string;
@@ -77,6 +81,14 @@ const inboundText = (message: WhatsappInboundMessage): string | null => {
   }
   return null;
 };
+
+// The audio a customer sent, to transcribe and answer as if typed.
+const inboundVoice = (
+  message: WhatsappInboundMessage
+): BufferedVoiceNote | null =>
+  message.type === 'audio' && message.audio?.id
+    ? { ref: message.audio.id, mimeType: message.audio.mime_type || null }
+    : null;
 
 interface WhatsappWebhookValue {
   messaging_product?: string;
@@ -185,12 +197,13 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
   }
 
   const value = payload.entry?.[0]?.changes?.[0]?.value;
+
   const message = value?.messages?.[0];
-  // Only react to inbound text and confirmation-button taps — ignore status
-  // receipts and the media/interactive types we don't render (mirrors
-  // Telegram's text-only rule).
+  // Only react to inbound text, voice notes and confirmation-button taps —
+  // ignore status receipts and the media/interactive types we don't render.
   const text = message ? inboundText(message) : null;
-  if (!message || !text) {
+  const voice = message ? inboundVoice(message) : null;
+  if (!message || (!text && !voice)) {
     return c.json({ ok: true });
   }
 
@@ -216,7 +229,8 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
     processWhatsappMessage(c, channelRow, credentials, {
       from: message.from,
       messageId: message.id,
-      text,
+      text: text || '',
+      voice,
       displayName
     }).catch(err =>
       dbUtils.handleError(c, err, {
@@ -267,6 +281,7 @@ interface IncomingWhatsappMessage {
   from: string;
   messageId: string;
   text: string;
+  voice: BufferedVoiceNote | null;
   displayName: string;
 }
 
@@ -280,7 +295,7 @@ const processWhatsappMessage = async (
   await markReadWithTyping(credentials, message.messageId);
 
   const cleanText = message.text.trim();
-  const slashCommand = parseSlashCommandText(cleanText);
+  const slashCommand = message.voice ? null : parseSlashCommandText(cleanText);
 
   if (slashCommand?.name === utils.constants.BOT_COMMAND_LINK) {
     // WhatsApp Cloud API conversations are always 1:1, so a link code is never
@@ -302,7 +317,7 @@ const processWhatsappMessage = async (
     return;
   }
 
-  if (!cleanText && !slashCommand) return;
+  if (!cleanText && !slashCommand && !message.voice) return;
 
   const promptMatch = slashCommand
     ? await resolveSlashPrompt(c, channelRow.artifactId, slashCommand)
@@ -329,7 +344,8 @@ const processWhatsappMessage = async (
     externalMessageId: message.messageId,
     receivedAt: Date.now(),
     immediate: !!promptMatch,
-    command: promptMatch
+    command: promptMatch,
+    voice: message.voice
   };
 
   if (await bufferChannelMessage(c, channelRow.config, envelope, buffered)) {
@@ -342,7 +358,7 @@ const processWhatsappMessage = async (
     channelRow,
     credentials,
     envelope,
-    [buffered],
+    toRunUserMessages([buffered]),
     promptMatch
   );
 };
@@ -351,7 +367,12 @@ const processWhatsappMessage = async (
 // participant's burst has settled.
 export const handleWhatsappDebouncedBatch = async (
   c: Context<AppEnv>,
-  channelRow: { id: string; artifactId: string; credentials: string },
+  channelRow: {
+    id: string;
+    artifactId: string;
+    credentials: string;
+    config: unknown;
+  },
   envelope: ChannelBufferEnvelope,
   messages: BufferedChannelMessage[]
 ): Promise<void> => {
@@ -364,6 +385,41 @@ export const handleWhatsappDebouncedBatch = async (
     toRunUserMessages(messages),
     utils.batchCommand(messages)
   );
+};
+
+// Fetch an inbound media file: the id resolves to a short-lived URL, which
+// takes the same token.
+const downloadWhatsappMedia = async (
+  credentials: WhatsappCredentials,
+  mediaId: string
+): Promise<{ bytes: Uint8Array; mimeType: string | null }> => {
+  const auth = { Authorization: `Bearer ${credentials.accessToken}` };
+  const lookup = await fetch(`${WHATSAPP_BASE}/${mediaId}`, { headers: auth });
+  const info = (await lookup.json().catch(() => ({}))) as {
+    url?: string;
+    mime_type?: string;
+    file_size?: number;
+    error?: { message?: string };
+  };
+  if (!lookup.ok || !info.url) {
+    throw new Error(
+      `WhatsApp media lookup failed: ${lookup.status} ${info.error?.message || ''}`
+    );
+  }
+  if (
+    typeof info.file_size === 'number' &&
+    info.file_size > utils.VOICE_NOTE_MAX_BYTES
+  ) {
+    throw new VoiceNoteTooLong(null);
+  }
+  const download = await fetch(info.url, { headers: auth });
+  if (!download.ok) {
+    throw new Error(`WhatsApp media download failed: ${download.status}`);
+  }
+  return {
+    bytes: new Uint8Array(await download.arrayBuffer()),
+    mimeType: info.mime_type || null
+  };
 };
 
 const readWhatsappDelivery = (
@@ -417,8 +473,11 @@ const runWhatsappTurnAndReply = async (
       promptArtifactId: promptMatch?.artifactPromptId ?? null,
       promptTitle: promptMatch?.promptTitle ?? null,
       promptArgs: promptMatch?.args || undefined,
-      notifier: createWhatsappNotifier(credentials, to)
+      notifier: createWhatsappNotifier(credentials, to),
+      locale: utils.languageFromPhoneNumber(to),
+      downloadVoiceNote: voice => downloadWhatsappMedia(credentials, voice.ref)
     });
+    if (result.silent) return;
     replyText = result.assistantText;
     attachments = result.attachments;
     sourcesFooter = result.sourcesFooter;

@@ -39,6 +39,7 @@ interface BillingStatus {
     includedSharedMessages: number;
     toolCallsUsed: number;
     includedToolCalls: number;
+    voiceNotes?: { count: number; seconds: number; onPlatformKey: number };
   };
   subscription: {
     status: string;
@@ -419,6 +420,19 @@ export const BillingManager = (props: BillingManagerProps) => {
           limit={status.limits.maxProjects}
           render={t.n}
         />
+        {/* Tracked, not billed: the reply a voice note feeds is the message
+            that counts. Shown once there is any, so the owner can see how
+            much of their traffic is voice. */}
+        {!!status.usage.voiceNotes?.count && (
+          <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>
+            {t('usageVoiceNotes', {
+              count: t.n(status.usage.voiceNotes.count),
+              minutes: t.n(
+                Math.max(1, Math.round(status.usage.voiceNotes.seconds / 60))
+              )
+            })}
+          </div>
+        )}
       </div>
     </>
   );

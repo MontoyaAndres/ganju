@@ -6,7 +6,7 @@ How an artifact's channel turns reach a language model: the two tiers of key, th
 
 **The MCP Worker never calls a model.** [`apps/mcp`](../apps/mcp) assembles tools, resources and prompts and serves them over MCP; the client on the other end pays for its own inference on its own model. That's the whole point of the artifact — an MCP server is a capability surface, not an agent.
 
-Inference happens in exactly one place: the **channel runner** ([`apps/api/src/controllers/channel/runner.ts`](../apps/api/src/controllers/channel/runner.ts)). When a message arrives from WhatsApp, Telegram, Slack or Discord, the runner connects to our own MCP Worker *as a client* over a service binding, lists the artifact's tools, and drives a tool-calling loop:
+Inference happens in two places, both in `apps/api`. The main one is the **channel runner** ([`apps/api/src/controllers/channel/runner.ts`](../apps/api/src/controllers/channel/runner.ts)). When a message arrives from WhatsApp, Telegram, Slack or Discord, the runner connects to our own MCP Worker *as a client* over a service binding, lists the artifact's tools, and drives a tool-calling loop:
 
 ```
 resolveChannelLlm  → which key and model this channel uses
@@ -16,6 +16,21 @@ adapter.complete   → one model call
 ```
 
 The loop is bounded by `MAX_TOOL_LOOPS` and the number of tools by `CHANNEL_MAX_TOOLS`, both in [`constants.ts`](../packages/utils/src/constants.ts). Those bounds are cost controls as much as quality ones — tool schemas are re-sent on every call in the loop.
+
+**Voice notes are transcribed on the organization's key where its provider takes audio** ([`transcribe.ts`](../apps/api/src/utils/llm/transcribe.ts)):
+
+| Channel's model | Transcribed by | Key |
+|---|---|---|
+| Shared tier | Gemini, `DEFAULT_LLM_MODEL` | `EMBEDDING_API_KEY` (ours) |
+| Own Google key | Gemini, `DEFAULT_LLM_MODEL` | theirs |
+| Own OpenAI / OpenAI-compatible key | `gpt-4o-mini-transcribe` at their `baseUrl` | theirs |
+| Own Anthropic key | Gemini, `DEFAULT_LLM_MODEL` | ours — Claude takes no audio |
+
+When their key fails (no access to the model, no quota, an endpoint without `/audio/transcriptions`), the note is retried on ours, so a misconfigured key doesn't cost the customer their answer; the failure is logged as `channel-voice-note-own-key`. Transcription is one call per note, outside the adapter layer (audio in, text out, no tools), made only for a turn that will run — never past the message cap or a customer's daily limit.
+
+**Notes are capped by length, not size: `VOICE_NOTE_MAX_SECONDS` (5 minutes).** The transcription is cheap — Gemini counts about 32 tokens per second of audio — but the transcript becomes the user's message, sent on every model call of the turn and replayed in history after it; a 30-minute note is ~5,000 words in every one of them. Telegram, Discord and Slack report a note's length, so a long one is refused before it's downloaded; WhatsApp doesn't, so its notes are measured from the Ogg file itself (`oggDurationSeconds`), with `VOICE_NOTE_MAX_BYTES` (5 MB) as the backstop for an mp3 or m4a of unknown length. A refused note gets a reply asking for shorter parts or text.
+
+**Voice is tracked, not billed.** The reply a note feeds is the message that counts; counting the transcription too would charge the business twice whenever a customer speaks instead of typing. Each note records its provider, model, who paid (`paidBy`), length and tokens on the user's `channel_message` row under `metadata.voiceNote`, and the organization's `subscription` counts notes, seconds and those on our key for the period (`voice_note_count`, `voice_note_seconds`, `voice_note_platform_count`), shown on the billing page. If voice ever needs a price, the unit is audio minutes on our key, not messages.
 
 **Embeddings are a separate path.** Retrieval runs on `EMBEDDING_MODEL` through Google regardless of what a channel is configured with; an org that brings its own Anthropic key still has its resources embedded by us. Nothing in this document changes that.
 

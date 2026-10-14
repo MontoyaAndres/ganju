@@ -19,7 +19,7 @@ A [Hono](https://hono.dev) Worker ([`apps/api/src/index.ts`](../apps/api/src/ind
 - **Auth** — [better-auth](https://www.better-auth.com) handles social login (Google, GitHub) and, via `@better-auth/oauth-provider`, acts as an **OAuth 2.1 / OIDC provider** so MCP clients can do OAuth. Discovery is advertised at `/.well-known/oauth-authorization-server`; the consent screen is served at `/oauth/consent`.
 - **CRUD** — organizations, projects, artifacts, prompts, resources, tools, credentials, channels, and org-level LLM configs. Controllers live under [`apps/api/src/controllers`](../apps/api/src/controllers).
 - **Integration OAuth** — `GET /oauth/:provider/authorize` + callbacks for Gmail, Google Drive/Calendar, Outlook, OneDrive, and Slack.
-- **Channel webhooks** — `POST /channel/:channelId/webhook/:platform` ingests Telegram/Slack/WhatsApp/Discord events; a Discord **Durable Object** ([`durable-objects/discordGateway.ts`](../apps/api/src/durable-objects/discordGateway.ts)) holds the persistent Gateway WebSocket.
+- **Channel webhooks** — `POST /channel/:channelId/webhook/:platform` ingests Telegram/Slack/WhatsApp/Discord events — text and voice notes (see [Channel bot turn](#channel-bot-turn)); a Discord **Durable Object** ([`durable-objects/discordGateway.ts`](../apps/api/src/durable-objects/discordGateway.ts)) holds the persistent Gateway WebSocket.
 - **Queue consumers** — the `queue()` handler dispatches background jobs (see [Queues](#queues-background-work)).
 
 ### `apps/mcp` — MCP-server Worker
@@ -118,6 +118,12 @@ sequenceDiagram
 
 A chat platform posts a webhook to `apps/api`, which runs an LLM tool-calling loop (the org's configured model, or the shared platform one — see [MODELS.md](MODELS.md)) against the artifact's MCP `Client`, then replies on the platform. Resources reach the agent through the native `resources` tool group, and MCP prompts surface as slash commands — both detailed in the [tools README](../apps/mcp/src/tools/README.md#channel-bots-telegram).
 
+The webhook only classifies the message and hands it to the `MessageBufferDO`, which holds one participant's burst until they pause and then runs the turn through `/channel/:id/ingest/debounced`. That route has no 30-second `waitUntil` ceiling, so anything slow happens there:
+
+- **Voice notes** (WhatsApp, Telegram, Slack, Discord) are buffered by reference — a media id, file id or attachment URL — and each platform hands the runner a function that downloads one from its own hosts. The runner transcribes only once the turn is known to run (message cap, shared-key backstop and per-customer limit all pass), and the transcript follows any caption or text sent with the note. A note that can't be read keeps that text; with nothing else to go on the customer is asked to type it, in a recorded reply ([`voiceNotes.ts`](../apps/api/src/controllers/channel/voiceNotes.ts)).
+- **Per-customer limit** — before the model loop, the runner counts the participant's replies in the last 24 hours (`channel.config.participantDailyLimit`, default 50, 0 = off). Each time a customer reaches it, their first message gets a notice and later ones nothing, with no model call and nothing billed; the notice is claimed under a per-participant lock, so messages arriving together get one between them.
+- **Customer memory** — with `channel.config.participantMemory` on, in private conversations the runner adds its own `remember-customer` tool and puts the saved facts in the system prompt; they live on `channel_participant.memory`. Each save applies to the stored row under a lock, so a "Forget" during a turn holds, and a save made after the turn read outside content waits for the customer's yes like a sensitive tool.
+
 ## Cloudflare bindings
 
 Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/wrangler.toml) for the full set). The API Worker is the binding hub:
@@ -129,6 +135,7 @@ Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/w
 | `SEND_EMAIL`       | Email Service              | Transactional email (invitations, contact, alerts) |
 | `RESOURCE_HANDLER` | Durable Object → Container | Heavy work delegation                            |
 | `DISCORD_GATEWAY`  | Durable Object             | Persistent Discord Gateway socket                |
+| `MESSAGE_BUFFER`   | Durable Object             | Holds a participant's burst, then runs the turn  |
 | `MCP` / `API`      | Service bindings           | Worker-to-Worker calls                           |
 | `DISPATCH`         | Workers for Platforms      | Runs a customer's deployed tool script           |
 | `*_QUEUE`          | Queues                     | Background jobs (see below)                      |

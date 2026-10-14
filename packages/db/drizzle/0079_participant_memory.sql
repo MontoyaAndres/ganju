@@ -1,0 +1,2 @@
+ALTER TABLE "channel_participant" ADD COLUMN "memory" json;--> statement-breakpoint
+CREATE INDEX "channel_message_participant_created_idx" ON "channel_message" USING btree ("participant_id","created_at");

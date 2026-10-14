@@ -645,6 +645,11 @@ app
     UserMiddleware.verify,
     ChannelController.listMessages
   )
+  .delete(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/participant/:participantId/memory',
+    UserMiddleware.verify,
+    ChannelController.clearParticipantMemory
+  )
 
   // Channel webhook (public, signed by platform secret)
   .post(

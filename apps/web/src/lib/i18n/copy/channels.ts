@@ -97,6 +97,8 @@ const en = {
 
   // Platform requirement panels.
   scopesRequired: 'Bot token scopes — required',
+  scopesRequiredHint:
+    'files:read lets the bot listen to voice clips. An app installed before it was added needs the scope added and the app reinstalled — until then voice clips get a "please type it" reply.',
   scopesRecommended: 'Bot token scopes — recommended',
   scopesRecommendedHint:
     'Optional — without these the bot still works but falls back to user and channel IDs instead of names.',
@@ -156,6 +158,26 @@ const en = {
   replyWait5: 'Wait 5 seconds (recommended)',
   replyWait10: 'Wait 10 seconds',
   replyWait30: 'Wait 30 seconds',
+
+  participantLimit: 'Replies per customer',
+  participantLimitHelp:
+    'How many replies one customer gets in 24 hours. Past it, they are told once and then the bot stays quiet until the day frees up — so spam and all-day chats stop costing you messages and model time.',
+  participantLimitOff: 'No limit',
+  participantLimitValue: '{count} a day',
+  participantLimitRecommended: '{count} a day (recommended)',
+
+  memoryLabel: 'Customer memory',
+  memoryToggle: 'Remember customers',
+  memoryHint:
+    'The bot keeps what each customer tells it about themselves — name, address, allergies, important dates — and uses it next time ("same address as always?"). Private chats only. Customers can ask it to forget; you can clear it from a conversation.',
+  memoryRemembered: 'Remembered about this customer',
+  memoryForget: 'Forget',
+
+  tagVoiceNote: 'Voice note',
+  tagVoiceNoteUnreadable: 'Voice note · not understood',
+  tagVoiceNoteSkipped: 'Voice note · not transcribed',
+  tagVoiceNoteTooLong: 'Voice note · too long',
+  tagParticipantLimit: 'Daily limit reached',
 
   activity: 'Activity',
   statConversations: 'Conversations',
@@ -222,6 +244,11 @@ const en = {
   toastReplyEveryMessage: 'The bot will answer every message as it arrives',
   toastReplyTimingUpdated: 'Reply timing updated',
   toastReplyTimingFailed: 'Failed to update reply timing',
+  toastParticipantLimitUpdated: 'Replies per customer updated',
+  toastMemoryOn: 'The bot will remember customers',
+  toastMemoryOff: 'The bot will no longer remember customers',
+  toastMemoryCleared: 'Forgotten',
+  toastMemoryClearFailed: 'Failed to clear what the bot remembers',
   toastChannelConnected: 'Channel connected',
   toastChannelCreateFailed: 'Failed to create channel',
   toastChannelEnabled: 'Channel enabled',
@@ -319,6 +346,8 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     errorAppSecret: 'El App secret es obligatorio',
 
     scopesRequired: 'Scopes del token del bot — obligatorios',
+    scopesRequiredHint:
+      'files:read permite que el bot escuche los clips de voz. Una app instalada antes de que se agregara necesita el scope y volver a instalarse; mientras tanto, los clips reciben una respuesta pidiendo que lo escriban.',
     scopesRecommended: 'Scopes del token del bot — recomendados',
     scopesRecommendedHint:
       'Opcionales — sin ellos el bot funciona igual, pero muestra IDs de usuario y de canal en vez de nombres.',
@@ -377,6 +406,26 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     replyWait10: 'Esperar 10 segundos',
     replyWait30: 'Esperar 30 segundos',
 
+    participantLimit: 'Respuestas por cliente',
+    participantLimitHelp:
+      'Cuántas respuestas recibe un cliente en 24 horas. Al pasarse, se le avisa una vez y el bot no responde hasta que se libere el día, así el spam y los chats de todo el día dejan de costarte mensajes y tiempo de modelo.',
+    participantLimitOff: 'Sin límite',
+    participantLimitValue: '{count} al día',
+    participantLimitRecommended: '{count} al día (recomendado)',
+
+    memoryLabel: 'Memoria de clientes',
+    memoryToggle: 'Recordar a los clientes',
+    memoryHint:
+      'El bot guarda lo que cada cliente le cuenta de sí mismo (nombre, dirección, alergias, fechas importantes) y lo usa la próxima vez («¿a la misma dirección de siempre?»). Solo en chats privados. El cliente puede pedirle que olvide; tú puedes borrarlo desde una conversación.',
+    memoryRemembered: 'Lo que recuerda de este cliente',
+    memoryForget: 'Olvidar',
+
+    tagVoiceNote: 'Nota de voz',
+    tagVoiceNoteUnreadable: 'Nota de voz · no se entendió',
+    tagVoiceNoteSkipped: 'Nota de voz · sin transcribir',
+    tagVoiceNoteTooLong: 'Nota de voz · muy larga',
+    tagParticipantLimit: 'Límite diario alcanzado',
+
     activity: 'Actividad',
     statConversations: 'Conversaciones',
     statMessages: 'Mensajes',
@@ -434,6 +483,11 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     toastReplyEveryMessage: 'El bot responderá cada mensaje apenas llegue',
     toastReplyTimingUpdated: 'Tiempo de respuesta actualizado',
     toastReplyTimingFailed: 'No pudimos actualizar el tiempo de respuesta',
+    toastParticipantLimitUpdated: 'Respuestas por cliente actualizadas',
+    toastMemoryOn: 'El bot recordará a los clientes',
+    toastMemoryOff: 'El bot ya no recordará a los clientes',
+    toastMemoryCleared: 'Olvidado',
+    toastMemoryClearFailed: 'No pudimos borrar lo que recuerda el bot',
     toastChannelConnected: 'Canal conectado',
     toastChannelCreateFailed: 'No pudimos crear el canal',
     toastChannelEnabled: 'Canal activado',

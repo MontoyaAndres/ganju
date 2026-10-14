@@ -134,7 +134,7 @@ Migrations live in [packages/db](../packages/db) and run from a local shell agai
 npm run migrate-prod   # generate + apply against .env.prod
 ```
 
-There are 71 migrations, through `0070_tool_call_metering`. **Code and schema must ship together**, because the current code writes to columns the later migrations add: `artifact_tool.tool_key` and `.enabled` from the first request, `artifact_tool_version.script_name` at boot, `access_token` on any request carrying a `ganju_pat_` bearer token, and `subscription.tool_call_count` on every custom tool call. Deploy without migrating and the first request fails.
+There are 81 migrations, through `0080_voice_note_usage`. **Code and schema must ship together**, because the current code writes to columns the later migrations add: `artifact_tool.tool_key` and `.enabled` from the first request, `artifact_tool_version.script_name` at boot, `access_token` on any request carrying a `ganju_pat_` bearer token, `subscription.tool_call_count` on every custom tool call, `channel_participant.memory` on every channel turn, and `subscription.voice_note_count` whenever a voice note is transcribed. Deploy without migrating and the first request fails. `0079` also builds an index on `channel_message`, which holds writes to that table while it builds — run it when the bots are quiet.
 
 Check what the target database already has before assuming a range:
 
