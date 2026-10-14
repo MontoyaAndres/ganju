@@ -1398,7 +1398,19 @@ production 2026-10-14 (`0081` applied on both).
       The `mcp.boot` line reports `resources: null` when the list wasn't
       loaded. Measured before: Postgres runs the whole boot query in ~5 ms;
       the cost is the rows on the wire (1,205 resources ≈ 840KB on dev's
-      biggest artifact) and ~35 ms of CPU to parse them. Ship: `ganju-mcp`.
+      biggest artifact) and ~35 ms of CPU to parse them.
+    - Deployed to dev 2026-10-14. Median of 7 from outside, the 1,205-resource
+      artifact, before → after: initialize 444 → 223 ms, tools/list 404 →
+      205 ms, a search-resources call 717 → 568 ms, resources/list 438 → 394
+      ms (it still loads the list). A 3-resource artifact runs initialize in
+      211 ms, so boot no longer grows with the resource count. Same
+      capabilities (prompts, resources, tools), 7 tools, 1,200 resources.
+      Behaviour, 9/9: resources/list, resources/read, the list-resources and
+      read-resource tools, search-resources, and a batched tools/list +
+      resources/list on the big artifact; the two artifacts with no
+      resources still leave `resources` out of initialize. Not driven: a
+      Gmail/Outlook/Slack send with an attachment (dev's Gmail token is
+      expired), which takes the same flag as read-resource.
   - Publishing a custom-code version while its bundle uploads overwrites
     the bundle in R2 (pre-existing).
     - Fixed 2026-10-14, on dev and production (`ganju-api`): the bundle's
