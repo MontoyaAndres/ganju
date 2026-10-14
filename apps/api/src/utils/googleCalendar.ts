@@ -24,7 +24,8 @@ const refreshAccessToken = async (
   credentialId: string,
   refreshTokenPlain: string,
   scopes: string | null,
-  metadata: Record<string, unknown> | null
+  metadata: Record<string, unknown> | null,
+  expiresAt: Date | null
 ): Promise<string | null> => {
   const providerConfig = providers[PROVIDER];
   if (!providerConfig) return null;
@@ -42,11 +43,12 @@ const refreshAccessToken = async (
       refreshToken: refreshTokenPlain
     });
   } catch (err) {
-    if (err instanceof utils.OAuthReauthRequiredError) {
+    const reauthReason = utils.refreshFailureReauthReason(err, expiresAt);
+    if (reauthReason) {
       const dbInstance = db.create(source);
       await dbInstance
         .update(db.schema.artifactCredential)
-        .set({ metadata: utils.buildReauthMetadata(metadata, err.code) })
+        .set({ metadata: utils.buildReauthMetadata(metadata, reauthReason) })
         .where(eq(db.schema.artifactCredential.id, credentialId));
     }
     throw err;
@@ -128,7 +130,8 @@ export const getCalendarAccessToken = async (
     credential.id,
     refreshTokenPlain,
     credential.scopes,
-    metadata
+    metadata,
+    credential.expiresAt
   );
   return refreshed ?? accessTokenPlain;
 };

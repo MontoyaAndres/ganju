@@ -163,12 +163,16 @@ export const refreshCredentialIfNeeded = async (
       return refresh();
     });
   } catch (err) {
-    if (err instanceof utils.OAuthReauthRequiredError) {
+    const reauthReason = utils.refreshFailureReauthReason(
+      err,
+      credential.expiresAt
+    );
+    if (reauthReason) {
       const dbInstance = db.create(ctx);
       await dbInstance
         .update(db.schema.artifactCredential)
         .set({
-          metadata: utils.buildReauthMetadata(existingMetadata, err.code)
+          metadata: utils.buildReauthMetadata(existingMetadata, reauthReason)
         })
         .where(eq(db.schema.artifactCredential.id, credential.id));
       return { ...decrypted, needsReauth: true };

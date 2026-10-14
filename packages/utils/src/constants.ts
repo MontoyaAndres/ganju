@@ -144,6 +144,11 @@ const OAUTH_TOKEN_URLS: Record<string, string> = {
 // MCP-proxy OAuth, in both apps/api and apps/mcp).
 const CREDENTIAL_REFRESH_BUFFER_MS = 60 * 1000;
 
+// A refresh the token endpoint rejects (4xx) without a reauth code still flags
+// the credential once its access token has been expired this long, so the
+// owner sees it as expired instead of every call failing behind "Connected".
+const CREDENTIAL_REFRESH_GIVE_UP_MS = 60 * 60 * 1000;
+
 const GOOGLE_CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
 
 const GOOGLE_DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
@@ -228,7 +233,18 @@ const ONE_DRIVE_TAB_LABELS: ReadonlyArray<{
   { value: ONE_DRIVE_TAB_DRIVES, label: ONE_DRIVE_TAB_LABEL_DRIVES }
 ];
 
-const REAUTH_ERROR_CODES = ['invalid_grant', 'invalid_token'];
+// Token-endpoint error codes that mean the stored refresh token is dead and
+// only a reconnect brings it back. `unauthorized_client` is Google's answer
+// when a token no longer belongs to the app it is refreshed with.
+const REAUTH_ERROR_CODES = [
+  'invalid_grant',
+  'invalid_token',
+  'unauthorized_client'
+];
+
+// Token-endpoint error codes that are about our own client id / secret, not
+// the user's token: a reconnect can't fix them, so they never flag one.
+const OAUTH_CLIENT_ERROR_CODES = ['invalid_client'];
 
 const RESOURCE_TYPE_TOOLTIP_MIN_WIDTH = 300;
 
@@ -2585,6 +2601,7 @@ export const constants = {
   SLACK_OAUTH_TOKEN_URL,
   OAUTH_TOKEN_URLS,
   CREDENTIAL_REFRESH_BUFFER_MS,
+  CREDENTIAL_REFRESH_GIVE_UP_MS,
   GOOGLE_CALENDAR_API_BASE,
   GOOGLE_DRIVE_API_BASE,
   GOOGLE_DRIVE_DEFAULT_PAGE_SIZE,
@@ -2620,6 +2637,7 @@ export const constants = {
   ONE_DRIVE_TAB_LABEL_DRIVES,
   ONE_DRIVE_TAB_LABELS,
   REAUTH_ERROR_CODES,
+  OAUTH_CLIENT_ERROR_CODES,
   RESOURCE_TYPE_TOOLTIP_MIN_WIDTH,
   SEARCH_DEBOUNCE_MS,
   GOOGLE_DRIVE_EXPORT_MIME_TYPES,

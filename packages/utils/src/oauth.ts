@@ -24,6 +24,21 @@ export class OAuthReauthRequiredError extends Error {
   }
 }
 
+// The token endpoint answered with an error that isn't a reauth code. `status`
+// tells a rejection (4xx) from an outage (5xx); a network failure never gets
+// here, it throws fetch's own error.
+export class OAuthRefreshError extends Error {
+  readonly status: number;
+  readonly code: string | undefined;
+
+  constructor(status: number, code: string | undefined, body: string) {
+    super(`oauth refresh failed (${status}): ${body}`);
+    this.name = 'OAuthRefreshError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 const parseErrorCode = (body: string): string | undefined => {
   try {
     return (JSON.parse(body) as { error?: string })?.error;
@@ -52,7 +67,7 @@ export const refreshOAuthToken = async (
     if (code && constants.REAUTH_ERROR_CODES.includes(code)) {
       throw new OAuthReauthRequiredError(code);
     }
-    throw new Error(`oauth refresh failed (${response.status}): ${body}`);
+    throw new OAuthRefreshError(response.status, code, body);
   }
 
   const tokens = (await response.json()) as {
@@ -93,6 +108,32 @@ export const clearReauthMetadata = (
   delete next.reauthReason;
   delete next.reauthAt;
   return Object.keys(next).length > 0 ? next : null;
+};
+
+/**
+ * Why a failed refresh should flag the credential for a reconnect, or null
+ * when it shouldn't. A reauth code flags it at once. Any other rejection
+ * (4xx) flags it only once the access token has been expired for
+ * CREDENTIAL_REFRESH_GIVE_UP_MS, so a one-off doesn't. Never flagged: an
+ * outage (5xx), a network error, rate limiting (429), and errors about our
+ * own client id / secret, which no reconnect can fix.
+ */
+export const refreshFailureReauthReason = (
+  err: unknown,
+  expiresAt: Date | null,
+  now = Date.now()
+): string | null => {
+  if (err instanceof OAuthReauthRequiredError) return err.code;
+  if (!(err instanceof OAuthRefreshError)) return null;
+  if (err.status < 400 || err.status >= 500 || err.status === 429) return null;
+  if (err.code && constants.OAUTH_CLIENT_ERROR_CODES.includes(err.code)) {
+    return null;
+  }
+  if (!expiresAt) return null;
+  if (now - expiresAt.getTime() < constants.CREDENTIAL_REFRESH_GIVE_UP_MS) {
+    return null;
+  }
+  return err.code ? `refresh_rejected:${err.code}` : 'refresh_rejected';
 };
 
 export const isCredentialNeedingReauth = (metadata: unknown): boolean => {

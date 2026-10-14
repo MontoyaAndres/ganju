@@ -131,11 +131,15 @@ export const resolveConnection = async (
       needsReauth: false
     };
   } catch (error) {
-    if (error instanceof utils.OAuthReauthRequiredError) {
+    const reauthReason = utils.refreshFailureReauthReason(
+      error,
+      credential.expiresAt
+    );
+    if (reauthReason) {
       await dbInstance
         .update(db.schema.artifactCredential)
         .set({
-          metadata: utils.buildReauthMetadata(existingMetadata, error.code)
+          metadata: utils.buildReauthMetadata(existingMetadata, reauthReason)
         })
         .where(eq(db.schema.artifactCredential.id, credential.id));
       return { ...base, needsReauth: true };

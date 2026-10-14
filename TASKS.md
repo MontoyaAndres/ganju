@@ -366,8 +366,9 @@ response)
   the artifact: 286 / 328 / 500–670 ms cold against 80 / 120 / 130 ms warm.
   Reading the resource metadata of crawled pages (their SEO snapshot, parsed
   whole from a `json` column) cost another 20–40 ms per search and is now
-  skipped. Next, if search latency matters: a smaller artifact query at boot,
-  then connection warmth on the SQL side.
+  skipped. Next, if search latency matters: a smaller artifact query at boot
+  (done 2026-10-14, see "MCP boot loaded…" under the review below), then
+  connection warmth on the SQL side.
 
 **3. Automatic sync — M**
 
@@ -426,6 +427,15 @@ on its own: the API's crons only run error alerts and overage metering.
     the 410 route and the hourly `runResourceSync` are live. Prod has one sync
     root (weekly) and it has never started — expected if its source is under
     a week old or its organization isn't on a plan with automatic sync.
+  - Seen firing in production (read 2026-10-14): the 13:00 UTC run on
+    2026-10-12 started all five Girardot - demos roots (ENTERPRISE, weekly)
+    within 2 s — the `portada` Drive file and the four Perros.com website
+    roots, created 2026-10-05 12:04 UTC, so due exactly a week later — and
+    each wrote `lastSyncedAt` 3–13 s after and ended COMPLETED. Free roots
+    (Shipday on "test", Myself's three files) were left alone, as designed.
+    Next due ~2026-10-19 13:00 UTC, the first weekly repeat. (A script on a
+    machine outside UTC reads `sync_started_at`, a timestamp without time
+    zone, as local time; the stored value is UTC.)
 
 **4. Human confirmation for sensitive tools — M**
 
@@ -1199,6 +1209,53 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     placeholder@example.invalid…" failed and its row was marked
     `turnFailed`. The next message ("What time zone are you in?") got only
     that answer, with no tool call and no email attempt.
+  - Confirmation ending in a sent email, seen live on dev 2026-10-14
+    (Shipday's bot on the default model, "Confirm sensitive actions" turned
+    on for the test): "Send an email to <owner> with the subject 'Ganju
+    confirmation test'…" was held in ~20 s with its summary (to, subject,
+    body) — one call only; the earlier failed `placeholder@example.invalid`
+    request did not come back. The first "sí" failed on the Gmail
+    credential ("credential refresh failed" again, though the card said
+    Connected); after reconnecting Gmail and asking again the bot held the
+    send anew, "sí" showed "Sending the email…" and the email arrived.
+    Gmail on dev has now lost its refresh token several times in a week:
+    the dev Google OAuth app is in "Testing", where refresh tokens expire
+    after 7 days (confirmed 2026-10-14). Leaving Testing needs Google's
+    verification — `gmail.send` / `calendar.events` are sensitive scopes,
+    `gmail.readonly` / `modify` / `compose` and `drive.readonly` restricted
+    (yearly CASA assessment). Production uses a different OAuth client;
+    check its publishing status too.
+  - Expired card that said Connected, fixed 2026-10-14, code only (not
+    deployed): only `invalid_grant` / `invalid_token` flagged a credential;
+    any other refresh failure was logged and dropped, so the card stayed
+    Connected. Now `unauthorized_client` flags it too, and
+    `utils.refreshFailureReauthReason` is the one rule for all six refresh
+    paths (apps/mcp, tool-broker, the API's artifact credential, Drive,
+    OneDrive, Calendar): any other 4xx from the token endpoint flags it once
+    the access token has been expired an hour (`refresh_rejected[:code]`);
+    5xx, network errors, 429 and `invalid_client` (our own secret) never do.
+    utils tests 130/130; api, mcp and tool-broker typecheck. Ship:
+    `@ganju/utils` build, `ganju-mcp`, `ganju-tool-broker`, `ganju-api`.
+  - Deployed to dev 2026-10-14; `scripts/probe-credential-reauth.mjs`
+    (throwaway org, Gmail and Outlook credentials expired 2 h with a made-up
+    refresh token, a Calendar one in date as control) failed 7/17: neither
+    credential reached Google or Microsoft. The real cause of the Gmail
+    breaks: `ganju-mcp-development` and `ganju-mcp-production` have no
+    `GOOGLE_*`, `MICROSOFT_*` or `SLACK_*` client secrets (the API and
+    tool-broker workers have all six), so the MCP worker — every MCP client
+    and every channel bot — can never refresh a native OAuth token. A Google
+    or Microsoft connection works for the hour its access token lasts, then
+    every call says "has expired and this server can't renew it" and the
+    card stays Connected (missing secrets are ours, so they rightly don't
+    flag the credential). Fix: put the six secrets on both MCP workers.
+  - Secrets put on `ganju-mcp-development` 2026-10-14; probe 17/17: Google
+    and Microsoft both refused the made-up refresh token with
+    `invalid_grant`, the call said "needs to be re-authorized", both
+    credentials were flagged and the credential list (what the Tools card
+    reads) showed them expired; the in-date Calendar control stayed
+    unflagged; a second call didn't refresh again or rewrite the flag.
+    Put on `ganju-mcp-production` the same day (all six listed, none
+    empty). The reauth-flag code itself is not yet deployed to production.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
@@ -1368,6 +1425,7 @@ production 2026-10-14 (`0081` applied on both).
       changelog pages, the same quickstart steps in each framework guide —
       so the nav change wouldn't remove them. Collapsing exact duplicate
       chunks per site at index time is the fix, if it ever matters.
+      Decided 2026-10-14: not yet.
     - Indexes, measured on dev's 7,027-chunk artifact: a common word on the
       lexical side 25 ms, a rare one 0.2 ms through the existing GIN index,
       the substring fallback for a code the index never saw 52 ms (so ~150
@@ -1375,6 +1433,7 @@ production 2026-10-14 (`0081` applied on both).
       artifacts, 3,124 of them in one. Neither index is worth a migration
       and an extension (`btree_gin`, `pg_trgm`) yet; revisit when an
       artifact passes ~20,000 chunks or many artifacts share the table.
+      Decided 2026-10-14: keep that trigger, nothing to do now.
   - Not seen live: the crawler's browser screening redirects before they
     are sent (needs a crawl of a site that redirects).
     - Seen live on dev 2026-10-14, three one-page website resources in the
@@ -1386,8 +1445,9 @@ production 2026-10-14 (`0081` applied on both).
       `https://example.com/` instead indexed example.com's text — so the
       browser path works and only the private hop was refused.
   - MCP boot loaded the artifact's whole resource list on every request.
-    - 2026-10-14, code only (not deployed): boot loads it only when the
-      request reads it — `resources/*`, `completion/complete`, or a
+    - Done 2026-10-14, on dev and production (`ganju-mcp`; no migration):
+      boot loads it only when the request reads it — `resources/*`,
+      `completion/complete`, or a
       `tools/call` to a native tool flagged `usesResources` (read-, list- and
       send-resource; Gmail and Outlook send, reply, forward and both draft
       writes; Slack send and upload). A request with no readable JSON-RPC body
@@ -1408,9 +1468,12 @@ production 2026-10-14 (`0081` applied on both).
       Behaviour, 9/9: resources/list, resources/read, the list-resources and
       read-resource tools, search-resources, and a batched tools/list +
       resources/list on the big artifact; the two artifacts with no
-      resources still leave `resources` out of initialize. Not driven: a
-      Gmail/Outlook/Slack send with an attachment (dev's Gmail token is
-      expired), which takes the same flag as read-resource.
+      resources still leave `resources` out of initialize. A
+      Gmail/Outlook/Slack send with an attachment wasn't driven there (dev's
+      Gmail token is expired).
+    - Production 2026-10-14 after the deploy: a Gmail send with a resource
+      attached went out, so the `usesResources` flag loads the list for the
+      send tools too.
   - Publishing a custom-code version while its bundle uploads overwrites
     the bundle in R2 (pre-existing).
     - Fixed 2026-10-14, on dev and production (`ganju-api`): the bundle's
@@ -1419,4 +1482,4 @@ production 2026-10-14 (`0081` applied on both).
       `v<n>.js`. A refused upload removes what it stored (unless the same
       bytes were published under that key) and a successful one removes the
       draft's previous bundle. Not driven by hand (the race needs a publish
-      landing mid-upload).
+      landing mid-upload); decided 2026-10-14 to skip that check.

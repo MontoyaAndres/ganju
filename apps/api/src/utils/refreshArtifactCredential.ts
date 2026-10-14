@@ -101,11 +101,15 @@ export const refreshArtifactCredential = async (
 
     return { secret: nextAccessToken, needsReauth: false };
   } catch (err) {
-    if (err instanceof utils.OAuthReauthRequiredError) {
+    const reauthReason = utils.refreshFailureReauthReason(
+      err,
+      credential.expiresAt
+    );
+    if (reauthReason) {
       await dbInstance
         .update(db.schema.artifactCredential)
         .set({
-          metadata: utils.buildReauthMetadata(existingMetadata, err.code)
+          metadata: utils.buildReauthMetadata(existingMetadata, reauthReason)
         })
         .where(eq(db.schema.artifactCredential.id, credential.id));
       return { secret: accessTokenPlain, needsReauth: true };

@@ -344,6 +344,8 @@ import { citesUrl, citedPages, selectCitedSources } from './citations';
 import {
   refreshOAuthToken,
   OAuthReauthRequiredError,
+  OAuthRefreshError,
+  refreshFailureReauthReason,
   buildReauthMetadata,
   clearReauthMetadata,
   isCredentialNeedingReauth
@@ -557,6 +559,8 @@ export const utils = {
   selectCitedSources,
   refreshOAuthToken,
   OAuthReauthRequiredError,
+  OAuthRefreshError,
+  refreshFailureReauthReason,
   buildReauthMetadata,
   clearReauthMetadata,
   isCredentialNeedingReauth,
