@@ -610,6 +610,12 @@ on its own: the API's crons only run error alerts and overage metering.
     failed; 503 then 200 → refreshed; `invalid_grant` → one call and
     `needsReauth`; network errors → `refreshFailed`. The MCP boot message
     for it isn't driven on dev (a token endpoint failure can't be forced).
+    Left as is, 2026-10-14: renewing through apps/api (an internal route
+    the MCP worker calls over its `API` binding, so the secrets stay in one
+    place) was started and reverted before deploying. Until then an expired
+    token on the MCP worker asks the user to reconnect unless something in
+    apps/api renewed it first. The "could not be renewed" log is now one
+    warning per credential, not one per request.
     confirmation for MCP clients is 4b, done.
 
 **4b. Confirmation for MCP clients — S, done**
@@ -823,6 +829,15 @@ to come from the model there: a yes or no in the chat, then the action.
     duplicates, siblings, native and prefixed look-alikes, the guidance
     wording, annotations, nested input paths, the tool count. Checked that
     reverting either 2026-09-30 fix fails its test.
+  - 2026-10-14: new rule `reserved-input` — a tool input named
+    `confirmation` is flagged, since the platform uses that name for its own
+    confirmation argument and strips it before the handler runs. Published
+    in `@ganju/utils` 0.0.15 and `@ganju/cli` 0.0.10 (checked from npm).
+    Seen on dev 2026-10-14 (`/es`, project nemo, New function dialog on an
+    unsaved new script): an input named `confirmation` shows "Tiene una
+    entrada llamada confirmation, que el servidor reserva…" under "Cómo la
+    lee un modelo", above the input schema, as the only warning; renamed to
+    `orderId` it clears. Nothing saved; the editor was put back on v21.
 
 **6. Observability for tools — M**
 
@@ -1156,6 +1171,10 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     asking, and the test org has no Gmail tool (it is over the 40-tool
     limit, so one can't be added there). Worth a per-call timeout on model requests (and
   telling the customer it's slow) rather than waiting on the provider.
+  - Left as is, 2026-10-14: treated as a provider error on that model, not
+    ours. A per-call timeout with a "taking a while" notice was started and
+    reverted before deploying. The channel confirmation in front of
+    `gmail-send` is still not seen live; retry it on a faster model.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
@@ -1187,3 +1206,96 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     exactly as stored, and a second page that is items 4–6 — the model used
     `limit: 3` and followed the cursor; two `resources/list` calls on the
     turn's session.
+
+## Review of 2026-09-24 → 2026-10-14, and its fixes
+
+Every commit in that range was reviewed by theme (search, sync and
+buffering, confirmation and linter, untrusted content and observability,
+customer memory and limits). The fixes are commit `5a6015c`, live on dev and
+production 2026-10-14 (`0081` applied on both).
+
+- **Confirmation**
+  - Proxied MCP tools no longer escape confirmation by calling themselves
+    read-only: the remote server's `readOnlyHint` / `destructiveHint` are
+    ignored unless its install trusts them. Owners decide in the MCP dialog:
+    "Trust this server's read-only labels" (`trustAnnotations`) and an
+    "Only reads" box per tool (`readOnlyTools`); saving keeps both. One rule
+    (`proxiedToolTrust` / `isSensitiveProxiedTool`) for the MCP worker and the
+    channel runner.
+  - MCP clients, once the session read outside content: the call returns a
+    link to `/tool-approval/<id>` in the web app; it runs only on a retry
+    after the signed-in user approved there (single use, same user, tool and
+    arguments; `tool_approval`, migration `0081`). The signed token stays for
+    the ordinary "confirm sensitive actions" mode and is defence in depth,
+    not a person's yes — the model receives it. Elicitation would be the
+    in-client version, but needs a stateful MCP transport (the worker is
+    rebuilt per request and answers in JSON, without sessions).
+  - `scripts/backfill-mcp-proxy-trust.mjs` trusts installs saved before the
+    switch existed: dev had one (GitHub on `nemo`, now trusted), production
+    had none.
+- **Untrusted content**
+  - Labelled now as well: HTTP endpoint and custom-code error bodies, remote
+    errors, native `resources/read`, proxied resource reads, embedded
+    resource blocks, Slack topics and statuses, calendar names. Proxied
+    prompts are not wrapped (the user picked them) but still mark the
+    session. Custom code without an output schema returns no structured copy.
+  - Each block carries a random id and only a closer with the same id ends
+    it; zero-width, fullwidth and combining look-alikes are normalised before
+    matching.
+  - Channels: the "read outside content" flag lasts 30 minutes on the
+    conversation instead of one turn. Customer memory reaches the model as
+    labelled data, and a save that reads like an instruction waits for the
+    customer's yes.
+  - Personal access tokens can't read tool-call arguments or error text from
+    observability.
+- **Search**
+  - A resource with its source hidden no longer hands the model its Drive /
+    OneDrive / page link.
+  - An identifier in the query (letters mixed with digits, a snake_case
+    name; a bare number, dotted or hyphenated word only as the whole query)
+    found in at most 5 documents pins their chunks ahead of the reranker,
+    which buried exact codes. One the index never saw (`@scope/y-supabase` is
+    indexed as `/y-supabase`) is matched as text, on artifacts up to 20,000
+    chunks.
+  - Eval (`scripts/golden/`, run with `EVAL_MCP_URL` at the dev MCP): the
+    Supabase set went from 2 exact misses to 12/12 in the top 3 (`86400` and
+    `y-supabase` now #1), the other set unchanged at 6/6; no semantic
+    regressions. Fixed on the way: the tsquery backslash escaping did
+    nothing, and a partial reranker response scrambled the order instead of
+    falling back.
+- **Sync and buffering**
+  - A website re-sync is complete only when its last page is (pages go back
+    to PENDING); unchanged pages skip re-embedding by hash.
+  - A scheduled sync no longer deletes a Drive / OneDrive file on a 404 (a
+    lost permission looks the same); a transient error fails a resource only
+    on the last retry and never downgrades a COMPLETED one; a credential
+    needing reauth is reported once, not retried. `QUEUE_MAX_RETRIES` is
+    checked against wrangler before every API deploy.
+  - Website URLs are screened for private addresses at creation and on
+    every redirect; the crawler connects only to addresses it checked, and
+    the browser's requests go through the same fetch.
+  - "Sync now" claims atomically; the message cap schedules the turn instead
+    of running it inside the webhook; giving up on a batch keeps the messages
+    that arrived after it.
+- **Channels**
+  - A retried batch reuses its transcripts and never counts a voice note
+    twice; rows and count are written together.
+  - "Forget" also redacts the logged `remember-customer` values and any held
+    save. `scripts/redact-memory-usage.mjs` ran on dev (2 rows) and
+    production (none).
+  - Tool quota checks lock the artifact row; paging no longer skips items
+    that share a key; voice-note downloads check every redirect and cap the
+    size.
+- **Verified**: `scripts/probe-untrusted-content.mjs` 54/54 on dev after
+  each deploy (it now drives the approval page through the API, and prints
+  the response when a check fails); `packages/utils` tests 126/126.
+- **Left for later**
+  - No tests for `apps/api` or `apps/mcp`; the buffer, sync claims,
+    approvals and voice-note counting are typechecked and probed only.
+  - Search: semantic misses in both sets; no switch to measure the reranker
+    on Spanish; a composite `(artifact_id, content_tsv)` index and a trigram
+    index for the text fallback on large artifacts.
+  - Not seen live: the crawler's browser screening redirects before they
+    are sent (needs a crawl of a site that redirects).
+  - Publishing a custom-code version while its bundle uploads overwrites
+    the bundle in R2 (pre-existing).
