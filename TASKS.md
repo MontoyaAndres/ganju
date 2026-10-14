@@ -1255,7 +1255,14 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     reads) showed them expired; the in-date Calendar control stayed
     unflagged; a second call didn't refresh again or rewrite the flag.
     Put on `ganju-mcp-production` the same day (all six listed, none
-    empty). The reauth-flag code itself is not yet deployed to production.
+    empty). The reauth-flag code deployed to dev and production 2026-10-14
+    (`ganju-mcp`, `ganju-tool-broker`, `ganju-api`); probe 17/17 on dev
+    after. Production the same day, `probe-credential-reauth.mjs --prod`
+    17/17 (throwaway org removed): both made-up refresh tokens refused with
+    `invalid_grant` and flagged. Its tail showed no
+    `credential-refresh-unconfigured` line, so the new secrets are read; the
+    first request spent 386 ms on the two refreshes (`credentialsMs`), every
+    later one 0 ms, since a flagged credential isn't refreshed again.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).

@@ -1,13 +1,13 @@
-// Drives a dead OAuth credential through the DEPLOYED development MCP worker:
-// the refresh the token endpoint refuses has to flag the credential, so the
-// Tools page shows it as expired instead of "Connected" while every call
-// fails.
+// Drives a dead OAuth credential through the DEPLOYED MCP worker: the refresh
+// the token endpoint refuses has to flag the credential, so the Tools page
+// shows it as expired instead of "Connected" while every call fails.
 //
-//   node scripts/probe-credential-reauth.mjs
+//   node scripts/probe-credential-reauth.mjs           # development
+//   node scripts/probe-credential-reauth.mjs --prod    # production (.env.prod)
 //
-// It needs .env: DATABASE_URL, JWT_SECRET (which signs the session cookie),
-// MCP_INTERNAL_SECRET. Development only — it writes credentials the real
-// token endpoints will refuse.
+// It needs .env (.env.prod with --prod): DATABASE_URL, JWT_SECRET (which
+// signs the session cookie), MCP_INTERNAL_SECRET. The credentials it writes
+// belong to its own throwaway artifact, so no real connection is touched.
 //
 // Scaffolds a throwaway user + organization + project + artifact with a
 // Gmail and an Outlook credential whose access token expired two hours ago
@@ -24,7 +24,9 @@ import postgres from 'postgres';
 import { v7 as uuid } from 'uuid';
 
 const root = new URL('..', import.meta.url).pathname;
-const env = fs.readFileSync(root + '.env', 'utf8');
+const isProd = process.argv.includes('--prod');
+const envFile = isProd ? '.env.prod' : '.env';
+const env = fs.readFileSync(root + envFile, 'utf8');
 const read = key => env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.trim();
 
 const DATABASE_URL = read('DATABASE_URL');
@@ -35,11 +37,15 @@ for (const [k, v] of Object.entries({
   JWT_SECRET,
   MCP_INTERNAL_SECRET: MCP_SECRET
 })) {
-  if (!v) throw new Error(`Missing ${k} in .env`);
+  if (!v) throw new Error(`Missing ${k} in ${envFile}`);
 }
 
-const API = 'https://development-api.vocesqueabrazan.com';
-const MCP_ORIGIN = 'https://development-mcp.vocesqueabrazan.com';
+const API = isProd
+  ? 'https://api.ganju.ai'
+  : 'https://development-api.vocesqueabrazan.com';
+const MCP_ORIGIN = isProd
+  ? 'https://mcp.ganju.ai'
+  : 'https://development-mcp.vocesqueabrazan.com';
 
 const sql = postgres(DATABASE_URL, { ssl: 'require', max: 1, prepare: false });
 
@@ -143,7 +149,9 @@ const metadataOf = async id => {
   return typeof m === 'string' ? JSON.parse(m) : m;
 };
 
-console.log(`\ndevelopment — scaffolding ${slug} (artifact ${artifactId})\n`);
+console.log(
+  `\n${isProd ? 'PRODUCTION' : 'development'} — scaffolding ${slug} (artifact ${artifactId})\n`
+);
 
 try {
   await sql`insert into "user" ${sql({ id: userId, name: 'probe reauth', email: `probe-reauth-${stamp}@example.invalid`, email_verified: true })}`;
