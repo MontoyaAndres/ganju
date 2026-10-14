@@ -32,9 +32,10 @@ interface InFlightBatch {
 export class MessageBufferDO extends DurableObject<Bindings> {
   // A hand-off lasts as long as the turn it runs — half a minute for a long
   // answer — and storage is only cleared once it returns. A second flush in
-  // that window (the message cap reached mid-turn) would read the same batch
-  // and answer it twice, so it waits for the first instead. In memory is
-  // enough: the object stays alive while its own request is in flight.
+  // that window (an alarm armed mid-turn by a command or the message cap)
+  // would read the same batch and answer it twice, so it waits for the first
+  // instead. In memory is enough: the object stays alive while its own
+  // request is in flight.
   private flushing = false;
 
   constructor(ctx: DurableObjectState, env: Bindings) {
@@ -77,25 +78,26 @@ export class MessageBufferDO extends DurableObject<Bindings> {
       debounceMs
     });
 
-    // A burst long enough to hit the message cap is answered now rather than
-    // waiting out the window — past this many fragments the user is clearly
-    // done making their point.
-    if (messages.length >= utils.constants.CHANNEL_DEBOUNCE_MAX_MESSAGES) {
-      await this.flush();
-      return;
-    }
-
     // The window restarts on every message so it tracks the typist, but never
     // past MAX_WAIT from the first one — otherwise someone who keeps typing
     // never gets an answer. A batch holding an immediate message (a command, or
     // a channel with buffering off) flushes now, and a plain message typed
-    // right after it must not push that back.
-    const target = messages.some(m => m.immediate)
-      ? now
-      : Math.min(
-          now + debounceMs,
-          firstAt + utils.constants.CHANNEL_DEBOUNCE_MAX_WAIT_MS
-        );
+    // right after it must not push that back. Neither does a burst long enough
+    // to hit the message cap: past this many fragments the user is clearly
+    // done making their point.
+    //
+    // "Now" is an alarm, never a flush from here. This call is the webhook's,
+    // often from inside its waitUntil, and a flush runs the whole turn — the
+    // webhook would wait on it, be cancelled after 30 seconds, and leave the
+    // batch half handed off with no alarm armed to finish it.
+    const target =
+      messages.some(m => m.immediate) ||
+      messages.length >= utils.constants.CHANNEL_DEBOUNCE_MAX_MESSAGES
+        ? now
+        : Math.min(
+            now + debounceMs,
+            firstAt + utils.constants.CHANNEL_DEBOUNCE_MAX_WAIT_MS
+          );
     await this.ctx.storage.setAlarm(target);
   }
 
@@ -183,13 +185,7 @@ export class MessageBufferDO extends DurableObject<Bindings> {
         await this.clear();
         return;
       }
-      const debounceMs =
-        (await this.ctx.storage.get<number>('debounceMs')) ??
-        utils.constants.CHANNEL_DEBOUNCE_DEFAULT_MS;
-      await this.ctx.storage.put({ messages: leftover, firstAt: Date.now() });
-      await this.ctx.storage.setAlarm(
-        Date.now() + (leftover.some(m => m.immediate) ? 0 : debounceMs)
-      );
+      await this.rearm(leftover);
       return;
     }
 
@@ -201,15 +197,41 @@ export class MessageBufferDO extends DurableObject<Bindings> {
       ((await this.ctx.storage.get<number>('attempts')) ?? 0) + 1;
     if (attempts >= utils.constants.CHANNEL_DEBOUNCE_MAX_ATTEMPTS) {
       console.error(
-        `MessageBufferDO: dropping ${messages.length} message(s) for channel ${envelope.channelId} after ${attempts} failed hand-offs`
+        `MessageBufferDO: dropping ${batch.length} message(s) for channel ${envelope.channelId} after ${attempts} failed hand-offs`
       );
-      await this.ctx.storage.delete('attempts');
-      await this.clear();
+      // Only the batch that kept failing is dropped. Messages pushed while it
+      // was being handed off are the next batch, and get their own attempts.
+      const current =
+        (await this.ctx.storage.get<BufferedChannelMessage[]>('messages')) ||
+        [];
+      const leftover = current.slice(batch.length);
+      await this.ctx.storage.delete(['attempts', 'inFlight']);
+      if (leftover.length === 0) {
+        await this.clear();
+        return;
+      }
+      await this.rearm(leftover);
       return;
     }
     await this.ctx.storage.put('attempts', attempts);
     await this.ctx.storage.setAlarm(
       Date.now() + utils.constants.CHANNEL_DEBOUNCE_RETRY_MS * attempts
+    );
+  }
+
+  // Keep the messages that arrived after a batch and arm the flush for them:
+  // at once when one of them can't wait, on the channel's window otherwise.
+  private async rearm(leftover: BufferedChannelMessage[]): Promise<void> {
+    const debounceMs =
+      (await this.ctx.storage.get<number>('debounceMs')) ??
+      utils.constants.CHANNEL_DEBOUNCE_DEFAULT_MS;
+    const now = Date.now();
+    await this.ctx.storage.put({ messages: leftover, firstAt: now });
+    await this.ctx.storage.setAlarm(
+      leftover.some(m => m.immediate) ||
+        leftover.length >= utils.constants.CHANNEL_DEBOUNCE_MAX_MESSAGES
+        ? now
+        : now + debounceMs
     );
   }
 

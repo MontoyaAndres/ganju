@@ -49,6 +49,9 @@ export interface ResourceChunkMatch {
   // didn't surface the chunk. Kept for evaluating the search, not for clients.
   vectorRank: number | null;
   lexicalRank: number | null;
+  // Contains an identifier from the query that only a few documents have;
+  // such a chunk stays ahead of the reranker's order.
+  exact: boolean;
   sourceType: string;
   // Where a reader can open what this chunk came from: the page for a crawled
   // site, the file in Drive or OneDrive. Null for an upload, which has no
@@ -76,7 +79,9 @@ type Row = {
   similarity: number | string;
   vectorRank: number | string | null;
   lexicalRank: number | string | null;
+  exact: boolean;
   sourceType: string;
+  showSource: string | null;
   sourceLink: string | null;
   pageNumber: string | null;
   totalPages: string | null;
@@ -158,6 +163,12 @@ export const searchResourceChunks = async (
   const vector = `[${params.embedding.join(',')}]`;
   const commonDivisor = utils.constants.RESOURCE_SEARCH_COMMON_TERM_DIVISOR;
   const minCommon = utils.constants.RESOURCE_SEARCH_COMMON_TERM_MIN;
+  const exactResources = utils.constants.RESOURCE_SEARCH_EXACT_MAX_RESOURCES;
+  const exactChunks = utils.constants.RESOURCE_SEARCH_EXACT_MAX_CHUNKS;
+  const substringMax = utils.constants.RESOURCE_SEARCH_SUBSTRING_MAX_CHUNKS;
+  // Some words count as identifiers only when they are the whole query; see
+  // `ident` below.
+  const singleToken = !/\s/.test(params.query.trim());
 
   const sqlStartedAt = Date.now();
   const rows = (await executor.execute(sql`
@@ -177,11 +188,22 @@ export const searchResourceChunks = async (
     -- cancelled. Stopwords in either language are dropped — the 'simple' config
     -- keeps them. Each lexeme is quoted for to_tsquery (quotes doubled,
     -- backslashes escaped) so no user text is ever read as tsquery syntax.
+    -- Every backslash below is written twice: this template reaches the
+    -- database cooked, so a single one would vanish before Postgres saw it.
     words AS (
-      SELECT to_tsquery(
+      SELECT lexeme, to_tsquery(
         'simple',
-        '''' || replace(replace(lexeme, '\', '\\'), '''', '''''') || ''''
-      ) AS q
+        '''' || replace(replace(lexeme, '\\', '\\\\'), '''', '''''') || ''''
+      ) AS q,
+      -- An identifier: letters mixed with digits (PGRST116, ORD-123, v1.2) or
+      -- a snake_case name anywhere in the query. A bare number, a dotted or a
+      -- hyphenated word only when it is the whole query — inside a sentence
+      -- "2024", "e.g." or "third-party" is prose, not something to pin.
+      length(lexeme) >= 3 AND (
+        (lexeme ~ '[[:alpha:]]' AND lexeme ~ '[0-9]')
+        OR lexeme LIKE '%\\_%'
+        OR (${singleToken} AND lexeme ~ '^[0-9]+$|[.-]')
+      ) AS ident
       FROM unnest(tsvector_to_array(to_tsvector('simple', ${params.query}))) AS lexeme
       WHERE ts_lexize('english_stem', lexeme) <> '{}'
         AND ts_lexize('spanish_stem', lexeme) <> '{}'
@@ -192,19 +214,73 @@ export const searchResourceChunks = async (
     -- appear in BOTH lists and outrank the one record that has the number.
     -- Counting stops at the threshold, so a common word costs a bounded scan.
     threshold AS (
-      SELECT greatest(${minCommon}, count(*) / ${commonDivisor}) AS n
+      SELECT greatest(${minCommon}, count(*) / ${commonDivisor}) AS n,
+        count(*) AS total
       FROM artifact_resource_chunk
       WHERE artifact_id = ${params.artifactId}
     ),
-    counted AS (
-      SELECT w.q, (
+    hit_counts AS (
+      SELECT w.lexeme, w.q, w.ident, (
         SELECT count(*) FROM (
           SELECT 1 FROM artifact_resource_chunk c
           WHERE c.artifact_id = ${params.artifactId} AND c.content_tsv @@ w.q
           LIMIT (SELECT n + 1 FROM threshold)
         ) hits
-      ) <= (SELECT n FROM threshold) AS distinctive
+      ) AS hits
       FROM words w
+    ),
+    counted AS (
+      SELECT q, hits <= (SELECT n FROM threshold) AS distinctive
+      FROM hit_counts
+    ),
+    -- Identifiers found in only a handful of documents. One the index never
+    -- saw (0 hits) is looked for as plain text: the parser files
+    -- "@supabase-labs/y-supabase" as the path "/y-supabase", so the word
+    -- "y-supabase" matches nothing although the page says it four times.
+    -- Each side reads at most one chunk past the cap, so a common identifier
+    -- costs a bounded scan and is then left out.
+    exact_terms AS (
+      SELECT lexeme, q, hits FROM hit_counts
+      WHERE ident AND hits <= ${exactChunks}
+    ),
+    exact_hits AS (
+      SELECT e.lexeme, c.id, c.resource_id
+      FROM exact_terms e
+      JOIN artifact_resource_chunk c
+        ON c.artifact_id = ${params.artifactId} AND c.content_tsv @@ e.q
+      WHERE e.hits > 0
+      UNION ALL
+      SELECT e.lexeme, s.id, s.resource_id
+      FROM exact_terms e
+      CROSS JOIN LATERAL (
+        SELECT c.id, c.resource_id FROM artifact_resource_chunk c
+        WHERE c.artifact_id = ${params.artifactId}
+          AND c.content ILIKE '%' || replace(replace(replace(e.lexeme,
+            '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'
+          -- Where an identifier starts, not the tail of a longer one: the
+          -- substring alone finds "y-supabase" in "postgres-on-fly-by-supabase".
+          -- Its end is left open — extracted tables can run a cell straight
+          -- into the next ("PGRST116406More…").
+          AND c.content ~* (
+            '(^|[^[:alnum:]_-])'
+            || regexp_replace(e.lexeme, '([^[:alnum:]])', '\\\\\\1', 'g')
+          )
+        LIMIT ${exactChunks + 1}
+      ) s
+      -- Only an artifact small enough to read whole: an identifier the index
+      -- never saw — often a typo'd code — matches nothing and so scans every
+      -- chunk before the LIMIT can stop it.
+      WHERE e.hits = 0
+        AND (SELECT total FROM threshold) <= ${substringMax}
+    ),
+    exact AS (
+      SELECT DISTINCT id FROM exact_hits
+      WHERE lexeme IN (
+        SELECT lexeme FROM exact_hits
+        GROUP BY lexeme
+        HAVING count(*) <= ${exactChunks}
+          AND count(DISTINCT resource_id) <= ${exactResources}
+      )
     ),
     -- The distinctive words, or every word when none is: a query that is all
     -- common words ("order status") still gets a lexical list.
@@ -225,7 +301,7 @@ export const searchResourceChunks = async (
         LIMIT ${candidates}
       ) matched
     ),
-    fused AS (
+    ranked AS (
       SELECT
         coalesce(vec.id, lex.id) AS id,
         coalesce(1.0 / (${k} + vec.rank), 0)
@@ -233,6 +309,17 @@ export const searchResourceChunks = async (
         vec.rank AS vector_rank,
         lex.rank AS lexical_rank
       FROM vec FULL OUTER JOIN lex ON lex.id = vec.id
+    ),
+    -- An exact chunk joins even when neither list surfaced it (a substring
+    -- hit is in neither), and sorts ahead of the rest so the cut keeps it.
+    fused AS (
+      SELECT
+        coalesce(r.id, x.id) AS id,
+        coalesce(r.rrf, 0) AS rrf,
+        r.vector_rank,
+        r.lexical_rank,
+        x.id IS NOT NULL AS exact
+      FROM ranked r FULL OUTER JOIN exact x ON x.id = r.id
     )
     SELECT
       c.resource_id AS "resourceId",
@@ -245,12 +332,14 @@ export const searchResourceChunks = async (
       1 - (c.embedding <=> ${vector}::halfvec) AS "similarity",
       f.vector_rank AS "vectorRank",
       f.lexical_rank AS "lexicalRank",
+      f.exact AS "exact",
       -- Citation fields, read as single paths rather than whole columns. A
       -- crawled page's resource metadata is skipped outright: it holds the
       -- page's SEO snapshot, and a json column is parsed whole to read one key
       -- — tens of milliseconds a search on a large site. A page has neither
       -- key anyway; its link is its uri.
       r.source_type AS "sourceType",
+      r.show_source AS "showSource",
       CASE WHEN r.source_type <> ${utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE}
         THEN coalesce(r.metadata->>'webViewLink', r.metadata->>'webUrl')
       END AS "sourceLink",
@@ -268,7 +357,7 @@ export const searchResourceChunks = async (
     JOIN artifact_resource r ON r.id = c.resource_id
     -- On a tie (one list's #n against the other's #n), the exact-token match
     -- wins: it contains what the user typed, the vector hit only resembles it.
-    ORDER BY f.rrf DESC, f.lexical_rank NULLS LAST, f.id
+    ORDER BY f.exact DESC, f.rrf DESC, f.lexical_rank NULLS LAST, f.id
     LIMIT ${take}
   `)) as unknown as Row[];
 
@@ -283,12 +372,16 @@ export const searchResourceChunks = async (
     similarity: Number(row.similarity),
     vectorRank: toNumber(row.vectorRank),
     lexicalRank: toNumber(row.lexicalRank),
+    exact: row.exact === true,
     sourceType: row.sourceType,
-    source:
-      toWebUrl(row.sourceLink) ??
-      (row.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE
-        ? toWebUrl(row.uri)
-        : null),
+    // A resource whose sources are hidden gets no link here either: the footer
+    // leaves it out, and a link the model is given is one it can repeat.
+    source: utils.isResourceSourceEnabled({ showSource: row.showSource })
+      ? (toWebUrl(row.sourceLink) ??
+        (row.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE
+          ? toWebUrl(row.uri)
+          : null))
+      : null,
     page: resolvePage(row),
     section: resolveSection(row),
     updatedAt: toIso(row.lastSyncedAt) ?? toIso(row.updatedAt) ?? row.updatedAt
@@ -324,7 +417,12 @@ export const searchResourceChunks = async (
 
   return matches
     .map((match, i) => ({ match, score: scores[i], i }))
-    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .sort(
+      (a, b) =>
+        Number(b.match.exact) - Number(a.match.exact) ||
+        b.score - a.score ||
+        a.i - b.i
+    )
     .slice(0, params.limit)
     .map(({ match }) => match);
 };

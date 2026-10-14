@@ -1,6 +1,15 @@
 import { utils } from '@ganju/utils';
 import type { ExtractedDocument } from '@ganju/utils';
 
+import type { Route } from 'playwright';
+
+import {
+  BlockedUrlError,
+  assertPublicUrl,
+  fetchHop,
+  fetchPublic
+} from './safeFetch.js';
+
 export interface DiscoveredPage {
   url: string;
   title?: string;
@@ -108,9 +117,8 @@ const fetchHtml = async (
     utils.constants.CRAWL_PAGE_FETCH_TIMEOUT_MS
   );
   try {
-    const response = await fetch(url, {
+    const { response, finalUrl } = await fetchPublic(url, {
       signal: controller.signal,
-      redirect: 'follow',
       headers: {
         'user-agent': utils.constants.CRAWL_USER_AGENT,
         accept: 'text/html,application/xhtml+xml'
@@ -123,7 +131,7 @@ const fetchHtml = async (
     const html = await response.text();
     return {
       html,
-      finalUrl: response.url || url,
+      finalUrl,
       status: response.status,
       contentType
     };
@@ -147,9 +155,9 @@ export const isPageGone = async (url: string): Promise<boolean> => {
     utils.constants.CRAWL_PAGE_FETCH_TIMEOUT_MS
   );
   try {
-    const response = await fetch(normalized, {
+    // A blocked address throws, and counts as "not gone": the page is kept.
+    const { response } = await fetchPublic(normalized, {
       signal: controller.signal,
-      redirect: 'follow',
       headers: {
         'user-agent': utils.constants.CRAWL_USER_AGENT,
         accept: 'text/html,application/xhtml+xml'
@@ -163,6 +171,9 @@ export const isPageGone = async (url: string): Promise<boolean> => {
     clearTimeout(timeout);
   }
 };
+
+const BLOCK_ELEMENTS =
+  'p, div, li, dt, dd, tr, table, ul, ol, dl, section, article, aside, header, footer, nav, blockquote, pre, figure, figcaption, details, summary, form, fieldset, hr';
 
 const stripBoilerplate = ($: any, root: any): void => {
   $(root)
@@ -189,9 +200,20 @@ const extractFullText = ($: any): string => {
     const heading = $(el).text().replace(/\s+/g, ' ').trim();
     $(el).text(heading ? `\n\n${'#'.repeat(level)} ${heading}\n\n` : '');
   });
+  // `.text()` joins adjacent elements' text with nothing between them, so
+  // table cells and stacked blocks run together ("different.PGRST116406More")
+  // and the ids, codes and numbers in them never become words of their own —
+  // which is what exact-token search matches on. A block ends its line; a
+  // cell, a link or a button ends with a space, since side by side they are
+  // separate items ("Log in" next to "Talk to sales"). Other inline elements
+  // stay joined, since a word can be styled across several of them.
+  marked.find('br').replaceWith('\n');
+  marked.find('td, th, a, button').append(' ');
+  marked.find(BLOCK_ELEMENTS).append('\n');
   const text = marked
     .text()
     .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   return text;
@@ -367,6 +389,70 @@ const looksLikeSpa = ($: any, textLength: number): boolean => {
   return textLength < 200 && (scripts > 3 || rootEl > 0);
 };
 
+// Headers that describe one connection or one encoding of the body, which the
+// fetch below decides for itself (requests) or has already undone (responses).
+const HOP_REQUEST_HEADERS = new Set([
+  'host',
+  'connection',
+  'content-length',
+  'keep-alive',
+  'transfer-encoding',
+  'upgrade'
+]);
+const HOP_RESPONSE_HEADERS = new Set([
+  'connection',
+  'content-encoding',
+  'content-length',
+  'keep-alive',
+  'transfer-encoding',
+  'set-cookie'
+]);
+
+// Fetch one browser request through the screened connection and answer the
+// browser with the result — a redirect included, unfollowed.
+const proxyBrowserRequest = async (route: Route): Promise<void> => {
+  const request = route.request();
+  const requestUrl = request.url();
+  if (!/^https?:/i.test(requestUrl)) return route.continue();
+
+  try {
+    const headers: Record<string, string> = {};
+    for (const [name, value] of Object.entries(await request.allHeaders())) {
+      if (name.startsWith(':') || HOP_REQUEST_HEADERS.has(name)) continue;
+      headers[name] = value;
+    }
+    const method = request.method();
+    const response = await fetchHop(requestUrl, {
+      method,
+      headers,
+      body:
+        method === 'GET' || method === 'HEAD'
+          ? undefined
+          : (request.postDataBuffer() ?? undefined),
+      signal: AbortSignal.timeout(utils.constants.CRAWL_PAGE_FETCH_TIMEOUT_MS)
+    });
+
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, name) => {
+      if (!HOP_RESPONSE_HEADERS.has(name)) responseHeaders[name] = value;
+    });
+    // Several cookies travel as one header, newline-separated, which is how
+    // Playwright splits them back apart.
+    const cookies = response.headers.getSetCookie();
+    if (cookies.length > 0) responseHeaders['set-cookie'] = cookies.join('\n');
+
+    await route.fulfill({
+      status: response.status,
+      headers: responseHeaders,
+      body: Buffer.from(await response.arrayBuffer())
+    });
+  } catch (error) {
+    await route
+      .abort(error instanceof BlockedUrlError ? 'blockedbyclient' : 'failed')
+      .catch(() => undefined);
+  }
+};
+
 const renderWithPlaywright = async (
   url: string
 ): Promise<{
@@ -376,6 +462,7 @@ const renderWithPlaywright = async (
   contentType: string;
 } | null> => {
   try {
+    await assertPublicUrl(url);
     const { chromium } = await import('playwright');
     const executablePath =
       process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
@@ -386,13 +473,36 @@ const renderWithPlaywright = async (
     });
     try {
       const context = await browser.newContext({
-        userAgent: utils.constants.CRAWL_USER_AGENT
+        userAgent: utils.constants.CRAWL_USER_AGENT,
+        // A service worker fetches on its own, past the routing below.
+        serviceWorkers: 'block'
       });
+      // The browser never reaches the network itself: every http(s) request
+      // it makes — the page, scripts, XHRs, frames — is fetched here instead,
+      // one hop at a time, through the same screened and pinned connection a
+      // cheerio fetch uses. A redirect is handed back to the browser as it
+      // came, and the request that follows it is routed here again, so each
+      // hop is screened before it is sent. Letting a request continue would
+      // not do: the browser follows the redirects of a continued request
+      // without routing them. data: and blob: URLs never leave the browser.
+      await context.route('**/*', proxyBrowserRequest);
+      // Not needed to read a page, and not routable through the above.
+      await context.routeWebSocket(/.*/, ws => ws.close());
       const page = await context.newPage();
       const response = await page.goto(url, {
         waitUntil: 'networkidle',
         timeout: utils.constants.CRAWL_PAGE_FETCH_TIMEOUT_MS
       });
+      // A backstop for the routing above: a page whose redirect chain or
+      // final URL is private is discarded rather than indexed.
+      for (
+        let request = response?.request() ?? null;
+        request;
+        request = request.redirectedFrom()
+      ) {
+        await assertPublicUrl(request.url());
+      }
+      await assertPublicUrl(page.url());
       const html = await page.content();
       const finalUrl = page.url();
       const status = response?.status() ?? 200;

@@ -131,6 +131,8 @@ interface TopErrorRow {
  * tool — counted on the tool that failed, since that's the one the model gave
  * up on.
  */
+// Answers access tokens on purpose, unlike the call and session routes below:
+// a token gets the per-tool counts, with the error summaries withheld.
 const getToolHealth = async (c: Context<AppEnv>) => {
   const currentValues = await utils.Schema.PROJECT_TOOL_HEALTH.parseAsync({
     days: c.req.query('days'),
@@ -168,8 +170,11 @@ const getToolHealth = async (c: Context<AppEnv>) => {
           r.latency_ms,
           r.error_message,
           r.created_at,
-          r.input::jsonb AS input,
-          lag(r.input::jsonb) OVER w AS prev_input,
+          -- Carried as text: json is stored as its text, so this costs no
+          -- parse. Parsing every call's input to jsonb just to compare it
+          -- with the one before was most of this query's time.
+          r.input::text AS input,
+          lag(r.input::text) OVER w AS prev_input,
           lag(r.tool_name) OVER w AS prev_tool,
           lag(r.error_message) OVER w AS prev_error,
           lag(r.created_at) OVER w AS prev_at
@@ -207,7 +212,16 @@ const getToolHealth = async (c: Context<AppEnv>) => {
         count(*) FILTER (
           WHERE f.close
             AND f.prev_tool = f.tool_name
-            AND (f.prev_error IS NOT NULL OR f.prev_input = f.input)
+            AND (
+              f.prev_error IS NOT NULL
+              -- Same text is the same input. Different text may still be
+              -- (keys in another order, other spacing), so only those few
+              -- close same-tool pairs are parsed and compared as jsonb.
+              OR CASE
+                WHEN f.prev_input = f.input THEN true
+                ELSE f.prev_input::jsonb = f.input::jsonb
+              END
+            )
         )::int AS retries,
         coalesce(max(sw.n), 0)::int AS switched_after_error,
         round(
@@ -335,13 +349,18 @@ const getToolHealth = async (c: Context<AppEnv>) => {
         lastUsedAt: row.last_used_at
       };
     }),
-    errors: errorRows.map(row => ({
-      tool: row.tool,
-      message: row.message,
-      count: row.count,
-      lastSeenAt: row.last_seen_at,
-      lastRequestId: row.last_request_id
-    })),
+    // An error's text can quote what the call read (an endpoint's error
+    // body, a remote server's message), so like the calls themselves it is
+    // only shown to a signed-in admin. The counts above stay.
+    errors: c.get('apiToken')
+      ? []
+      : errorRows.map(row => ({
+          tool: row.tool,
+          message: row.message,
+          count: row.count,
+          lastSeenAt: row.last_seen_at,
+          lastRequestId: row.last_request_id
+        })),
     // Judged per install row, the unit the Tools page switches on and off: an
     // MCP server or a script counts as used when any of its tools was called.
     // A row younger than the window hasn't had the chance to be used.
@@ -427,6 +446,9 @@ const sessionColumns = {
  * call the reader has.
  */
 const listToolCalls = async (c: Context<AppEnv>) => {
+  const refused = refuseAccessToken(c);
+  if (refused) return refused;
+
   const currentValues = await utils.Schema.PROJECT_TOOL_CALLS.parseAsync({
     tool: c.req.query('tool'),
     status: c.req.query('status'),

@@ -370,6 +370,7 @@ const LINT_KEYS = {
   'no-usage-guidance': 'lintNoUsageGuidance',
   'missing-annotations': 'lintMissingAnnotations',
   'undescribed-input': 'lintUndescribedInput',
+  'reserved-input': 'lintReservedInput',
   'overlapping-tools': 'lintOverlappingTools',
   'too-many-tools': 'lintTooManyTools'
 } as const satisfies Record<ToolLintRule, keyof ToolsCopy>;

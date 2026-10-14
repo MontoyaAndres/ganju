@@ -3,6 +3,8 @@ import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import IconButton from '@mui/material/IconButton';
 import Switch from '@mui/material/Switch';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import { Close, ExpandMore, ExpandLess, LinkOff } from '@mui/icons-material';
 
 import { ModalDialog, ModalOverlay } from './styles';
@@ -32,6 +34,8 @@ interface DiscoveredTool {
   name: string;
   title?: string;
   description?: string;
+  // The server's own claims, believed only when the owner trusts it.
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
 }
 interface DiscoveredResource {
   uri: string;
@@ -189,6 +193,15 @@ export const McpProxyModal = ({
   );
   const [enabledPrompts, setEnabledPrompts] = useState<Set<string>>(
     () => new Set(asStringArray(existingConfig.allowedPrompts))
+  );
+
+  // Which tools skip confirmation. The server's own read-only labels count
+  // only when the owner trusts it; the owner's "only reads" marks always do.
+  const [trustAnnotations, setTrustAnnotations] = useState(
+    existingConfig.trustAnnotations === true
+  );
+  const [readOnlyTools, setReadOnlyTools] = useState<Set<string>>(
+    () => new Set(asStringArray(existingConfig.readOnlyTools))
   );
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -409,7 +422,13 @@ export const McpProxyModal = ({
         auth,
         allowedTools: Array.from(enabledTools),
         allowedResources: Array.from(enabledResources),
-        allowedPrompts: Array.from(enabledPrompts)
+        allowedPrompts: Array.from(enabledPrompts),
+        // Always sent, so what the dialog shows is what is saved. Marks on
+        // tools the server no longer lists are dropped.
+        trustAnnotations,
+        readOnlyTools: (discovery.tools || [])
+          .map(tool => tool.name)
+          .filter(name => readOnlyTools.has(name))
       };
       const data = await utils.fetcher({
         url: editing ? `${toolApiBase}/${existingTool!.id}` : toolApiBase,
@@ -621,28 +640,69 @@ export const McpProxyModal = ({
                     })}
                   </p>
                 )}
+                <label className="mcp-proxy-trust">
+                  <Switch
+                    size="small"
+                    checked={trustAnnotations}
+                    disabled={busy}
+                    onChange={(_, checked) => setTrustAnnotations(checked)}
+                  />
+                  <span>
+                    {t('mcpTrustLabels')}
+                    <small>{t('mcpTrustLabelsHint')}</small>
+                  </span>
+                </label>
+                <p className="http-endpoint-list-hint">
+                  {t('mcpOnlyReadsHint')}
+                </p>
                 <div className="mcp-proxy-tool-list">
-                  {(discovery?.tools || []).map(t => (
-                    <div key={t.name} className="mcp-proxy-item">
-                      <div className="mcp-proxy-item-main">
-                        <p className="mcp-proxy-item-title">
-                          {t.title || t.name}
-                        </p>
-                        {t.description && (
-                          <p className="mcp-proxy-item-description">
-                            {t.description}
+                  {(discovery?.tools || []).map(tool => {
+                    const markedByServer =
+                      trustAnnotations &&
+                      tool.annotations?.readOnlyHint === true &&
+                      !readOnlyTools.has(tool.name);
+                    return (
+                      <div key={tool.name} className="mcp-proxy-item">
+                        <div className="mcp-proxy-item-main">
+                          <p className="mcp-proxy-item-title">
+                            {tool.title || tool.name}
                           </p>
-                        )}
+                          {tool.description && (
+                            <p className="mcp-proxy-item-description">
+                              {tool.description}
+                            </p>
+                          )}
+                          <FormControlLabel
+                            className="mcp-proxy-item-read-only"
+                            control={
+                              <Checkbox
+                                size="small"
+                                checked={
+                                  markedByServer || readOnlyTools.has(tool.name)
+                                }
+                                disabled={busy || markedByServer}
+                                onChange={() =>
+                                  toggle(setReadOnlyTools, tool.name)
+                                }
+                              />
+                            }
+                            label={
+                              markedByServer
+                                ? t('mcpOnlyReadsByServer')
+                                : t('mcpOnlyReads')
+                            }
+                          />
+                        </div>
+                        <Switch
+                          checked={enabledTools.has(tool.name)}
+                          disabled={
+                            busy || (atToolCap && !enabledTools.has(tool.name))
+                          }
+                          onChange={() => toggle(setEnabledTools, tool.name)}
+                        />
                       </div>
-                      <Switch
-                        checked={enabledTools.has(t.name)}
-                        disabled={
-                          busy || (atToolCap && !enabledTools.has(t.name))
-                        }
-                        onChange={() => toggle(setEnabledTools, t.name)}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {(discovery?.resources.length || discovery?.prompts.length) >
                   0 && (

@@ -150,7 +150,7 @@ import type {
   ResolvedAttachment,
   ResolveAttachmentResult
 } from './attachment';
-import { ipv4InPrivateRange, isBlockedHost } from './ssrf';
+import { ipv4InPrivateRange, isBlockedHost, isBlockedUrl } from './ssrf';
 import {
   requiresLlmBaseUrl,
   isAllowedLlmBaseUrl,
@@ -209,8 +209,10 @@ import type { RerankAiBinding } from './resourceRerank';
 import { sleep, isRateLimitError, withRateLimitRetry } from './retry';
 import type { RateLimitRetryOptions } from './retry';
 import { processQueueBatch } from './processQueueBatch';
+import { PermanentJobError, isPermanentJobError } from './queueFailure';
 import type {
   QueueBatchLike,
+  QueueFailureContext,
   QueueMessageLike,
   ProcessQueueBatchHandlers
 } from './processQueueBatch';
@@ -244,12 +246,20 @@ import {
   annotationsForEffect,
   TOOL_EFFECTS,
   isSensitiveTool,
+  proxiedToolAnnotations,
+  proxiedToolTrust,
+  isSensitiveProxiedTool,
+  keepProxiedToolMarks,
+  toolApprovalStatus,
+  toolApprovalUrl,
   stableJson
 } from './toolConfirmation';
 import type {
   PendingToolConfirmation,
   PendingToolConfirmations,
-  ToolEffect
+  ToolEffect,
+  ToolApprovalStatus,
+  ProxiedToolTrust
 } from './toolConfirmation';
 import {
   wrapUntrustedContent,
@@ -263,7 +273,10 @@ import {
   untrustedToolResult,
   ownWritingToolResult,
   labelOwnToolResult,
-  labelProxiedToolResult
+  labelProxiedToolResult,
+  untrustedErrorResult,
+  readsLikeInstructions,
+  labelResourceContents
 } from './untrustedContent';
 import type {
   InstructionWarning,
@@ -291,6 +304,12 @@ import {
   PARTICIPANT_MEMORY_GROUP_NOTE,
   readParticipantMemory,
   applyParticipantMemoryUpdate,
+  redactParticipantMemoryArgs,
+  redactParticipantMemoryConfirmation,
+  participantMemoryUpdateReadsLikeInstructions,
+  CONVERSATION_UNTRUSTED_WINDOW_MS,
+  CONVERSATION_UNTRUSTED_READ_AT_KEY,
+  conversationReadUntrustedRecently,
   formatParticipantMemoryPrompt,
   participantLimitNotice,
   voiceNoteUnreadableNotice,
@@ -321,6 +340,7 @@ import {
   formatSourcesAsButtons
 } from './sources';
 import type { Source, ResourceUrlContext, SourceButton } from './sources';
+import { citesUrl, citedPages, selectCitedSources } from './citations';
 import {
   refreshOAuthToken,
   OAuthReauthRequiredError,
@@ -411,6 +431,7 @@ export const utils = {
   validateProjectPath,
   projectPathIssue,
   ipv4InPrivateRange,
+  isBlockedUrl,
   isBlockedHost,
   requiresLlmBaseUrl,
   isAllowedLlmBaseUrl,
@@ -452,6 +473,8 @@ export const utils = {
   isRateLimitError,
   withRateLimitRetry,
   processQueueBatch,
+  PermanentJobError,
+  isPermanentJobError,
   getToolStatusMessage,
   resolveDebounceMs,
   channelBufferKey,
@@ -466,6 +489,12 @@ export const utils = {
   annotationsForEffect,
   TOOL_EFFECTS,
   isSensitiveTool,
+  proxiedToolAnnotations,
+  proxiedToolTrust,
+  isSensitiveProxiedTool,
+  keepProxiedToolMarks,
+  toolApprovalStatus,
+  toolApprovalUrl,
   stableJson,
   wrapUntrustedContent,
   unwrapUntrustedContent,
@@ -479,6 +508,9 @@ export const utils = {
   ownWritingToolResult,
   labelOwnToolResult,
   labelProxiedToolResult,
+  untrustedErrorResult,
+  readsLikeInstructions,
+  labelResourceContents,
   PARTICIPANT_DAILY_LIMIT_DEFAULT,
   PARTICIPANT_DAILY_LIMIT_MAX,
   PARTICIPANT_DAILY_LIMIT_OFF,
@@ -500,6 +532,12 @@ export const utils = {
   PARTICIPANT_MEMORY_GROUP_NOTE,
   readParticipantMemory,
   applyParticipantMemoryUpdate,
+  redactParticipantMemoryArgs,
+  redactParticipantMemoryConfirmation,
+  participantMemoryUpdateReadsLikeInstructions,
+  CONVERSATION_UNTRUSTED_WINDOW_MS,
+  CONVERSATION_UNTRUSTED_READ_AT_KEY,
+  conversationReadUntrustedRecently,
   formatParticipantMemoryPrompt,
   participantLimitNotice,
   voiceNoteUnreadableNotice,
@@ -514,6 +552,9 @@ export const utils = {
   buildResourceDownloadUrl,
   formatSourcesAsMarkdown,
   formatSourcesAsButtons,
+  citesUrl,
+  citedPages,
+  selectCitedSources,
   refreshOAuthToken,
   OAuthReauthRequiredError,
   buildReauthMetadata,
@@ -544,6 +585,8 @@ export type {
   PendingToolConfirmation,
   PendingToolConfirmations,
   ToolEffect,
+  ToolApprovalStatus,
+  ProxiedToolTrust,
   LintableTool,
   ToolLintFinding,
   ToolLintOptions,
@@ -584,6 +627,7 @@ export type {
   RateLimitRetryOptions,
   RerankAiBinding,
   QueueBatchLike,
+  QueueFailureContext,
   QueueMessageLike,
   ProcessQueueBatchHandlers,
   ChannelNotifier,

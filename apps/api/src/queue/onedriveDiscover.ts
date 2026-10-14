@@ -14,7 +14,7 @@ import {
   parseOneDriveUri,
   buildOneDriveResourceMetadata
 } from '../utils';
-import { markResourceFailed, reportQueueError } from './shared';
+import { reportAndFailOnFinal } from './shared';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
 import type { Bindings } from '../types';
@@ -339,12 +339,6 @@ export const handleOnedriveDiscoverBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async ({ resourceId }) => discoverOne(env, resourceId),
-    onError: async (error, { resourceId }, queueName) => {
-      await reportQueueError(env, '/onedrive/discover', error, {
-        resourceId,
-        queue: queueName
-      });
-      await markResourceFailed(env, resourceId);
-    }
+    onError: reportAndFailOnFinal(env, '/onedrive/discover')
   });
 };

@@ -6,8 +6,9 @@
     "dev": "../../scripts/wrangler-dev.sh apps/api 8080",
     "start": "node ./dist/index.js",
     "clean": "rm -rf dist && rm -rf node_modules",
-    "deploy-dev": "wrangler deploy --env development",
-    "deploy-prod": "wrangler deploy --env production"
+    "check-queue-retries": "node ../../scripts/check-queue-retries.mjs",
+    "deploy-dev": "npm run check-queue-retries && wrangler deploy --env development",
+    "deploy-prod": "npm run check-queue-retries && wrangler deploy --env production"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

@@ -256,6 +256,8 @@ const en = {
     'Not marked as read-only or undoable, so it is confirmed before every call when the organization confirms sensitive actions. Pick "What it does" if it only reads.',
   lintUndescribedInput:
     'Input properties with no description: {paths}. A model has to guess what to pass.',
+  lintReservedInput:
+    'Has an input named {paths}, which the server keeps for confirming sensitive actions: on a tool it confirms, that property is replaced and its value never reaches the tool. Rename it.',
   lintOverlappingTools:
     'Looks like {alike} in name or description, so a model may call one for another. Say what sets it apart.',
   lintTooManyTools:
@@ -645,6 +647,13 @@ const en = {
     'A project can have {limit} tools turned on, counting each one from an MCP server. You can turn on {available} here.',
   mcpErrOverCap:
     'A project can have {limit} tools turned on. Turn on {available} or fewer here, or turn other tools off.',
+  mcpTrustLabels: "Trust this server's read-only labels",
+  mcpTrustLabelsHint:
+    'Tools the server itself marks as read-only skip confirmation. A server can mislabel a tool that changes things, so turn this on only for servers you trust.',
+  mcpOnlyReadsHint:
+    'Mark the tools that only read, so they run without asking for confirmation, even after the assistant has read outside content.',
+  mcpOnlyReads: 'Only reads — looks things up, changes nothing',
+  mcpOnlyReadsByServer: 'Only reads, as the server labels it',
   mcpAdvanced: 'Resources & prompts (optional)',
   mcpResourcesCount: 'Resources ({enabled}/{total})',
   mcpPromptsCount: 'Prompts ({enabled}/{total})',
@@ -884,6 +893,8 @@ export const TOOLS: Catalog<ToolsCopy> = {
       'No está marcada como de solo lectura ni reversible, así que se confirma antes de cada llamada cuando la organización confirma acciones sensibles. Elige "Qué hace" si solo lee.',
     lintUndescribedInput:
       'Propiedades de entrada sin descripción: {paths}. El modelo tiene que adivinar qué pasar.',
+    lintReservedInput:
+      'Tiene una entrada llamada {paths}, que el servidor reserva para confirmar acciones sensibles: en una herramienta que confirma, esa propiedad se reemplaza y su valor nunca llega a la herramienta. Cámbiale el nombre.',
     lintOverlappingTools:
       'Se parece a {alike} en nombre o descripción, así que un modelo puede llamar una por otra. Di qué la distingue.',
     lintTooManyTools:
@@ -1243,6 +1254,13 @@ export const TOOLS: Catalog<ToolsCopy> = {
       'Un proyecto puede tener {limit} herramientas activadas, y cada una de un servidor MCP cuenta. Aquí puedes activar {available}.',
     mcpErrOverCap:
       'Un proyecto puede tener {limit} herramientas activadas. Activa {available} o menos aquí, o apaga otras herramientas.',
+    mcpTrustLabels: 'Confiar en las marcas de solo lectura de este servidor',
+    mcpTrustLabelsHint:
+      'Las herramientas que el propio servidor marca como de solo lectura no piden confirmación. Un servidor puede marcar mal una herramienta que cambia cosas, así que actívalo solo con servidores en los que confías.',
+    mcpOnlyReadsHint:
+      'Marca las herramientas que solo leen, para que se ejecuten sin pedir confirmación, incluso después de que el asistente haya leído contenido externo.',
+    mcpOnlyReads: 'Solo lee — consulta, no cambia nada',
+    mcpOnlyReadsByServer: 'Solo lee, según la marca del servidor',
     mcpAdvanced: 'Recursos y prompts (opcional)',
     mcpResourcesCount: 'Recursos ({enabled}/{total})',
     mcpPromptsCount: 'Prompts ({enabled}/{total})',

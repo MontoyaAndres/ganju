@@ -18,9 +18,11 @@ import { ContactController } from './contact';
 import { BillingController } from './billing';
 import { ContainmentController } from './containment';
 import { ObservabilityController } from './observability';
+import { ToolApprovalController } from './toolApproval';
 
 export {
   BillingController,
+  ToolApprovalController,
   ObservabilityController,
   ContainmentController,
   ContactController,

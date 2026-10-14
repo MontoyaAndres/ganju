@@ -1,0 +1,21 @@
+{
+  "description": "Development, artifact 053e434d… (Telegram @test123532botbot): a machine-learning textbook, a science primer, a Spanish contract spreadsheet and image guide from Drive, and parts of the Sharely, Shipday and Supabase sites. Same rules as the other set.",
+  "slug": "053e434d5b6e10b3cb26e07ef9ac2b66",
+  "cases": [
+    { "query": "GCCON-F-088", "expect": "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj", "kind": "exact" },
+    { "query": "Deisenroth", "expect": "resource://mml-book.pdf", "kind": "exact" },
+    { "query": "Moore-Penrose pseudo-inverse", "expect": "resource://mml-book.pdf", "kind": "exact" },
+    { "query": "Groveport", "expect": "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery", "kind": "exact" },
+    { "query": "Menu2Order", "expect": ["https://www.shipday.com/integrations/menu2order", "https://www.shipday.com/integrations"], "kind": "exact" },
+    { "query": "Sharely credit tiers", "expect": ["https://sharely.ai/pricing/credit-tiers", "https://sharely.ai/price"], "kind": "exact" },
+
+    { "query": "how do you diagonalize a matrix using its eigenvectors", "expect": "resource://mml-book.pdf", "kind": "semantic" },
+    { "query": "what makes an explanation scientific and testable", "expect": "resource://undsci-101-what-is-science.pdf", "kind": "semantic" },
+    { "query": "formato para que el proveedor entregue los bienes del contrato", "expect": "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj", "kind": "semantic" },
+    { "query": "guía de cómo usar las imágenes de la marca", "expect": "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee", "kind": "semantic" },
+    { "query": "platform for delivering knowledge to communities", "expect": ["https://sharely.ai/", "https://sharely.ai/overview"], "kind": "semantic" },
+    { "query": "drivers take a photo or signature when they hand over the order", "expect": ["https://www.shipday.com/features/proof-of-delivery", "https://www.shipday.com/es/caracteristicas/proof-of-delivery"], "kind": "semantic" },
+    { "query": "reparto de flores con conductores propios", "expect": ["https://www.shipday.com/es/casos/florist-delivery", "https://www.shipday.com/use-cases/florist-delivery"], "kind": "semantic" },
+    { "query": "plan the most efficient order of stops for a driver", "expect": ["https://www.shipday.com/route-planning", "https://www.shipday.com/es/planificacion-de-rutas"], "kind": "semantic" }
+  ]
+}

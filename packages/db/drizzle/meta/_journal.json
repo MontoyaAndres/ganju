@@ -568,6 +568,13 @@
       "when": 1791927200608,
       "tag": "0080_voice_note_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1791996113504,
+      "tag": "0081_tool_approval",
+      "breakpoints": true
     }
   ]
 }

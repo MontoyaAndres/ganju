@@ -1,0 +1,146 @@
+{
+  "slug": "053e434d5b6e10b3cb26e07ef9ac2b66",
+  "at": "2026-10-14T18:20:29.291Z",
+  "results": [
+    {
+      "query": "GCCON-F-088",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj"
+      ]
+    },
+    {
+      "query": "Deisenroth",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "resource://mml-book.pdf",
+        "resource://mml-book.pdf",
+        "resource://mml-book.pdf"
+      ]
+    },
+    {
+      "query": "Moore-Penrose pseudo-inverse",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "resource://mml-book.pdf",
+        "resource://mml-book.pdf",
+        "resource://mml-book.pdf"
+      ]
+    },
+    {
+      "query": "Groveport",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery",
+        "https://www.shipday.com/es/casos/pizzerias",
+        "https://www.shipday.com/use-cases/pizzerias"
+      ]
+    },
+    {
+      "query": "Menu2Order",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/integrations/menu2order",
+        "https://www.shipday.com/integrations",
+        "https://www.shipday.com/ai-receptionist"
+      ]
+    },
+    {
+      "query": "Sharely credit tiers",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "https://sharely.ai/pricing/credit-tiers",
+        "https://sharely.ai/price",
+        "https://sharely.ai/pricing/credit-tiers"
+      ]
+    },
+    {
+      "query": "how do you diagonalize a matrix using its eigenvectors",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "resource://mml-book.pdf",
+        "resource://mml-book.pdf",
+        "resource://mml-book.pdf"
+      ]
+    },
+    {
+      "query": "what makes an explanation scientific and testable",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "resource://undsci-101-what-is-science.pdf",
+        "resource://undsci-101-what-is-science.pdf",
+        "resource://undsci-101-what-is-science.pdf"
+      ]
+    },
+    {
+      "query": "formato para que el proveedor entregue los bienes del contrato",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj"
+      ]
+    },
+    {
+      "query": "guía de cómo usar las imágenes de la marca",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "https://www.shipday.com/es/casos/retail",
+        "https://www.shipday.com/es/casos/retail"
+      ]
+    },
+    {
+      "query": "platform for delivering knowledge to communities",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://sharely.ai/",
+        "https://sharely.ai/terms-of-service",
+        "https://sharely.ai/privacy-policy"
+      ]
+    },
+    {
+      "query": "drivers take a photo or signature when they hand over the order",
+      "kind": "semantic",
+      "rank": 4,
+      "top": [
+        "https://www.shipday.com/es/casos/liquor-delivery",
+        "https://www.shipday.com/use-cases/liquor-delivery",
+        "https://www.shipday.com/case-studies/how-kfc-saves-400k-per-year-with-shipday"
+      ]
+    },
+    {
+      "query": "reparto de flores con conductores propios",
+      "kind": "semantic",
+      "rank": null,
+      "top": [
+        "https://www.shipday.com/es/casos/pizzerias",
+        "https://www.shipday.com/es/casos/e-commerce",
+        "https://www.shipday.com/es/planificacion-de-rutas"
+      ]
+    },
+    {
+      "query": "plan the most efficient order of stops for a driver",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/route-planning",
+        "https://www.shipday.com/route-planning",
+        "https://www.shipday.com/es/planificacion-de-rutas"
+      ]
+    }
+  ]
+}

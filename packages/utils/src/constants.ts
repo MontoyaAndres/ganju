@@ -324,6 +324,9 @@ const CRAWL_MAX_PAGES_LIMIT = 1000;
 const CRAWL_DEFAULT_MAX_DEPTH = 3;
 const CRAWL_MAX_DEPTH_LIMIT = 10;
 const CRAWL_PAGE_FETCH_TIMEOUT_MS = 30000;
+// Redirects one crawl fetch may follow. Each hop is screened on its own, so a
+// public URL can't bounce the crawler onto a private address.
+const CRAWL_MAX_REDIRECTS = 5;
 const CRAWL_USER_AGENT =
   'Mozilla/5.0 (compatible; GanjuCrawler/1.0; +https://ganju.ai)';
 const CRAWL_PAGE_QUEUE_BATCH_SIZE = 100;
@@ -597,6 +600,11 @@ const RATE_LIMIT_BACKOFF_SECONDS = 60;
 // / Container reset) so the retried job lands after the object has recovered.
 const TRANSIENT_BACKOFF_SECONDS = 5;
 
+// Retries every resource queue consumer is configured with (`max_retries` in
+// the API worker's wrangler config). A job's last delivery is attempt
+// QUEUE_MAX_RETRIES + 1; only then is its work marked failed.
+const QUEUE_MAX_RETRIES = 3;
+
 const CHANNEL_PLATFORM_TELEGRAM = 'telegram' as 'telegram';
 const CHANNEL_PLATFORM_SLACK = 'slack' as 'slack';
 const CHANNEL_PLATFORM_WHATSAPP = 'whatsapp' as 'whatsapp';
@@ -808,21 +816,39 @@ const TOOL_CONFIRMATION_ASK_INSTRUCTION =
   'confirm, and must not say or suggest that they were done, nor describe ' +
   'or make up any result from them.';
 // For MCP clients, whose chat the server can't see: a sensitive call without a
-// valid confirmation isn't run, and the model is told to ask the user and call
-// again with a token that binds the second call to these exact arguments.
-// How long that token stays good, and the argument that carries it.
+// valid confirmation isn't run. Ordinarily the model is told to ask the user
+// and call again with a token that binds the second call to these exact
+// arguments; once the session has read outside content, the user approves it
+// on a dashboard page instead, and the second call carries that approval's
+// id. How long either stays good, and the argument that carries it.
 const MCP_TOOL_CONFIRMATION_TTL_MS = 10 * 60 * 1000;
 const MCP_TOOL_CONFIRMATION_ARG = 'confirmation';
 const MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION =
   "Leave out on the first call. This action needs the user's yes: the " +
-  'first call returns a token; after the user says yes, call again with the ' +
-  'same arguments and that token here.';
+  'first call returns a code and says how to get that yes; once the user ' +
+  'has given it, call again with the same arguments and that code here.';
 // The same argument where only some calls ask: those made after the session
 // read outside content.
 const MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION_CONDITIONAL =
   "Leave out on the first call. If this action needs the user's yes, the " +
-  'first call returns a token instead of running; after the user says yes, ' +
-  'call again with the same arguments and that token here.';
+  'first call returns a code instead of running and says how to get that ' +
+  'yes; once the user has given it, call again with the same arguments and ' +
+  'that code here.';
+// The dashboard page where a signed-in user approves or denies one such call,
+// as `${TOOL_APPROVAL_PATH}/<approval id>`, and the two answers it sends.
+const TOOL_APPROVAL_PATH = '/tool-approval';
+const TOOL_APPROVAL_DECISION_APPROVE = 'approve';
+const TOOL_APPROVAL_DECISION_DENY = 'deny';
+const TOOL_APPROVAL_DECISIONS = [
+  TOOL_APPROVAL_DECISION_APPROVE,
+  TOOL_APPROVAL_DECISION_DENY
+] as const;
+// Where an approval stands, as the page shows it.
+const TOOL_APPROVAL_STATUS_PENDING = 'pending';
+const TOOL_APPROVAL_STATUS_APPROVED = 'approved';
+const TOOL_APPROVAL_STATUS_DENIED = 'denied';
+const TOOL_APPROVAL_STATUS_USED = 'used';
+const TOOL_APPROVAL_STATUS_EXPIRED = 'expired';
 // The question when the model wrote none, above the runner's own summary.
 const TOOL_CONFIRMATION_FALLBACK_QUESTION =
   'Before I do this, please confirm. Reply yes to go ahead, or no to cancel.';
@@ -972,6 +998,19 @@ const RESOURCE_SEARCH_COMMON_TERM_MIN = 5;
 // call per search; a failure falls back to the fused order.
 const RESOURCE_SEARCH_RERANK_CANDIDATES = 30;
 const RESOURCE_SEARCH_RERANK_MODEL = '@cf/baai/bge-reranker-base';
+// An identifier in the query (a code mixing letters and digits, a snake_case
+// name, or a number, dotted or hyphenated name typed on its own) found in at
+// most this many documents is what the user is after: its chunks go first,
+// whatever the reranker thinks. A cross-encoder reads "86400" or "PGRST116" as noise and
+// would bury the one chunk that contains it under pages that merely look
+// related. Past EXACT_MAX_CHUNKS matching chunks the identifier is common
+// enough that the usual ranking is left to decide, and the scan stops there.
+const RESOURCE_SEARCH_EXACT_MAX_RESOURCES = 5;
+const RESOURCE_SEARCH_EXACT_MAX_CHUNKS = 30;
+// An identifier the index never saw is looked for as plain text, which reads
+// every chunk of the artifact when nothing matches. Past this many chunks that
+// costs more than the rare hit is worth, so a large artifact skips it.
+const RESOURCE_SEARCH_SUBSTRING_MAX_CHUNKS = 20000;
 
 const RESOURCE_HANDLER_SLEEP_AFTER = '10m';
 
@@ -2661,6 +2700,7 @@ export const constants = {
   CRAWL_DEFAULT_MAX_DEPTH,
   CRAWL_MAX_DEPTH_LIMIT,
   CRAWL_PAGE_FETCH_TIMEOUT_MS,
+  CRAWL_MAX_REDIRECTS,
   CRAWL_PAGE_QUEUE_BATCH_SIZE,
   CRAWL_USER_AGENT,
   RESOURCE_ICON_THEME_DARK,
@@ -2678,6 +2718,7 @@ export const constants = {
   TELEGRAM_MAX_FILE_BYTES,
   RATE_LIMIT_BACKOFF_SECONDS,
   TRANSIENT_BACKOFF_SECONDS,
+  QUEUE_MAX_RETRIES,
   ENCODINGS,
   ENCODING_UTF8,
   CHANNEL_PLATFORM_TELEGRAM,
@@ -2720,6 +2761,15 @@ export const constants = {
   MCP_TOOL_CONFIRMATION_ARG,
   MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION,
   MCP_TOOL_CONFIRMATION_ARG_DESCRIPTION_CONDITIONAL,
+  TOOL_APPROVAL_PATH,
+  TOOL_APPROVAL_DECISION_APPROVE,
+  TOOL_APPROVAL_DECISION_DENY,
+  TOOL_APPROVAL_DECISIONS,
+  TOOL_APPROVAL_STATUS_PENDING,
+  TOOL_APPROVAL_STATUS_APPROVED,
+  TOOL_APPROVAL_STATUS_DENIED,
+  TOOL_APPROVAL_STATUS_USED,
+  TOOL_APPROVAL_STATUS_EXPIRED,
   CHANNEL_DEBOUNCE_DEFAULT_MS,
   CHANNEL_DEBOUNCE_MIN_MS,
   CHANNEL_DEBOUNCE_MAX_MS,
@@ -2792,6 +2842,9 @@ export const constants = {
   RESOURCE_SEARCH_COMMON_TERM_MIN,
   RESOURCE_SEARCH_RERANK_CANDIDATES,
   RESOURCE_SEARCH_RERANK_MODEL,
+  RESOURCE_SEARCH_EXACT_MAX_RESOURCES,
+  RESOURCE_SEARCH_EXACT_MAX_CHUNKS,
+  RESOURCE_SEARCH_SUBSTRING_MAX_CHUNKS,
   RESOURCE_HANDLER_SLEEP_AFTER,
   DOCS_URL,
   BASE64_DATA_URI_RE,

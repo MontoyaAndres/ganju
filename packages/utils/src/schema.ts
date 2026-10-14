@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { constants } from './constants';
 import { isAllowedLlmBaseUrl, requiresLlmBaseUrl } from './llmBaseUrl';
 import { isReservedSlug, isValidSlugFormat } from './slug';
+import { isBlockedUrl } from './ssrf';
 import { isReservedToolName } from './reservedToolName';
 import { slugifyTitle } from './slugifyTitle';
 import { TOOL_EFFECTS } from './toolConfirmation';
@@ -185,6 +186,15 @@ const INVITATION_RESPOND = z.object({
   action: z.enum(constants.INVITATION_RESPONSES)
 });
 
+const TOOL_APPROVAL_GET = z.object({
+  approvalId: z.uuid()
+});
+
+const TOOL_APPROVAL_DECIDE = z.object({
+  approvalId: z.uuid(),
+  decision: z.enum(constants.TOOL_APPROVAL_DECISIONS)
+});
+
 const INVITATION_GET_BY_TOKEN = z.object({
   token: z.string().min(8).max(128)
 });
@@ -283,6 +293,10 @@ const ARTIFACT_CREATE_WEBSITE_VIEW = z.object({
     .refine(
       v => /^https?:\/\//i.test(v),
       'Only http and https URLs are supported'
+    )
+    .refine(
+      v => !isBlockedUrl(v),
+      "This address points to a private network and can't be crawled"
     ),
   description: z.string().optional(),
   maxPages: z.number().int().min(1).max(constants.CRAWL_MAX_PAGES_LIMIT),
@@ -296,6 +310,10 @@ const ARTIFACT_CREATE_WEBSITE = z.object({
     .refine(
       v => /^https?:\/\//i.test(v),
       'Only http and https URLs are supported'
+    )
+    .refine(
+      v => !isBlockedUrl(v),
+      "This address points to a private network and can't be crawled"
     ),
   description: z.string().optional(),
   crawlConfig: z.object({
@@ -991,6 +1009,15 @@ const MCP_PROXY_CONFIG = z.object({
   allowedResources: z.array(z.string().min(1).max(2048)).max(500).optional(),
   allowedPrompts: z.array(z.string().min(1).max(256)).max(500).optional(),
   auth: MCP_PROXY_AUTH.default({ kind: constants.MCP_PROXY_AUTH_KIND_NONE }),
+  // Whether the remote's own readOnlyHint / destructiveHint decide which of its
+  // tools are confirmed. Off (or absent), every proxied tool counts as
+  // sensitive unless the owner marked it below: a server that labels its
+  // delete "read-only" would otherwise skip the question.
+  trustAnnotations: z.boolean().optional(),
+  // Remote tool names the owner marked as only reading. Read-only whatever the
+  // remote says, trusted or not. Left optional rather than defaulted, so a
+  // save that doesn't mention it keeps the stored marks.
+  readOnlyTools: z.array(z.string().min(1).max(256)).max(500).optional(),
   timeoutMs: z
     .number()
     .int()
@@ -1672,6 +1699,8 @@ export const Schema = {
   PROJECT_INVITATION_REMOVE,
   INVITATION_RESPOND,
   INVITATION_GET_BY_TOKEN,
+  TOOL_APPROVAL_GET,
+  TOOL_APPROVAL_DECIDE,
   ORGANIZATION_MEMBER_LIST,
   ORGANIZATION_MEMBER_REMOVE,
   PROJECT_MEMBER_LIST,

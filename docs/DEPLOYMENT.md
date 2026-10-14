@@ -87,7 +87,9 @@ CUSTOM_CODE_TOKEN_SECRET    JWT_SECRET              POLAR_PRODUCT_PRO
 
 `POLAR_SERVER` is **not** a secret — it selects the sandbox or production API host and lives in `[env.<env>.vars]` in [apps/api/wrangler.toml](../apps/api/wrangler.toml), `sandbox` in development and `production` in production. Anything other than the exact string `production` reads as sandbox, so a missing value fails safe.
 
-**apps/mcp** — 3: `CRYPTO_SECRET`, `EMBEDDING_API_KEY`, `MCP_INTERNAL_SECRET`
+**apps/mcp** — 9: `CRYPTO_SECRET`, `EMBEDDING_API_KEY`, `MCP_INTERNAL_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`
+
+The six OAuth client secrets are what lets apps/mcp refresh a Gmail, Calendar, Drive, Outlook, OneDrive or Slack token when it has expired ([utils/refreshCredential.ts](../apps/mcp/src/utils/refreshCredential.ts)). Without them the worker can't renew a connection: once its hour-long access token runs out, every call to that integration fails until something in apps/api happens to refresh it, and the worker logs `credential-refresh-unconfigured`. Same values as apps/api.
 
 > Development also has `JWT_SECRET` set on apps/mcp. **It is vestigial** — apps/mcp reads no such variable. Machine JWTs are verified offline against the JWKS it fetches from the API and caches in KV ([middleware/auth.ts](../apps/mcp/src/middleware/auth.ts)), which is public-key verification and needs no shared symmetric secret. Setting it does no harm; leaving it out costs nothing.
 

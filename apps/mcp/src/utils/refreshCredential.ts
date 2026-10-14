@@ -20,12 +20,33 @@ interface RefreshableCredential {
   // token it would have replaced has already expired: calling the vendor with
   // it can only fail, with a message that reads like a broken connection.
   refreshFailed?: boolean;
+  // That failure is this worker's: it holds no client secret for the
+  // provider, so no retry will help — only connecting again, which issues a
+  // fresh access token.
+  refreshUnavailable?: boolean;
 }
 
 // A failed refresh is usually the token endpoint or the network hiccuping, and
 // the retry a moment later works. One retry inside the request saves the tool
 // call; more would hold the whole MCP boot up.
 const REFRESH_RETRY_DELAY_MS = 300;
+
+// Credentials already reported as unrefreshable by this isolate. The missing
+// secret is the deployment's, and nothing changes from one request to the
+// next, so it is said once per credential rather than on every call. Capped:
+// past the cap the oldest is forgotten, and at worst reported again.
+const UNCONFIGURED_REPORTED_MAX = 500;
+const unconfiguredReported = new Set<string>();
+
+const reportUnconfiguredOnce = (credentialId: string, message: string) => {
+  if (unconfiguredReported.has(credentialId)) return;
+  if (unconfiguredReported.size >= UNCONFIGURED_REPORTED_MAX) {
+    const oldest = unconfiguredReported.values().next().value;
+    if (oldest !== undefined) unconfiguredReported.delete(oldest);
+  }
+  unconfiguredReported.add(credentialId);
+  console.warn(message);
+};
 
 const ENV_NAMES: Record<
   string,
@@ -110,7 +131,21 @@ export const refreshCredentialIfNeeded = async (
 
   const clientId = utils.getEnv(ctx, envConfig.clientIdEnv);
   const clientSecret = utils.getEnv(ctx, envConfig.clientSecretEnv);
-  if (!clientId || !clientSecret) return decrypted;
+  if (!clientId || !clientSecret) {
+    // A deployment without the provider's client secrets can never refresh,
+    // so the expired token would go to the vendor and come back as "invalid
+    // credentials" on every call. Say which secret is missing instead.
+    reportUnconfiguredOnce(
+      credential.id,
+      `credential-refresh-unconfigured ${credential.provider} ${credential.id}: ${envConfig.clientIdEnv} / ${envConfig.clientSecretEnv} not set on this worker`
+    );
+    const expired = credential.expiresAt.getTime() <= Date.now();
+    return {
+      ...decrypted,
+      refreshFailed: expired,
+      refreshUnavailable: expired
+    };
+  }
 
   const refresh = () =>
     utils.refreshOAuthToken({

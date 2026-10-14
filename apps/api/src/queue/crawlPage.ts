@@ -72,12 +72,22 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
   // A sync re-crawls every page of the site; only one whose text changed is
   // worth new embeddings. The hash is of the extracted text, not the HTML, so
   // a rotating ad or a new nonce in the markup doesn't count as a change.
+  // `indexedHash` is the text the page's chunks were built from — the sync
+  // that put the page back to PENDING kept it — and the older pairing of
+  // `contentHash` with COMPLETED covers a page no sync has reset yet.
   const previousMetadata = resource.metadata as Record<string, unknown> | null;
   const contentHash = await utils.sha256Hex(payload.text);
   if (
-    previousMetadata?.contentHash === contentHash &&
-    resource.status === utils.constants.STATUS_COMPLETED
+    previousMetadata?.indexedHash === contentHash ||
+    (previousMetadata?.contentHash === contentHash &&
+      resource.status === utils.constants.STATUS_COMPLETED)
   ) {
+    if (resource.status !== utils.constants.STATUS_COMPLETED) {
+      await dbInstance
+        .update(db.schema.artifactResource)
+        .set({ status: utils.constants.STATUS_COMPLETED })
+        .where(eq(db.schema.artifactResource.id, resource.id));
+    }
     await maybeCompleteParent(
       env,
       job.parentResourceId || resource.parentResourceId
@@ -85,6 +95,11 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
     return;
   }
 
+  // From here the chunks are rebuilt, and a rebuild cut short leaves them
+  // half old, half new: drop `indexedHash` until it finishes, so a failure
+  // can't pass the page off as indexed.
+  const { indexedHash: _previousIndexedHash, ...keptMetadata } =
+    previousMetadata ?? {};
   await dbInstance
     .update(db.schema.artifactResource)
     .set({
@@ -95,7 +110,7 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
       encoding: payload.encoding || utils.constants.ENCODING_UTF8,
       size: payload.size,
       metadata: {
-        ...previousMetadata,
+        ...keptMetadata,
         seo: payload.seo,
         renderer: payload.renderer,
         contentHash
@@ -115,9 +130,13 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
     documents: payload.documents
   });
 
+  // Merged in SQL: the reindex writes its own metadata keys.
   await dbInstance
     .update(db.schema.artifactResource)
-    .set({ status: utils.constants.STATUS_COMPLETED })
+    .set({
+      status: utils.constants.STATUS_COMPLETED,
+      metadata: sql`(coalesce(${db.schema.artifactResource.metadata}::jsonb, '{}'::jsonb) || jsonb_build_object('indexedHash', ${contentHash}::text))::json`
+    })
     .where(eq(db.schema.artifactResource.id, resource.id));
 
   await maybeCompleteParent(
@@ -194,16 +213,20 @@ export const handleCrawlPageBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async job => processPage(env, job),
-    onError: async (error, job, queueName) => {
+    onError: async (error, job, queueName, { final }) => {
       await reportQueueError(env, '/crawl/page', error, {
         resourceId: job.resourceId,
         queue: queueName
       });
+      // A retry may still succeed; until the last one the page stays PENDING
+      // and its site keeps waiting for it.
+      if (!final) return;
+      // A page that held an indexed copy goes back to COMPLETED with it; one
+      // that never had one is FAILED.
       await markResourceFailed(env, job.resourceId);
-      // A failed page counts as finished for its site. Without this, a site
+      // Either way it counts as finished for its site. Without this, a site
       // whose last page failed would stay PENDING for good: only a page that
-      // succeeds checks whether its siblings are done. A retry that later
-      // succeeds checks again.
+      // succeeds checks whether its siblings are done.
       await maybeCompleteParent(env, job.parentResourceId).catch(
         () => undefined
       );

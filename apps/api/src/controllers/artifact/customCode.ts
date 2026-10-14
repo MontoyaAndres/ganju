@@ -60,6 +60,15 @@ const resolveArtifact = async (
   return artifactRow;
 };
 
+// Hold the artifact row until the transaction ends.
+const lockArtifact = async (tx: DbExecutor, artifactId: string) => {
+  await tx
+    .select({ id: db.schema.artifact.id })
+    .from(db.schema.artifact)
+    .where(eq(db.schema.artifact.id, artifactId))
+    .for('update');
+};
+
 // Find the artifact's `custom-code` artifact_tool row without creating one.
 // Used by the read path, where "this artifact has no custom code" is a valid
 // answer rather than an error.
@@ -116,6 +125,16 @@ export const resolveCustomCodeTool = async (
   const existing = await findCustomCodeTool(tx, artifactRow.id);
   if (existing) {
     return { artifact: artifactRow, tool: existing };
+  }
+
+  // Only a write that is about to add the row takes the artifact's lock: the
+  // tool count is read and then grown, and two writes racing past the same
+  // count would both fit under the limit. Looked for again under the lock, in
+  // case a concurrent upload created the row while this one waited.
+  await lockArtifact(tx, artifactRow.id);
+  const createdMeanwhile = await findCustomCodeTool(tx, artifactRow.id);
+  if (createdMeanwhile) {
+    return { artifact: artifactRow, tool: createdMeanwhile };
   }
 
   Plan.assertToolQuota(plan, await Plan.countArtifactTools(tx, artifactRow.id));
@@ -479,3 +498,61 @@ export const activateVersion = async (
 
   return activated;
 };
+
+// Whether activating `version` keeps the artifact within its plan's tool
+// limit. A version with more functions than the live one grows the count like
+// a new install would; a disabled install puts nothing in front of a model.
+export const assertVersionWithinQuota = async (
+  executor: DbExecutor,
+  plan: Awaited<ReturnType<typeof Plan.getEffectivePlan>>,
+  artifactId: string,
+  tool: CustomCodeToolRow,
+  version: Pick<CustomCodeVersionRow, 'tools'>
+): Promise<void> => {
+  if (!tool.enabled) return;
+  const before = await Plan.countInstallToolsIn(executor, tool);
+  const after = utils.countInstallTools(
+    tool,
+    (version.tools as Array<{ name: string }>).map(entry => entry.name)
+  );
+  if (after > before) {
+    Plan.assertToolQuota(
+      plan,
+      await Plan.countArtifactTools(executor, artifactId, tool.id),
+      after
+    );
+  }
+};
+
+// Activate a version with the quota checked again in the same transaction,
+// the artifact row locked the way createTool locks it. A publish checks the
+// quota before deploying and the deploy takes seconds; an install landing in
+// between could take the slot that check counted on, and both would end up
+// over the limit. The tool row is read afresh under the lock for the same
+// reason — it may have been enabled or republished meanwhile.
+export const activateVersionWithinQuota = (
+  dbInstance: ReturnType<typeof db.create>,
+  plan: Awaited<ReturnType<typeof Plan.getEffectivePlan>>,
+  artifactId: string,
+  toolId: string,
+  version: CustomCodeVersionRow
+): Promise<CustomCodeVersionRow> =>
+  dbInstance.transaction(async tx => {
+    await tx
+      .select({ id: db.schema.artifact.id })
+      .from(db.schema.artifact)
+      .where(eq(db.schema.artifact.id, artifactId))
+      .for('update');
+
+    const [tool] = await tx
+      .select()
+      .from(db.schema.artifactTool)
+      .where(eq(db.schema.artifactTool.id, toolId))
+      .limit(1);
+    if (!tool) {
+      throw new Error('No custom code is installed on this artifact.');
+    }
+
+    await assertVersionWithinQuota(tx, plan, artifactId, tool, version);
+    return activateVersion(tx, tool, version);
+  });

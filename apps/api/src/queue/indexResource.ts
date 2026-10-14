@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { getResourceHandler } from '@ganju/containers';
 
 import { reindexResourceChunks } from '../utils';
-import { markResourceFailed, reportQueueError } from './shared';
+import { reportAndFailOnFinal, reportQueueError } from './shared';
 
 import type { Bindings } from '../types';
 
@@ -102,12 +102,6 @@ export const handleIndexBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async ({ resourceId }) => indexOne(env, resourceId),
-    onError: async (error, { resourceId }, queueName) => {
-      await reportQueueError(env, '/indexResource', error, {
-        resourceId,
-        queue: queueName
-      });
-      await markResourceFailed(env, resourceId);
-    }
+    onError: reportAndFailOnFinal(env, '/indexResource')
   });
 };

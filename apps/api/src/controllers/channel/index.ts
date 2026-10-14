@@ -3,6 +3,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { v7 as uuid } from 'uuid';
 import { db, utils as dbUtils } from '@ganju/db';
 import { utils } from '@ganju/utils';
+import type { DbExecutor } from '@ganju/db';
+import type { PendingToolConfirmations } from '@ganju/utils';
 
 import {
   handleTelegramWebhook,
@@ -548,18 +550,129 @@ const clearParticipantMemory = async (c: Context<AppEnv>) => {
     c.req.param('channelId') || ''
   );
   if (!channelRow) return c.json({ error: 'Channel not found' }, 404);
-  const [updated] = await dbInstance
-    .update(db.schema.channelParticipant)
-    .set({ memory: null })
-    .where(
-      and(
-        eq(db.schema.channelParticipant.id, c.req.param('participantId') || ''),
-        eq(db.schema.channelParticipant.channelId, channelRow.id)
+  const participantId = c.req.param('participantId') || '';
+  const updated = await dbInstance.transaction(async tx => {
+    const [row] = await tx
+      .update(db.schema.channelParticipant)
+      .set({ memory: null })
+      .where(
+        and(
+          eq(db.schema.channelParticipant.id, participantId),
+          eq(db.schema.channelParticipant.channelId, channelRow.id)
+        )
       )
-    )
-    .returning({ id: db.schema.channelParticipant.id });
+      .returning({ id: db.schema.channelParticipant.id });
+    if (!row) return null;
+    await dropPendingMemorySaves(tx, channelRow.id, row.id);
+    await redactMemoryConfirmations(tx, row.id);
+    await redactMemoryUsage(tx, row.id);
+    return row;
+  });
   if (!updated) return c.json({ error: 'Participant not found' }, 404);
   return c.json({ id: updated.id, memory: null });
+};
+
+// A save the bot held for the customer's yes would put back what "Forget" just
+// cleared, so it is taken out of the customer's open question. Other calls in
+// that question stay; a question left with none is closed.
+const dropPendingMemorySaves = async (
+  tx: DbExecutor,
+  channelId: string,
+  participantId: string
+): Promise<void> => {
+  const column = db.schema.channelConversation.pendingToolConfirmation;
+  const conversations = await tx
+    .select({ id: db.schema.channelConversation.id, pending: column })
+    .from(db.schema.channelConversation)
+    .where(
+      and(
+        eq(db.schema.channelConversation.channelId, channelId),
+        sql`${column}::jsonb ? ${participantId}`
+      )
+    )
+    .for('update');
+  for (const conversation of conversations) {
+    const open = { ...(conversation.pending as PendingToolConfirmations) };
+    const question = open[participantId];
+    if (!question || !Array.isArray(question.calls)) continue;
+    const calls = question.calls.filter(
+      call => call.name !== utils.PARTICIPANT_MEMORY_TOOL_NAME
+    );
+    if (calls.length === question.calls.length) continue;
+    if (calls.length > 0) {
+      open[participantId] = { ...question, calls };
+    } else {
+      delete open[participantId];
+    }
+    await tx
+      .update(db.schema.channelConversation)
+      .set({ pendingToolConfirmation: open })
+      .where(eq(db.schema.channelConversation.id, conversation.id));
+  }
+};
+
+// The bot's replies record each save it asked the customer to confirm, with
+// what it would save. After a "Forget" they keep which facts were asked about,
+// not their values. The conversation itself — what the customer wrote — is
+// the owner's history and stays as it is.
+const redactMemoryConfirmations = async (
+  tx: DbExecutor,
+  participantId: string
+): Promise<void> => {
+  const column = db.schema.channelMessage.metadata;
+  const rows = await tx
+    .select({ id: db.schema.channelMessage.id, metadata: column })
+    .from(db.schema.channelMessage)
+    .where(
+      and(
+        eq(db.schema.channelMessage.participantId, participantId),
+        eq(
+          db.schema.channelMessage.role,
+          utils.constants.ROLE_MESSAGE_ASSISTANT
+        ),
+        sql`(${column}::jsonb -> 'toolConfirmation')::text like ${`%${utils.PARTICIPANT_MEMORY_TOOL_NAME}%`}`
+      )
+    );
+  for (const row of rows) {
+    const metadata = row.metadata as Record<string, unknown>;
+    const redacted = utils.redactParticipantMemoryConfirmation(
+      metadata.toolConfirmation
+    );
+    if (!redacted) continue;
+    await tx
+      .update(db.schema.channelMessage)
+      .set({
+        metadata: sql`jsonb_set(${column}::jsonb, '{toolConfirmation}', ${JSON.stringify(redacted)}::jsonb)::json`
+      })
+      .where(eq(db.schema.channelMessage.id, row.id));
+  }
+};
+
+// Saves logged before their arguments were redacted at the source still hold
+// the values; this customer's are redacted with the rest of the "Forget".
+const redactMemoryUsage = async (
+  tx: DbExecutor,
+  participantId: string
+): Promise<void> => {
+  const usage = db.schema.channelMessageUsage;
+  const rows = await tx
+    .select({ id: usage.id, input: usage.input })
+    .from(usage)
+    .innerJoin(
+      db.schema.channelMessage,
+      eq(db.schema.channelMessage.id, usage.messageId)
+    )
+    .where(
+      and(
+        eq(db.schema.channelMessage.participantId, participantId),
+        eq(usage.toolName, utils.PARTICIPANT_MEMORY_TOOL_NAME)
+      )
+    );
+  for (const row of rows) {
+    const redacted = utils.redactParticipantMemoryArgs(row.input);
+    if (JSON.stringify(redacted) === JSON.stringify(row.input)) continue;
+    await tx.update(usage).set({ input: redacted }).where(eq(usage.id, row.id));
+  }
 };
 
 const webhook = async (c: Context<AppEnv>) => {
@@ -667,8 +780,11 @@ const debouncedIngest = async (c: Context<AppEnv>) => {
       envelope.externalConversationId,
       batchId
     );
-    if (claim === 'answered') return c.json({ ok: true, skipped: 'answered' });
+    if (claim.status === 'answered') {
+      return c.json({ ok: true, skipped: 'answered' });
+    }
     c.set('bufferBatchId', batchId);
+    c.set('bufferBatchTranscripts', claim.transcripts);
   }
 
   // Run the turn inside this request and answer the buffer when it is done.

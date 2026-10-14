@@ -7,6 +7,7 @@ type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
   structuredContent?: Record<string, unknown>;
   isError?: boolean;
+  _meta?: Record<string, unknown>;
 };
 
 const text = (value: string): ToolResult => ({
@@ -25,6 +26,18 @@ const fail = (value: string): ToolResult => ({
   content: [{ type: 'text', text: value }],
   isError: true
 });
+
+// A failure that quotes what the endpoint sent back. The body is whoever
+// answered's text, not ours, so it is labelled like a successful answer would
+// be — and, as there, flagged only when it reads like instructions.
+const failWithBody = (
+  message: string,
+  config: HttpEndpointToolConfig,
+  body: string
+): ToolResult =>
+  utils.untrustedErrorResult(message, config.name, body, {
+    flag: utils.readsLikeInstructions(body)
+  });
 
 // The resolved (decrypted) credential the controller hands to the dispatcher.
 export interface ResolvedHttpCredential {
@@ -215,7 +228,11 @@ export const executeHttpEndpoint = async (
     ? config.response.successStatus.includes(response.status)
     : response.status >= 200 && response.status < 300;
   if (!isSuccess) {
-    return fail(`Error: HTTP ${response.status} — ${rawText}`);
+    return failWithBody(
+      `Error: HTTP ${response.status} — the endpoint answered:`,
+      config,
+      rawText
+    );
   }
 
   // Shape the response
@@ -233,8 +250,10 @@ export const executeHttpEndpoint = async (
         ? getByPath(parsed, config.response.jsonPath)
         : parsed;
       if (extracted === undefined) {
-        return fail(
-          `No data found at path "${config.response.jsonPath}". Full response:\n${rawText}`
+        return failWithBody(
+          `No data found at path "${config.response.jsonPath}". Full response:`,
+          config,
+          rawText
         );
       }
       // structuredContent only when the endpoint declared an output schema.

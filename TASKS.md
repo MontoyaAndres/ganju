@@ -244,7 +244,7 @@ codes, names), which are most of what support and sales bots get asked.
   this is the first real use of the promptfoo evals task above.
 - Done when: an order id or error code lands in the top 3, and semantic
   queries do not get worse on the golden set.
-- Status: done on dev (2026-09-24), production pending. Migration `0074`
+- Status: done on dev (2026-09-24), live in production (see below). Migration `0074`
   (tsvector + GIN, and `hnsw.iterative_scan = relaxed_order` as a database
   default so the `artifact_id` filter doesn't starve HNSW of candidates) is
   applied on dev, which runs pgvector 0.8.1. `db.searchResourceChunks` (RRF) is
@@ -267,6 +267,27 @@ codes, names), which are most of what support and sales bots get asked.
   The `ganju-mcp` deploys since then carry the fused search. So the
   pre-migration golden-set baseline can no longer be taken; golden sets are
   still worth writing to measure changes from here.
+- Golden sets, 2026-10-14: `scripts/golden/dev-supabase-shipday-history.json`
+  (artifact 5a9bb…, 12 exact + 14 semantic) and
+  `scripts/golden/dev-mml-ayssa-sharely.json` (053e…, 6 + 8), every exact
+  token checked to sit in the expected page. Baseline on dev (run with
+  `EVAL_MCP_URL=https://development-mcp.vocesqueabrazan.com`): 5a9bb hit@3
+  exact 9/12, semantic 9/14 (MRR 0.69 / 0.53); 053e exact 6/6, semantic 6/8
+  (MRR 1.00 / 0.78). The eval script had scored everything 0 since results
+  became labelled outside content — it now unwraps them.
+  - The exact misses, from the index rather than ranking: `PGRST116` (the
+    crawler glued table cells: "different.PGRST116406More"), `y-supabase`
+    (Postgres' simple parser indexes "@supabase-labs/y-supabase" as a path,
+    `/y-supabase`), `86400` (indexed, ranked under other pages). Crawler
+    fixed (code only, ships with `ganju-api`, which builds the
+    resource-handler): blocks end their line and table cells, links and
+    buttons end with a space; checked on the live pages (`PGRST116 406
+    More`). Every crawled page's text changes once, so its next sync
+    re-embeds it; re-run the golden sets after that. Deployed to dev
+    2026-10-14 (container image `f3c1b90b`, live 16:05 UTC — the rollout
+    takes a few minutes after `wrangler deploy`); a one-page crawl in a
+    throwaway org stored `different.\nPGRST116 406 More…` and
+    `search-resources` found it for "PGRST116".
 
 **2. Citations and metadata in results — S** (ship with 1: same query, same
 response)
@@ -314,8 +335,13 @@ response)
     integrate Shipday with Bbot") returned `section` ("How to integrate
     Shipday with Bbot", "Enabling automated self-delivery for your
     restaurant") next to `source`; results whose chunk sits before a page's
-    first heading carry none, as designed. Not checked: a model citing the
-    section in a channel answer.
+    first heading carry none, as designed. A model citing it in a channel
+    answer, checked 2026-10-14 on @test123532botbot (053e…): "How do I
+    connect Shipday with ChowNow?" → "Source: ChowNow integration with
+    GloriaFood, section How to integrate Shipday with Chownow, updated
+    2026-09-26", unprompted. The 5a9bb… artifact has no `headingPath` on any
+    of its 7,027 chunks (indexed before sections existed), so its answers
+    can only cite the URL until a re-crawl.
   - Known edge: a home page titled with just the brand ("Acme") stays in the
     footer whenever the answer names the brand or the site's URL. One extra
     line; leave it unless it shows up.
@@ -509,7 +535,12 @@ on its own: the API's crons only run error alerts and overage metering.
     the delete, then the create, since the turn stops at the first held call.
     After the fix, each action on Discord got a single question and missing
     details (a title) were asked for before calling; one question for
-    several actions is not yet seen in a chat.
+    several actions is not yet seen in a chat. Seen 2026-10-14 on
+    @test123532botbot (gpt-5.4-mini, switch on): "create two events
+    tomorrow…" → one question with both held `calendar-create-event` calls
+    (Bogotá local times), "sí" ran both stored calls. They failed on the
+    expired Calendar token (see the refresh follow-up), so nothing was
+    created.
   - Seen on Discord, unrelated: the first confirmed run failed with Google's
     "invalid authentication credentials" and the retry a minute later
     worked — a calendar token refresh issue worth a look.
@@ -555,6 +586,25 @@ on its own: the API's crons only run error alerts and overage metering.
     if the MCP worker is left with only expired tokens, the tool answers
     "could not be renewed just now… try again" instead of calling Google.
     Ship: `ganju-mcp`, `ganju-tool-broker`.
+    Root cause found 2026-10-14: apps/mcp has never had the OAuth client
+    secrets (`GOOGLE_*`, `MICROSOFT_*`, `SLACK_*` — DEPLOYMENT.md listed 3
+    secrets for it; dev has exactly those plus `JWT_SECRET`), so
+    `refreshCredentialIfNeeded` returned early and sent the expired token on
+    every call. Tokens only got renewed when something in apps/api refreshed
+    them, which is why a retry "a minute later" sometimes worked. Seen live:
+    the test org's Calendar token expired 2026-09-29 and was never renewed;
+    both held `calendar-create-event` calls failed with "invalid
+    authentication credentials". Fix: set the six secrets on `ganju-mcp`
+    (dev and production; same values as apps/api) — DEPLOYMENT.md now lists
+    9 for apps/mcp. Code (not deployed): with the secrets missing and the
+    token expired, the worker logs `credential-refresh-unconfigured` and the
+    tool answers "could not be renewed" instead of calling the vendor;
+    checked locally (no request made, `refreshFailed` only once expired).
+    On dev 2026-10-14: `calendar-list-events` on the test org answered
+    "could not be renewed just now… try again in a moment". Since the keys
+    are staying off apps/mcp by decision, that case now says to connect the
+    integration again on the Tools page instead of retrying (code only, not
+    deployed: `ganju-mcp`). gmail-send confirmed working after reconnecting.
     Checked locally 2026-10-13 against a scripted token endpoint (8/8):
     two 503s → two calls 300 ms apart and `refreshFailed`; 30 s left → not
     failed; 503 then 200 → refreshed; `invalid_grant` → one call and
@@ -806,7 +856,7 @@ latency, error and session for every call, and channel turns are stored.
   - Signals: schema rejection; retry = same tool again within 2 minutes after
     a failure or with identical arguments (a search re-run with a new query
     isn't one — counting every back-to-back call gave `search-resources` 14
-    "retries" on dev; the narrower rule is not yet re-run there); gave up =
+    "retries" on dev, the narrower rule 0 in the browser pass below); gave up =
     an error followed within 2 minutes by a different tool, counted on the
     failed tool.
   - "Unused" is per install row, the unit the Tools switches act on: an MCP
@@ -860,7 +910,9 @@ latency, error and session for every call, and channel turns are stored.
     and when the project would still be at or over its limit after the
     disable, the dialog says it can't be turned back on without turning
     another off or upgrading. Added after a disable on Shipday (FREE, over
-    its 7-tool limit) couldn't be undone: `send-resource` there is still off.
+    its 7-tool limit) couldn't be undone. Restored 2026-10-14 from the
+    dashboard: `gmail-list-emails` (last used Aug 4) and
+    `calendar-delete-event` (Jul 25) off, `send-resource` on — 7 of 7.
   - Loading: the card, the calls list, a call and a session have
     placeholders shaped like their content (real table headers, row boxes,
     labelled blocks); a range change dims the last numbers instead of
@@ -1079,12 +1131,31 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     45-tool GitHub install: "Un proyecto puede tener 40… activar 38", "Todas"
     disabled, the rest locked at 38; the footer switch's thumb sits where a
     checked list switch's does (50%), and Disconnect's text has its 4px.
+  - Production 2026-10-14 after the deploy: `probe-limits-paging.mjs --prod`
+    44/44 (throwaway org and its script removed), the same browser check on
+    app.ganju.ai 8/8. Read-only count: of the 9 production artifacts with
+    tools on, none is over its new limit.
   - "The switch looks wrong" is the dialog's footer switch ("Expuestas"): the
     footer's button rule reached the switch's ButtonBase and its override
     set the padding to 0, so an "on" switch drew its thumb at the left.
     Fixed in the tools styles (4px, as MUI's small switch); checked on dev by
     injecting the rule (thumb at 50% of the switch, like a checked list
     switch). Needs web deployed.
+- **A slow model turn holds the customer's next messages** (seen 2026-10-14
+  on @sdasdasdasdasdasdbotbot, own key, `gemini-3.1-pro-preview`): one turn
+  waited ~4 min on `generateContent` and failed with a 524 ("Sorry, something
+  went wrong…", ref 01a13afb…); the next took 3.5 min. The participant's
+  message buffer waits for the turn in flight, so everything they sent
+  meanwhile sat unanswered. Again at 20:29 the same day: the `gmail-send`
+  test ("send an email to …") never got past the model — a second 524, and
+  a third after Gmail was reconnected at 20:40.
+  - `gmail-send-email` itself, checked 2026-10-14 with the freshly connected
+    Gmail on Shipday (dev), called directly on its MCP server: "Email sent.
+    Message ID: 1a13b17f750bc968" to the owner's address. Still not seen:
+    the channel confirmation in front of it — Shipday's bot times out before
+    asking, and the test org has no Gmail tool (it is over the 40-tool
+    limit, so one can't be added there). Worth a per-call timeout on model requests (and
+  telling the customer it's slow) rather than waiting on the provider.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
@@ -1109,9 +1180,10 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     names `next: …offset=20`. A custom-code tool returning 566 KB is cut with
     `nextCursor: page-2` named (not "not valid JSON") and keeps its whole
     structured copy; a small output is untouched. The channel runner's
-    `list-resources` isn't driven.
-- **Per-user limits on channels** — calls or messages per participant per day,
-  for abuse and cost on public bots. Only per-tool limits exist today.
-- **Persistent memory** — Claude and ChatGPT already have their own; mainly
-  useful for channel bots. The team-notes example shows the pattern with
-  resources today.
+    `list-resources` was driven later, below.
+  - Channel `list-resources`, dev 2026-10-14, through Telegram Web
+    (@test123532botbot, 319 exposed resources): asked to list, give the total
+    and page on, the bot answered 319, the first page's first three by uri
+    exactly as stored, and a second page that is items 4–6 — the model used
+    `limit: 3` and followed the cursor; two `resources/list` calls on the
+    turn's session.

@@ -11,6 +11,7 @@ import type { ResourceHandler } from '@ganju/containers';
 import type { Auth } from './utils';
 import type { DiscordGatewayDO } from './durable-objects/discordGateway';
 import type { MessageBufferDO } from './durable-objects/messageBuffer';
+import type { VoiceNoteTranscripts } from './controllers/channel/debounce';
 import type {
   IndexJob,
   CrawlDiscoverJob,
@@ -28,6 +29,9 @@ export type Variables = {
   // Set on the buffer's ingest route: the id the runner tags the turn's rows
   // with, so a re-sent batch is recognised.
   bufferBatchId?: string;
+  // Voice notes an earlier hand-off of that batch already transcribed, by the
+  // platform's message id, for the runner to reuse rather than pay for again.
+  bufferBatchTranscripts?: VoiceNoteTranscripts;
 };
 
 export interface RateLimiter {

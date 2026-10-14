@@ -1,4 +1,5 @@
 import { constants } from './constants';
+import { overlapTail } from './chunkOverlap';
 import { decodeEntities } from './sanitize';
 
 import type {
@@ -68,7 +69,7 @@ const chunkPieces = (
   const rawChunks = splitRecursive(trimmed, target);
   const pieces: Array<{ raw: string; content: string }> = [];
   for (let i = 0; i < rawChunks.length; i++) {
-    const prev = i > 0 ? rawChunks[i - 1].slice(-overlap) : '';
+    const prev = i > 0 ? overlapTail(rawChunks[i - 1], overlap) : '';
     pieces.push({
       raw: rawChunks[i],
       content: (prev ? prev + '\n' : '') + rawChunks[i]
@@ -93,6 +94,12 @@ interface HeadingEvent {
 const MARKDOWN_HEADING = /^ {0,3}(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/;
 const MARKDOWN_FENCE = /^ {0,3}(```|~~~)/;
 const HTML_HEADING = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi;
+// A heading tag still open at the end of a piece, from its opening tag on: the
+// chunker split inside it, and the rest of it opens the next piece.
+const OPEN_HTML_HEADING = /<h([1-6])\b[^>]*>(?![\s\S]*<\/h\1\s*>)[\s\S]*$/i;
+// Longer than any heading worth carrying: an opening tag this far back with no
+// close is broken markup, not a heading that happened to be split.
+const MAX_OPEN_HEADING_CHARS = 1000;
 const MAX_HEADING_CHARS = 120;
 
 const MARKDOWN_FILE_NAME = /\.(md|markdown|mdx)$/i;
@@ -163,16 +170,30 @@ const scanHtmlHeadings = (text: string): HeadingEvent[] =>
 const createHeadingTracker = (syntax: HeadingSyntax) => {
   let stack: Array<{ level: number; text: string }> = [];
   const fence = { inFence: false };
+  // The unfinished HTML heading the previous piece ended in, if any.
+  let carry = '';
   const apply = (event: HeadingEvent) => {
     stack = stack.filter(h => h.level < event.level);
     stack.push({ level: event.level, text: event.text });
   };
 
+  // An HTML heading split between two pieces is read whole from the second,
+  // where it ends, as if that piece opened with it: it does, mid-heading. The
+  // separator the chunker dropped at the split is restored as a space.
+  const scanHtml = (raw: string): HeadingEvent[] => {
+    const text = carry ? `${carry} ${raw}` : raw;
+    const shift = text.length - raw.length;
+    const open = OPEN_HTML_HEADING.exec(text)?.[0] ?? '';
+    carry = open.length <= MAX_OPEN_HEADING_CHARS ? open : '';
+    return scanHtmlHeadings(text).map(event => ({
+      ...event,
+      offset: Math.max(0, event.offset - shift)
+    }));
+  };
+
   return (raw: string): string[] => {
     const events =
-      syntax === 'markdown'
-        ? scanMarkdownHeadings(raw, fence)
-        : scanHtmlHeadings(raw);
+      syntax === 'markdown' ? scanMarkdownHeadings(raw, fence) : scanHtml(raw);
     const [first, ...rest] = events;
     // Before a document's first heading there is no section to continue — only
     // the metadata header, or the markup around an HTML body — so a chunk that

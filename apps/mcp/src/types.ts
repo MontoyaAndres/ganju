@@ -34,6 +34,7 @@ export type Bindings = {
   DATABASE_URL?: string;
   NODE_ENV?: string;
   NEXT_PUBLIC_API_URL?: string;
+  NEXT_PUBLIC_WEB_URL?: string;
   MCP_INTERNAL_SECRET?: string;
 };
 

@@ -220,3 +220,53 @@ test('too many tools counts the rest of the server', () => {
   assert.equal(finding.count, TOOL_LINT_MAX_TOOLS + 1);
   assert.equal(finding.limit, TOOL_LINT_MAX_TOOLS);
 });
+
+test('an input named like the confirmation token is flagged', () => {
+  const findings = lintTools([
+    {
+      ...clean(
+        'refund-order',
+        'Refund an order. Use when the customer asks for their money back.'
+      ),
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'string', description: 'The order to refund.' },
+          confirmation: {
+            type: 'string',
+            description: 'The code the customer read out.'
+          }
+        }
+      }
+    }
+  ]);
+  assert.deepEqual(rules(findings), [['reserved-input', 'refund-order']]);
+  assert.deepEqual(findings[0].paths, ['confirmation']);
+});
+
+test('only a top-level confirmation input is reserved', () => {
+  const findings = lintTools([
+    {
+      ...clean(
+        'create-booking',
+        'Create a booking. Use when the customer picks a time slot.'
+      ),
+      inputSchema: {
+        type: 'object',
+        properties: {
+          details: {
+            type: 'object',
+            description: 'The booking.',
+            properties: {
+              confirmation: {
+                type: 'string',
+                description: 'Whether to email a confirmation.'
+              }
+            }
+          }
+        }
+      }
+    }
+  ]);
+  assert.deepEqual(rules(findings), []);
+});

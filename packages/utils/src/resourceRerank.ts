@@ -37,7 +37,11 @@ export const createResourceReranker = (
       top_k: documents.length
     })) as RerankResponse;
 
-    const scores: Array<number | undefined> = new Array(documents.length);
+    // Filled, not just sized: `some` skips the holes of a bare new Array(n), so
+    // a document the response left out would pass the check below unscored.
+    const scores: Array<number | undefined> = new Array(documents.length).fill(
+      undefined
+    );
     for (const item of result?.response ?? []) {
       if (
         typeof item.id === 'number' &&

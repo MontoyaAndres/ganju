@@ -32,6 +32,7 @@ export const TOOL_LINT_RULES = [
   'no-usage-guidance',
   'missing-annotations',
   'undescribed-input',
+  'reserved-input',
   'overlapping-tools',
   'too-many-tools'
 ] as const;
@@ -47,6 +48,7 @@ export interface ToolLintFinding {
   // pair is reported once, on the first of the two.
   alike?: string[];
   // `undescribed-input`: the properties with no description, as dotted paths.
+  // `reserved-input`: the top-level properties whose names the server keeps.
   paths?: string[];
   // `too-many-tools`: how many are enabled, and the number past which it warns.
   count?: number;
@@ -226,6 +228,21 @@ const undescribedPaths = (schema: unknown, prefix = ''): string[] => {
   return paths;
 };
 
+// Top-level input names the server takes for itself. `confirmation` carries
+// the token a sensitive tool's second call brings back: the server replaces a
+// property of that name and strips it before the tool runs, so it never
+// reaches the tool.
+// Kept here rather than imported from constants (MCP_TOOL_CONFIRMATION_ARG),
+// since this file imports nothing.
+const RESERVED_INPUT_NAMES = ['confirmation'];
+
+const reservedPaths = (schema: unknown): string[] =>
+  isObject(schema) && isObject(schema.properties)
+    ? RESERVED_INPUT_NAMES.filter(name =>
+        Object.prototype.hasOwnProperty.call(schema.properties, name)
+      )
+    : [];
+
 const quoted = (name: string) => `"${name}"`;
 
 /**
@@ -299,6 +316,16 @@ export const lintTools = (
         tool: tool.name,
         paths,
         message: `${quoted(tool.name)} has input properties with no description: ${paths.join(', ')}. A model has to guess what to pass.`
+      });
+    }
+
+    const reserved = reservedPaths(tool.inputSchema);
+    if (reserved.length > 0) {
+      findings.push({
+        rule: 'reserved-input',
+        tool: tool.name,
+        paths: reserved,
+        message: `${quoted(tool.name)} has an input named ${reserved.map(quoted).join(', ')}, which the server keeps for confirming sensitive actions: on a tool it confirms, that property is replaced and its value never reaches the tool. Rename it.`
       });
     }
 

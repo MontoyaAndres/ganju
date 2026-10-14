@@ -2656,6 +2656,32 @@ export const ModalDialog = styled.div`
           margin: 4px 0 0 0;
           line-height: 1.4;
         }
+
+        .mcp-proxy-item-read-only {
+          margin: 4px 0 0 -6px;
+
+          .MuiFormControlLabel-label {
+            font-size: ${theme.fonts.xs};
+            color: ${theme.colors.bastille}99;
+          }
+        }
+      }
+
+      .mcp-proxy-trust {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 4px 0 8px;
+        font-size: ${theme.fonts.sm};
+        color: ${theme.colors.bastille};
+        cursor: pointer;
+
+        small {
+          display: block;
+          font-size: ${theme.fonts.xs};
+          color: ${theme.colors.bastille}80;
+          line-height: 1.4;
+        }
       }
 
       .tools-settings-secret-add {

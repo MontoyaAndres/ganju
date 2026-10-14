@@ -16,7 +16,8 @@ import {
   loadVersionForTool,
   bundleSourceKey,
   hashBundle,
-  activateVersion,
+  activateVersionWithinQuota,
+  assertVersionWithinQuota,
   deleteCustomCodeSecrets
 } from './customCode';
 import {
@@ -36,7 +37,9 @@ import {
   invokeCustomCodeScript,
   deleteCustomCodeScript,
   customCodeScriptExists,
-  startResourceSync,
+  claimManualResourceSync,
+  releaseManualResourceSync,
+  enqueueResourceSync,
   Plan
 } from '../../utils';
 
@@ -1083,11 +1086,14 @@ const createTool = async (c: Context<AppEnv>) => {
       throw new Error('Project not found');
     }
 
+    // Locked: the tool count below is read and then grown, and two installs
+    // racing past the same count would both fit under the limit.
     const [currentArtifactByProject] = await tx
       .select()
       .from(db.schema.artifact)
       .where(eq(db.schema.artifact.projectId, currentValues.projectId))
-      .limit(1);
+      .limit(1)
+      .for('update');
 
     if (!currentArtifactByProject) {
       throw new Error('Artifact not found for the project');
@@ -1308,7 +1314,10 @@ const updateTool = async (c: Context<AppEnv>) => {
       .limit(1);
     if (artifactRow) {
       const [existing] = await dbInstance
-        .select({ key: db.schema.artifactTool.toolKey })
+        .select({
+          key: db.schema.artifactTool.toolKey,
+          config: db.schema.artifactTool.config
+        })
         .from(db.schema.artifactTool)
         .where(
           and(
@@ -1322,7 +1331,8 @@ const updateTool = async (c: Context<AppEnv>) => {
           c,
           dbInstance,
           artifactRow.id,
-          currentValues.config,
+          // The owner's trust marks survive a save that doesn't mention them.
+          utils.keepProxiedToolMarks(existing.config, currentValues.config),
           currentValues.metadata || null
         );
       }
@@ -1345,11 +1355,14 @@ const updateTool = async (c: Context<AppEnv>) => {
       throw new Error('Project not found');
     }
 
+    // Locked: the tool count below is read and then grown, and two installs
+    // racing past the same count would both fit under the limit.
     const [currentArtifactByProject] = await tx
       .select()
       .from(db.schema.artifact)
       .where(eq(db.schema.artifact.projectId, currentValues.projectId))
-      .limit(1);
+      .limit(1)
+      .for('update');
 
     if (!currentArtifactByProject) {
       throw new Error('Artifact not found for the project');
@@ -1822,56 +1835,70 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
   const dbInstance = db.create(c);
   const bucket = c.env.STORAGE_BUCKET;
 
-  const result = await dbInstance.transaction(async tx => {
-    const { artifact, tool } = await resolveCustomCodeTool(
+  // Resolved in a transaction of its own, which may lock the artifact while it
+  // adds the custom-code row; the bundle is stored after it commits, so a
+  // slow upload never holds that lock.
+  const { artifact, version } = await dbInstance.transaction(async tx => {
+    const resolved = await resolveCustomCodeTool(
       tx,
       currentValues.organizationId,
       currentValues.projectId
     );
-
-    const version = await loadVersionForTool(
-      tx,
-      tool.id,
-      currentValues.versionId
-    );
-
-    // A published version is what the MCP server is serving right now; swapping
-    // its bundle would change behaviour with no version history and nothing to
-    // roll back to. Upload a new draft instead.
-    if (version.status !== utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT) {
-      throw new Error(
-        'A bundle must be uploaded to a draft; this version is already published. Create a new version instead.'
-      );
-    }
-
-    const key = bundleSourceKey(
-      currentValues.organizationId,
-      currentValues.projectId,
-      artifact.id,
-      version.version
-    );
-
-    if (bucket) {
-      await bucket.put(key, bundle, {
-        httpMetadata: { contentType: 'application/javascript' }
-      });
-    }
-
-    const [updated] = await tx
-      .update(db.schema.artifactToolVersion)
-      .set({
-        sourceKey: key,
-        sourceHash,
-        sourceKind: currentValues.sourceKind,
-        error: null
-      })
-      .where(eq(db.schema.artifactToolVersion.id, version.id))
-      .returning();
-
-    return updated;
+    return {
+      artifact: resolved.artifact,
+      version: await loadVersionForTool(
+        tx,
+        resolved.tool.id,
+        currentValues.versionId
+      )
+    };
   });
 
-  return c.json(result);
+  // A published version is what the MCP server is serving right now; swapping
+  // its bundle would change behaviour with no version history and nothing to
+  // roll back to. Upload a new draft instead.
+  const draftOnly =
+    'A bundle must be uploaded to a draft; this version is already published. Create a new version instead.';
+  if (version.status !== utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT) {
+    throw new Error(draftOnly);
+  }
+
+  const key = bundleSourceKey(
+    currentValues.organizationId,
+    currentValues.projectId,
+    artifact.id,
+    version.version
+  );
+
+  if (bucket) {
+    await bucket.put(key, bundle, {
+      httpMetadata: { contentType: 'application/javascript' }
+    });
+  }
+
+  // Still a draft when the row is written: a version published while the
+  // bundle was uploading is refused rather than updated.
+  const [updated] = await dbInstance
+    .update(db.schema.artifactToolVersion)
+    .set({
+      sourceKey: key,
+      sourceHash,
+      sourceKind: currentValues.sourceKind,
+      error: null
+    })
+    .where(
+      and(
+        eq(db.schema.artifactToolVersion.id, version.id),
+        eq(
+          db.schema.artifactToolVersion.status,
+          utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT
+        )
+      )
+    )
+    .returning();
+  if (!updated) throw new Error(draftOnly);
+
+  return c.json(updated);
 };
 
 /**
@@ -2177,21 +2204,9 @@ const activateCustomCodeVersion = async (
   );
 
   // A version with more functions than the live one grows the tool count like
-  // a new install would, so it is checked before anything is deployed.
-  if (tool.enabled) {
-    const before = await Plan.countInstallToolsIn(dbInstance, tool);
-    const after = utils.countInstallTools(
-      tool,
-      (version.tools as Array<{ name: string }>).map(entry => entry.name)
-    );
-    if (after > before) {
-      Plan.assertToolQuota(
-        plan,
-        await Plan.countArtifactTools(dbInstance, artifact.id, tool.id),
-        after
-      );
-    }
-  }
+  // a new install would, so it is checked before anything is deployed — and
+  // again, under a lock, in the transaction that activates it.
+  await assertVersionWithinQuota(dbInstance, plan, artifact.id, tool, version);
 
   // Activating a version with no bundle would advertise its tools to every
   // MCP client while there is nothing to dispatch to.
@@ -2220,8 +2235,12 @@ const activateCustomCodeVersion = async (
     const stillDeployed = await customCodeScriptExists(c, version.scriptName);
 
     if (stillDeployed) {
-      const moved = await dbInstance.transaction(async tx =>
-        activateVersion(tx, tool, version)
+      const moved = await activateVersionWithinQuota(
+        dbInstance,
+        plan,
+        artifact.id,
+        tool.id,
+        version
       );
 
       return c.json(moved);
@@ -2278,12 +2297,16 @@ const activateCustomCodeVersion = async (
     throw error;
   }
 
-  const result = await dbInstance.transaction(async tx =>
-    activateVersion(tx, tool, {
+  const result = await activateVersionWithinQuota(
+    dbInstance,
+    plan,
+    artifact.id,
+    tool.id,
+    {
       ...version,
       scriptTag: deployed.scriptTag,
       scriptName: deployed.scriptName
-    })
+    }
   );
 
   return c.json(result);
@@ -2485,11 +2508,14 @@ const setToolEnabled = async (c: Context<AppEnv>) => {
       throw new Error('Project not found');
     }
 
+    // Locked: the tool count below is read and then grown, and two installs
+    // racing past the same count would both fit under the limit.
     const [currentArtifactByProject] = await tx
       .select()
       .from(db.schema.artifact)
       .where(eq(db.schema.artifact.projectId, currentValues.projectId))
-      .limit(1);
+      .limit(1)
+      .for('update');
 
     if (!currentArtifactByProject) {
       throw new Error('Artifact not found for the project');
@@ -3389,22 +3415,33 @@ const syncResource = async (c: Context<AppEnv>) => {
     currentValues.resourceId
   );
 
-  // A source PENDING for too long is stuck, not syncing, and syncing it again
-  // is how it recovers.
-  if (utils.isResourceSyncInProgress(resource)) {
+  // The checks are made by the UPDATE that claims the sync, so two requests
+  // landing together can't both pass them. The row read above only words the
+  // refusal. A source PENDING for too long is stuck, not syncing, and syncing
+  // it again is how it recovers.
+  const claimedAt = await claimManualResourceSync(dbInstance, resource.id);
+  if (!claimedAt) {
+    const startedAt = resource.syncStartedAt?.getTime() ?? 0;
+    if (
+      !utils.isResourceSyncInProgress(resource) &&
+      Date.now() - startedAt < utils.constants.RESOURCE_SYNC_MANUAL_COOLDOWN_MS
+    ) {
+      throw new Error(
+        'This source was synced a moment ago. Try again in a few minutes.'
+      );
+    }
+    // Syncing — or another request claimed it a moment ago.
     throw new Error('This source is already syncing');
   }
-  const startedAt = resource.syncStartedAt?.getTime() ?? 0;
-  if (
-    Date.now() - startedAt <
-    utils.constants.RESOURCE_SYNC_MANUAL_COOLDOWN_MS
-  ) {
-    throw new Error(
-      'This source was synced a moment ago. Try again in a few minutes.'
-    );
-  }
 
-  await startResourceSync(c.env, dbInstance, resource, { scheduled: false });
+  try {
+    await enqueueResourceSync(c.env, resource, { scheduled: false });
+  } catch (error) {
+    await releaseManualResourceSync(dbInstance, resource, claimedAt).catch(
+      () => undefined
+    );
+    throw error;
+  }
 
   return c.json({ resourceId: resource.id, status: 'queued' });
 };

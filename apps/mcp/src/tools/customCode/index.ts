@@ -7,6 +7,7 @@ type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
   structuredContent?: Record<string, unknown>;
   isError?: boolean;
+  _meta?: Record<string, unknown>;
 };
 
 const text = (value: string): ToolResult => ({
@@ -222,9 +223,17 @@ export const executeCustomCodeCall = async (
     entry.level === 'log' ? entry.message : `[${entry.level}] ${entry.message}`
   );
 
+  // What the script threw can quote what it fetched (an API's error body, a
+  // record it was reading), so it is labelled like the script's answers are:
+  // always wrapped, flagged when it reads like instructions.
   if (parsed.data.error) {
     return {
-      result: { ...text(`Error: ${parsed.data.error}`), isError: true },
+      result: utils.untrustedErrorResult(
+        'Error:',
+        input.toolName,
+        parsed.data.error,
+        { flag: utils.readsLikeInstructions(parsed.data.error) }
+      ),
       logs,
       dispatched: true
     };

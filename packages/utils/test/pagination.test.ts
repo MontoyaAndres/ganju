@@ -69,6 +69,37 @@ test('paging is keyed: an item added before the cursor does not repeat one', () 
   assert.deepEqual(second.page, ['c', 'd']);
 });
 
+test('items that share a key are each served once across pages', () => {
+  const items = [
+    { uri: 'a', n: 1 },
+    { uri: 'b', n: 1 },
+    { uri: 'b', n: 2 },
+    { uri: 'b', n: 3 },
+    { uri: 'c', n: 1 }
+  ];
+  const seen: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = paginate(items, item => item.uri, {
+      cursor,
+      limit: 2,
+      ...LIMITS
+    });
+    seen.push(...result.page.map(item => `${item.uri}${item.n}`));
+    cursor = result.nextCursor;
+  } while (cursor);
+  assert.deepEqual(seen, ['a1', 'b1', 'b2', 'b3', 'c1']);
+});
+
+test('a cursor without a count resumes after every item with its key', () => {
+  const legacy = btoa('b').replace(/=+$/, '');
+  const result = paginate(['a', 'b', 'b', 'c'], x => x, {
+    cursor: legacy,
+    ...LIMITS
+  });
+  assert.deepEqual(result.page, ['c']);
+});
+
 test('a cursor that is not ours is refused', () => {
   assert.throws(
     () => paginate(['a'], x => x, { cursor: '%%%', ...LIMITS }),

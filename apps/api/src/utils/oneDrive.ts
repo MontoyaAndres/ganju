@@ -109,13 +109,15 @@ export const getOneDriveAccessToken = async (
     .limit(1);
 
   if (!credential) {
-    throw new Error(
+    // Neither is fixed by a retry: it takes the user reconnecting, so the
+    // job is reported once and dropped rather than retried.
+    throw new utils.PermanentJobError(
       `one-drive credential not found for artifact ${artifactId}`
     );
   }
 
   if (utils.isCredentialNeedingReauth(credential.metadata)) {
-    throw new Error('one-drive credential needs reauth');
+    throw new utils.PermanentJobError('one-drive credential needs reauth');
   }
 
   const metadata =

@@ -158,26 +158,72 @@ export const transcribeVoiceNotes = async (
     })
   );
 
+// Redirects followed per download. Platform file hosts send at most one (to a
+// signed CDN URL); more than this is not a file host behaving normally.
+const VOICE_NOTE_MAX_REDIRECTS = 3;
+
+const isAllowedVoiceNoteUrl = (url: URL, allowedHosts: string[]): boolean =>
+  url.protocol === 'https:' &&
+  allowedHosts.some(
+    host => url.hostname === host || url.hostname.endsWith(`.${host}`)
+  );
+
+// The body, refused past VOICE_NOTE_MAX_BYTES while it is read rather than
+// after: a server that doesn't say how long it is can't make us hold more.
+const readCappedBody = async (response: Response): Promise<Uint8Array> => {
+  if (!response.body) return new Uint8Array(0);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > utils.VOICE_NOTE_MAX_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new VoiceNoteTooLong(null);
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return bytes;
+};
+
 /**
- * Download a voice note over HTTPS from one of the platform's own hosts. The
- * host check keeps a bot token from going anywhere a payload names, and the
- * size is checked before the body is read when the server says it.
+ * Download a voice note over HTTPS from one of the platform's own hosts. Every
+ * redirect is checked against the same hosts, and `headers` (a bot token) only
+ * go to the host the download started on, so a token can't be sent anywhere a
+ * payload or a redirect names. The size is checked before the body is read
+ * when the server says it, and while it is read when it doesn't.
  */
 export const fetchVoiceNoteAudio = async (
   url: string,
   allowedHosts: string[],
   headers?: Record<string, string>
 ): Promise<VoiceNoteAudio> => {
-  const parsed = new URL(url);
-  if (
-    parsed.protocol !== 'https:' ||
-    !allowedHosts.some(
-      host => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`)
-    )
-  ) {
-    throw new Error(`Voice note URL not on an allowed host: ${parsed.host}`);
+  const origin = new URL(url);
+  let current = origin;
+  let response: Response | null = null;
+  for (let hop = 0; hop <= VOICE_NOTE_MAX_REDIRECTS; hop++) {
+    if (!isAllowedVoiceNoteUrl(current, allowedHosts)) {
+      throw new Error(`Voice note URL not on an allowed host: ${current.host}`);
+    }
+    response = await fetch(current.toString(), {
+      headers: current.hostname === origin.hostname ? headers : undefined,
+      redirect: 'manual'
+    });
+    const location = response.headers.get('location');
+    if (response.status < 300 || response.status >= 400 || !location) break;
+    await response.body?.cancel().catch(() => undefined);
+    response = null;
+    current = new URL(location, current);
   }
-  const response = await fetch(url, { headers, redirect: 'follow' });
+  if (!response) throw new Error('Voice note download redirected too often');
   if (!response.ok) {
     throw new Error(`Voice note download failed: ${response.status}`);
   }
@@ -191,7 +237,7 @@ export const fetchVoiceNoteAudio = async (
     throw new VoiceNoteTooLong(null);
   }
   return {
-    bytes: new Uint8Array(await response.arrayBuffer()),
+    bytes: await readCappedBody(response),
     mimeType: response.headers.get('content-type')
   };
 };

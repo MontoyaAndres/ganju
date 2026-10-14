@@ -8,8 +8,15 @@ import { ToolDefinition } from '../types';
 
 type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
+  isError?: boolean;
   _meta?: Record<string, unknown>;
 };
+
+// An error's message. When the remote is what failed, the message is often
+// its own words (a JSON-RPC error, the body of a refused request), so callers
+// label it rather than pass it through.
+const errorText = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 const text = (value: string): ToolResult => ({
   content: [{ type: 'text', text: value }]
@@ -114,10 +121,10 @@ export const executeMcpProxyCall = async (
       timeoutMs: config.timeoutMs
     });
   } catch (error) {
-    return text(
-      `Error: could not reach the remote MCP server — ${
-        error instanceof Error ? error.message : String(error)
-      }`
+    return utils.untrustedErrorResult(
+      'Error: could not reach the remote MCP server:',
+      `${config.prefix || 'mcp'}/${remoteToolName}`,
+      errorText(error)
     );
   }
 
@@ -134,10 +141,10 @@ export const executeMcpProxyCall = async (
       utils.constants.MCP_PROXY_MAX_RESPONSE_BYTES
     ) as ToolResult;
   } catch (error) {
-    return text(
-      `Error: remote tool call failed — ${
-        error instanceof Error ? error.message : String(error)
-      }`
+    return utils.untrustedErrorResult(
+      'Error: remote tool call failed:',
+      `${config.prefix || 'mcp'}/${remoteToolName}`,
+      errorText(error)
     );
   } finally {
     await handle.close();
@@ -179,9 +186,10 @@ const openRemote = async (
     });
   } catch (error) {
     throw new Error(
-      `could not reach the remote MCP server — ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `could not reach the remote MCP server:\n${utils.wrapUntrustedContent(
+        config.prefix || 'mcp',
+        errorText(error)
+      )}`
     );
   }
 };
@@ -234,9 +242,10 @@ export const executeMcpProxyResourceRead = async (
     return { contents: raw.map(c => normalizeResourceContent(c, uri)) };
   } catch (error) {
     throw new Error(
-      `remote resource read failed — ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `remote resource read failed:\n${utils.wrapUntrustedContent(
+        uri,
+        errorText(error)
+      )}`
     );
   } finally {
     await handle.close();
@@ -293,6 +302,9 @@ export const executeMcpProxyPromptGet = async (
       name: remotePromptName,
       arguments: stringArgs
     })) as { description?: unknown; messages?: unknown };
+    // Passed through as the remote wrote it: the user picked this prompt
+    // themselves, so its text is what they asked to send. The caller still
+    // records the session as having read outside content.
     const messages = Array.isArray(result.messages)
       ? result.messages.map(normalizePromptMessage)
       : [];
@@ -304,9 +316,10 @@ export const executeMcpProxyPromptGet = async (
     };
   } catch (error) {
     throw new Error(
-      `remote prompt get failed — ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `remote prompt get failed:\n${utils.wrapUntrustedContent(
+        `${config.prefix || 'mcp'}/${remotePromptName}`,
+        errorText(error)
+      )}`
     );
   } finally {
     await handle.close();

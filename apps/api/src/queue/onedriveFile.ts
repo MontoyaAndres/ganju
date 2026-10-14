@@ -11,7 +11,11 @@ import {
   buildOneDriveResourceMetadata,
   parseOneDriveUri
 } from '../utils';
-import { markResourceFailed, putR2Stream, reportQueueError } from './shared';
+import {
+  flagMissingOnScheduledSync,
+  putR2Stream,
+  reportAndFailOnFinal
+} from './shared';
 import { hasFileChanged } from './onedriveDiscover';
 
 import type { Bindings } from '../types';
@@ -104,6 +108,11 @@ const syncOne = async (
 
   const accessToken = await getOneDriveAccessToken(source, resource.artifactId);
   const file = await getOneDriveItem(accessToken, itemId, driveId);
+
+  if (!file && onlyIfChanged) {
+    await flagMissingOnScheduledSync(env, resource.id, 'onedriveFile');
+    return;
+  }
 
   if (!file || file.deleted) {
     await removeMissingFile(env, {
@@ -216,12 +225,6 @@ export const handleOnedriveFileBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async job => syncOne(env, job),
-    onError: async (error, { resourceId }, queueName) => {
-      await reportQueueError(env, '/onedrive/file', error, {
-        resourceId,
-        queue: queueName
-      });
-      await markResourceFailed(env, resourceId);
-    }
+    onError: reportAndFailOnFinal(env, '/onedrive/file')
   });
 };

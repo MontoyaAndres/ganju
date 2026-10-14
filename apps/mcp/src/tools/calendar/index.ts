@@ -374,7 +374,13 @@ export const listCalendars: ToolDefinition = {
       const primary = cal.primary ? ' (primary)' : '';
       return `- ${cal.summary || '(untitled)'}${primary} | role: ${cal.accessRole || 'unknown'} | tz: ${cal.timeZone || 'unknown'} | ID: ${cal.id}`;
     });
-    return text(`Found ${items.length} calendar(s):\n\n${lines.join('\n')}`);
+    // A calendar someone shared is named by them, so the list is labelled;
+    // flagged only when a name reads like instructions, since listing
+    // calendars usually comes before creating an event.
+    const listing = `Found ${items.length} calendar(s):\n\n${lines.join('\n')}`;
+    return untrustedResult('calendar-list-calendars', listing, {
+      flag: utils.readsLikeInstructions(listing)
+    });
   }
 };
 

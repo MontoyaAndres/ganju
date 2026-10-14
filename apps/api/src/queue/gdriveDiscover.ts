@@ -12,7 +12,7 @@ import {
   driveUri,
   buildDriveResourceMetadata
 } from '../utils';
-import { markResourceFailed, reportQueueError } from './shared';
+import { reportAndFailOnFinal } from './shared';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
 import type { Bindings } from '../types';
@@ -324,12 +324,6 @@ export const handleGdriveDiscoverBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async ({ resourceId }) => discoverOne(env, resourceId),
-    onError: async (error, { resourceId }, queueName) => {
-      await reportQueueError(env, '/gdrive/discover', error, {
-        resourceId,
-        queue: queueName
-      });
-      await markResourceFailed(env, resourceId);
-    }
+    onError: reportAndFailOnFinal(env, '/gdrive/discover')
   });
 };

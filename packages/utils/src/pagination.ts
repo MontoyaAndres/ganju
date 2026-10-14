@@ -77,6 +77,20 @@ const decodeCursor = (cursor: string): string | null => {
   }
 };
 
+// Between a cursor's key and the count of items with that key already served.
+// A key is a uri or a name, never a NUL.
+const CURSOR_SEEN_SEPARATOR = '\u0000';
+
+// A cursor with no count (one issued before the count was added) resumes
+// after every item with its key.
+const splitCursorKey = (decoded: string): { key: string; seen: number } => {
+  const at = decoded.lastIndexOf(CURSOR_SEEN_SEPARATOR);
+  if (at === -1) return { key: decoded, seen: Infinity };
+  const count = decoded.slice(at + 1);
+  if (!/^\d+$/.test(count)) throw new InvalidCursorError();
+  return { key: decoded.slice(0, at), seen: Number(count) };
+};
+
 export class InvalidCursorError extends Error {
   constructor() {
     super(
@@ -145,19 +159,35 @@ export const paginate = <T>(
 
   let start = 0;
   if (options.cursor) {
-    const after = decodeCursor(options.cursor);
-    if (after === null) throw new InvalidCursorError();
-    start = sorted.findIndex(item => keyOf(item) > after);
+    const decoded = decodeCursor(options.cursor);
+    if (decoded === null) throw new InvalidCursorError();
+    const { key: after, seen } = splitCursorKey(decoded);
+    start = sorted.findIndex(item => keyOf(item) >= after);
     if (start === -1) start = sorted.length;
+    // Items that share the cursor's key: skip the ones already served, in the
+    // order the sort (which is stable) keeps them.
+    for (
+      let skipped = 0;
+      start < sorted.length && keyOf(sorted[start]) === after && skipped < seen;
+      skipped++
+    ) {
+      start++;
+    }
   }
 
   const page = sorted.slice(start, start + limit);
   const more = start + limit < sorted.length;
+  if (!more || page.length === 0) return { page, total: sorted.length };
+
+  // The last key served, and how many items with that key have been served
+  // so far, so a run of equal keys split across pages resumes inside the run.
+  const end = start + page.length;
+  const lastKey = keyOf(page[page.length - 1]);
+  let seen = 0;
+  for (let i = end - 1; i >= 0 && keyOf(sorted[i]) === lastKey; i--) seen++;
   return {
     page,
     total: sorted.length,
-    ...(more && page.length > 0
-      ? { nextCursor: encodeCursor(keyOf(page[page.length - 1])) }
-      : {})
+    nextCursor: encodeCursor(`${lastKey}${CURSOR_SEEN_SEPARATOR}${seen}`)
   };
 };

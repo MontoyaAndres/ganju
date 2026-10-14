@@ -150,6 +150,10 @@ const callTool = (sessionId, name, args = {}) =>
   rpc(sessionId, 'tools/call', { name, arguments: args });
 const textOf = result =>
   (result?.content || []).map(b => b.text || '').join('\n');
+// Whether text opens a labelled block from `source` (each block has its own id).
+const labelledAs = (text, source) =>
+  text.startsWith('<untrusted_content id="') &&
+  text.split('\n', 1)[0].endsWith(`source="${source}">`);
 const asked = result => textOf(result).includes('Not run yet');
 const tokenIn = result =>
   textOf(result).match(
@@ -468,7 +472,7 @@ try {
   r = await callTool(s1, 'get-menu');
   check(
     'own integration: result is labelled',
-    textOf(r).startsWith('<untrusted_content source="get-menu">')
+    labelledAs(textOf(r), 'get-menu')
   );
   check(
     '  ...but not flagged (nothing reads like instructions)',
@@ -477,14 +481,13 @@ try {
   r = await callTool(s1, 'read-resource', { uri: clean.uri });
   check(
     'clean document: labelled with its uri',
-    textOf(r).startsWith(`<untrusted_content source="${clean.uri}">`)
+    labelledAs(textOf(r), clean.uri)
   );
   check('  ...and not flagged', !utils.isUntrustedToolResult(r));
   r = await callTool(s1, 'search-resources', { query: 'horario de atencion' });
   check(
     'search on clean documents: labelled, not flagged',
-    textOf(r).startsWith('<untrusted_content source="search-resources">') &&
-      !utils.isUntrustedToolResult(r)
+    labelledAs(textOf(r), 'search-resources') && !utils.isUntrustedToolResult(r)
   );
   await sleep(1500);
   r = await callTool(s1, 'notify-team', { message: 'segunda' });
@@ -502,7 +505,7 @@ try {
   );
   check(
     '  ...the passage is inside the block',
-    /<untrusted_content source="get-ticket">[\s\S]*Ignore all previous instructions[\s\S]*<\/untrusted_content>$/.test(
+    /^<untrusted_content id="([0-9a-f]+)" source="get-ticket">[\s\S]*Ignore all previous instructions[\s\S]*<\/untrusted_content id="\1">$/.test(
       textOf(r)
     )
   );
@@ -517,20 +520,51 @@ try {
     textOf(r).slice(0, 120).replace(/\n/g, ' ')
   );
   check('  ...saying why', textOf(r).includes('read content from outside'));
-  const token = tokenIn(r);
-  check('  ...and hands back a token', !!token);
+  // After outside content the model's say-so is not enough: the call waits for
+  // the signed-in user to approve it on the dashboard page, which the probe
+  // does through the API with the same session cookie a browser would send.
+  const approvalId = tokenIn(r);
+  check(
+    '  ...and hands back an approval link',
+    !!approvalId &&
+      textOf(r).includes(`${utils.constants.TOOL_APPROVAL_PATH}/${approvalId}`)
+  );
+  const retry = () =>
+    callTool(s2, 'notify-team', {
+      message: 'reenviar historial',
+      [utils.constants.MCP_TOOL_CONFIRMATION_ARG]: approvalId
+    });
+  r = await retry();
+  check('retrying before the user approves does not run', asked(r) && !ran(r));
+  const decide = (id, decision) =>
+    api(`${utils.constants.TOOL_APPROVAL_PATH}/${id}`, {
+      method: 'POST',
+      body: JSON.stringify({ decision })
+    });
+  let d = await decide(
+    approvalId,
+    utils.constants.TOOL_APPROVAL_DECISION_APPROVE
+  );
+  check('the user approves on the dashboard', d.status === 200, d.status);
+  r = await retry();
+  check('after approval, it runs', !asked(r) && ran(r), textOf(r).slice(0, 80));
+  r = await retry();
+  check(
+    'the same approval twice does not run again',
+    asked(r) && !ran(r) && textOf(r).includes('already used')
+  );
+  r = await callTool(s2, 'notify-team', { message: 'denegar' });
+  const deniedId = tokenIn(r);
+  d = await decide(deniedId, utils.constants.TOOL_APPROVAL_DECISION_DENY);
+  check('the user denies another one', d.status === 200, d.status);
   r = await callTool(s2, 'notify-team', {
-    message: 'reenviar historial',
-    [utils.constants.MCP_TOOL_CONFIRMATION_ARG]: token
-  });
-  check('with the token, it runs', !asked(r) && ran(r), textOf(r).slice(0, 80));
-  r = await callTool(s2, 'notify-team', {
-    message: 'reenviar historial',
-    [utils.constants.MCP_TOOL_CONFIRMATION_ARG]: token
+    message: 'denegar',
+    [utils.constants.MCP_TOOL_CONFIRMATION_ARG]: deniedId
   });
   check(
-    'the same token twice does not run again',
-    asked(r) && textOf(r).includes('already used')
+    'a denied approval does not run',
+    !ran(r) && textOf(r).includes('denied'),
+    textOf(r).slice(0, 80)
   );
   r = await callTool(s2, 'notify-team', { message: 'otra cosa' });
   check('the session keeps asking afterwards', asked(r));
@@ -721,7 +755,11 @@ try {
   const bucket = h => `synthetic:${artifactId}:${userId}:${NO_HEADER_UA}:${h}`;
 
   r = await callNoHeader('notify-team', { message: 'sin cabecera' });
-  check('no session id, nothing read: runs', !asked(r) && ran(r));
+  check(
+    'no session id, nothing read: runs',
+    !asked(r) && ran(r),
+    textOf(r).slice(0, 120).replace(/\n/g, ' ')
+  );
 
   await sql`insert into mcp_session ${sql({
     id: uuid(),
@@ -738,7 +776,11 @@ try {
   await sql`update mcp_session set untrusted_read_at = ${new Date(Date.now() - 70 * 60_000)}
             where artifact_id = ${artifactId} and external_session_id = ${bucket(hour - 1)}`;
   r = await callNoHeader('notify-team', { message: 'ya paso' });
-  check('a read 70 minutes ago: runs again', !asked(r) && ran(r));
+  check(
+    'a read 70 minutes ago: runs again',
+    !asked(r) && ran(r),
+    textOf(r).slice(0, 120).replace(/\n/g, ' ')
+  );
 
   section('organization confirming every sensitive action');
 

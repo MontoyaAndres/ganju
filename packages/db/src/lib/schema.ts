@@ -935,6 +935,39 @@ export const toolConfirmationUse = pgTable(
   table => [index('tool_confirmation_use_createdAt_idx').on(table.createdAt)]
 );
 
+// A sensitive call an MCP client made after its session read outside content,
+// waiting on the signed-in user's own yes. That yes can't come through the
+// model, which the outside content may be steering, so it is given on a page
+// in the dashboard; the call then runs only when retried with this row's id,
+// by the same user, for the same tool and the same arguments, once.
+export const toolApproval = pgTable(
+  'tool_approval',
+  {
+    id: text('id').primaryKey(),
+    artifactId: text('artifact_id')
+      .notNull()
+      .references(() => artifact.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    toolName: text('tool_name').notNull(),
+    toolTitle: text('tool_title'),
+    // Kept for the approval page to show; the retry is matched on the hash.
+    arguments: json('arguments').notNull(),
+    // SHA-256 of the arguments as stableJson writes them.
+    argumentsHash: text('arguments_hash').notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+    approvedAt: timestamp('approved_at', { mode: 'date' }),
+    deniedAt: timestamp('denied_at', { mode: 'date' }),
+    usedAt: timestamp('used_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [
+    index('tool_approval_userId_idx').on(table.userId),
+    index('tool_approval_expiresAt_idx').on(table.expiresAt)
+  ]
+);
+
 export const errorLog = pgTable(
   'error_log',
   {

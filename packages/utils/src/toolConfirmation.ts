@@ -274,6 +274,94 @@ export const isSensitiveTool = (
 ): boolean =>
   annotations?.readOnlyHint !== true && annotations?.destructiveHint !== false;
 
+// How far a proxied tool's own hints are believed, from its install's config:
+// the remote's read-only / destructive hints only when the owner chose to
+// trust that server, and the owner's own "only reads" mark on a tool always.
+export interface ProxiedToolTrust {
+  trustHints: boolean;
+  readOnly: boolean;
+}
+
+export const proxiedToolTrust = (
+  config:
+    | { trustAnnotations?: unknown; readOnlyTools?: unknown }
+    | null
+    | undefined,
+  remoteToolName: string
+): ProxiedToolTrust => ({
+  trustHints: config?.trustAnnotations === true,
+  readOnly:
+    Array.isArray(config?.readOnlyTools) &&
+    config.readOnlyTools.includes(remoteToolName)
+});
+
+/**
+ * The annotations a proxied tool is registered with. A remote server's hints
+ * are its own claim about itself, and one that marks a delete read-only would
+ * skip every confirmation — so unless the organization chose to trust that
+ * server, the read-only and destructive hints are dropped and the tool reads
+ * as sensitive by the defaults above. A tool the owner marked as only reading
+ * is read-only whatever the remote says, trusted or not. Clients see the
+ * same, so they ask about the same tools. The harmless parts (title,
+ * openWorldHint, idempotentHint) pass through.
+ */
+export const proxiedToolAnnotations = <
+  T extends { readOnlyHint?: boolean; destructiveHint?: boolean }
+>(
+  annotations: T | null | undefined,
+  trust: ProxiedToolTrust
+): Partial<T> | undefined => {
+  const result = { ...annotations } as Partial<T>;
+  if (trust.readOnly) {
+    delete result.destructiveHint;
+    return { ...result, readOnlyHint: true };
+  }
+  if (!trust.trustHints) {
+    delete result.readOnlyHint;
+    delete result.destructiveHint;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+};
+
+// The install-config keys that hold the owner's trust marks above.
+const PROXIED_TOOL_MARK_KEYS = ['trustAnnotations', 'readOnlyTools'] as const;
+
+/**
+ * An install's new config with the owner's trust marks carried over from the
+ * stored one wherever the new one doesn't say. A save that only knew about
+ * the allow-lists (an older dashboard, a script) must not quietly turn the
+ * marks off; one that sends them, even as false or empty, decides.
+ */
+export const keepProxiedToolMarks = (
+  stored: unknown,
+  incoming: unknown
+): unknown => {
+  if (
+    !stored ||
+    typeof stored !== 'object' ||
+    !incoming ||
+    typeof incoming !== 'object'
+  ) {
+    return incoming;
+  }
+  const merged = { ...(incoming as Record<string, unknown>) };
+  for (const key of PROXIED_TOOL_MARK_KEYS) {
+    if (merged[key] === undefined && key in stored) {
+      merged[key] = (stored as Record<string, unknown>)[key];
+    }
+  }
+  return merged;
+};
+
+/** Whether a proxied tool is confirmed, decided as its registration is. */
+export const isSensitiveProxiedTool = (
+  annotations:
+    | { readOnlyHint?: boolean; destructiveHint?: boolean }
+    | null
+    | undefined,
+  trust: ProxiedToolTrust
+): boolean => isSensitiveTool(proxiedToolAnnotations(annotations, trust));
+
 // JSON with keys sorted at every depth, so two argument objects that say the
 // same thing serialize the same whatever order the model emitted them in.
 export const stableJson = (value: unknown): string => {
@@ -289,3 +377,38 @@ export const stableJson = (value: unknown): string => {
   }
   return JSON.stringify(value) ?? 'null';
 };
+
+export type ToolApprovalStatus =
+  | 'pending'
+  | 'approved'
+  | 'denied'
+  | 'used'
+  | 'expired';
+
+/**
+ * Where an approval stands. Spent and refused come first, since an answer
+ * stays the answer after the window closes; past its time, one never answered
+ * or never used can no longer be.
+ */
+export const toolApprovalStatus = (
+  approval: {
+    expiresAt: Date;
+    approvedAt: Date | null;
+    deniedAt: Date | null;
+    usedAt: Date | null;
+  },
+  now: number = Date.now()
+): ToolApprovalStatus => {
+  if (approval.usedAt) return 'used';
+  if (approval.deniedAt) return 'denied';
+  if (approval.expiresAt.getTime() <= now) return 'expired';
+  return approval.approvedAt ? 'approved' : 'pending';
+};
+
+/** The dashboard page where the user answers one approval. */
+export const toolApprovalUrl = (
+  webUrl: string,
+  path: string,
+  approvalId: string
+): string =>
+  `${webUrl.replace(/\/+$/, '')}${path}/${encodeURIComponent(approvalId)}`;

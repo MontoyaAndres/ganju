@@ -25,6 +25,7 @@
 // --prod), at NEXT_PUBLIC_MCP_URL unless EVAL_MCP_URL overrides it. Read-only:
 // search-resources writes nothing but its own usage row.
 import fs from 'node:fs';
+import { utils } from '@ganju/utils';
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -88,7 +89,10 @@ const searchResources = async query => {
   const payload = JSON.parse(line ? line.slice(5).trim() : text);
   if (payload.error)
     throw new Error(`MCP error: ${JSON.stringify(payload.error)}`);
-  const body = payload.result?.content?.[0]?.text ?? '';
+  // Results come back labelled as outside content; the JSON is inside.
+  const body = utils.unwrapUntrustedContent(
+    payload.result?.content?.[0]?.text ?? ''
+  );
   try {
     const parsed = JSON.parse(body);
     return Array.isArray(parsed) ? parsed : [];

@@ -5,6 +5,7 @@ import { utils } from '@ganju/utils';
 
 import { collectSources, selectCitedSources } from './sources';
 import { transcribeVoiceNotes } from './voiceNotes';
+import { replaceBufferedBatchRows } from './debounce';
 import { extractToolText } from './toolText';
 import {
   createMcpClient,
@@ -400,23 +401,42 @@ export const runChannelTurn = async (
   const willRun =
     messageCap.allowed && !overSharedHardCap && !overParticipantLimit;
 
+  // A re-sent batch whose earlier hand-off already transcribed a note gets
+  // that transcript back: it was paid for and counted then.
+  const priorTranscripts = c.get('bufferBatchTranscripts') || {};
+  const reused = options.userMessages.map(
+    message =>
+      !!message.voice &&
+      !!message.externalMessageId &&
+      !!priorTranscripts[message.externalMessageId]
+  );
+  const pendingMessages = options.userMessages.map(
+    (message, i): RunUserMessage => {
+      if (!reused[i]) return message;
+      const prior = priorTranscripts[message.externalMessageId as string];
+      return {
+        ...message,
+        text: prior.text,
+        voice: null,
+        metadata: {
+          ...message.metadata,
+          [utils.VOICE_NOTE_METADATA_KEY]: prior.voiceNote
+        }
+      };
+    }
+  );
+
   // Voice notes become text: the transcript, after any caption sent with it.
   const userMessages: RunUserMessage[] =
     willRun && options.downloadVoiceNote
       ? await transcribeVoiceNotes(
           c,
           channelRow,
-          options.userMessages,
+          pendingMessages,
           options.downloadVoiceNote,
           voiceNoteTranscribers(c, llmRow, apiKeyPlain, onSharedKey)
         )
-      : options.userMessages.map(markVoiceNoteSkipped);
-  // Tracked per organization, never billed: the turn a note feeds is.
-  await Plan.incrementVoiceNoteUsage(
-    dbInstance,
-    projectRow.organizationId,
-    userMessages
-  ).catch(() => undefined);
+      : pendingMessages.map(markVoiceNoteSkipped);
 
   // What the model is asked to answer: every buffered fragment as one user
   // turn. Recorded separately below, so the audit trail keeps the fragments
@@ -434,23 +454,45 @@ export const runChannelTurn = async (
         }
       : null;
 
-  // One row per message the user actually sent, in arrival order.
-  const userMessageRows = await dbInstance
-    .insert(db.schema.channelMessage)
-    .values(
-      userMessages.map(message => ({
-        role: utils.constants.ROLE_MESSAGE_USER,
-        content: message.text,
-        externalMessageId: message.externalMessageId || null,
-        conversationId: conversation.id,
-        participantId: participant.id,
-        metadata:
-          userMetadata || message.metadata
-            ? { ...userMetadata, ...message.metadata }
-            : null
-      }))
-    )
-    .returning();
+  // One row per message the user actually sent, in arrival order. The voice
+  // notes this turn transcribed are counted in the same transaction: a re-sent
+  // batch finds the rows and reuses their transcripts, so rows and count exist
+  // together or not at all and a note is never counted twice. Tracked per
+  // organization, never billed (the turn a note feeds is), so a counting
+  // failure is held to a savepoint rather than losing the rows.
+  const userMessageRows = await dbInstance.transaction(async tx => {
+    // A re-sent batch's earlier rows go in the same transaction its own are
+    // written in, so the record that its notes were counted is never missing.
+    if (bufferBatchId) {
+      await replaceBufferedBatchRows(tx, conversation.id, bufferBatchId);
+    }
+    const rows = await tx
+      .insert(db.schema.channelMessage)
+      .values(
+        userMessages.map(message => ({
+          role: utils.constants.ROLE_MESSAGE_USER,
+          content: message.text,
+          externalMessageId: message.externalMessageId || null,
+          conversationId: conversation.id,
+          participantId: participant.id,
+          metadata:
+            userMetadata || message.metadata
+              ? { ...userMetadata, ...message.metadata }
+              : null
+        }))
+      )
+      .returning();
+    await tx
+      .transaction(savepoint =>
+        Plan.incrementVoiceNoteUsage(
+          savepoint,
+          projectRow.organizationId,
+          userMessages.filter((_, i) => !reused[i])
+        )
+      )
+      .catch(() => undefined);
+    return rows;
+  });
   const userMessage = userMessageRows[userMessageRows.length - 1];
 
   // The inbound user message is recorded above regardless; if the org is over
@@ -666,6 +708,11 @@ export const runChannelTurn = async (
       artifactToolIdByCallName.set(name, id);
     }
   };
+  // Whether each proxied tool is confirmed, decided from the install's config
+  // and the discovered hints by the same helper the MCP server registers it
+  // with — so this never rests on the listed annotations alone, and the two
+  // can't drift.
+  const proxiedToolSensitive = new Map<string, boolean>();
   for (const t of artifactTools) {
     if (t.key === utils.constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT) {
       const cfg = t.config as { name?: unknown } | null;
@@ -676,6 +723,8 @@ export const runChannelTurn = async (
       const cfg = t.config as {
         prefix?: unknown;
         allowedTools?: unknown;
+        trustAnnotations?: unknown;
+        readOnlyTools?: unknown;
       } | null;
       const prefix = typeof cfg?.prefix === 'string' ? cfg.prefix : 'mcp';
       // Empty/absent allowedTools = all discovered tools enabled (boot semantics).
@@ -684,13 +733,29 @@ export const runChannelTurn = async (
           ? new Set(cfg.allowedTools as string[])
           : null;
       const meta = t.metadata as {
-        discovery?: { tools?: Array<{ name?: unknown }> };
+        discovery?: {
+          tools?: Array<{
+            name?: unknown;
+            annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+          }>;
+        };
       } | null;
       for (const remote of meta?.discovery?.tools || []) {
         if (typeof remote?.name !== 'string') continue;
         if (allowed && !allowed.has(remote.name)) continue;
         const localName = utils.buildProxyToolName(prefix, remote.name);
-        if (localName) claimCallName(localName, t.id);
+        if (!localName) continue;
+        claimCallName(localName, t.id);
+        // Only where this install owns the name, as the boot loop registers it.
+        if (artifactToolIdByCallName.get(localName) === t.id) {
+          proxiedToolSensitive.set(
+            localName,
+            utils.isSensitiveProxiedTool(
+              remote.annotations,
+              utils.proxiedToolTrust(cfg, remote.name)
+            )
+          );
+        }
       }
     } else if (t.key === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
       // The manifest is the same row the MCP boot loop registers from, so the
@@ -842,7 +907,13 @@ export const runChannelTurn = async (
   // brought outside content into the turn — an email or a web page may have
   // been written to steer the model into exactly that call.
   const sensitiveToolNames = new Set<string>();
+  // Whether a tool brought outside content in during this turn. A turn soon
+  // after one that did is treated the same: the reply built on that content
+  // is in the history this turn reads.
   let readUntrusted = false;
+  const untrustedCarried = utils.conversationReadUntrustedRecently(
+    conversation.metadata
+  );
   // How the confirmation summary names a tool: its title, else its name.
   const toolTitles = new Map<string, string>();
   // Sensitive calls the model made this turn, held for the participant's yes.
@@ -891,7 +962,9 @@ export const runChannelTurn = async (
         kind: utils.constants.USAGE_KIND_TOOL,
         toolName: call.name,
         artifactToolId: null,
-        input: call.arguments,
+        // Which facts changed, not what they say: usage rows outlive a
+        // "Forget", and these are a customer's address and health details.
+        input: utils.redactParticipantMemoryArgs(call.arguments),
         output: { content: [{ type: 'text', text: result }] },
         latencyMs: Date.now() - start,
         ...(result.startsWith('Error') ? { errorMessage: result } : {})
@@ -929,7 +1002,10 @@ export const runChannelTurn = async (
     try {
       const toolsResponse = await mcp.client.listTools();
       for (const tool of toolsResponse.tools || []) {
-        if (utils.isSensitiveTool(tool.annotations)) {
+        if (
+          proxiedToolSensitive.get(tool.name) ??
+          utils.isSensitiveTool(tool.annotations)
+        ) {
           sensitiveToolNames.add(tool.name);
         }
         toolTitles.set(
@@ -1196,13 +1272,19 @@ export const runChannelTurn = async (
       const stepCalls = completion.assistant.toolCalls;
       // Saving to memory counts as sensitive once outside content is in the
       // turn: text hidden in a page or document could otherwise plant a
-      // "fact" (a fake discount) in every later prompt for this customer.
+      // "fact" (a fake discount) in every later prompt for this customer. A
+      // fact that itself reads like instructions asks first too, whoever
+      // wrote it.
+      const untrusted = readUntrusted || untrustedCarried;
       const isHeld = (call: LlmToolCall) =>
         (sensitiveToolNames.has(call.name) &&
-          (chain.requireToolConfirmation || readUntrusted)) ||
+          (chain.requireToolConfirmation || untrusted)) ||
         (memoryEnabled &&
           call.name === utils.PARTICIPANT_MEMORY_TOOL_NAME &&
-          readUntrusted);
+          (untrusted ||
+            utils.participantMemoryUpdateReadsLikeInstructions(
+              call.arguments
+            )));
       for (const call of stepCalls.filter(isHeld)) {
         const signature = callSignature(call);
         if (!heldCalls.some(held => callSignature(held) === signature)) {
@@ -1372,6 +1454,21 @@ export const runChannelTurn = async (
         ) || jsonb_build_object(${participant.id}::text, ${JSON.stringify(pending)}::jsonb))::json`
       })
       .where(eq(db.schema.channelConversation.id, conversation.id));
+  }
+
+  // Remember that this conversation read outside content, so the next turns
+  // in the window ask before sensitive calls too. Merged in SQL, so other
+  // keys on the metadata are kept. Best-effort: losing it only shortens the
+  // window to this turn, which is how it was before.
+  if (readUntrusted) {
+    const metadataColumn = db.schema.channelConversation.metadata;
+    await dbInstance
+      .update(db.schema.channelConversation)
+      .set({
+        metadata: sql`(coalesce(${metadataColumn}::jsonb, '{}'::jsonb) || jsonb_build_object(${utils.CONVERSATION_UNTRUSTED_READ_AT_KEY}::text, ${new Date().toISOString()}::text))::json`
+      })
+      .where(eq(db.schema.channelConversation.id, conversation.id))
+      .catch(() => undefined);
   }
 
   // Count this assistant turn against the org's monthly budget synchronously.
@@ -2065,10 +2162,12 @@ const executeToolCall = async (
       // to the remote. Artifact resources keep the native path below (its binary
       // short-circuit + R2 reads).
       const read = await client.readResource({ uri });
+      // The MCP worker labels each text part already; unwrapped here so the
+      // parts are joined and labelled once, as one block.
       const text = (read.contents || [])
         .map(cnt =>
           'text' in cnt && typeof cnt.text === 'string'
-            ? cnt.text
+            ? utils.unwrapUntrustedContent(cnt.text)
             : '[non-text content omitted]'
         )
         .join('\n');

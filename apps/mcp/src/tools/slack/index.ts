@@ -288,7 +288,13 @@ export const listChannels: ToolDefinition = {
       const topic = c.topic?.value ? ` :: ${c.topic.value}` : '';
       return `- #${c.name || c.id} [${flags}] (${c.num_members ?? '?'} members) [${c.id}]${topic}`;
     });
-    return text(`Found ${filtered.length} channel(s):\n\n${lines.join('\n')}`);
+    // Topics are written by any member, a Slack Connect guest included, so
+    // the list is labelled; flagged only when a topic reads like instructions,
+    // since listing channels is how a send usually starts.
+    const listing = `Found ${filtered.length} channel(s):\n\n${lines.join('\n')}`;
+    return untrustedResult('slack-list-channels', listing, {
+      flag: utils.readsLikeInstructions(listing)
+    });
   }
 };
 
@@ -430,21 +436,24 @@ export const getUser: ToolDefinition = {
       | undefined;
     if (!u) return text('Error: user payload missing in Slack response.');
 
-    return text(
-      [
-        `User ID: ${u.id ?? 'unknown'}`,
-        `Username: ${u.name ?? 'unknown'}`,
-        `Real name: ${u.real_name ?? u.profile?.display_name ?? 'unknown'}`,
-        `Email: ${u.profile?.email ?? '(not visible to this token)'}`,
-        u.profile?.title ? `Title: ${u.profile.title}` : null,
-        u.profile?.status_text ? `Status: ${u.profile.status_text}` : null,
-        `Bot: ${u.is_bot ? 'yes' : 'no'}`,
-        `Admin: ${u.is_admin ? 'yes' : 'no'}`,
-        `Deleted: ${u.deleted ? 'yes' : 'no'}`
-      ]
-        .filter(Boolean)
-        .join('\n')
-    );
+    // Name, title and status are what the person typed about themselves:
+    // labelled, flagged only when they read like instructions.
+    const profile = [
+      `User ID: ${u.id ?? 'unknown'}`,
+      `Username: ${u.name ?? 'unknown'}`,
+      `Real name: ${u.real_name ?? u.profile?.display_name ?? 'unknown'}`,
+      `Email: ${u.profile?.email ?? '(not visible to this token)'}`,
+      u.profile?.title ? `Title: ${u.profile.title}` : null,
+      u.profile?.status_text ? `Status: ${u.profile.status_text}` : null,
+      `Bot: ${u.is_bot ? 'yes' : 'no'}`,
+      `Admin: ${u.is_admin ? 'yes' : 'no'}`,
+      `Deleted: ${u.deleted ? 'yes' : 'no'}`
+    ]
+      .filter(Boolean)
+      .join('\n');
+    return untrustedResult('slack-get-user', profile, {
+      flag: utils.readsLikeInstructions(profile)
+    });
   }
 };
 

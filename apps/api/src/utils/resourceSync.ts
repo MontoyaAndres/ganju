@@ -23,34 +23,84 @@ interface SyncRoot {
   metadata: unknown;
 }
 
+// A root that isn't syncing right now: not PENDING, or PENDING for longer than
+// RESOURCE_SYNC_STALE_MS, which means stuck — and starting it again is what
+// recovers it. The SQL twin of utils.isResourceSyncInProgress.
+const notSyncing = () => {
+  const r = db.schema.artifactResource;
+  return sql`(
+    ${r.status} <> ${utils.constants.STATUS_PENDING}
+    OR coalesce(${r.syncStartedAt}, ${r.createdAt})
+      < now() - make_interval(secs => ${utils.constants.RESOURCE_SYNC_STALE_MS / 1000})
+  )`;
+};
+
 /**
- * Start one sync of a source: queue the job that already knows how to refresh
- * it, and stamp `syncStartedAt`, the clock the hourly job reads.
+ * Claim a sync started by hand: stamp `syncStartedAt` and mark the root
+ * PENDING, but only if it isn't syncing and wasn't started within the manual
+ * cooldown. One conditional UPDATE, so two clicks that land together can't
+ * both pass the check and queue the same crawl twice. Returns the stamp, or
+ * null when the claim was refused. The stamp is written from here rather than
+ * by `now()`, so it reads back equal to what releasing the claim compares.
+ */
+export const claimManualResourceSync = async (
+  dbInstance: ReturnType<typeof db.create>,
+  resourceId: string
+): Promise<Date | null> => {
+  const r = db.schema.artifactResource;
+  const stamp = new Date();
+  const [claimed] = await dbInstance
+    .update(r)
+    .set({
+      syncStartedAt: stamp,
+      status: utils.constants.STATUS_PENDING
+    })
+    .where(
+      and(
+        eq(r.id, resourceId),
+        notSyncing(),
+        sql`(
+          ${r.syncStartedAt} IS NULL
+          OR ${r.syncStartedAt} < now() - make_interval(secs => ${utils.constants.RESOURCE_SYNC_MANUAL_COOLDOWN_MS / 1000})
+        )`
+      )
+    )
+    .returning({ id: r.id });
+  return claimed ? stamp : null;
+};
+
+/**
+ * Undo a claim whose jobs never got queued, so the source isn't left PENDING
+ * — refused by "Sync now" and skipped by the hourly job — until it goes stale.
+ * Only while the claim is still the latest one.
+ */
+export const releaseManualResourceSync = async (
+  dbInstance: ReturnType<typeof db.create>,
+  resource: { id: string; status: string; syncStartedAt: Date | null },
+  claimedAt: Date
+): Promise<void> => {
+  const r = db.schema.artifactResource;
+  await dbInstance
+    .update(r)
+    .set({ status: resource.status, syncStartedAt: resource.syncStartedAt })
+    .where(and(eq(r.id, resource.id), eq(r.syncStartedAt, claimedAt)));
+};
+
+/**
+ * Queue the job that already knows how to refresh a source.
  *
- * `scheduled` is the hourly job. It leaves the row's status alone — a sync
- * that finds nothing new shouldn't flash "Indexing" on every source — and asks
- * the Drive/OneDrive file jobs to skip a download when nothing changed. A sync
- * started by hand marks the source pending, since someone is watching it, and
- * always fetches.
+ * `scheduled` is the hourly job: it asks the Drive/OneDrive file jobs to skip
+ * a download when nothing changed. A sync started by hand always fetches.
  *
  * Returns false for a resource that has nothing to sync from.
  */
-export const startResourceSync = async (
+export const enqueueResourceSync = async (
   env: Bindings,
-  dbInstance: ReturnType<typeof db.create>,
   resource: SyncRoot,
   { scheduled }: { scheduled: boolean }
 ): Promise<boolean> => {
   const provider = utils.resourceSyncProvider(resource);
   if (!provider) return false;
-
-  await dbInstance
-    .update(db.schema.artifactResource)
-    .set({
-      syncStartedAt: new Date(),
-      ...(scheduled ? {} : { status: utils.constants.STATUS_PENDING })
-    })
-    .where(eq(db.schema.artifactResource.id, resource.id));
 
   const isFolder =
     resource.sourceType ===
@@ -143,14 +193,7 @@ export const runResourceSync = async (
     .where(
       and(
         sql`${r.parentResourceId} IS NULL`,
-        // Not one that is still syncing — but one PENDING for longer than
-        // RESOURCE_SYNC_STALE_MS is stuck, and starting it again is what
-        // recovers it. Same rule as utils.isResourceSyncInProgress.
-        sql`(
-          ${r.status} <> ${constants.STATUS_PENDING}
-          OR coalesce(${r.syncStartedAt}, ${r.createdAt})
-            < now() - make_interval(secs => ${constants.RESOURCE_SYNC_STALE_MS / 1000})
-        )`,
+        notSyncing(),
         inArray(db.schema.subscription.status, [
           ...constants.SUBSCRIPTION_ENTITLED_STATUSES
         ]),
@@ -177,10 +220,16 @@ export const runResourceSync = async (
   let started = 0;
   for (const resource of due) {
     try {
+      // Stamped first: `syncStartedAt` is this job's clock, and a source whose
+      // jobs keep failing waits for its next interval rather than being
+      // retried every hour. The status is left alone — a sync that finds
+      // nothing new shouldn't flash "Indexing" on every source.
+      await dbInstance
+        .update(r)
+        .set({ syncStartedAt: new Date() })
+        .where(eq(r.id, resource.id));
       if (
-        await startResourceSync(source.env, dbInstance, resource, {
-          scheduled: true
-        })
+        await enqueueResourceSync(source.env, resource, { scheduled: true })
       ) {
         started++;
       }

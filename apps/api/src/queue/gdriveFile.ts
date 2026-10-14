@@ -10,7 +10,11 @@ import {
   downloadDriveFile,
   buildDriveResourceMetadata
 } from '../utils';
-import { markResourceFailed, putR2Stream, reportQueueError } from './shared';
+import {
+  flagMissingOnScheduledSync,
+  putR2Stream,
+  reportAndFailOnFinal
+} from './shared';
 import { hasFileChanged } from './gdriveDiscover';
 
 import type { Bindings } from '../types';
@@ -101,6 +105,11 @@ const syncOne = async (
 
   const accessToken = await getDriveAccessToken(source, resource.artifactId);
   const file = await getDriveFile(accessToken, driveFileId);
+
+  if (!file && onlyIfChanged) {
+    await flagMissingOnScheduledSync(env, resource.id, 'gdriveFile');
+    return;
+  }
 
   if (!file || file.trashed) {
     await removeMissingFile(env, {
@@ -217,12 +226,6 @@ export const handleGdriveFileBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async job => syncOne(env, job),
-    onError: async (error, { resourceId }, queueName) => {
-      await reportQueueError(env, '/gdrive/file', error, {
-        resourceId,
-        queue: queueName
-      });
-      await markResourceFailed(env, resourceId);
-    }
+    onError: reportAndFailOnFinal(env, '/gdrive/file')
   });
 };

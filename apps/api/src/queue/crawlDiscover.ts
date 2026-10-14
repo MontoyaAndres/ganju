@@ -4,7 +4,7 @@ import { utils } from '@ganju/utils';
 import { eq, and, inArray, ne, sql } from 'drizzle-orm';
 import { getResourceHandler } from '@ganju/containers';
 
-import { markResourceFailed, reportQueueError } from './shared';
+import { reportAndFailOnFinal } from './shared';
 
 import type { Bindings } from '../types';
 import type { PageJob } from './crawlPage';
@@ -129,24 +129,54 @@ const discoverOne = async (
     }
   };
 
-  if (newPages.length === 0) {
-    // With pages to re-crawl, the site is done when they are: the last page
-    // job completes it. Its status is left as the sync found it — PENDING
-    // after "Sync now", untouched by the hourly job. Only a site with nothing
-    // to crawl is complete now.
-    const pagesQueued = knownPages.length > 0 && !!env.CRAWL_PAGE_QUEUE;
-    await dbInstance
-      .update(db.schema.artifactResource)
+  // A site is done when its last page job is, and that job can only tell by
+  // its siblings' status — so the pages a sync re-crawls go back to PENDING
+  // first. Left COMPLETED from the last crawl, the first page to finish would
+  // find nothing left and close the site while the rest still wait in the
+  // queue. A page that was COMPLETED keeps the hash of the text its chunks
+  // hold (`indexedHash`): unchanged, it is set COMPLETED again without new
+  // embeddings, and a failed re-fetch leaves it COMPLETED with that copy.
+  const r = db.schema.artifactResource;
+  const resetKnownPages = (
+    tx: Parameters<Parameters<typeof dbInstance.transaction>[0]>[0]
+  ) =>
+    tx
+      .update(r)
       .set({
-        ...(pagesQueued ? {} : { status: utils.constants.STATUS_COMPLETED }),
-        metadata: mergedParentMetadata
+        status: utils.constants.STATUS_PENDING,
+        metadata: sql`CASE
+          WHEN ${r.status} = ${utils.constants.STATUS_COMPLETED}
+            AND ${r.metadata}->>'contentHash' IS NOT NULL
+          THEN (coalesce(${r.metadata}::jsonb, '{}'::jsonb)
+            || jsonb_build_object('indexedHash', ${r.metadata}->>'contentHash'))::json
+          ELSE ${r.metadata}
+        END`
       })
-      .where(eq(db.schema.artifactResource.id, resourceId));
+      .where(eq(r.parentResourceId, resource.id));
+  const pagesQueued = knownPages.length > 0 && !!env.CRAWL_PAGE_QUEUE;
+
+  if (newPages.length === 0) {
+    // With pages to re-crawl, the last page job completes the site. Its own
+    // status is left as the sync found it — PENDING after "Sync now",
+    // untouched by the hourly job. Only a site with nothing to crawl is
+    // complete now.
+    await dbInstance.transaction(async tx => {
+      if (pagesQueued) await resetKnownPages(tx);
+      await tx
+        .update(r)
+        .set({
+          ...(pagesQueued ? {} : { status: utils.constants.STATUS_COMPLETED }),
+          metadata: mergedParentMetadata
+        })
+        .where(eq(r.id, resourceId));
+    });
     await enqueuePages(knownPages.map(p => p.id));
     return;
   }
 
   const inserted = await dbInstance.transaction(async tx => {
+    // Before the insert, so it touches only the pages already there.
+    if (pagesQueued) await resetKnownPages(tx);
     const rows = await tx
       .insert(db.schema.artifactResource)
       .values(
@@ -197,12 +227,6 @@ export const handleCrawlDiscoverBatch = async (
 ): Promise<void> => {
   await utils.processQueueBatch(batch, {
     process: async ({ resourceId }) => discoverOne(env, resourceId),
-    onError: async (error, { resourceId }, queueName) => {
-      await reportQueueError(env, '/crawl/discover', error, {
-        resourceId,
-        queue: queueName
-      });
-      await markResourceFailed(env, resourceId);
-    }
+    onError: reportAndFailOnFinal(env, '/crawl/discover')
   });
 };

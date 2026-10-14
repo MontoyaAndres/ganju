@@ -1,6 +1,7 @@
 import { Context } from 'hono';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
+import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import type {
@@ -70,6 +71,19 @@ export const bufferChannelMessage = async (
   }
 };
 
+// A voice note an earlier hand-off of the same batch already transcribed, by
+// the platform's message id: the row's text (caption and transcript) and what
+// was recorded about the note.
+export type VoiceNoteTranscripts = Record<
+  string,
+  { text: string; voiceNote: Record<string, unknown> }
+>;
+
+export interface ClaimedBufferedBatch {
+  status: 'run' | 'answered';
+  transcripts: VoiceNoteTranscripts;
+}
+
 // Decide whether a batch the buffer handed over still needs a turn. The buffer
 // re-sends a batch whenever a hand-off didn't come back ok — including one that
 // was cut off after the turn had already replied, which a deploy mid-turn does
@@ -77,9 +91,14 @@ export const bufferChannelMessage = async (
 //
 // - an assistant row with the id means the turn got through: skip it, or the
 //   participant gets the same answer twice;
-// - user rows with no assistant row mean the turn died before answering: drop
-//   those rows (nothing counted them yet) and run it again, or they would reach
-//   the model twice — once as history, once as the question.
+// - user rows with no assistant row mean the turn died before answering: run
+//   it again. A voice note those rows already transcribed is handed back, so
+//   the retry neither pays for the transcription again nor counts it again.
+//   The rows stay until the retry writes its own in their place
+//   (replaceBufferedBatchRows), in one transaction: deleted here, a retry cut
+//   off before writing would leave nothing to say the notes were counted, and
+//   the next one would count them again. Left in, they would reach the model
+//   twice — once as history, once as the question.
 //
 // The one case this can't save is a turn cut between writing its reply and
 // sending it to the platform; that answer is lost rather than doubled.
@@ -88,7 +107,7 @@ export const claimBufferedBatch = async (
   channelId: string,
   externalConversationId: string,
   batchId: string
-): Promise<'run' | 'answered'> => {
+): Promise<ClaimedBufferedBatch> => {
   const [conversation] = await dbInstance
     .select({ id: db.schema.channelConversation.id })
     .from(db.schema.channelConversation)
@@ -102,7 +121,7 @@ export const claimBufferedBatch = async (
       )
     )
     .limit(1);
-  if (!conversation) return 'run';
+  if (!conversation) return { status: 'run', transcripts: {} };
 
   const tagged = and(
     eq(db.schema.channelMessage.conversationId, conversation.id),
@@ -111,18 +130,54 @@ export const claimBufferedBatch = async (
   const rows = await dbInstance
     .select({
       id: db.schema.channelMessage.id,
-      role: db.schema.channelMessage.role
+      role: db.schema.channelMessage.role,
+      content: db.schema.channelMessage.content,
+      externalMessageId: db.schema.channelMessage.externalMessageId,
+      metadata: db.schema.channelMessage.metadata
     })
     .from(db.schema.channelMessage)
     .where(tagged);
 
   if (rows.some(row => row.role === utils.constants.ROLE_MESSAGE_ASSISTANT)) {
-    return 'answered';
+    return { status: 'answered', transcripts: {} };
   }
-  if (rows.length > 0) {
-    await dbInstance.delete(db.schema.channelMessage).where(tagged);
+  const transcripts: VoiceNoteTranscripts = {};
+  for (const row of rows) {
+    const voiceNote = (row.metadata as Record<string, unknown> | null)?.[
+      utils.VOICE_NOTE_METADATA_KEY
+    ] as Record<string, unknown> | undefined;
+    // Only a note a model was called for: one refused or skipped costs
+    // nothing to look at again.
+    if (!row.externalMessageId || typeof voiceNote?.model !== 'string') {
+      continue;
+    }
+    transcripts[row.externalMessageId] = {
+      text: row.content || '',
+      voiceNote
+    };
   }
-  return 'run';
+  return { status: 'run', transcripts };
+};
+
+// Remove the user rows an earlier hand-off of this batch wrote, inside the
+// transaction that writes the retry's own. Their transcripts were handed to
+// the retry by claimBufferedBatch, and carried onto the new rows, which is
+// what keeps a note from being counted twice however many times it is
+// re-sent.
+export const replaceBufferedBatchRows = async (
+  tx: DbExecutor,
+  conversationId: string,
+  batchId: string
+): Promise<void> => {
+  await tx
+    .delete(db.schema.channelMessage)
+    .where(
+      and(
+        eq(db.schema.channelMessage.conversationId, conversationId),
+        eq(db.schema.channelMessage.role, utils.constants.ROLE_MESSAGE_USER),
+        sql`${db.schema.channelMessage.metadata}->>'bufferBatchId' = ${batchId}`
+      )
+    );
 };
 
 // A buffered batch as the runner wants it.

@@ -8,6 +8,7 @@ import { Organization } from './organization';
 import { Settings } from './settings';
 import { Link } from './link';
 import { Invitation } from './invitation';
+import { ToolApproval } from './toolApproval';
 import { Error } from './error';
 
 export const Views = {
@@ -21,5 +22,6 @@ export const Views = {
   Settings,
   Link,
   Invitation,
+  ToolApproval,
   Error
 };

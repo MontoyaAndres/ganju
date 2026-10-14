@@ -1,0 +1,33 @@
+{
+  "description": "Development, artifact 5a9bb589… (Telegram @sdasdasdasdasdasdbotbot): crawled Supabase docs and blog, Shipday and Cloudflare sites, four PDFs. Exact cases are tokens found in one page (or one page plus listings that name it); semantic cases paraphrase a page without its distinctive words.",
+  "slug": "5a9bb589400bae90d32d65abfe96be18",
+  "cases": [
+    { "query": "PGRST116", "expect": "https://supabase.com/docs/guides/api/rest/postgrest-error-codes", "kind": "exact" },
+    { "query": "PGRST203", "expect": "https://supabase.com/changelog/39773-enhanced-type-inference-for-embedded-functions-computed-relationships", "kind": "exact" },
+    { "query": "OAPEC", "expect": "resource://the-history-book-dk-2016.pdf", "kind": "exact" },
+    { "query": "86400", "expect": "https://supabase.com/docs/guides/auth/auth-email-passwordless", "kind": "exact" },
+    { "query": "Groveport", "expect": "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery", "kind": "exact" },
+    { "query": "Menu2Order", "expect": ["https://www.shipday.com/integrations/menu2order", "https://www.shipday.com/integrations"], "kind": "exact" },
+    { "query": "Eposnow", "expect": ["https://www.shipday.com/integrations/eposnow", "https://www.shipday.com/integrations"], "kind": "exact" },
+    { "query": "y-supabase", "expect": ["https://supabase.com/ui/docs/nextjs/realtime-monaco", "https://supabase.com/ui/docs/nextjs/realtime-flow"], "kind": "exact" },
+    { "query": "Manjaros", "expect": "https://www.shipday.com/case-studies/how-manjaros-improved-multi-location-delivery-operations-with-shipday", "kind": "exact" },
+    { "query": "Udio", "expect": "https://supabase.com/customers/udio", "kind": "exact" },
+    { "query": "pgrouting", "expect": "https://supabase.com/docs/guides/database/extensions/pgrouting", "kind": "exact" },
+    { "query": "16XL compute", "expect": ["https://supabase.com/docs/guides/platform/compute-and-disk", "https://supabase.com/docs/guides/platform/manage-your-usage/compute"], "kind": "exact" },
+
+    { "query": "let our employees log in with the company's identity provider", "expect": "https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml", "kind": "semantic" },
+    { "query": "free custom email addresses that forward to my personal inbox", "expect": "https://www.cloudflare.com/products/email-routing/", "kind": "semantic" },
+    { "query": "limit when a serverless function keeps calling itself", "expect": "https://supabase.com/changelog/43644-edge-functions-rate-limits-on-recursive-nested-edge-functions-calls", "kind": "semantic" },
+    { "query": "replace our corporate VPN for reaching internal apps", "expect": "https://www.cloudflare.com/products/access/", "kind": "semantic" },
+    { "query": "let third-party apps get access to my users' data with their consent", "expect": "https://supabase.com/docs/guides/auth/oauth-server", "kind": "semantic" },
+    { "query": "editor de código colaborativo donde varios escriben a la vez", "expect": "https://supabase.com/ui/docs/nextjs/realtime-monaco", "kind": "semantic" },
+    { "query": "keep analytics tables in an open table format in object storage", "expect": "https://supabase.com/blog/analytics-buckets", "kind": "semantic" },
+    { "query": "iniciar sesión con la cuenta de Apple en una app de iPhone", "expect": "https://supabase.com/docs/guides/auth/social-login/auth-apple", "kind": "semantic" },
+    { "query": "one place to route requests across LLM providers with caching and logs", "expect": "https://www.cloudflare.com/products/ai-gateway/", "kind": "semantic" },
+    { "query": "¿cuánto ahorra al año una gran cadena de pollo frito con su reparto?", "expect": "https://www.shipday.com/case-studies/how-kfc-saves-400k-per-year-with-shipday", "kind": "semantic" },
+    { "query": "pizza chain coordinating deliveries across about thirty stores", "expect": "https://www.shipday.com/case-studies/how-pizza-my-heart-manages-deliveries-across-30-locations", "kind": "semantic" },
+    { "query": "restaurant that freed up more than a hundred staff hours monthly", "expect": "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday", "kind": "semantic" },
+    { "query": "AI music generation startup that grew to a million users on its backend", "expect": "https://supabase.com/customers/udio", "kind": "semantic" },
+    { "query": "what is a signed token that carries the user's claims", "expect": "https://supabase.com/docs/guides/auth/jwts", "kind": "semantic" }
+  ]
+}

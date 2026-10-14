@@ -23,7 +23,8 @@ import {
   WellKnownController,
   ContactController,
   BillingController,
-  ContainmentController
+  ContainmentController,
+  ToolApprovalController
 } from './controllers';
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
@@ -172,6 +173,20 @@ app
   .post(
     `${utils.constants.CONTAINMENT_PATH}/:token`,
     ContainmentController.apply
+  )
+
+  // An MCP client's sensitive call, held for its user's own yes after the
+  // session read outside content. The controller also requires a dashboard
+  // session, so neither token kind the middleware accepts can answer it.
+  .get(
+    `${utils.constants.TOOL_APPROVAL_PATH}/:approvalId`,
+    UserMiddleware.verify,
+    ToolApprovalController.get
+  )
+  .post(
+    `${utils.constants.TOOL_APPROVAL_PATH}/:approvalId`,
+    UserMiddleware.verify,
+    ToolApprovalController.decide
   )
 
   // User controller

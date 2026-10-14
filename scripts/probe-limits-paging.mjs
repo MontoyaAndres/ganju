@@ -1,9 +1,10 @@
 // Drives the per-tool plan limit and large-output paging against the DEPLOYED
 // development stack.
 //
-//   node scripts/probe-limits-paging.mjs
+//   node scripts/probe-limits-paging.mjs           # development
+//   node scripts/probe-limits-paging.mjs --prod    # production (.env.prod)
 //
-// It needs .env: DATABASE_URL, JWT_SECRET (which signs the session cookie),
+// It needs .env (.env.prod with --prod): DATABASE_URL, JWT_SECRET (which signs the session cookie),
 // MCP_INTERNAL_SECRET, CLOUDFLARE_ACCOUNT_ID, CUSTOM_CODE_CF_API_TOKEN.
 //
 // Scaffolds a throwaway user + organization + project + artifact and removes
@@ -24,7 +25,8 @@ import postgres from 'postgres';
 import { v7 as uuid } from 'uuid';
 
 const root = new URL('..', import.meta.url).pathname;
-const env = fs.readFileSync(root + '.env', 'utf8');
+const isProd = process.argv.includes('--prod');
+const env = fs.readFileSync(root + (isProd ? '.env.prod' : '.env'), 'utf8');
 const read = key => env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.trim();
 
 const DATABASE_URL = read('DATABASE_URL');
@@ -42,9 +44,13 @@ for (const [k, v] of Object.entries({
   if (!v) throw new Error(`Missing ${k} in .env`);
 }
 
-const API = 'https://development-api.vocesqueabrazan.com';
-const MCP_ORIGIN = 'https://development-mcp.vocesqueabrazan.com';
-const NAMESPACE = 'ganju-tools-development';
+const API = isProd
+  ? 'https://api.ganju.ai'
+  : 'https://development-api.vocesqueabrazan.com';
+const MCP_ORIGIN = isProd
+  ? 'https://mcp.ganju.ai'
+  : 'https://development-mcp.vocesqueabrazan.com';
+const NAMESPACE = isProd ? 'ganju-tools-production' : 'ganju-tools-development';
 
 const sql = postgres(DATABASE_URL, { ssl: 'require', max: 1, prepare: false });
 
@@ -212,7 +218,9 @@ const health = () =>
 
 let deployed = false;
 
-console.log(`\ndevelopment — scaffolding ${slug} (artifact ${artifactId})\n`);
+console.log(
+  `\n${isProd ? 'PRODUCTION' : 'development'} — scaffolding ${slug} (artifact ${artifactId})\n`
+);
 
 try {
   await sql`insert into "user" ${sql({ id: userId, name: 'probe limits', email: `probe-limits-${stamp}@example.invalid`, email_verified: true })}`;

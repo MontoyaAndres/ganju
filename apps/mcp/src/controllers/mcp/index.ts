@@ -212,52 +212,55 @@ const business = async (c: Context<AppEnv>) => {
     // the model is told what the marks mean.
     { instructions: utils.UNTRUSTED_CONTENT_NOTE }
   );
-  // With the organization confirming sensitive actions, those tools run only
-  // on a second call that carries the user's yes. Without it, they still do
-  // once the session has read outside content. Not for the channel runner,
-  // which asks in its own chat and runs only what was confirmed there.
+  // Sensitive tools wait for a confirmed second call. Once the session has
+  // read outside content, the model may be steered by it, so the call waits
+  // for the signed-in user to approve it on a dashboard page — a yes the
+  // model can't give. Otherwise, where the organization confirms sensitive
+  // actions, it waits for the token the first call returned: the model is
+  // told to ask the user in between, but the server can't see whether it did,
+  // so that is defence in depth rather than a person's yes. Not for the
+  // channel runner, which asks the participant in its own chat and runs only
+  // what they confirmed there.
   if (!channelTrust) {
-    const confirmAll = artifact.project.organization.requireToolConfirmation;
     confirmSensitiveTools(mcpServer, {
       artifactId: artifact.id,
       secret: utils.getCredentialEncryptionKey(c),
       db: dbInstance,
+      confirmAll: artifact.project.organization.requireToolConfirmation,
+      userId: jwtUserId,
+      webUrl: c.env.NEXT_PUBLIC_WEB_URL,
       onUntrustedResult: markSessionUntrusted,
-      ...(confirmAll
-        ? {}
-        : {
-            // This request first: what it has already read, and anything
-            // sent ahead of this call in the same batch, whose results don't
-            // exist yet. Then what earlier requests recorded.
-            mustAsk: async requestId => {
-              if (readUntrustedContent(pendingRequests)) return true;
-              if (readsEarlierInBatch(messages, requestId)) return true;
-              const scope = untrustedSessionScope(
-                c,
-                artifact.id,
-                jwtUserId,
-                userAgent,
-                channelConversationId
-              );
-              const [session] = await dbInstance
-                .select({ id: db.schema.mcpSession.id })
-                .from(db.schema.mcpSession)
-                .where(
-                  and(
-                    eq(db.schema.mcpSession.artifactId, artifact.id),
-                    inArray(
-                      db.schema.mcpSession.externalSessionId,
-                      scope.externalSessionIds
-                    ),
-                    scope.since
-                      ? gte(db.schema.mcpSession.untrustedReadAt, scope.since)
-                      : isNotNull(db.schema.mcpSession.untrustedReadAt)
-                  )
-                )
-                .limit(1);
-              return !!session;
-            }
-          })
+      // This request first: what it has already read, and anything sent
+      // ahead of this call in the same batch, whose results don't exist yet.
+      // Then what earlier requests recorded.
+      readUntrusted: async requestId => {
+        if (readUntrustedContent(pendingRequests)) return true;
+        if (readsEarlierInBatch(messages, requestId)) return true;
+        const scope = untrustedSessionScope(
+          c,
+          artifact.id,
+          jwtUserId,
+          userAgent,
+          channelConversationId
+        );
+        const [session] = await dbInstance
+          .select({ id: db.schema.mcpSession.id })
+          .from(db.schema.mcpSession)
+          .where(
+            and(
+              eq(db.schema.mcpSession.artifactId, artifact.id),
+              inArray(
+                db.schema.mcpSession.externalSessionId,
+                scope.externalSessionIds
+              ),
+              scope.since
+                ? gte(db.schema.mcpSession.untrustedReadAt, scope.since)
+                : isNotNull(db.schema.mcpSession.untrustedReadAt)
+            )
+          )
+          .limit(1);
+        return !!session;
+      }
     });
   }
   const transport = new StreamableHTTPTransport({
@@ -354,6 +357,22 @@ const business = async (c: Context<AppEnv>) => {
   // repeats (templates are keyed by name and would otherwise clash on boot).
   const registeredResourceNames = new Set<string>();
 
+  // The organization's own documents, but not necessarily written by it — a
+  // crawled page, a shared Drive file. Read through the protocol they are
+  // labelled as the read-resource tool labels them: wrapped always, and the
+  // session marked only when one reads like instructions.
+  const labelResourceRead = async <
+    T extends { contents: Array<{ uri: string; text?: string }> }
+  >(
+    result: T
+  ): Promise<{ labelled: T; instructionLike: boolean }> => {
+    const { contents, instructionLike } = utils.labelResourceContents(
+      result.contents
+    );
+    if (instructionLike && !channelTrust) await markSessionUntrusted();
+    return { labelled: { ...result, contents }, instructionLike };
+  };
+
   for (const resource of exposedResources) {
     const resourceSlug = utils.slugifyTitle(resource.title);
     const resourceName =
@@ -412,15 +431,18 @@ const business = async (c: Context<AppEnv>) => {
               }
             }
 
+            const { labelled, instructionLike } =
+              await labelResourceRead(result);
             pendingRequests.push({
               method: utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ,
               resourceUri: uri.toString(),
               artifactResourceId: resource.id,
               input: { uri: uri.toString(), variables },
-              output: result,
-              latencyMs: Date.now() - startedAt
+              output: labelled,
+              latencyMs: Date.now() - startedAt,
+              untrusted: instructionLike
             });
-            return result;
+            return labelled;
           } catch (error) {
             pendingRequests.push({
               method: utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ,
@@ -452,15 +474,17 @@ const business = async (c: Context<AppEnv>) => {
             uri,
             bucket
           );
+          const { labelled, instructionLike } = await labelResourceRead(result);
           pendingRequests.push({
             method: utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ,
             resourceUri: uri.toString(),
             artifactResourceId: resource.id,
             input: { uri: uri.toString() },
-            output: result,
-            latencyMs: Date.now() - startedAt
+            output: labelled,
+            latencyMs: Date.now() - startedAt,
+            untrusted: instructionLike
           });
-          return result;
+          return labelled;
         } catch (error) {
           pendingRequests.push({
             method: utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ,
@@ -647,6 +671,16 @@ const business = async (c: Context<AppEnv>) => {
         const description = `[via ${prefix}] ${
           remoteTool.description || remoteTool.title || remoteTool.name
         }`;
+        // The remote's read-only / destructive hints are its own claim, so
+        // they're dropped unless the owner chose to trust this server: without
+        // them the tool reads as "may change things", and a confirming session
+        // asks before calling it. A tool the owner marked as only reading
+        // reads as that either way. The channel runner decides the same way,
+        // from the same helper.
+        const annotations = utils.proxiedToolAnnotations(
+          remoteTool.annotations,
+          utils.proxiedToolTrust(proxyConfig, remoteTool.name)
+        );
 
         try {
           mcpServer.registerTool(
@@ -655,12 +689,7 @@ const business = async (c: Context<AppEnv>) => {
               title: remoteTool.title || remoteTool.name,
               description,
               inputSchema: remoteSchema,
-              // The remote's own hints, as it declared them. Left out when it
-              // declared none, which by the MCP defaults means "may change
-              // things" — so a confirming channel asks before calling it.
-              ...(remoteTool.annotations
-                ? { annotations: remoteTool.annotations }
-                : {})
+              ...(annotations ? { annotations } : {})
             },
             async args => {
               const startedAt = Date.now();
@@ -777,11 +806,20 @@ const business = async (c: Context<AppEnv>) => {
                   );
                 }
                 try {
-                  const result = await executeMcpProxyResourceRead(
-                    proxyConfig,
-                    uri.toString(),
-                    resolvedCredential
-                  );
+                  // Read in full (it may be sent on as a file elsewhere), but
+                  // what goes back to the model is the remote's text, so each
+                  // text part is labelled.
+                  const result = {
+                    contents: utils.labelResourceContents(
+                      (
+                        await executeMcpProxyResourceRead(
+                          proxyConfig,
+                          uri.toString(),
+                          resolvedCredential
+                        )
+                      ).contents
+                    ).contents
+                  };
                   pendingRequests.push({
                     method: utils.constants.MCP_REQUEST_METHOD_RESOURCES_READ,
                     resourceUri: uri.toString(),
@@ -886,14 +924,19 @@ const business = async (c: Context<AppEnv>) => {
                     args,
                     resolvedCredential
                   );
+                  // Sent unlabelled, since the user invoked this prompt, but
+                  // still the remote's words: the session has read outside
+                  // content.
                   pendingRequests.push({
                     method: utils.constants.MCP_REQUEST_METHOD_PROMPTS_GET,
                     promptId: localName,
                     artifactToolId: artifactTool.id,
                     input: args,
                     output: result,
-                    latencyMs: Date.now() - startedAt
+                    latencyMs: Date.now() - startedAt,
+                    untrusted: true
                   });
+                  if (!channelTrust) await markSessionUntrusted();
                   return result;
                 } catch (error) {
                   pendingRequests.push({
@@ -1090,7 +1133,17 @@ const business = async (c: Context<AppEnv>) => {
                       ]
                     }
                   : result;
-              const shaped = labelOwnResult(checked, entry.name);
+              // Without a declared output schema the structured copy is
+              // optional, and it can't carry the label the text gets — some
+              // clients hand the model that copy instead of the text. The text
+              // already holds the same JSON, so only the labelled text goes
+              // back.
+              const shaped = labelOwnResult(
+                outputSchema
+                  ? checked
+                  : { ...checked, structuredContent: undefined },
+                entry.name
+              );
 
               pendingRequests.push({
                 method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
@@ -1334,6 +1387,12 @@ const business = async (c: Context<AppEnv>) => {
       refreshedCredentials
         .filter(cred => cred.provider === provider)
         .every(cred => cred.needsReauth || cred.refreshFailed);
+    const providerCredentials = refreshedCredentials.filter(
+      cred => cred.provider === provider
+    );
+    const refreshUnavailable =
+      refreshFailed &&
+      providerCredentials.some(cred => cred.refreshUnavailable);
 
     mcpServer.registerTool(
       toolDef.key,
@@ -1377,7 +1436,9 @@ const business = async (c: Context<AppEnv>) => {
             content: [
               {
                 type: 'text' as const,
-                text: `Error: the ${provider} connection could not be renewed just now. Nothing was done; try again in a moment.`
+                text: refreshUnavailable
+                  ? `Error: the ${provider} connection has expired and this server can't renew it. Nothing was done. Connect ${provider} again on the Tools page.`
+                  : `Error: the ${provider} connection could not be renewed just now. Nothing was done; try again in a moment.`
               }
             ]
           };
