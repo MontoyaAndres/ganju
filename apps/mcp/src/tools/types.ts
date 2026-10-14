@@ -57,6 +57,10 @@ export interface ToolContext {
 
 export interface ToolDefinition {
   title: string;
+  // Reads `context.resources` (a resource by uri, an attachment). Every other
+  // call boots without the artifact's resource list, which on a crawled site
+  // is most of what boot would otherwise send over the wire.
+  usesResources?: true;
   description: string;
   schema: JsonSchema;
   outputSchema?: JsonSchema;

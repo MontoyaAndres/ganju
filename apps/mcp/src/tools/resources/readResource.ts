@@ -9,6 +9,7 @@ import {
 import { ToolDefinition } from '../types';
 
 export const readResource: ToolDefinition = {
+  usesResources: true,
   title: 'Read Resource',
   description:
     'Fetch the textual contents of a resource by URI so you can quote, summarize, or reason about it inline. Returns plain text or stringified JSON. Use after list-resources or search-resources to load a specific document. Do NOT use this when the user wants the resource delivered to them as a file/attachment — use send-resource for that. Binary resources (PDFs, images, audio, video, archives) are NOT inlined here — call send-resource to deliver them, or rely on search-resources excerpts for inline reasoning.',

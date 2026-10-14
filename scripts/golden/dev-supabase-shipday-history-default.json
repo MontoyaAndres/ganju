@@ -1,6 +1,6 @@
 {
   "slug": "5a9bb589400bae90d32d65abfe96be18",
-  "at": "2026-10-14T19:59:50.559Z",
+  "at": "2026-10-14T20:11:48.043Z",
   "results": [
     {
       "query": "PGRST116",
@@ -48,8 +48,8 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery",
-        "https://www.shipday.com/terms",
-        "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery"
+        "https://www.shipday.com/blog",
+        "https://www.shipday.com/features/mobile-app-for-drivers"
       ]
     },
     {
@@ -58,7 +58,7 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/integrations/menu2order",
-        "https://www.shipday.com/integrations/menu2order",
+        "https://www.shipday.com/integrations",
         "https://www.shipday.com/integrations"
       ]
     },
@@ -69,7 +69,7 @@
       "top": [
         "https://www.shipday.com/integrations/eposnow",
         "https://www.shipday.com/integrations",
-        "https://www.shipday.com/integrations/eposnow"
+        "https://www.shipday.com/integrations/aldelo"
       ]
     },
     {
@@ -135,11 +135,11 @@
     {
       "query": "free custom email addresses that forward to my personal inbox",
       "kind": "semantic",
-      "rank": 7,
+      "rank": 9,
       "top": [
         "https://supabase.com/docs/guides/auth/auth-smtp",
-        "https://supabase.com/changelog/29370-supabase-auth-changes-to-default-email-provider",
-        "https://supabase.com/docs/guides/auth/auth-smtp"
+        "https://supabase.com/docs/guides/auth/auth-smtp",
+        "https://supabase.com/changelog/29370-supabase-auth-changes-to-default-email-provider"
       ]
     },
     {
@@ -215,9 +215,9 @@
     {
       "query": "¿cuánto ahorra al año una gran cadena de pollo frito con su reparto?",
       "kind": "semantic",
-      "rank": 10,
+      "rank": 9,
       "top": [
-        "https://www.shipday.com/es/casos/restaurantes",
+        "https://www.shipday.com/es/casos/pizzerias",
         "https://www.shipday.com/es",
         "https://www.shipday.com/es/casos/restaurantes"
       ]
@@ -228,18 +228,18 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/case-studies/how-pizza-my-heart-manages-deliveries-across-30-locations",
-        "https://www.shipday.com/use-cases/pizzerias",
-        "https://www.shipday.com/use-cases/pizzerias"
+        "https://www.shipday.com/case-studies/how-a-team-delivery-achieved-200-growth-with-shipday",
+        "https://www.shipday.com/case-studies/how-80-location-pizza-guys-improved-delivery-operations-with-shipday"
       ]
     },
     {
       "query": "restaurant that freed up more than a hundred staff hours monthly",
       "kind": "semantic",
-      "rank": 3,
+      "rank": 1,
       "top": [
-        "https://www.shipday.com/case-studies/general-tsos-shipday-delivery-optimization",
-        "https://www.shipday.com/case-studies/general-tsos-shipday-delivery-optimization",
-        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday"
+        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday",
+        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday",
+        "https://www.shipday.com/case-studies/general-tsos-shipday-delivery-optimization"
       ]
     },
     {

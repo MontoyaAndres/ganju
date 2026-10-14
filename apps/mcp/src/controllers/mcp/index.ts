@@ -7,7 +7,7 @@ import { StreamableHTTPTransport } from '@hono/mcp';
 import { JsonSchema, utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import type { ToolCallBudget } from '@ganju/db';
-import { and, eq, gte, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 
 import {
   toolRegistry,
@@ -26,7 +26,7 @@ import {
 import {
   readResourceContent,
   withResourceContent,
-  BOOT_RESOURCE_COLUMNS,
+  BOOT_RESOURCE_SELECTION,
   refreshCredentialIfNeeded,
   generateEmbedding,
   resolveArtifactSlug,
@@ -80,30 +80,82 @@ const business = async (c: Context<AppEnv>) => {
     return c.json({ error: 'Token missing subject' }, 401);
   }
 
+  // Read the body once so we can both inspect JSON-RPC method names (for
+  // list/discovery calls the SDK auto-handles, and to decide what boot loads)
+  // and forward it to the transport. GET (SSE stream) and DELETE (session
+  // teardown) have no body.
+  let parsedBody: unknown | undefined;
+  if (c.req.method === 'POST') {
+    try {
+      parsedBody = await c.req.json();
+    } catch {
+      parsedBody = undefined;
+    }
+  }
+  const messages = parseJsonRpcMessages(parsedBody);
+  const resourcesNeeded = requestNeedsResources(messages);
+
   const dbInstance = db.create(c);
   const bootStartedAt = Date.now();
 
-  const artifact = await dbInstance.query.artifact.findFirst({
-    where: eq(db.schema.artifact.slug, slug),
-    with: {
-      artifactPrompts: true,
-      artifactResources: { columns: BOOT_RESOURCE_COLUMNS },
-      artifactTools: true,
-      artifactCredentials: true,
-      project: {
-        with: {
-          organization: { columns: { requireToolConfirmation: true } },
-          projectUsers: jwtUserId
-            ? {
-                where: eq(db.schema.projectUser.userId, jwtUserId),
-                columns: { userId: true },
-                limit: 1
-              }
-            : { limit: 0, columns: { userId: true } }
+  // The resource list is loaded only for a request that reads it: on a crawled
+  // site it is a row per page (1,205 rows, ~840KB on one dev artifact), sent
+  // on every initialize and tools/list otherwise. Without it, boot asks only
+  // whether there is one, to advertise the same capabilities either way.
+  const [artifact, bootResources, hasExposedResources] = await Promise.all([
+    dbInstance.query.artifact.findFirst({
+      where: eq(db.schema.artifact.slug, slug),
+      with: {
+        artifactPrompts: true,
+        artifactTools: true,
+        artifactCredentials: true,
+        project: {
+          with: {
+            organization: { columns: { requireToolConfirmation: true } },
+            projectUsers: jwtUserId
+              ? {
+                  where: eq(db.schema.projectUser.userId, jwtUserId),
+                  columns: { userId: true },
+                  limit: 1
+                }
+              : { limit: 0, columns: { userId: true } }
+          }
         }
       }
-    }
-  });
+    }),
+    resourcesNeeded
+      ? dbInstance
+          .select(BOOT_RESOURCE_SELECTION)
+          .from(db.schema.artifactResource)
+          .innerJoin(
+            db.schema.artifact,
+            eq(db.schema.artifact.id, db.schema.artifactResource.artifactId)
+          )
+          .where(eq(db.schema.artifact.slug, slug))
+      : Promise.resolve(null),
+    // utils.isExposedResource in SQL: website seeds and Drive / OneDrive
+    // folders aren't resources. Joined on the slug rather than correlated with
+    // the artifact row: Drizzle writes a single-table column unqualified, so a
+    // subquery would read its own `id`.
+    resourcesNeeded
+      ? Promise.resolve(null)
+      : dbInstance
+          .select({ id: db.schema.artifactResource.id })
+          .from(db.schema.artifactResource)
+          .innerJoin(
+            db.schema.artifact,
+            eq(db.schema.artifact.id, db.schema.artifactResource.artifactId)
+          )
+          .where(
+            and(
+              eq(db.schema.artifact.slug, slug),
+              sql`(coalesce(${db.schema.artifactResource.sourceType}, '') <> ${utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE} or ${db.schema.artifactResource.parentResourceId} is not null)`,
+              sql`coalesce(${db.schema.artifactResource.sourceType}, '') not in (${utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER}, ${utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER})`
+            )
+          )
+          .limit(1)
+          .then(rows => rows.length > 0)
+  ]);
 
   const loadMs = Date.now() - bootStartedAt;
 
@@ -120,7 +172,7 @@ const business = async (c: Context<AppEnv>) => {
   // a website seed carries the SAME uri as the page indexed beneath it, so a
   // surface that filters and one that doesn't will disagree about what that uri
   // resolves to.
-  const exposedResources = artifact.artifactResources.filter(r =>
+  const exposedResources = (bootResources ?? []).filter(r =>
     utils.isExposedResource(r)
   );
 
@@ -212,6 +264,12 @@ const business = async (c: Context<AppEnv>) => {
     // the model is told what the marks mean.
     { instructions: utils.UNTRUSTED_CONTENT_NOTE }
   );
+  // Registering a resource is what advertises the capability; a request that
+  // booted without the list has to say so itself, or initialize would tell
+  // the client this server has no resources.
+  if (!bootResources && hasExposedResources) {
+    mcpServer.server.registerCapabilities({ resources: { listChanged: true } });
+  }
   // Sensitive tools wait for a confirmed second call. Once the session has
   // read outside content, the model may be steered by it, so the call waits
   // for the signed-in user to approve it on a dashboard page — a yes the
@@ -1495,19 +1553,6 @@ const business = async (c: Context<AppEnv>) => {
 
   await mcpServer.connect(transport);
 
-  // Read the body once so we can both inspect JSON-RPC method names (for
-  // list/discovery calls the SDK auto-handles) and forward it to the transport.
-  // GET (SSE stream) and DELETE (session teardown) have no body.
-  let parsedBody: unknown | undefined;
-  if (c.req.method === 'POST') {
-    try {
-      parsedBody = await c.req.json();
-    } catch {
-      parsedBody = undefined;
-    }
-  }
-
-  const messages = parseJsonRpcMessages(parsedBody);
   const bodyOnly = collectBodyOnlyRequests(messages);
 
   const handleStartedAt = Date.now();
@@ -1531,7 +1576,7 @@ const business = async (c: Context<AppEnv>) => {
       credentialsMs,
       versionsMs,
       handleMs: Date.now() - handleStartedAt,
-      resources: artifact.artifactResources.length,
+      resources: bootResources ? bootResources.length : null,
       tools: registeredToolNames.size,
       credentials: artifact.artifactCredentials.length
     })
@@ -1594,4 +1639,26 @@ const evalRerankOverride = (
   if (authKind !== utils.constants.MCP_AUTH_KIND_INTERNAL) return undefined;
   const value = c.req.header(utils.constants.MCP_EVAL_RERANK_HEADER);
   return value === 'on' ? true : value === 'off' ? false : undefined;
+};
+
+// Whether this request reads the artifact's resource list: a resources/* or
+// completion call, or a native tool flagged `usesResources`. A request with no
+// readable JSON-RPC body (a GET, an unparseable POST) loads it, as before.
+const requestNeedsResources = (
+  messages: ReturnType<typeof parseJsonRpcMessages>
+): boolean => {
+  if (messages.length === 0) return true;
+  return messages.some(message => {
+    if (
+      message.method.startsWith('resources/') ||
+      message.method === 'completion/complete'
+    ) {
+      return true;
+    }
+    if (message.method !== utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL) {
+      return false;
+    }
+    const name = (message.params as { name?: unknown } | undefined)?.name;
+    return typeof name === 'string' && !!toolRegistry.get(name)?.usesResources;
+  });
 };

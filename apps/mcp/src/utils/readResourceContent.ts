@@ -1,6 +1,6 @@
 import { db, type Database } from '@ganju/db';
 import { utils } from '@ganju/utils';
-import { and, eq, InferSelectModel } from 'drizzle-orm';
+import { and, eq, getTableColumns, InferSelectModel } from 'drizzle-orm';
 import { R2Bucket } from '@cloudflare/workers-types';
 
 type ArtifactResource = InferSelectModel<typeof db.schema.artifactResource>;
@@ -20,6 +20,16 @@ export type BootResource = Omit<
   ArtifactResource,
   keyof typeof BOOT_RESOURCE_COLUMNS
 >;
+
+// The same columns for a plain select, which boot runs only when the request
+// needs the list.
+const {
+  content: _content,
+  metadata: _metadata,
+  crawlConfig: _crawlConfig,
+  ...bootResourceSelection
+} = getTableColumns(db.schema.artifactResource);
+export const BOOT_RESOURCE_SELECTION = bootResourceSelection;
 
 /**
  * Load the inline content boot skipped, for the one resource about to be read.

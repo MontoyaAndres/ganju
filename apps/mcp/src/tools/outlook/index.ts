@@ -183,6 +183,7 @@ const sendViaContainer = async (
 };
 
 export const sendEmail: ToolDefinition = {
+  usesResources: true,
   title: 'Outlook: Send Email',
   description:
     'Send a new email, starting a new conversation. To answer an existing email use outlook-reply-email instead, so it stays in the same conversation. If you are not sure the user wants it sent now, use outlook-create-draft.',
@@ -251,6 +252,7 @@ export const sendEmail: ToolDefinition = {
 };
 
 export const replyEmail: ToolDefinition = {
+  usesResources: true,
   title: 'Outlook: Reply',
   description:
     'Reply to a message in its existing conversation (replyAll=true includes all original recipients). Use this, not outlook-send-email, whenever continuing a conversation.',
@@ -311,6 +313,7 @@ export const replyEmail: ToolDefinition = {
 };
 
 export const forwardEmail: ToolDefinition = {
+  usesResources: true,
   title: 'Outlook: Forward',
   description:
     'Forward a message to someone new, with an optional intro above it. Starts a new conversation; to continue the original use outlook-reply-email.',
@@ -775,6 +778,7 @@ export const getThread: ToolDefinition = {
 };
 
 export const createDraft: ToolDefinition = {
+  usesResources: true,
   title: 'Outlook: Create Draft',
   description:
     'Save an email as a draft without sending it. Use when the user wants to review first, or when you are unsure they want it sent; send later with outlook-send-draft.',
@@ -943,6 +947,7 @@ export const getDraft: ToolDefinition = {
 };
 
 export const updateDraft: ToolDefinition = {
+  usesResources: true,
   title: 'Outlook: Update Draft',
   description:
     'Change a draft: the fields you pass overwrite the old ones. Passing attachmentUris replaces every attachment; omit it to keep them. Does not send it.',

@@ -1319,51 +1319,55 @@ production 2026-10-14 (`0081` applied on both).
   - Search: semantic misses in both sets; no switch to measure the reranker
     on Spanish; a composite `(artifact_id, content_tsv)` index and a trigram
     index for the text fallback on large artifacts.
-    - 2026-10-14, code only (not deployed): `--no-rerank` on
-      `scripts/eval-resource-search.mjs` sends `x-ganju-eval-rerank: off`,
-      which the MCP worker honours only with the internal secret, so the
-      fused order can be measured against the reranked one. Ship:
-      `@ganju/utils` build, `ganju-mcp`.
+    - Done 2026-10-14, on dev and production (`ganju-api`, `ganju-mcp`,
+      `ganju-tool-broker`; no migration).
     - Spanish golden set `scripts/golden/dev-es-shipday-ayssa.json` (23
       cases on 053e…: the Shipday `/es/` pages with their English twins,
-      the GCCON-F-088 form, the Ayssa brand-image guide). Reranked on dev:
-      exact 3/3; semantic hit@1 9/20, hit@3 11/20, MRR 0.52
-      (`scripts/golden/es-rerank.json`). The no-rerank run waits on the
-      deploy.
-    - Most Spanish misses land on another Shipday page, and the index shows
-      why: chunks 0–6 of every Shipday page are the site's mega-menu (76
-      of 610 chunks; ~7,000 characters a page), so a query about refunds or
-      reports matches every page's menu. The crawler now drops `nav` and
-      `role="navigation"` inside the extraction root too (code only; ships
-      with `ganju-api`, which builds the resource-handler). Headers and
-      footers stay: a restaurant's address and hours often live there.
-      Shipday's root has sync off, so its pages change only with "Sync
-      now" — then re-run the Spanish set against `es-rerank.json`.
-    - Deployed to dev 2026-10-14 and Shipday re-synced: menu chunks 95 → 0,
-      its chunks 610 → 387. Spanish semantic hit@1 9/20 → 17/20, MRR 0.52 →
-      0.87 (reranked).
-    - Reranker on vs off, same day, all three sets (hit@1, MRR):
+      the GCCON-F-088 form, the Ayssa brand-image guide). First run,
+      reranked: semantic hit@1 9/20, hit@3 11/20, MRR 0.52.
+    - Most misses came from the index, not the ranking: chunks 0–6 of every
+      Shipday page were the site's mega-menu (~7,000 characters a page), so
+      a query about refunds or reports matched every page's menu. The
+      crawler now drops `nav` and `role="navigation"` inside the extraction
+      root too. Headers and footers stay: a restaurant's address and hours
+      often live there. Dev's Shipday re-synced: menu chunks 95 → 0, its
+      chunks 610 → 387, Spanish semantic hit@1 9/20 → 17/20.
+    - Reranker off by default (`RESOURCE_SEARCH_RERANK_ENABLED = false`).
+      Measured on all three sets after the re-sync, on vs off (hit@1, MRR):
       Spanish 20/23 0.884 vs 20/23 0.906; mml-ayssa-sharely 13/14 0.938 vs
-      14/14 1.000; supabase-shipday-history 16/26 0.728 vs 19/26 0.818.
-      Case by case the fused order wins 10, the reranker 5 (one big one:
-      "free custom email addresses…" 7 → 1). The reranker also costs
-      0.5–0.9 s a search and a ~6 s cold start. The supabase set's Shipday
-      pages (5a9bb…) still carry the menu; not re-synced.
-    - Decided 2026-10-14: reranker off by default
-      (`RESOURCE_SEARCH_RERANK_ENABLED = false`; code only, not deployed).
-      The code stays; the eval's `--rerank` / `--no-rerank` set
-      `x-ganju-eval-rerank: on|off` to measure either way. Ship:
-      `@ganju/utils` build, `ganju-mcp`, `ganju-tool-broker`. utils tests
-      127/127.
-    - On dev 2026-10-14 after the deploy: a run with no flag matches
-      `--no-rerank`, so the default is off. Shipday's re-sync moved
-      review-management to `/es/features/`, now in the Spanish set's
-      expectations. With the default: Spanish exact 3/3, semantic hit@1
-      18/20, hit@3 20/20, MRR 0.949; mml-ayssa-sharely 14/14, MRR 1.000;
+      14/14 1.000; supabase-shipday-history 16/26 0.728 vs 19/26 0.818. Case
+      by case the fused order won 10, the reranker 5 (one big one: "free
+      custom email addresses…" 7 → 1), and it cost 0.5–0.9 s a search plus a
+      ~6 s cold start. The code stays: the eval's `--rerank` / `--no-rerank`
+      send `x-ganju-eval-rerank: on|off`, which the MCP worker honours only
+      with the internal secret. utils tests 127/127.
+    - With the default, on dev after the deploy (a run with no flag matches
+      `--no-rerank`): Spanish exact 3/3, semantic hit@1 18/20, hit@3 20/20,
+      MRR 0.949; mml-ayssa-sharely 14/14, MRR 1.000;
       supabase-shipday-history exact 12/12, semantic hit@1 7/14, hit@3
-      11/14, MRR 0.818. Baselines: `scripts/golden/*-default.json`.
-      Production: `ganju-api`, `ganju-mcp`, `ganju-tool-broker`, then "Sync
-      now" on websites crawled before the nav change.
+      11/14, MRR 0.818. One baseline per set, `scripts/golden/<set>-default.json`;
+      compare with `--baseline` and overwrite it only when a change is
+      accepted. The old `mml-/supabase-before/after.json` are removed.
+    - Production's Shipday (org "test", FREE, so no automatic sync)
+      re-synced 2026-10-14 with "Sync now": menu chunks 887 → 0, chunks
+      3,124 → 1,959, pages 336 → 342, the 10 pages that had failed in
+      September indexed this time; ~2.5 min. The four perros.com pages
+      (Girardot – demos, ENTERPRISE, weekly) pick it up on their own.
+    - Dev's Shipday-org copy (5a9bb…) re-synced 2026-10-14: menu chunks 295
+      → 0, its chunks 696 → 384. supabase-shipday-history: exact 12/12,
+      semantic hit@1 7/14 → 8/14, hit@3 11/14, MRR 0.818 → 0.843 (now the
+      baseline). Shipday cases moved up ("freed up more than a hundred
+      staff hours" 3 → 1, the KFC question 10 → 9); the Cloudflare
+      email-routing case slipped 7 → 9 behind Supabase's SMTP pages. The
+      misses left are real semantic gaps: a Spanish question against an
+      English case study, and Supabase/Cloudflare paraphrases ranking 2–9.
+      Checked the same project's June crawls for repeats instead of
+      re-syncing them: supabase.com has 657 of 4,514 chunks whose exact text
+      is on 5+ pages, cloudflare.com 16 of 496, Shipday now 0. Supabase's are
+      not navigation but repeated content — the changelog feed on 11
+      changelog pages, the same quickstart steps in each framework guide —
+      so the nav change wouldn't remove them. Collapsing exact duplicate
+      chunks per site at index time is the fix, if it ever matters.
     - Indexes, measured on dev's 7,027-chunk artifact: a common word on the
       lexical side 25 ms, a rare one 0.2 ms through the existing GIN index,
       the substring fallback for a code the index never saw 52 ms (so ~150
@@ -1381,11 +1385,26 @@ production 2026-10-14 (`0081` applied on both).
       page" and indexed nothing; the same page redirecting to
       `https://example.com/` instead indexed example.com's text — so the
       browser path works and only the private hop was refused.
+  - MCP boot loaded the artifact's whole resource list on every request.
+    - 2026-10-14, code only (not deployed): boot loads it only when the
+      request reads it — `resources/*`, `completion/complete`, or a
+      `tools/call` to a native tool flagged `usesResources` (read-, list- and
+      send-resource; Gmail and Outlook send, reply, forward and both draft
+      writes; Slack send and upload). A request with no readable JSON-RPC body
+      loads it as before. Otherwise a `LIMIT 1` query asks whether any
+      exposed resource exists and registers the `resources` capability, so
+      `initialize` advertises the same thing either way. That query matches
+      `utils.isExposedResource` on all 6 dev and 9 production artifacts.
+      The `mcp.boot` line reports `resources: null` when the list wasn't
+      loaded. Measured before: Postgres runs the whole boot query in ~5 ms;
+      the cost is the rows on the wire (1,205 resources ≈ 840KB on dev's
+      biggest artifact) and ~35 ms of CPU to parse them. Ship: `ganju-mcp`.
   - Publishing a custom-code version while its bundle uploads overwrites
     the bundle in R2 (pre-existing).
-    - Fixed 2026-10-14, code only (not deployed): the bundle's key carries
-      its hash (`v<n>-<sha256>.js`), so an upload never rewrites an object a
-      published version points at; rows written before keep `v<n>.js`. A
-      refused upload removes what it stored (unless the same bytes were
-      published under that key) and a successful one removes the draft's
-      previous bundle. Ship: `ganju-api`.
+    - Fixed 2026-10-14, on dev and production (`ganju-api`): the bundle's
+      key carries its hash (`v<n>-<sha256>.js`), so an upload never rewrites
+      an object a published version points at; rows written before keep
+      `v<n>.js`. A refused upload removes what it stored (unless the same
+      bytes were published under that key) and a successful one removes the
+      draft's previous bundle. Not driven by hand (the race needs a publish
+      landing mid-upload).

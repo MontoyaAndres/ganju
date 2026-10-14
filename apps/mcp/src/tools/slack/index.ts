@@ -164,6 +164,7 @@ const sendViaContainer = async (
 };
 
 export const sendMessage: ToolDefinition = {
+  usesResources: true,
   title: 'Slack: Send Message',
   description:
     "Post a message to a Slack channel, DM, or thread via chat.postMessage. `channel` accepts a channel ID (C…/G…/D…) or name (#general); IDs are preferred because Slack resolves them faster and unambiguously. Set `threadTs` to reply inside an existing thread (use the `ts` returned by an earlier slack-send-message or surfaced by slack-search-messages). `text` is plain text by default with Slack's mrkdwn formatting; pass mrkdwn=false to disable. Returns the message ts so the caller can thread later replies onto it.",
@@ -458,6 +459,7 @@ export const getUser: ToolDefinition = {
 };
 
 export const uploadFile: ToolDefinition = {
+  usesResources: true,
   title: 'Slack: Upload File',
   description:
     "Upload a file from an Ganju resource to Slack and share it in the given channel via Slack's external-upload flow (files.getUploadURLExternal + completeUploadExternal). Pass `resourceUri` (from list-resources / search-resources), the destination `channel`, and optionally an `initialComment` (message body posted alongside the file) and `threadTs` to drop the file inside an existing thread. Per-file cap is 100MB. Returns the new file ID and a permalink. Use this — not slack-send-message — when the user wants to share a document/image, not just text.",

@@ -201,6 +201,7 @@ const ensurePrefix = (subject: string, prefix: string): string => {
 };
 
 export const sendEmail: ToolDefinition = {
+  usesResources: true,
   title: 'Gmail: Send Email',
   description:
     'Send a new email, starting a new thread. To answer an existing email use gmail-reply-email instead, so it stays in the same thread. If you are not sure the user wants it sent now, use gmail-create-draft.',
@@ -259,6 +260,7 @@ export const sendEmail: ToolDefinition = {
 };
 
 export const replyEmail: ToolDefinition = {
+  usesResources: true,
   title: 'Gmail: Reply',
   description:
     'Reply to an email in its existing thread (replyAll=true also includes the original To and Cc). Use this, not gmail-send-email, whenever continuing a conversation.',
@@ -346,6 +348,7 @@ export const replyEmail: ToolDefinition = {
 };
 
 export const forwardEmail: ToolDefinition = {
+  usesResources: true,
   title: 'Gmail: Forward',
   description:
     'Forward an email to someone new, with an optional intro above it. Starts a new thread; to continue the original conversation use gmail-reply-email.',
@@ -776,6 +779,7 @@ export const getThread: ToolDefinition = {
 };
 
 export const createDraft: ToolDefinition = {
+  usesResources: true,
   title: 'Gmail: Create Draft',
   description:
     'Save an email as a draft without sending it. Use when the user wants to review first, or when you are unsure they want it sent; send later with gmail-send-draft.',
@@ -927,6 +931,7 @@ export const getDraft: ToolDefinition = {
 };
 
 export const updateDraft: ToolDefinition = {
+  usesResources: true,
   title: 'Gmail: Update Draft',
   description:
     'Replace a draft entirely: pass the full to, subject and body even when changing one of them, and attachmentUris again to keep attachments — anything omitted is removed. Does not send it.',

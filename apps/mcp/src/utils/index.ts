@@ -1,7 +1,7 @@
 import {
   readResourceContent,
   withResourceContent,
-  BOOT_RESOURCE_COLUMNS,
+  BOOT_RESOURCE_SELECTION,
   type BootResource
 } from './readResourceContent';
 import { refreshCredentialIfNeeded } from './refreshCredential';
@@ -39,7 +39,7 @@ import {
 export {
   readResourceContent,
   withResourceContent,
-  BOOT_RESOURCE_COLUMNS,
+  BOOT_RESOURCE_SELECTION,
   refreshCredentialIfNeeded,
   generateEmbedding,
   resolveArtifactSlug,
