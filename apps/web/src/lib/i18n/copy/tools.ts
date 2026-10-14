@@ -637,6 +637,14 @@ const en = {
   mcpAll: 'All',
   mcpNone: 'None',
   mcpPickHint: "Choose which of {name}'s tools the assistant can call.",
+  mcpPlanLimitHint:
+    'Your {plan} plan allows {limit} tools per project, counting each one from an MCP server. You can turn on {available} here.',
+  mcpErrOverLimit:
+    'Your {plan} plan allows {limit} tools per project. Turn on {available} or fewer here, turn other tools off, or upgrade to Pro.',
+  mcpCapHint:
+    'A project can have {limit} tools turned on, counting each one from an MCP server. You can turn on {available} here.',
+  mcpErrOverCap:
+    'A project can have {limit} tools turned on. Turn on {available} or fewer here, or turn other tools off.',
   mcpAdvanced: 'Resources & prompts (optional)',
   mcpResourcesCount: 'Resources ({enabled}/{total})',
   mcpPromptsCount: 'Prompts ({enabled}/{total})',
@@ -1227,6 +1235,14 @@ export const TOOLS: Catalog<ToolsCopy> = {
     mcpNone: 'Ninguna',
     mcpPickHint:
       'Elige cuáles de las herramientas de {name} puede llamar el asistente.',
+    mcpPlanLimitHint:
+      'Tu plan {plan} permite {limit} herramientas por proyecto, y cada una de un servidor MCP cuenta. Aquí puedes activar {available}.',
+    mcpErrOverLimit:
+      'Tu plan {plan} permite {limit} herramientas por proyecto. Activa {available} o menos aquí, apaga otras herramientas o mejora a Pro.',
+    mcpCapHint:
+      'Un proyecto puede tener {limit} herramientas activadas, y cada una de un servidor MCP cuenta. Aquí puedes activar {available}.',
+    mcpErrOverCap:
+      'Un proyecto puede tener {limit} herramientas activadas. Activa {available} o menos aquí, o apaga otras herramientas.',
     mcpAdvanced: 'Recursos y prompts (opcional)',
     mcpResourcesCount: 'Recursos ({enabled}/{total})',
     mcpPromptsCount: 'Prompts ({enabled}/{total})',

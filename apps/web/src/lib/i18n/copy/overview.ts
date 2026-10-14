@@ -127,7 +127,7 @@ const en = {
    * over its plan's tool limit. `{plan}` is FREE, PRO, …
    */
   disableConfirmQuota:
-    "MCP clients and channel bots stop seeing it. This project has {enabled} tools on and the {plan} plan allows {limit}, so you won't be able to turn it back on unless you turn another tool off first or upgrade.",
+    "MCP clients and channel bots stop seeing it. This project has {enabled} tools on and can have {limit}, so you won't be able to turn it back on unless you turn another tool off first.",
   /** `{name}` is the tool or server. */
   toastDisabled: '{name} disabled',
   toastDisableFailed: "Couldn't disable {name}",
@@ -272,7 +272,7 @@ export const OVERVIEW: Catalog<OverviewCopy> = {
     disableConfirmText:
       'Los clientes MCP y los bots de canales dejan de verla. Puedes volver a activarla desde la página de Acciones.',
     disableConfirmQuota:
-      'Los clientes MCP y los bots de canales dejan de verla. Este proyecto tiene {enabled} herramientas activadas y el plan {plan} permite {limit}, así que no podrás volver a activarla a menos que primero desactives otra o mejores tu plan.',
+      'Los clientes MCP y los bots de canales dejan de verla. Este proyecto tiene {enabled} herramientas activadas y puede tener {limit}, así que no podrás volver a activarla a menos que primero desactives otra.',
     toastDisabled: '{name} desactivada',
     toastDisableFailed: 'No pudimos desactivar {name}',
 

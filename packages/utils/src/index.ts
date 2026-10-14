@@ -98,6 +98,14 @@ import {
 } from './jsonSchemaToZodShape';
 import type { SchemaViolation } from './jsonSchemaToZodShape';
 import { buildProxyToolName } from './mcpProxy';
+import { countInstallTools } from './toolCount';
+import {
+  capText,
+  findNextCursor,
+  paginate,
+  InvalidCursorError,
+  listResourcesPage
+} from './pagination';
 import {
   mintCustomCodeToken,
   verifyCustomCodeToken,
@@ -373,6 +381,12 @@ export const utils = {
   jsonSchemaToZodShape,
   validateAgainstJsonSchema,
   buildProxyToolName,
+  countInstallTools,
+  capText,
+  findNextCursor,
+  paginate,
+  InvalidCursorError,
+  listResourcesPage,
   mintCustomCodeToken,
   verifyCustomCodeToken,
   customCodeScriptName,

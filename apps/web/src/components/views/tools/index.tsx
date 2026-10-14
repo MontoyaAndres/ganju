@@ -672,25 +672,43 @@ export const Tools = ({ plan }: ToolsProps) => {
         total += exposedFunctions.length;
         continue;
       }
-      if (t.toolKey === utils.constants.TOOL_DEFINITION_KEY_MCP_PROXY) {
-        const allow = (t.config as { allowedTools?: unknown } | null)
-          ?.allowedTools;
-        if (Array.isArray(allow) && allow.length > 0) {
-          total += allow.length;
-          continue;
-        }
-        // Absent or empty means every discovered tool is on — the boot loop
-        // reads it the same way.
-        const discovery = (
-          t.metadata as { discovery?: { tools?: unknown[] } } | null
-        )?.discovery;
-        total += discovery?.tools?.length || 0;
-        continue;
-      }
-      total += 1;
+      total += utils.countInstallTools(t);
     }
     return total;
   }, [installed, exposedFunctions]);
+
+  /**
+   * How many of an MCP server's tools still fit the tool limit, counted the
+   * way the API checks it: every other enabled install, with each MCP server
+   * worth the tools it allows and the script worth the functions it keeps. The
+   * limit is the plan's or the 40-tool ceiling, whichever is lower.
+   */
+  const mcpToolBudget = useMemo(() => {
+    const planLimit = plan?.limits.maxToolsPerArtifact ?? null;
+    const byPlan =
+      planLimit != null && planLimit <= utils.constants.CHANNEL_MAX_TOOLS;
+    const limit = byPlan ? planLimit : utils.constants.CHANNEL_MAX_TOOLS;
+    const editingId = mcpProxyEditor?.existingTool?.id ?? null;
+    const others = installed
+      .filter(t => t.enabled && t.id !== editingId)
+      .reduce(
+        (total, t) =>
+          total +
+          utils.countInstallTools(
+            t,
+            t.toolKey === utils.constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+              ? activeFunctions.map(fn => fn.name)
+              : undefined
+          ),
+        0
+      );
+    return {
+      plan: plan?.plan ?? '',
+      byPlan,
+      limit,
+      available: Math.max(limit - others, 0)
+    };
+  }, [plan, installed, mcpProxyEditor, activeFunctions]);
 
   useEffect(() => {
     if (status !== 'resolved') return;
@@ -2450,6 +2468,7 @@ export default createHandler({
           server={mcpProxyEditor.server}
           toolKey={mcpProxyDef.key}
           existingTool={mcpProxyEditor.existingTool}
+          toolBudget={mcpToolBudget}
           apiBase={apiBase}
           toolApiBase={toolApiBase}
           credentialApiBase={credentialApiBase}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import IconButton from '@mui/material/IconButton';
@@ -56,6 +56,15 @@ interface Props {
   toolKey: string;
   // The installed artifact_tool for this server, or null to connect fresh.
   existingTool: ArtifactTool | null;
+  // The tool limit (the plan's, or the 40-tool ceiling when that is lower),
+  // and how many of this server's tools fit under it next to everything else
+  // turned on.
+  toolBudget: {
+    plan: string;
+    byPlan: boolean;
+    limit: number;
+    available: number;
+  } | null;
   apiBase: string;
   toolApiBase: string;
   credentialApiBase: string;
@@ -88,6 +97,7 @@ export const McpProxyModal = ({
   server,
   toolKey,
   existingTool,
+  toolBudget,
   apiBase,
   toolApiBase,
   credentialApiBase,
@@ -167,6 +177,13 @@ export const McpProxyModal = ({
       ? new Set(allow)
       : new Set(readDiscovery(existingTool?.metadata).tools.map(t => t.name));
   });
+  // A fresh connect turns every tool on when they all fit the plan, and none
+  // otherwise, so the owner picks which ones rather than getting an arbitrary
+  // first few.
+  const defaultTools = (tools: DiscoveredTool[]) =>
+    !toolBudget || tools.length <= toolBudget.available
+      ? new Set(tools.map(t => t.name))
+      : new Set<string>();
   const [enabledResources, setEnabledResources] = useState<Set<string>>(
     () => new Set(asStringArray(existingConfig.allowedResources))
   );
@@ -232,8 +249,9 @@ export const McpProxyModal = ({
         prompts: Array.isArray(result.prompts) ? result.prompts : []
       };
       setDiscovery(disc);
-      // Default: all tools on, resources/prompts off (opt-in).
-      setEnabledTools(new Set(disc.tools.map(t => t.name)));
+      // Default: all tools on when they fit the plan, resources/prompts off
+      // (opt-in).
+      setEnabledTools(defaultTools(disc.tools));
       setEnabledResources(new Set());
       setEnabledPrompts(new Set());
       setPhase('select');
@@ -271,9 +289,7 @@ export const McpProxyModal = ({
           resources: Array.isArray(result.resources) ? result.resources : [],
           prompts: Array.isArray(result.prompts) ? result.prompts : []
         });
-        setEnabledTools(
-          new Set(result.tools.map((t: DiscoveredTool) => t.name))
-        );
+        setEnabledTools(defaultTools(result.tools));
         setEnabledResources(new Set());
         setEnabledPrompts(new Set());
         setPhase('select');
@@ -323,6 +339,15 @@ export const McpProxyModal = ({
     if (busy || !discovery) return;
     if (enabledTools.size === 0) {
       return setError(t('mcpErrPickOne'));
+    }
+    if (overToolCap && toolBudget) {
+      return setError(
+        t(toolBudget.byPlan ? 'mcpErrOverLimit' : 'mcpErrOverCap', {
+          plan: toolBudget.plan,
+          limit: toolBudget.limit,
+          available: toolCap ?? 0
+        })
+      );
     }
     if (isOauth && !resolvedCredentialId) {
       return setError(t('mcpErrConnectFirst', { name: server.name }));
@@ -478,6 +503,17 @@ export const McpProxyModal = ({
       on ? new Set((discovery?.tools || []).map(t => t.name)) : new Set()
     );
 
+  // An install saved before the limit was counted per tool may already hold
+  // more than fits; saving it with fewer is allowed, more is not.
+  const initialToolCount = useRef(enabledTools.size).current;
+  const toolCap = toolBudget
+    ? Math.max(toolBudget.available, editing ? initialToolCount : 0)
+    : null;
+  const atToolCap = toolCap != null && enabledTools.size >= toolCap;
+  const overToolCap = toolCap != null && enabledTools.size > toolCap;
+  const allToolsFit =
+    toolCap == null || (discovery?.tools.length || 0) <= toolCap;
+
   return (
     <UI.Portal>
       <ModalOverlay onClick={handleClose}>
@@ -553,7 +589,7 @@ export const McpProxyModal = ({
                   <div className="mcp-proxy-list-actions">
                     <UI.Button
                       size="small"
-                      disabled={busy}
+                      disabled={busy || !allToolsFit}
                       onClick={() => setAllTools(true)}
                     >
                       <span className="button-text">{t('mcpAll')}</span>
@@ -570,6 +606,21 @@ export const McpProxyModal = ({
                 <p className="http-endpoint-list-hint">
                   {t('mcpPickHint', { name: server.name })}
                 </p>
+                {toolBudget && (
+                  <p
+                    className={
+                      overToolCap
+                        ? 'http-endpoint-error'
+                        : 'http-endpoint-list-hint'
+                    }
+                  >
+                    {t(toolBudget.byPlan ? 'mcpPlanLimitHint' : 'mcpCapHint', {
+                      plan: toolBudget.plan,
+                      limit: toolBudget.limit,
+                      available: toolCap ?? 0
+                    })}
+                  </p>
+                )}
                 <div className="mcp-proxy-tool-list">
                   {(discovery?.tools || []).map(t => (
                     <div key={t.name} className="mcp-proxy-item">
@@ -585,7 +636,9 @@ export const McpProxyModal = ({
                       </div>
                       <Switch
                         checked={enabledTools.has(t.name)}
-                        disabled={busy}
+                        disabled={
+                          busy || (atToolCap && !enabledTools.has(t.name))
+                        }
                         onChange={() => toggle(setEnabledTools, t.name)}
                       />
                     </div>

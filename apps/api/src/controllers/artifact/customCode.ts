@@ -118,7 +118,7 @@ export const resolveCustomCodeTool = async (
     return { artifact: artifactRow, tool: existing };
   }
 
-  Plan.assertToolQuota(plan, artifactRow.artifactToolCount);
+  Plan.assertToolQuota(plan, await Plan.countArtifactTools(tx, artifactRow.id));
 
   const [created] = await tx
     .insert(db.schema.artifactTool)

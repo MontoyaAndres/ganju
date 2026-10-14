@@ -16,7 +16,16 @@ interface RefreshableCredential {
   scopes: string | null;
   metadata?: unknown;
   needsReauth?: boolean;
+  // The refresh failed for a reason other than a revoked grant, and the access
+  // token it would have replaced has already expired: calling the vendor with
+  // it can only fail, with a message that reads like a broken connection.
+  refreshFailed?: boolean;
 }
+
+// A failed refresh is usually the token endpoint or the network hiccuping, and
+// the retry a moment later works. One retry inside the request saves the tool
+// call; more would hold the whole MCP boot up.
+const REFRESH_RETRY_DELAY_MS = 300;
 
 const ENV_NAMES: Record<
   string,
@@ -103,13 +112,20 @@ export const refreshCredentialIfNeeded = async (
   const clientSecret = utils.getEnv(ctx, envConfig.clientSecretEnv);
   if (!clientId || !clientSecret) return decrypted;
 
-  let refreshed;
-  try {
-    refreshed = await utils.refreshOAuthToken({
+  const refresh = () =>
+    utils.refreshOAuthToken({
       tokenUrl,
       clientId,
       clientSecret,
       refreshToken: refreshTokenPlain
+    });
+
+  let refreshed;
+  try {
+    refreshed = await refresh().catch(async err => {
+      if (err instanceof utils.OAuthReauthRequiredError) throw err;
+      await new Promise(resolve => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
+      return refresh();
     });
   } catch (err) {
     if (err instanceof utils.OAuthReauthRequiredError) {
@@ -122,7 +138,16 @@ export const refreshCredentialIfNeeded = async (
         .where(eq(db.schema.artifactCredential.id, credential.id));
       return { ...decrypted, needsReauth: true };
     }
-    return decrypted;
+    console.error(
+      `credential-refresh-failed ${credential.provider} ${credential.id}: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+    // Inside the buffer the old token still works for this request.
+    return {
+      ...decrypted,
+      refreshFailed: credential.expiresAt.getTime() <= Date.now()
+    };
   }
 
   const nextAccessToken = refreshed.accessToken;

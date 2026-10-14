@@ -1324,6 +1324,16 @@ const business = async (c: Context<AppEnv>) => {
       provider &&
       toolCredentials.length > 0 &&
       toolCredentials.every(cred => cred.needsReauth);
+    // Only expired tokens are left because renewing them failed just now.
+    // Saying so beats the vendor's "invalid credentials", which reads as a
+    // broken connection to the model and the person it tells.
+    const refreshFailed =
+      !reauthRequired &&
+      provider &&
+      toolCredentials.length > 0 &&
+      refreshedCredentials
+        .filter(cred => cred.provider === provider)
+        .every(cred => cred.needsReauth || cred.refreshFailed);
 
     mcpServer.registerTool(
       toolDef.key,
@@ -1359,6 +1369,26 @@ const business = async (c: Context<AppEnv>) => {
             output: result,
             latencyMs: Date.now() - startedAt,
             errorMessage: `${provider} credential needs re-authorization`
+          });
+          return result;
+        }
+        if (refreshFailed) {
+          const result = {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: the ${provider} connection could not be renewed just now. Nothing was done; try again in a moment.`
+              }
+            ]
+          };
+          pendingRequests.push({
+            method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
+            toolName: toolDef.key,
+            artifactToolId: artifactTool.id,
+            input: args,
+            output: result,
+            latencyMs: Date.now() - startedAt,
+            errorMessage: `${provider} credential refresh failed`
           });
           return result;
         }

@@ -2658,10 +2658,6 @@ export const ModalDialog = styled.div`
         }
       }
 
-      .mcp-proxy-disconnect {
-        margin-right: auto;
-      }
-
       .tools-settings-secret-add {
         display: grid;
         align-items: center;
@@ -2746,9 +2742,17 @@ export const ModalDialog = styled.div`
           color: ${theme.colors.bastille}80;
         }
 
-        .MuiButtonBase-root {
-          padding: 0;
+        /* The footer's button rule above reaches the switch's own ButtonBase,
+           whose padding is what places the thumb: without MUI's 4px (small
+           size) an "on" switch draws its thumb at the left, like "off". */
+        .MuiSwitch-root .MuiButtonBase-root {
+          padding: 4px;
+          border-radius: 50%;
         }
+      }
+
+      .mcp-proxy-disconnect > .button-text {
+        margin-left: 4px;
       }
     }
 

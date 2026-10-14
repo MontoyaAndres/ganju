@@ -991,6 +991,12 @@ const CHUNK_SEPARATORS: Array<{ split: string | RegExp; join: string }> = [
 
 const DEFAULT_MAX_TOKENS = 4096;
 
+// One page of `list-resources`. A knowledge base with a crawled site runs to
+// thousands of resources; listed whole, that is one result of several hundred
+// KB in the model's context.
+const LIST_RESOURCES_DEFAULT_LIMIT = 100;
+const LIST_RESOURCES_MAX_LIMIT = 500;
+
 const RESOURCE_TOOL_KEY_LIST_RESOURCES = 'list-resources';
 const RESOURCE_TOOL_KEY_SEARCH_RESOURCES = 'search-resources';
 const RESOURCE_TOOL_KEY_READ_RESOURCE = 'read-resource';
@@ -2793,6 +2799,8 @@ export const constants = {
   CHUNK_SEPARATORS,
   DEFAULT_MAX_TOKENS,
   RESOURCE_TOOL_KEY_LIST_RESOURCES,
+  LIST_RESOURCES_DEFAULT_LIMIT,
+  LIST_RESOURCES_MAX_LIMIT,
   RESOURCE_TOOL_KEY_SEARCH_RESOURCES,
   RESOURCE_TOOL_KEY_READ_RESOURCE,
   RESOURCE_TOOL_KEY_SEND_RESOURCE,

@@ -158,7 +158,7 @@ const getToolHealth = async (c: Context<AppEnv>) => {
   const followUpSeconds = utils.constants.OBSERVABILITY_FOLLOW_UP_SECONDS;
   const schemaRejection = `${utils.constants.OBSERVABILITY_SCHEMA_REJECTION_PREFIX}%`;
 
-  const [healthRows, errorRows, usedRows, installs, effectivePlan, counts] =
+  const [healthRows, errorRows, usedRows, installs, effectivePlan] =
     await Promise.all([
       dbInstance.execute(sql`
       WITH calls AS (
@@ -293,16 +293,18 @@ const getToolHealth = async (c: Context<AppEnv>) => {
         )
         .where(eq(db.schema.artifactTool.artifactId, artifactId)),
 
-      Plan.getEffectivePlan(dbInstance, currentValues.organizationId),
-
-      dbInstance
-        .select({ enabled: db.schema.artifact.artifactToolCount })
-        .from(db.schema.artifact)
-        .where(eq(db.schema.artifact.id, artifactId))
-        .limit(1)
+      Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
     ]);
 
   const installById = new Map(installs.map(row => [row.id, row]));
+  // What each enabled install puts in front of a model: an MCP server is every
+  // tool it allows, a script every function it keeps.
+  const toolCounts = new Map<string, number>();
+  for (const row of installs) {
+    if (row.enabled) {
+      toolCounts.set(row.id, await Plan.countInstallToolsIn(dbInstance, row));
+    }
+  }
   const used = new Set(usedRows.map(row => row.id));
 
   return c.json({
@@ -352,17 +354,19 @@ const getToolHealth = async (c: Context<AppEnv>) => {
         toolKey: row.toolKey,
         kind: installKind(row.toolKey),
         label: installLabel(row),
+        // What disabling it frees.
+        toolCount: toolCounts.get(row.id) ?? 1,
         createdAt: row.createdAt
       })),
     unusedDays: utils.constants.OBSERVABILITY_UNUSED_DAYS,
-    // Disabling is free, but enabling re-checks the plan's tool limit
-    // against this count. An artifact over its limit (a downgrade leaves it
-    // there) can't turn a tool back on without turning another off, and the
-    // dashboard says so before it disables anything.
+    // Disabling is free, but enabling re-checks the tool limit (the plan's,
+    // or 40) against this count. An artifact over it can't turn a tool back
+    // on without turning another off, and the dashboard says so before it
+    // disables anything.
     toolQuota: {
       plan: effectivePlan.plan,
-      limit: effectivePlan.limits.maxToolsPerArtifact,
-      enabled: counts[0]?.enabled ?? 0
+      limit: Plan.toolLimitFor(effectivePlan),
+      enabled: [...toolCounts.values()].reduce((total, n) => total + n, 0)
     }
   });
 };

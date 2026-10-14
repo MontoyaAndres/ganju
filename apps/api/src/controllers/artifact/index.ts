@@ -1118,7 +1118,15 @@ const createTool = async (c: Context<AppEnv>) => {
           : currentValues.config || null;
 
     const plan = await Plan.getEffectivePlan(tx, currentValues.organizationId);
-    Plan.assertToolQuota(plan, currentArtifactByProject.artifactToolCount);
+    Plan.assertToolQuota(
+      plan,
+      await Plan.countArtifactTools(tx, currentArtifactByProject.id),
+      await Plan.countInstallToolsIn(tx, {
+        toolKey: currentValues.toolKey,
+        config: resolvedConfig,
+        metadata: proxyData?.metadata ?? null
+      })
+    );
 
     // Two definitions carry their own plan rule on top of the tool quota:
     // custom-code is paid-only, and http-endpoint is capped per artifact so the
@@ -1353,7 +1361,9 @@ const updateTool = async (c: Context<AppEnv>) => {
     const [existing] = await tx
       .select({
         key: db.schema.artifactTool.toolKey,
-        config: db.schema.artifactTool.config
+        config: db.schema.artifactTool.config,
+        metadata: db.schema.artifactTool.metadata,
+        enabled: db.schema.artifactTool.enabled
       })
       .from(db.schema.artifactTool)
       .where(
@@ -1378,6 +1388,34 @@ const updateTool = async (c: Context<AppEnv>) => {
               readCustomCodeConfig(existing).activeVersionId ?? null
             )
           : currentValues.config || null;
+
+    // An enabled install that now allows more tools — an MCP server's remote
+    // tools, a script's functions — grows the count like a new install would.
+    // Allowing fewer is always accepted, so a project over its limit can still
+    // trim one.
+    if (existing.enabled) {
+      const before = await Plan.countInstallToolsIn(tx, {
+        toolKey: existing.key,
+        config: existing.config,
+        metadata: existing.metadata
+      });
+      const after = await Plan.countInstallToolsIn(tx, {
+        toolKey: existing.key,
+        config: resolvedConfig,
+        metadata: proxyData ? proxyData.metadata : existing.metadata
+      });
+      if (after > before) {
+        Plan.assertToolQuota(
+          await Plan.getEffectivePlan(tx, currentValues.organizationId),
+          await Plan.countArtifactTools(
+            tx,
+            currentArtifactByProject.id,
+            currentValues.toolId
+          ),
+          after
+        );
+      }
+    }
 
     const artifactTool = await tx
       .update(db.schema.artifactTool)
@@ -2126,15 +2164,34 @@ const activateCustomCodeVersion = async (
   // most literally deploy code. An org that installed on a paid plan and then
   // downgraded keeps its row, its versions and their bundles, so without this
   // it could go on publishing and rolling back indefinitely.
-  Plan.assertCustomCodeAllowed(
-    await Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
+  const plan = await Plan.getEffectivePlan(
+    dbInstance,
+    currentValues.organizationId
   );
+  Plan.assertCustomCodeAllowed(plan);
 
   const version = await loadVersionForTool(
     dbInstance,
     tool.id,
     currentValues.versionId
   );
+
+  // A version with more functions than the live one grows the tool count like
+  // a new install would, so it is checked before anything is deployed.
+  if (tool.enabled) {
+    const before = await Plan.countInstallToolsIn(dbInstance, tool);
+    const after = utils.countInstallTools(
+      tool,
+      (version.tools as Array<{ name: string }>).map(entry => entry.name)
+    );
+    if (after > before) {
+      Plan.assertToolQuota(
+        plan,
+        await Plan.countArtifactTools(dbInstance, artifact.id, tool.id),
+        after
+      );
+    }
+  }
 
   // Activating a version with no bundle would advertise its tools to every
   // MCP client while there is nothing to dispatch to.
@@ -2390,8 +2447,9 @@ const listTools = async (c: Context<AppEnv>) => {
  * The row and its config survive either way — that is the difference between
  * this and removeTool, and the reason the flag exists at all. What changes is
  * whether the MCP boot loop registers it, which is also what the plan's tool
- * quota measures: `artifactToolCount` tracks ENABLED tools, because "7 tools on
- * Free" means seven tools your server exposes, not seven rows you once created.
+ * quota measures: "7 tools on Free" means seven tools your server exposes, not
+ * seven rows you once created — and an mcp-proxy row exposes every remote tool
+ * it allows (`countArtifactTools`).
  *
  * Enabling therefore re-checks the quota. It is the one place a user can cross
  * the cap without creating anything — disable three, upgrade nothing, enable
@@ -2462,7 +2520,8 @@ const setToolEnabled = async (c: Context<AppEnv>) => {
     if (currentValues.enabled) {
       Plan.assertToolQuota(
         await Plan.getEffectivePlan(tx, currentValues.organizationId),
-        currentArtifactByProject.artifactToolCount
+        await Plan.countArtifactTools(tx, currentArtifactByProject.id),
+        await Plan.countInstallToolsIn(tx, tool)
       );
     }
 

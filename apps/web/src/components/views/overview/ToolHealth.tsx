@@ -56,6 +56,7 @@ interface UnusedRow {
   toolKey: string;
   kind: InstallKind;
   label: string | null;
+  toolCount: number;
   createdAt: string;
 }
 
@@ -296,7 +297,10 @@ export const ToolHealth = ({ days }: { days: number }) => {
               ...prev,
               toolQuota: {
                 ...prev.toolQuota,
-                enabled: Math.max(prev.toolQuota.enabled - 1, 0)
+                enabled: Math.max(
+                  prev.toolQuota.enabled - (row.toolCount ?? 1),
+                  0
+                )
               },
               unused: prev.unused.filter(
                 u => u.artifactToolId !== row.artifactToolId

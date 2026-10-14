@@ -68,13 +68,6 @@ const getByPath = (obj: unknown, path: string): unknown => {
   return cursor;
 };
 
-const capBytes = (body: ArrayBuffer, maxBytes: number): string => {
-  const truncated = body.byteLength > maxBytes;
-  const slice = truncated ? body.slice(0, maxBytes) : body;
-  const decoded = new TextDecoder().decode(slice);
-  return truncated ? `${decoded}\n…[truncated]` : decoded;
-};
-
 /**
  * Execute one configured HTTP endpoint with the model-supplied args. Returns a
  * tool result; failures are returned as `Error: …` text content (not thrown)
@@ -212,9 +205,10 @@ export const executeHttpEndpoint = async (
   }
   clearTimeout(timer);
 
-  // Read + cap the body
-  const buffer = await response.arrayBuffer();
-  const rawText = capBytes(buffer, config.response.maxBytes);
+  // Read whole and cap what goes back to the model: a JSON body cut before
+  // parsing can't be parsed, nor `jsonPath` applied to it.
+  const bodyText = await response.text();
+  const rawText = utils.capText(bodyText, config.response.maxBytes);
 
   // Success check
   const isSuccess = config.response.successStatus
@@ -234,7 +228,7 @@ export const executeHttpEndpoint = async (
 
   if (wantsJson) {
     try {
-      const parsed = JSON.parse(rawText);
+      const parsed = JSON.parse(bodyText);
       const extracted = config.response.jsonPath
         ? getByPath(parsed, config.response.jsonPath)
         : parsed;
@@ -259,9 +253,15 @@ export const executeHttpEndpoint = async (
 
       return {
         ...text(
-          typeof extracted === 'string'
-            ? extracted
-            : JSON.stringify(extracted, null, 2)
+          utils.capText(
+            typeof extracted === 'string'
+              ? extracted
+              : JSON.stringify(extracted, null, 2),
+            config.response.maxBytes,
+            // Read from the whole body: a jsonPath can pick the items and
+            // leave the page token beside them.
+            utils.findNextCursor(extracted) ?? utils.findNextCursor(parsed)
+          )
         ),
         ...(structured ? { structuredContent: structured } : {})
       };

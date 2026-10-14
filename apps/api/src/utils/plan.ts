@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import type { DbExecutor, EffectivePlan } from '@ganju/db';
 import { utils } from '@ganju/utils';
@@ -74,17 +74,113 @@ const assertCountQuota = (
   }
 };
 
+// `adding` is how many tools the write turns on: one for most installs, every
+// allowed remote tool for an mcp-proxy one, every kept function for a script.
+// `currentCount` comes from countArtifactTools, never from `artifactToolCount`,
+// which counts rows.
+//
+// The ceiling is the plan's limit or CHANNEL_MAX_TOOLS, whichever is lower: past
+// 40 a channel drops tools and clients pick worse, on every plan. A project
+// already over it (installed before it was enforced) can still turn tools off
+// or allow fewer; only growth is refused.
 export const assertToolQuota = (
   { plan, limits }: Pick<EffectivePlan, 'plan' | 'limits'>,
-  currentCount: number
-): void =>
-  assertCountQuota(
-    limits.maxToolsPerArtifact,
-    currentCount,
-    constants.PLAN_FEATURE_TOOL,
-    plan,
-    'tools'
+  currentCount: number,
+  adding = 1
+): void => {
+  const planLimit = limits.maxToolsPerArtifact;
+  const byPlan = planLimit != null && planLimit <= constants.CHANNEL_MAX_TOOLS;
+  const limit = byPlan ? planLimit : constants.CHANNEL_MAX_TOOLS;
+  if (currentCount + adding <= limit) return;
+
+  const already =
+    adding === 1
+      ? ''
+      : ` This turns on ${adding} tools and ${currentCount} are already on.`;
+  throw new PlanLimitError(
+    byPlan
+      ? `Your ${plan} plan allows up to ${limit} tools.${already} Turn some off or upgrade to Pro for more.`
+      : `A project can have up to ${limit} tools turned on, each tool from an MCP server or a script counting as one.${already} Turn some off first.`,
+    {
+      feature: constants.PLAN_FEATURE_TOOL,
+      plan,
+      limit,
+      used: currentCount
+    }
   );
+};
+
+// The ceiling assertToolQuota applies, for callers that show it.
+export const toolLimitFor = ({
+  limits
+}: Pick<EffectivePlan, 'limits'>): number =>
+  Math.min(
+    limits.maxToolsPerArtifact ?? constants.CHANNEL_MAX_TOOLS,
+    constants.CHANNEL_MAX_TOOLS
+  );
+
+// The function names of a custom-code row's published version, or [] when
+// nothing is published.
+export const customCodeFunctions = async (
+  executor: DbExecutor,
+  config: unknown
+): Promise<string[]> => {
+  const versionId = (config as { activeVersionId?: unknown } | null)
+    ?.activeVersionId;
+  if (typeof versionId !== 'string') return [];
+  const [version] = await executor
+    .select({ tools: db.schema.artifactToolVersion.tools })
+    .from(db.schema.artifactToolVersion)
+    .where(eq(db.schema.artifactToolVersion.id, versionId))
+    .limit(1);
+  return Array.isArray(version?.tools)
+    ? (version.tools as Array<{ name?: unknown }>)
+        .map(tool => tool?.name)
+        .filter((name): name is string => typeof name === 'string')
+    : [];
+};
+
+// How many tools one install puts in front of a model, reading a script's
+// published functions where it has them.
+export const countInstallToolsIn = async (
+  executor: DbExecutor,
+  install: { toolKey: string; config: unknown; metadata: unknown }
+): Promise<number> =>
+  utils.countInstallTools(
+    install,
+    install.toolKey === constants.TOOL_DEFINITION_KEY_CUSTOM_CODE
+      ? await customCodeFunctions(executor, install.config)
+      : undefined
+  );
+
+// How many tools the artifact's enabled installs put in front of a model,
+// leaving out `excludeToolId` (the row a write is about to replace).
+export const countArtifactTools = async (
+  executor: DbExecutor,
+  artifactId: string,
+  excludeToolId?: string
+): Promise<number> => {
+  const rows = await executor
+    .select({
+      id: db.schema.artifactTool.id,
+      toolKey: db.schema.artifactTool.toolKey,
+      config: db.schema.artifactTool.config,
+      metadata: db.schema.artifactTool.metadata
+    })
+    .from(db.schema.artifactTool)
+    .where(
+      and(
+        eq(db.schema.artifactTool.artifactId, artifactId),
+        eq(db.schema.artifactTool.enabled, true)
+      )
+    );
+  let total = 0;
+  for (const row of rows) {
+    if (row.id === excludeToolId) continue;
+    total += await countInstallToolsIn(executor, row);
+  }
+  return total;
+};
 
 export const assertPromptQuota = (
   { plan, limits }: Pick<EffectivePlan, 'plan' | 'limits'>,
@@ -477,6 +573,9 @@ export const Plan = {
   getEffectivePlan,
   ensureSubscription,
   assertToolQuota,
+  toolLimitFor,
+  countInstallToolsIn,
+  countArtifactTools,
   assertPromptQuota,
   assertChannelQuota,
   assertInviteAllowed,

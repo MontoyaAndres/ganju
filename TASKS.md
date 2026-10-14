@@ -126,41 +126,46 @@ needed for someone to write and ship a tool.
 ## Implement d1 database to sync data with functions
 ## Before onboarding the restaurant clients
 
-Built 2026-10-10, not deployed. Migration `0079` (`channel_participant.memory`,
-index on `channel_message (participant_id, created_at)`) has to run before
-`ganju-api` deploys; the index build locks `channel_message` writes briefly.
-Ship: `0079`, `@ganju/utils` build, `ganju-api`, web.
+Status: voice notes, per-customer limits and memory done 2026-10-13, on dev
+and production (`0079` and `0080` applied on both). WhatsApp calls dropped.
 
-**Voice notes on every channel — M**
+**Voice notes on every channel — M** — done
 
 - WhatsApp, Telegram, Slack and Discord. Each platform holds the audio in the
-  buffer by reference, with empty text (`BufferedVoiceNote`: WhatsApp media
-  id, Telegram file_id, Slack file id, Discord attachment URL). It is
-  downloaded and transcribed when the batch flushes, not in the webhook (30 s
-  `waitUntil`), and the transcript runs as the customer's typed message. Text
-  replies only. `voiceNotes.ts` does the transcribing; each platform supplies
-  the download and the "please type it" reply.
+  buffer by reference, with the text sent alongside (`BufferedVoiceNote`:
+  WhatsApp media id, Telegram file_id, Slack file id, Discord attachment URL)
+  and hands the runner a download function. The runner transcribes once the
+  turn is known to run (message cap, shared backstop, daily limit), so
+  over-cap orgs and limited customers cost no transcription, and the
+  transcript follows any caption. Text replies only (`voiceNotes.ts`).
 - What counts: WhatsApp `audio`; Telegram `voice` and `audio` (in a group,
-  only replying to the bot or a caption that mentions it); Slack a
-  `file_share` in a DM with an audio file; Discord a voice message or audio
-  attachment, in DMs or with an @mention, as before.
-- Transcribed on the shared Gemini model (`DEFAULT_LLM_MODEL`, the
-  `EMBEDDING_API_KEY`) whatever model the channel answers with. Up to 4 MB.
-  The row's `metadata.voiceNote` records type, model and tokens; the
-  conversation view tags it "Voice note".
-- Nothing readable in the batch: the customer is asked to type it (EN/ES/PT —
-  WhatsApp by calling code, Telegram by `language_code`, Discord by locale
-  when known, Slack in English) and no turn runs. A customer past the daily
-  limit isn't transcribed.
-- Downloads only from the platform's own hosts; a page instead of audio is an
-  error, not a transcript.
-- Setup: Slack needs `files:read`, now a required scope in the connector; an
-  app installed before needs the scope added and a reinstall (until then clips
-  get the "please type it" reply). Discord voice messages in servers
-  need the Message Content intent, like text.
-- Checked against the real model: a Spanish order made with `say` came back
-  word for word (286 tokens in, 32 out). Not yet tried with a real voice note
-  on any platform.
+  only replying to the bot or a caption that mentions it); Slack an audio
+  `file_share` in a DM (files sent as an id alone resolved through
+  `files.info`); Discord a voice message or audio attachment, in DMs or with
+  an @mention — a voice message in a server can't mention, so it's ignored
+  there.
+- Who transcribes: own OpenAI / OpenAI-compatible key → `gpt-4o-mini-transcribe`
+  on it; own Google key → Gemini on it; Anthropic (no audio input) and the
+  shared tier → Gemini on `EMBEDDING_API_KEY`. An own-key failure falls back
+  to ours (logged `channel-voice-note-own-key`).
+- Capped at 5 minutes (`VOICE_NOTE_MAX_SECONDS`): refused before download where
+  the platform reports the length (Telegram, Discord, Slack), measured from
+  the Ogg file on WhatsApp (`oggDurationSeconds`), 5 MB backstop. Replies,
+  recorded and tagged in the conversation: "muy larga… en partes más cortas"
+  for a long note, "no pude entender… ¿me lo escribes?" when nothing was
+  readable (a caption alone is answered instead).
+- Tracked, not billed: `metadata.voiceNote` per row (provider, model, `paidBy`,
+  length, tokens); `subscription.voice_note_count / _seconds /
+  _platform_count`, snapshotted into `usage_period`, a line on the billing
+  page. Revisit pricing (per audio minute on our key) if a client sends
+  hundreds of notes a day.
+- Setup: Slack needs `files:read` (required scope in the connector; apps
+  installed before need it added and a reinstall). Discord servers need the
+  Message Content intent, like text.
+- Tested with real notes: Telegram and Discord on dev (Gemini, then the
+  org's OpenAI key; 3 notes / 56 s counted), WhatsApp on production
+  (perros.com, own OpenAI key: 5, 8 and 11 s transcribed and answered, 24 s
+  counted; a 5:13 note measured from the file and refused as too long).
 
 **Answering WhatsApp calls — dropped for now (2026-10-13)**
 
@@ -170,59 +175,40 @@ reject`) and write to the caller — a user-initiated call opens the 24-hour
 window even unanswered. Needs calling enabled per number (`/settings`) and the
 app's webhook subscribed to `calls`.
 
-**Per-customer limits — S–M**
+**Per-customer limits — S–M** — done
 
 - Replies per customer in a rolling 24 hours, `config.participantDailyLimit`,
-  default 50, 0 = off. Over it: the first message gets a notice (a row tagged
-  `participantLimit`, not counted, not billed), later ones get nothing until
-  the window frees up. Discord answers the notice again, since a slash command
-  waits on a response.
-- Counted beside the participant upsert, no extra round trip.
+  default 50, 0 = off; counted beside the participant upsert. Each time the
+  limit is reached the first message gets a notice (a row tagged
+  `participantLimit`, not counted, not billed, kept out of model history),
+  claimed under a per-participant advisory lock; later messages get nothing
+  until the window frees up. Discord answers a waiting slash command with the
+  notice again; plain messages stay quiet.
+- Soft limit: two messages at 49 can both be answered (51).
 
-**Persistent memory — M**
+**Persistent memory — M** — done
 
-- Off by default (`config.participantMemory`), private conversations only.
-  The runner adds its own `remember-customer` tool (reserved name) and a
-  system-prompt section with the saved facts, marked as data, plus when to use
-  them (offer the saved address, mention a date in the next two weeks).
+- Off by default (`config.participantMemory`), private conversations only; in
+  a group the bot says it only remembers in a private chat. The runner adds
+  its own `remember-customer` tool (reserved name) and a system-prompt section
+  with the saved facts, marked as data.
 - Up to 25 facts, one line each; an empty value forgets one, `forgetAll`
-  forgets everything. The conversation view shows them with "Forget"
-  (`DELETE …/participant/:id/memory`).
-- Not tried with a model yet.
+  forgets everything; the conversation view shows them with "Forget"
+  (`DELETE …/participant/:id/memory`). Saves apply to the stored row under
+  `FOR UPDATE`, so "Forget" mid-turn holds. A save after outside content is
+  held for the customer's yes.
+- Tested with models on dev and production (probe) and on the dev Telegram
+  and Discord bots. Not seen live: the hold — in every run the model ignored
+  the planted "90% discount" and never tried to save.
 
-**Review fixes — 2026-10-13** (code done; dev deploy pending, then
-`scripts/probe-channel-customers.mjs`)
+**Channel settings** — done
 
-- Discord stays quiet past the limit; only a waiting slash command gets the
-  notice again.
-- Voice notes are transcribed by the runner once the turn is known to run (cap,
-  shared backstop, daily limit), so one check decides it and over-cap orgs cost
-  no transcription. A transcript follows the caption; an unreadable note keeps
-  the caption, and with nothing else the reply asking to type it is recorded.
-- The limit notice is due each time the limit is reached (no notice since the
-  last reply), claimed under an advisory lock per participant.
-- `remember-customer` after outside content is held for a yes. Saves apply to
-  the stored row under `FOR UPDATE`, so "Forget" mid-turn holds.
-- Own Google key transcribes on that key. Anthropic/OpenAI keys still use ours,
-  unmetered (a few hundred tokens per note) — revisit if voice volume grows.
-- Dashboard settings save as `configPatch`, merged in SQL.
-- Slack file shares with only a file id are resolved through `files.info`.
+- Dashboard saves send `configPatch`, merged in SQL; `CHANNEL_CONFIG` is
+  strict, so unknown keys are refused.
 
-**Voice: length cap, own keys, tracking — 2026-10-13** (migration `0080`)
-
-- Capped at 5 minutes (`VOICE_NOTE_MAX_SECONDS`): refused before download where
-  the platform reports the length (Telegram, Discord, Slack), measured from the
-  Ogg file otherwise (WhatsApp), 5 MB backstop. Reply: "muy larga… en partes
-  más cortas o escríbenos", tagged "too long".
-- Own OpenAI / OpenAI-compatible keys transcribe with `gpt-4o-mini-transcribe`
-  on their key; own Google keys with Gemini on theirs; Anthropic and the shared
-  tier on ours. Own-key failures fall back to ours.
-- Not billed. `subscription.voice_note_count / _seconds / _platform_count`,
-  snapshotted into `usage_period`; a line on the billing page.
-- Channel settings are strict: unknown keys are refused.
-
-**perros.com delivery orders — S** — not started: the tool is only in
-production. See the observability notes above.
+**Verification**: `scripts/probe-channel-customers.mjs` — 39/39 on dev and on
+production (`--prod`), 2026-10-13; throwaway org removed. It leaves its three
+deliberate 400s in production's `error_log` (no channel tag to clean them by).
 
 ---
 
@@ -561,6 +547,19 @@ on its own: the API's crons only run error alerts and overage metering.
     `gmail-send` itself (the test artifact had calendar tools, which take the
     same path). A CLI release is needed for `annotations` in `ganju.json`.
   - Follow-ups: the calendar token refresh failure (its own task);
+    likely cause found 2026-10-13: a refresh that failed for any reason but
+    a revoked grant was swallowed and the expired token used, so Google
+    answered "invalid authentication credentials" and the next request
+    refreshed fine. Now (code only, not deployed) the MCP worker and
+    tool-broker retry once after 300 ms and log `credential-refresh-failed`;
+    if the MCP worker is left with only expired tokens, the tool answers
+    "could not be renewed just now… try again" instead of calling Google.
+    Ship: `ganju-mcp`, `ganju-tool-broker`.
+    Checked locally 2026-10-13 against a scripted token endpoint (8/8):
+    two 503s → two calls 300 ms apart and `refreshFailed`; 30 s left → not
+    failed; 503 then 200 → refreshed; `invalid_grant` → one call and
+    `needsReauth`; network errors → `refreshFailed`. The MCP boot message
+    for it isn't driven on dev (a token endpoint failure can't be forced).
     confirmation for MCP clients is 4b, done.
 
 **4b. Confirmation for MCP clients — S, done**
@@ -1039,9 +1038,78 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
 + 7 (both in the channel runner), then 5 + 6.
 
 - Bug: when adding an mcp tool (github or notion) the switch look wrong for showing the tools in the mcp and then i allow all tools, it over pass the limit we define, it is not validated
+  - Limit fixed 2026-10-13, code only (not deployed, not tried in a browser).
+    The tool limit counted install rows, so one GitHub install was 1 of
+    Free's 7 with 48 tools on. Now `utils.countInstallTools` counts an MCP
+    server as the tools it allows; `Plan.countArtifactTools` sums the
+    enabled installs, and install, enable and a proxy edit that allows more
+    tools are checked against it (allowing fewer always saves). The connect
+    dialog shows how many fit, turns all on only when they do, and disables
+    "All" and further switches at the cap. Tool health's quota uses the same
+    count. Ship: `@ganju/utils` build, `ganju-api`, web. Projects already
+    over stay over until they trim; nothing is switched off for them.
+  - Tested on dev 2026-10-13 (`scripts/probe-limits-paging.mjs`, FREE then
+    PRO throwaway org, 34/34; the MCP-server install is written with its
+    discovery stored, since dev has no server it can proxy to without a
+    token, so install-time discovery and a proxy edit are not driven): a
+    10-tool server refused, 5 allowed fit, 6th and 7th tools installed and
+    the 8th refused, the MCP server registered exactly those 7, Tool health
+    said 7 and dropped by 5 when the server was turned off. In the browser
+    (FREE, 2 tools on, a GitHub install allowing 3 of 10): the dialog says
+    "Aquí puedes activar 5", "Todas" is disabled, at 5 on the other switches
+    are disabled and turning one off frees them.
+  - 40-tool ceiling enforced on every plan, 2026-10-14 (code only, not
+    deployed). Reported again from a PRO project on dev (13 built-ins, a
+    script and GitHub's 49 tools: 62 on) — PRO has no plan limit, so the fix
+    above never applied, and CHANNEL_MAX_TOOLS was only a red meter plus the
+    channel runner dropping the extras. Decided: the limit is the plan's or
+    40, whichever is lower (`Plan.toolLimitFor`), checked on install,
+    enable, an edit that allows more, and a script publish or rollback
+    with more functions (before anything deploys). A script now counts as
+    the functions of its published version it keeps
+    (`Plan.countInstallToolsIn`). Past 40 the message doesn't say upgrade.
+    The GitHub dialog, Tool health and its disable warning use the same
+    numbers. Projects already over (that one) keep working and can trim;
+    they can't grow. The runner's cut stays as the backstop. Probe extended
+    (`scripts/probe-limits-paging.mjs`, PRO section).
+  - Tested on dev 2026-10-14 after the deploy: probe 44/44 (FREE 7, PRO
+    40: a 45-tool server refused without "upgrade", 38 fit next to 2, the
+    41st refused, Tool health 40/40, a 2-function publish at 39 refused
+    before deploying; paging as before). Browser, PRO with 2 on and a
+    45-tool GitHub install: "Un proyecto puede tener 40… activar 38", "Todas"
+    disabled, the rest locked at 38; the footer switch's thumb sits where a
+    checked list switch's does (50%), and Disconnect's text has its 4px.
+  - "The switch looks wrong" is the dialog's footer switch ("Expuestas"): the
+    footer's button rule reached the switch's ButtonBase and its override
+    set the padding to 0, so an "on" switch drew its thumb at the left.
+    Fixed in the tools styles (4px, as MUI's small switch); checked on dev by
+    injecting the rule (thumb at 50% of the switch, like a checked list
+    switch). Needs web deployed.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
+  - Done 2026-10-13, code only (not deployed). `list-resources` takes
+    `cursor` and `limit` (default 100, max 500) and answers
+    `{resources, total, nextCursor?}`, paged by uri so an added resource
+    doesn't shift pages; the channel runner pages its merged list
+    (artifact + proxied) the same way (`utils.listResourcesPage`).
+    Custom-code and HTTP endpoint results are read whole and only the text
+    for the model is cut (`utils.capText`): a note says how much was left out
+    and names the result's own next-page key when it has one. Before, the cut
+    came first, so a large custom-code output failed as "not valid JSON" and a
+    large JSON endpoint couldn't be parsed or `jsonPath`-ed. Proxied results
+    stay uncut by design (flattened whole past the budget), so a remote
+    server's own cursor always reaches the model. Ship: `@ganju/utils` build,
+    `ganju-mcp`, `ganju-api`.
+  - Tested on dev 2026-10-13 (same probe): 230 resources walked in 3 pages
+    of 100 by cursor, in uri order, each once; limit 500 returns all, over
+    500 is refused by the schema, a made-up cursor says so. A 1 MB JSON
+    endpoint comes back as parsed, pretty-printed JSON cut at 256 KB with
+    the note; `jsonPath` reaches item 4999 of it; PokéAPI cut at 600 bytes
+    names `next: …offset=20`. A custom-code tool returning 566 KB is cut with
+    `nextCursor: page-2` named (not "not valid JSON") and keeps its whole
+    structured copy; a small output is untouched. The channel runner's
+    `list-resources` isn't driven.
 - **Per-user limits on channels** — calls or messages per participant per day,
   for abuse and cost on public bots. Only per-tool limits exist today.
 - **Persistent memory** — Claude and ChatGPT already have their own; mainly

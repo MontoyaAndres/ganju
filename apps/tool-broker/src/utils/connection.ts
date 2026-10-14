@@ -90,12 +90,21 @@ export const resolveConnection = async (
       ? (credential.metadata as Record<string, unknown>)
       : null;
 
-  try {
-    const refreshed = await utils.refreshOAuthToken({
+  const refresh = () =>
+    utils.refreshOAuthToken({
       tokenUrl: providerConfig.tokenUrl,
       clientId,
       clientSecret,
       refreshToken: refreshTokenPlain
+    });
+
+  try {
+    // One retry: a failed refresh is usually the token endpoint hiccuping, and
+    // the expired token it falls back to can only fail at the vendor.
+    const refreshed = await refresh().catch(async error => {
+      if (error instanceof utils.OAuthReauthRequiredError) throw error;
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return refresh();
     });
 
     const nextAccessToken = refreshed.accessToken;
@@ -133,6 +142,11 @@ export const resolveConnection = async (
     }
     // Transient refresh failure — hand back the token we have rather than
     // failing the tool call outright; the provider may still accept it.
+    console.error(
+      `credential-refresh-failed ${provider} ${credential.id}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
     return base;
   }
 };

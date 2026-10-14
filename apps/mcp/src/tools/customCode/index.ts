@@ -70,13 +70,6 @@ export const parseCustomCodeTools = (raw: unknown): CustomCodeToolEntry[] => {
   return parsed;
 };
 
-const capBytes = (body: ArrayBuffer, maxBytes: number): string => {
-  const truncated = body.byteLength > maxBytes;
-  const slice = truncated ? body.slice(0, maxBytes) : body;
-  const decoded = new TextDecoder().decode(slice);
-  return truncated ? `${decoded}\n…[truncated]` : decoded;
-};
-
 /**
  * Run one tool from an artifact's deployed script.
  *
@@ -183,10 +176,9 @@ export const executeCustomCodeCall = async (
     };
   }
 
-  const raw = capBytes(
-    await response.arrayBuffer(),
-    utils.constants.CUSTOM_CODE_MAX_RESPONSE_BYTES
-  );
+  // Read whole: the cap is for the text the model gets, and cutting the
+  // envelope would turn a large output into "not valid JSON".
+  const raw = await response.text();
 
   if (!response.ok) {
     // A non-2xx here is the platform refusing to run the script (exceeded CPU,
@@ -253,10 +245,13 @@ export const executeCustomCodeCall = async (
       content: [
         {
           type: 'text',
-          text:
+          text: utils.capText(
             typeof output === 'string'
               ? output
-              : JSON.stringify(output ?? null, null, 2)
+              : JSON.stringify(output ?? null, null, 2),
+            utils.constants.CUSTOM_CODE_MAX_RESPONSE_BYTES,
+            utils.findNextCursor(output)
+          )
         }
       ],
       ...(structured ? { structuredContent: structured } : {})

@@ -2017,25 +2017,45 @@ const executeToolCall = async (
     // list-resources/read-resource tools' artifact-only view.
     let result: unknown;
     if (call.name === utils.constants.RESOURCE_TOOL_KEY_LIST_RESOURCES) {
-      let items: Array<{
+      const items: Array<{
         uri: string;
         title?: string;
         description?: string;
         mimeType?: string;
       }> = [];
       try {
-        const listed = await client.listResources();
-        items = (listed.resources || []).map(r => ({
-          uri: r.uri,
-          title: r.title || r.name,
-          description: r.description,
-          mimeType: r.mimeType
-        }));
+        // The whole set, then the model's page of it: the native tool pages
+        // the same way, so a cursor means the same thing on either path.
+        let protocolCursor: string | undefined;
+        do {
+          const listed = await client.listResources(
+            protocolCursor ? { cursor: protocolCursor } : undefined
+          );
+          for (const r of listed.resources || []) {
+            items.push({
+              uri: r.uri,
+              title: r.title || r.name,
+              description: r.description,
+              mimeType: r.mimeType
+            });
+          }
+          protocolCursor = listed.nextCursor;
+        } while (protocolCursor);
       } catch (err: any) {
         // -32601 = server registered no resources; an empty list is correct.
         if (err?.code !== -32601) throw err;
       }
-      result = { content: [{ type: 'text', text: JSON.stringify(items) }] };
+      result = {
+        content: [
+          {
+            type: 'text',
+            text: utils.listResourcesPage(items, call.arguments || {}, {
+              defaultLimit: utils.constants.LIST_RESOURCES_DEFAULT_LIMIT,
+              maxLimit: utils.constants.LIST_RESOURCES_MAX_LIMIT
+            })
+          }
+        ]
+      };
     } else if (
       call.name === utils.constants.RESOURCE_TOOL_KEY_READ_RESOURCE &&
       uri &&
