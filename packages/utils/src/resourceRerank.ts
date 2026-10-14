@@ -15,7 +15,8 @@ type RerankResponse = {
 };
 
 /**
- * The cross-encoder second stage for resource search, or undefined when the
+ * The cross-encoder second stage for resource search, or undefined when it is
+ * off (RESOURCE_SEARCH_RERANK_ENABLED, unless `enabled` overrides it) or the
  * Worker has no `AI` binding — local dev without Workers AI keeps plain fusion.
  *
  * Returns one score per document, in input order. A response that doesn't
@@ -23,10 +24,12 @@ type RerankResponse = {
  * ranking would silently drop the chunks it left out.
  */
 export const createResourceReranker = (
-  source: EnvSource
+  source: EnvSource,
+  enabled: boolean = constants.RESOURCE_SEARCH_RERANK_ENABLED
 ):
   | ((query: string, documents: string[]) => Promise<number[] | null>)
   | undefined => {
+  if (!enabled) return undefined;
   const ai = (source.env as { AI?: RerankAiBinding } | undefined)?.AI;
   if (!ai) return undefined;
 

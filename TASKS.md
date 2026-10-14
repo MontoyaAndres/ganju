@@ -576,7 +576,8 @@ on its own: the API's crons only run error alerts and overage metering.
     was then deleted.
   - Not checked by hand: another person's tap on Discord being refused, and
     `gmail-send` itself (the test artifact had calendar tools, which take the
-    same path). A CLI release is needed for `annotations` in `ganju.json`.
+    same path; `gmail-send` held and confirmed on Telegram 2026-10-14, see
+    "A slow model turn" below). A CLI release is needed for `annotations` in `ganju.json`.
   - Follow-ups: the calendar token refresh failure (its own task);
     likely cause found 2026-10-13: a refresh that failed for any reason but
     a revoked grant was swallowed and the expired token used, so Google
@@ -1155,7 +1156,7 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
     set the padding to 0, so an "on" switch drew its thumb at the left.
     Fixed in the tools styles (4px, as MUI's small switch); checked on dev by
     injecting the rule (thumb at 50% of the switch, like a checked list
-    switch). Needs web deployed.
+    switch). Live: the rule is in app.ganju.ai's bundle (checked 2026-10-14).
 - **A slow model turn holds the customer's next messages** (seen 2026-10-14
   on @sdasdasdasdasdasdbotbot, own key, `gemini-3.1-pro-preview`): one turn
   waited ~4 min on `generateContent` and failed with a 524 ("Sorry, something
@@ -1173,8 +1174,31 @@ Suggested order: 1 + 2 together (one migration and one query), then 3, then 4
   telling the customer it's slow) rather than waiting on the provider.
   - Left as is, 2026-10-14: treated as a provider error on that model, not
     ours. A per-call timeout with a "taking a while" notice was started and
-    reverted before deploying. The channel confirmation in front of
-    `gmail-send` is still not seen live; retry it on a faster model.
+    reverted before deploying.
+  - Channel confirmation in front of `gmail-send`, seen live on dev
+    2026-10-14 (Shipday's bot, with the switch on and its LLM moved to
+    `gemini-3.8-flash` for the test, both put back after): each turn answered
+    in 9–13 s. The request was held with its summary under the question; "no"
+    recorded `declined` and sent nothing; a fresh request held one call and
+    "sí" ran the stored call. It failed on Gmail's expired token, so no email
+    went out, and the bot told the customer to reconnect Gmail on the Tools
+    page (the apps/mcp no-secrets case, as decided).
+  - Found there: the first question held three sends — the new request plus
+    the two earlier ones whose turns had failed with a 524. A failed turn
+    leaves the user's message unanswered in history, so the next turn picks
+    it up again. The summary shows every held call, so nothing runs unseen,
+    but a plain yes would have sent all three.
+  - Fixed 2026-10-14, on dev and production: when a turn throws after its
+    messages are recorded and before its answer is, the runner marks those
+    user rows `turnFailed`. History puts a note after them as the
+    assistant's answer: not done, the user was told it failed, don't carry
+    it out unless asked again. A re-sent buffer batch replaces its rows, so
+    the mark goes with them. Rows from before the fix stay unmarked.
+  - Verified on dev 2026-10-14 (Shipday's bot, its model set to a bad name
+    for one turn and then put back): "send an email to
+    placeholder@example.invalid…" failed and its row was marked
+    `turnFailed`. The next message ("What time zone are you in?") got only
+    that answer, with no tool call and no email attempt.
 - **Pagination for large outputs** — a cursor on `list-resources`, and one
   consistent "truncated, call again with cursor X" shape for custom-code, HTTP
   endpoint and proxied results (they already truncate).
@@ -1295,7 +1319,73 @@ production 2026-10-14 (`0081` applied on both).
   - Search: semantic misses in both sets; no switch to measure the reranker
     on Spanish; a composite `(artifact_id, content_tsv)` index and a trigram
     index for the text fallback on large artifacts.
+    - 2026-10-14, code only (not deployed): `--no-rerank` on
+      `scripts/eval-resource-search.mjs` sends `x-ganju-eval-rerank: off`,
+      which the MCP worker honours only with the internal secret, so the
+      fused order can be measured against the reranked one. Ship:
+      `@ganju/utils` build, `ganju-mcp`.
+    - Spanish golden set `scripts/golden/dev-es-shipday-ayssa.json` (23
+      cases on 053e…: the Shipday `/es/` pages with their English twins,
+      the GCCON-F-088 form, the Ayssa brand-image guide). Reranked on dev:
+      exact 3/3; semantic hit@1 9/20, hit@3 11/20, MRR 0.52
+      (`scripts/golden/es-rerank.json`). The no-rerank run waits on the
+      deploy.
+    - Most Spanish misses land on another Shipday page, and the index shows
+      why: chunks 0–6 of every Shipday page are the site's mega-menu (76
+      of 610 chunks; ~7,000 characters a page), so a query about refunds or
+      reports matches every page's menu. The crawler now drops `nav` and
+      `role="navigation"` inside the extraction root too (code only; ships
+      with `ganju-api`, which builds the resource-handler). Headers and
+      footers stay: a restaurant's address and hours often live there.
+      Shipday's root has sync off, so its pages change only with "Sync
+      now" — then re-run the Spanish set against `es-rerank.json`.
+    - Deployed to dev 2026-10-14 and Shipday re-synced: menu chunks 95 → 0,
+      its chunks 610 → 387. Spanish semantic hit@1 9/20 → 17/20, MRR 0.52 →
+      0.87 (reranked).
+    - Reranker on vs off, same day, all three sets (hit@1, MRR):
+      Spanish 20/23 0.884 vs 20/23 0.906; mml-ayssa-sharely 13/14 0.938 vs
+      14/14 1.000; supabase-shipday-history 16/26 0.728 vs 19/26 0.818.
+      Case by case the fused order wins 10, the reranker 5 (one big one:
+      "free custom email addresses…" 7 → 1). The reranker also costs
+      0.5–0.9 s a search and a ~6 s cold start. The supabase set's Shipday
+      pages (5a9bb…) still carry the menu; not re-synced.
+    - Decided 2026-10-14: reranker off by default
+      (`RESOURCE_SEARCH_RERANK_ENABLED = false`; code only, not deployed).
+      The code stays; the eval's `--rerank` / `--no-rerank` set
+      `x-ganju-eval-rerank: on|off` to measure either way. Ship:
+      `@ganju/utils` build, `ganju-mcp`, `ganju-tool-broker`. utils tests
+      127/127.
+    - On dev 2026-10-14 after the deploy: a run with no flag matches
+      `--no-rerank`, so the default is off. Shipday's re-sync moved
+      review-management to `/es/features/`, now in the Spanish set's
+      expectations. With the default: Spanish exact 3/3, semantic hit@1
+      18/20, hit@3 20/20, MRR 0.949; mml-ayssa-sharely 14/14, MRR 1.000;
+      supabase-shipday-history exact 12/12, semantic hit@1 7/14, hit@3
+      11/14, MRR 0.818. Baselines: `scripts/golden/*-default.json`.
+      Production: `ganju-api`, `ganju-mcp`, `ganju-tool-broker`, then "Sync
+      now" on websites crawled before the nav change.
+    - Indexes, measured on dev's 7,027-chunk artifact: a common word on the
+      lexical side 25 ms, a rare one 0.2 ms through the existing GIN index,
+      the substring fallback for a code the index never saw 52 ms (so ~150
+      ms at its 20,000-chunk cap). Production has 3,152 chunks in 4
+      artifacts, 3,124 of them in one. Neither index is worth a migration
+      and an extension (`btree_gin`, `pg_trgm`) yet; revisit when an
+      artifact passes ~20,000 chunks or many artifacts share the table.
   - Not seen live: the crawler's browser screening redirects before they
     are sent (needs a crawl of a site that redirects).
+    - Seen live on dev 2026-10-14, three one-page website resources in the
+      test org (removed after): a 302 from httpbin to
+      `http://127.0.0.1:8082/` (the container's own port) completed with no
+      pages; a page with only a `#root` div, which goes to Playwright, whose
+      script navigated through the same 302 failed with "failed to extract
+      page" and indexed nothing; the same page redirecting to
+      `https://example.com/` instead indexed example.com's text — so the
+      browser path works and only the private hop was refused.
   - Publishing a custom-code version while its bundle uploads overwrites
     the bundle in R2 (pre-existing).
+    - Fixed 2026-10-14, code only (not deployed): the bundle's key carries
+      its hash (`v<n>-<sha256>.js`), so an upload never rewrites an object a
+      published version points at; rows written before keep `v<n>.js`. A
+      refused upload removes what it stored (unless the same bytes were
+      published under that key) and a successful one removes the draft's
+      previous bundle. Ship: `ganju-api`.

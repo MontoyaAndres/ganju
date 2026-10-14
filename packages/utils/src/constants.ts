@@ -992,10 +992,14 @@ const RESOURCE_SEARCH_RRF_K = 60;
 // keeps its words.
 const RESOURCE_SEARCH_COMMON_TERM_DIVISOR = 10;
 const RESOURCE_SEARCH_COMMON_TERM_MIN = 5;
-// Second stage, on wherever the Worker has an AI binding: the top fused
-// candidates are re-scored by a cross-encoder, which reads query and chunk
-// together instead of comparing two independently computed vectors. One model
-// call per search; a failure falls back to the fused order.
+// Second stage: the top fused candidates re-scored by a cross-encoder, which
+// reads query and chunk together instead of comparing two independently
+// computed vectors. One model call per search; a failure falls back to the
+// fused order. Off by default: on the golden sets (Spanish and English) the
+// fused order matched or beat it on every set — 10 cases better, 5 worse — and
+// it added 0.5–0.9 s a search plus a ~6 s cold start. The search eval can
+// still turn it on per request to re-measure.
+const RESOURCE_SEARCH_RERANK_ENABLED = false;
 const RESOURCE_SEARCH_RERANK_CANDIDATES = 30;
 const RESOURCE_SEARCH_RERANK_MODEL = '@cf/baai/bge-reranker-base';
 // An identifier in the query (a code mixing letters and digits, a snake_case
@@ -1834,6 +1838,10 @@ const MCP_AUTH_KINDS = [MCP_AUTH_KIND_JWT, MCP_AUTH_KIND_INTERNAL];
 const MCP_SESSION_HEADER = 'mcp-session-id';
 
 const MCP_INTERNAL_HEADER = 'x-ganju-internal-secret';
+// Sent with the internal secret by the search eval to measure the reranker:
+// `on` or `off` overrides RESOURCE_SEARCH_RERANK_ENABLED for that request.
+// Ignored on any other request.
+const MCP_EVAL_RERANK_HEADER = 'x-ganju-eval-rerank';
 const MCP_CHANNEL_ID_HEADER = 'x-ganju-channel-id';
 const MCP_CHANNEL_PLATFORM_HEADER = 'x-ganju-channel-platform';
 // The conversation a channel turn belongs to. The MCP worker files that turn's
@@ -2840,6 +2848,7 @@ export const constants = {
   RESOURCE_SEARCH_RRF_K,
   RESOURCE_SEARCH_COMMON_TERM_DIVISOR,
   RESOURCE_SEARCH_COMMON_TERM_MIN,
+  RESOURCE_SEARCH_RERANK_ENABLED,
   RESOURCE_SEARCH_RERANK_CANDIDATES,
   RESOURCE_SEARCH_RERANK_MODEL,
   RESOURCE_SEARCH_EXACT_MAX_RESOURCES,
@@ -3025,6 +3034,7 @@ export const constants = {
   CUSTOM_CODE_RESOURCE_FILE_TOO_LARGE_MESSAGE,
   RESERVED_SLUGS,
   MCP_INTERNAL_HEADER,
+  MCP_EVAL_RERANK_HEADER,
   MCP_CHANNEL_ID_HEADER,
   MCP_CHANNEL_PLATFORM_HEADER,
   MCP_CHANNEL_CONVERSATION_HEADER,

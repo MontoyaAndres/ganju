@@ -428,14 +428,18 @@ export const loadVersionForTool = async (
 };
 
 // R2 key for a version's bundle. Keyed by artifact AND version so a rollback can
-// always fetch the exact source that produced the script it is restoring.
+// always fetch the exact source that produced the script it is restoring, and
+// by the bundle's hash so an object is never rewritten: an upload racing a
+// publish writes a key of its own instead of changing the bytes the published
+// version points at. Rows written before the hash was added keep `v<n>.js`.
 export const bundleSourceKey = (
   organizationId: string,
   projectId: string,
   artifactId: string,
-  version: number
+  version: number,
+  sourceHash: string
 ): string =>
-  `${utils.constants.CUSTOM_CODE_SOURCE_KEY_PREFIX}/${organizationId}/${projectId}/${artifactId}/v${version}.js`;
+  `${utils.constants.CUSTOM_CODE_SOURCE_KEY_PREFIX}/${organizationId}/${projectId}/${artifactId}/v${version}-${sourceHash}.js`;
 
 // SHA-256 of the uploaded bytes, hex-encoded. Stored as sourceHash for dedupe
 // and to prove the object in R2 is the source a version claims to have.

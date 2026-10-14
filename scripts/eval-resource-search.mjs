@@ -17,6 +17,10 @@
 // code) should land in the top 3, and a paraphrase must not get worse than it
 // was before the change being measured.
 //
+// --rerank / --no-rerank turn the reranker on or off for the run, whatever the
+// server's default (it honours that only with the internal secret), to
+// measure what reranking adds.
+//
 // --out writes the per-case ranks; --baseline compares against an earlier --out
 // and lists every case that moved, so "semantic queries did not get worse" is
 // a list you can read rather than an average that can hide one bad regression.
@@ -36,7 +40,7 @@ const flagValues = new Set(['--out', '--baseline'].map(flag));
 const goldenPath = args.find(a => !a.startsWith('--') && !flagValues.has(a));
 if (!goldenPath) {
   console.error(
-    'usage: node scripts/eval-resource-search.mjs <golden.json> [--prod] [--out file] [--baseline file]'
+    'usage: node scripts/eval-resource-search.mjs <golden.json> [--prod] [--rerank|--no-rerank] [--out file] [--baseline file]'
   );
   process.exit(1);
 }
@@ -67,6 +71,12 @@ if (!MCP_URL || !MCP_SECRET) {
 const golden = JSON.parse(fs.readFileSync(goldenPath, 'utf8'));
 const LIMIT = 10;
 
+const rerankMode = args.includes('--no-rerank')
+  ? 'off'
+  : args.includes('--rerank')
+    ? 'on'
+    : null;
+
 let rpcId = 0;
 const searchResources = async query => {
   const res = await fetch(`${MCP_URL}/${golden.slug}`, {
@@ -74,7 +84,8 @@ const searchResources = async query => {
     headers: {
       'content-type': 'application/json',
       accept: 'application/json, text/event-stream',
-      'x-ganju-internal-secret': MCP_SECRET
+      'x-ganju-internal-secret': MCP_SECRET,
+      ...(rerankMode ? { 'x-ganju-eval-rerank': rerankMode } : {})
     },
     body: JSON.stringify({
       jsonrpc: '2.0',
@@ -122,7 +133,9 @@ const summarize = rows => {
   return `n=${rows.length}  hit@1=${hit(1)}/${rows.length}  hit@3=${hit(3)}/${rows.length}  MRR=${mrr.toFixed(3)}`;
 };
 
-console.log(`\n${golden.slug} @ ${MCP_URL}\n`);
+console.log(
+  `\n${golden.slug} @ ${MCP_URL}${rerankMode ? ` (rerank ${rerankMode})` : ''}\n`
+);
 for (const r of results) {
   const mark = r.rank === null ? 'MISS' : `#${r.rank}`.padEnd(4);
   console.log(`  ${mark} [${r.kind}] ${r.query}`);

@@ -57,7 +57,10 @@ export const searchResources: ToolDefinition = {
       query,
       embedding: queryEmbedding,
       limit,
-      rerank: utils.createResourceReranker({ env: context.env }),
+      rerank: utils.createResourceReranker(
+        { env: context.env },
+        context.rerank
+      ),
       timings
     });
 

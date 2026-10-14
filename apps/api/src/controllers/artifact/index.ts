@@ -1776,7 +1776,10 @@ const createCustomCodeVersion = async (c: Context<AppEnv>) => {
     result.toolId,
     currentValues.manifest
   ).catch(error => {
-    console.error('Tool linter failed; returning the version without it', error);
+    console.error(
+      'Tool linter failed; returning the version without it',
+      error
+    );
     return [];
   });
 
@@ -1867,7 +1870,8 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
     currentValues.organizationId,
     currentValues.projectId,
     artifact.id,
-    version.version
+    version.version,
+    sourceHash
   );
 
   if (bucket) {
@@ -1896,7 +1900,27 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
       )
     )
     .returning();
-  if (!updated) throw new Error(draftOnly);
+  if (!updated) {
+    // Published meanwhile, so nothing points at what was just stored — unless
+    // the same bytes were published under the same key.
+    if (bucket) {
+      const [current] = await dbInstance
+        .select({ sourceKey: db.schema.artifactToolVersion.sourceKey })
+        .from(db.schema.artifactToolVersion)
+        .where(eq(db.schema.artifactToolVersion.id, version.id))
+        .limit(1);
+      if (current?.sourceKey !== key) {
+        await bucket.delete(key).catch(() => undefined);
+      }
+    }
+    throw new Error(draftOnly);
+  }
+
+  // The draft's previous bundle, replaced by this one. Best-effort: a leftover
+  // object costs storage, not correctness.
+  if (bucket && version.sourceKey && version.sourceKey !== key) {
+    await bucket.delete(version.sourceKey).catch(() => undefined);
+  }
 
   return c.json(updated);
 };

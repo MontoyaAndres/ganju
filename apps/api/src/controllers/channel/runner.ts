@@ -242,9 +242,37 @@ const mintBotToken = async (
   }
 };
 
+// What a turn has written so far, for marking it if it then fails.
+interface TurnRecord {
+  userMessages: Array<{ id: string; metadata: unknown }>;
+  answered: boolean;
+}
+
 export const runChannelTurn = async (
   c: Context<AppEnv>,
   options: RunOptions
+): Promise<RunResult> => {
+  const record: TurnRecord = { userMessages: [], answered: false };
+  try {
+    return await runTurn(c, options, record);
+  } catch (error) {
+    // The platform tells the customer something went wrong, but nothing
+    // answered these rows. Left unmarked, the next turn reads them as a request
+    // still waiting and acts on it again — a failed "send an email" was sent
+    // along with the next one.
+    if (record.userMessages.length > 0 && !record.answered) {
+      await markTurnFailed(db.create(c), record.userMessages).catch(
+        () => undefined
+      );
+    }
+    throw error;
+  }
+};
+
+const runTurn = async (
+  c: Context<AppEnv>,
+  options: RunOptions,
+  record: TurnRecord
 ): Promise<RunResult> => {
   if (
     !utils.constants.CHANNEL_CONVERSATION_SCOPES.includes(
@@ -494,6 +522,7 @@ export const runChannelTurn = async (
     return rows;
   });
   const userMessage = userMessageRows[userMessageRows.length - 1];
+  record.userMessages = userMessageRows;
 
   // The inbound user message is recorded above regardless; if the org is over
   // its cap we reply with a one-line notice and skip the (costly) LLM
@@ -1430,6 +1459,7 @@ export const runChannelTurn = async (
     })
     .returning();
   assistantMessageId = assistantMessage.id;
+  record.answered = true;
 
   // Open the question only once the reply asking it is recorded, so the
   // participant can't answer a question they haven't been shown. It sits
@@ -1957,7 +1987,7 @@ const loadRecentHistory = async (
     )
     .limit(limit + excludeIds.size);
 
-  return rows
+  const kept = rows
     .filter(
       r =>
         !excludeIds.has(r.id) &&
@@ -1973,11 +2003,52 @@ const loadRecentHistory = async (
         ]
     )
     .slice(0, limit)
-    .reverse()
-    .map(r => ({
+    .reverse();
+
+  const history: LlmMessage[] = [];
+  kept.forEach((r, i) => {
+    history.push({
       role: r.role as 'user' | 'assistant',
       content: withoutConfirmationSummary(r.content || '', r.metadata)
-    }));
+    });
+    // A failed turn has no answer of its own; this one stands in for the
+    // error the customer was shown, after the last of its messages.
+    if (
+      isFailedTurnMessage(r.metadata) &&
+      !isFailedTurnMessage(kept[i + 1]?.metadata)
+    ) {
+      history.push({ role: 'assistant', content: FAILED_TURN_NOTE });
+    }
+  });
+  return history;
+};
+
+const TURN_FAILED_METADATA_KEY = 'turnFailed';
+
+const FAILED_TURN_NOTE =
+  '(Not done: this request failed with an error and the user was told something went wrong. Do not carry it out now unless the user asks for it again.)';
+
+const isFailedTurnMessage = (metadata: unknown): boolean =>
+  (metadata as Record<string, unknown> | null)?.[TURN_FAILED_METADATA_KEY] ===
+  true;
+
+const markTurnFailed = async (
+  dbInstance: ReturnType<typeof db.create>,
+  messages: TurnRecord['userMessages']
+): Promise<void> => {
+  await dbInstance.transaction(async tx => {
+    for (const message of messages) {
+      await tx
+        .update(db.schema.channelMessage)
+        .set({
+          metadata: {
+            ...(message.metadata as Record<string, unknown> | null),
+            [TURN_FAILED_METADATA_KEY]: true
+          }
+        })
+        .where(eq(db.schema.channelMessage.id, message.id));
+    }
+  });
 };
 
 // A confirmation question as the model wrote it, without the summary the

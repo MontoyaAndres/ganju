@@ -175,10 +175,15 @@ export const isPageGone = async (url: string): Promise<boolean> => {
 const BLOCK_ELEMENTS =
   'p, div, li, dt, dd, tr, table, ul, ol, dl, section, article, aside, header, footer, nav, blockquote, pre, figure, figcaption, details, summary, form, fieldset, hr';
 
+// Navigation goes too, even inside <main>: a site's menu repeated on every page
+// became the first chunks of each one (Shipday's mega-menu was ~7,000
+// characters a page), so any query about a feature matched every page's menu
+// as well as the page about it. Headers and footers stay — a restaurant's
+// address, phone and hours often live there.
 const stripBoilerplate = ($: any, root: any): void => {
   $(root)
     .find(
-      'script, style, noscript, template, svg, iframe, [aria-hidden="true"], [hidden]'
+      'script, style, noscript, template, svg, iframe, [aria-hidden="true"], [hidden], nav, [role="navigation"]'
     )
     .remove();
 };

@@ -1464,7 +1464,8 @@ const business = async (c: Context<AppEnv>) => {
             env: c.env,
             db: dbInstance,
             artifactId: artifact.id,
-            embedQuery: (text: string) => generateEmbedding(c, text)
+            embedQuery: (text: string) => generateEmbedding(c, text),
+            rerank: evalRerankOverride(c, authContext?.kind)
           });
           pendingRequests.push({
             method: utils.constants.MCP_REQUEST_METHOD_TOOLS_CALL,
@@ -1582,4 +1583,15 @@ const health = async (c: Context<AppEnv>) => {
 export const MCPController = {
   business,
   health
+};
+
+// The search eval's per-request reranker setting, honoured only on an
+// internal-secret request; undefined leaves the default.
+const evalRerankOverride = (
+  c: Context<AppEnv>,
+  authKind: string | undefined
+): boolean | undefined => {
+  if (authKind !== utils.constants.MCP_AUTH_KIND_INTERNAL) return undefined;
+  const value = c.req.header(utils.constants.MCP_EVAL_RERANK_HEADER);
+  return value === 'on' ? true : value === 'off' ? false : undefined;
 };

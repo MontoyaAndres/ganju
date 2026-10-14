@@ -1,6 +1,6 @@
 {
   "slug": "053e434d5b6e10b3cb26e07ef9ac2b66",
-  "at": "2026-10-14T17:15:19.842Z",
+  "at": "2026-10-14T19:59:23.144Z",
   "results": [
     {
       "query": "GCCON-F-088",
@@ -38,8 +38,8 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery",
-        "https://www.shipday.com/es/casos/pizzerias",
-        "https://www.shipday.com/use-cases/pizzerias"
+        "https://supabase.com/terms",
+        "https://www.shipday.com/terms"
       ]
     },
     {
@@ -49,7 +49,7 @@
       "top": [
         "https://www.shipday.com/integrations/menu2order",
         "https://www.shipday.com/integrations",
-        "https://www.shipday.com/ai-receptionist"
+        "https://www.shipday.com/integrations"
       ]
     },
     {
@@ -98,8 +98,8 @@
       "rank": 1,
       "top": [
         "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
-        "https://www.shipday.com/es/casos/retail",
-        "https://www.shipday.com/es/casos/retail"
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee"
       ]
     },
     {
@@ -108,28 +108,28 @@
       "rank": 1,
       "top": [
         "https://sharely.ai/",
-        "https://sharely.ai/terms-of-service",
-        "https://sharely.ai/privacy-policy"
+        "https://sharely.ai/",
+        "https://sharely.ai/overview"
       ]
     },
     {
       "query": "drivers take a photo or signature when they hand over the order",
       "kind": "semantic",
-      "rank": 4,
+      "rank": 1,
       "top": [
-        "https://www.shipday.com/es/casos/liquor-delivery",
-        "https://www.shipday.com/use-cases/liquor-delivery",
-        "https://www.shipday.com/case-studies/how-kfc-saves-400k-per-year-with-shipday"
+        "https://www.shipday.com/features/proof-of-delivery",
+        "https://www.shipday.com/route-planning",
+        "https://www.shipday.com/use-cases/pizzerias"
       ]
     },
     {
       "query": "reparto de flores con conductores propios",
       "kind": "semantic",
-      "rank": null,
+      "rank": 1,
       "top": [
-        "https://www.shipday.com/es/casos/pizzerias",
-        "https://www.shipday.com/es/casos/e-commerce",
-        "https://www.shipday.com/es/planificacion-de-rutas"
+        "https://www.shipday.com/es/casos/florist-delivery",
+        "https://www.shipday.com/es/casos/florist-delivery",
+        "https://www.shipday.com/es/casos/florist-delivery"
       ]
     },
     {
@@ -138,8 +138,8 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/route-planning",
-        "https://www.shipday.com/route-planning",
-        "https://www.shipday.com/es/planificacion-de-rutas"
+        "https://www.shipday.com/features/mobile-app-for-drivers",
+        "https://www.shipday.com/features/mobile-app-for-drivers"
       ]
     }
   ]

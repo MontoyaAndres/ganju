@@ -1,6 +1,6 @@
 {
   "slug": "5a9bb589400bae90d32d65abfe96be18",
-  "at": "2026-10-14T17:14:45.799Z",
+  "at": "2026-10-14T19:59:50.559Z",
   "results": [
     {
       "query": "PGRST116",
@@ -9,7 +9,7 @@
       "top": [
         "https://supabase.com/docs/guides/api/rest/postgrest-error-codes",
         "https://supabase.com/docs/guides/api/rest/postgrest-error-codes",
-        "https://supabase.com/docs/guides/api/rest/postgrest-error-codes"
+        "https://supabase.com/changelog/20358-supavisor-1-1-6"
       ]
     },
     {
@@ -38,8 +38,8 @@
       "rank": 1,
       "top": [
         "https://supabase.com/docs/guides/auth/auth-email-passwordless",
-        "https://supabase.com/docs/reference/api/introduction",
-        "https://supabase.com/docs/reference/api/v1-update-postgres-config"
+        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday",
+        "https://www.cloudflare.com/products/spectrum/"
       ]
     },
     {
@@ -48,8 +48,8 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery",
-        "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery",
-        "https://supabase.com/privacy-260316"
+        "https://www.shipday.com/terms",
+        "https://www.shipday.com/case-studies/little-italy-groveport-shipday-delivery"
       ]
     },
     {
@@ -68,8 +68,8 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/integrations/eposnow",
-        "https://www.shipday.com/integrations/eposnow",
-        "https://www.shipday.com/integrations"
+        "https://www.shipday.com/integrations",
+        "https://www.shipday.com/integrations/eposnow"
       ]
     },
     {
@@ -77,8 +77,8 @@
       "kind": "exact",
       "rank": 1,
       "top": [
-        "https://supabase.com/ui/docs/nextjs/realtime-flow",
-        "https://supabase.com/ui/docs/nextjs/realtime-flow",
+        "https://supabase.com/ui/docs/nextjs/realtime-monaco",
+        "https://supabase.com/ui/docs/nextjs/realtime-monaco",
         "https://supabase.com/ui/docs/nextjs/realtime-monaco"
       ]
     },
@@ -88,7 +88,7 @@
       "rank": 1,
       "top": [
         "https://www.shipday.com/case-studies/how-manjaros-improved-multi-location-delivery-operations-with-shipday",
-        "https://www.shipday.com/case-studies/how-manjaros-improved-multi-location-delivery-operations-with-shipday",
+        "https://www.shipday.com/terms",
         "https://www.shipday.com/case-studies/how-manjaros-improved-multi-location-delivery-operations-with-shipday"
       ]
     },
@@ -98,7 +98,7 @@
       "rank": 1,
       "top": [
         "https://supabase.com/customers/udio",
-        "https://supabase.com/customers/udio",
+        "https://supabase.com/docs/guides/getting-started/tutorials/with-expo-react-native",
         "https://supabase.com/customers/udio"
       ]
     },
@@ -108,16 +108,16 @@
       "rank": 1,
       "top": [
         "https://supabase.com/docs/guides/database/extensions/pgrouting",
-        "https://supabase.com/changelog/34067-developer-update-february-2025",
+        "https://supabase.com/docs/guides/database/extensions/pgrouting",
         "https://supabase.com/rss.xml"
       ]
     },
     {
       "query": "16XL compute",
       "kind": "exact",
-      "rank": 2,
+      "rank": 1,
       "top": [
-        "https://supabase.com/features/read-replicas",
+        "https://supabase.com/docs/guides/platform/compute-and-disk",
         "https://supabase.com/docs/guides/platform/manage-your-usage/compute",
         "https://supabase.com/docs/guides/platform/compute-and-disk"
       ]
@@ -125,21 +125,21 @@
     {
       "query": "let our employees log in with the company's identity provider",
       "kind": "semantic",
-      "rank": 10,
+      "rank": 1,
       "top": [
-        "https://supabase.com/docs/reference/cli/introduction",
-        "https://supabase.com/docs/reference/cli/supabase-domains-create",
-        "https://supabase.com/docs/reference/cli/supabase-domains-reverify"
+        "https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml",
+        "https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml",
+        "https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml"
       ]
     },
     {
       "query": "free custom email addresses that forward to my personal inbox",
       "kind": "semantic",
-      "rank": 1,
+      "rank": 7,
       "top": [
-        "https://www.cloudflare.com/products/email-routing/",
-        "https://www.cloudflare.com/products/email-routing/",
-        "https://www.cloudflare.com/products/"
+        "https://supabase.com/docs/guides/auth/auth-smtp",
+        "https://supabase.com/changelog/29370-supabase-auth-changes-to-default-email-provider",
+        "https://supabase.com/docs/guides/auth/auth-smtp"
       ]
     },
     {
@@ -148,28 +148,28 @@
       "rank": 1,
       "top": [
         "https://supabase.com/changelog/43644-edge-functions-rate-limits-on-recursive-nested-edge-functions-calls",
-        "https://supabase.com/docs/guides/platform/performance",
-        "https://supabase.com/docs/reference/api/introduction"
+        "https://www.cloudflare.com/products/ai-gateway/",
+        "https://supabase.com/docs/guides/platform/performance"
       ]
     },
     {
       "query": "replace our corporate VPN for reaching internal apps",
       "kind": "semantic",
-      "rank": null,
+      "rank": 1,
       "top": [
+        "https://www.cloudflare.com/products/access/",
         "https://www.cloudflare.com/sase/",
-        "https://www.cloudflare.com/sase/",
-        "https://www.cloudflare.com/campaigns/"
+        "https://www.cloudflare.com/sase/"
       ]
     },
     {
       "query": "let third-party apps get access to my users' data with their consent",
       "kind": "semantic",
-      "rank": 4,
+      "rank": 5,
       "top": [
         "https://supabase.com/docs/guides/auth/oauth-server/getting-started",
         "https://supabase.com/docs/guides/auth/oauth-server/getting-started",
-        "https://supabase.com/changelog/38022-oauth-2-1-server-capabilities-for-supabase-auth"
+        "https://supabase.com/docs/guides/auth/oauth-server/oauth-flows"
       ]
     },
     {
@@ -179,67 +179,67 @@
       "top": [
         "https://supabase.com/ui/docs/nextjs/realtime-flow",
         "https://supabase.com/ui/docs/nextjs/realtime-monaco",
-        "https://supabase.com/changelog/27498-dashboard-weekly-updates-17-06-24-24-06-24"
+        "https://supabase.com/ui/docs/nextjs/realtime-monaco"
       ]
     },
     {
       "query": "keep analytics tables in an open table format in object storage",
       "kind": "semantic",
-      "rank": 1,
+      "rank": 2,
       "top": [
+        "https://supabase.com/features/analytics-buckets-with-iceberg",
         "https://supabase.com/blog/analytics-buckets",
-        "https://supabase.com/partners/integrations/iceberg-wrapper",
         "https://supabase.com/blog/hydra-joins-supabase"
       ]
     },
     {
       "query": "iniciar sesión con la cuenta de Apple en una app de iPhone",
       "kind": "semantic",
-      "rank": 3,
+      "rank": 1,
       "top": [
-        "https://supabase.com/docs/reference/api/introduction",
+        "https://supabase.com/docs/guides/auth/social-login/auth-apple",
         "https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth",
-        "https://supabase.com/docs/guides/auth/social-login/auth-apple"
+        "https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth"
       ]
     },
     {
       "query": "one place to route requests across LLM providers with caching and logs",
       "kind": "semantic",
-      "rank": 4,
+      "rank": 1,
       "top": [
+        "https://www.cloudflare.com/products/ai-gateway/",
         "https://supabase.com/partners/integrations/litellm",
-        "https://www.cloudflare.com/products/agents/",
-        "https://www.cloudflare.com/products/agents/"
+        "https://www.cloudflare.com/products/ai-gateway/"
       ]
     },
     {
       "query": "¿cuánto ahorra al año una gran cadena de pollo frito con su reparto?",
       "kind": "semantic",
-      "rank": null,
+      "rank": 10,
       "top": [
         "https://www.shipday.com/es/casos/restaurantes",
         "https://www.shipday.com/es",
-        "https://www.shipday.com/es"
+        "https://www.shipday.com/es/casos/restaurantes"
       ]
     },
     {
       "query": "pizza chain coordinating deliveries across about thirty stores",
       "kind": "semantic",
-      "rank": 2,
+      "rank": 1,
       "top": [
-        "https://www.shipday.com/case-studies/romeos-pizza-cuts-labor-4-percent",
         "https://www.shipday.com/case-studies/how-pizza-my-heart-manages-deliveries-across-30-locations",
-        "https://www.shipday.com/case-studies/how-80-location-pizza-guys-improved-delivery-operations-with-shipday"
+        "https://www.shipday.com/use-cases/pizzerias",
+        "https://www.shipday.com/use-cases/pizzerias"
       ]
     },
     {
       "query": "restaurant that freed up more than a hundred staff hours monthly",
       "kind": "semantic",
-      "rank": 1,
+      "rank": 3,
       "top": [
-        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday",
-        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday",
-        "https://www.shipday.com/case-studies/general-tsos-shipday-delivery-optimization"
+        "https://www.shipday.com/case-studies/general-tsos-shipday-delivery-optimization",
+        "https://www.shipday.com/case-studies/general-tsos-shipday-delivery-optimization",
+        "https://www.shipday.com/case-studies/how-la-familia-katonah-saves-100--hours-per-month-with-shipday"
       ]
     },
     {
@@ -248,8 +248,8 @@
       "rank": 1,
       "top": [
         "https://supabase.com/customers/udio",
-        "https://supabase.com/customers/pebblely",
-        "https://supabase.com/customers/udio"
+        "https://supabase.com/customers/udio",
+        "https://supabase.com/customers/pebblely"
       ]
     },
     {
@@ -259,7 +259,7 @@
       "top": [
         "https://supabase.com/docs/guides/auth/oauth-server/oauth-flows",
         "https://supabase.com/docs/guides/auth/jwts",
-        "https://supabase.com/docs/guides/auth/jwts"
+        "https://supabase.com/docs/guides/auth/jwt-fields"
       ]
     }
   ]

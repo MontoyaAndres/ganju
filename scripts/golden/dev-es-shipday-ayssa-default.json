@@ -1,0 +1,236 @@
+{
+  "slug": "053e434d5b6e10b3cb26e07ef9ac2b66",
+  "at": "2026-10-14T19:59:11.599Z",
+  "results": [
+    {
+      "query": "GCCON-F-088",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj"
+      ]
+    },
+    {
+      "query": "MARITZA VELASCO DIAZ",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj"
+      ]
+    },
+    {
+      "query": "Poliestireno",
+      "kind": "exact",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "gdrive://files/1sbJuELD07hWSrlYJnmzg4446-106GEPd",
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee"
+      ]
+    },
+    {
+      "query": "¿cómo saben mis clientes dónde va su pedido en tiempo real?",
+      "kind": "semantic",
+      "rank": 2,
+      "top": [
+        "https://www.shipday.com/es/planificacion-de-rutas",
+        "https://www.shipday.com/es/caracteristicas/branded-tracking-and-customer-communication",
+        "https://www.shipday.com/es/caracteristicas/branded-tracking-and-customer-communication"
+      ]
+    },
+    {
+      "query": "foto y firma del cliente cuando el repartidor entrega el pedido",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/caracteristicas/proof-of-delivery",
+        "https://www.shipday.com/es/planificacion-de-rutas",
+        "https://www.shipday.com/es/precios"
+      ]
+    },
+    {
+      "query": "recuperar el dinero de los reembolsos de las apps de reparto de terceros",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/caracteristicas/refund-collection",
+        "https://www.shipday.com/es/caracteristicas/refund-collection",
+        "https://www.shipday.com/es/casos/grocery-delivery"
+      ]
+    },
+    {
+      "query": "conseguir más reseñas de cinco estrellas en Google",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/features/review-management",
+        "https://www.shipday.com/es/casos/retail",
+        "https://www.shipday.com/es/casos/e-commerce"
+      ]
+    },
+    {
+      "query": "una recepcionista con inteligencia artificial que conteste las llamadas y tome pedidos",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/ai-receptionist",
+        "https://www.shipday.com/es/caracteristicas/ai-agents-delivery-operations",
+        "https://www.shipday.com/es/caracteristicas/ai-agents-delivery-operations"
+      ]
+    },
+    {
+      "query": "aplicación para los repartidores con navegación GPS en iPhone y Android",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/caracteristicas/mobile-app-for-drivers",
+        "https://www.shipday.com/es/caracteristicas/mobile-app-for-drivers",
+        "https://www.shipday.com/es/caracteristicas/mobile-app-for-drivers"
+      ]
+    },
+    {
+      "query": "software de domicilios para licorerías con verificación de edad",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/casos/liquor-delivery",
+        "https://www.shipday.com/es/casos/liquor-delivery",
+        "https://www.shipday.com/es/casos/liquor-delivery"
+      ]
+    },
+    {
+      "query": "entregas a domicilio para supermercados y tiendas de abarrotes",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/casos/grocery-delivery",
+        "https://www.shipday.com/es/casos/grocery-delivery",
+        "https://www.shipday.com/es/casos/grocery-delivery"
+      ]
+    },
+    {
+      "query": "plataforma de entregas sin comisiones para pizzerías",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/casos/pizzerias",
+        "https://www.shipday.com/es/casos/pizzerias",
+        "https://www.shipday.com/es/casos/grocery-delivery"
+      ]
+    },
+    {
+      "query": "empresa de mensajería que hace entregas locales",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/casos/mensajeria",
+        "https://www.shipday.com/es",
+        "https://www.shipday.com/es"
+      ]
+    },
+    {
+      "query": "organizar la ruta de un conductor con muchas paradas",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/planificacion-de-rutas",
+        "https://www.shipday.com/es/planificacion-de-rutas",
+        "https://www.shipday.com/es/planificacion-de-rutas"
+      ]
+    },
+    {
+      "query": "¿cuánto cuesta? ¿hay un plan gratis?",
+      "kind": "semantic",
+      "rank": 3,
+      "top": [
+        "https://www.shipday.com/es",
+        "https://www.shipday.com/es",
+        "https://www.shipday.com/es/precios"
+      ]
+    },
+    {
+      "query": "ganar dinero recomendando Shipday como afiliado",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/programa-de-socios",
+        "https://www.shipday.com/es/programa-de-socios",
+        "https://www.shipday.com/es/casos/e-commerce"
+      ]
+    },
+    {
+      "query": "informes de ventas y del desempeño de los conductores con IA",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/caracteristicas/reports-and-ai-insights",
+        "https://www.shipday.com/es/caracteristicas/reports-and-ai-insights",
+        "https://www.shipday.com/es/caracteristicas/reports-and-ai-insights"
+      ]
+    },
+    {
+      "query": "agentes de IA que automatizan la capacitación del personal y las llamadas",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/caracteristicas/ai-agents-delivery-operations",
+        "https://www.shipday.com/es/caracteristicas/ai-agents-delivery-operations",
+        "https://www.shipday.com/es/caracteristicas/ai-agents-delivery-operations"
+      ]
+    },
+    {
+      "query": "administrar a mis repartidores desde un solo panel",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "https://www.shipday.com/es/caracteristicas/driver-management",
+        "https://www.shipday.com/es/caracteristicas/mobile-app-for-drivers",
+        "https://www.shipday.com/es/planificacion-de-rutas"
+      ]
+    },
+    {
+      "query": "acta de entrega de bienes cuando termina un contrato",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj"
+      ]
+    },
+    {
+      "query": "quién supervisa el contrato y qué obligaciones quedaron pendientes",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj",
+        "gdrive://files/1gGFKVLWcYOYrWHrM9TlCfFi-67BlRYnj"
+      ]
+    },
+    {
+      "query": "cómo reemplazar una imagen siguiendo la guía de la marca",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee"
+      ]
+    },
+    {
+      "query": "materiales de primera calidad",
+      "kind": "semantic",
+      "rank": 1,
+      "top": [
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee",
+        "gdrive://files/1tEb12T53xv8gDFf36LDhxLbbcdAAO9Ee"
+      ]
+    }
+  ]
+}

@@ -51,6 +51,8 @@ export interface ToolContext {
   db: Database;
   artifactId: string;
   embedQuery: (text: string) => Promise<number[] | null>;
+  // Set only for an internal search eval overriding the reranker default.
+  rerank?: boolean;
 }
 
 export interface ToolDefinition {

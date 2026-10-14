@@ -15,12 +15,22 @@ const withResponse = (response: unknown) => {
       return response;
     }
   };
-  return { rerank: createResourceReranker({ env: { AI } })!, calls };
+  return { rerank: createResourceReranker({ env: { AI } }, true)!, calls };
 };
 
 test('no AI binding means no reranker', () => {
-  assert.equal(createResourceReranker({ env: {} }), undefined);
-  assert.equal(createResourceReranker({}), undefined);
+  assert.equal(createResourceReranker({ env: {} }, true), undefined);
+  assert.equal(createResourceReranker({}, true), undefined);
+});
+
+test('off unless asked for: the default leaves the fused order', () => {
+  const AI: RerankAiBinding = { run: async () => ({ response: [] }) };
+  assert.equal(createResourceReranker({ env: { AI } }), undefined);
+  assert.equal(createResourceReranker({ env: { AI } }, false), undefined);
+  assert.equal(
+    typeof createResourceReranker({ env: { AI } }, true),
+    'function'
+  );
 });
 
 test('scores come back in input order, whatever order the model ranked them', async () => {
