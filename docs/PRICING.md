@@ -1,6 +1,6 @@
 # Pricing math
 
-Worked cost model for the three plans, in plain numbers. Supersedes the pricing sketch in [TASKS.md](../TASKS.md).
+Worked cost model for the three plans, in plain numbers. The "Plans" summary in [TASKS.md](../TASKS.md) follows these numbers; the plan limits and prices themselves live in `PLAN_LIMITS` and the `PRICING_*` constants in [constants.ts](../packages/utils/src/constants.ts), which win if anything here disagrees.
 
 ## Part 1 — What things actually cost us
 
@@ -156,9 +156,9 @@ One implementation note: the API returns non-normalised vectors when `outputDime
 
 **Shipped on dev, 14 Aug** ([migration 0063](../packages/db/drizzle/0063_reflective_young_avengers.sql)). Rehearsed on a clone of the real table first: 8,960 rows converted, all unit-length, table 118.8 → 59.7 MB and HNSW index 47.1 → 23.6 MB, both exactly 50%. Raising `CHUNK_TARGET_CHARS` from 2,000 remains an independent further lever.
 
-## Part 3 — The gap in the current model
+## Part 3 — The gap in the original sketch
 
-[TASKS.md:47-54](../TASKS.md#L47-L54) gives Pro 3,000 included messages that "can run on our AI model or the org's own key."
+The original pricing sketch in TASKS.md (since replaced by the plans below) gave Pro 3,000 included messages that "can run on our AI model or the org's own key."
 
 At $0.004/turn that's **$12 of inference on a $29 plan** — with 5 GB of included storage on top, roughly half the revenue. Not fatal, but it's the one line where a customer can consume our money without limit, and it gets worse as their tool count grows.
 
@@ -166,7 +166,7 @@ The overage rate has the same shape: **$2 per 1,000** is right as a platform fee
 
 ### The fix: split the counter, and *sell* shared-key inference
 
-The tempting fix is "Pro must bring its own key." **Don't** — it breaks every upgrade. Free runs on our shared key and Free users *cannot* connect their own ([TASKS.md:34-38](../TASKS.md#L34-L38)), so by definition every Free→Pro converter is running on our key at the moment they convert. Requiring BYO means 100% of upgrades break the customer's working bot on the day they start paying us.
+The tempting fix is "Pro must bring its own key." **Don't** — it breaks every upgrade. Free runs on our shared key and Free users *cannot* connect their own (`canUseCustomLlm: false`), so by definition every Free→Pro converter is running on our key at the moment they convert. Requiring BYO means 100% of upgrades break the customer's working bot on the day they start paying us.
 
 Keep it available, give it a generous buffer, price the rest to make money:
 
@@ -182,8 +182,8 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 
 **Two more dependencies:**
 
-- **Don't upgrade the shared model.** Keep Free's tightened turn envelope (history depth, tool-loop iterations — [TASKS.md:34-36](../TASKS.md#L34-L36)) applied to Pro's shared-key turns too.
-- **Track `sharedKeyTurns` separately from `totalTurns`.** [TASKS.md:50-54](../TASKS.md#L50-L54) uses one org-total counter, which can't enforce a sub-cap. Already derivable: `channel.llm_id IS NULL` means the turn ran on our key.
+- **Don't upgrade the shared model.** Keep Free's tightened turn envelope (history depth, tool-loop iterations) applied to Pro's shared-key turns too.
+- **Track shared-key turns separately from total turns.** The original sketch used one org-total counter, which can't enforce a sub-cap. Done: `incrementMessageUsage` bumps `subscription.shared_message_count` alongside `message_count` for every turn that ran on our key, in one statement.
 
 ## Part 4 — The three plans
 
@@ -192,7 +192,7 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 | | |
 |---|---|
 | MCP servers | 1 (1 org, 1 project) |
-| Tools | 7 installed · `http-endpoint` capped at 1 · curated `mcp-proxy` only |
+| Tools | 7 installed · `http-endpoint` capped at 3 · curated `mcp-proxy` only |
 | Custom code | ❌ |
 | Prompts / channels | 3 / 1 |
 | Storage | 30 MB raw files · 5 MB embedded |

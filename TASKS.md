@@ -3,70 +3,90 @@
 
 Plans:
 
-Pricing model = flat base + included allowance + metered overage (hybrid SaaS, like
-Supabase/Vercel). Not pure pay-as-you-go — that creates bill anxiety and unpredictable
-revenue. Two paid tiers at launch; add a middle "Team" tier later if the Free→Pro jump
-proves too big.
+Updated 2026-10-15 to match the code (`PLAN_LIMITS` and the `PRICING_*`
+constants in `packages/utils/src/constants.ts`) and `docs/PRICING.md`, which
+has the cost reasoning behind each number. If they disagree, the code wins.
 
-Billable units (we already meter all of this — see the schema):
+Pricing model = flat base + included allowance + metered overage (hybrid SaaS,
+like Supabase/Vercel). Not pure pay-as-you-go: that creates bill anxiety and
+unpredictable revenue. Two paid tiers plus Enterprise; add a middle "Team"
+tier later if the Free→Pro jump proves too big. Billing runs on Polar; the
+hourly metering run reports overage.
 
-- "Message" = one assistant turn on a CHANNEL bot (count channel_message where
-  role = assistant). This is our costliest path: the runner runs an LLM tool-calling
-  loop per turn (channel_message.tokensIn/tokensOut capture the spend).
-- MCP-CLIENT traffic (Claude Desktop/Cursor/ChatGPT) is NOT billed as messages — the
-  client's own model does the inference; we only execute tools + serve RAG. Meter it
-  as tool calls / RAG queries, or bundle it generously.
-- Storage is split by where the cost actually lives:
-  - Raw file storage (R2, ~$0.015/GB) — cheap, bundle generously.
-  - Embedded/RAG content (pgvector in Postgres: 1536-dim halfvec + HNSW index, the
-    real recurring cost — on dev the index is ~90% of the chunk table's 142 MB)
-    — this is what the $0.50/GB rate is for.
-- Inference is usually on the org's OWN LLM key (organizationLlm.apiKey), so the
-  per-message charge is mostly a PLATFORM fee (hosting/runner/RAG), priced low. If we
-  ever supply a default Ganju model, that path passes tokens through with margin.
+Billable units:
 
-Free:
+- **Message**: one assistant turn on a channel bot. Two kinds, because they
+  cost us very different amounts:
+  - on the org's own key: ~$0 to us, priced as a platform fee;
+  - on our shared model: ~$4–11 per 1,000 to us.
 
-- One organization / one project, can't invite people
-- mcp.ganju.ai/<slug>
-- Limits: 7 tools, 3 prompts, 1 channel
-- Storage: 30 MB raw files, ≤ ~5 MB embedded/RAG content
-- 100 channel messages / month (HARD CAP). Free runs on our shared platform
-  model key (we pay the inference), so the cap is trial-sized and the shared-key
-  turn envelope (history + tool loops) is tightened to bound cost. Anyone who
-  wants more for free can self-host (Apache-2.0).
-- Cannot connect its own LLM (bring-your-own-key) — that's a paid feature, so
-  Free always runs on (and is capped on) our shared key.
+  MCP-client traffic (Claude Desktop, Cursor, ChatGPT) is never a message,
+  because the client's own model does the inference.
+- **Embedded content** (pgvector: 1536-dim halfvec + HNSW): ~$2.41/GB-month
+  to us, the real storage cost. Raw files in R2 (~$0.015/GB) are bundled.
+- **Custom tool calls**: one dispatch into the org's own script on Workers
+  for Platforms (~$2.30 per million to us). Calls to shipped integrations and
+  proxied MCP servers stay bundled.
+- **Tracked, not billed yet**:
+  - voice notes (count, seconds, how many on our key);
+  - Data (D1): storage, rows written and rows read, until real numbers set a
+    price (see "Project data on D1" below).
+
+Free — $0:
+
+- One organization, one project, can't invite people; `mcp.ganju.ai/<slug>`
+- Limits: 7 tools, 3 prompts, 1 channel, 3 HTTP endpoints. Only curated MCP
+  servers.
+- Storage: 30 MB raw files, 5 MB embedded content
+- 100 channel messages a month, hard cap, all on our shared model with a
+  tightened turn envelope. Anyone who wants more for free can self-host
+  (Apache-2.0).
+- Not available on Free:
+  - bringing its own LLM key;
+  - custom code (an org that downgraded keeps its live scripts, capped at
+    10,000 calls a month);
+  - automatic resource sync ("Sync now" works);
+  - Data. A downgraded org keeps its databases read-only, and they go
+    through the abandoned-database flow.
 - Community support
 
-Pro - $20/mo base + usage (base includes an allowance):
+Pro — $29/mo base + usage:
 
-- No limits on prompts/tools/channels
-- No limits on orgs/projects/invitations
-- Can connect its own LLM (bring-your-own-key); BYO-key turns run on the org's
-  own inference and aren't capped on our shared model
-- Included each month: ~5 GB embedded content + ~3,000 channel messages. The
-  included message allowance also bounds shared-model use: those 3,000 can run on
-  our AI model or the org's own key, but once they're spent a channel with no own
-  key must connect one to continue (we don't flat-rate our model in the overage
-  zone). Note: the counter is the org's TOTAL messages, so heavy BYO traffic also
-  draws down the shared allowance — acceptable because the failure mode is
-  "blocks early," which never costs us inference. If mixed BYO+shared orgs prove
-  common, split it into a dedicated shared-model counter.
-- Overage: $0.50/GB embedded content · $2 per 1k channel messages (small — platform
-  fee on BYO key, not token resale). Add a context-size fair-use cap so a few
-  RAG-heavy power users don't sink the margin.
-- MCP-client tool calls: bundled (metered separately, never as "messages")
-- Add-on (NOT bundled): custom slug https://<mycompany>.mcp.ganju.ai/ at $15/mo —
-  covers Cloudflare ACM ($10/mo) + margin; only some users want it
-- User can create custom tools (programming — Workers for Platforms)
+- Unlimited orgs, projects, invitations, prompts, tools and channels (a
+  channel still sees at most 40 tools)
+- Bring your own LLM key
+- Custom code: Workers for Platforms, the CLI, managed connections
+- Automatic resource sync, daily or weekly
+- Data: one database per project (tracked, not billed yet)
+- Included each month:
+  - 3,000 channel messages, of which up to 1,000 may run on our shared model;
+  - 1 GB embedded content;
+  - 1,000,000 custom tool calls.
+- Overage:
+
+  | What | Price |
+  |---|---|
+  | Messages on the org's own key | $2 per 1,000 |
+  | Messages on our shared model | $15 per 1,000 |
+  | Embedded content | $2 per GB |
+  | Custom tool calls | $5 per million |
+
+- Abuse backstops, not limits:
+  - 100,000 shared-model turns a month;
+  - 20,000,000 custom tool calls a month.
+- Add-on: custom slug `https://<company>.mcp.ganju.ai/` at $15/mo (covers
+  Cloudflare ACM's $10 plus margin)
 - Support 24/7
 
-Enterprise - Contact us:
+Enterprise — from ~$500/mo, contact us:
 
-- Same Pro benefits
-- Can add a custom/existing MCP server and use Ganju as a proxy
-- SSO, contract terms, dedicated support
+- Everything in Pro, with no custom-tool-call backstop (set by contract)
+- Bring your own OAuth apps (the company's name on the Google/Microsoft
+  consent screen)
+- Dedicated dispatch namespace, raised CPU ceilings and tool caps
+- Any MCP server URL used through Ganju as a proxy, not just the curated
+  catalog
+- SSO, SLA, contract terms, dedicated support
 
 ---
 
@@ -123,8 +143,884 @@ needed for someone to write and ship a tool.
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
 ## Work on a view where i can chat and build the functions and this agent uses the cli to deploy them
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
-## Implement d1 database to sync data with functions
-## Before onboarding the restaurant clients
+## Project data on SQLite Durable Objects ("Data" / "Datos")
+
+Knowledge (resources) answers "what does the document say". It is the wrong
+shape for data that has rows, types and relationships: a menu with prices
+and stock, orders and their lines, customers, bookings, a product catalog. Today
+that data is either pasted into a resource (chunked, embedded, and the model has
+to read prices out of excerpts) or kept behind an `http-endpoint` against a
+backend the owner has to run. Neither can answer "how many orders did
+Girardot take this week" or "is the 30cm pizza still available".
+
+The goal: each artifact (project) on Pro or Enterprise can have one database
+of its own, with tables, relationships and search. The owner manages it from
+the dashboard and the CLI. The assistant (MCP clients and channel bots) and
+custom functions read and write it through tools that follow the same rules
+as everything else.
+
+Size: **S** = days, **M** = a week or two, **L** = more. Total: **L**.
+
+Decided 2026-10-15: **SQLite-backed Durable Objects, one per artifact**, not
+D1. D1 is built on the same storage, and every D1 feature this needs is there:
+- FTS5;
+- 30-day point-in-time recovery, undoable;
+- the same row prices;
+- the same 10 GB / 100 columns / 100 bound parameters / 100 KB statement / 2
+  MB row limits.
+
+It is cheaper and simpler to run:
+- storage costs $0.20 per GB-month instead of $0.75;
+- there is no 50,000-database ceiling;
+- there is no per-database create call, no Cloudflare REST API (and its
+  account-wide rate limit) at runtime, and no per-project script to deploy,
+  roll out or sweep.
+
+Each object handles one request at a time with real transactions, which makes
+stock updates safe by construction. What we give up:
+- no data browser in Cloudflare's dashboard;
+- no built-in export (we were building our own anyway);
+- no read replicas;
+- a soft limit of ~1,000 requests a second per object.
+
+None of these matters for one project's data. D1 stays the documented
+fallback if the spike in phase 1 fails.
+
+### What the last three weeks already give us
+
+The 2026-09-24 → 2026-10-14 work (see the review below) covers most of what
+this feature would otherwise have to invent:
+
+- **Confirmation** (4, 4b, approval link): `data-write` declares
+  annotations, and the runner and `confirmSensitiveTools` hold updates and
+  deletes. A bot that deletes rows after reading a customer message asks
+  first.
+- **Untrusted content** (7): rows written by customers through a channel, or
+  imported from a CSV, are outside content. Handle them like `http-endpoint`
+  results: always wrapped, and flagged only on instruction-like text. If every
+  read were flagged, every order would ask for confirmation after a menu lookup.
+- **Tool limits and paging**: the data tools count toward
+  `CHANNEL_MAX_TOOLS` like any install, and listing rows reuses
+  `utils.pagination` (cursor on `id`, so rows that share a sort value aren't
+  skipped).
+- **Observability** (6): data tool calls land in `mcp_request` /
+  `recordUsage` and show up in Tool health without new plumbing.
+- **Durable Objects**: `apps/api` already runs two (`discordGateway`,
+  `messageBuffer`), so the class, the migrations and the bindings follow a
+  pattern the repo already deploys.
+- **CLI rules** ("Administer everything from the CLI" above): a thin client
+  of the dashboard's endpoints, never a second write path; destructive
+  commands need `--yes` and the real name.
+- **Plan helper**: `PLAN_LIMITS` + `assertCountQuota` / `PlanLimitError` with a
+  `feature` discriminator, so the dashboard's upgrade prompt works as-is.
+
+### Decisions to take before building (recommendations included)
+
+1. **One database per artifact, created on demand.** Not one per
+   organization: an artifact owns the project's tools and channels, and a
+   database shared across projects would make every tool ask "which
+   project's orders?". The object is addressed as
+   `PROJECT_DATABASE.idFromName(artifactId)`, so the artifact id *is* the
+   database's identity. It exists in Ganju only once the owner clicks
+   "Create database" or runs `ganju data create`, which writes the Postgres
+   row and initialises the object. Most projects never need one.
+   - Limits that matter (Workers Paid, checked 2026-10-15): 10 GB per
+     object, no limit on the number of objects, 100 columns per table, **100
+     bound parameters per query**, 100 KB per statement, 2 MB per row, a
+     soft 1,000 requests a second per object, and 30 s of CPU per request by
+     default.
+2. **Only our Workers can reach a database.** The class lives in its own
+   Worker, `apps/data`, deployed as `ganju-data-development` /
+   `ganju-data-production`. `apps/api`, `apps/mcp` and `apps/tool-broker`
+   bind to it with `script_name`. A customer's script has no such binding
+   and can't name an object, so it can only reach data through `ctx.data` in
+   the broker. Calls are JS RPC methods on the stub (`stub.query(...)`), each
+   carrying the actor (see "Who changed what").
+3. **The owner defines tables, not SQL.** Regular users get a typed schema
+   (below). We generate the DDL and never accept raw DDL from the dashboard or
+   the CLI. Raw `SELECT` for the assistant comes later, behind a parser (see
+   phase 8).
+4. **Indexes: yes, but mostly automatic.** Rows read are billed, and a
+   query without an index scans the table, so indexes are a cost control as
+   much as a speed one. They are created automatically for:
+   - every relation column (SQLite does not index the child side of a foreign
+     key on its own);
+   - every column marked unique;
+   - every column marked "filterable".
+
+   The owner sees them in the table's Schema tab and can add or remove one on
+   a column. No composite or partial indexes for regular users; revisit if a
+   real table needs one.
+
+   On top of the automatic ones, **we advise the owner when a column needs an
+   index**, based on the data and the queries actually made. The database
+   object reports each query's shape (table, filtered and sorted columns,
+   `rowsRead`, rows returned) and a daily job suggests an index when a column
+   meets all of these, over the last 7 days:
+   - it has no index;
+   - it was filtered or sorted on by at least 50 queries;
+   - those queries read on average at least 1,000 rows and at least 20 rows
+     per row returned (it is scanning, not just a small table).
+
+   See phase 6.
+5. **Search: SQLite FTS5 first, semantic later.** Marking text columns
+   "searchable" creates one `<table>__fts` virtual table, kept in sync by
+   triggers. It uses the `unicode61 remove_diacritics 2` tokenizer, so
+   "jalapeno" finds "jalapeño", and results are ranked with `bm25()`. FTS5
+   is documented for SQLite Durable Objects. Exact names, SKUs and order ids
+   are what people search rows for, and FTS5 gets them right. Semantic
+   search over rows (embedding a row's text into the existing chunk
+   pipeline) is phase 8, only if a real table needs it.
+6. **Backups: rely on point-in-time recovery and add a grace period on
+   delete. Don't build scheduled backups.**
+   - SQLite Durable Objects keep 30 days of history, always on. The flow:
+     - `ctx.storage.getBookmarkForTime(t)` gives a bookmark;
+     - `ctx.storage.onNextSessionRestoreBookmark(bookmark)` followed by
+       `ctx.abort()` restores to it on restart;
+     - the call returns a bookmark for the moment just before, so a restore
+       can be undone.
+
+     A scheduled backup of our own would cost R2, a cron and restore code,
+     and would still only give us what this already gives us.
+   - **Restoring is the object's own job.** `stub.restoreTo(timestamp)`
+     records who asked and the undo bookmark on `artifact_database_change`
+     before restarting. Calls in flight during the restart fail, and the API
+     retries reads once.
+   - **Deletion is a soft delete with a 7-day grace period:**
+     - mark the Postgres row `DELETING`, and set `deleted_at` in the
+       object's own `_ganju_meta`, so the object refuses every call except
+       `undelete` and `export` even if something skips the Postgres check;
+     - the hourly cron runs `ctx.storage.deleteAll()` after 7 days, which
+       frees the storage;
+     - "Restore" is available until then.
+   - The spike checks whether point-in-time recovery can undo a
+     `deleteAll()`. Nothing relies on it: the abandoned-database path keeps
+     an export anyway.
+   - Point-in-time restore is in the UI and the CLI for every database (the
+     feature is Pro-only, so there is no Free case).
+   - **On-demand export** ("Download a copy", `ganju data export`) is ours.
+     There is no built-in dump.
+     - **What it writes:** the object reads each table in pages and writes
+       JSONL (one file per table plus `schema.json`) or CSV per table to R2,
+       through an R2 binding on `apps/data`. It then hands back a signed
+       link.
+     - **Search tables:** `__fts` tables are skipped; they rebuild from
+       their base table on import.
+     - **Size:** a large database exports across several requests (a cursor
+       kept in `_ganju_meta`), so one export never hits the CPU limit.
+   - Before any risky schema change (a column type change rebuilds the
+     table), store the current bookmark on the change log row. "Undo this
+     change" is then one restore.
+7. **Plans: Pro and Enterprise only.** Free can't create a database.
+   - Pro / Enterprise: one database per artifact, 50 tables, hard stop at 9
+     GB (headroom under the 10 GB per object). Restore and export included.
+   - New `PlanLimits` fields: `canUseData` (false on Free), `maxDataBytes`,
+     `maxDataTablesPerDatabase`, and a `PLAN_FEATURE_DATA` discriminator so
+     Free gets the upgrade prompt.
+   - **A Pro org that downgrades to Free keeps its database, read-only.**
+     The dashboard shows rows, export works, and the assistant and functions
+     can still read. Every write (dashboard, CLI, `data-write`,
+     `ctx.data` writes) is refused with the upgrade prompt. Nothing is
+     deleted automatically (see 9). This mirrors what custom code does on a
+     downgrade: live integrations keep working, bounded.
+8. **Meters: measure first, then price.** Cloudflare's prices for SQLite
+   Durable Objects (checked 2026-10-15, Workers Paid, the included amounts
+   shared by the whole account):
+   - storage: 5 GB-month included, then $0.20 per GB-month;
+   - rows written: 50M included, then $1 per million;
+   - rows read: 25B included, then $0.001 per million;
+   - compute: requests and GB-seconds of duration, billed separately from
+     storage (check the current rates when pricing).
+
+   Our estimate for a busy restaurant (10k orders a month, 50 MB) is well
+   under $0.25 a month, but that is a guess. So we meter from day one, the
+   way voice notes are: **tracked, not billed**, until a month or two of real
+   numbers sets the price.
+   - **Four counters**, built the way the existing meters are:
+     - `data_rows_written_count`, `data_rows_read_count` and
+       `data_request_count` on `subscription`. Each call to the object
+       returns the summed `rowsRead` / `rowsWritten` of its SQL cursors, and
+       every call counts as a request, whoever made it (dashboard, CLI,
+       assistant, `ctx.data`). Batched per request, one `UPDATE`.
+     - `peak_data_mb`: a storage high-water mark, like `peak_embedded_mb`.
+       Storage is a level, not a counter, so the hourly metering run reads
+       each database's `ctx.storage.sql.databaseSize` and keeps the period's
+       peak.
+   - All four are snapshotted into `usage_period` at rollover, and shown as
+     a "Data" block on the billing page: storage, rows written, rows read,
+     requests.
+   - **Polar meters** `ganju_data_storage`, `ganju_data_rows_written` and
+     `ganju_data_rows_read`, reported by `metering.ts` like the others
+     (`reportMeter`, stable `externalId`), attached at $0 at first. Turning
+     on a price is then a Polar change plus `reportedData*` marks, not new
+     plumbing.
+   - **Check our counters against Cloudflare's bill.** A monthly script
+     (`scripts/reconcile-data-usage.mjs`) reads the Durable Objects GraphQL
+     analytics for the `ganju-data-*` namespace and compares the totals with
+     the sum of our counters. Cloudflare's figures are per namespace, not per
+     object, so this checks the whole, not each org. Find which dataset
+     carries rows and storage when building it.
+   - What to decide after measuring: whether 1 GB and some number of million
+     rows written are included in Pro, with overage per GB and per million
+     rows. Rows read will probably stay free, since they cost almost
+     nothing. Update `docs/PRICING.md` with the measured numbers.
+9. **Abandoned databases: the owner is warned first; if nothing happens,
+   Ganju is emailed to delete them by hand.** Nothing deletes a customer's
+   database on its own (except the owner's own delete, after its 7-day grace
+   period).
+   - **What counts as abandoned:** a database whose org has been on Free for
+     30 days (a Pro that downgraded and didn't come back). A Pro database
+     that is simply idle is not abandoned; the org is paying for it.
+   - Nothing records when an org changed plan today, so add
+     `subscription.plan_changed_at`, set wherever `plan` changes (the Polar
+     webhook and `scripts/set-org-plan.mjs`).
+   - **The flow**, run daily on the hourly cron (at one fixed hour):
+     - **Day 30 on Free: warn the owner.** Every owner and admin of the org
+       gets an email listing:
+       - each database, with its project, size and tables;
+       - that it has been read-only since the downgrade;
+       - the date it will be deleted (day 44);
+       - two ways out: "Upgrade to Pro" (keeps everything) and "Download a
+         copy" (the export).
+
+       Sets `artifact_database.abandon_warned_at`.
+     - **Day 41: a reminder** to the same people, "3 days left". Sets
+       `abandon_reminded_at`.
+     - **Day 44, still on Free: email Ganju.** The database goes on the
+       "ready to delete" list (`delete_ready_at`), and a digest goes to
+       `ALERT_EMAIL`. One line per database:
+       - org, owner email, project and database name;
+       - artifact id, size, and table and row counts;
+       - Free since when, and when the owner was warned and reminded;
+       - last read and last write;
+       - the command to delete it.
+
+       The digest goes out only when something is new on the list, and marks
+       which entries are new. Databases already listed keep showing until
+       deleted, so nothing is forgotten.
+   - **What cancels it:** upgrading back to Pro or Enterprise. Any plan
+     change resets `plan_changed_at`, and the job clears the three marks.
+     Downloading a copy does not cancel; the owner has their data either way.
+   - **The emails:**
+     - owner emails go through `email.ts`'s `deliver`. There is no stored
+       user language, so each carries Spanish then English in one message;
+     - the sending domain must be onboarded for arbitrary recipients
+       (Cloudflare Email Service);
+     - every send is recorded on the row, so a retry or a second cron run
+       never emails twice.
+   - **Last activity** (`artifact_database.last_read_at` / `last_write_at`)
+     is shown in the digest to help decide. The object reports it to the API
+     at most once an hour, so it isn't a Postgres write per query.
+   - **Deleting is ours, by hand:**
+     `scripts/delete-data-database.mjs --artifact <id> [--prod]`.
+     - It refuses unless `delete_ready_at` is set and the org is still on
+       Free, then asks for the database name, like the dashboard does.
+     - It exports the database to R2, keeping the export for 90 days, then
+       calls `deleteAll()` on the object.
+     - It marks the row deleted, with the export key, and emails the owners
+       that the database was deleted and that a copy is kept for 90 days
+       (ask support).
+10. **Region.** An object is stored where it is first created. Pass a
+    `locationHint` on the first `get()`: `sam` (South America) for the
+    LATAM clients, chosen from the org's country when known. An EU customer
+    gets the `eu` jurisdiction namespace when one asks. A Durable Object
+    location hint is not Worker placement (see the placement note in
+    memory), so this does not bring back the service-binding 1003s.
+
+### Architecture
+
+```
+dashboard / CLI ─▶ apps/api ─┐
+MCP worker (apps/mcp) ───────┼─▶ PROJECT_DATABASE.idFromName(artifactId) ─▶ ProjectDatabase (SQLite DO)
+channel runner (apps/api) ───┤        class in apps/data (ganju-data-<env>)       └─▶ R2 (exports)
+tool-broker (ctx.data) ──────┘
+```
+
+- **`apps/data`**: a small Worker whose only job is the `ProjectDatabase`
+  class (a `new_sqlite_classes` migration) and an R2 binding for exports. It
+  has no public routes. It is the only place SQL is built:
+  - it validates every identifier against the database's own metadata;
+  - every value is a bound parameter;
+  - bulk inserts are split into statements of at most 100 parameters, inside
+    one `transactionSync`;
+  - every response carries `rowsRead` / `rowsWritten`.
+
+  Deploying `apps/data` updates every database's code at once. There are no
+  per-project scripts to roll out.
+- **Internal schema versions.** `_ganju_meta` holds the version of our own
+  tables (`_ganju_tables`, `_ganju_columns`, `_ganju_row_log`). The object's
+  constructor runs any pending internal migrations inside
+  `blockConcurrencyWhile`, so a deploy that adds a column to
+  `_ganju_columns` upgrades each database the first time it is used.
+  Migrations must be additive and fast, since they run on a live request.
+- **Self-describing database.** Display metadata lives inside the object, in
+  `_ganju_tables` and `_ganju_columns`: label, description, type, required,
+  unique, filterable, searchable, personal data, enum values, relation
+  display column, and agent access. Table and column structure is read from
+  `PRAGMA table_xinfo` / `foreign_key_list`. Postgres only holds the
+  pointer, so a point-in-time restore or an import brings the metadata back
+  with the data, and the two can't drift. Names starting with `_ganju_` are
+  reserved.
+- **Postgres** (migration `0082_artifact_database`):
+  - `artifact_database`:
+    - `id`, `artifact_id` (unique; `ON DELETE SET NULL`, see deletion below)
+    - `organization_id`
+    - `name` (what the owner types to delete)
+    - `status` (`CREATING | READY | FAILED | DELETING | DELETED`)
+    - `location_hint`, `size_bytes`, `size_checked_at`
+    - `last_read_at`, `last_write_at`
+    - `delete_after`, the abandoned-flow marks, `export_key`
+    - timestamps
+  - `artifact_database_change`: the schema and restore log. Who, what, the
+    bookmark before the change, and when.
+
+  Nothing per table: tables live in the object. **The Postgres row is the
+  only list of databases that exist.** Cloudflare can't list a namespace's
+  objects, so a row must never disappear while its object holds data.
+- **Column types** (each maps to SQLite affinity plus a `CHECK` where SQLite
+  is loose): `text`, `long_text`, `integer`, `decimal` (stored as `REAL`; money
+  shown with 2 decimals; document that it is not exact, and suggest integer
+  cents for amounts that must add up), `boolean` (`INTEGER CHECK IN (0,1)`),
+  `date`, `datetime` (ISO 8601 text, UTC), `enum` (`CHECK IN (…)`), `json`
+  (`CHECK json_valid`), `email`, `url`, `phone` (text with app-side
+  validation), `relation` (`INTEGER REFERENCES t(id)`), and `file`: a link to
+  a knowledge item (an image, a document, a crawled page), stored as its
+  resource uri (see phase 7).
+- **Every table gets** `id INTEGER PRIMARY KEY`, `created_at`,
+  `updated_at` (kept by a trigger), `version INTEGER` (incremented by the same
+  trigger, for concurrent edits), and `created_by` / `updated_by` (who
+  changed it, below). Foreign keys must be enforced. D1 does this by
+  default; whether SQLite Durable Objects do is the first thing the spike
+  checks. If they don't and `PRAGMA foreign_keys = ON` can't be set, the
+  object checks relations itself inside the write's transaction, which is
+  safe because the object runs one request at a time. On delete the default
+  is `RESTRICT`, with the error shown as "3 order lines still point to this
+  order". `CASCADE` and `SET NULL` are
+  available per relation.
+- **Relationships**:
+  - many-to-one is a `relation` column;
+  - one-to-many is shown, not stored (the order page lists its lines);
+  - many-to-many is a join table the UI can create for you ("Products ↔
+    Tags") and hides behind a multi-select.
+- **A description per table and column**, written by the owner for the
+  model. Examples:
+  - table `orders`: "one row per customer order; status goes pending →
+    ready → delivered";
+  - column `price`: "in COP, tax included".
+
+  - **Stored:** in `_ganju_tables.description` /
+    `_ganju_columns.description`, up to 300 characters each. Editable in the
+    Schema tab and in `ganju.data.json`.
+  - **Where the model sees them:** `data-describe` returns them. The
+    `data-query` tool description carries the table names with their
+    one-line descriptions, so the model often knows where to look without a
+    describe call. They are the owner's words, so not labelled as outside
+    content.
+  - **Nudging the owner:** the table dialog and the tool linter (`toolLint`)
+    warn when a table the assistant can use has no description. Descriptions
+    change answer quality more than any query feature.
+- **Who changed what.**
+  - **The actor:** every write records one in `created_by` / `updated_by`,
+    one of:
+    - `user:<id>` (dashboard)
+    - `cli:<tokenId>`
+    - `mcp:<userId>` (the owner's Claude/Cursor)
+    - `channel:<participantId>` (a customer through a bot)
+    - `function:<toolName>` (`ctx.data`)
+
+    The API, MCP worker, runner and broker pass it on every call; the
+    storage layer refuses a write without one.
+  - **Row history** (per table, on by default): `_ganju_row_log` keeps
+    table, row id, operation, actor, time and the changed columns (old →
+    new). It is kept 90 days and pruned daily.
+    - It roughly doubles the rows written by a write, and those count in the
+      meter. Owners can turn it off for high-volume tables.
+    - The row panel shows a "History" list, and the table's Activity tab
+      reads the same log.
+    - This settles "I never ordered that": the row says which customer, in
+      which conversation, and when.
+- **Customer privacy.**
+  - **Customer-scoped tables** (phase 5) hold personal data, so columns can
+    be marked "personal data" (phone, address, name).
+  - **The existing customer "Forget"** (conversation view,
+    `DELETE …/participant/:id/memory`) now also handles that customer's rows
+    in every scoped table. Per table, the owner picks one of:
+    - delete the rows;
+    - anonymise them: clear the personal-data columns and the
+      `participant_id`, and keep the row. For orders that accounting still
+      needs.
+
+    Row history for those rows is redacted the same way.
+  - **Exports and outside readers:** an export that includes personal-data
+    columns says so before downloading. Personal access tokens get the same
+    treatment observability already gives them: personal-data values are
+    left out of tool-call arguments.
+  - This is what Colombian habeas data (Ley 1581) expects. Spell it out in
+    the docs page.
+- **Schema changes.** Add, rename and drop a column use `ALTER TABLE`. A type
+  change, or turning a column required, rebuilds the table in one
+  `transactionSync`: defer foreign keys, create the new table, copy the rows,
+  drop the old one, rename, rebuild its indexes, triggers and `__fts` table.
+  Bookmark first. Large tables copy in chunks across requests, with writes to
+  that table refused meanwhile, so one change never hits the CPU limit. Values that don't convert stop the
+  change and list the first 10 offending rows; nothing is half-applied.
+- **Project / org deletion.** `project.remove` deletes Postgres rows only,
+  and Cloudflare can't list a namespace's objects, so an object whose row is
+  gone would hold data forever with nobody knowing.
+  - In the same transaction as the project delete, its database is marked
+    `DELETING` with `delete_after`. `artifact_id` is `ON DELETE SET NULL`,
+    and the row keeps the artifact id it needs in its own column, so the
+    hourly cron can still address the object and call `deleteAll()` after
+    the grace period.
+  - Organization deletion goes through the same path for each of its
+    projects.
+  - No sweep is needed: an object with no stored data costs nothing.
+
+### Phases
+
+**0. Spike — S (1–2 days), before anything else**
+
+Build a throwaway `ProjectDatabase` class in `apps/data` on dev and check,
+writing each result down here:
+
+- **Foreign keys:** are they enforced by default? If not, can
+  `PRAGMA foreign_keys = ON` be set from the object?
+- **Full-text search:** FTS5 with `unicode61 remove_diacritics 2` and
+  `bm25()`, plus triggers keeping `__fts` in sync.
+- **Point-in-time recovery:**
+  - restore to a minute ago with `getBookmarkForTime` +
+    `onNextSessionRestoreBookmark` + `ctx.abort()`, then undo it;
+  - check for a restore rate limit (D1 documents 10 per 10 minutes);
+  - check whether a restore can undo `deleteAll()`.
+- **Calls from other Workers:** JS RPC from `apps/mcp` and
+  `apps/tool-broker` through a `script_name` binding, in each `wrangler.toml`
+  environment section. A binding omitted from an env section points at a
+  different Worker's objects.
+- **Location:** a `locationHint: 'sam'` object, and how far a call from the
+  API is in latency.
+- **Limits:** `rowsRead` / `rowsWritten` on the cursor and `databaseSize`
+  match what we expect; a 100-parameter insert; a 50k-row table rebuild
+  inside the CPU limit.
+- **Billing:** storage billing is live on the account (the Cloudflare
+  invoice or analytics show SQLite storage).
+
+If foreign keys can't be enforced, the object checks relations itself (see
+"Every table gets"); that alone doesn't send us back to D1. If restore, FTS5
+or cross-Worker calls fail, fall back to D1:
+- one database per artifact, created through the Cloudflare API;
+- reached through a gateway script per artifact in its own dispatch
+  namespace (never the REST API at runtime);
+- Time Travel for restore.
+
+**1. Foundation — M**
+
+- `apps/data` (Worker `ganju-data-development` / `ganju-data-production`):
+  - the `ProjectDatabase` class with its `new_sqlite_classes` migration;
+  - RPC methods: init, schema read, table and column DDL, query, write
+    (inserts, updates, deletes with guards), search, aggregate, restore,
+    export, undelete, size and usage;
+  - the internal `_ganju_*` tables and their in-constructor migrations;
+  - the R2 binding for exports.
+- `PROJECT_DATABASE` bindings (`class_name = "ProjectDatabase"`,
+  `script_name = "ganju-data-<env>"`) in `apps/api`, `apps/mcp` and
+  `apps/tool-broker`, in both env sections. Deploy order: `apps/data` first.
+- `apps/api/src/utils/dataDatabase.ts`:
+  - `databaseStub(artifactId)` (with the location hint on first use);
+  - `createDatabase`: insert the Postgres row as `CREATING`, call `init()`,
+    mark `READY`. Retry-safe: `init()` is idempotent and the row is unique
+    per artifact, so a second click finishes the first instead of making
+    two. A failure leaves `FAILED` and a "Try again" button.
+- Migration `0082`:
+  - `artifact_database`, including `last_read_at` / `last_write_at`;
+  - `artifact_database_change`;
+  - the data counters on `subscription` and `usage_period`;
+  - `subscription.plan_changed_at`.
+
+  Also in this phase: the plan limits (Pro-only, read-only after a
+  downgrade) and the delete-time `DELETING` mark with the hourly
+  `deleteAll()`.
+- Unit tests in `packages/utils` for the pure parts:
+  - identifier validation (`^[a-z][a-z0-9_]{0,62}$`, reserved words,
+    `_ganju_`);
+  - DDL generation per type;
+  - the query compiler (filters, sort, cursor, the 100-parameter split);
+  - FTS trigger generation.
+- Done when, on dev:
+  - a project can create a database, and the MCP worker and tool-broker can
+    query it;
+  - deleting the project leaves the object refusing calls, and the cron
+    empties it after the grace period.
+
+**2. Schema and rows API — M**
+
+- Routes under `/organization/:organizationId/project/:projectId/artifact/data`,
+  following the resource routes:
+  - `GET /` (the database, size, status)
+  - `POST /` (create)
+  - `DELETE /` (body `{ confirmName }`, which must equal the name)
+  - `POST /restore` (undo a delete within the grace period)
+  - `POST /restore-point` (`{ timestamp }`, Pro)
+  - `GET|POST /table`
+  - `PATCH|DELETE /table/:table`
+  - `POST|PATCH|DELETE /table/:table/column[/:column]`
+  - `GET /table/:table/row` (filter, sort, `cursor`, `limit`, `q` for search)
+  - `GET|PATCH|DELETE /table/:table/row/:id`. `PATCH` and `DELETE` take
+    the `version` the client read.
+  - `POST /table/:table/row` (one row or up to 500)
+  - `POST /write` (several writes across tables, applied together or not at
+    all, below)
+  - `GET /table/:table/row/:id/history`
+  - `POST /export`
+  - `GET /change` (schema change log)
+- Every schema in `utils.Schema` (zod), shared by API, CLI and web.
+  `DATA_TABLE_CREATE` takes the column list; the same shape is the CLI's
+  schema file.
+- Roles: owners/admins change the schema and delete the database; members
+  edit rows. Follow what the resources routes allow.
+- SQLite errors (a constraint, a foreign key, a type check) are translated
+  to field-level messages, never raw SQLite text.
+- **Safe stock updates.** Two customers ordering the last pizza at once must
+  not both succeed.
+  - **Updates in one statement:** an update can change a value relative to
+    itself, e.g. `{ stock: { decrement: 2 } }`. It also takes a guard,
+    `where: { stock: { gte: 2 } }`, and `expect: 1` (how many rows must
+    change). It is compiled to a single `UPDATE … SET stock = stock - 2
+    WHERE id = ? AND stock >= 2`. If fewer rows change than expected, the
+    whole write fails with a readable reason ("not enough stock: 1 left"),
+    never a partial result.
+  - **Writes that go together:** `POST /write` takes a list of inserts,
+    updates and deletes across tables, e.g. insert the order, insert its
+    lines, decrement each product's stock. It runs in one transaction, so
+    any guard failing rolls back everything. Later steps can use an earlier
+    step's new id (`{ "$ref": 0 }`), so order lines point at the order just
+    created.
+  - The same operations back `data-write` (phase 5) and `ctx.data.write()`.
+- **Concurrent edits.** Every row carries `version`. `PATCH` and `DELETE`
+  send the version they read, and the write is
+  `… WHERE id = ? AND version = ?`.
+  - When no row matches, the API answers 409 with the current row and who
+    changed it (`updated_by`). The dashboard then shows "Changed by Ana 2
+    minutes ago", with her values beside yours, and lets you reload or save
+    over it.
+  - `version` and not `updated_at`: two edits in the same second would have
+    the same timestamp.
+  - Assistant and function writes don't send a version. They are single
+    statements, and guards cover the cases that matter.
+- Done when `scripts/probe-data.mjs` passes on dev. It must:
+  - create a database, two related tables and rows;
+  - check foreign-key restrict and cascade;
+  - search;
+  - page past 2 pages;
+  - try a type change with a bad value;
+  - delete and restore;
+  - fire two concurrent orders for the last item (exactly one succeeds);
+  - attempt a multi-table write whose third step fails (nothing is
+    written);
+  - make a stale-version `PATCH` (409);
+  - check that history records the right actor for each kind of writer.
+
+**3. Dashboard: "Data" / "Datos" — M–L**
+
+- Navbar: a new item after Resources, in both the desktop and mobile
+  menus of `layouts/home/index.tsx`. Page
+  `pages/organization/[id]/project/[projectId]/data.tsx`, view
+  `components/views/data/`, copy `lib/i18n/copy/data.ts` (en + es; run
+  `scripts/check-i18n-catalogs.mjs`).
+- No database yet: an empty state that explains when to use Data versus
+  Resources ("rows with fields: menus, orders, customers → Data; documents
+  and pages → Resources") and a "Create database" button (name defaults to
+  the project slug).
+- Left menu: the tables with row counts, "New table", and a search box over
+  table names. Clicking a table opens it on the right with three tabs:
+  - **Rows**: a server-paged grid. MUI has no data grid in the repo yet.
+    Prefer a plain `Table` with our own paging over adding `@mui/x-data-grid`;
+    decide on bundle size. The grid has:
+    - sort by column, filters on filterable columns, and a search box when the
+      table has searchable columns;
+    - a row opens a side panel form generated from the column types: date
+      pickers, enum selects, a searchable select for relations showing the
+      referenced table's display column, and a JSON editor;
+    - create, edit, delete (single and bulk). Deletion lists what a cascade
+      would also remove.
+  - **Schema**: columns (add, rename, change type, drop with a typed
+    confirmation), relations, indexes, and the per-table assistant access
+    (below).
+  - **Activity** (later): the last changes from the change log, and which
+    tool or person made them.
+- **Import from CSV / Excel** ("Import" on a table, and "New table from a
+  file" in the left menu). Owners have their menus and customer lists in
+  spreadsheets.
+  - **Parsing:** in the browser, with SheetJS loaded only when the dialog
+    opens, so it doesn't weigh on the page. It handles `.csv`, `.xlsx` and
+    `.xls`, and lets the owner pick the sheet.
+  - **New table:** columns and types are guessed from the first 200 rows
+    (numbers, dates, booleans, a short set of repeated values → enum,
+    emails, URLs, phones). The owner can fix any of them before creating.
+  - **Existing table:** headers are matched to columns by name and label,
+    and the owner can map the rest. A relation column matches by the
+    referenced table's display column ("Margherita" → product 12), and lists
+    values that match nothing.
+  - **Preview:** the first 20 rows as they will be stored, with each problem
+    marked (a bad date, a missing required value).
+  - **Upload:** in batches of 500 through `POST /table/:table/row`, with a
+    progress bar. When it ends, rows refused and why, downloadable as a CSV
+    to fix and re-import. "Replace all rows" vs "add" is chosen up front;
+    replace asks for the table name.
+  - The type guessing and header matching live in `packages/utils`, shared
+    with `ganju data import`, so both make the same choices.
+- Database settings (gear on the menu header):
+  - name, size against the plan, and "Download a copy";
+  - "Restore to a point in time" (Pro): pick a date and time within 30 days.
+    It warns that everything after that moment is replaced, and the result
+    offers "Undo restore" (the previous bookmark);
+  - **Danger zone, "Delete database"**: a red-bordered section and a
+    dialog that says what goes (every table, every row, and the tools that
+    use them stop working). The dialog spells out the 7-day restore window.
+    The delete button stays disabled until the owner types the database name
+    exactly. While in its grace period, the page shows a banner with
+    "Restore database" and the date it goes for good.
+- Free orgs see the Data item with a short explanation and the upgrade
+  prompt (`PLAN_FEATURE_DATA`) instead of "Create database". A downgraded
+  org sees its tables read-only, with a banner explaining why.
+- Done when: a user can build a "menu" table and an "orders" table with a
+  relation to it, enter rows, search, and delete the database with the typed
+  name, entirely from the dashboard. Check on the phone layout.
+
+**4. CLI — M**
+
+`ganju data …`, all thin clients of the routes above, using the project
+from `ganju.json` / `ganju link`:
+
+- Database:
+  - `ganju data create [--name]`
+  - `ganju data info`
+  - `ganju data drop --yes --confirm <name>`: both flags required; with no
+    TTY and either one missing, it refuses
+  - `ganju data restore` (undo a delete)
+  - `ganju data restore --at <ISO time> --yes` (point in time, Pro)
+  - `ganju data export [--format jsonl|csv] [--out dir]`
+- Tables:
+  - `ganju data tables`
+  - `ganju data table create <name> --schema <file>`
+  - `ganju data table rm <name> --yes --confirm <name>`
+  - `ganju data column add|rename|rm <table> …`
+- Schema as code:
+  - `ganju data schema pull` writes `ganju.data.json`;
+  - `ganju data schema diff` shows what `push` would do;
+  - `ganju data schema push` applies additive changes, and refuses
+    destructive ones (drop, type change) without `--yes`, listing them.
+
+  This is what makes the schema reviewable in a pull request.
+- Rows:
+  - `ganju data rows <table> [--where 'status=open' --sort -created_at --limit 50 --search "pizza"] [--json]`
+  - `ganju data get <table> <id>`
+  - `ganju data insert <table> --input '<json>' | --input-file rows.jsonl`
+  - `ganju data update <table> <id> --input '<json>'`
+  - `ganju data delete <table> <id> [--yes]`
+  - `ganju data import <table> <file.csv|.jsonl>`: maps headers to columns,
+    reports the rows refused and why, in batches of 500
+- New flags go into the shared `FLAGS` table in `packages/cli/src/index.ts`,
+  with the usage text and the CLI README. Bump `packages/cli` and publish.
+- Done when: the probe's scenario runs end to end from the CLI against dev.
+
+**5. The assistant and custom functions — M**
+
+- A native tool group `data` of **three tools**, registered only when the
+  project has a `READY` database and at least one table the assistant may
+  use. Few tools on purpose: they count against the 40-tool limit, and
+  models pick worse as the list grows.
+  - `data-describe`: tables, columns, types, relations, descriptions, and
+    which tables are searchable.
+  - `data-query`: `{ table, where, sort, limit, cursor, include, search,
+    aggregate }`.
+    - `search` runs the full-text index over searchable columns, ranked.
+    - `include` joins one level of relations.
+    - `aggregate` is `{ count | sum | avg | min | max, groupBy }`, which
+      covers "how many orders this week".
+    - Its description lists the tables with their one-line descriptions.
+  - `data-write`: a list of `insert` / `update` / `delete` operations, with
+    guards and `$ref`, applied together as in phase 2.
+    - The tool is annotated as destructive (MCP clients see one annotation
+      per tool). The runner and `confirmSensitiveTools` decide per call: a
+      call with only inserts is treated as a write and isn't held; any update
+      or delete is held under the confirmation rules.
+    - That per-call decision is new: a small hook from the data tool into
+      the existing confirmation check.
+- Per-table assistant access, set in the Schema tab: **none · read · read +
+  add · full**. Default is read, so creating a table never hands the model
+  delete. Tools only see tables they are allowed to see, so a hidden table
+  doesn't exist for the model.
+- **Rows scoped to the customer** (option per table, channels only): the
+  table gets a hidden `participant_id` column. For a channel turn, the
+  runner fills it on insert and adds it to every filter. A restaurant bot can
+  then save an order and show "my orders" without seeing anyone else's.
+  MCP clients (the owner's own Claude/Cursor) see all rows. This is the
+  privacy rule that matters for the restaurant clients; build it in this
+  phase, not later.
+- Results are wrapped as untrusted content (flagged only on instruction-like
+  text), paged like `list-resources`, and cut at the existing result-size
+  limit with a "more" cursor.
+- Tool descriptions say when to use Data versus `search-resources`: rows
+  and numbers → data, prose → resources.
+- `ctx.data` in `@ganju/sdk` through the tool-broker: `describe`, `query`,
+  `search`, `insert`, `update`, `delete`, `write([...])` (the
+  all-or-nothing list, with guards), and `sql(statement, params)` for the
+  owner's own code. Writes record `function:<toolName>` as the actor.
+  - `sql` refuses DDL, `PRAGMA`, `ATTACH` and anything touching `_ganju_*`.
+  - It allows one statement per call, so the check can't be bypassed by
+    chaining statements.
+  - Every function of a project with a database gets `ctx.data` with no
+    setup. It goes through the broker to the database object, never a
+    binding on the user's script. A binding would:
+    - let raw SQL change the schema behind the metadata;
+    - skip the read-only state after a downgrade and the soft delete;
+    - escape the row meters.
+
+    The function's token decides the project, so a function can only reach
+    its own project's database.
+  - Full read and write by default (it is the owner's code). An optional
+    `data` field in `ganju.json` narrows one function, e.g.
+    `"data": { "access": "read", "tables": ["menu"] }`. This matters most for
+    functions a channel bot calls after reading customer text. It is enforced
+    in the broker, since anything in the script itself can be edited.
+  - Custom code is paid-only, and so is Data, so there is no Free case.
+  - Add types to `packages/sdk/src/types.ts` and an example under
+    `examples/` (an order desk that writes orders to Data instead of a
+    Google Sheet).
+- Done when, on a dev Telegram bot with a menu + orders database:
+  - "what pizzas do you have under 30k" answers from `data-query`;
+  - "order two of the margherita" inserts the order and its line and
+    decrements stock in one `data-write`, scoped to that customer, and
+    refuses when stock is short;
+  - "cancel it" asks for confirmation;
+  - the owner's Claude Desktop sees all orders.
+
+**6. Meters, index advice and abandoned databases — M**
+
+- Meters as in decision 8:
+  - the counters, incremented from every database object response;
+  - the hourly storage peak in `metering.ts`;
+  - the Polar meters at $0;
+  - the billing page's "Data" block (en + es);
+  - `scripts/reconcile-data-usage.mjs`.
+- Index advice as in decision 4:
+  - **Where the query shapes go:** the database object returns them with
+    its usage, and the API keeps a 7-day rolling aggregate per
+    `(database, table, column)` in Postgres (`artifact_database_query_stat`).
+    That is one upsert per table touched per request, not a row per query,
+    and nothing extra is written inside the customer's database.
+  - **When it runs:** a daily job applies the rule and stores the
+    suggestions.
+  - **What the owner sees:**
+    - a notice in the Schema tab, with the numbers behind it, e.g. "340
+      queries this week filtered on `status` and each read ~12,000 rows to
+      return 8. An index would make them faster and cheaper";
+    - an "Add index" button that creates it and records a change-log
+      entry;
+    - a line in Tool health;
+    - `ganju data info` lists open suggestions.
+  - **Dismissing:** the owner can dismiss a suggestion, and it stays
+    dismissed until the numbers double.
+  - **Unused indexes:** an index that no query used in 30 days on a
+    write-heavy table is flagged too (each index adds a row written per
+    insert). Flag only; nothing is dropped automatically.
+- Abandoned databases as in decision 9:
+  - `plan_changed_at`;
+  - the daily job (warn at day 30, remind at day 41, list for Ganju at day
+    44, clear on upgrade);
+  - the owner emails (es + en) and the `ALERT_EMAIL` digest;
+  - the hourly-throttled `last_read_at` / `last_write_at`;
+  - `scripts/delete-data-database.mjs` (export to R2, delete, email the
+    owners).
+- Done when:
+  - a dev database's billing block matches `reconcile-data-usage.mjs` within
+    1%;
+  - a table seeded with 50k rows and queried 50+ times on an unindexed
+    column shows the suggestion, and adding the index drops `rowsRead` per
+    query;
+  - a test org set to Free with `plan_changed_at` back-dated through day 30,
+    41 and 44 gets the warning, then the reminder, then appears in Ganju's
+    digest;
+  - each email is sent once, even with the job run twice;
+  - upgrading the org clears it from the flow.
+
+**7. Knowledge links — S–M**
+
+Rows point at knowledge; files stay in knowledge.
+
+- The `file` column stores a knowledge item's uri. In the row form:
+  - an upload saves the file into Knowledge, in a "Data attachments"
+    folder of the project, and stores the link;
+  - "Pick from knowledge" links an existing file or crawled page;
+  - the grid shows a thumbnail for images and a title for the rest.
+- No new storage: the file lives in R2 and counts against storage like any
+  resource. Attachments added from Data aren't embedded by default (an image
+  isn't today anyway), so a photo costs R2 only. A per-column switch, "also
+  make these searchable in knowledge", embeds documents for owners who want
+  both.
+- The assistant: `data-query` returns the linked item's uri and title next
+  to the row. The model then uses the existing `read-resource` or
+  `send-resource`, so "send me a photo of the margherita" sends the image on
+  WhatsApp with no new tool. `ctx.data` returns the uri, and
+  `ctx.resources.read` reads it.
+- Keeping links valid across the database object and Postgres. A foreign
+  key can't span them, so instead:
+  - `file` columns are indexed automatically;
+  - before a knowledge item is deleted (by hand, by a sync removing it, or
+    by `ctx.resources.delete`), the API asks the database object which rows
+    point at it. The delete dialog says "used by 3 rows in Menu";
+  - the links are cleared after the delete;
+  - a link that still points at nothing (e.g. an item deleted while the
+    object couldn't be reached) shows as "file missing" and is cleared on
+    the next save.
+- Done when: a menu row with a photo uploaded from the Data page is sent as
+  an image by a dev Telegram bot, and deleting that photo from Knowledge
+  warns about the row and clears it.
+
+**8. Later — only when asked for**
+
+- Raw read-only SQL for the assistant (`data-sql`), behind a parser
+  that accepts only `SELECT` / `WITH` and runs with a row cap.
+- Semantic search over rows: embed a row's searchable text into the chunk
+  table under the artifact, merged into `searchResourceChunks` results as a
+  "data" source.
+- Scheduled exports to the owner's Google Drive / OneDrive (reusing the
+  connections), for owners who want a copy outside Ganju.
+- Sync from Google Sheets: a sheet as the source of a table, on the
+  existing hourly sync.
+- Composite and partial indexes, views, and computed columns.
+
+### Verification and docs
+
+- `scripts/probe-data.mjs` (dev and `--prod`) and `packages/utils` tests as
+  above. `apps/data` gets its own tests, run against local Durable Objects
+  (`wrangler dev` / the Workers Vitest pool), since `apps/api` and
+  `apps/mcp` still have none.
+- Docs:
+  - website pages (en + es): "Data" and "Data from functions";
+  - `ARCHITECTURE.md`: `apps/data`, the `ProjectDatabase` object and its
+    lifecycle;
+  - `DATA_MODEL.md`: `artifact_database`, `artifact_database_change`, and
+    the `_ganju_*` tables inside each object;
+  - `DEPLOYMENT.md`: deploy `apps/data` before the Workers that bind to it,
+    and the `script_name` bindings per environment;
+  - the CLI and SDK READMEs.
+
+  Per the repo rule, code comments don't point at any of these.
+- Sources (checked 2026-10-15; recheck pricing and limits before setting the
+  plan numbers):
+  - [SQLite storage API](https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/)
+    (FTS5, point-in-time recovery, `rowsRead` / `rowsWritten`,
+    `databaseSize`, `deleteAll`)
+  - [limits](https://developers.cloudflare.com/durable-objects/platform/limits/)
+  - [pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
+  - [rules of Durable Objects](https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/)
+  - [`script_name` bindings](https://developers.cloudflare.com/workers/wrangler/configuration/)
+  - [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) and
+    [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/),
+    for the fallback
+- `docs/PRICING.md`: add SQLite Durable Object storage and rows to the cost
+  table now, and the Data price once the meters have a month or two of data.
 
 Status: voice notes, per-customer limits and memory done 2026-10-13, on dev
 and production (`0079` and `0080` applied on both). WhatsApp calls dropped.
