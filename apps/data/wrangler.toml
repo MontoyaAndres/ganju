@@ -1,0 +1,26 @@
+name = "ganju-data"
+main = "src/index.ts"
+compatibility_date = "2025-11-17"
+
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+
+[limits]
+cpu_ms = 30000
+
+[env.development]
+name = "ganju-data-development"
+workers_dev = true
+preview_urls = false
+[env.development.observability]
+enabled = true
+[env.development.observability.logs]
+enabled = true
+invocation_logs = true
+[[env.development.durable_objects.bindings]]
+name = "PROJECT_DATABASE"
+class_name = "ProjectDatabase"
+[[env.development.migrations]]
+tag = "v1"
+new_sqlite_classes = ["ProjectDatabase"]

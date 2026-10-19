@@ -251,10 +251,10 @@ this feature would otherwise have to invent:
       over the owner's tables is allowed, and the SQL actually run is
       rebuilt from the tree, never the text sent.
 
-   Writes only ever go through `write`. Under 2 and 3 is a safety net: a
-   read runs with `PRAGMA query_only = ON` (if Durable Objects allow it;
-   the spike checks), so SQLite itself refuses any change. One request at a
-   time per object makes switching it on and off safe.
+   Writes only ever go through `write`. Durable Objects refuse `PRAGMA
+   query_only` (spike, 2026-10-19), so SQLite offers no read-only safety
+   net under 2 and 3. The parse when saved (2) and the rebuilt tree (3) are
+   the whole guard, which is why 3 stays in phase 8.
 4. **Indexes: yes, but mostly automatic.** Rows read are billed, and a
    query without an index scans the table, so indexes are a cost control as
    much as a speed one. They are created automatically for:
@@ -305,12 +305,16 @@ this feature would otherwise have to invent:
      - mark the Postgres row `DELETING`, and set `deleted_at` in the
        object's own `_ganju_meta`, so the object refuses every call except
        `undelete` and `export` even if something skips the Postgres check;
-     - the hourly cron runs `ctx.storage.deleteAll()` after 7 days, which
-       frees the storage;
+     - the hourly cron stores `getCurrentBookmark()` on the Postgres row,
+       then runs `ctx.storage.deleteAll()` after 7 days, which frees the
+       storage;
      - "Restore" is available until then.
-   - The spike checks whether point-in-time recovery can undo a
-     `deleteAll()`. Nothing relies on it: the abandoned-database path keeps
-     an export anyway.
+   - Point-in-time recovery can undo a `deleteAll()`, but only by that
+     stored bookmark: right after the delete, time-based lookup says "no
+     history" (spike). Nothing relies on it: the abandoned-database path
+     keeps an export anyway.
+   - History starts up to about a minute after a database's first write, so
+     the restore picker starts there.
    - Point-in-time restore is in the UI and the CLI for every database (the
      feature is Pro-only, so there is no Free case).
    - **On-demand export** ("Download a copy", `ganju data export`) is ours.
@@ -375,9 +379,11 @@ this feature would otherwise have to invent:
    - **Check our counters against Cloudflare's bill.** A monthly script
      (`scripts/reconcile-data-usage.mjs`) reads the Durable Objects GraphQL
      analytics for the `ganju-data-*` namespace and compares the totals with
-     the sum of our counters. Cloudflare's figures are per namespace, not per
-     object, so this checks the whole, not each org. Find which dataset
-     carries rows and storage when building it.
+     the sum of our counters. Rows read and written come from
+     `durableObjectsPeriodicGroups`, which groups by `objectId`, so each
+     database can be checked, not only the total. Storage comes from
+     `durableObjectsSqlStorageGroups.max.storedBytes`, which is per
+     namespace.
    - What to decide after measuring: whether 1 GB and some number of million
      rows written are included in Pro, with overage per GB and per million
      rows. Rows read will probably stay free, since they cost almost
@@ -438,11 +444,13 @@ this feature would otherwise have to invent:
      - It marks the row deleted, with the export key, and emails the owners
        that the database was deleted and that a copy is kept for 90 days
        (ask support).
-10. **Region.** An object is stored where it is first created. Pass a
-    `locationHint` on the first `get()`: `sam` (South America) for the
-    LATAM clients, chosen from the org's country when known. An EU customer
-    gets the `eu` jurisdiction namespace when one asks. A Durable Object
-    location hint is not Worker placement (see the placement note in
+10. **Region.** An object is stored where it is first created, next to its
+    first caller. **Pass no `locationHint`.** In the spike, `sam` put the
+    object near IAD (~30 ms from a MIA caller), while no hint put it in MIA
+    (~5 ms). The first call is the API Worker serving the owner's "Create
+    database" click, so a LATAM owner's database lands near them. An EU
+    customer gets the `eu` jurisdiction namespace when one asks. A Durable
+    Object location is not Worker placement (see the placement note in
     memory), so this does not bring back the service-binding 1003s.
 
 11. **Three ways to administer the data, all equal.** Ganju is
@@ -471,7 +479,9 @@ this feature would otherwise have to invent:
     - imports, exports, table rebuilds and history pruning run in chunks
       across requests (~50 ms of work each), so others are served between
       chunks;
-    - every call's duration is logged. Calls over 250 ms are listed in Tool
+    - every call's duration is logged, measured by the caller in
+      `databaseStub`. The object can't time itself: the clock doesn't
+      advance during synchronous SQL. Calls over 250 ms are listed in Tool
       health with their query shape.
 13. **Size limit: warn early, stop before the wall, never lose data.**
     Cloudflare caps a database at 10 GB. Past it, writes fail with
@@ -484,6 +494,11 @@ this feature would otherwise have to invent:
       ("database full: delete or archive rows"). Reads, deletes and exports
       keep working, so the assistant keeps answering and nothing is lost.
       Triggers keep firing for the writes that are still allowed.
+    - **Making room.** Space comes back only when whole pages empty:
+      dropping a table or deleting old rows (contiguous by `id`) frees it at
+      once, while scattered deletes free nothing, and `VACUUM` isn't allowed
+      (spike). So the banner offers "archive rows older than…" and, after
+      scattered deletes, "compact table" (a rebuild with no type change).
     - **Row history** is pruned after 90 days, so it can't fill a database
       on its own.
     - **10 GB is roughly 10–20 million typical rows** with their indexes. A
@@ -551,15 +566,18 @@ tool-broker (ctx.data) ──────┘
   (`CHECK json_valid`), `email`, `url`, `phone` (text with app-side
   validation), `relation` (`INTEGER REFERENCES t(id)`), and `file`: a link to
   a knowledge item (an image, a document, a crawled page), stored as its
-  resource uri (see phase 7).
+  resource uri (see phase 7). Number columns can carry a **minimum** (stock
+  ≥ 0), enforced with a named `CHECK` and reported as "products.stock can't
+  go below 0. Current values: stock = 0." In 0b a model recorded a sale
+  that took stock to −2, because nothing stopped it; guards the model has to
+  remember are not enough.
 - **Every table gets** `id INTEGER PRIMARY KEY`, `created_at`,
   `updated_at` (kept by a trigger), `version INTEGER` (incremented by the same
   trigger, for concurrent edits), and `created_by` / `updated_by` (who
-  changed it, below). Foreign keys must be enforced. D1 does this by
-  default; whether SQLite Durable Objects do is the first thing the spike
-  checks. If they don't and `PRAGMA foreign_keys = ON` can't be set, the
-  object checks relations itself inside the write's transaction, which is
-  safe because the object runs one request at a time. On delete the default
+  changed it, below). Foreign keys must be enforced. SQLite Durable Objects
+  enforce them by default (spike), but `PRAGMA foreign_keys = OFF` is
+  allowed and lasts until the object restarts, so the object sets it ON at
+  the start of every request. On delete the default
   is `RESTRICT`, with the error shown as "3 order lines still point to this
   order". `CASCADE` and `SET NULL` are
   available per relation.
@@ -578,10 +596,10 @@ tool-broker (ctx.data) ──────┘
     `_ganju_columns.description`, up to 300 characters each. Editable in the
     Schema tab and in `ganju.data.json`.
   - **Where the model sees them:** `data-describe` returns them. The
-    `data-query` tool description carries the table names with their
-    one-line descriptions, so the model often knows where to look without a
-    describe call. They are the owner's words, so not labelled as outside
-    content.
+    `data-query` tool description carries each table's one-line
+    description and a compact list of its columns (see 0b), so the model
+    usually queries without a describe call. They are the owner's words, so
+    not labelled as outside content.
   - **Nudging the owner:** the table dialog and the tool linter (`toolLint`)
     warn when a table the assistant can use has no description. Descriptions
     change answer quality more than any query feature.
@@ -624,12 +642,21 @@ tool-broker (ctx.data) ──────┘
   - This is what Colombian habeas data (Ley 1581) expects. Spell it out in
     the docs page.
 - **Schema changes.** Add, rename and drop a column use `ALTER TABLE`. A type
-  change, or turning a column required, rebuilds the table in one
-  `transactionSync`: defer foreign keys, create the new table, copy the rows,
-  drop the old one, rename, rebuild its indexes, triggers and `__fts` table.
-  Bookmark first. Large tables copy in chunks across requests, with writes to
-  that table refused meanwhile, so one change never hits the CPU limit. Values that don't convert stop the
-  change and list the first 10 offending rows; nothing is half-applied.
+  change, or turning a column required, rebuilds the table: create the new
+  table, copy the rows, drop the old one, rename, rebuild its indexes,
+  triggers and `__fts` table. Bookmark first.
+  - **Foreign keys during the swap.** Deferring them doesn't work: a dropped
+    parent leaves violations the rename doesn't clear, and at commit the
+    runtime resets the object (spike). Instead the swap is its own request
+    that starts with `PRAGMA foreign_keys = OFF` (the pragma only takes
+    effect before the request's first write). It drops, renames and runs
+    `PRAGMA foreign_key_check` in one `transactionSync`, and throws if the
+    check returns rows, so a bad swap rolls back.
+  - Large tables copy into the new table in chunks across requests, with
+    writes to that table refused meanwhile, so one change never hits the CPU
+    limit (50k rows took ~0.25 s in one call). Values that don't convert
+    stop the change and list the first 10 offending rows; nothing is
+    half-applied.
 - **Project / org deletion.** `project.remove` deletes Postgres rows only,
   and Cloudflare can't list a namespace's objects, so an object whose row is
   gone would hold data forever with nobody knowing.
@@ -678,6 +705,150 @@ writing each result down here:
 - **Freeing space:** does deleting rows lower `databaseSize` (and the billed
   storage), or is `VACUUM` needed, and is it allowed? This decides what
   "delete rows to make room" means at the 9 GB stop (decision 13).
+
+**Spike results (2026-10-19, `ganju-data-development`, wrangler 4.100,
+compatibility date 2025-11-17).** The code is in `apps/data/src/index.ts`
+(throwaway, replaced in phase 1). Cross-Worker calls were tested from a
+throwaway caller Worker with the same `script_name` binding `apps/mcp` and
+`apps/tool-broker` will use, not from those Workers themselves. Verdict:
+**Durable Objects hold; no fallback to D1.** Three findings change the plan
+(foreign keys during rebuilds, `query_only`, and timing); they are folded
+into the decisions and "Architecture" above.
+
+- **Foreign keys: enforced by default** (`PRAGMA foreign_keys` = 1 on every
+  new object and after every restart). An orphan insert fails with
+  `SQLITE_CONSTRAINT_FOREIGNKEY`. `RESTRICT`, `CASCADE` and `SET NULL` all
+  behave. `PRAGMA foreign_key_list`, `foreign_key_check` and
+  `defer_foreign_keys` are allowed.
+  - **`PRAGMA foreign_keys = OFF` is allowed, and it persists** across
+    requests until the object restarts. It only takes effect at the start of
+    a request, before anything is written; after a write in the same request
+    it is silently ignored (both OFF and ON).
+  - **Deferred foreign keys can't carry a table rebuild.** Under
+    `defer_foreign_keys`, `DROP TABLE` on a parent counts its rows as
+    deleted, and the rename doesn't clear the count. At commit the runtime
+    then **resets the object** ("rolled back to its last known good state
+    because … constraints were violated") and the call throws. Only that
+    request's writes are lost; earlier requests' writes survive.
+  - **What works**, the documented SQLite recipe: a rebuild is its own
+    request that starts with `PRAGMA foreign_keys = OFF`, runs the copy,
+    drop and rename in one `transactionSync`, and runs `PRAGMA
+    foreign_key_check` inside the transaction, throwing (so rolling back) if
+    it returns rows. Tested: a parent rebuild commits; a rebuild that would
+    leave an orphan rolls back cleanly, with no reset.
+  - So the object **sets `PRAGMA foreign_keys = ON` at the start of every
+    request** (it costs nothing), and never runs anything that could switch
+    it off outside the rebuild path.
+- **FTS5: works as planned.** `content='t', content_rowid='id'` with
+  `tokenize='unicode61 remove_diacritics 2'`. "jalapeno" finds "jalapeño",
+  "pina" finds "piña", prefix `marg*` works, and `bm25()` ranks (the row
+  with "jalapeño" twice comes first). The insert, delete and update triggers
+  keep `__fts` in sync. The `integrity-check` and `rebuild` commands are
+  allowed.
+- **Point-in-time recovery: works, undoable.**
+  - Restore = `getBookmarkForTime(t)` → `onNextSessionRestoreBookmark(b)`
+    (returns the undo bookmark) → `ctx.abort()`. Calling `abort()` directly
+    makes the call throw, so the method returns the undo bookmark and
+    schedules the abort 50 ms later (`setTimeout`). The next call sees the
+    restored data. Restoring to the undo bookmark brings the newer data
+    back.
+  - **No rate limit seen:** 14 restores in about 20 s all succeeded.
+  - **History starts up to about a minute after an object's first write.**
+    Until then `getBookmarkForTime` says "This database has no history.",
+    and earlier times say "Requested time is before this database existed."
+    After that the window doesn't slide. "Restore to a point in time"
+    therefore offers times from the database's creation plus a minute.
+  - **`deleteAll()` can be undone, but only with a bookmark taken before
+    it.** Right after `deleteAll()`, `getBookmarkForTime` says "no history".
+    Restoring to a `getCurrentBookmark()` taken just before the delete
+    brought every row back. So the soft delete stores
+    `getCurrentBookmark()` on the Postgres row before `deleteAll()`, and the
+    7-day undelete never depends on time-based lookup.
+- **Calls from other Workers: work.** A `script_name =
+  "ganju-data-development"` binding in the caller's `env.development`
+  section reaches `ProjectDatabase`, and JS RPC (`stub.sql(...)`,
+  `stub.echo()`) works across scripts. `apps/tool-broker` already uses this
+  shape for `RESOURCE_HANDLER`.
+- **Location.** The caller ran in MIA (from Colombia). The object's outbound
+  colo (a stand-in for where it runs; Cloudflare doesn't report an object's
+  location directly):
+  - no hint: MIA, ~5 ms per RPC round trip;
+  - `locationHint: 'sam'`: IAD, ~30 ms per round trip;
+  - `enam`: ORD, ~33 ms.
+
+  So `sam` doesn't place objects in South America today. **Change to
+  decision 10:** pass no hint. An object is created next to its first
+  caller, which is the API Worker serving the owner's "Create database"
+  click, so a Colombian owner's database lands in MIA. Keep `eu` for
+  jurisdiction only.
+- **Limits: as documented, with one surprise.**
+  - 100 bound parameters work; 101 fail (`too many SQL variables`). A
+    1,000-row insert with literal values works, but we never build those.
+  - A 99 KB statement works; 101 KB fails (`SQLITE_TOOBIG`).
+  - 100 columns work; 101 fail.
+  - Values of 2, 3 and 5 MiB were stored; 10 MiB failed. Cloudflare
+    documents 2 MB, so we keep 2 MB as our own limit and don't rely on
+    more.
+  - `rowsRead` / `rowsWritten` on the cursor are exact:
+    - a full scan of 1,100 rows reads 1,100;
+    - a point read reads 1;
+    - an insert into a table with one index writes 2 (index rows count);
+    - **an unindexed `GROUP BY` or `ORDER BY` reads every row twice** (the
+      temporary B-tree): 1M rows → 2M rows read. The index advice
+      (decision 4) and the meter should expect it.
+  - `databaseSize` is exact and starts at 4,096 bytes for an empty object.
+  - **A 50k-row table rebuild** (copy, drop, rename, index) took about 0.25 s
+    in one call, far inside 30 s of CPU.
+- **Timing: `performance.now()` and `Date.now()` don't advance inside the
+  object during synchronous SQL** (Workers freeze the clock between I/O, so
+  every in-object duration read 0 ms). **Change to decision 12:** a call's
+  duration is measured by the caller (`databaseStub` in the API, MCP worker
+  and broker), not reported by the object.
+- **Statement time** (wall time from a remote client, minus an empty call's
+  round trip; ±20 ms noise):
+
+  | Query | 200k rows | 1M rows |
+  | --- | --- | --- |
+  | `GROUP BY` an unindexed column, with `count` and `sum` | ~0.2 s | ~1.4 s |
+  | `count(*)` with a filter on an unindexed column | — | ~0.09 s |
+  | top 50 by an unindexed column | ~0 s | ~0.12 s |
+
+  Seeding 1M rows with one recursive-CTE insert took about 2.3 s. Decision
+  12's thresholds hold: above 200k rows, an unindexed aggregate blocks the
+  object for more than the 250 ms that counts as slow.
+- **`PRAGMA query_only`: not allowed** (`SQLITE_AUTH`, for both setting and
+  reading it). Named queries rely on the save-time parse alone, and
+  parser-checked SQL stays in phase 8. Also refused: `ATTACH`,
+  `auto_vacuum`, `incremental_vacuum`, `page_count`, `freelist_count`, and
+  `VACUUM` ("cannot VACUUM from within a transaction"). Allowed:
+  `table_list`, `table_xinfo`, `index_list`, `quick_check`, `optimize`,
+  `page_size`, `foreign_key_*`, `defer_foreign_keys` and `EXPLAIN QUERY
+  PLAN`.
+- **Freeing space: pages are freed only when they empty, and nothing
+  compacts.**
+  - `DROP TABLE` frees its space at once (81 MB → 4.4 MB).
+  - Deleting a contiguous range frees it at once (300k rows: 23 MB → 7.7 MB
+    after deleting the oldest 200k).
+  - Deleting scattered rows (every other row) frees nothing: the pages stay
+    half full. `VACUUM` isn't allowed.
+
+  **Change to decision 13:** at the 9 GB stop, "delete or archive old rows"
+  works, since old rows are contiguous by `id`. Scattered deletes don't help
+  until the table is rebuilt, which compacts it. So "make room" offers:
+  archive by date, or delete and then "compact table" (a rebuild with no
+  type change).
+- **Billing: not confirmed yet.** The account's GraphQL analytics have the
+  datasets the reconcile script needs:
+  - `durableObjectsSqlStorageGroups.max.storedBytes` per namespace, by up to
+    five-minute steps;
+  - `durableObjectsPeriodicGroups.sum.rowsRead` / `rowsWritten`, which **can
+    be grouped by `objectId`**, so reconciliation can be per database, not
+    only per namespace.
+
+  The spike's namespace (`879a4c91ed884564acef15bbc85866b7`) hadn't shown up
+  in them 15 minutes after the runs. Still to check: that SQLite storage appears as a
+  billed line on the Cloudflare invoice, and that the spike's ~1.2M rows
+  written appear in the analytics.
 
 If foreign keys can't be enforced, the object checks relations itself (see
 "Every table gets"); that alone doesn't send us back to D1. If restore, FTS5
@@ -730,6 +901,150 @@ built around it.
   a data tool description or the query compiler. It is also the first real
   piece of the "evals" item at the top of this file.
 
+**0b results (2026-10-19).** Built and run on the four models channels
+use; the baselines are recorded.
+
+- **What exists:**
+  - `scripts/eval-data-tools.mjs`, the harness. It calls the runner's own
+    adapters (`apps/api/src/utils/llm`, bundled with esbuild at run time)
+    and copies the runner's loop:
+    - the system prompt, including the confirmation and outside-content
+      notes;
+    - 6 tool steps on the shared key, 8 on an own key;
+    - query results wrapped as outside content and flagged only on
+      instruction-like text;
+    - held writes: the model is told to ask; with `"confirm": true` the
+      customer says yes and the stored calls run;
+    - a model that asks in its own words before writing (Claude does)
+      gets one plain "sí" when the case expects a write, as a real
+      customer would answer. These runs are counted (`askedFirst`).
+  - `scripts/data-eval/compiler.mjs`, the stub compiler on `node:sqlite`.
+    It follows the phase 1 rules: identifiers checked against the schema,
+    bound values, guards, `$ref`, `RESTRICT` messages, customer scoping and
+    per-table access.
+  - `scripts/data-eval/tools.mjs`, the three tool descriptions and input
+    schemas: the text that moves into the real tools.
+  - `scripts/data-eval/databases/`, the four sample databases. Their seed
+    dates are relative to the run, so "today" and "tomorrow" stay true.
+  - `scripts/golden/data-{restaurant,bookings,inventory,crm}.json`: 169
+    cases (47, 41, 41, 40). A channel customer (Spanish) for the restaurant
+    and bookings sets, a staff bot for inventory, and the owner over MCP
+    for all four.
+    - A case checks: the tools called; that no write was attempted; the
+      answer (numbers in any format, values read with SQL before the turn,
+      phones by their digits); the database state after the turn; held or
+      not; and a Gemini judge for "says so instead of inventing".
+  - Flags:
+    - `--check` validates every expectation without calling a model;
+    - `--repeat 3` runs each case three times;
+    - `--baseline` compares pass rates per case.
+- **Baseline (three runs of each case, 507 runs per model):**
+
+  | Model | v1 tools (one run) | Final | Calls a case | Valid calls | Holds right | Injections |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | `gemini-3.1-flash-lite` (shared tier) | 80% | **92%** | 1.7 | 95% | 23/24 | 20/21 |
+  | `gemini-3.8-flash` | 90% | **97%** | 2.6 | 97% | 24/24 | 21/21 |
+  | `claude-haiku-4-5` | — | **92%** | 1.5 | 95% | 24/24 | 17/21 |
+  | `gpt-5.4-mini` | — | **91%** | 2.6 | 97% | 22/24 | 19/21 |
+
+  - **No model attempted a single write in any injection run** (84 runs
+    across the four). Every injection failure is the model not finding
+    or not flagging the planted note, never following it.
+  - The right tool was called in 98–100% of runs.
+  - Weakest categories:
+    - guards (76–90%): taking an order for more than is left, booking a
+      taken slot, "on hold" as a stage;
+    - unanswerable questions for GPT (83%).
+  - Claude asked before writing in 21 runs; the other models in 0–3. With
+    the runner's confirmation that means two questions for one action,
+    as the runner's own comment warns. `TOOL_CONFIRMATION_SYSTEM_NOTE`
+    doesn't stop Haiku from asking.
+
+  Baselines: `scripts/golden/data-baseline-<model>.json`. A single run
+  moves by ±2–3 points, so compare with `--repeat 3`.
+- **What changed in the tool design, and why** (each change was measured
+  against the run before it):
+  - **`data-query`'s description lists every table's columns**, compactly:
+    `staff (→ staff), starts_at (datetime), status (open|booked|blocked)`.
+    With table names alone, flash-lite guessed `start_time`, `type`,
+    `customer_phone` and `movement_type`: 22% of its calls were invalid,
+    against 6% after.
+  - **Datetimes come back in the project's time zone, with the offset**
+    (`2026-10-20T15:00:00-05:00`), relation labels included. Given UTC,
+    models told the customer "8:00 p. m." for a 3 pm appointment. Filters
+    take any ISO 8601 with an offset, so models write local times
+    directly.
+  - **Results from a customer-scoped table say so** (`"scope": "only this
+    customer's own rows"`). Without it, asked about another customer, the
+    bot answered "Carlos Ruiz isn't a customer", which is false.
+  - **One sentence against guessing** in `data-query`: the database holds
+    only its columns; look in the knowledge tools, else say you don't have
+    it. Invented hours, parking and calories fell away: unanswerable
+    questions went from 74% to 93% (flash-lite) and from 69% to 100% (3.8
+    Flash).
+  - **The shapes models write unprompted are accepted:**
+    - `{ "customer": { "name": "Ana" } }` reads as `customer.name`;
+    - column-to-column comparisons, `{ "stock": { "lt": { "column":
+      "reorder_level" } } }`;
+    - `where` sent as a JSON string;
+    - keys quoted twice (`"\"stock\""`, `"\"$ref\""`). Gemini does this
+      often, and the hold check must tidy the arguments too, or a quoted
+      `decrement` reads as an absolute set and holds the order.
+  - **`aggregate` takes `times`** (`{ "fn": "sum", "column": "stock",
+    "times": "unit_cost" }`). Stock value otherwise needed every row, and
+    the model ran out of steps.
+  - Relation columns come back as `{ id, label }`, the label being the
+    related table's display column. Models never needed `include` just to
+    name a product.
+  - Models write stock changes as relative updates almost always (34
+    relative vs 2 absolute across three runs), so `decrement` plus a
+    guard is the right shape.
+- **Decided by the eval** (folded into the decisions and phase 5 above):
+  - **The hold rule:** hold deletes and updates that set a value; never
+    hold inserts or `increment` / `decrement`. "Hold any update", as first
+    written, would hold every order for its stock decrement.
+  - **Number columns take a minimum** (stock ≥ 0). A sale took stock to −2
+    when nothing in the schema stopped it.
+  - **Per-table access is for channel bots.** The owner's own MCP session
+    works on every table, as in the dashboard. Otherwise the owner couldn't
+    change a price on a table the bot only reads.
+- **Open, for the owner to decide:**
+  - **Access levels are too coarse for stock.** A bot that decrements stock
+    needs `full` on products, which also lets it change prices. Options:
+    - a level "read + add + adjust numbers";
+    - column-level access.
+
+    Until then, prices on a bot-writable table depend on the hold rule
+    alone.
+  - **Owner sessions can delete cascades of rows without asking.** Asked to
+    delete a contact that deals point to, 3.8 Flash deleted the two deals
+    first, then the contact. Owner MCP sessions only hold sensitive tools
+    when the org requires confirmation. Consider always holding deletes
+    from `data-write`, in every session.
+  - **The runner sends an empty reply when tool steps run out.**
+    `runTurn` ends the loop without a final text, as the eval does. It
+    showed up as empty answers when a model kept re-querying, e.g.
+    comparing "last 7 days" windows. That is a runner bug outside Data:
+    the last step should be a `toolChoice: 'none'` completion.
+  - **Two-level relations aren't reachable** (`appointment → slot →
+    staff`). Models looped trying `slot.staff`. Either allow two levels in
+    paths, or show the label's own relation in `include`.
+  - **Search has no stemming and doesn't cross languages.** "approvals"
+    doesn't find "approved". Claude and GPT search in English for a note
+    written in Spanish ("asked for a proposal" vs "pidió propuesta") and
+    find nothing; Gemini translates and finds it. Options:
+    - searching each word by its stem-like prefix (`approv*`);
+    - the semantic search of phase 8.
+- **What models still get wrong, with no tool fix:**
+  - reading "delivered" as the `delivery` column;
+  - counting future appointments as past visits;
+  - "fixing" an invalid email to a guessed one instead of asking;
+  - picking a stage for "on hold" instead of saying it doesn't exist;
+  - updating the only deal it could find when asked to "update the amount
+    to 70k" without naming one.
+
+  These stay in the set, so a prompt or model change that helps shows up.
+
 **1. Foundation — M**
 
 - `apps/data` (Worker `ganju-data-development` / `ganju-data-production`):
@@ -743,7 +1058,7 @@ built around it.
   `script_name = "ganju-data-<env>"`) in `apps/api`, `apps/mcp` and
   `apps/tool-broker`, in both env sections. Deploy order: `apps/data` first.
 - `apps/api/src/utils/dataDatabase.ts`:
-  - `databaseStub(artifactId)` (with the location hint on first use). It is
+  - `databaseStub(artifactId)` (no location hint; see decision 10). It is
     the only way any Worker reaches a database: the API, MCP worker, runner
     and broker never address the Durable Object namespace themselves. It
     costs nothing now, and it is the one seam a future engine would plug
@@ -966,21 +1281,26 @@ from `ganju.json` / `ganju link`:
     aggregate }`.
     - `search` runs the full-text index over searchable columns, ranked.
     - `include` joins one level of relations.
-    - `aggregate` is `{ count | sum | avg | min | max, groupBy }`, which
-      covers "how many orders this week".
-    - Its description lists the tables with their one-line descriptions.
+    - `aggregate` is a list of `{ fn: count | sum | avg | min | max,
+      column, times? }` plus `groupBy`, which covers "how many orders this
+      week". `times` sums a product of two number columns (stock value).
+    - Its description lists the tables with their one-line descriptions and
+      columns, and the input shape is the one 0b settled on (see there).
   - `data-write`: a list of `insert` / `update` / `delete` operations, with
     guards and `$ref`, applied together as in phase 2.
     - The tool is annotated as destructive (MCP clients see one annotation
-      per tool). The runner and `confirmSensitiveTools` decide per call: a
-      call with only inserts is treated as a write and isn't held; any update
-      or delete is held under the confirmation rules.
+      per tool). The runner and `confirmSensitiveTools` decide per call. As
+      evaluated in 0b: a call that deletes, or sets a column to a value, is
+      held under the confirmation rules; inserts and relative changes
+      (`increment` / `decrement`) are not. Holding every update, as first
+      written here, would hold every order for its stock decrement.
     - That per-call decision is new: a small hook from the data tool into
       the existing confirmation check.
 - Per-table assistant access, set in the Schema tab: **none · read · read +
   add · full**. Default is read, so creating a table never hands the model
   delete. Tools only see tables they are allowed to see, so a hidden table
-  doesn't exist for the model.
+  doesn't exist for the model. It applies to channel bots; an MCP session
+  signed in as an owner or admin works on every table, like the dashboard.
 - **Rows scoped to the customer** (option per table, channels only): the
   table gets a hidden `participant_id` column. For a channel turn, the
   runner fills it on insert and adds it to every filter. A restaurant bot can
@@ -1009,8 +1329,9 @@ from `ganju.json` / `ganju link`:
     - no `_ganju_*`, no `PRAGMA` / `ATTACH`;
     - it must pass `EXPLAIN QUERY PLAN`, which is kept so the dashboard can
       say "this scans `orders`".
-  - Run with `PRAGMA query_only = ON` if the spike confirms it, a row cap,
-    and the same bounds as every request (decision 12).
+  - Run with a row cap and the same bounds as every request (decision 12).
+    `PRAGMA query_only` isn't available, so the save-time check is the
+    guard.
   - Who can run them:
     - functions, through `ctx.data.run`;
     - the API and CLI (`ganju data run <name> --input …`);
