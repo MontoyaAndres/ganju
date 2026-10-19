@@ -1,0 +1,12 @@
+{
+  "extends": "@ganju/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2021", "dom"],
+    "noEmit": true,
+    "rootDir": "./src",
+    "isolatedModules": true,
+    "types": ["@cloudflare/workers-types"]
+  },
+  "exclude": ["node_modules"],
+  "include": ["src"]
+}

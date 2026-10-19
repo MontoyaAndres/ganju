@@ -845,10 +845,16 @@ into the decisions and "Architecture" above.
     be grouped by `objectId`**, so reconciliation can be per database, not
     only per namespace.
 
-  The spike's namespace (`879a4c91ed884564acef15bbc85866b7`) hadn't shown up
-  in them 15 minutes after the runs. Still to check: that SQLite storage appears as a
-  billed line on the Cloudflare invoice, and that the spike's ~1.2M rows
-  written appear in the analytics.
+  The spike's namespace (`879a4c91ed884564acef15bbc85866b7`) showed up a
+  few hours later:
+  - 16 objects;
+  - 2.35M rows written (the ~1.35M seeded, plus rebuilds and index rows);
+  - 29M rows read;
+  - 12.6 MB stored, which matches what was left after the drops.
+
+  So the analytics are complete enough for the reconcile script, with a
+  lag of hours, not minutes. Only check left, by hand on the next
+  invoice: that SQLite storage appears as a billed line.
 
 If foreign keys can't be enforced, the object checks relations itself (see
 "Every table gets"); that alone doesn't send us back to D1. If restore, FTS5
