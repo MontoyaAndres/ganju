@@ -158,6 +158,10 @@ class_name = "DiscordGatewayDO"
 [[env.development.durable_objects.bindings]]
 name = "MESSAGE_BUFFER"
 class_name = "MessageBufferDO"
+[[env.development.durable_objects.bindings]]
+name = "PROJECT_DATABASE"
+class_name = "ProjectDatabase"
+script_name = "ganju-data-development"
 [[env.development.migrations]]
 tag = "v1"
 new_sqlite_classes = ["ResourceHandler"]
@@ -315,6 +319,10 @@ class_name = "DiscordGatewayDO"
 [[env.production.durable_objects.bindings]]
 name = "MESSAGE_BUFFER"
 class_name = "MessageBufferDO"
+[[env.production.durable_objects.bindings]]
+name = "PROJECT_DATABASE"
+class_name = "ProjectDatabase"
+script_name = "ganju-data-production"
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["ResourceHandler"]

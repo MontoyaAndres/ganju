@@ -4,7 +4,8 @@ import {
   incrementArtifactUsage,
   searchResourceChunks,
   toResourceSearchResult,
-  plan
+  plan,
+  data
 } from './lib';
 import { handleError } from './utils';
 
@@ -14,7 +15,8 @@ export const db = {
   incrementArtifactUsage,
   searchResourceChunks,
   toResourceSearchResult,
-  plan
+  plan,
+  data
 };
 export const utils = {
   handleError
@@ -31,5 +33,9 @@ export type {
   ResourceChunkMatch,
   ResourceReranker,
   ResourceSearchResult,
-  ResourceSearchTimings
+  ResourceSearchTimings,
+  DataNamespaceLike,
+  DataUsageTally,
+  ArtifactDatabaseRow,
+  OpenedDatabase
 } from './lib';

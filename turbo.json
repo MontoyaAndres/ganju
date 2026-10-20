@@ -1,6 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env"],
+  "globalDependencies": [
+    ".env"
+  ],
   "globalEnv": [
     "NODE_ENV",
     "RESOURCE_HANDLER_PORT",
@@ -39,15 +41,26 @@
   ],
   "tasks": {
     "build": {
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "public/dist/**"],
-      "dependsOn": ["^build"]
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "public/dist/**"
+      ],
+      "dependsOn": [
+        "^build"
+      ]
     },
     "test": {
-      "outputs": ["coverage/**"],
+      "outputs": [
+        "coverage/**"
+      ],
       "dependsOn": []
     },
     "dev": {
-      "inputs": [".env"],
+      "inputs": [
+        ".env"
+      ],
       "cache": false,
       "persistent": true
     },
@@ -74,6 +87,42 @@
     },
     "deploy-prod": {
       "cache": false
+    },
+    "api#deploy-dev": {
+      "cache": false,
+      "dependsOn": [
+        "data#deploy-dev"
+      ]
+    },
+    "mcp#deploy-dev": {
+      "cache": false,
+      "dependsOn": [
+        "data#deploy-dev"
+      ]
+    },
+    "tool-broker#deploy-dev": {
+      "cache": false,
+      "dependsOn": [
+        "data#deploy-dev"
+      ]
+    },
+    "api#deploy-prod": {
+      "cache": false,
+      "dependsOn": [
+        "data#deploy-prod"
+      ]
+    },
+    "mcp#deploy-prod": {
+      "cache": false,
+      "dependsOn": [
+        "data#deploy-prod"
+      ]
+    },
+    "tool-broker#deploy-prod": {
+      "cache": false,
+      "dependsOn": [
+        "data#deploy-prod"
+      ]
     }
   }
 }

@@ -26,6 +26,7 @@ export type Bindings = {
   STORAGE_BUCKET: R2Bucket;
   INDEX_QUEUE?: Queue<{ resourceId: string }>;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
+  PROJECT_DATABASE: DurableObjectNamespace;
   HTTP_ENDPOINT_RATE_LIMITER?: RateLimitBinding;
   AI?: RerankAiBinding;
   DATABASE_URL?: string;

@@ -87,6 +87,16 @@ import {
   enqueueResourceSync
 } from './resourceSync';
 import { runCustomCodeScriptSweep } from './customCodeSweep';
+import {
+  assertDataAllowed,
+  createDatabase,
+  markDatabasesDeleting,
+  artifactIdsOf,
+  notifyDatabasesDeleted,
+  softDeleteDatabase,
+  restoreDeletedDatabase,
+  runDataPurge
+} from './dataDatabase';
 import { runErrorAlerts, runToolCallAlerts, recentErrors } from './alerting';
 import {
   consentActorFromRequest,
@@ -103,6 +113,14 @@ export {
   releaseManualResourceSync,
   enqueueResourceSync,
   runCustomCodeScriptSweep,
+  assertDataAllowed,
+  createDatabase,
+  markDatabasesDeleting,
+  artifactIdsOf,
+  notifyDatabasesDeleted,
+  softDeleteDatabase,
+  restoreDeletedDatabase,
+  runDataPurge,
   runErrorAlerts,
   runToolCallAlerts,
   recentErrors,
@@ -183,6 +201,7 @@ export type { Transcriber, Transcription } from './llm/transcribe';
 export type { Auth } from './better-auth';
 export type { ConsentActor, ConsentStatus } from './consent';
 export type { RetentionResult } from './retention';
+export type { CreateDatabaseInput, DataPurgeResult } from './dataDatabase';
 export type { AlertResult } from './alerting';
 export type { EmailSource } from './email';
 export type { OAuthProviderConfig } from './providers';

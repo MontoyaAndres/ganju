@@ -24,7 +24,8 @@ import {
   ContactController,
   BillingController,
   ContainmentController,
-  ToolApprovalController
+  ToolApprovalController,
+  DataController
 } from './controllers';
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
@@ -34,6 +35,7 @@ import {
   runRetentionPurge,
   runResourceSync,
   runCustomCodeScriptSweep,
+  runDataPurge,
   runErrorAlerts,
   runToolCallAlerts
 } from './utils';
@@ -380,6 +382,28 @@ app
     '/organization/:organizationId/project/:projectId/artifact/prompt/:promptId',
     UserMiddleware.verify,
     ArtifactController.removePrompt
+  )
+
+  // Project data: the database itself
+  .get(
+    '/organization/:organizationId/project/:projectId/artifact/data',
+    UserMiddleware.verify,
+    DataController.getDatabase
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/data',
+    UserMiddleware.verify,
+    DataController.create
+  )
+  .delete(
+    '/organization/:organizationId/project/:projectId/artifact/data',
+    UserMiddleware.verify,
+    DataController.remove
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/artifact/data/restore',
+    UserMiddleware.verify,
+    DataController.restore
   )
 
   // Artifact Resource controller
@@ -744,6 +768,9 @@ export default {
     // something removes them. Hourly and after a grace period, because a script
     // is only safe to delete once no request can still be reaching it.
     ctx.waitUntil(runCustomCodeScriptSweep({ env }));
+    // Empty the database objects whose deletion grace period is over. The
+    // Postgres row is the only list of them, so it is kept, marked DELETED.
+    ctx.waitUntil(runDataPurge({ env }));
     // The hourly tick also sweeps, so a missed 15-minute run still gets picked
     // up rather than waiting for the next one.
     ctx.waitUntil(runErrorAlerts({ env }));

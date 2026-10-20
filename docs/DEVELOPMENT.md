@@ -109,7 +109,14 @@ npm run dev
 | `apps/resource-handler` | http://localhost:8082 | Container started by Wrangler/Docker                                                           |
 | `apps/tool-broker`      | http://localhost:8083 | `wrangler dev --env development` (via the same script as `apps/api`)                          |
 | `apps/tool-outbound`    | http://localhost:8084 | `wrangler dev --env development` (via the same script as `apps/api`)                          |
+| `apps/data`             | http://localhost:8085 | `wrangler dev --env development`; no routes, it serves the `ProjectDatabase` objects          |
 | `apps/web`              | http://localhost:3000 | `next dev`                                                                                     |
+
+**apps/data must be running for project databases to work locally.** apps/api,
+apps/mcp and apps/tool-broker bind to its `ProjectDatabase` class by script name,
+which `wrangler dev` resolves through its local dev registry only while
+`ganju-data-development` is up. Its own tests run the object in workerd without
+any of that: `npm test -w data`.
 
 **The two tool Workers run locally, but a deployed script does not talk to them.**
 This is the one thing to know before debugging a custom tool by editing

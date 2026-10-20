@@ -19,9 +19,11 @@ import { BillingController } from './billing';
 import { ContainmentController } from './containment';
 import { ObservabilityController } from './observability';
 import { ToolApprovalController } from './toolApproval';
+import { DataController } from './artifact/data';
 
 export {
   BillingController,
+  DataController,
   ToolApprovalController,
   ObservabilityController,
   ContainmentController,

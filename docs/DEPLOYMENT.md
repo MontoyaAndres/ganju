@@ -10,6 +10,7 @@ Ganju deploys to Cloudflare. Each Worker app has a `wrangler.toml` with `develop
 | --- | --- | --- |
 | [apps/api](../apps/api) | `ganju-api-production` | `wrangler deploy --env production` |
 | [apps/mcp](../apps/mcp) | `ganju-mcp-production` | `wrangler deploy --env production` |
+| [apps/data](../apps/data) | `ganju-data-production` | `wrangler deploy --env production` |
 | [apps/tool-broker](../apps/tool-broker) | `ganju-tool-broker-production` | `wrangler deploy --env production` |
 | [apps/tool-outbound](../apps/tool-outbound) | `ganju-tool-outbound-production` | `wrangler deploy --env production` |
 | [apps/web](../apps/web) | `ganju-web-production` | `opennextjs-cloudflare deploy --env production` |
@@ -61,7 +62,7 @@ For a fresh instance. Names must match the `wrangler.toml` for each env, or upda
 - **Email Service** (`SEND_EMAIL`) — onboard the sending domain under Email Service in the dashboard (it adds the MX/SPF/DKIM/DMARC records). Until that's done the binding only delivers to verified Email Routing destinations; once onboarded it sends to any recipient. Workers Paid includes 3,000 sends/month, then $0.35 per 1,000 — sends to verified destinations stay free.
 - **Workers for Platforms dispatch namespace** — `ganju-tools-<env>`, which is what customer-written tools deploy into. The $25/mo is a per-account platform fee and namespaces are not a billed unit, so the charge starts with the first script. Bound in **both** apps/api (to upload and smoke-test a publish) and apps/mcp (to run a call). See [ARCHITECTURE.md](ARCHITECTURE.md).
 - **Containers** — the `ResourceHandler` container (`instance_type = standard-1`) is built from [apps/resource-handler/Dockerfile](../apps/resource-handler/Dockerfile) during the api deploy. Requires a **paid** Workers plan.
-- **Durable Objects** — `ResourceHandler`, `DiscordGatewayDO` and `MessageBufferDO`, created by the `v1`/`v2`/`v3` migrations in apps/api's toml. All three classes live in apps/api; apps/mcp and apps/tool-broker reach `ResourceHandler` through `script_name = "ganju-api-production"`.
+- **Durable Objects** — `ResourceHandler`, `DiscordGatewayDO` and `MessageBufferDO`, created by the `v1`/`v2`/`v3` migrations in apps/api's toml. All three classes live in apps/api; apps/mcp and apps/tool-broker reach `ResourceHandler` through `script_name = "ganju-api-production"`. `ProjectDatabase` (one SQLite object per project database) lives in apps/data, created by its own `v1` migration; apps/api, apps/mcp and apps/tool-broker reach it through `script_name = "ganju-data-production"`. Its exports go to the same R2 bucket, under `data-exports/`.
 - **Custom domains** — `api`, `mcp` and `app` under your zone. apps/mcp also claims `*.mcp.<domain>/*` for per-artifact subdomains.
 
 ## Secrets
@@ -150,14 +151,14 @@ select count(*) from drizzle.__drizzle_migrations;
 
 `npm run deploy-prod` fans out through Turbo with **no ordering between the Workers**, and the bindings are ordered — two of them circularly:
 
-- **apps/tool-outbound** binds nothing external.
-- **apps/api** binds a service to `ganju-mcp-production`, and routes its dispatch namespace's egress through `ganju-tool-outbound-production`.
+- **apps/tool-outbound** and **apps/data** bind nothing external.
+- **apps/api** binds a service to `ganju-mcp-production`, routes its dispatch namespace's egress through `ganju-tool-outbound-production`, and reaches `ProjectDatabase` with `script_name = "ganju-data-production"`.
 - **apps/mcp** binds a service to `ganju-api-production`, reaches `ResourceHandler` with `script_name = "ganju-api-production"`, and uses the same outbound service.
 - **apps/tool-broker** reaches `ResourceHandler` with `script_name = "ganju-api-production"`.
 
 A binding naming a Worker that does not exist fails the deploy, and api ↔ mcp name each other. So the first deploy has to be sequenced by hand, breaking the cycle once:
 
-1. **apps/tool-outbound** — no dependencies, and both dispatch bindings need it.
+1. **apps/tool-outbound** and **apps/data** — no dependencies; the dispatch bindings need the first, and api, mcp and tool-broker bind to the second.
 2. **apps/api**, with the `MCP` service binding temporarily commented out. This also creates the three Durable Object classes and builds the resource-handler container image, which is why everything else waits on it. apps/api also binds a service named `API` **to itself**; if that is refused on a Worker that does not exist yet, comment it out too and restore it in step 4 alongside `MCP`.
 3. **apps/mcp** — api now exists, so its service and DO bindings resolve.
 4. **apps/api** again, with the commented bindings restored.
@@ -165,7 +166,7 @@ A binding naming a Worker that does not exist fails the deploy, and api ↔ mcp 
 
 Then set the secrets from the lists above, and run the post-deploy checks.
 
-**Only the first deploy needs this.** Once every name exists, `npm run deploy-prod` is safe, because the bindings resolve against Workers that are already there.
+**Only the first deploy needs this.** Once every name exists, `npm run deploy-prod` is safe, because the bindings resolve against Workers that are already there. Turbo still deploys apps/data before api, mcp and tool-broker (`turbo.json`), so a change to the `ProjectDatabase` class is live before the Workers that call it.
 
 ## Routine deploys
 

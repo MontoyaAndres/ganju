@@ -10,7 +10,7 @@ Everything centers on the **artifact**. An artifact is a project's MCP server: i
 user → organization → project → artifact → { prompts, resources, tools, credentials, channels }
 ```
 
-## The six apps
+## The seven apps
 
 ### `apps/api` — control-plane Worker
 
@@ -54,6 +54,16 @@ A small Worker ([`apps/tool-outbound/src/index.ts`](../apps/tool-outbound/src/in
 **Enforcement is here rather than in the SDK on purpose** — anything inside the isolate is user-editable and therefore not a control. An empty `allowedHosts` means unrestricted rather than blocked, but `isBlockedHost` applies whatever the list says. Note it screens global `fetch` only: a container binding is not intercepted, which is why the embedding host needs an exemption and the `sendFile` container call never did.
 
 Both Workers are deployed per environment (`ganju-tool-broker-development`, `ganju-tool-outbound-development`). What a tool author sees of them — `ctx`, settings, limits — is documented in [the Functions docs](../apps/website/src/content/docs/tools/functions.md) and the [`@ganju/sdk`](../packages/sdk) and [`ganju` CLI](../packages/cli) READMEs.
+
+### `apps/data` — projects' databases
+
+A Worker ([`apps/data/src/index.ts`](../apps/data/src/index.ts)) whose only job is the `ProjectDatabase` class: a **SQLite-backed Durable Object per artifact**, addressed as `idFromName(artifactId)`, holding that project's tables and rows. It has no public routes. apps/api, apps/mcp and apps/tool-broker bind to it with `script_name = "ganju-data-<env>"` and call it over JS RPC, always through `databaseStub` in `@ganju/db`; a customer's script has no binding and reaches data only through the broker.
+
+- **The object is the only place SQL is built.** The engine lives in [`packages/utils/src/dataEngine.ts`](../packages/utils/src/dataEngine.ts) (pure, run by the object through a small runner, and by the tests and the tool-design eval on `node:sqlite`): identifiers are checked against the database's own metadata, every value is a bound parameter, inserts split at 100 parameters, and every call is bounded before it runs (500 rows or 1 MB a page; an unindexed sort or aggregate over 200k rows needs an indexed filter).
+- **Self-describing.** Display metadata (labels, descriptions, types, access, relations) lives inside the object in `_ganju_tables` / `_ganju_columns`, so a point-in-time restore brings it back with the data. Our own tables migrate in the constructor the first time an object is used after a deploy.
+- **Every call returns a `DataResult`** — the value or a coded error, plus the rows SQLite read and wrote — never a raw SQLite error. The caller times the call (the object's clock doesn't move during synchronous SQL) and adds the rows to the org's meters once per request.
+- **One request at a time, real transactions.** A write list runs in one `transactionSync`, so "two orders for the last pizza" can't both succeed. Row history is kept by triggers, with the actor every write names.
+- **Restore, delete, export.** Point-in-time recovery (30 days, undoable) is the backup. Deleting is soft: the object refuses calls, and the hourly purge in apps/api runs `deleteAll()` after 7 days. Exports are written to R2 a step at a time by the object's alarm.
 
 ### `apps/web` — dashboard
 
@@ -136,6 +146,7 @@ Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/w
 | `RESOURCE_HANDLER` | Durable Object → Container | Heavy work delegation                            |
 | `DISCORD_GATEWAY`  | Durable Object             | Persistent Discord Gateway socket                |
 | `MESSAGE_BUFFER`   | Durable Object             | Holds a participant's burst, then runs the turn  |
+| `PROJECT_DATABASE` | Durable Object (apps/data) | A project's tables and rows, one object each     |
 | `MCP` / `API`      | Service bindings           | Worker-to-Worker calls                           |
 | `DISPATCH`         | Workers for Platforms      | Runs a customer's deployed tool script           |
 | `*_QUEUE`          | Queues                     | Background jobs (see below)                      |

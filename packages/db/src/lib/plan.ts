@@ -228,6 +228,11 @@ export const rollUsagePeriodIfDue = async (
         voiceNoteSeconds: sub.voiceNoteSeconds,
         voiceNotePlatformCount: sub.voiceNotePlatformCount,
         peakEmbeddedMb: sub.peakEmbeddedMb,
+        dataRowsReadCount: sub.dataRowsReadCount,
+        dataRowsWrittenCount: sub.dataRowsWrittenCount,
+        dataRequestCount: sub.dataRequestCount,
+        peakDataMb: sub.peakDataMb,
+        dataTriggerRunCount: sub.dataTriggerRunCount,
         reportedMessageOverage: sub.reportedMessageOverage,
         reportedSharedMessageOverage: sub.reportedSharedMessageOverage,
         reportedEmbeddedOverageMb: sub.reportedEmbeddedOverageMb,
@@ -250,7 +255,12 @@ export const rollUsagePeriodIfDue = async (
       reportedSharedMessageOverage: 0,
       reportedEmbeddedOverageMb: 0,
       reportedToolCallOverage: 0,
-      peakEmbeddedMb: 0
+      peakEmbeddedMb: 0,
+      dataRowsReadCount: 0,
+      dataRowsWrittenCount: 0,
+      dataRequestCount: 0,
+      peakDataMb: 0,
+      dataTriggerRunCount: 0
     })
     .where(eq(schema.subscription.id, sub.id));
 

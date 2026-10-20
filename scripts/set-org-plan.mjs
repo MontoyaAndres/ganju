@@ -148,12 +148,13 @@ if (!org.subscription_id) {
   // Every organization normally gets its row at creation; one without it is
   // treated as Free, so create the row rather than fail.
   await sql`
-    insert into subscription (id, organization_id, plan, status)
-    values (gen_random_uuid()::text, ${org.id}, ${plan}, 'active')`;
+    insert into subscription (id, organization_id, plan, status, plan_changed_at)
+    values (gen_random_uuid()::text, ${org.id}, ${plan}, 'active', now())`;
 } else {
   await sql`
     update subscription set
       plan = ${plan},
+      plan_changed_at = now(),
       status = 'active',
       cancel_at_period_end = false
       ${

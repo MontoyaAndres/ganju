@@ -56,6 +56,7 @@ export type Bindings = {
   RESOURCE_HANDLER_PORT: string;
   DISCORD_GATEWAY: DurableObjectNamespace<DiscordGatewayDO>;
   MESSAGE_BUFFER: DurableObjectNamespace<MessageBufferDO>;
+  PROJECT_DATABASE: DurableObjectNamespace;
   API: Fetcher;
   SEND_EMAIL?: SendEmail;
   MCP: Fetcher;

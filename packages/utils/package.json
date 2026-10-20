@@ -62,11 +62,16 @@
       "types": "./dist/sdkConstants.d.ts",
       "import": "./dist/sdkConstants.js",
       "require": "./dist/sdkConstants.js"
+    },
+    "./data": {
+      "types": "./dist/data.d.ts",
+      "import": "./dist/data.js",
+      "require": "./dist/data.js"
     }
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --import ./test/resolveSourceImports.mjs --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON 'test/**/*.test.ts'",
+    "test": "TZ=UTC node --import ./test/resolveSourceImports.mjs --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON 'test/**/*.test.ts'",
     "prepublishOnly": "npm run build",
     "clean": "rm -rf dist && rm -rf node_modules"
   },

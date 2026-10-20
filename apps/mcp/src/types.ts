@@ -27,6 +27,7 @@ export type Bindings = {
   STORAGE_BUCKET: R2Bucket;
   JWKS_CACHE: KVNamespace;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
+  PROJECT_DATABASE: DurableObjectNamespace;
   API: Fetcher;
   DISPATCH?: DispatchNamespace;
   HTTP_ENDPOINT_RATE_LIMITER?: RateLimitBinding;

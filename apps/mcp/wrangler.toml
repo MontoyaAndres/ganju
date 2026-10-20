@@ -49,6 +49,10 @@ simple = { limit = 60, period = 60 }
 name = "RESOURCE_HANDLER"
 class_name = "ResourceHandler"
 script_name = "ganju-api-development"
+[[env.development.durable_objects.bindings]]
+name = "PROJECT_DATABASE"
+class_name = "ProjectDatabase"
+script_name = "ganju-data-development"
 [[env.development.services]]
 binding = "API"
 service = "ganju-api-development"
@@ -97,6 +101,10 @@ simple = { limit = 60, period = 60 }
 name = "RESOURCE_HANDLER"
 class_name = "ResourceHandler"
 script_name = "ganju-api-production"
+[[env.production.durable_objects.bindings]]
+name = "PROJECT_DATABASE"
+class_name = "ProjectDatabase"
+script_name = "ganju-data-production"
 [[env.production.services]]
 binding = "API"
 service = "ganju-api-production"

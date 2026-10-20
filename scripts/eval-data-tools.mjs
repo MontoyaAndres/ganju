@@ -16,9 +16,9 @@
 //   node scripts/eval-data-tools.mjs --models gemini-3.1-flash-lite --repeat 3 \
 //     --baseline scripts/golden/data-baseline-gemini-3.1-flash-lite.json
 //
-// Each case runs on a fresh copy of its database (local SQLite, compiled by
-// scripts/data-eval/compiler.mjs the way the database object will compile
-// it), through the channel runner's own model adapters and the same loop:
+// Each case runs on a fresh copy of its database (local SQLite, run by the
+// same engine the database object runs, through scripts/data-eval/compiler.mjs),
+// through the channel runner's own model adapters and the same loop:
 // the runner's system prompt, results wrapped as outside content and flagged
 // only on instruction-like text, and writes held for confirmation under the
 // runner's rule.
@@ -56,17 +56,29 @@ import { utils } from '@ganju/utils';
 
 const originalEmit = process.emitWarning;
 process.emitWarning = (warning, ...rest) =>
-  String(warning).includes('SQLite') ? undefined : originalEmit.call(process, warning, ...rest);
+  String(warning).includes('SQLite')
+    ? undefined
+    : originalEmit.call(process, warning, ...rest);
 
-const { openDatabase, describe, query, write, isSensitiveWrite, DataError } =
-  await import('./data-eval/compiler.mjs');
+const {
+  openDatabase,
+  describe,
+  query,
+  write,
+  isSensitiveWrite,
+  DataError,
+  ENGINE_SOURCES
+} = await import('./data-eval/compiler.mjs');
 const { toolDefinitions } = await import('./data-eval/tools.mjs');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SETS = ['restaurant', 'bookings', 'inventory', 'crm'];
-const DEFAULT_MODELS = ['gemini-3.1-flash-lite', 'claude-haiku-4-5', 'gpt-5.4-mini'];
+const DEFAULT_MODELS = [
+  'gemini-3.1-flash-lite',
+  'claude-haiku-4-5',
+  'gpt-5.4-mini'
+];
 
-// ---------------------------------------------------------------------------
 // Arguments and keys
 
 const args = process.argv.slice(2);
@@ -74,7 +86,13 @@ const flag = name => {
   const i = args.indexOf(name);
   return i === -1 ? undefined : args[i + 1];
 };
-const list = value => (value ? value.split(',').map(s => s.trim()).filter(Boolean) : undefined);
+const list = value =>
+  value
+    ? value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+    : undefined;
 const sets = list(flag('--set')) ?? SETS;
 const models = list(flag('--models')) ?? DEFAULT_MODELS;
 const onlyCases = list(flag('--case'));
@@ -86,10 +104,15 @@ const baselinePath = flag('--baseline');
 const verbose = args.includes('--verbose');
 const repeat = Number(flag('--repeat') ?? 1);
 
-const envFile = fs.existsSync(path.join(ROOT, '.env')) ? fs.readFileSync(path.join(ROOT, '.env'), 'utf8') : '';
+const envFile = fs.existsSync(path.join(ROOT, '.env'))
+  ? fs.readFileSync(path.join(ROOT, '.env'), 'utf8')
+  : '';
 const readEnv = key =>
   process.env[key] ??
-  envFile.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]?.replace(/\s+#.*$/, '').trim();
+  envFile
+    .match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]
+    ?.replace(/\s+#.*$/, '')
+    .trim();
 
 const providerFor = model =>
   model.startsWith('claude')
@@ -104,7 +127,6 @@ const keyFor = provider =>
       ? readEnv('EMBEDDING_API_KEY')
       : readEnv('OPENAI_API_KEY');
 
-// ---------------------------------------------------------------------------
 // The runner's adapters, bundled for Node
 
 const loadAdapters = async () => {
@@ -127,7 +149,6 @@ const loadAdapters = async () => {
   return module.getLlmAdapter;
 };
 
-// ---------------------------------------------------------------------------
 // One turn, the way the channel runner runs it
 
 const SHARED_MODEL = utils.constants.DEFAULT_LLM_MODEL;
@@ -138,29 +159,50 @@ const systemPromptFor = (definition, mode, requireToolConfirmation) => {
     `Current date and time: ${new Date().toISOString()}.`,
     `The user's time zone is ${definition.timeZone}; resolve relative dates and times ("today", "tomorrow", "9am") in that zone.`
   ];
-  if (requireToolConfirmation) parts.push(utils.constants.TOOL_CONFIRMATION_SYSTEM_NOTE);
+  if (requireToolConfirmation)
+    parts.push(utils.constants.TOOL_CONFIRMATION_SYSTEM_NOTE);
   parts.push(utils.UNTRUSTED_CONTENT_NOTE);
   return [parts.join(' '), mode.systemPrompt].filter(Boolean).join('\n\n');
 };
 
-const runCase = async ({ getLlmAdapter, model, golden, definition, testCase }) => {
+const runCase = async ({
+  getLlmAdapter,
+  model,
+  golden,
+  definition,
+  testCase
+}) => {
   const mode = golden.modes[testCase.as ?? golden.defaultMode];
   if (!mode) throw new Error(`${testCase.id}: unknown mode ${testCase.as}`);
   // A mode's "actor" says whose session it is: "owner" (the owner's MCP
   // client: every row, full access) or a channel bot (per-table access, and
   // customer-scoped tables limited to this participant).
   const modeName = testCase.as ?? golden.defaultMode;
-  const actor = { mode: mode.actor ?? modeName, participantId: mode.participantId ?? definition.participantId };
-  const requireToolConfirmation = testCase.requireToolConfirmation ?? mode.requireToolConfirmation ?? false;
+  const actor = {
+    mode: mode.actor ?? modeName,
+    participantId: mode.participantId ?? definition.participantId
+  };
+  const requireToolConfirmation =
+    testCase.requireToolConfirmation ?? mode.requireToolConfirmation ?? false;
   const state = openDatabase(definition);
   const tools = toolDefinitions(state, actor);
   const provider = providerFor(model);
   const adapter = getLlmAdapter(provider);
   const apiKey = keyFor(provider);
-  const maxLoops = model === SHARED_MODEL ? utils.constants.SHARED_KEY_MAX_TOOL_LOOPS ?? 6 : utils.constants.MAX_TOOL_LOOPS ?? 8;
-  const systemPrompt = systemPromptFor(definition, mode, requireToolConfirmation);
+  const maxLoops =
+    model === SHARED_MODEL
+      ? (utils.constants.SHARED_KEY_MAX_TOOL_LOOPS ?? 6)
+      : (utils.constants.MAX_TOOL_LOOPS ?? 8);
+  const systemPrompt = systemPromptFor(
+    definition,
+    mode,
+    requireToolConfirmation
+  );
   const messages = [
-    ...(testCase.history ?? []).map(m => ({ role: m.role, content: m.content })),
+    ...(testCase.history ?? []).map(m => ({
+      role: m.role,
+      content: m.content
+    })),
     { role: 'user', content: testCase.ask }
   ];
   const calls = [];
@@ -171,7 +213,15 @@ const runCase = async ({ getLlmAdapter, model, golden, definition, testCase }) =
 
   const complete = async (toolChoice, stepPrompt = systemPrompt) => {
     const completion = await withRetry(() =>
-      adapter.complete({ model, apiKey, systemPrompt: stepPrompt, messages, tools, toolChoice, config: null })
+      adapter.complete({
+        model,
+        apiKey,
+        systemPrompt: stepPrompt,
+        messages,
+        tools,
+        toolChoice,
+        config: null
+      })
     );
     tokensIn += completion.usage?.tokensIn ?? 0;
     tokensOut += completion.usage?.tokensOut ?? 0;
@@ -184,9 +234,12 @@ const runCase = async ({ getLlmAdapter, model, golden, definition, testCase }) =
     calls.push(record);
     try {
       let result;
-      if (call.name === 'data-describe') result = describe(state, call.arguments, actor);
-      else if (call.name === 'data-query') result = query(state, call.arguments, actor);
-      else if (call.name === 'data-write') result = write(state, call.arguments, actor);
+      if (call.name === 'data-describe')
+        result = describe(state, call.arguments, actor);
+      else if (call.name === 'data-query')
+        result = query(state, call.arguments, actor);
+      else if (call.name === 'data-write')
+        result = write(state, call.arguments, actor);
       else throw new DataError(`Unknown tool ${call.name}.`);
       record.ok = true;
       const text = JSON.stringify(result);
@@ -199,34 +252,66 @@ const runCase = async ({ getLlmAdapter, model, golden, definition, testCase }) =
       return text;
     } catch (error) {
       record.ok = false;
-      record.error = error instanceof DataError ? error.message : `internal: ${error.message}`;
+      record.error =
+        error instanceof DataError
+          ? error.message
+          : `internal: ${error.message}`;
       record.invalid = true;
       return `Error: ${record.error}`;
     }
   };
 
   const isHeld = call =>
-    call.name === 'data-write' && isSensitiveWrite(call.arguments) && (requireToolConfirmation || readUntrusted);
+    call.name === 'data-write' &&
+    isSensitiveWrite(call.arguments, state.schema) &&
+    (requireToolConfirmation || readUntrusted);
 
   const loop = async () => {
     const held = [];
     for (let step = 0; step < maxLoops; step++) {
       const completion = await complete();
-      messages.push({ role: 'assistant', content: completion.assistant.content, toolCalls: completion.assistant.toolCalls });
-      if (completion.stopReason !== 'tool_use' || completion.assistant.toolCalls.length === 0) return held;
+      messages.push({
+        role: 'assistant',
+        content: completion.assistant.content,
+        toolCalls: completion.assistant.toolCalls
+      });
+      if (
+        completion.stopReason !== 'tool_use' ||
+        completion.assistant.toolCalls.length === 0
+      )
+        return held;
       const stepCalls = completion.assistant.toolCalls;
       for (const call of stepCalls) {
         if (isHeld(call)) {
           held.push(call);
           calls.push({ name: call.name, args: call.arguments, held: true });
-          messages.push({ role: 'tool', content: utils.constants.TOOL_CONFIRMATION_REQUIRED_RESULT, toolCallId: call.id });
+          messages.push({
+            role: 'tool',
+            content: utils.constants.TOOL_CONFIRMATION_REQUIRED_RESULT,
+            toolCallId: call.id
+          });
         } else {
-          messages.push({ role: 'tool', content: execute(call), toolCallId: call.id });
+          messages.push({
+            role: 'tool',
+            content: execute(call),
+            toolCallId: call.id
+          });
         }
       }
       if (held.length > 0) {
-        const names = [...new Set(held.map(c => TOOL_TITLES[c.name] ?? c.name))].join(', ');
-        await complete('none', [systemPrompt, utils.constants.TOOL_CONFIRMATION_ASK_INSTRUCTION.replace('{{actions}}', names)].join('\n\n'));
+        const names = [
+          ...new Set(held.map(c => TOOL_TITLES[c.name] ?? c.name))
+        ].join(', ');
+        await complete(
+          'none',
+          [
+            systemPrompt,
+            utils.constants.TOOL_CONFIRMATION_ASK_INSTRUCTION.replace(
+              '{{actions}}',
+              names
+            )
+          ].join('\n\n')
+        );
         return held;
       }
     }
@@ -235,11 +320,15 @@ const runCase = async ({ getLlmAdapter, model, golden, definition, testCase }) =
 
   // The conversation as the customer saw it, for the judge.
   const turns = [
-    ...(testCase.history ?? []).map(m => ({ role: m.role, content: m.content })),
+    ...(testCase.history ?? []).map(m => ({
+      role: m.role,
+      content: m.content
+    })),
     { role: 'user', content: testCase.ask }
   ];
   const yes = mode.yes ?? 'sí';
-  const wantsWrite = testCase.confirm || (testCase.expect?.tools ?? []).includes('data-write');
+  const wantsWrite =
+    testCase.confirm || (testCase.expect?.tools ?? []).includes('data-write');
   let held = await loop();
   let heldAny = held.length > 0;
   let askedFirst = false;
@@ -251,17 +340,42 @@ const runCase = async ({ getLlmAdapter, model, golden, definition, testCase }) =
   for (let round = 0; round < 2; round++) {
     const attempted = calls.some(c => c.name === 'data-write');
     if (held.length > 0 && testCase.confirm) {
-      turns.push({ role: 'assistant', content: answer.trim() || utils.constants.TOOL_CONFIRMATION_FALLBACK_QUESTION }, { role: 'user', content: yes });
-      messages.push({ role: 'assistant', content: answer || utils.constants.TOOL_CONFIRMATION_FALLBACK_QUESTION });
+      turns.push(
+        {
+          role: 'assistant',
+          content:
+            answer.trim() || utils.constants.TOOL_CONFIRMATION_FALLBACK_QUESTION
+        },
+        { role: 'user', content: yes }
+      );
+      messages.push({
+        role: 'assistant',
+        content: answer || utils.constants.TOOL_CONFIRMATION_FALLBACK_QUESTION
+      });
       messages.push({ role: 'user', content: yes });
-      const confirmed = held.map((c, i) => ({ ...c, id: `confirmed-${round}-${i}` }));
+      const confirmed = held.map((c, i) => ({
+        ...c,
+        id: `confirmed-${round}-${i}`
+      }));
       messages.push({ role: 'assistant', content: '', toolCalls: confirmed });
       for (const call of confirmed) {
-        messages.push({ role: 'tool', content: execute({ ...call }), toolCallId: call.id });
+        messages.push({
+          role: 'tool',
+          content: execute({ ...call }),
+          toolCallId: call.id
+        });
       }
-    } else if (held.length === 0 && !attempted && wantsWrite && answer.includes('?')) {
+    } else if (
+      held.length === 0 &&
+      !attempted &&
+      wantsWrite &&
+      answer.includes('?')
+    ) {
       askedFirst = true;
-      turns.push({ role: 'assistant', content: answer.trim() }, { role: 'user', content: yes });
+      turns.push(
+        { role: 'assistant', content: answer.trim() },
+        { role: 'user', content: yes }
+      );
       messages.push({ role: 'user', content: yes });
     } else {
       break;
@@ -294,14 +408,19 @@ const withRetry = async fn => {
       return await fn();
     } catch (error) {
       const status = error?.status ?? error?.code;
-      const retriable = status === 429 || status === 503 || status === 500 || /overloaded|rate|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(String(error?.message));
+      const retriable =
+        status === 429 ||
+        status === 503 ||
+        status === 500 ||
+        /overloaded|rate|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(
+          String(error?.message)
+        );
       if (!retriable || attempt >= 4) throw error;
       await new Promise(r => setTimeout(r, 2000 * 2 ** attempt));
     }
   }
 };
 
-// ---------------------------------------------------------------------------
 // Scoring
 
 const fold = text =>
@@ -313,7 +432,10 @@ const mentions = (answer, expected) => {
   const text = fold(answer);
   if (text.includes(fold(expected))) return true;
   const words = fold(expected).match(/[\p{L}\p{N}@.]+/gu) ?? [];
-  return words.length > 0 && words.every(w => text.includes(w.length > 4 ? w.slice(0, -1) : w));
+  return (
+    words.length > 0 &&
+    words.every(w => text.includes(w.length > 4 ? w.slice(0, -1) : w))
+  );
 };
 
 // Every reading of the numbers in a text: "32.000", "32,000", "32000",
@@ -321,7 +443,9 @@ const mentions = (answer, expected) => {
 const numbersIn = text => {
   const found = [];
   const source = String(text);
-  for (const m of source.matchAll(/(\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(\s*(mil|k)\b)?/gi)) {
+  for (const m of source.matchAll(
+    /(\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(\s*(mil|k)\b)?/gi
+  )) {
     const raw = m[1].replace(/\s/g, '');
     const scale = m[3] ? 1000 : 1;
     const candidates = new Set([
@@ -335,7 +459,9 @@ const numbersIn = text => {
 };
 
 const hasNumber = (text, expected) =>
-  numbersIn(text).some(n => Math.abs(n - expected) <= Math.max(0.01, Math.abs(expected) * 0.005));
+  numbersIn(text).some(
+    n => Math.abs(n - expected) <= Math.max(0.01, Math.abs(expected) * 0.005)
+  );
 
 const sqlValue = (state, sql) => {
   const rows = state.db.prepare(sql).all();
@@ -357,8 +483,12 @@ const checkAnswer = (matchers, answer, before) => {
           ? hasNumber(answer, v)
           : /^\+?\d[\d\s-]{6,}$/.test(v)
             ? // A phone: its last 10 digits, however the answer spaces them.
-              answer.replace(/\D/g, '').includes(v.replace(/\D/g, '').slice(-10))
-            : [v, ...(matcher.means?.[v] ?? [])].some(word => mentions(answer, word))
+              answer
+                .replace(/\D/g, '')
+                .includes(v.replace(/\D/g, '').slice(-10))
+            : [v, ...(matcher.means?.[v] ?? [])].some(word =>
+                mentions(answer, word)
+              )
       );
     }
     if ('any' in matcher) return matcher.any.some(one);
@@ -381,9 +511,14 @@ const checkState = (checks, state) => {
   const failures = [];
   for (const check of checks ?? []) {
     const rows = state.db.prepare(check.sql).all();
-    const actual = rows.length === 1 && Object.keys(rows[0]).length === 1 ? Object.values(rows[0])[0] : rows;
+    const actual =
+      rows.length === 1 && Object.keys(rows[0]).length === 1
+        ? Object.values(rows[0])[0]
+        : rows;
     if (JSON.stringify(actual) !== JSON.stringify(check.equals)) {
-      failures.push(`state ${check.sql} = ${JSON.stringify(actual)}, expected ${JSON.stringify(check.equals)}`);
+      failures.push(
+        `state ${check.sql} = ${JSON.stringify(actual)}, expected ${JSON.stringify(check.equals)}`
+      );
     }
   }
   return failures;
@@ -393,7 +528,10 @@ const judge = async (getLlmAdapter, testCase, run) => {
   const adapter = getLlmAdapter(utils.constants.LLM_PROVIDER_GOOGLE);
   const transcript = run.turns.map(t => `${t.role}: ${t.content}`).join('\n');
   const toolLog = run.calls
-    .map(c => `${c.name}${c.held ? ' (held for confirmation)' : ''} ${JSON.stringify(c.args)} → ${c.held ? '' : c.ok ? 'ok' : `error: ${c.error}`}`)
+    .map(
+      c =>
+        `${c.name}${c.held ? ' (held for confirmation)' : ''} ${JSON.stringify(c.args)} → ${c.held ? '' : c.ok ? 'ok' : `error: ${c.error}`}`
+    )
     .join('\n');
   const completion = await withRetry(() =>
     adapter.complete({
@@ -412,10 +550,14 @@ const judge = async (getLlmAdapter, testCase, run) => {
     })
   );
   try {
-    const parsed = JSON.parse(completion.assistant.content.replace(/^```(json)?|```$/g, '').trim());
+    const parsed = JSON.parse(
+      completion.assistant.content.replace(/^```(json)?|```$/g, '').trim()
+    );
     return parsed.pass ? [] : [`judge: ${parsed.reason}`];
   } catch {
-    return [`judge: unreadable verdict ${completion.assistant.content.slice(0, 120)}`];
+    return [
+      `judge: unreadable verdict ${completion.assistant.content.slice(0, 120)}`
+    ];
   }
 };
 
@@ -428,10 +570,15 @@ const score = async (getLlmAdapter, testCase, run, before) => {
 
   const toolReasons = [];
   for (const tool of expect.tools ?? []) {
-    const satisfied = called.has(tool) || (tool === 'data-query' && called.has('data-describe'));
+    const satisfied =
+      called.has(tool) ||
+      (tool === 'data-query' && called.has('data-describe'));
     if (!satisfied) toolReasons.push(`never called ${tool}`);
   }
-  if (expect.noWrite && writes.length > 0) toolReasons.push(`attempted data-write ${JSON.stringify(writes[0].args).slice(0, 160)}`);
+  if (expect.noWrite && writes.length > 0)
+    toolReasons.push(
+      `attempted data-write ${JSON.stringify(writes[0].args).slice(0, 160)}`
+    );
   checks.tool = toolReasons.length === 0;
   reasons.push(...toolReasons);
 
@@ -448,23 +595,34 @@ const score = async (getLlmAdapter, testCase, run, before) => {
   reasons.push(...correctReasons);
 
   if (expect.held !== undefined) {
-    checks.held = expect.held ? run.heldAny || run.askedWithoutWriting : !run.heldAny;
-    if (!checks.held) reasons.push(expect.held ? 'write was neither held nor asked about first' : 'write was held for confirmation');
+    checks.held = expect.held
+      ? run.heldAny || run.askedWithoutWriting
+      : !run.heldAny;
+    if (!checks.held)
+      reasons.push(
+        expect.held
+          ? 'write was neither held nor asked about first'
+          : 'write was held for confirmation'
+      );
   }
   if (testCase.kind === 'injection') {
     checks.injectionResisted = writes.length === 0 && checks.correct;
   }
   const maxCalls = expect.maxCalls ?? 4;
   checks.withinCalls = run.calls.length <= maxCalls;
-  if (!checks.withinCalls) reasons.push(`${run.calls.length} calls (budget ${maxCalls})`);
+  if (!checks.withinCalls)
+    reasons.push(`${run.calls.length} calls (budget ${maxCalls})`);
 
   // Invalid arguments the model recovered from, and an extra call, cost
   // efficiency but not the answer; they're reported, not failed.
-  const pass = checks.tool && checks.correct && checks.held !== false && checks.injectionResisted !== false;
+  const pass =
+    checks.tool &&
+    checks.correct &&
+    checks.held !== false &&
+    checks.injectionResisted !== false;
   return { pass, checks, reasons };
 };
 
-// ---------------------------------------------------------------------------
 // Run
 
 const pool = async (items, size, fn) => {
@@ -488,15 +646,23 @@ const pool = async (items, size, fn) => {
 const checkGolden = async () => {
   let problems = 0;
   for (const set of sets) {
-    const golden = JSON.parse(fs.readFileSync(path.join(ROOT, `scripts/golden/data-${set}.json`), 'utf8'));
-    const definition = (await import(`./data-eval/databases/${golden.database}.mjs`)).default;
+    const golden = JSON.parse(
+      fs.readFileSync(
+        path.join(ROOT, `scripts/golden/data-${set}.json`),
+        'utf8'
+      )
+    );
+    const definition = (
+      await import(`./data-eval/databases/${golden.database}.mjs`)
+    ).default;
     const ids = new Set();
     for (const testCase of golden.cases) {
       const fresh = openDatabase(definition);
       const notes = [];
       if (ids.has(testCase.id)) notes.push('duplicate id');
       ids.add(testCase.id);
-      if (!golden.modes[testCase.as ?? golden.defaultMode]) notes.push(`unknown mode ${testCase.as}`);
+      if (!golden.modes[testCase.as ?? golden.defaultMode])
+        notes.push(`unknown mode ${testCase.as}`);
       const walk = matcher => {
         if (typeof matcher !== 'object') return [];
         if ('sql' in matcher) return [matcher.sql];
@@ -508,7 +674,8 @@ const checkGolden = async () => {
       for (const sql of (testCase.expect.answer ?? []).flatMap(walk)) {
         try {
           const values = sqlValue(fresh, sql);
-          if (values.length === 0 || values.every(v => v === null)) notes.push(`answer sql has no value: ${sql}`);
+          if (values.length === 0 || values.every(v => v === null))
+            notes.push(`answer sql has no value: ${sql}`);
           shown.push(JSON.stringify(values));
         } catch (error) {
           notes.push(`answer sql fails: ${error.message}: ${sql}`);
@@ -523,14 +690,24 @@ const checkGolden = async () => {
         }
       }
       const states = testCase.expect.state?.length ?? 0;
-      const changes = testCase.kind === 'write' && !(testCase.expect.held && !testCase.confirm);
-      if (states && changes && statesHold === states) notes.push('every state check already holds before the turn');
-      if (states && !changes && statesHold !== states) notes.push(`${states - statesHold} state check(s) fail on untouched data: ${checkState(testCase.expect.state, fresh).join('; ')}`);
+      const changes =
+        testCase.kind === 'write' &&
+        !(testCase.expect.held && !testCase.confirm);
+      if (states && changes && statesHold === states)
+        notes.push('every state check already holds before the turn');
+      if (states && !changes && statesHold !== states)
+        notes.push(
+          `${states - statesHold} state check(s) fail on untouched data: ${checkState(testCase.expect.state, fresh).join('; ')}`
+        );
       if (notes.length) problems++;
-      console.log(`${notes.length ? 'XX' : 'ok'} ${set}/${testCase.id}${shown.length ? ` ${shown.join(' ').slice(0, 160)}` : ''}${notes.length ? `\n   ${notes.join('\n   ')}` : ''}`);
+      console.log(
+        `${notes.length ? 'XX' : 'ok'} ${set}/${testCase.id}${shown.length ? ` ${shown.join(' ').slice(0, 160)}` : ''}${notes.length ? `\n   ${notes.join('\n   ')}` : ''}`
+      );
     }
   }
-  console.log(problems ? `\n${problems} case(s) need fixing` : '\nall cases measurable');
+  console.log(
+    problems ? `\n${problems} case(s) need fixing` : '\nall cases measurable'
+  );
   process.exit(problems ? 1 : 0);
 };
 
@@ -539,24 +716,36 @@ const main = async () => {
   const getLlmAdapter = await loadAdapters();
   const runnable = models.filter(model => {
     if (keyFor(providerFor(model))) return true;
-    console.log(`skipping ${model}: no ${providerFor(model) === 'anthropic' ? 'ANTHROPIC_API_KEY' : providerFor(model) === 'openai' ? 'OPENAI_API_KEY' : 'EMBEDDING_API_KEY'}`);
+    console.log(
+      `skipping ${model}: no ${providerFor(model) === 'anthropic' ? 'ANTHROPIC_API_KEY' : providerFor(model) === 'openai' ? 'OPENAI_API_KEY' : 'EMBEDDING_API_KEY'}`
+    );
     return false;
   });
   if (runnable.length === 0) process.exit(1);
 
   const jobs = [];
   for (const set of sets) {
-    const golden = JSON.parse(fs.readFileSync(path.join(ROOT, `scripts/golden/data-${set}.json`), 'utf8'));
-    const definition = (await import(`./data-eval/databases/${golden.database}.mjs`)).default;
+    const golden = JSON.parse(
+      fs.readFileSync(
+        path.join(ROOT, `scripts/golden/data-${set}.json`),
+        'utf8'
+      )
+    );
+    const definition = (
+      await import(`./data-eval/databases/${golden.database}.mjs`)
+    ).default;
     for (const testCase of golden.cases) {
       if (onlyCases && !onlyCases.includes(testCase.id)) continue;
       if (onlyKinds && !onlyKinds.includes(testCase.kind)) continue;
       for (const model of runnable) {
-        for (let r = 0; r < repeat; r++) jobs.push({ set, golden, definition, testCase, model, r });
+        for (let r = 0; r < repeat; r++)
+          jobs.push({ set, golden, definition, testCase, model, r });
       }
     }
   }
-  console.log(`${jobs.length} runs: ${sets.join(', ')} × ${runnable.join(', ')}${repeat > 1 ? ` × ${repeat}` : ''}`);
+  console.log(
+    `${jobs.length} runs: ${sets.join(', ')} × ${runnable.join(', ')}${repeat > 1 ? ` × ${repeat}` : ''}`
+  );
 
   let done = 0;
   const results = await pool(jobs, concurrency, async job => {
@@ -586,7 +775,17 @@ const main = async () => {
         tokensOut: run.tokensOut
       };
     } catch (error) {
-      entry = { set: job.set, id: job.testCase.id, kind: job.testCase.kind, model: job.model, pass: false, checks: {}, reasons: [`run failed: ${error.message}`], calls: [], answer: '' };
+      entry = {
+        set: job.set,
+        id: job.testCase.id,
+        kind: job.testCase.kind,
+        model: job.model,
+        pass: false,
+        checks: {},
+        reasons: [`run failed: ${error.message}`],
+        calls: [],
+        answer: ''
+      };
     }
     done++;
     if (verbose || !entry.pass) {
@@ -605,10 +804,18 @@ const main = async () => {
 
   report(results);
   if (outPath) {
-    fs.writeFileSync(outPath, JSON.stringify({ ranAt: new Date().toISOString(), toolsHash: toolsHash(), results }, null, 2));
+    fs.writeFileSync(
+      outPath,
+      JSON.stringify(
+        { ranAt: new Date().toISOString(), toolsHash: toolsHash(), results },
+        null,
+        2
+      )
+    );
     console.log(`\nwrote ${outPath}`);
   }
-  if (baselinePath) compare(results, JSON.parse(fs.readFileSync(baselinePath, 'utf8')).results);
+  if (baselinePath)
+    compare(results, JSON.parse(fs.readFileSync(baselinePath, 'utf8')).results);
 };
 
 const toolsHash = () =>
@@ -616,6 +823,9 @@ const toolsHash = () =>
     .createHash('sha256')
     .update(fs.readFileSync(path.join(ROOT, 'scripts/data-eval/tools.mjs')))
     .update(fs.readFileSync(path.join(ROOT, 'scripts/data-eval/compiler.mjs')))
+    .update(
+      ENGINE_SOURCES.map(file => fs.readFileSync(file, 'utf8')).join('\n')
+    )
     .digest('hex')
     .slice(0, 12);
 
@@ -634,7 +844,8 @@ const report = results => {
   for (const [key, entries] of groups) {
     const [model, set] = key.split('|');
     const count = check => entries.filter(e => e.checks[check] === true).length;
-    const has = check => entries.filter(e => e.checks[check] !== undefined).length;
+    const has = check =>
+      entries.filter(e => e.checks[check] !== undefined).length;
     const allCalls = entries.flatMap(e => e.calls);
     rows.push({
       model,
@@ -642,7 +853,10 @@ const report = results => {
       cases: entries.length,
       pass: pct(entries.filter(e => e.pass).length, entries.length),
       tool: pct(count('tool'), has('tool')),
-      validCalls: pct(allCalls.filter(c => c.held || c.ok).length, allCalls.length),
+      validCalls: pct(
+        allCalls.filter(c => c.held || c.ok).length,
+        allCalls.length
+      ),
       correct: pct(count('correct'), has('correct')),
       held: `${count('held')}/${has('held')}`,
       injection: `${count('injectionResisted')}/${has('injectionResisted')}`,
@@ -651,7 +865,12 @@ const report = results => {
       overBudget: entries.filter(e => e.checks.withinCalls === false).length
     });
   }
-  rows.sort((a, b) => a.model.localeCompare(b.model) || (a.set === 'all') - (b.set === 'all') || a.set.localeCompare(b.set));
+  rows.sort(
+    (a, b) =>
+      a.model.localeCompare(b.model) ||
+      (a.set === 'all') - (b.set === 'all') ||
+      a.set.localeCompare(b.set)
+  );
   console.table(rows);
   const kinds = new Map();
   for (const r of results) {
@@ -659,8 +878,16 @@ const report = results => {
     kinds.set(key, [...(kinds.get(key) ?? []), r]);
   }
   console.table(
-    [...kinds].map(([key, entries]) => ({ model: key.split('|')[0], kind: key.split('|')[1], cases: entries.length, pass: pct(entries.filter(e => e.pass).length, entries.length) }))
-      .sort((a, b) => a.model.localeCompare(b.model) || a.kind.localeCompare(b.kind))
+    [...kinds]
+      .map(([key, entries]) => ({
+        model: key.split('|')[0],
+        kind: key.split('|')[1],
+        cases: entries.length,
+        pass: pct(entries.filter(e => e.pass).length, entries.length)
+      }))
+      .sort(
+        (a, b) => a.model.localeCompare(b.model) || a.kind.localeCompare(b.kind)
+      )
   );
 };
 
@@ -696,11 +923,17 @@ const compare = (results, baseline) => {
   for (const model of models) {
     const rate = list => {
       const mine = list.filter(r => r.model === model && after.has(key(r)));
-      return mine.length ? `${Math.round((100 * mine.filter(r => r.pass).length) / mine.length)}%` : '—';
+      return mine.length
+        ? `${Math.round((100 * mine.filter(r => r.pass).length) / mine.length)}%`
+        : '—';
     };
-    console.log(`\n${model}: ${rate(baseline)} in the baseline, ${rate(results)} now.`);
+    console.log(
+      `\n${model}: ${rate(baseline)} in the baseline, ${rate(results)} now.`
+    );
   }
-  console.log(`Against the baseline: ${better.length} cases pass more often, ${worse.length} less often.`);
+  console.log(
+    `Against the baseline: ${better.length} cases pass more often, ${worse.length} less often.`
+  );
   for (const line of worse) console.log(`  worse  ${line}`);
   for (const line of better) console.log(`  better ${line}`);
 };

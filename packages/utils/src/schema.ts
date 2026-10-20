@@ -511,6 +511,22 @@ const ARTIFACT_REMOVE_RESOURCE = z.object({
   organizationId: z.uuid()
 });
 
+const DATA_DATABASE_GET = z.object({
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// The name is what the owner types to delete it; it defaults to the
+// project's slug.
+const DATA_DATABASE_CREATE = DATA_DATABASE_GET.extend({
+  name: z.string().trim().min(1).max(100).optional()
+});
+
+const DATA_DATABASE_DELETE = DATA_DATABASE_GET.extend({
+  confirmName: z.string().min(1)
+});
+
 const ARTIFACT_UPLOAD_RESOURCE_FILE = z.object({
   resourceId: z.uuid(),
   projectId: z.uuid(),
@@ -1727,6 +1743,9 @@ export const Schema = {
   ARTIFACT_UPDATE_RESOURCE_VIEW,
   ARTIFACT_GET_RESOURCE,
   ARTIFACT_GET_RESOURCE_BY_ID,
+  DATA_DATABASE_GET,
+  DATA_DATABASE_CREATE,
+  DATA_DATABASE_DELETE,
   ARTIFACT_REMOVE_RESOURCE,
   ARTIFACT_UPLOAD_RESOURCE_FILE,
   ARTIFACT_DOWNLOAD_RESOURCE_FILE,

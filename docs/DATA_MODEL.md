@@ -98,11 +98,20 @@ channel (platform, credentials, webhookSecret, → artifact, → organizationLlm
 - **`channelParticipant.memory`** is `{ facts: { key: value }, updatedAt }`, written by the runner's `remember-customer` tool: at most 25 facts, keys in snake_case, values on one line. Null until the first save; cleared from the conversation view. Personal data — allergies are health data — which is why memory is off by default and only used in private conversations.
 - **`channelMessage.metadata`** marks rows the runner wrote without the model, or that started as something other than text: `voiceNote` on a user row that carried audio (mime type, `transcribed`, provider, model, `paidBy`, `durationSeconds` and tokens; `skipped` when the turn didn't run, `tooLong` when it was over the length cap), `voiceNoteUnreadable` on the reply asking the customer to type a note that couldn't be read (`'too_long'` when it asked for shorter parts), and `participantLimit` on the notice that a customer reached the daily limit (that row isn't counted against it). The per-customer count reads assistant rows by `(participant_id, created_at)`, which has its own index.
 
+### Project databases
+
+A project's tables and rows live in its own SQLite Durable Object (see [ARCHITECTURE.md](ARCHITECTURE.md)), not in Postgres. Postgres keeps only the pointer:
+
+- **`artifactDatabase`** — one row per artifact that has a database: `objectName` (the name the object is addressed by: the artifact id at creation), `organizationId`, `name` (what the owner types to delete it), `status` (`CREATING` → `READY`, or `FAILED`; `DELETING` → `PURGING` → `DELETED`, where `PURGING` is the hourly purge's claim on the row, so a restore can't land while it empties the object), the last known `sizeBytes`, `lastReadAt` / `lastWriteAt` (moved at most hourly), the soft-delete fields (`deletedAt`, `deleteAfter`, `deleteBookmark`, `purgedAt`) and the abandoned-database marks. **It is the only list of databases that exist** — Cloudflare can't list a namespace's objects — so nothing cascades into it: `artifactId` is `ON DELETE SET NULL` and `organizationId` has no foreign key. Deleting a project or an organization marks its rows `DELETING` in the same transaction, and the hourly purge empties each object from `objectName` after the grace period.
+- **`artifactDatabaseChange`** — schema changes, restores and deletes: who (`actor`), what (`kind`, `target`, `detail`) and the point-in-time `bookmark` from just before, so a change can be undone with one restore.
+
+Inside each object, our own tables sit beside the owner's: `_ganju_meta` (internal schema version, lifecycle, the running export), `_ganju_tables` and `_ganju_columns` (the self-describing metadata), `_ganju_row_log` (row history, 90 days) and `_ganju_context` (the actor the history triggers record). Every owner table has `id`, `created_at`, `updated_at`, `version`, `created_by`, `updated_by` and a hidden `participant_id`.
+
 ## Billing & metering
 
 **`subscription`** is one row per organization (unique FK, cascade) holding the plan and everything billing needs: `plan`, `status`, the three provider ids (`billingCustomerId` / `billingSubscriptionId` / `billingProductId`), the provider's period (`currentPeriodStart` / `currentPeriodEnd`), `cancelAtPeriodEnd`, and the `customDomain` add-on. The ids are provider-neutral by name because the counters beside them already are. `billingProductId` is a **product**, not a price: the base fee and all four metered rates hang off one product, so the product is what identifies the plan. Plan **limits** are not here — they live in code, in [`PLAN_LIMITS`](../packages/utils/src/constants.ts), so a plan's allowances are the same everywhere and a row cannot disagree with them.
 
-Three axes are metered, and each is a counter plus a mark (voice notes are counted beside them — `voiceNoteCount`, `voiceNoteSeconds`, `voiceNotePlatformCount` — but never reported to billing):
+Three axes are metered, and each is a counter plus a mark (voice notes are counted beside them — `voiceNoteCount`, `voiceNoteSeconds`, `voiceNotePlatformCount` — but never reported to billing, and so is project data — `dataRowsReadCount`, `dataRowsWrittenCount`, `dataRequestCount`, `peakDataMb`, `dataTriggerRunCount` — until real numbers set its price):
 
 | Axis | Counter | Reported mark |
 | ---- | ------- | ------------- |
@@ -119,7 +128,9 @@ Three axes are metered, and each is a counter plus a mark (voice notes are count
 
 `lastBillingEventAt` guards webhook ordering — a delivery describing an older state than the one already applied is ignored rather than reapplied. It holds the subscription's own `modified_at` (falling back to `created_at`) as epoch ms, so ordering follows when the subscription actually changed rather than when a message about it was sent.
 
-**`usagePeriod`** is one immutable row per organization per closed period, written by the rollover *before* it zeroes the counters. It carries the three counters, `peakEmbeddedMb`, the plan in force, the period bounds, and what was reported to the provider.
+`planChangedAt` records when the effective plan last changed (the Polar webhook and `scripts/set-org-plan.mjs` set it); it is what tells an organization that left Pro and stayed on Free, whose databases are read-only, from one that just arrived there.
+
+**`usagePeriod`** is one immutable row per organization per closed period, written by the rollover *before* it zeroes the counters. It carries the three counters, the data counters, `peakEmbeddedMb`, the plan in force, the period bounds, and what was reported to the provider.
 
 Without it the first of the month destroys the evidence for the month just ended, which is what an invoice is written from. It matters most for Enterprise — billed by hand, against real consumption, by clients paying outside the provider entirely — but it is also the only surviving record of what a Pro organization was charged for once its marks reset. Unique on `(organizationId, periodStart)`, so the rollover's insert is idempotent: a retry after a partial rollover finds the row rather than writing a second one.
 

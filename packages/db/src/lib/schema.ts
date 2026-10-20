@@ -419,6 +419,26 @@ export const subscription = pgTable(
     peakEmbeddedMb: bigint('peak_embedded_mb', { mode: 'number' })
       .notNull()
       .default(0),
+    // Project data this period: rows its databases read and wrote, calls made
+    // to them by anyone (dashboard, CLI, assistant, functions), the storage
+    // high-water mark in whole MB, and trigger runs. Tracked, not billed,
+    // until real numbers set the price.
+    dataRowsReadCount: bigint('data_rows_read_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    dataRowsWrittenCount: bigint('data_rows_written_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    dataRequestCount: bigint('data_request_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    peakDataMb: bigint('peak_data_mb', { mode: 'number' }).notNull().default(0),
+    dataTriggerRunCount: bigint('data_trigger_run_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    // When the effective plan last changed. What tells a Pro org that
+    // downgraded and stayed on Free from one that just arrived there.
+    planChangedAt: timestamp('plan_changed_at', { mode: 'date' }),
     lastBillingEventAt: bigint('last_billing_event_at', { mode: 'number' }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
@@ -460,6 +480,19 @@ export const usagePeriod = pgTable(
       .notNull()
       .default(0),
     peakEmbeddedMb: bigint('peak_embedded_mb', { mode: 'number' })
+      .notNull()
+      .default(0),
+    dataRowsReadCount: bigint('data_rows_read_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    dataRowsWrittenCount: bigint('data_rows_written_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    dataRequestCount: bigint('data_request_count', { mode: 'number' })
+      .notNull()
+      .default(0),
+    peakDataMb: bigint('peak_data_mb', { mode: 'number' }).notNull().default(0),
+    dataTriggerRunCount: bigint('data_trigger_run_count', { mode: 'number' })
       .notNull()
       .default(0),
     // What was actually reported to the billing provider for this period. Zero
@@ -1356,6 +1389,94 @@ export const artifactExecution = pgTable(
   ]
 );
 
+// A project's database: the pointer to its Durable Object. Tables and rows
+// live in the object; this row is the only list of databases that exist,
+// since Cloudflare can't list a namespace's objects, so it must never vanish
+// while its object holds data. That is why nothing cascades into it: a
+// deleted project leaves the row DELETING with `objectName`, which is all the
+// hourly purge needs to empty the object after the grace period.
+export const artifactDatabase = pgTable(
+  'artifact_database',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    artifactId: text('artifact_id')
+      .unique()
+      .references(() => artifact.id, { onDelete: 'set null' }),
+    // The name the object is addressed by (idFromName): the artifact id at
+    // creation, kept after the artifact is gone.
+    objectName: text('object_name').notNull().unique(),
+    // No foreign key on purpose, for the same reason as above.
+    organizationId: text('organization_id').notNull(),
+    // What the owner types to delete it.
+    name: text('name').notNull(),
+    status: text('status')
+      .notNull()
+      .default(utils.constants.ARTIFACT_DATABASE_STATUS_CREATING),
+    error: text('error'),
+    locationHint: text('location_hint'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull().default(0),
+    sizeCheckedAt: timestamp('size_checked_at', { mode: 'date' }),
+    lastReadAt: timestamp('last_read_at', { mode: 'date' }),
+    lastWriteAt: timestamp('last_write_at', { mode: 'date' }),
+    // Soft delete: restorable until `deleteAfter`, then the hourly cron
+    // empties the object. `deleteBookmark` is the point-in-time bookmark
+    // from just before, the only way back after the purge.
+    deletedAt: timestamp('deleted_at', { mode: 'date' }),
+    deletedBy: text('deleted_by'),
+    deleteAfter: timestamp('delete_after', { mode: 'date' }),
+    deleteBookmark: text('delete_bookmark'),
+    purgedAt: timestamp('purged_at', { mode: 'date' }),
+    // The abandoned-database flow for orgs that left the paid plan.
+    abandonWarnedAt: timestamp('abandon_warned_at', { mode: 'date' }),
+    abandonRemindedAt: timestamp('abandon_reminded_at', { mode: 'date' }),
+    deleteReadyAt: timestamp('delete_ready_at', { mode: 'date' }),
+    exportKey: text('export_key'),
+    createdById: text('created_by_id').references(() => user.id, {
+      onDelete: 'set null'
+    }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    index('artifact_database_organizationId_idx').on(table.organizationId),
+    index('artifact_database_status_deleteAfter_idx').on(
+      table.status,
+      table.deleteAfter
+    )
+  ]
+);
+
+// Schema changes, restores and deletes made to a database: who, what, and the
+// bookmark from just before, so a change can be undone with one restore.
+export const artifactDatabaseChange = pgTable(
+  'artifact_database_change',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    databaseId: text('database_id')
+      .notNull()
+      .references(() => artifactDatabase.id, { onDelete: 'cascade' }),
+    actor: text('actor').notNull(),
+    kind: text('kind').notNull(),
+    target: text('target'),
+    detail: json('detail'),
+    bookmark: text('bookmark'),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [
+    index('artifact_database_change_databaseId_createdAt_idx').on(
+      table.databaseId,
+      table.createdAt
+    )
+  ]
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -1723,6 +1844,27 @@ export const mcpRequestRelations = relations(mcpRequest, ({ one }) => ({
     references: [artifactPrompt.id]
   })
 }));
+
+export const artifactDatabaseRelations = relations(
+  artifactDatabase,
+  ({ one, many }) => ({
+    artifact: one(artifact, {
+      fields: [artifactDatabase.artifactId],
+      references: [artifact.id]
+    }),
+    changes: many(artifactDatabaseChange)
+  })
+);
+
+export const artifactDatabaseChangeRelations = relations(
+  artifactDatabaseChange,
+  ({ one }) => ({
+    database: one(artifactDatabase, {
+      fields: [artifactDatabaseChange.databaseId],
+      references: [artifactDatabase.id]
+    })
+  })
+);
 
 export const artifactResourceChunkRelations = relations(
   artifactResourceChunk,

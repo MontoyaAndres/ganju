@@ -4,7 +4,13 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
 
-import { Plan, createPolar } from '../../utils';
+import {
+  Plan,
+  createPolar,
+  artifactIdsOf,
+  markDatabasesDeleting,
+  notifyDatabasesDeleted
+} from '../../utils';
 import { refreshMcpProxyAnnotations } from '../artifact';
 
 // types
@@ -306,14 +312,31 @@ const remove = async (c: Context<AppEnv>) => {
     }
   }
 
-  await dbInstance
-    .delete(db.schema.organization)
-    .where(
-      and(
-        eq(db.schema.organization.id, currentValues.id),
-        eq(db.schema.organization.ownerId, currentValues.userId)
-      )
+  const actor = `user:${currentValues.userId}`;
+  const deleting = await dbInstance.transaction(async tx => {
+    // Every project's database first, the same way a project's own delete
+    // does: the cascade removes the artifacts but never the objects.
+    const marked = await markDatabasesDeleting(
+      tx,
+      await artifactIdsOf(tx, { organizationId: currentValues.id }),
+      actor
     );
+
+    await tx
+      .delete(db.schema.organization)
+      .where(
+        and(
+          eq(db.schema.organization.id, currentValues.id),
+          eq(db.schema.organization.ownerId, currentValues.userId)
+        )
+      );
+
+    return marked;
+  });
+
+  if (deleting.length) {
+    c.executionCtx.waitUntil(notifyDatabasesDeleted(c, deleting, actor));
+  }
 
   return c.json({ id: currentValues.id });
 };

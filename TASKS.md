@@ -1094,6 +1094,172 @@ use; the baselines are recorded.
   - deleting the project leaves the object refusing calls, and the cron
     empties it after the grace period.
 
+**Phase 1 status (2026-10-20): done on dev.** `0082` applied; apps/data, api,
+mcp and tool-broker deployed. `scripts/probe-data.mjs` passes 19/19 against
+dev, and the 19:00 UTC purge emptied the probe's databases, keeping each
+one's bookmark.
+
+- **What exists:**
+  - **The engine**, in `packages/utils/src/data*.ts`, exported as
+    `@ganju/utils/data`. It is pure, and runs over a three-method SQL runner
+    (`all`, `transaction`, `databaseSize`), so the object, the tests and the
+    0b eval all run the same code. It has:
+    - identifier rules, DDL per type and FTS triggers;
+    - the query compiler, with keyset cursors and the 100-parameter split;
+    - describe, query (search, aggregate, include), write (guards, `$ref`,
+      `expect`, `version`, bulk `rows`) and row history;
+    - schema changes: create, rename and drop tables; add, change, rename and
+      drop columns;
+    - type changes that copy the table and list the first 10 rows that
+      don't fit;
+    - error translation.
+  - **`apps/data`** (`ProjectDatabase`):
+    - the engine behind RPC methods that each return a `DataResult` (value
+      or coded error, plus rows read and written);
+    - foreign keys set ON at the start of every request, OFF only for a
+      request that copies a table;
+    - init, soft delete, undelete and purge;
+    - point-in-time restore and undo, plus bookmarks returned with risky
+      schema changes;
+    - R2 export (JSONL or CSV, multipart), written a step at a time by the
+      alarm;
+    - the daily history prune, also on the alarm.
+
+    Its own tests run in workerd: `npm test -w data`.
+  - **Postgres** (`0082_artifact_database`):
+    - `artifact_database` and `artifact_database_change`;
+    - the five data counters on `subscription` and `usage_period`, also
+      snapshotted at rollover;
+    - `subscription.plan_changed_at`, set by the Polar webhook and
+      `set-org-plan.mjs`.
+  - **The shared client**, `db.data` in `@ganju/db`:
+    - `databaseStub` with no location hint;
+    - `callData`, which counts, times (slow calls over 250 ms), retries reads
+      once and unwraps errors;
+    - `openArtifactDatabase`, which reads the row and the plan and passes
+      `readOnly` / `maxBytes` / `maxTables` to the object;
+    - `recordDataUsage`: one `UPDATE` per request, and last read/write moved
+      at most hourly.
+  - **API** (`apps/api/src/utils/dataDatabase.ts`):
+    - `createDatabase`, retry-safe: CREATING → init → READY or FAILED;
+    - the Pro gate (`PLAN_FEATURE_DATA`);
+    - `markDatabasesDeleting` in the same transaction as project and
+      organization deletion, then `markDeleted` on each object;
+    - soft delete and restore helpers;
+    - `runDataPurge` on the hourly cron.
+  - **Bindings and deploy:**
+    - `PROJECT_DATABASE` (`script_name = "ganju-data-<env>"`) in api, mcp
+      and tool-broker, both environments;
+    - Turbo deploys apps/data before them;
+    - `PlanLimits` has `canUseData`, `maxDataBytes` (9 GB),
+      `maxDataTablesPerDatabase` (50) and `triggerRunHardCap`.
+- **Checked:**
+  - 25 engine tests on node:sqlite, among the 155 in `packages/utils`;
+  - 6 object tests in workerd: RPC from a second Worker, guards and
+    rollback, a table copy with relations pointing at it and foreign keys
+    back on after, export to R2, delete / undelete / purge, read-only and
+    full;
+  - the eval now runs the real engine (`scripts/data-eval/compiler.mjs`
+    bundles it), and `--check` passes on all 169 cases;
+  - the 4,147 tool calls recorded in the four baselines replay with the
+    same ok / error outcome as the stub. Skipped: held calls, args the
+    baseline files cut at 400 characters, and the 11 old offset cursors.
+    No model was run.
+- **Changed from the plan above:**
+  - **SQL keywords are allowed as names.** Every identifier is quoted, and
+    the eval's own `order_lines.order` would otherwise be refused. What is
+    reserved:
+    - `rowid` / `oid`;
+    - `sqlite_*` and `_ganju_*`;
+    - `__`, kept for search tables;
+    - the system columns.
+  - **`participant_id` is on every table**, so turning customer scoping on
+    is only an index.
+  - **Indexes and constraints are named by table and column id** (`ix_3_12`,
+    `min_12`), so renames never orphan them.
+  - **Row history is kept by triggers**, with the actor read from
+    `_ganju_context`. Cascades and SET NULL are recorded too.
+  - **`version` and `updated_at` move in the compiled `UPDATE`**, not in a
+    trigger.
+  - **Cursors are keyset** (sort values + id), signed with the table and
+    sort they were made for.
+  - **A table copy runs in one request, up to 100,000 rows.** The chunked
+    copy for larger tables is still to build.
+- **Pulled forward from phase 2**, to drive the check above:
+  - the database routes `GET`, `POST` and `DELETE …/artifact/data`, and
+    `POST …/artifact/data/restore`;
+  - `DataError` carrying its HTTP status;
+  - `scripts/probe-data.mjs`, covering the database lifecycle so far.
+- apps/mcp and apps/tool-broker have the binding and the client but no
+  caller yet; their first calls arrive with the tools and `ctx.data` in
+  phase 5.
+
+**Phase 1 review fixes (2026-10-20, deployed to dev).** A review
+before phase 5 found leaks across customer scope and a few unbounded paths.
+All fixed, with tests (167 engine, 7 object); `--check` passes on all 169
+cases in UTC and in Bogotá time.
+
+- **Customer scope and table access reach every join.** Labels,
+  `relation.column` filters, sorts, group labels, `include` and the
+  conflict row all join the related table through one helper that applies
+  the caller's scope (bound, never inlined); a table with access `none`
+  gives a null label. Before, a bot could read another customer's name and
+  phone through a label or a stale `version`.
+- **A bot's relation values must be rows it can read**: none in a hidden
+  table, only its own customer's in a scoped one.
+- **History and describe are scoped:** a bot reads history only for its own
+  customer's rows that still exist, and describe counts only those.
+- **A restricted caller without a participant id** is refused on scoped
+  tables, instead of sharing one empty-id bucket.
+- **100 bound values:** the RESTRICT check on a self-relation and `include`
+  go in chunks. The test runner now refuses more than 100 values, as the
+  object does (node:sqlite allows 32,766, which hid this).
+- **Datetimes without an offset** are read in the project's time zone (UTC
+  without one), not the server's. The utils tests run with `TZ=UTC`.
+- **Purge vs restore:** new status `PURGING`. A restore claims
+  `DELETING → READY` only while `delete_after` is ahead; the purge claims
+  `DELETING → PURGING` only once it has passed, so exactly one wins. A failed
+  purge goes back to `DELETING`; a run that died is retried after an hour.
+- **Bounded before running:** an update by `where` counts its rows first
+  (over 5,000 is refused before writing); `{ "or": [{}] }` is refused.
+- **Memory:** rows are read one at a time (`SqlRunner.iterate`), so a page
+  stops at 1 MB before loading more; `include` stays inside the same budget
+  and says when it left rows as `{ id, label }`.
+- **Hold rule:** a relative change is held unless it reaches one row (an
+  `id`, or a `where` that pins `id` to one value: `{ "id": 1 }`, `eq`, a
+  one-item `in`) or the column has a minimum. Gemini writes
+  `where: { id: 1 }` for "add to my order"; reading only `id` held every
+  one. Replaying the 529 parseable baseline writes, only GPT's bulk
+  `increment` of nail prices is held that wasn't before. `isSensitiveWrite(args, schema)` needs the schema
+  for the minimum; phase 5's tools must pass it.
+- **`version`** comes back on rows for everyone but bots.
+- **Export:** about 1 MiB per step; every part but the last exactly 5 MiB,
+  the remainder kept in R2 between steps; sizes in bytes. The alarm's rows
+  read and written are billed to the next call. Checked on real R2 (dev
+  bucket): a 12 MB export went up in three parts and read back intact.
+  - **Known cost:** the carry is rewritten each step, up to four times before
+    a 5 MiB part ships, so a large table writes roughly 3× its size to R2.
+    That is cheap now.
+  - **If large exports become common:** once a table has needed a second
+    step, read up to a full part per step. The carry then stays under one
+    row and R2 writes drop to about 1×, at the cost of longer steps for big
+    tables.
+- **`plan_changed_at`** compares the plan in force (plan and entitled
+  status), not the plan column alone.
+- **Smaller:** a searchable column named `rank` and table names shaped like
+  ours (`ix_1_…`, `ux_…`, `tr_…`) are refused; aggregates say when groups
+  were cut at 100; no error returns SQLite's own text; tidying arguments no
+  longer rewrites keys inside json values.
+- **Checked on dev:** deployed, and `scripts/probe-data.mjs` passes 19/19,
+  restore through the new claim included; the next hourly run purged its
+  database through `PURGING` and kept the bookmark.
+  - **Export (12 MB, real R2):** the ProjectDatabase class ran locally under
+    `wrangler dev`, with only its R2 binding remote on the dev bucket, since
+    no route reaches an export until phase 2.
+  - **Result:** three parts, etag `…-3`; 12,039,292 bytes, matching the
+    count; 200 rows intact across the cuts; no carry left; 751 rows read
+    billed to later calls.
+
 **2. Schema and rows API — M**
 
 - Routes under `/organization/:organizationId/project/:projectId/artifact/data`,

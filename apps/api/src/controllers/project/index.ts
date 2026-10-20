@@ -4,7 +4,12 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
 
-import { Plan } from '../../utils';
+import {
+  Plan,
+  artifactIdsOf,
+  markDatabasesDeleting,
+  notifyDatabasesDeleted
+} from '../../utils';
 
 // types
 import { AppEnv } from '../../types';
@@ -312,8 +317,17 @@ const remove = async (c: Context<AppEnv>) => {
   });
 
   const dbInstance = db.create(c);
+  const actor = `user:${currentValues.userId}`;
 
-  await dbInstance.transaction(async tx => {
+  const deleting = await dbInstance.transaction(async tx => {
+    // Before the project's rows go: its databases' objects live outside
+    // Postgres and must be emptied by the hourly purge, not forgotten.
+    const marked = await markDatabasesDeleting(
+      tx,
+      await artifactIdsOf(tx, { projectId: currentValues.id }),
+      actor
+    );
+
     await tx
       .delete(db.schema.project)
       .where(
@@ -329,7 +343,13 @@ const remove = async (c: Context<AppEnv>) => {
         projectCount: sql`(${db.schema.organization.projectCount}::int - 1)::int`
       })
       .where(eq(db.schema.organization.id, currentValues.organizationId));
+
+    return marked;
   });
+
+  if (deleting.length) {
+    c.executionCtx.waitUntil(notifyDatabasesDeleted(c, deleting, actor));
+  }
 
   return c.json(currentValues);
 };

@@ -1,0 +1,23 @@
+{
+  "name": "data",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "../../scripts/wrangler-dev.sh apps/data 8085",
+    "clean": "rm -rf node_modules",
+    "deploy-dev": "wrangler deploy --env development",
+    "deploy-prod": "wrangler deploy --env production",
+    "test": "node --test --test-concurrency=1 'test/**/*.test.mjs'"
+  },
+  "dependencies": {
+    "@ganju/utils": "*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260611.1",
+    "@ganju/tsconfig": "*",
+    "esbuild": "^0.27.3",
+    "miniflare": "^4.20260611.0",
+    "typescript": "^6.0.3"
+  }
+}

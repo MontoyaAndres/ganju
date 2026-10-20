@@ -2151,6 +2151,40 @@ const PRICING_TOOL_CALL_PER_M_USD = 5;
 const PRICING_TOOL_CALL_HARD_CAP = 20_000_000;
 const PRICING_CUSTOM_DOMAIN_USD = 15;
 
+// Project data (one SQLite Durable Object per artifact). Cloudflare caps a
+// database at 10 GB; we stop writes that add data at 9 GB so there is room to
+// delete, archive and export.
+const DATA_MAX_DATABASE_BYTES = 9 * GB;
+const DATA_MAX_TABLES_PER_DATABASE = 50;
+const DATA_TRIGGER_RUN_HARD_CAP = 5_000_000;
+// A deleted database can be restored for this long before its storage is
+// freed.
+const DATA_DELETE_GRACE_DAYS = 7;
+const ARTIFACT_DATABASE_STATUS_CREATING = 'CREATING' as 'CREATING';
+const ARTIFACT_DATABASE_STATUS_READY = 'READY' as 'READY';
+const ARTIFACT_DATABASE_STATUS_FAILED = 'FAILED' as 'FAILED';
+const ARTIFACT_DATABASE_STATUS_DELETING = 'DELETING' as 'DELETING';
+// The hourly purge has claimed the row and is emptying the object; a restore
+// can no longer take it back.
+const ARTIFACT_DATABASE_STATUS_PURGING = 'PURGING' as 'PURGING';
+const ARTIFACT_DATABASE_STATUS_DELETED = 'DELETED' as 'DELETED';
+const ARTIFACT_DATABASE_STATUSES = [
+  ARTIFACT_DATABASE_STATUS_CREATING,
+  ARTIFACT_DATABASE_STATUS_READY,
+  ARTIFACT_DATABASE_STATUS_FAILED,
+  ARTIFACT_DATABASE_STATUS_DELETING,
+  ARTIFACT_DATABASE_STATUS_PURGING,
+  ARTIFACT_DATABASE_STATUS_DELETED
+];
+// A purge that claimed a row and never finished (the Worker died) is picked
+// up again after this long.
+const DATA_PURGE_STALE_MS = 60 * 60 * 1000;
+// Rows purged per hourly run: each is a call to its database object.
+const DATA_PURGE_BATCH = 20;
+// last_read_at / last_write_at move at most this often, so they aren't a
+// Postgres write per query.
+const DATA_ACTIVITY_THROTTLE_MS = 60 * 60 * 1000;
+
 interface PlanLimits {
   // null on any field means "no hard limit" for that plan.
   maxProjects: number | null;
@@ -2216,6 +2250,16 @@ interface PlanLimits {
   autoSyncIntervals: ReadonlyArray<
     typeof RESOURCE_SYNC_INTERVAL_DAILY | typeof RESOURCE_SYNC_INTERVAL_WEEKLY
   >;
+  // Whether a project may create a database (tables and rows). Paid-only: the
+  // rows live in a Durable Object we pay storage and rows for. An org that
+  // downgrades keeps its databases, read-only.
+  canUseData: boolean;
+  // Writes that add data stop here, under Cloudflare's 10 GB per database, so
+  // the owner meets a readable "database full" rather than SQLITE_FULL.
+  maxDataBytes: number | null;
+  maxDataTablesPerDatabase: number | null;
+  // Abuse backstop on data trigger runs a month. `null` = no backstop.
+  triggerRunHardCap: number | null;
 }
 
 const PLAN_LIMITS: Record<
@@ -2256,7 +2300,11 @@ const PLAN_LIMITS: Record<
     toolCallHardCap: 10_000,
     includedMessages: 100,
     includedEmbeddedBytes: 5 * MB,
-    autoSyncIntervals: []
+    autoSyncIntervals: [],
+    canUseData: false,
+    maxDataBytes: null,
+    maxDataTablesPerDatabase: null,
+    triggerRunHardCap: 0
   },
   PRO: {
     maxProjects: null,
@@ -2283,7 +2331,11 @@ const PLAN_LIMITS: Record<
     autoSyncIntervals: [
       RESOURCE_SYNC_INTERVAL_DAILY,
       RESOURCE_SYNC_INTERVAL_WEEKLY
-    ]
+    ],
+    canUseData: true,
+    maxDataBytes: DATA_MAX_DATABASE_BYTES,
+    maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
+    triggerRunHardCap: DATA_TRIGGER_RUN_HARD_CAP
   },
   ENTERPRISE: {
     maxProjects: null,
@@ -2310,7 +2362,11 @@ const PLAN_LIMITS: Record<
     autoSyncIntervals: [
       RESOURCE_SYNC_INTERVAL_DAILY,
       RESOURCE_SYNC_INTERVAL_WEEKLY
-    ]
+    ],
+    canUseData: true,
+    maxDataBytes: DATA_MAX_DATABASE_BYTES,
+    maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
+    triggerRunHardCap: null
   }
 };
 
@@ -2330,6 +2386,7 @@ const PLAN_FEATURE_EMBEDDED_STORAGE = 'embeddedStorage' as 'embeddedStorage';
 const PLAN_FEATURE_MESSAGE = 'message' as 'message';
 const PLAN_FEATURE_TOOL_CALL = 'toolCall' as 'toolCall';
 const PLAN_FEATURE_RESOURCE_SYNC = 'resourceSync' as 'resourceSync';
+const PLAN_FEATURE_DATA = 'data' as 'data';
 
 // Stable code returned on a quota block so clients can branch on it (402).
 const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
@@ -2499,6 +2556,20 @@ export const constants = {
   PRICING_TOOL_CALL_PER_M_USD,
   PRICING_TOOL_CALL_HARD_CAP,
   PRICING_CUSTOM_DOMAIN_USD,
+  DATA_MAX_DATABASE_BYTES,
+  DATA_MAX_TABLES_PER_DATABASE,
+  DATA_TRIGGER_RUN_HARD_CAP,
+  DATA_DELETE_GRACE_DAYS,
+  DATA_PURGE_BATCH,
+  DATA_ACTIVITY_THROTTLE_MS,
+  ARTIFACT_DATABASE_STATUS_CREATING,
+  ARTIFACT_DATABASE_STATUS_READY,
+  ARTIFACT_DATABASE_STATUS_FAILED,
+  ARTIFACT_DATABASE_STATUS_DELETING,
+  ARTIFACT_DATABASE_STATUS_PURGING,
+  ARTIFACT_DATABASE_STATUS_DELETED,
+  DATA_PURGE_STALE_MS,
+  ARTIFACT_DATABASE_STATUSES,
   PLAN_FEATURE_ORGANIZATION,
   PLAN_FEATURE_PROJECT,
   PLAN_FEATURE_TOOL,
@@ -2513,6 +2584,7 @@ export const constants = {
   PLAN_FEATURE_MESSAGE,
   PLAN_FEATURE_TOOL_CALL,
   PLAN_FEATURE_RESOURCE_SYNC,
+  PLAN_FEATURE_DATA,
   PLAN_LIMIT_ERROR_CODE,
   BILLING_METER_MESSAGES,
   BILLING_METER_SHARED_MESSAGES,

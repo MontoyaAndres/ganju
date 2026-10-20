@@ -3,6 +3,16 @@ import * as schema from './schema';
 import { incrementArtifactUsage } from './usage';
 import { searchResourceChunks, toResourceSearchResult } from './search';
 import {
+  databaseStub,
+  callData,
+  createDataUsageTally,
+  dataLimitsFor,
+  findArtifactDatabase,
+  openArtifactDatabase,
+  dataCaller,
+  recordDataUsage
+} from './data';
+import {
   limitsFor,
   isEntitled,
   planFromSubscription,
@@ -20,6 +30,12 @@ import {
 export type { Database } from './db';
 export type { DbExecutor, UsageCounts } from './usage';
 export type { EffectivePlan, UsageCounters, ToolCallBudget } from './plan';
+export type {
+  DataNamespaceLike,
+  DataUsageTally,
+  ArtifactDatabaseRow,
+  OpenedDatabase
+} from './data';
 export type {
   ResourceChunkSearch,
   ResourceChunkMatch,
@@ -41,6 +57,17 @@ export const plan = {
   rollUsagePeriodIfDue,
   checkToolCallBudget,
   incrementToolCallUsage
+};
+
+export const data = {
+  databaseStub,
+  callData,
+  createDataUsageTally,
+  dataLimitsFor,
+  findArtifactDatabase,
+  openArtifactDatabase,
+  dataCaller,
+  recordDataUsage
 };
 
 export {

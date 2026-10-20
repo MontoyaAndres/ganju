@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
@@ -245,6 +245,13 @@ const syncSubscription = async (
     .update(db.schema.subscription)
     .set({
       plan,
+      // Moves only when the plan in force does: the stored plan counts only
+      // while its status is entitled, so a lapsed Pro reads as Free here
+      // whatever its plan column says. A renewal leaves it where it was.
+      planChangedAt: sql`CASE WHEN (CASE WHEN ${db.schema.subscription.status} IN (${sql.join(
+        constants.SUBSCRIPTION_ENTITLED_STATUSES.map(s => sql`${s}`),
+        sql`, `
+      )}) THEN ${db.schema.subscription.plan} ELSE ${constants.PLAN_FREE} END) IS DISTINCT FROM ${plan} THEN now() ELSE ${db.schema.subscription.planChangedAt} END`,
       status,
       billingSubscriptionId: sub.id,
       billingProductId: productId,
