@@ -28,7 +28,9 @@ export { databaseStub, callData };
 
 const GRACE_MS = constants.DATA_DELETE_GRACE_DAYS * 86_400_000;
 
-const recordChange = async (
+// One line in the database's change log: who changed its tables, restored
+// it, exported it or deleted it, with the bookmark that undoes it if any.
+export const recordChange = async (
   executor: DbExecutor,
   databaseId: string,
   change: {
@@ -384,7 +386,10 @@ export const runDataPurge = async (
       eq(table.status, constants.ARTIFACT_DATABASE_STATUS_DELETING),
       and(
         eq(table.status, constants.ARTIFACT_DATABASE_STATUS_PURGING),
-        lt(table.updatedAt, new Date(now.getTime() - constants.DATA_PURGE_STALE_MS))
+        lt(
+          table.updatedAt,
+          new Date(now.getTime() - constants.DATA_PURGE_STALE_MS)
+        )
       )
     )
   );

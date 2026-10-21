@@ -11,6 +11,18 @@ import {
   PARTICIPANT_DAILY_LIMIT_MAX,
   PARTICIPANT_DAILY_LIMIT_OFF
 } from './channelCustomer';
+import {
+  DATA_ACCESS_LEVELS,
+  DATA_COLUMN_TYPES,
+  DATA_MAX_COLUMNS,
+  DATA_MAX_DESCRIPTION,
+  DATA_MAX_ENUM_VALUES,
+  DATA_MAX_INSERT_ROWS,
+  DATA_MAX_LABEL,
+  DATA_MAX_PAGE,
+  DATA_MAX_WRITE_OPERATIONS,
+  DATA_ON_DELETE
+} from './dataTypes';
 
 // A prompt title becomes a slash command; it must not collide with a command
 // the channel runner handles itself (e.g. `/link`).
@@ -526,6 +538,191 @@ const DATA_DATABASE_CREATE = DATA_DATABASE_GET.extend({
 const DATA_DATABASE_DELETE = DATA_DATABASE_GET.extend({
   confirmName: z.string().min(1)
 });
+
+// The bodies and query strings of the Data API. Each one is what a client
+// sends; the route schemas below add the path's ids. The database object
+// checks every rule again (names, types, relations), so these describe the
+// shape and leave the meaning to it.
+const DATA_IDENTIFIER = z.string().min(1).max(63);
+const DATA_DEFAULT_VALUE = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null()
+]);
+const DATA_TEXT = (max: number) => z.string().max(max).nullable().optional();
+
+const DATA_COLUMN_INPUT = z.strictObject({
+  name: DATA_IDENTIFIER,
+  type: z.enum(DATA_COLUMN_TYPES),
+  label: DATA_TEXT(DATA_MAX_LABEL),
+  description: DATA_TEXT(DATA_MAX_DESCRIPTION),
+  required: z.boolean().optional(),
+  unique: z.boolean().optional(),
+  filterable: z.boolean().optional(),
+  searchable: z.boolean().optional(),
+  personal: z.boolean().optional(),
+  values: z.array(z.string().min(1)).max(DATA_MAX_ENUM_VALUES).optional(),
+  table: DATA_IDENTIFIER.optional(),
+  onDelete: z.enum(DATA_ON_DELETE).optional(),
+  min: z.number().nullable().optional(),
+  default: DATA_DEFAULT_VALUE.optional()
+});
+
+// The CLI's schema file holds a list of these.
+const DATA_TABLE_INPUT = z.strictObject({
+  name: DATA_IDENTIFIER,
+  label: DATA_TEXT(DATA_MAX_LABEL),
+  description: DATA_TEXT(DATA_MAX_DESCRIPTION),
+  displayColumn: DATA_IDENTIFIER.nullable().optional(),
+  access: z.enum(DATA_ACCESS_LEVELS).optional(),
+  customerScoped: z.boolean().optional(),
+  history: z.boolean().optional(),
+  columns: z.array(DATA_COLUMN_INPUT).max(DATA_MAX_COLUMNS)
+});
+
+const DATA_TABLE_PATCH = DATA_TABLE_INPUT.omit({ columns: true }).partial();
+
+// A null puts the setting back to its default.
+const DATA_COLUMN_PATCH = DATA_COLUMN_INPUT.partial();
+
+const DATA_TABLE_DROP_BODY = z.strictObject({ confirmName: z.string().min(1) });
+
+const DATA_ROW_VALUES = z.record(z.string(), z.unknown());
+
+// A JSON value carried in a query string, e.g. `where={"status":"open"}`.
+const DATA_JSON_PARAM = z.string().transform((text, ctx) => {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'This is JSON, e.g. {"status":"open"}'
+    });
+    return z.NEVER;
+  }
+});
+
+// A comma-separated list in a query string: `sort=-created_at,name`.
+const DATA_LIST_PARAM = z.string().transform(text =>
+  text
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+);
+
+const DATA_ROW_LIST_QUERY = z.strictObject({
+  where: DATA_JSON_PARAM.optional(),
+  sort: DATA_LIST_PARAM.optional(),
+  include: DATA_LIST_PARAM.optional(),
+  limit: z.coerce.number().int().min(1).max(DATA_MAX_PAGE).optional(),
+  cursor: z.string().max(2000).optional(),
+  q: z.string().max(500).optional(),
+  timeZone: z.string().max(64).optional()
+});
+
+const DATA_ROW_GET_QUERY = DATA_ROW_LIST_QUERY.pick({
+  include: true,
+  timeZone: true
+});
+
+const DATA_ROW_CREATE_BODY = z.union([
+  z.strictObject({ values: DATA_ROW_VALUES }),
+  z.strictObject({
+    rows: z.array(DATA_ROW_VALUES).min(1).max(DATA_MAX_INSERT_ROWS)
+  })
+]);
+
+const DATA_ROW_VERSION = z.number().int().min(1);
+
+// `set` takes values, or relative changes such as { "stock": { "decrement": 2 } }.
+const DATA_ROW_UPDATE_BODY = z.strictObject({
+  set: DATA_ROW_VALUES,
+  version: DATA_ROW_VERSION.optional()
+});
+
+const DATA_ROW_DELETE_BODY = z.strictObject({
+  version: DATA_ROW_VERSION.optional()
+});
+
+const DATA_ROW_ID = z.coerce.number().int().min(1);
+
+const DATA_WRITE_TARGET = {
+  table: DATA_IDENTIFIER,
+  id: z
+    .union([
+      z.number().int().min(1),
+      z.strictObject({ $ref: z.number().int().min(0) })
+    ])
+    .optional(),
+  where: z.record(z.string(), z.unknown()).optional(),
+  expect: z.number().int().min(0).optional(),
+  version: DATA_ROW_VERSION.optional()
+};
+
+// Applied together or not at all. A later step can use an earlier insert's
+// id as { "$ref": <step> }.
+const DATA_WRITE_OPERATION = z.discriminatedUnion('op', [
+  z.strictObject({
+    op: z.literal('insert'),
+    table: DATA_IDENTIFIER,
+    values: DATA_ROW_VALUES.optional(),
+    rows: z.array(DATA_ROW_VALUES).min(1).max(DATA_MAX_INSERT_ROWS).optional()
+  }),
+  z.strictObject({
+    op: z.literal('update'),
+    ...DATA_WRITE_TARGET,
+    set: DATA_ROW_VALUES
+  }),
+  z.strictObject({ op: z.literal('delete'), ...DATA_WRITE_TARGET })
+]);
+
+const DATA_WRITE_BODY = z.strictObject({
+  operations: z
+    .array(DATA_WRITE_OPERATION)
+    .min(1)
+    .max(DATA_MAX_WRITE_OPERATIONS)
+});
+
+const DATA_ROW_HISTORY_QUERY = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.coerce.number().int().min(1).optional(),
+  timeZone: z.string().max(64).optional()
+});
+
+// A time within the last 30 days, or a bookmark this API handed out (a drop,
+// a type change, or the restore to undo).
+const DATA_RESTORE_POINT_BODY = z.union([
+  z.strictObject({
+    timestamp: z.union([z.iso.datetime({ offset: true }), z.number().int()])
+  }),
+  z.strictObject({ bookmark: z.string().min(1).max(200) })
+]);
+
+const DATA_EXPORT_BODY = z.strictObject({
+  format: z.enum(['jsonl', 'csv']).optional()
+});
+
+const DATA_EXPORT_QUERY = z.strictObject({
+  exportId: z.uuid().optional()
+});
+
+// Without `table`, the export's schema.json.
+const DATA_EXPORT_FILE_QUERY = z.strictObject({
+  exportId: z.uuid(),
+  table: DATA_IDENTIFIER.optional()
+});
+
+const DATA_CHANGE_LIST_QUERY = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.uuid().optional()
+});
+
+const DATA_TABLE_PARAMS = DATA_DATABASE_GET.extend({ table: DATA_IDENTIFIER });
+const DATA_COLUMN_PARAMS = DATA_TABLE_PARAMS.extend({
+  column: DATA_IDENTIFIER
+});
+const DATA_ROW_PARAMS = DATA_TABLE_PARAMS.extend({ id: DATA_ROW_ID });
 
 const ARTIFACT_UPLOAD_RESOURCE_FILE = z.object({
   resourceId: z.uuid(),
@@ -1746,6 +1943,27 @@ export const Schema = {
   DATA_DATABASE_GET,
   DATA_DATABASE_CREATE,
   DATA_DATABASE_DELETE,
+  DATA_COLUMN_INPUT,
+  DATA_TABLE_INPUT,
+  DATA_TABLE_PATCH,
+  DATA_COLUMN_PATCH,
+  DATA_TABLE_DROP_BODY,
+  DATA_ROW_LIST_QUERY,
+  DATA_ROW_GET_QUERY,
+  DATA_ROW_CREATE_BODY,
+  DATA_ROW_UPDATE_BODY,
+  DATA_ROW_DELETE_BODY,
+  DATA_WRITE_OPERATION,
+  DATA_WRITE_BODY,
+  DATA_ROW_HISTORY_QUERY,
+  DATA_RESTORE_POINT_BODY,
+  DATA_EXPORT_BODY,
+  DATA_EXPORT_QUERY,
+  DATA_EXPORT_FILE_QUERY,
+  DATA_CHANGE_LIST_QUERY,
+  DATA_TABLE_PARAMS,
+  DATA_COLUMN_PARAMS,
+  DATA_ROW_PARAMS,
   ARTIFACT_REMOVE_RESOURCE,
   ARTIFACT_UPLOAD_RESOURCE_FILE,
   ARTIFACT_DOWNLOAD_RESOURCE_FILE,

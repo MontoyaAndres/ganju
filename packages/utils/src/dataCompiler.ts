@@ -897,10 +897,12 @@ const singleId = (value: unknown): boolean => {
 
 // Whether an update can touch one row at most: it names an `id`, or its
 // "where" pins id to one value ({ "id": 1 }, { "id": { "eq": 1 } },
-// { "id": { "in": [1] } }). Other keys sit beside it with AND, so they only
-// narrow it further.
+// { "id": { "in": [1] } }), or it names a row inserted earlier in the same
+// write ({ "$ref": 0 }, always a single-row insert). Other keys sit beside it
+// with AND, so they only narrow it further.
 const targetsOneRow = (op: Record<string, unknown>): boolean => {
   if (typeof op.id === 'number') return true;
+  if (isPlainObject(op.id) && '$ref' in op.id) return true;
   if (!isPlainObject(op.where) || !('id' in op.where)) return false;
   const id = op.where.id;
   if (singleId(id)) return true;

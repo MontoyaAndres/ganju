@@ -348,6 +348,74 @@ test('create: tables, metadata, indexes and the search table', () => {
   );
 });
 
+test('write: an update or delete names a row inserted earlier with $ref', () => {
+  const { runner, s } = restaurant();
+  const placed = write(runner, s(), OWNER, {
+    operations: [
+      { op: 'insert', table: 'orders', values: { placed_at: '2026-10-19T15:00:00Z' } },
+      { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: 1, quantity: 1 } },
+      { op: 'update', table: 'order_lines', id: { $ref: 1 }, set: { quantity: { increment: 2 } } },
+      { op: 'update', table: 'orders', id: { $ref: 0 }, set: { status: 'ready' } }
+    ]
+  });
+  assert.deepEqual(placed.results[2], { op: 'update', table: 'order_lines', changed: 1 });
+  assert.equal(query(runner, s(), OWNER, { table: 'order_lines' }).rows[0].quantity, 3);
+  assert.equal(query(runner, s(), OWNER, { table: 'orders' }).rows[0].status, 'ready');
+  // A multi-row insert has no single id to point at, and nothing is written.
+  throwsData(
+    () =>
+      write(runner, s(), OWNER, {
+        operations: [
+          { op: 'insert', table: 'orders', rows: [{}, {}] },
+          { op: 'delete', table: 'orders', id: { $ref: 0 } }
+        ]
+      }),
+    /earlier single-row insert/
+  );
+  assert.equal(query(runner, s(), OWNER, { table: 'orders' }).total, 1);
+  // As the id, a $ref names an insert into the same table: an order's id
+  // would otherwise update whichever dish has that number.
+  const stocks = () => query(runner, s(), OWNER, { table: 'menu', sort: ['id'] }).rows.map(r => r.stock);
+  const stockBefore = stocks();
+  throwsData(
+    () =>
+      write(runner, s(), OWNER, {
+        operations: [
+          { op: 'insert', table: 'orders', values: {} },
+          { op: 'insert', table: 'orders', values: {} },
+          { op: 'update', table: 'menu', id: { $ref: 1 }, set: { stock: { decrement: 1 } } }
+        ]
+      }),
+    /inserted into orders; a \$ref as the id must name an insert into menu/
+  );
+  assert.equal(query(runner, s(), OWNER, { table: 'orders' }).total, 1);
+  assert.deepEqual(stocks(), stockBefore);
+  // A relative change to the row just inserted reaches one row: not held.
+  assert.equal(
+    isSensitiveWrite({
+      operations: [
+        { op: 'insert', table: 'menu', values: { name: 'Calzone', price: 30000, stock: 5 } },
+        { op: 'update', table: 'menu', id: { $ref: 0 }, set: { stock: { decrement: 1 } } }
+      ]
+    }),
+    false
+  );
+});
+
+test('write: a minimum that stops a change by id names the value, not a missing row', () => {
+  const { runner, s } = restaurant();
+  const short = () =>
+    write(runner, s(), OWNER, {
+      operations: [{ op: 'update', table: 'menu', id: 1, set: { stock: { decrement: 500 } } }]
+    });
+  throwsData(short, /can't go below 0/);
+  assert.throws(short, (error: any) => error.code === 'guard' && !/doesn't exist/.test(error.message));
+  throwsData(
+    () => write(runner, s(), OWNER, { operations: [{ op: 'update', table: 'menu', id: 999, set: { price: 1 } }] }),
+    /Row 999 doesn't exist in menu/
+  );
+});
+
 test('query: filters, labels, datetimes in the caller zone, and a scoped customer', () => {
   const { runner, s } = restaurant();
   updateTable(runner, s(), OWNER, 'menu', { access: 'full' });

@@ -1498,14 +1498,31 @@ const runOperation = (
   runner: SqlRunner,
   schema: DataSchema,
   caller: DataCaller,
-  op: unknown,
+  rawOp: unknown,
   index: number,
   results: WriteResult[]
 ): WriteResult => {
-  if (!isPlainObject(op)) throw new DataError('An operation is an object.');
-  const kind = op.op;
+  if (!isPlainObject(rawOp)) throw new DataError('An operation is an object.');
+  const kind = rawOp.op;
   if (kind !== 'insert' && kind !== 'update' && kind !== 'delete') {
     throw new DataError('"op" is insert, update or delete.');
+  }
+  // An update or delete can name a row inserted earlier in the same write,
+  // into the same table. In values a $ref fills a relation to another table;
+  // as the row's own id, another table's id would quietly hit an unrelated
+  // row.
+  let op = rawOp;
+  if (kind !== 'insert' && rawOp.id !== undefined) {
+    const id = resolveRefs(rawOp.id, results, index);
+    if (id !== rawOp.id) {
+      const source = results[(rawOp.id as { $ref: number }).$ref];
+      if (source.table !== rawOp.table) {
+        throw new DataError(
+          `"id": { "$ref": ${(rawOp.id as { $ref: number }).$ref} } points at a row inserted into ${source.table}; a $ref as the id must name an insert into ${String(rawOp.table)}.`
+        );
+      }
+    }
+    op = { ...rawOp, id };
   }
   const table = tableFor(schema, caller, op.table, kind === 'insert' ? 'add' : 'full');
   const actor = caller.actor;

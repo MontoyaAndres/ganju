@@ -29,6 +29,11 @@ import {
 } from './controllers';
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
+  DATA_API_BASE,
+  DATA_API_ROUTES,
+  dataOpenApi
+} from '@ganju/utils/dataApi';
+import {
   createAuth,
   requestedMcpAudience,
   runOverageMetering,
@@ -51,6 +56,7 @@ import {
 
 // types
 import type { AppEnv, Bindings } from './types';
+import type { DataApiRouteId } from '@ganju/utils/dataApi';
 import type {
   ExecutionContext,
   MessageBatch,
@@ -384,26 +390,9 @@ app
     ArtifactController.removePrompt
   )
 
-  // Project data: the database itself
-  .get(
-    '/organization/:organizationId/project/:projectId/artifact/data',
-    UserMiddleware.verify,
-    DataController.getDatabase
-  )
-  .post(
-    '/organization/:organizationId/project/:projectId/artifact/data',
-    UserMiddleware.verify,
-    DataController.create
-  )
-  .delete(
-    '/organization/:organizationId/project/:projectId/artifact/data',
-    UserMiddleware.verify,
-    DataController.remove
-  )
-  .post(
-    '/organization/:organizationId/project/:projectId/artifact/data/restore',
-    UserMiddleware.verify,
-    DataController.restore
+  // The Data API's OpenAPI file. Public: it describes routes, not data.
+  .get('/openapi/data.json', c =>
+    c.json(dataOpenApi(utils.getEnv(c, 'NEXT_PUBLIC_API_URL') ?? ''))
   )
 
   // Artifact Resource controller
@@ -735,6 +724,30 @@ app
     rateLimit({ binding: 'AUTH_RATE_LIMITER', key: clientIp }),
     OAuthController.callback
   );
+
+// Project data: every route of the Data API, registered from the list its
+// OpenAPI file is built from. A personal access token gets its own budget per
+// route, on top of the per-user one every route has.
+for (const [id, route] of Object.entries(DATA_API_ROUTES) as [
+  DataApiRouteId,
+  (typeof DATA_API_ROUTES)[DataApiRouteId]
+][]) {
+  app.on(
+    route.method.toUpperCase(),
+    `${DATA_API_BASE}${route.path}`,
+    UserMiddleware.verify,
+    rateLimit({
+      binding: 'DATA_API_RATE_LIMITER',
+      key: c => {
+        const token = c.get('apiToken');
+        return token ? `${token.id}:${id}` : null;
+      },
+      message:
+        'Too many Data API requests for this token. Please wait a minute.'
+    }),
+    DataController[id]
+  );
+}
 
 export { ResourceHandler } from '@ganju/containers';
 export { DiscordGatewayDO } from './durable-objects/discordGateway';

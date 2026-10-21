@@ -1335,6 +1335,95 @@ cases in UTC and in Bogotá time.
   - make a stale-version `PATCH` (409);
   - check that history records the right actor for each kind of writer.
 
+**Phase 2 status (2026-10-21): done on dev.** apps/api deployed with the new
+limiter binding; `scripts/probe-data.mjs` passes 49/49 against dev.
+
+- **What exists:**
+  - **One route list**, `DATA_API_ROUTES` in `@ganju/utils/dataApi`. apps/api
+    registers every data route from it, and `DataController` must have a
+    handler per route or it doesn't compile. The OpenAPI 3.1 file is built
+    from the same list, served at `GET /openapi/data.json` without auth.
+    `test/dataApi.test.ts` fails if a data route is registered by hand.
+  - **Schemas** in `utils.Schema`: `DATA_TABLE_INPUT` (the CLI's schema file
+    shape), the table and column patches, the row bodies, `DATA_WRITE_BODY`,
+    and the query strings (`where` as JSON, `sort` and `include` as
+    comma-separated lists). The object bodies are strict, so a misspelt key
+    is a 400 instead of being dropped.
+  - **Routes**: everything listed above, plus `GET /export` (status) and
+    `GET /export/file` (download one file; R2 keys never leave the API).
+  - **The change log** records table and column changes, restores, exports
+    and deletes, each with its bookmark when there is one.
+    - `POST /restore-point` takes `{ timestamp }` or `{ bookmark }`. A
+      bookmark must be one the change log holds, so a client can't point the
+      object at anything else.
+    - A restore records its `undoBookmark`, so "Undo restore" is another
+      restore.
+  - **Single-row routes**: PATCH and DELETE by id answer 404 for a missing
+    row, not the engine's "changed 0 rows" guard. A stale `version` is a 409
+    with `details.current` and `details.updatedBy`. PATCH answers with the
+    row as it now is.
+  - **Actors**: `user:<id>` for a session or an OAuth token, `cli:<tokenId>`
+    for a personal access token.
+  - **Rate limit**: `DATA_API_RATE_LIMITER` (namespace 1005, 120 a minute),
+    keyed by token and route. It applies only to personal access tokens.
+    Sessions keep the per-user `API_RATE_LIMITER`.
+  - **Usage**: every route adds its rows read and written to the org's
+    meters through `recordDataUsage`, after the answer.
+  - **Docs**: a website page "Data API" / "API de Datos", with examples in
+    curl and JavaScript.
+  - **The probe** covers this phase's "done when" list. It also checks that
+    the OpenAPI file lists all 23 routes, that a misspelt key is refused, and
+    that a token can't reach another project.
+- **Roles:** only `ADMIN` exists on projects, and `UserMiddleware.verify`
+  already requires it on every project route. So "owners/admins change the
+  schema, members edit rows" collapses to admins for everything, as for
+  resources. Revisit when a member role exists.
+- **Checked:**
+  - `tsc` on apps/api, and the 170 tests in `packages/utils` (3 new);
+  - the probe on dev, 49/49: the OpenAPI file (23 routes), tables with
+    relations, 45 rows inserted at once and paged over 3 pages, search,
+    filters, restrict and cascade, the last-pizza race (one 200, one 409),
+    a rolled-back multi-table write, a stale PATCH (409 with the current row
+    and `updatedBy`), a type change refused with the rows that don't fit,
+    history naming the person and the token, and a token refused on
+    another project.
+- **Purge:** the 17:00 UTC run emptied all three probe databases (DELETED,
+  size 0) and kept each one's bookmark. The website, with the "Data API"
+  page, is deployed.
+
+**Phase 2 review fixes (2026-10-21, deployed to dev).** A review of phase 2
+found four problems; all fixed. The probe passes 55/55 on dev. The engine now has 172 tests, and `--check`
+still passes on every case.
+
+- **A PATCH below a column's minimum answered 404.** By-id routes turned
+  every guard into "There is no row". Now only the guard's own "Row 9 doesn't
+  exist in menu" is a 404; "menu.stock can't go below 0" stays a 409.
+- **Restoring to a delete's or a purge's bookmark left the database stuck.**
+  Those bookmarks are taken after the object is marked deleted, so it came
+  back deleted while Postgres said READY. `POST /restore-point` now takes
+  bookmarks only from `table.drop`, `column.update`, `column.drop` and
+  `restore` entries.
+- **`{ "$ref": n }` as an operation's `id`** was allowed by the schema and
+  documented, but refused by the engine. The engine now resolves it, so a
+  write can update or delete the row it just inserted. The hold rule counts
+  it as one row, since a `$ref` only points at a single-row insert. As the
+  id, the insert must be into the same table; otherwise an order's id would
+  quietly update whichever menu row has that number. (In values a `$ref`
+  still fills a relation to any table.)
+- **Exports during the grace period.** The export routes open a DELETING
+  database whose `deleteAfter` is still ahead, as the object already allows,
+  so "Download a copy" can sit in the banner that offers the restore.
+- **The probe** checks each fix:
+  - a PATCH below the minimum is a 409;
+  - a `$ref` id works;
+  - an export runs, finishes and downloads during the grace period;
+  - the delete's bookmark is refused.
+
+  Each run leaves that export's files in the dev bucket under
+  `data-exports/<artifactId>/`.
+- **Checked on dev:** the probe passes 55/55 with the same-table `$ref`
+  rule deployed, and the next hourly run purged its database.
+
 **3. Dashboard: "Data" / "Datos" — M–L**
 
 - Navbar: a new item after Resources, in both the desktop and mobile

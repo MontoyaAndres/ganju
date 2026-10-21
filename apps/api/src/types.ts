@@ -44,6 +44,7 @@ export type Bindings = {
   AUTH_RATE_LIMITER?: RateLimiter;
   WEBHOOK_RATE_LIMITER?: RateLimiter;
   API_RATE_LIMITER?: RateLimiter;
+  DATA_API_RATE_LIMITER?: RateLimiter;
   STORAGE_BUCKET: R2Bucket;
   INDEX_QUEUE: Queue<IndexJob>;
   CRAWL_DISCOVER_QUEUE: Queue<CrawlDiscoverJob>;
