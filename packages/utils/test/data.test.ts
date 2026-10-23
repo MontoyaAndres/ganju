@@ -332,6 +332,26 @@ test('create: tables, metadata, indexes and the search table', () => {
   assert.equal(menu.displayColumn, 'name');
   assert.equal(menu.columns.find(c => c.name === 'stock')?.default, 0);
   assert.equal(menu.columns.find(c => c.name === 'available')?.default, true);
+  // Left out, the display column is the first text column; with none, the id.
+  const named = createTable(runner, s(), OWNER, {
+    name: 'drivers',
+    columns: [
+      { name: 'phone', type: 'phone' },
+      { name: 'full_name', type: 'text' }
+    ]
+  });
+  assert.equal(named.displayColumn, 'full_name');
+  const asked = createTable(runner, s(), OWNER, {
+    name: 'stops',
+    displayColumn: null,
+    columns: [{ name: 'label', type: 'text' }]
+  });
+  assert.equal(asked.displayColumn, null);
+  const none = createTable(runner, s(), OWNER, {
+    name: 'counts',
+    columns: [{ name: 'n', type: 'integer' }]
+  });
+  assert.equal(none.displayColumn, null);
   const indexes = runner
     .all("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'order_lines' AND name LIKE 'ix%'")
     .map(r => r.name);

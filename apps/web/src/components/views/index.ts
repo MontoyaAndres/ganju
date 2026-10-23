@@ -3,6 +3,7 @@ import { Overview } from './overview';
 import { Tools } from './tools';
 import { Prompts } from './prompts';
 import { Resources } from './resources';
+import { Data } from './data';
 import { Channels } from './channels';
 import { Organization } from './organization';
 import { Settings } from './settings';
@@ -17,6 +18,7 @@ export const Views = {
   Tools,
   Prompts,
   Resources,
+  Data,
   Channels,
   Organization,
   Settings,

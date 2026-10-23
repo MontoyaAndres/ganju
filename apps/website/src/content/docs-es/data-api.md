@@ -154,10 +154,13 @@ punto.
 - **`GET /table/:table/row/:id/history`**: cada cambio a una fila en los
   últimos 90 días, con quién lo hizo. Un cambio hecho con un token aparece como
   `cli:<id del token>`.
+- **`POST /checkpoint`**: un punto de restauración en este momento exacto.
+  Responde con un `bookmark`; toma uno antes de un cambio grande, como
+  reemplazar las filas de una tabla, para luego deshacer justo ese cambio.
 - **`POST /restore-point`**: deja la base de datos completa como estaba en un
   momento de los últimos 30 días (`{ "timestamp": "2026-10-20T15:00:00-05:00" }`),
-  o en el `bookmark` con el que respondió una tabla o columna eliminada, un
-  cambio de tipo o una restauración anterior. La respuesta trae un `undoBookmark` que deshace la
+  o en el `bookmark` con el que respondió un checkpoint, una tabla o columna
+  eliminada, un cambio de tipo o una restauración anterior. La respuesta trae un `undoBookmark` que deshace la
   restauración.
 - **`POST /export`**: empieza una copia de la base de datos: un archivo JSONL
   o CSV por tabla, más `schema.json`. Consulta `GET /export` hasta que su

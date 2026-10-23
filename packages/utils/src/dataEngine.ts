@@ -2004,9 +2004,15 @@ export const createTable = (
     if (names.has(c.name)) throw new DataError(`${name}.${c.name} is listed twice.`);
     names.add(c.name);
   }
-  // "id" is what a table without a display column shows anyway.
+  // "id" is what a table without a display column shows anyway. Left out,
+  // it is the first text column, so relations to the table show "Margherita"
+  // rather than an id; null keeps the id.
   const displayColumn =
-    input.displayColumn === 'id' ? null : (input.displayColumn ?? null);
+    input.displayColumn === 'id'
+      ? null
+      : input.displayColumn === undefined
+        ? (columns.find(c => c.type === 'text')?.name ?? null)
+        : input.displayColumn;
   if (displayColumn !== null && !names.has(String(displayColumn))) {
     throw new DataError(`"displayColumn" is one of ${name}'s columns.`);
   }

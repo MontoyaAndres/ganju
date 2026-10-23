@@ -194,7 +194,7 @@ try {
     Object.values(openapi?.paths ?? {}).reduce(
       (n, methods) => n + Object.keys(methods).length,
       0
-    ) === 23,
+    ) === 24,
     `${Object.keys(openapi?.paths ?? {}).length} paths`
   );
   const menu = await call(

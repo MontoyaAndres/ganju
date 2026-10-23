@@ -73,6 +73,8 @@ export interface CreateDatabaseInput {
   organizationId: string;
   name: string;
   userId: string;
+  // Start over while a deleted database is in its grace period.
+  replaceDeleted?: boolean;
 }
 
 /**
@@ -82,7 +84,9 @@ export interface CreateDatabaseInput {
  * Retry-safe. The row is unique per artifact and init() is idempotent, so a
  * second click finishes the first rather than making two, and a FAILED row
  * is picked up again by "Try again". A database in its deletion grace period
- * is refused: it is restored, not created over.
+ * is refused, unless the owner asks to replace it: the deleted one is then
+ * let go of the project (its grace period and purge run on by its own object
+ * name), and the new one gets an object of its own.
  */
 export const createDatabase = async (
   source: ApiEnvSource,
@@ -100,18 +104,61 @@ export const createDatabase = async (
   if (existing?.status === constants.ARTIFACT_DATABASE_STATUS_READY) {
     return existing;
   }
-  if (
+  const inGrace =
     existing?.status === constants.ARTIFACT_DATABASE_STATUS_DELETING ||
-    existing?.status === constants.ARTIFACT_DATABASE_STATUS_PURGING
-  ) {
+    existing?.status === constants.ARTIFACT_DATABASE_STATUS_PURGING;
+  if (inGrace && !input.replaceDeleted) {
     throw new DataError(
-      'This project has a deleted database still in its grace period. Restore it instead of creating a new one.',
+      'This project has a deleted database still in its grace period. Restore it, or send "replaceDeleted": true to start a new one.',
       'deleted'
     );
   }
 
   let row: ArtifactDatabaseRow;
-  if (existing) {
+  if (existing && inGrace) {
+    // The deleted object still holds its data until the purge, so the new
+    // database can't share its name.
+    const replaced = await dbInstance.transaction(async tx => {
+      const [detached] = await tx
+        .update(db.schema.artifactDatabase)
+        .set({ artifactId: null })
+        .where(
+          and(
+            eq(db.schema.artifactDatabase.id, existing.id),
+            inArray(db.schema.artifactDatabase.status, [
+              constants.ARTIFACT_DATABASE_STATUS_DELETING,
+              constants.ARTIFACT_DATABASE_STATUS_PURGING
+            ])
+          )
+        )
+        .returning({ id: db.schema.artifactDatabase.id });
+      if (!detached) return null;
+      const [created] = await tx
+        .insert(db.schema.artifactDatabase)
+        .values({
+          artifactId: input.artifactId,
+          objectName: `${input.artifactId}:${crypto.randomUUID()}`,
+          organizationId: input.organizationId,
+          name: input.name,
+          status: constants.ARTIFACT_DATABASE_STATUS_CREATING,
+          createdById: input.userId
+        })
+        .returning();
+      return created;
+    });
+    if (!replaced) {
+      throw new DataError(
+        'The deleted database changed while this ran (restored, or replaced already). Reload and try again.',
+        'conflict'
+      );
+    }
+    await recordChange(dbInstance, existing.id, {
+      actor,
+      kind: 'replace',
+      detail: { by: replaced.id }
+    });
+    row = replaced;
+  } else if (existing) {
     // FAILED or CREATING: try again. DELETED: its object was emptied, so the
     // same name starts over.
     [row] = await dbInstance

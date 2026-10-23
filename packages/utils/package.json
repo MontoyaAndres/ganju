@@ -72,6 +72,11 @@
       "types": "./dist/dataApi.d.ts",
       "import": "./dist/dataApi.js",
       "require": "./dist/dataApi.js"
+    },
+    "./dataImport": {
+      "types": "./dist/dataImport.d.ts",
+      "import": "./dist/dataImport.js",
+      "require": "./dist/dataImport.js"
     }
   },
   "scripts": {

@@ -3,7 +3,7 @@ const { utils } = require('@ganju/utils');
 
 module.exports = {
   reactStrictMode: true,
-  transpilePackages: ['@ganju/ui', '@ganju/utils'],
+  transpilePackages: ['@ganju/ui', '@ganju/utils', '@mui/x-data-grid'],
   outputFileTracingRoot: path.join(__dirname, '../../'),
   outputFileTracingIncludes: {
     '*': ['../../node_modules/@emotion/**']

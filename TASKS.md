@@ -1493,6 +1493,68 @@ still passes on every case.
   relation to it, enter rows, search, and delete the database with the typed
   name, entirely from the dashboard. Check on the phone layout.
 
+**Phase 3 status (2026-10-23): done on dev.** apps/data, api, web and the
+website deployed. Walked through on dev in Spanish:
+- the empty state and "Crear base de datos";
+- `menu` and `orders` with a relation, built in the dialog;
+- rows from the side panel, paging over 41 rows, and search;
+- the delete preview blocking a restricted row;
+- "Replace all rows" with Undo;
+- the phone layout;
+- delete with the typed name, the 7-day banner and restore.
+
+`scripts/probe-data.mjs` passes 55/55 (24 routes).
+
+- **What exists:**
+  - The Data page, its view under `components/views/data/` and copy in
+    en + es:
+    - the Rows grid (MUI X Data Grid, loaded only on this page);
+    - the side panel, with one field per column type;
+    - the Schema tab, with per-table assistant access and undo for drops
+      and type changes;
+    - import;
+    - settings (size, download, point-in-time restore with undo, the
+      danger zone).
+  - **`@ganju/utils/dataImport`**, shared with the CLI's import:
+    - type guessing from 200 rows, and header matching;
+    - numbers with thousands separators: "28.000" → 28000, flagged with a
+      choice of decimal mark;
+    - phone columns guessed from their header.
+  - **Import:**
+    - SheetJS loads only when the dialog opens;
+    - a 20-row preview, and a list of relation values with no match, each
+      with a picker;
+    - batches of 500, with the refused rows downloadable;
+    - only row-level errors split a batch; a dropped connection stops the
+      import.
+  - **"Replace all rows":**
+    - up to 5,000 rows it is one write, all or nothing;
+    - rows elsewhere that point here are listed, and a restrict blocks it up
+      front;
+    - a refusal singles out the rows to blame with writes that always roll
+      back, and skips the delete when no unique column or self-relation
+      needs it;
+    - Undo restores to a checkpoint taken just before.
+  - **API:**
+    - `POST /checkpoint` answers the database's current bookmark, and
+      `/restore-point` accepts it. A time from the browser rewound too far:
+      a delete 23 s before an import came back;
+    - `replaceDeleted` on create;
+    - a READY row whose object was never set up turns FAILED, so "Try
+      again" works.
+  - **Engine:** a table created without `displayColumn` gets its first text
+    column, so relations show "Margherita" rather than an id. `null` keeps
+    the id.
+- **Checked on dev:**
+  - a delete 20 s before a replace stays deleted after Undo, while the
+    table's 41 rows come back;
+  - a new table gets `name` as its display column.
+- **Left:**
+  - Tables made before the display-column default keep showing ids until
+    their display column is set in the Schema tab.
+  - The delete preview counts cascades 3 levels deep. Past that, or past
+    1,000 rows, it says rows "may" point here.
+
 **4. CLI — M**
 
 `ganju data …`, all thin clients of the routes above, using the project

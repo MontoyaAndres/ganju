@@ -55,7 +55,7 @@ export interface Format {
   locale: string;
   /** `1234` → `1,234` / `1.234`. */
   n(value: number, options?: Intl.NumberFormatOptions): string;
-  /** Byte count as MB/GB, with the locale's own decimal separator. */
+  /** Byte count as KB/MB/GB, with the locale's own decimal separator. */
   bytes(value: number): string;
   /** Date in the locale's own order. Invalid input renders as an em dash. */
   date(
@@ -136,7 +136,7 @@ const pluralRule = (lang: Lang): Intl.PluralRules => {
 };
 
 /**
- * Byte count in MB or GB.
+ * Byte count in KB, MB or GB.
  *
  * The thresholds and precision are the ones the dashboard already used; what
  * changes is that the number goes through `Intl`, so Spanish gets `1,5 GB`
@@ -146,7 +146,7 @@ const pluralRule = (lang: Lang): Intl.PluralRules => {
 export const formatBytes = (lang: Lang, bytes: number): string => {
   const unit = (
     value: number,
-    name: 'megabyte' | 'gigabyte',
+    name: 'kilobyte' | 'megabyte' | 'gigabyte',
     decimals: number
   ) =>
     numberFormat(lang, {
@@ -158,6 +158,11 @@ export const formatBytes = (lang: Lang, bytes: number): string => {
     }).format(value);
 
   if (!bytes) return unit(0, 'megabyte', 0);
+  // Under a megabyte, "0,0 MB" says nothing: a new database is a few KB.
+  if (bytes < 1024 * 1024) {
+    const kb = bytes / 1024;
+    return unit(kb, 'kilobyte', kb < 10 ? 1 : 0);
+  }
   const mb = bytes / (1024 * 1024);
   if (mb < 1024) return unit(mb, 'megabyte', mb < 10 ? 1 : 0);
   const gb = mb / 1024;

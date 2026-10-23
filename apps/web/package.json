@@ -17,13 +17,15 @@
     "@ganju/ui": "*",
     "@ganju/utils": "*",
     "@monaco-editor/react": "^4.7.0",
+    "@mui/x-data-grid": "^9.16.0",
     "better-auth": "^1.6.25",
     "chart.js": "^4.5.1",
     "next": "^16.2.9",
     "react": "^19.2.7",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.7",
-    "swr": "^2.4.1"
+    "swr": "^2.4.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@ganju/tsconfig": "*",

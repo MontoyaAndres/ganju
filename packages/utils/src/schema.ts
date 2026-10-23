@@ -530,9 +530,11 @@ const DATA_DATABASE_GET = z.object({
 });
 
 // The name is what the owner types to delete it; it defaults to the
-// project's slug.
+// project's slug. `replaceDeleted` starts over while a deleted database is
+// still in its grace period, giving up the chance to restore it.
 const DATA_DATABASE_CREATE = DATA_DATABASE_GET.extend({
-  name: z.string().trim().min(1).max(100).optional()
+  name: z.string().trim().min(1).max(100).optional(),
+  replaceDeleted: z.boolean().optional()
 });
 
 const DATA_DATABASE_DELETE = DATA_DATABASE_GET.extend({

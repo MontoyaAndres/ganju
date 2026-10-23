@@ -245,9 +245,37 @@ const getDatabase = async (c: Context<AppEnv>) => {
     return c.json({ database: present(row) });
   }
   const stub = databaseStub(c.env.PROJECT_DATABASE, row.objectName);
-  const info = await callData('info', () => stub.info(), undefined, {
-    retryRead: true
-  });
+  let info;
+  try {
+    info = await callData('info', () => stub.info(), undefined, {
+      retryRead: true
+    });
+  } catch (error) {
+    if (!(error instanceof DataError && error.code === 'not_initialised')) {
+      throw error;
+    }
+    // READY in Postgres, but the object was never set up (a create that
+    // died between the two, or a row written against another environment's
+    // objects). FAILED is what "Try again" picks up: create() reuses the row
+    // and its object name and runs init().
+    const [failed] = await dbInstance
+      .update(db.schema.artifactDatabase)
+      .set({
+        status: constants.ARTIFACT_DATABASE_STATUS_FAILED,
+        error: "The database's storage was never set up."
+      })
+      .where(
+        and(
+          eq(db.schema.artifactDatabase.id, row.id),
+          eq(
+            db.schema.artifactDatabase.status,
+            constants.ARTIFACT_DATABASE_STATUS_READY
+          )
+        )
+      )
+      .returning();
+    return c.json({ database: present(failed ?? row) });
+  }
   const [updated] = await dbInstance
     .update(db.schema.artifactDatabase)
     .set({ sizeBytes: info.size, sizeCheckedAt: new Date() })
@@ -269,7 +297,8 @@ const create = async (c: Context<AppEnv>) => {
     artifactId: artifact.id,
     organizationId: values.organizationId,
     name: values.name ?? artifact.slug,
-    userId: values.userId
+    userId: values.userId,
+    replaceDeleted: values.replaceDeleted
   });
   return c.json({ database: present(row) }, 201);
 };
@@ -320,6 +349,7 @@ const restore = async (c: Context<AppEnv>) => {
 // taken after the object is marked deleted: restoring to it would bring the
 // database back deleted while its row says READY.
 const RESTORABLE_KINDS = [
+  'checkpoint',
   'table.drop',
   'column.update',
   'column.drop',
@@ -345,7 +375,7 @@ const restorePoint = async (c: Context<AppEnv>) => {
         .limit(1);
       if (!known) {
         throw new DataError(
-          'That bookmark is not one to restore to: use the one a dropped table or column, a type change, or a restore answered with.',
+          'That bookmark is not one to restore to: use the one a checkpoint, a dropped table or column, a type change, or a restore answered with.',
           'restore'
         );
       }
@@ -385,6 +415,25 @@ const restorePoint = async (c: Context<AppEnv>) => {
     return c.json(result);
   });
 };
+
+// The database as it is right now, as a bookmark to restore to: the
+// dashboard takes one before replacing a table's rows, so "Undo import" goes
+// back to exactly that moment. A time can't: the browser's clock may be
+// off, and point-in-time lookup is coarser than the writes around it.
+const checkpoint = (c: Context<AppEnv>) =>
+  withDatabase(c, {}, async request => {
+    const { bookmark } = await callData(
+      'currentBookmark',
+      () => request.opened.stub.currentBookmark(),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'checkpoint',
+      bookmark
+    });
+    return c.json({ bookmark });
+  });
 
 // Tables
 
@@ -753,6 +802,7 @@ export const DataController = {
   remove,
   restore,
   restorePoint,
+  checkpoint,
   listTables,
   createTable,
   updateTable,

@@ -64,8 +64,8 @@ export const DATA_API_ROUTES = {
     tag: 'Database',
     summary: 'Create the database',
     description:
-      "Pro and Enterprise. Safe to repeat: a second call returns the same database. `name` defaults to the project's slug.",
-    body: DATA_DATABASE_CREATE.pick({ name: true }),
+      "Pro and Enterprise. Safe to repeat: a second call returns the same database. `name` defaults to the project's slug. While a deleted database is in its grace period this is refused unless `replaceDeleted` is true: the deleted one can then no longer be restored or exported, and is emptied when its grace period ends.",
+    body: DATA_DATABASE_CREATE.pick({ name: true, replaceDeleted: true }),
     returns: '{ database }',
     status: 201
   },
@@ -93,9 +93,18 @@ export const DATA_API_ROUTES = {
     tag: 'Database',
     summary: 'Restore to a point in time',
     description:
-      'Replaces everything with the database as it was at `timestamp` (within 30 days), or at the `bookmark` a dropped table or column, a type change or an earlier restore answered with. The answer carries `undoBookmark`, which undoes the restore. Calls in flight while it restarts fail.',
+      'Replaces everything with the database as it was at `timestamp` (within 30 days), or at the `bookmark` a checkpoint, a dropped table or column, a type change or an earlier restore answered with. The answer carries `undoBookmark`, which undoes the restore. Calls in flight while it restarts fail.',
     body: DATA_RESTORE_POINT_BODY,
     returns: '{ bookmark, undoBookmark }'
+  },
+  checkpoint: {
+    method: 'post',
+    path: '/checkpoint',
+    tag: 'Database',
+    summary: 'Take a restore point',
+    description:
+      "Answers with the `bookmark` of the database as it is right now, which `POST /restore-point` accepts. Take one before a large change, such as replacing a table's rows, to undo exactly that change: a time is not that precise.",
+    returns: '{ bookmark }'
   },
   listTables: {
     method: 'get',

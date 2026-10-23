@@ -151,10 +151,14 @@ change, restore to it.
 - **`GET /table/:table/row/:id/history`**: every change to a row in the last 90
   days, with who made it. A change made with a token is shown as
   `cli:<token id>`.
+- **`POST /checkpoint`**: a restore point at this exact moment. It answers
+  with a `bookmark`; take one before a large change, such as replacing a
+  table's rows, to undo exactly that change later.
 - **`POST /restore-point`**: put the whole database back as it was at a time in
   the last 30 days (`{ "timestamp": "2026-10-20T15:00:00-05:00" }`), or at the
-  `bookmark` a dropped table or column, a type change or an earlier restore
-  answered with. The answer has an `undoBookmark` that undoes the restore.
+  `bookmark` a checkpoint, a dropped table or column, a type change or an
+  earlier restore answered with. The answer has an `undoBookmark` that undoes
+  the restore.
 - **`POST /export`**: start a copy of the database: one JSONL or CSV file per
   table, plus `schema.json`. Poll `GET /export` until its `status` is `done`,
   then download each file with

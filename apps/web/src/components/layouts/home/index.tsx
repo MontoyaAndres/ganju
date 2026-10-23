@@ -34,7 +34,9 @@ import {
   BusinessOutlined,
   ExpandMoreOutlined,
   Forum,
-  ForumOutlined
+  ForumOutlined,
+  Storage,
+  StorageOutlined
 } from '@mui/icons-material';
 
 import {
@@ -624,6 +626,22 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                 <UI.Button
                   fullWidth
                   className={
+                    pathname === '/organization/[id]/project/[projectId]/data'
+                      ? 'active'
+                      : ''
+                  }
+                  onClick={() => goToProjectSection('data')}
+                >
+                  {pathname === '/organization/[id]/project/[projectId]/data' ? (
+                    <Storage />
+                  ) : (
+                    <StorageOutlined />
+                  )}
+                  <span className="button-text">{t('data')}</span>
+                </UI.Button>
+                <UI.Button
+                  fullWidth
+                  className={
                     pathname === '/organization/[id]/project/[projectId]/tools'
                       ? 'active'
                       : ''
@@ -748,6 +766,22 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                 <ChatOutlined />
               )}
               <span className="button-text">{t('resources')}</span>
+            </UI.Button>
+            <UI.Button
+              fullWidth
+              className={
+                pathname === '/organization/[id]/project/[projectId]/data'
+                  ? 'active'
+                  : ''
+              }
+              onClick={() => goToProjectSection('data')}
+            >
+              {pathname === '/organization/[id]/project/[projectId]/data' ? (
+                <Storage />
+              ) : (
+                <StorageOutlined />
+              )}
+              <span className="button-text">{t('data')}</span>
             </UI.Button>
             <UI.Button
               fullWidth

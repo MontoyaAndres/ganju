@@ -12,11 +12,13 @@ const slideIn = keyframes`
   }
 `;
 
+// Modals sit at 1300. Confirmations go above them, since one is often opened
+// from a modal, and toasts above both, so one fired from either is seen.
 export const SnackbarContainer = styled.div`
   position: fixed;
   bottom: 24px;
   left: 24px;
-  z-index: 200;
+  z-index: 1500;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -74,7 +76,7 @@ export const Overlay = styled.div`
     width: 100vw;
     height: 100vh;
     background-color: ${theme.colors.bastille}66;
-    z-index: 100;
+    z-index: 1400;
     display: flex;
     align-items: center;
     justify-content: center;

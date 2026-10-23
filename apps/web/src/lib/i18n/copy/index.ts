@@ -9,6 +9,7 @@ import { OVERVIEW } from './overview';
 import { PROMPTS } from './prompts';
 import { CHANNELS } from './channels';
 import { RESOURCES } from './resources';
+import { DATA } from './data';
 import { TOOLS } from './tools';
 import { TOOL_APPROVAL } from './toolApproval';
 
@@ -24,6 +25,7 @@ export const copy = {
   PROMPTS,
   CHANNELS,
   RESOURCES,
+  DATA,
   TOOLS,
   TOOL_APPROVAL
 };
