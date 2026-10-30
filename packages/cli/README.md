@@ -100,12 +100,17 @@ While it runs, the table refuses other changes and writes that reach it.
 | `--where 'name~pizza'` / `--where 'name^=Marg'` | `{"name":{"contains":"pizza"}}` / `{"name":{"startsWith":"Marg"}}` |
 | `--where 'status=[open,done]'` / `--where 'id!=[1,2]'` | `{"status":{"in":["open","done"]}}` / `{"id":{"notIn":[1,2]}}` |
 | `--where note=null` / `--where note!=null` | `{"note":null}` / `{"note":{"ne":null}}` |
-| `--where 'code="007"'` | `{"code":"007"}` — quotes keep a value as text |
+| `--where phone=3001234567` | `{"phone":"3001234567"}` — on a text column the value is text as typed |
+| `--where 'code="007"'` | `{"code":"007"}` — quotes keep a value as text on any column |
 | `--where 'price>=10' --where 'price<20'` | `{"price":{"gte":10,"lt":20}}` |
 | `--where 'product.name=Margherita'` | a column of the table a relation points at |
 | `--where '{"price":{"lt":30000}}'` | the JSON itself, as is |
 
-Numbers, `true`, `false` and `null` mean themselves; anything else is text.
+On a text, long text, phone, email, URL, enum, date or datetime column, a
+value is text as typed (only `null` means empty), read from the table's
+column types, through relations too. On other columns, numbers, `true`, `false`
+and `null` mean themselves, and anything else is text. Raw JSON is sent as
+written.
 Quote the whole condition for your shell when it holds `<`, `>` or spaces.
 
 **`import`** makes the dashboard's choices, with the same code: headers are
@@ -159,6 +164,9 @@ diff in a pull request is a change to the schema and nothing else.
 - New tables are created in an order where every relation's target exists
   first. Two new tables that point at each other are created with one relation
   column held back, and that column is added once both exist.
+- Dropped tables go in an order the API accepts: it refuses to drop a table
+  while any other points at it. Tables dropped together that point at each
+  other lose one relation column first, which frees the rest.
 - `push` applies new tables, new columns and changed settings straight away.
   **Drops and type changes** (including pointing a relation at another table)
   are listed and applied only with `--yes`, after a checkpoint whose bookmark

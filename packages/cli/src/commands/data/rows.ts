@@ -1,7 +1,7 @@
 import type { DataDeleteImpact, DataTable } from '@ganju/utils/data';
 
 import type { DataApi } from '../../data/routes.js';
-import { parseWhere } from '../../data/where.js';
+import { columnTypes, parseWhere } from '../../data/where.js';
 import { CliError, isApiError } from '../../errors.js';
 import {
   color,
@@ -49,8 +49,15 @@ const parseLimit = (value: string | undefined, fallback: number) => {
   return limit;
 };
 
-const rowQuery = (options: DataOptions, limit: number, cursor?: string) => {
-  const where = parseWhere(options.where);
+const rowQuery = (
+  options: DataOptions,
+  tables: DataTable[],
+  table: string,
+  limit: number,
+  cursor?: string
+) => {
+  // Read with the columns' types, so `phone=3001234567` stays text.
+  const where = parseWhere(options.where, columnTypes(tables, table));
   return {
     where: where ? JSON.stringify(where) : undefined,
     sort: options.sort,
@@ -59,15 +66,6 @@ const rowQuery = (options: DataOptions, limit: number, cursor?: string) => {
     limit,
     cursor
   };
-};
-
-const tableOrRefuse = async (
-  data: DataApi,
-  name: string | undefined,
-  usage: string
-): Promise<DataTable> => {
-  if (!name) throw new CliError('Which table?', { hint: usage });
-  return findTable(await listTables(data), name);
 };
 
 const printRows = (schema: DataTable, rows: Row[]) => {
@@ -85,7 +83,9 @@ export const rows = async (
   const usage =
     "ganju data rows <table> [--where 'status=open'] [--sort -created_at] [--limit 50] [--search pizza]";
   const { data } = await dataContext();
-  const schema = await tableOrRefuse(data, name, usage);
+  if (!name) throw new CliError('Which table?', { hint: usage });
+  const tables = await listTables(data);
+  const schema = findTable(tables, name);
   const limit = parseLimit(options.limit, options.all ? 500 : 20);
 
   if (options.all) {
@@ -95,7 +95,7 @@ export const rows = async (
     do {
       const page = await data.request<RowPage>('listRows', {
         params: { table: schema.name },
-        query: rowQuery(options, limit, cursor)
+        query: rowQuery(options, tables, schema.name, limit, cursor)
       });
       all.push(...page.rows);
       total ??= page.total;
@@ -120,7 +120,7 @@ export const rows = async (
 
   const page = await data.request<RowPage>('listRows', {
     params: { table: schema.name },
-    query: rowQuery(options, limit, options.cursor)
+    query: rowQuery(options, tables, schema.name, limit, options.cursor)
   });
   if (options.json) {
     printJson(page);

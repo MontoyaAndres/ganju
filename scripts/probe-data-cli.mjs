@@ -81,7 +81,14 @@ let token;
 const ganju = (...args) => {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     cwd: dir,
-    env: { ...process.env, GANJU_API_TOKEN: token, NO_COLOR: '1' },
+    // GANJU_API_URL beats ganju.json, so one left exported in the shell
+    // would send this token to another deployment.
+    env: {
+      ...process.env,
+      GANJU_API_URL: API,
+      GANJU_API_TOKEN: token,
+      NO_COLOR: '1'
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 300_000
@@ -135,9 +142,17 @@ try {
 
   section('database and schema');
   const none = ganju('data', 'info', '--json');
-  check('a project starts with no database', none.code === 0 && none.json === null, brief(none));
+  check(
+    'a project starts with no database',
+    none.code === 0 && none.json === null,
+    brief(none)
+  );
   const created = ganju('data', 'create', '--json');
-  check('`data create` makes it', created.json?.status === 'READY', brief(created));
+  check(
+    '`data create` makes it',
+    created.json?.status === 'READY',
+    brief(created)
+  );
   const name = created.json?.name;
 
   write(
@@ -148,8 +163,20 @@ try {
           name: 'order_lines',
           displayColumn: 'id',
           columns: [
-            { name: 'order', type: 'relation', table: 'orders', onDelete: 'cascade', required: true },
-            { name: 'product', type: 'relation', table: 'menu', onDelete: 'restrict', required: true },
+            {
+              name: 'order',
+              type: 'relation',
+              table: 'orders',
+              onDelete: 'cascade',
+              required: true
+            },
+            {
+              name: 'product',
+              type: 'relation',
+              table: 'menu',
+              onDelete: 'restrict',
+              required: true
+            },
             { name: 'qty', type: 'integer', min: 1 }
           ]
         },
@@ -157,7 +184,12 @@ try {
           name: 'orders',
           columns: [
             { name: 'customer', type: 'text', required: true },
-            { name: 'status', type: 'enum', values: ['open', 'done'], default: 'open' }
+            {
+              name: 'status',
+              type: 'enum',
+              values: ['open', 'done'],
+              default: 'open'
+            }
           ]
         },
         {
@@ -180,9 +212,20 @@ try {
     brief(pushed)
   );
   const clean = ganju('data', 'schema', 'diff', '--json');
-  check('  ...and the diff is then empty', clean.json?.steps?.length === 0, brief(clean));
+  check(
+    '  ...and the diff is then empty',
+    clean.json?.steps?.length === 0,
+    brief(clean)
+  );
   const pulled = ganju('data', 'schema', 'pull', '--schema', 'pulled.json');
-  const again = ganju('data', 'schema', 'diff', '--schema', 'pulled.json', '--json');
+  const again = ganju(
+    'data',
+    'schema',
+    'diff',
+    '--schema',
+    'pulled.json',
+    '--json'
+  );
   check(
     '  ...and a pulled file diffs clean too',
     pulled.code === 0 && again.json?.steps?.length === 0,
@@ -194,28 +237,78 @@ try {
     'menu.jsonl',
     Array.from({ length: 45 }, (_, i) =>
       JSON.stringify({
-        name: i === 0 ? 'Margherita pizza' : i === 1 ? 'Hawaiian pizza' : `Item ${i}`,
+        name:
+          i === 0
+            ? 'Margherita pizza'
+            : i === 1
+              ? 'Hawaiian pizza'
+              : `Item ${i}`,
         price: 10000 + i * 500,
         stock: i === 0 ? 1 : 10,
         code: String(i)
       })
     ).join('\n')
   );
-  const inserted = ganju('data', 'insert', 'menu', '--input-file', 'menu.jsonl', '--json');
-  check('45 rows go in from a JSONL file', inserted.json?.ids?.length === 45, brief(inserted));
+  const inserted = ganju(
+    'data',
+    'insert',
+    'menu',
+    '--input-file',
+    'menu.jsonl',
+    '--json'
+  );
+  check(
+    '45 rows go in from a JSONL file',
+    inserted.json?.ids?.length === 45,
+    brief(inserted)
+  );
   const ids = inserted.json?.ids ?? [];
-  const all = ganju('data', 'rows', 'menu', '--all', '--limit', '20', '--sort', '-price', '--json');
+  const all = ganju(
+    'data',
+    'rows',
+    'menu',
+    '--all',
+    '--limit',
+    '20',
+    '--sort',
+    '-price',
+    '--json'
+  );
   check(
     '--all reads every page, none twice',
     all.json?.length === 45 && new Set(all.json.map(r => r.id)).size === 45,
     brief(all)
   );
   const search = ganju('data', 'rows', 'menu', '--search', 'pizza', '--json');
-  check('--search finds the two pizzas', search.json?.rows?.length === 2, brief(search));
-  const where = ganju('data', 'rows', 'menu', '--where', 'price<11000', '--json');
+  check(
+    '--search finds the two pizzas',
+    search.json?.rows?.length === 2,
+    brief(search)
+  );
+  const where = ganju(
+    'data',
+    'rows',
+    'menu',
+    '--where',
+    'price<11000',
+    '--json'
+  );
   check('--where price<11000', where.json?.total === 2, brief(where));
-  const both = ganju('data', 'rows', 'menu', '--where', 'name^=Item 4', '--where', 'stock>=10', '--json');
-  check('  ...and two conditions together', both.json?.total === 6, brief(both));
+  const both = ganju(
+    'data',
+    'rows',
+    'menu',
+    '--where',
+    'name^=Item 4',
+    '--where',
+    'stock>=10',
+    '--json'
+  );
+  check(
+    '  ...and two conditions together',
+    both.json?.total === 6,
+    brief(both)
+  );
 
   section('relations');
   const order = ganju(
@@ -226,22 +319,33 @@ try {
     JSON.stringify({
       operations: [
         { op: 'insert', table: 'orders', values: { customer: 'Ana' } },
-        { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, product: ids[2], qty: 1 } }
+        {
+          op: 'insert',
+          table: 'order_lines',
+          values: { order: { $ref: 0 }, product: ids[2], qty: 1 }
+        }
       ]
     })
   );
   const orderId = order.json?.results?.[0]?.id;
-  check('an order and its line in one write', order.json?.results?.length === 2, brief(order));
+  check(
+    'an order and its line in one write',
+    order.json?.results?.length === 2,
+    brief(order)
+  );
   const restricted = ganju('data', 'delete', 'menu', String(ids[2]), '--yes');
   check(
     'deleting a product a line points at is refused up front (restrict)',
-    restricted.code === 1 && /restrict\): 1 row point here/.test(restricted.err),
+    restricted.code === 1 &&
+      /restrict\): 1 row point here/.test(restricted.err),
     brief(restricted)
   );
   const unconfirmed = ganju('data', 'delete', 'orders', String(orderId));
   check(
     'a cascade delete without --yes is refused',
-    unconfirmed.code === 1 && /cascade\): deletes 1 row/.test(unconfirmed.err) && /without --yes/.test(unconfirmed.err),
+    unconfirmed.code === 1 &&
+      /cascade\): deletes 1 row/.test(unconfirmed.err) &&
+      /without --yes/.test(unconfirmed.err),
     brief(unconfirmed)
   );
   const cascaded = ganju('data', 'delete', 'orders', String(orderId), '--yes');
@@ -253,16 +357,52 @@ try {
   );
 
   section('edits and history');
-  const first = ganju('data', 'update', 'menu', String(ids[0]), '--input', '{"price":29000}', '--version', '1', '--json');
-  check('an update with the version read', first.json?.version === 2, brief(first));
-  const stale = ganju('data', 'update', 'menu', String(ids[0]), '--input', '{"price":1}', '--version', '1');
+  const first = ganju(
+    'data',
+    'update',
+    'menu',
+    String(ids[0]),
+    '--input',
+    '{"price":29000}',
+    '--version',
+    '1',
+    '--json'
+  );
+  check(
+    'an update with the version read',
+    first.json?.version === 2,
+    brief(first)
+  );
+  const stale = ganju(
+    'data',
+    'update',
+    'menu',
+    String(ids[0]),
+    '--input',
+    '{"price":1}',
+    '--version',
+    '1'
+  );
   check(
     'a stale --version is refused, with the row as it is now',
-    stale.code === 1 && /now version 2/.test(stale.err) && /29000/.test(stale.out),
+    stale.code === 1 &&
+      /now version 2/.test(stale.err) &&
+      /29000/.test(stale.out),
     brief(stale)
   );
-  const guard = ganju('data', 'update', 'menu', String(ids[0]), '--input', '{"stock":{"decrement":2}}');
-  check('a decrement below the minimum is refused', guard.code === 1 && /below 0/.test(guard.err), brief(guard));
+  const guard = ganju(
+    'data',
+    'update',
+    'menu',
+    String(ids[0]),
+    '--input',
+    '{"stock":{"decrement":2}}'
+  );
+  check(
+    'a decrement below the minimum is refused',
+    guard.code === 1 && /below 0/.test(guard.err),
+    brief(guard)
+  );
   const history = ganju('data', 'history', 'menu', String(ids[0]), '--json');
   check(
     'history names the token',
@@ -271,16 +411,52 @@ try {
   );
 
   section('type changes');
-  ganju('data', 'insert', 'menu', '--input', '{"name":"Odd code","price":1,"code":"abc"}');
-  const noYes = ganju('data', 'column', 'change', 'menu', 'code', '--input', '{"type":"integer"}');
-  check('a type change without --yes is refused', noYes.code === 1 && /without --yes/.test(noYes.err), brief(noYes));
-  const misfit = ganju('data', 'column', 'change', 'menu', 'code', '--input', '{"type":"integer"}', '--yes');
+  ganju(
+    'data',
+    'insert',
+    'menu',
+    '--input',
+    '{"name":"Odd code","price":1,"code":"abc"}'
+  );
+  const noYes = ganju(
+    'data',
+    'column',
+    'change',
+    'menu',
+    'code',
+    '--input',
+    '{"type":"integer"}'
+  );
+  check(
+    'a type change without --yes is refused',
+    noYes.code === 1 && /without --yes/.test(noYes.err),
+    brief(noYes)
+  );
+  const misfit = ganju(
+    'data',
+    'column',
+    'change',
+    'menu',
+    'code',
+    '--input',
+    '{"type":"integer"}',
+    '--yes'
+  );
   check(
     "a type change some values don't fit is refused, naming them",
     misfit.code === 1 && /"abc"/.test(misfit.err),
     brief(misfit)
   );
-  const fits = ganju('data', 'column', 'change', 'menu', 'price', '--input', '{"type":"decimal"}', '--yes');
+  const fits = ganju(
+    'data',
+    'column',
+    'change',
+    'menu',
+    'price',
+    '--input',
+    '{"type":"decimal"}',
+    '--yes'
+  );
   check(
     'a type change that fits, with the bookmark that undoes it',
     fits.code === 0 && /--bookmark \S+ --yes/.test(fits.err),
@@ -289,19 +465,24 @@ try {
   const back = ganju('data', 'schema', 'diff', '--json');
   check(
     '  ...after which the file wants it back, as a destructive step',
-    back.json?.destructive?.length === 1 && back.json.destructive[0].patch?.type === 'integer',
+    back.json?.destructive?.length === 1 &&
+      back.json.destructive[0].patch?.type === 'integer',
     brief(back)
   );
   const refusedPush = ganju('data', 'schema', 'push');
-  check('  ...that push refuses without --yes', refusedPush.code === 1, brief(refusedPush));
+  check(
+    '  ...that push refuses without --yes',
+    refusedPush.code === 1,
+    brief(refusedPush)
+  );
 
   section('export and import');
   const exported = ganju('data', 'export', '--out', 'export');
   check(
     'export downloads schema.json and a file per table',
     exported.code === 0 &&
-      ['schema.json', 'menu.jsonl', 'orders.jsonl', 'order_lines.jsonl'].every(f =>
-        fs.existsSync(path.join(dir, 'export', f))
+      ['schema.json', 'menu.jsonl', 'orders.jsonl', 'order_lines.jsonl'].every(
+        f => fs.existsSync(path.join(dir, 'export', f))
       ),
     brief(exported)
   );
@@ -310,7 +491,13 @@ try {
     'lines.csv',
     'order,product,qty\nBea,Margherita pizza,2\nBea,hawaiian pizza,1\nBea,Nope pizza,1\nBea,Item 5,0\n'
   );
-  const imported = ganju('data', 'import', 'order_lines', 'lines.csv', '--json');
+  const imported = ganju(
+    'data',
+    'import',
+    'order_lines',
+    'lines.csv',
+    '--json'
+  );
   check(
     'import matches relations by name and refuses the rows that do not fit',
     imported.json?.inserted === 2 && imported.json?.refused?.length === 2,
@@ -323,11 +510,19 @@ try {
 
   section('delete and restore');
   const noConfirm = ganju('data', 'drop', '--yes');
-  check('drop without --confirm is refused', noConfirm.code === 1 && /--confirm/.test(noConfirm.err), brief(noConfirm));
+  check(
+    'drop without --confirm is refused',
+    noConfirm.code === 1 && /--confirm/.test(noConfirm.err),
+    brief(noConfirm)
+  );
   const wrong = ganju('data', 'drop', '--yes', '--confirm', 'nope');
   check('  ...and with the wrong name', wrong.code === 1, brief(wrong));
   const dropped = ganju('data', 'drop', '--yes', '--confirm', name, '--json');
-  check('drop with the typed name', dropped.json?.status === 'DELETING', brief(dropped));
+  check(
+    'drop with the typed name',
+    dropped.json?.status === 'DELETING',
+    brief(dropped)
+  );
   const gone = ganju('data', 'rows', 'menu');
   check('  ...after which rows are refused', gone.code === 1, brief(gone));
   const restored = ganju('data', 'restore', '--json');

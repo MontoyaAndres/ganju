@@ -220,9 +220,11 @@ ganju data import menu menu.csv --replace --yes --confirm menu
 ```
 
 `--where` takes `column=value` and `!=`, `>`, `>=`, `<`, `<=`, `~` (contains),
-`^=` (starts with). `status=[open,done]` matches any of the values,
-`code="007"` keeps a value as text, and `note=null` finds empty ones. Repeat
-`--where` to require several conditions, or pass the JSON `where` itself.
+`^=` (starts with). `status=[open,done]` matches any of the values, and
+`note=null` finds empty ones. On a text, phone, email, URL, enum or date column
+the value is always text, so `phone=3001234567` works as typed; elsewhere,
+quotes keep a value as text: `code="007"`. Repeat `--where` to require several
+conditions, or pass the JSON `where` itself.
 
 `delete` shows what a cascade would also remove, and refuses when a restrict
 blocks it. `import` reads numbers like "28.000", matches relations by the name

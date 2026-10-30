@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseValue, parseWhere } from '../src/data/where.ts';
+import { columnTypes, parseValue, parseWhere } from '../src/data/where.ts';
 
 test('nothing given is no filter', () => {
   assert.equal(parseWhere(undefined), undefined);
@@ -22,7 +22,9 @@ test('every comparison operator', () => {
   assert.deepEqual(parseWhere(['price>=10']), { price: { gte: 10 } });
   assert.deepEqual(parseWhere(['status!=done']), { status: { ne: 'done' } });
   assert.deepEqual(parseWhere(['name~pizza']), { name: { contains: 'pizza' } });
-  assert.deepEqual(parseWhere(['name^=Marg']), { name: { startsWith: 'Marg' } });
+  assert.deepEqual(parseWhere(['name^=Marg']), {
+    name: { startsWith: 'Marg' }
+  });
 });
 
 test('values: numbers, booleans and null mean themselves; quotes keep text', () => {
@@ -57,7 +59,9 @@ test('the value may hold operator characters', () => {
   assert.deepEqual(parseWhere(['note=a<b']), { note: 'a<b' });
   assert.deepEqual(parseWhere(['note=x>=y']), { note: 'x>=y' });
   assert.deepEqual(parseWhere(['title~2=1']), { title: { contains: '2=1' } });
-  assert.deepEqual(parseWhere(['url=https://a.b/?q=1']), { url: 'https://a.b/?q=1' });
+  assert.deepEqual(parseWhere(['url=https://a.b/?q=1']), {
+    url: 'https://a.b/?q=1'
+  });
   assert.deepEqual(parseWhere(['note=']), { note: '' });
 });
 
@@ -98,4 +102,62 @@ test('something that is not a condition is refused with the syntax', () => {
   assert.throws(() => parseWhere(['open']), /is not a condition/);
   assert.throws(() => parseWhere(['=open']), /is not a condition/);
   assert.throws(() => parseWhere(['1abc=2']), /is not a condition/);
+});
+
+// The tables as `GET /table` lists them, reduced to what the parser reads.
+const tables = [
+  {
+    name: 'customers',
+    columns: [
+      { name: 'phone', type: 'phone' },
+      { name: 'code', type: 'text' },
+      { name: 'visits', type: 'integer' },
+      { name: 'status', type: 'enum' }
+    ]
+  },
+  {
+    name: 'orders',
+    columns: [
+      { name: 'customer', type: 'relation', table: 'customers' },
+      { name: 'total', type: 'decimal' }
+    ]
+  }
+] as unknown as Parameters<typeof columnTypes>[0];
+
+test("a text column's number-like value stays text", () => {
+  const typeOf = columnTypes(tables, 'customers');
+  assert.deepEqual(parseWhere(['phone=3001234567'], typeOf), {
+    phone: '3001234567'
+  });
+  assert.deepEqual(parseWhere(['code=007', 'status=[1,2]'], typeOf), {
+    code: '007',
+    status: { in: ['1', '2'] }
+  });
+  assert.deepEqual(parseWhere(['code=true'], typeOf), { code: 'true' });
+  // null still means empty, and a number column still gets a number.
+  assert.deepEqual(parseWhere(['phone=null', 'visits>=3'], typeOf), {
+    phone: null,
+    visits: { gte: 3 }
+  });
+  // A column the parser can't see (id, a typo the API will name) is read
+  // as before.
+  assert.deepEqual(parseWhere(['id=5', 'nope=5'], typeOf), { id: 5, nope: 5 });
+  // Raw JSON is sent as written.
+  assert.deepEqual(parseWhere(['{"phone":3001234567}'], typeOf), {
+    phone: 3001234567
+  });
+});
+
+test('a path through a relation reads the other table’s column type', () => {
+  const typeOf = columnTypes(tables, 'orders');
+  assert.equal(typeOf('customer.phone'), 'phone');
+  assert.equal(typeOf('total'), 'decimal');
+  assert.equal(typeOf('total.x'), undefined);
+  assert.deepEqual(
+    parseWhere(['customer.phone=3001234567', 'total<100'], typeOf),
+    {
+      'customer.phone': '3001234567',
+      total: { lt: 100 }
+    }
+  );
 });

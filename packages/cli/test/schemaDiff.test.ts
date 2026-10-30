@@ -14,7 +14,9 @@ import {
 } from '../src/data/schemaDiff.ts';
 
 // A table as `schema pull` writes it: every setting spelled out.
-const pulled = (table: Partial<DataTableInput> & Pick<DataTableInput, 'name' | 'columns'>): DataTableInput => ({
+const pulled = (
+  table: Partial<DataTableInput> & Pick<DataTableInput, 'name' | 'columns'>
+): DataTableInput => ({
   label: null,
   description: null,
   displayColumn: table.columns.find(c => c.type === 'text')?.name ?? null,
@@ -43,13 +45,26 @@ const lines = pulled({
   name: 'order_lines',
   displayColumn: null,
   columns: [
-    { name: 'order', type: 'relation', table: 'orders', onDelete: 'cascade', required: true },
-    { name: 'product', type: 'relation', table: 'menu', onDelete: 'restrict', required: true },
+    {
+      name: 'order',
+      type: 'relation',
+      table: 'orders',
+      onDelete: 'cascade',
+      required: true
+    },
+    {
+      name: 'product',
+      type: 'relation',
+      table: 'menu',
+      onDelete: 'restrict',
+      required: true
+    },
     { name: 'qty', type: 'integer', min: 1 }
   ]
 });
 
-const kinds = (steps: SchemaStep[]) => steps.map(s => `${s.kind} ${s.table}${'column' in s ? `.${s.column}` : ''}`);
+const kinds = (steps: SchemaStep[]) =>
+  steps.map(s => `${s.kind} ${s.table}${'column' in s ? `.${s.column}` : ''}`);
 
 test('the same schema is no change', () => {
   const plan = diffSchema([menu, orders, lines], [menu, orders, lines]);
@@ -81,7 +96,15 @@ test("a file that leaves defaults out matches the database's spelled-out ones", 
     pulled({
       name: 'order_lines',
       displayColumn: null,
-      columns: [{ name: 'product', type: 'relation', table: 'menu', onDelete: 'restrict', required: true }]
+      columns: [
+        {
+          name: 'product',
+          type: 'relation',
+          table: 'menu',
+          onDelete: 'restrict',
+          required: true
+        }
+      ]
     })
   ];
   assert.deepEqual(diffSchema(current, terse).steps, []);
@@ -109,12 +132,20 @@ test('a self-relation does not hold its own table back', () => {
     name: 'staff',
     columns: [
       { name: 'name', type: 'text' },
-      { name: 'manager', type: 'relation', table: 'staff', onDelete: 'set_null' }
+      {
+        name: 'manager',
+        type: 'relation',
+        table: 'staff',
+        onDelete: 'set_null'
+      }
     ]
   });
   const plan = diffSchema([], [staff]);
   assert.deepEqual(kinds(plan.steps), ['createTable staff']);
-  assert.equal((plan.steps[0] as { input: DataTableInput }).input.columns.length, 2);
+  assert.equal(
+    (plan.steps[0] as { input: DataTableInput }).input.columns.length,
+    2
+  );
 });
 
 test('two new tables that point at each other: one waits for its relation column', () => {
@@ -122,14 +153,24 @@ test('two new tables that point at each other: one waits for its relation column
     name: 'customers',
     columns: [
       { name: 'name', type: 'text' },
-      { name: 'last_order', type: 'relation', table: 'orders', onDelete: 'set_null' }
+      {
+        name: 'last_order',
+        type: 'relation',
+        table: 'orders',
+        onDelete: 'set_null'
+      }
     ]
   });
   const ordersWithCustomer = pulled({
     name: 'orders',
     columns: [
       { name: 'total', type: 'integer' },
-      { name: 'customer', type: 'relation', table: 'customers', onDelete: 'restrict' }
+      {
+        name: 'customer',
+        type: 'relation',
+        table: 'customers',
+        onDelete: 'restrict'
+      }
     ]
   });
   const plan = diffSchema([], [ordersWithCustomer, customers]);
@@ -144,12 +185,21 @@ test('two new tables that point at each other: one waits for its relation column
     ['name']
   );
   // The same file always gives the same plan.
-  assert.deepEqual(diffSchema([], [customers, ordersWithCustomer]).steps, plan.steps);
+  assert.deepEqual(
+    diffSchema([], [customers, ordersWithCustomer]).steps,
+    plan.steps
+  );
 });
 
 test('a cycle where every table is only relations is refused', () => {
-  const a: DataTableInput = { name: 'a', columns: [{ name: 'b', type: 'relation', table: 'b' }] };
-  const b: DataTableInput = { name: 'b', columns: [{ name: 'a', type: 'relation', table: 'a' }] };
+  const a: DataTableInput = {
+    name: 'a',
+    columns: [{ name: 'b', type: 'relation', table: 'b' }]
+  };
+  const b: DataTableInput = {
+    name: 'b',
+    columns: [{ name: 'a', type: 'relation', table: 'a' }]
+  };
   assert.throws(() => diffSchema([], [a, b]), SchemaFileError);
 });
 
@@ -170,19 +220,37 @@ test('a display column that waits for its column is set once it exists', () => {
     ]
   };
   const plan = diffSchema([], [a, b]);
-  assert.deepEqual(kinds(plan.steps), ['createTable a', 'createTable b', 'addColumn a.b_ref', 'updateTable a']);
-  assert.equal((plan.steps[0] as { input: DataTableInput }).input.displayColumn, null);
-  assert.deepEqual((plan.steps[3] as { patch: unknown }).patch, { displayColumn: 'b_ref' });
+  assert.deepEqual(kinds(plan.steps), [
+    'createTable a',
+    'createTable b',
+    'addColumn a.b_ref',
+    'updateTable a'
+  ]);
+  assert.equal(
+    (plan.steps[0] as { input: DataTableInput }).input.displayColumn,
+    null
+  );
+  assert.deepEqual((plan.steps[3] as { patch: unknown }).patch, {
+    displayColumn: 'b_ref'
+  });
 });
 
 test('new columns, and a new column pointing at a new table, after the creates', () => {
-  const customers = pulled({ name: 'customers', columns: [{ name: 'name', type: 'text' }] });
+  const customers = pulled({
+    name: 'customers',
+    columns: [{ name: 'name', type: 'text' }]
+  });
   const ordersNext = {
     ...orders,
     columns: [
       ...orders.columns,
       { name: 'notes', type: 'long_text' as const },
-      { name: 'customer_ref', type: 'relation' as const, table: 'customers', onDelete: 'set_null' as const }
+      {
+        name: 'customer_ref',
+        type: 'relation' as const,
+        table: 'customers',
+        onDelete: 'set_null' as const
+      }
     ]
   };
   const plan = diffSchema([orders], [ordersNext, customers]);
@@ -200,18 +268,36 @@ test('labels, flags and table settings are safe changes', () => {
     label: 'Menu',
     access: 'full',
     columns: [
-      { name: 'name', type: 'text', required: true, searchable: true, label: 'Dish' },
+      {
+        name: 'name',
+        type: 'text',
+        required: true,
+        searchable: true,
+        label: 'Dish'
+      },
       { name: 'price', type: 'integer', min: 0, filterable: true },
       { name: 'stock', type: 'integer', min: 0, default: 0 }
     ]
   });
   const plan = diffSchema([menu], [next]);
-  assert.deepEqual(kinds(plan.steps), ['updateColumn menu.name', 'updateColumn menu.price', 'updateTable menu']);
+  assert.deepEqual(kinds(plan.steps), [
+    'updateColumn menu.name',
+    'updateColumn menu.price',
+    'updateTable menu'
+  ]);
   assert.deepEqual(plan.destructive, []);
-  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, { label: 'Dish' });
-  assert.deepEqual((plan.steps[1] as { patch: unknown; copies: boolean }).patch, { filterable: true });
+  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, {
+    label: 'Dish'
+  });
+  assert.deepEqual(
+    (plan.steps[1] as { patch: unknown; copies: boolean }).patch,
+    { filterable: true }
+  );
   assert.equal((plan.steps[1] as { copies: boolean }).copies, false);
-  assert.deepEqual((plan.steps[2] as { patch: unknown }).patch, { label: 'Menu', access: 'full' });
+  assert.deepEqual((plan.steps[2] as { patch: unknown }).patch, {
+    label: 'Menu',
+    access: 'full'
+  });
 });
 
 test('a setting taken out of the file goes back to its default', () => {
@@ -246,12 +332,12 @@ test('a type change is destructive, and carries what the new type needs', () => 
   });
   const plan = diffSchema([orders], [next]);
   assert.deepEqual(kinds(plan.destructive), ['updateColumn orders.status']);
-  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, { type: 'text', values: null });
+  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, {
+    type: 'text',
+    values: null
+  });
 
-  const toEnum = diffSchema(
-    [next],
-    [orders]
-  );
+  const toEnum = diffSchema([next], [orders]);
   assert.deepEqual((toEnum.steps[0] as { patch: unknown }).patch, {
     type: 'enum',
     values: ['open', 'done']
@@ -261,20 +347,32 @@ test('a type change is destructive, and carries what the new type needs', () => 
 test('pointing a relation at another table is destructive', () => {
   const next = pulled({
     ...lines,
-    columns: lines.columns.map(c => (c.name === 'product' ? { ...c, table: 'orders' } : c))
+    columns: lines.columns.map(c =>
+      c.name === 'product' ? { ...c, table: 'orders' } : c
+    )
   });
   const plan = diffSchema([menu, orders, lines], [menu, orders, next]);
-  assert.deepEqual(kinds(plan.destructive), ['updateColumn order_lines.product']);
-  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, { table: 'orders', onDelete: 'restrict' });
+  assert.deepEqual(kinds(plan.destructive), [
+    'updateColumn order_lines.product'
+  ]);
+  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, {
+    table: 'orders',
+    onDelete: 'restrict'
+  });
 });
 
 test('a renamed column reads as a drop and an add, and the drop needs --yes', () => {
   const next = pulled({
     ...menu,
-    columns: menu.columns.map(c => (c.name === 'price' ? { ...c, name: 'cost' } : c))
+    columns: menu.columns.map(c =>
+      c.name === 'price' ? { ...c, name: 'cost' } : c
+    )
   });
   const plan = diffSchema([menu], [next]);
-  assert.deepEqual(kinds(plan.steps), ['addColumn menu.cost', 'dropColumn menu.price']);
+  assert.deepEqual(kinds(plan.steps), [
+    'addColumn menu.cost',
+    'dropColumn menu.price'
+  ]);
   assert.deepEqual(kinds(plan.destructive), ['dropColumn menu.price']);
 });
 
@@ -291,12 +389,103 @@ test('safe steps come first, then type changes, column drops and table drops', (
     'dropColumn orders.status',
     'dropTable menu'
   ]);
-  assert.deepEqual(kinds(plan.destructive), ['updateColumn orders.customer', 'dropColumn orders.status', 'dropTable menu']);
+  assert.deepEqual(kinds(plan.destructive), [
+    'updateColumn orders.customer',
+    'dropColumn orders.status',
+    'dropTable menu'
+  ]);
 });
 
 test('a table that points at another dropped table is dropped before it', () => {
   const plan = diffSchema([menu, orders, lines], []);
-  assert.deepEqual(kinds(plan.steps), ['dropTable order_lines', 'dropTable menu', 'dropTable orders']);
+  assert.deepEqual(kinds(plan.steps), [
+    'dropTable order_lines',
+    'dropTable menu',
+    'dropTable orders'
+  ]);
+});
+
+test('dropping tables that point at each other drops a relation column first', () => {
+  // The API refuses to drop a table while any other table points at it, even
+  // one dropped by the same push.
+  const customers = pulled({
+    name: 'customers',
+    columns: [
+      { name: 'name', type: 'text' },
+      {
+        name: 'last_order',
+        type: 'relation',
+        table: 'orders',
+        onDelete: 'set_null'
+      }
+    ]
+  });
+  const ordersWithCustomer = pulled({
+    name: 'orders',
+    columns: [
+      { name: 'total', type: 'integer' },
+      {
+        name: 'customer',
+        type: 'relation',
+        table: 'customers',
+        onDelete: 'restrict'
+      }
+    ]
+  });
+  const plan = diffSchema([menu, customers, ordersWithCustomer], [menu]);
+  assert.deepEqual(kinds(plan.steps), [
+    'dropColumn orders.customer',
+    'dropTable customers',
+    'dropTable orders'
+  ]);
+  assert.deepEqual(plan.destructive, plan.steps);
+  // Every drop is one the API takes: no remaining table points at it.
+  const left = new Map(
+    [customers, ordersWithCustomer].map(t => [t.name, [...t.columns]])
+  );
+  for (const step of plan.steps) {
+    if (step.kind === 'dropColumn') {
+      left.set(
+        step.table,
+        left.get(step.table)!.filter(c => c.name !== step.column)
+      );
+    } else if (step.kind === 'dropTable') {
+      left.delete(step.table);
+      for (const [name, columns] of left) {
+        assert.ok(
+          !columns.some(c => c.type === 'relation' && c.table === step.table),
+          `${name} still points at ${step.table}`
+        );
+      }
+    }
+  }
+});
+
+test('a cycle of three dropped tables, and a self-relation, still drop in a valid order', () => {
+  const a: DataTableInput = {
+    name: 'a',
+    columns: [
+      { name: 'to_b', type: 'relation', table: 'b' },
+      { name: 'parent', type: 'relation', table: 'a' }
+    ]
+  };
+  const b: DataTableInput = {
+    name: 'b',
+    columns: [{ name: 'to_c', type: 'relation', table: 'c' }]
+  };
+  const c: DataTableInput = {
+    name: 'c',
+    columns: [{ name: 'to_a', type: 'relation', table: 'a' }]
+  };
+  const plan = diffSchema([a, b, c], []);
+  // c.to_a goes, which frees a; then the chain unwinds. The self-relation
+  // never holds a table back.
+  assert.deepEqual(kinds(plan.steps), [
+    'dropColumn c.to_a',
+    'dropTable a',
+    'dropTable b',
+    'dropTable c'
+  ]);
 });
 
 test('describeStep reads as a plan', () => {
@@ -307,9 +496,17 @@ test('describeStep reads as a plan', () => {
   ]);
   const change = diffSchema(
     [orders],
-    [pulled({ ...orders, columns: [orders.columns[0], { name: 'status', type: 'text' }] })]
+    [
+      pulled({
+        ...orders,
+        columns: [orders.columns[0], { name: 'status', type: 'text' }]
+      })
+    ]
   );
-  assert.equal(describeStep(change.steps[0]), 'change orders.status: type "text", values none, default none (copies the table)');
+  assert.equal(
+    describeStep(change.steps[0]),
+    'change orders.status: type "text", values none, default none (copies the table)'
+  );
 });
 
 test('the file is checked for its own mistakes before anything is sent', () => {
@@ -324,14 +521,29 @@ test('the file is checked for its own mistakes before anything is sent', () => {
     }
   };
   assert.deepEqual(problems([]), ['the file is { "tables": [ ... ] }']);
-  assert.deepEqual(problems({ tables: [{ name: 'a', columns: [] }] }), ['a: "columns" lists at least one column']);
+  assert.deepEqual(problems({ tables: [{ name: 'a', columns: [] }] }), [
+    'a: "columns" lists at least one column'
+  ]);
   assert.deepEqual(
     problems({
       tables: [
-        { name: 'a', columns: [{ name: 'x', type: 'text' }, { name: 'x', type: 'text' }] },
-        { name: 'a', columns: [{ name: 'y', type: 'relation', table: 'nowhere' }] }
+        {
+          name: 'a',
+          columns: [
+            { name: 'x', type: 'text' },
+            { name: 'x', type: 'text' }
+          ]
+        },
+        {
+          name: 'a',
+          columns: [{ name: 'y', type: 'relation', table: 'nowhere' }]
+        }
       ]
     }),
-    ['a.x is listed twice', 'table "a" is listed twice', 'a.y points at "nowhere", which the file doesn\'t have']
+    [
+      'a.x is listed twice',
+      'table "a" is listed twice',
+      'a.y points at "nowhere", which the file doesn\'t have'
+    ]
   );
 });

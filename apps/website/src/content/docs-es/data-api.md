@@ -226,9 +226,11 @@ ganju data import menu menu.csv --replace --yes --confirm menu
 
 `--where` acepta `columna=valor` y `!=`, `>`, `>=`, `<`, `<=`, `~` (contiene)
 y `^=` (empieza por). `status=[open,done]` coincide con cualquiera de los
-valores, `code="007"` deja el valor como texto y `note=null` encuentra los
-vacíos. Repite `--where` para exigir varias condiciones, o pasa directamente el
-JSON de `where`.
+valores y `note=null` encuentra los vacíos. En una columna de texto, teléfono,
+email, URL, enum o fecha el valor siempre es texto, así que
+`phone=3001234567` funciona tal cual; en las demás, las comillas lo dejan como
+texto: `code="007"`. Repite `--where` para exigir varias condiciones, o pasa
+directamente el JSON de `where`.
 
 `delete` muestra lo que un borrado en cascada también eliminaría, y se niega si
 una relación `restrict` lo impide. `import` lee números como "28.000", reconoce

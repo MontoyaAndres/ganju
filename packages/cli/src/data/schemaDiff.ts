@@ -270,25 +270,48 @@ const orderCreates = (
 };
 
 /**
- * Tables to drop in an order the API accepts: one that points at another
- * dropped table goes before it, so no drop is refused for a relation that the
- * same push was about to remove.
+ * Tables to drop in an order the API accepts. It refuses to drop a table
+ * while another table points at it, even one the same push drops next, so a
+ * table that points at another dropped table goes before it.
+ *
+ * Tables that point at each other can't either go first. The cycle is broken
+ * by dropping the relation columns that point at one of them (the first by
+ * name, so the same file always gives the same plan), which frees it.
  */
-const orderDrops = (dropped: DataTableInput[]): string[] => {
-  const pending = new Map(dropped.map(t => [t.name, t]));
-  const out: string[] = [];
+const orderDrops = (dropped: DataTableInput[]): SchemaStep[] => {
+  const pending = new Map(
+    dropped.map(t => [t.name, { ...t, columns: [...t.columns] }])
+  );
+  const out: SchemaStep[] = [];
+  const pointsAt = (from: DataTableInput, target: string) =>
+    from.columns.filter(
+      c => c.type === 'relation' && c.table === target && from.name !== target
+    );
   while (pending.size) {
     const pointedAt = new Set(
       [...pending.values()]
         .flatMap(t => relationTargets(t))
         .filter(n => pending.has(n))
     );
-    const free = [...pending.keys()].filter(n => !pointedAt.has(n)).sort();
-    // A cycle among dropped tables: the API drops either first, since the
-    // relation goes with the table.
-    const batch = free.length ? free : [[...pending.keys()].sort()[0]];
+    let batch = [...pending.keys()].filter(n => !pointedAt.has(n)).sort();
+    if (!batch.length) {
+      const freed = [...pending.keys()].sort()[0];
+      for (const table of [...pending.values()].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )) {
+        for (const column of pointsAt(table, freed)) {
+          out.push({
+            kind: 'dropColumn',
+            table: table.name,
+            column: column.name
+          });
+          table.columns = table.columns.filter(c => c !== column);
+        }
+      }
+      batch = [freed];
+    }
     for (const name of batch) {
-      out.push(name);
+      out.push({ kind: 'dropTable', table: name });
       pending.delete(name);
     }
   }
@@ -413,9 +436,9 @@ export const diffSchema = (
     }
   }
 
-  const tableDrops: SchemaStep[] = orderDrops(
+  const tableDrops = orderDrops(
     current.filter(t => !desiredByName.has(t.name))
-  ).map(table => ({ kind: 'dropTable', table }));
+  );
 
   // Additive first, so a push stopped at a destructive step has still done
   // everything that was safe; type changes before drops, since a drop is the

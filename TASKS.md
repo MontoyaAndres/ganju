@@ -1617,6 +1617,77 @@ from `ganju.json` / `ganju link`:
   with the usage text and the CLI README. Bump `packages/cli` and publish.
 - Done when: the probe's scenario runs end to end from the CLI against dev.
 
+**Phase 4 status (2026-10-30): done on dev and production.** `@ganju/cli`
+0.0.11 is on npm. The website's "Data API" / "API de Datos" pages have a
+command-line section, deployed.
+
+- **What exists:**
+  - **Every command in the list above**, plus a few the scenario needed:
+    - `table rename`, `column change` (any setting, including the type);
+    - `restore --bookmark` (the undo a drop, type change or replace prints)
+      and `checkpoint`;
+    - `get`, `history`, `write` (several writes, all or nothing), `changes`;
+    - `copy status|wait|dismiss`.
+  - **No new route.** The CLI's route table is a copy of `DATA_API_ROUTES`
+    that `tsc` holds to the original, importing its types only, so zod isn't
+    bundled. `toTableInput` moved to `dataTypes.ts`, so the CLI reads it
+    through `@ganju/utils/dataImport` without the engine.
+  - **`--where`:** one condition per flag, all of which must hold:
+    - `column=value`, and `!= > >= < <=`, `~` (contains), `^=` (starts with);
+    - `[a,b]` for in / not in, `null` for empty, quotes for text;
+    - a path through a relation (`product.name=X`), or raw JSON.
+
+    On a text-like column the value stays text, read from the column types
+    `GET /table` gives, so `phone=3001234567` works as typed.
+  - **Schema as code:** `ganju.data.json` has the shape of an export's
+    schema.json. `pull`, `diff` and `push` match by name.
+    - Creates are ordered so a relation's target exists first. In a cycle,
+      one relation column waits until both tables exist.
+    - Drops are ordered the way the API accepts them. In a cycle, a relation
+      column goes first, since the API refuses to drop a table any other
+      still points at.
+    - Drops and type changes need `--yes`, behind a checkpoint. Without it,
+      a script applies the rest and exits 1.
+  - **Import:** shares `@ganju/utils/dataImport` with the dashboard, with
+    the same batching and the same splitting to find refused rows.
+    - CSV/TSV/JSON/JSONL, read without a dependency;
+    - `--map 'Header=column'` and `--decimal-mark`;
+    - refused rows go to `<file>.refused.csv`;
+    - `--replace` takes the delete preview, a checkpoint and one write up to
+      5,000 rows.
+  - **Destructive commands** need `--yes`; database and table drops and
+    `import --replace` also need `--confirm <name>`. In a terminal a missing
+    flag is asked for; without one the command refuses.
+  - **Rate limit:** a token's `429` is waited out (`Retry-After`), so a long
+    import doesn't stop halfway.
+  - **`ganju link`** creates `ganju.json` when there is none, so `ganju data`
+    doesn't need `ganju init`.
+  - **Tests:** `npm test -w @ganju/cli` (`node:test`): the `--where`
+    shorthand, the schema diff and its ordering, the CSV reader.
+- **Found and fixed on the way:** a new table could take a dropped table's id
+  (`_ganju_tables.id` without AUTOINCREMENT) and show its row history.
+  `createTable` now picks an id past any the row log holds. There is a unit
+  test; tables created into a reused id before the fix keep the foreign
+  entries until the 90-day prune.
+- **Checked:**
+  - `scripts/probe-data-cli.mjs` runs the probe's scenario through the
+    built CLI with a personal access token and no terminal: 31/31 on dev and
+    on production. `probe-data.mjs --prod` passes 57/57 after the deploy.
+  - `ganju login` + `ganju link` on dev: the session reads and writes,
+    recorded as `user:<id>`.
+  - By hand on dev:
+    - a 100,001-row background type change, with a write during it refused;
+    - the Free plan's 402, and the read-only 403 after a downgrade;
+    - point-in-time restore;
+    - the prompts, through a pseudo-terminal.
+- **Left:**
+  - A replace refused as a whole doesn't single out every row to blame, as
+    the dashboard does; it reports the error and that nothing changed.
+  - `.xlsx` is refused with a hint to save as CSV, since a parser would be
+    the CLI's first dependency for it.
+  - The drop-cycle fix, the text-column `--where` and the 401 message naming
+    its API are after 0.0.11, so they go out with the next CLI version.
+
 **5. The assistant and custom functions — M–L**
 
 - A native tool group `data` of **three tools**, registered only when the

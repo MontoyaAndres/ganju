@@ -1,3 +1,5 @@
+import type { DataTable } from '@ganju/utils/data';
+
 import { CliError } from '../errors.js';
 
 /**
@@ -16,6 +18,44 @@ import { CliError } from '../errors.js';
  */
 
 export type Where = Record<string, unknown>;
+
+// A column's type, by the name `--where` uses for it; undefined when unknown.
+export type ColumnTypeOf = (column: string) => string | undefined;
+
+// Columns whose values are text, so `phone=3001234567` means the text and
+// not the number: compared with a text column, a number matches nothing.
+const TEXT_TYPES = new Set([
+  'text',
+  'long_text',
+  'email',
+  'url',
+  'phone',
+  'enum',
+  'date',
+  'datetime'
+]);
+
+/**
+ * The types of `table`'s columns, following relations for a path like
+ * `product.name`. Built from the tables `GET /table` lists.
+ */
+export const columnTypes =
+  (
+    tables: Pick<DataTable, 'name' | 'columns'>[],
+    table: string
+  ): ColumnTypeOf =>
+  path => {
+    let current = tables.find(t => t.name === table);
+    const parts = path.split('.');
+    for (const [index, part] of parts.entries()) {
+      const column = current?.columns.find(c => c.name === part);
+      if (!column) return undefined;
+      if (index === parts.length - 1) return column.type;
+      if (column.type !== 'relation') return undefined;
+      current = tables.find(t => t.name === column.table);
+    }
+    return undefined;
+  };
 
 // Longest first, so `>=` is not read as `>` followed by "=5".
 const OPERATORS = [
@@ -41,8 +81,10 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
  * anything in double quotes is text exactly as written, so `code="007"` keeps
  * its zeros. Everything else is text. The API converts a value to the column's
  * type anyway, so this only has to be right where the two readings differ.
+ * For a text column (`asText`), only `null` and quotes are read: the rest is
+ * the text as typed.
  */
-export const parseValue = (raw: string): unknown => {
+export const parseValue = (raw: string, asText = false): unknown => {
   const text = raw.trim();
   if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
     try {
@@ -52,6 +94,7 @@ export const parseValue = (raw: string): unknown => {
     }
   }
   if (text === 'null') return null;
+  if (asText) return text;
   if (text === 'true') return true;
   if (text === 'false') return false;
   if (NUMBER.test(text)) return Number(text);
@@ -59,15 +102,18 @@ export const parseValue = (raw: string): unknown => {
 };
 
 // `[open,done]` is a list: `status=[open,done]` reads as "in".
-const parseList = (raw: string): unknown[] | null => {
+const parseList = (raw: string, asText: boolean): unknown[] | null => {
   const text = raw.trim();
   if (!text.startsWith('[') || !text.endsWith(']')) return null;
   const inner = text.slice(1, -1).trim();
   if (!inner) return [];
-  return inner.split(',').map(item => parseValue(item));
+  return inner.split(',').map(item => parseValue(item, asText));
 };
 
-const parseCondition = (input: string): [string, string, unknown] => {
+const parseCondition = (
+  input: string,
+  typeOf?: ColumnTypeOf
+): [string, string, unknown] => {
   for (const [symbol, operator] of OPERATORS) {
     const at = input.indexOf(symbol);
     if (at <= 0) continue;
@@ -76,7 +122,8 @@ const parseCondition = (input: string): [string, string, unknown] => {
     // valid column name on its left is the one meant.
     if (!COLUMN.test(column)) continue;
     const raw = input.slice(at + symbol.length);
-    const list = parseList(raw);
+    const asText = TEXT_TYPES.has(typeOf?.(column) ?? '');
+    const list = parseList(raw, asText);
     if (list) {
       if (operator !== 'eq' && operator !== 'ne') {
         throw new CliError(`--where "${input}": a list goes with = or !=`, {
@@ -88,7 +135,7 @@ const parseCondition = (input: string): [string, string, unknown] => {
       }
       return [column, operator === 'eq' ? 'in' : 'notIn', list];
     }
-    const value = parseValue(raw);
+    const value = parseValue(raw, asText);
     if (
       (operator === 'contains' || operator === 'startsWith') &&
       typeof value !== 'string'
@@ -129,7 +176,9 @@ const addCondition = (
 };
 
 export const parseWhere = (
-  inputs: string | string[] | undefined
+  inputs: string | string[] | undefined,
+  // The table's column types. Without them, a number-like value is a number.
+  typeOf?: ColumnTypeOf
 ): Where | undefined => {
   const list =
     inputs === undefined ? [] : Array.isArray(inputs) ? inputs : [inputs];
@@ -160,7 +209,7 @@ export const parseWhere = (
       }
       continue;
     }
-    const [column, operator, value] = parseCondition(text);
+    const [column, operator, value] = parseCondition(text, typeOf);
     addCondition(where, column, operator, value);
   }
   return Object.keys(where).length ? where : undefined;

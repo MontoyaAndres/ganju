@@ -171,8 +171,8 @@ const describeFailure = async (
     // holding an access token goes looking for a browser on a build agent; told
     // to check a token, someone with an expired login re-reads their CI config.
     return usingEnvironmentToken
-      ? new CliError('GANJU_API_TOKEN was not accepted', {
-          hint: "It may have been revoked or expired — mint a new one in the dashboard, under the organization's settings."
+      ? new CliError(`GANJU_API_TOKEN was not accepted by ${apiUrl}`, {
+          hint: "It may have been revoked or expired — mint a new one in the dashboard, under the organization's settings. A token works only on the deployment that made it: check GANJU_API_URL and apiUrl in ganju.json."
         })
       : new CliError('Your session has expired', {
           hint: 'Run `ganju login` again.'

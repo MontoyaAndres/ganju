@@ -70,7 +70,8 @@ ${color.bold('Rows')}
 
 ${color.bold('--where')}
   column=value  !=  >  >=  <  <=  ~ (contains)  ^= (starts with)
-  status=[open,done] (any of)   code="007" (text, as typed)   note=null
+  status=[open,done] (any of)   note=null (empty)   code="007" (quotes: text)
+  on a text column the value is text as typed: phone=3001234567
   repeat it to require several; or pass the JSON itself: '{"price":{"lt":30000}}'`);
 };
 
