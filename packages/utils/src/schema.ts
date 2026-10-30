@@ -19,6 +19,7 @@ import {
   DATA_MAX_ENUM_VALUES,
   DATA_MAX_INSERT_ROWS,
   DATA_MAX_LABEL,
+  DATA_IMPACT_MAX_IDS,
   DATA_MAX_PAGE,
   DATA_MAX_WRITE_OPERATIONS,
   DATA_ON_DELETE
@@ -648,6 +649,11 @@ const DATA_ROW_DELETE_BODY = z.strictObject({
 });
 
 const DATA_ROW_ID = z.coerce.number().int().min(1);
+
+// Without `ids`, every row of the table.
+const DATA_DELETE_PREVIEW_BODY = z.strictObject({
+  ids: z.array(z.number().int().min(1)).min(1).max(DATA_IMPACT_MAX_IDS).optional()
+});
 
 const DATA_WRITE_TARGET = {
   table: DATA_IDENTIFIER,
@@ -1955,6 +1961,7 @@ export const Schema = {
   DATA_ROW_CREATE_BODY,
   DATA_ROW_UPDATE_BODY,
   DATA_ROW_DELETE_BODY,
+  DATA_DELETE_PREVIEW_BODY,
   DATA_WRITE_OPERATION,
   DATA_WRITE_BODY,
   DATA_ROW_HISTORY_QUERY,

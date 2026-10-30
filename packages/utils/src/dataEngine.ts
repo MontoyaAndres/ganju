@@ -69,6 +69,9 @@ import {
   DATA_MAX_TABLES,
   DATA_MAX_WRITE_OPERATIONS,
   DATA_ON_DELETE,
+  DATA_COPY_STEP_ROWS,
+  DATA_IMPACT_MAX_IDS,
+  DATA_IMPACT_MAX_ROWS,
   DATA_REBUILD_MAX_ROWS,
   DataError
 } from './dataTypes';
@@ -79,9 +82,11 @@ import type {
   DataColumnInput,
   DataColumnType,
   DataDefaultValue,
+  DataDeleteImpact,
   DataOnDelete,
   DataSchema,
   DataTable,
+  DataTableCopy,
   DataTableInput
 } from './dataTypes';
 
@@ -156,6 +161,16 @@ export const INTERNAL_MIGRATIONS: readonly (readonly string[])[] = [
     )`,
     'CREATE INDEX _ganju_row_log_row ON _ganju_row_log(table_id, row_id)',
     'CREATE TABLE _ganju_context (id INTEGER PRIMARY KEY CHECK (id = 1), actor TEXT)'
+  ],
+  // Tables made before a new table got its first text column as the display
+  // column show ids in relations; give them that column now. A table made
+  // since with no display column asked for the id.
+  [
+    `UPDATE _ganju_tables SET display_column_id = (
+      SELECT c.id FROM _ganju_columns c
+      WHERE c.table_id = _ganju_tables.id AND c.type = 'text'
+      ORDER BY c.position, c.id LIMIT 1
+    ) WHERE display_column_id IS NULL AND created_at < '2026-10-24T00:00:00Z'`
   ]
 ];
 
@@ -1808,6 +1823,105 @@ export const write = (
   });
 };
 
+// Delete preview
+
+// What deleting `ids` of a table, or all its rows, would do to the rows that
+// point at them, counted the way SQLite applies it: cascades are followed to
+// the end in one recursive query, which stops at DATA_IMPACT_MAX_ROWS rows.
+// For the owner: a bot's deletes go through the confirmation rules instead.
+export const deleteImpact = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  rawArgs: unknown
+): DataDeleteImpact => {
+  assertActor(caller);
+  if (caller.restricted) {
+    throw new DataError('A delete preview is for the owner.', 'forbidden');
+  }
+  const args = tidyArgs(rawArgs);
+  const table = tableFor(schema, caller, args.table);
+  let ids: number[] | null = null;
+  if (args.ids !== undefined && args.ids !== null) {
+    if (
+      !Array.isArray(args.ids) ||
+      !args.ids.every(id => Number.isSafeInteger(id) && (id as number) > 0)
+    ) {
+      throw new DataError('"ids" lists row ids; leave it out for every row.');
+    }
+    if (args.ids.length > DATA_IMPACT_MAX_IDS) {
+      throw new DataError(`A delete preview takes up to ${DATA_IMPACT_MAX_IDS} ids.`, 'too_large');
+    }
+    ids = [...new Set(args.ids as number[])];
+  }
+  const incoming = (name: string) =>
+    schema.tables.flatMap(other =>
+      other.columns
+        .filter(c => c.type === 'relation' && c.table === name)
+        .map(column => ({ other, column, onDelete: column.onDelete ?? 'restrict' }))
+    );
+
+  // The tables a cascade reaches, each at its nearest depth.
+  const depth = new Map<number, number>([[table.id, 0]]);
+  const reached = [table];
+  for (let i = 0; i < reached.length; i++) {
+    for (const edge of incoming(reached[i].name)) {
+      if (edge.onDelete !== 'cascade' || depth.has(edge.other.id)) continue;
+      depth.set(edge.other.id, depth.get(reached[i].id)! + 1);
+      reached.push(edge.other);
+    }
+  }
+  const doomedIn = (t: DataTable) => `(SELECT id FROM doomed WHERE t = ${t.id})`;
+  const recursive = reached.flatMap(parent =>
+    incoming(parent.name)
+      .filter(edge => edge.onDelete === 'cascade')
+      .map(
+        ({ other, column }) =>
+          `SELECT ${other.id}, c.id FROM ${q(other.name)} c JOIN doomed d ON d.t = ${parent.id} AND c.${q(column.name)} = d.id`
+      )
+  );
+  const edges = reached.flatMap(parent =>
+    incoming(parent.name).map(edge => ({ ...edge, parent }))
+  );
+  const counts = [
+    `SELECT -1 AS k, count(*) AS n FROM doomed`,
+    `SELECT -2 AS k, count(*) AS n FROM doomed WHERE t = ${table.id}`,
+    ...edges.map(
+      ({ other, column, onDelete, parent }, i) =>
+        `SELECT ${i} AS k, count(*) AS n FROM ${q(other.name)} c WHERE c.${q(column.name)} IN ${doomedIn(parent)}${
+          // A cleared row that is deleted anyway isn't cleared.
+          onDelete === 'set_null' ? ` AND c.id NOT IN ${doomedIn(other)}` : ''
+        }`
+    )
+  ];
+  const sql = `WITH RECURSIVE doomed(t, id) AS MATERIALIZED (
+    SELECT ${table.id}, id FROM ${q(table.name)}${ids ? ' WHERE id IN (SELECT value FROM json_each(?))' : ''}
+    ${recursive.map(s => `UNION ${s}`).join('\n    ')}
+    LIMIT ${DATA_IMPACT_MAX_ROWS}
+  )
+  ${counts.join('\nUNION ALL ')}`;
+  const n = new Map(
+    runner.all(sql, ids ? [JSON.stringify(ids)] : []).map(row => [Number(row.k), Number(row.n)])
+  );
+  const effects = edges
+    .map(({ other, column, onDelete, parent }, i) => ({
+      table: other.name,
+      column: column.name,
+      onDelete,
+      rows: n.get(i) ?? 0,
+      depth: depth.get(parent.id)!
+    }))
+    .filter(effect => effect.rows > 0)
+    .sort((a, b) => a.depth - b.depth);
+  return {
+    table: table.name,
+    rows: n.get(-2) ?? 0,
+    effects,
+    blocked: effects.some(e => e.onDelete === 'restrict'),
+    truncated: (n.get(-1) ?? 0) >= DATA_IMPACT_MAX_ROWS
+  };
+};
+
 // Row history
 
 export const rowHistory = (
@@ -2222,38 +2336,69 @@ export const dropColumnNeedsRebuild = (
   return column?.type === 'relation';
 };
 
-// Copies the table into a new one with `columns`, converting each value from
-// the old column named in `from`. Runs in one transaction; the caller has
-// switched foreign keys off for this request. Any row that wouldn't survive
-// stops the change before anything is written, and a broken relation found
-// after the swap rolls it back.
-const rebuildTable = (
-  runner: SqlRunner,
-  schema: DataSchema,
-  table: DataTable,
-  columns: { draft: ColumnDraft; id: number | null; from: DataColumn | null }[],
-  dropped?: DataColumn
-): DataTable => {
-  const rows = Number(first(runner, `SELECT count(*) AS n FROM ${q(table.name)}`)?.n ?? 0);
-  if (rows > DATA_REBUILD_MAX_ROWS) {
-    throw new DataError(
-      `${table.name} has ${rows.toLocaleString('en-US')} rows; this change copies the table and works up to ${DATA_REBUILD_MAX_ROWS.toLocaleString('en-US')} rows for now.`,
-      'too_large'
-    );
-  }
+// A table copy: `columns` are the table's columns as they will be, each
+// converted from the column with the same id as it is now. The copy goes into
+// `<table>__new`, which then replaces the table. The metadata changes only at
+// that swap, so until then the table reads as it was.
+interface CopyColumn {
+  draft: ColumnDraft;
+  id: number;
+}
+
+// A copy too large for one request, kept in `_ganju_meta` while the object's
+// alarm runs it a step at a time.
+interface CopyJob extends DataTableCopy {
+  tableId: number;
+  columns: CopyColumn[];
+  droppedId: number | null;
+  afterId: number;
+  // Failed attempts at the current step: a step killed for running too long
+  // never reaches its catch, so the next one counts it.
+  attempts: number;
+}
+
+const COPY_KEY = 'table_copy';
+const COPY_MAX_ATTEMPTS = 3;
+
+const copyTemp = (table: Pick<DataTable, 'name'>) => `${table.name}__new`;
+
+const COPIED_SYSTEM_COLUMNS = ['created_at', 'updated_at', 'version', 'created_by', 'updated_by', 'participant_id'];
+
+const copyColumns = (table: DataTable, columns: CopyColumn[]): DataColumn[] =>
+  columns.map((c, position) => ({ ...c.draft, id: c.id, position }));
+
+// The INSERT … SELECT that copies the rows matching `where` into the copy.
+const copyRowsSql = (table: DataTable, columns: CopyColumn[], where = '') => {
+  const stored = copyColumns(table, columns);
+  const targets = ['id', ...stored.map(c => c.name), ...COPIED_SYSTEM_COLUMNS];
+  const sources = [
+    't.id',
+    ...columns.map((c, i) => {
+      const from = table.columns.find(col => col.id === c.id)!;
+      return conversionSql(from.type, stored[i], `t.${q(from.name)}`);
+    }),
+    ...COPIED_SYSTEM_COLUMNS.map(name => `t.${name}`)
+  ];
+  return `INSERT INTO ${q(copyTemp(table))} (${targets.map(q).join(', ')}) SELECT ${sources.join(', ')} FROM ${q(table.name)} t${where}`;
+};
+
+// Any row that wouldn't survive the conversion stops the change before
+// anything is written.
+const assertRowsConvert = (runner: SqlRunner, table: DataTable, columns: CopyColumn[]) => {
   const rules = (c: ColumnDraft) =>
     JSON.stringify([c.type, c.required, c.values, c.min, c.table]);
   for (const c of columns) {
-    if (!c.from || rules(c.from) === rules(c.draft)) continue;
-    const to: DataColumn = { ...c.draft, id: c.id ?? 0, position: 0 };
-    const src = `t.${q(c.from.name)}`;
-    const converted = conversionSql(c.from.type, to, src);
+    const from = table.columns.find(col => col.id === c.id)!;
+    if (rules(from) === rules(c.draft)) continue;
+    const to: DataColumn = { ...c.draft, id: c.id, position: 0 };
+    const src = `t.${q(from.name)}`;
+    const converted = conversionSql(from.type, to, src);
     const bad = runner.all(
       `SELECT t.id, ${src} AS value FROM ${q(table.name)} t WHERE ${invalidAfterConversionSql(to, src, converted)} LIMIT 10`
     );
     if (bad.length) {
       throw new DataError(
-        `${table.name}.${c.from.name} can't become ${to.type}${to.required ? ', required' : ''}: ${bad.length === 10 ? 'these rows (and maybe more)' : 'these rows'} don't fit: ${bad
+        `${table.name}.${from.name} can't become ${to.type}${to.required ? ', required' : ''}: ${bad.length === 10 ? 'these rows (and maybe more)' : 'these rows'} don't fit: ${bad
           .map(r => `id ${r.id} = ${JSON.stringify(r.value)}`)
           .join(', ')}. Nothing was changed.`,
         'constraint',
@@ -2261,62 +2406,191 @@ const rebuildTable = (
       );
     }
   }
+};
 
-  return runner.transaction(() => {
-    dropTriggers(runner, table);
-    runner.all(`DROP TABLE IF EXISTS ${q(ftsTableName(table))}`);
-    if (dropped) {
-      if (table.displayColumn === dropped.name) setDisplayColumn(runner, table.id, null);
-      runner.all('DELETE FROM _ganju_columns WHERE id = ?', [dropped.id]);
-    }
-    const stored: DataColumn[] = columns.map((c, position) => {
-      const id =
-        c.id ?? insertColumnMeta(runner, schema, table.id, table.name, c.draft, position, table.id);
-      if (c.id !== null) updateColumnMeta(runner, schema, table, c.id, c.draft);
-      runner.all('UPDATE _ganju_columns SET position = ? WHERE id = ?', [position, id]);
-      return { ...c.draft, id, position };
-    });
-    const temp = `${table.name}__new`;
-    runner.all(`DROP TABLE IF EXISTS ${q(temp)}`);
-    runner.all(createTableSql(temp, stored));
-    const targets = ['id', ...stored.map(c => c.name), 'created_at', 'updated_at', 'version', 'created_by', 'updated_by', 'participant_id'];
-    const sources = [
-      't.id',
-      ...columns.map((c, i) =>
-        c.from ? conversionSql(c.from.type, stored[i], `t.${q(c.from.name)}`) : 'NULL'
-      ),
-      't.created_at',
-      't.updated_at',
-      't.version',
-      't.created_by',
-      't.updated_by',
-      't.participant_id'
-    ];
-    runner.all(
-      `INSERT INTO ${q(temp)} (${targets.map(q).join(', ')}) SELECT ${sources.join(', ')} FROM ${q(table.name)} t`
-    );
-    runner.all(`DROP TABLE ${q(table.name)}`);
-    runner.all(`ALTER TABLE ${q(temp)} RENAME TO ${q(table.name)}`);
-    touchTable(runner, table.id);
-    const updated = reload(runner, table.name);
-    syncTableObjects(runner, updated);
-    const checked = [
-      updated.name,
-      ...schema.tables
-        .filter(t => t.name !== updated.name && t.columns.some(c => c.type === 'relation' && c.table === updated.name))
-        .map(t => t.name)
-    ];
-    for (const name of checked) {
-      const violations = runner.all(`PRAGMA foreign_key_check(${q(name)})`);
-      if (violations.length) {
-        throw new DataError(
-          `The change would leave ${violations.length} row${violations.length === 1 ? '' : 's'} in ${name} pointing at nothing; nothing was changed.`,
-          'constraint'
-        );
-      }
-    }
-    return updated;
+// Replaces the table with its full copy and moves the metadata to match. Runs
+// inside the caller's transaction, with foreign keys off for the request
+// (dropping the table would otherwise cascade into the rows pointing at it);
+// a broken relation found after the swap throws, rolling it back.
+const swapInCopy = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  table: DataTable,
+  columns: CopyColumn[],
+  droppedId: number | null
+): DataTable => {
+  dropTriggers(runner, table);
+  runner.all(`DROP TABLE IF EXISTS ${q(ftsTableName(table))}`);
+  if (droppedId !== null) {
+    const dropped = table.columns.find(c => c.id === droppedId);
+    if (dropped && table.displayColumn === dropped.name) setDisplayColumn(runner, table.id, null);
+    runner.all('DELETE FROM _ganju_columns WHERE id = ?', [droppedId]);
+  }
+  columns.forEach((c, position) => {
+    updateColumnMeta(runner, schema, table, c.id, c.draft);
+    runner.all('UPDATE _ganju_columns SET position = ? WHERE id = ?', [position, c.id]);
   });
+  runner.all(`DROP TABLE ${q(table.name)}`);
+  runner.all(`ALTER TABLE ${q(copyTemp(table))} RENAME TO ${q(table.name)}`);
+  touchTable(runner, table.id);
+  const updated = reload(runner, table.name);
+  syncTableObjects(runner, updated);
+  const checked = [
+    updated.name,
+    ...schema.tables
+      .filter(t => t.name !== updated.name && t.columns.some(c => c.type === 'relation' && c.table === updated.name))
+      .map(t => t.name)
+  ];
+  for (const name of checked) {
+    const violations = runner.all(`PRAGMA foreign_key_check(${q(name)})`);
+    if (violations.length) {
+      throw new DataError(
+        `The change would leave ${violations.length} row${violations.length === 1 ? '' : 's'} in ${name} pointing at nothing; nothing was changed.`,
+        'constraint'
+      );
+    }
+  }
+  return updated;
+};
+
+// Copies the table with its columns changed to `columns`; the caller has
+// switched foreign keys off for this request. Up to DATA_REBUILD_MAX_ROWS rows
+// it is one transaction. A larger table only gets its empty copy here, and
+// the job is left for copyTableStep: the table stays as it is until the
+// swap, and readTableCopy says how far it got.
+const rebuildTable = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  table: DataTable,
+  columns: CopyColumn[],
+  change: { column: string; kind: DataTableCopy['kind'] },
+  droppedId: number | null = null
+): DataTable => {
+  const rows = Number(first(runner, `SELECT count(*) AS n FROM ${q(table.name)}`)?.n ?? 0);
+  assertRowsConvert(runner, table, columns);
+  const temp = copyTemp(table);
+  if (rows <= DATA_REBUILD_MAX_ROWS) {
+    return runner.transaction(() => {
+      runner.all(`DROP TABLE IF EXISTS ${q(temp)}`);
+      runner.all(createTableSql(temp, copyColumns(table, columns)));
+      runner.all(copyRowsSql(table, columns));
+      return swapInCopy(runner, schema, table, columns, droppedId);
+    });
+  }
+  return runner.transaction(() => {
+    runner.all(`DROP TABLE IF EXISTS ${q(temp)}`);
+    runner.all(createTableSql(temp, copyColumns(table, columns)));
+    const job: CopyJob = {
+      table: table.name,
+      column: change.column,
+      kind: change.kind,
+      rows,
+      copied: 0,
+      startedAt: new Date().toISOString(),
+      actor: caller.actor,
+      status: 'running',
+      error: null,
+      tableId: table.id,
+      columns,
+      droppedId,
+      afterId: 0,
+      attempts: 0
+    };
+    setMeta(runner, COPY_KEY, JSON.stringify(job));
+    return table;
+  });
+};
+
+const readCopyJob = (runner: SqlRunner): CopyJob | null => {
+  const raw = getMeta(runner, COPY_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CopyJob;
+  } catch {
+    return null;
+  }
+};
+
+// The background table copy, running or failed, if there is one.
+export const readTableCopy = (runner: SqlRunner): DataTableCopy | null => {
+  const job = readCopyJob(runner);
+  if (!job) return null;
+  return {
+    table: job.table,
+    column: job.column,
+    kind: job.kind,
+    rows: job.rows,
+    copied: job.copied,
+    startedAt: job.startedAt,
+    actor: job.actor,
+    status: job.status,
+    error: job.error
+  };
+};
+
+// Forgets a failed copy once the owner has seen it, or a new change starts.
+export const clearFailedTableCopy = (runner: SqlRunner): void => {
+  if (readCopyJob(runner)?.status === 'failed') setMeta(runner, COPY_KEY, null);
+};
+
+// One step of the background copy: DATA_COPY_STEP_ROWS rows, or the swap
+// once every row is across. Foreign keys are off for the request, as for
+// the inline copy. A step that fails ends the job: the copy is dropped, the
+// table is left as it was, and readTableCopy carries the reason.
+export const copyTableStep = (
+  runner: SqlRunner,
+  schema: DataSchema
+): 'more' | 'done' | 'failed' | 'idle' => {
+  const job = readCopyJob(runner);
+  if (!job || job.status !== 'running') return 'idle';
+  const fail = (message: string) => {
+    runner.transaction(() => {
+      runner.all(`DROP TABLE IF EXISTS ${q(copyTemp({ name: job.table }))}`);
+      setMeta(
+        runner,
+        COPY_KEY,
+        JSON.stringify({ ...job, status: 'failed', error: message })
+      );
+    });
+    return 'failed' as const;
+  };
+  const table = schema.tables.find(t => t.id === job.tableId);
+  if (!table) return fail(`${job.table} is gone.`);
+  if (job.attempts >= COPY_MAX_ATTEMPTS) {
+    return fail(`Copying ${table.name} stopped ${job.attempts} times at the same point. Nothing was changed.`);
+  }
+  setMeta(runner, COPY_KEY, JSON.stringify({ ...job, attempts: job.attempts + 1 }));
+  try {
+    const next = first(
+      runner,
+      `SELECT max(id) AS upper, count(*) AS n FROM (SELECT id FROM ${q(table.name)} WHERE id > ? ORDER BY id LIMIT ?)`,
+      [job.afterId, DATA_COPY_STEP_ROWS]
+    );
+    const n = Number(next?.n ?? 0);
+    if (n === 0) {
+      runner.transaction(() => {
+        swapInCopy(runner, schema, table, job.columns, job.droppedId);
+        setMeta(runner, COPY_KEY, null);
+      });
+      return 'done';
+    }
+    const upper = Number(next!.upper);
+    runner.transaction(() => {
+      runner.all(copyRowsSql(table, job.columns, ' WHERE t.id > ? AND t.id <= ?'), [
+        job.afterId,
+        upper
+      ]);
+      setMeta(
+        runner,
+        COPY_KEY,
+        JSON.stringify({ ...job, afterId: upper, copied: job.copied + n, attempts: 0 })
+      );
+    });
+    return 'more';
+  } catch (error) {
+    return fail(translateSqliteError(schema, table, error).message);
+  }
 };
 
 export const updateColumn = (
@@ -2350,12 +2624,10 @@ export const updateColumn = (
     return rebuildTable(
       runner,
       schema,
+      caller,
       table,
-      table.columns.map(c =>
-        c.id === column.id
-          ? { draft, id: c.id, from: c }
-          : { draft: c, id: c.id, from: c }
-      )
+      table.columns.map(c => ({ draft: c.id === column.id ? draft : c, id: c.id })),
+      { column: column.name, kind: 'change' }
     );
   }
 
@@ -2392,11 +2664,11 @@ export const dropColumn = (
     return rebuildTable(
       runner,
       schema,
+      caller,
       table,
-      table.columns
-        .filter(c => c.id !== column.id)
-        .map(c => ({ draft: c, id: c.id, from: c })),
-      column
+      table.columns.filter(c => c.id !== column.id).map(c => ({ draft: c, id: c.id })),
+      { column: column.name, kind: 'drop' },
+      column.id
     );
   }
 

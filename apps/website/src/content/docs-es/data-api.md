@@ -106,6 +106,21 @@ respuesta es **409**, con la fila como está ahora en `details.current` y quién
 la cambió en `details.updatedBy`. Vuelve a leerla e inténtalo de nuevo. Para
 sobrescribir su cambio, envía la solicitud sin `version`.
 
+Antes de borrar, puedes preguntar qué le haría el borrado a las filas que
+apuntan a las que borras. No se borra nada:
+
+```bash
+curl -X POST ... $DATA/table/orders/delete-preview -d '{ "ids": [12, 13] }'
+```
+
+Sin `ids`, muestra qué pasaría al borrar todas las filas. La respuesta lista
+cada columna que apunta a una fila borrada, con cuántas filas borraría
+(`cascade`), vaciaría (`set_null`) o impedirían el borrado (`restrict`). Los
+borrados en cascada se siguen hasta el final, y `depth` dice a cuántas cascadas
+de distancia está cada uno. `blocked` es true cuando un `restrict` impediría el
+borrado. Si se afectan más de 200.000 filas, `truncated` es true y cada número
+es un mínimo.
+
 ## Registrar un pedido sin errores
 
 `POST /write` recibe una lista de inserciones, cambios y borrados en varias
@@ -149,6 +164,15 @@ primeras 10 filas que no caben. Eliminar una tabla o una columna, y cambiar un
 tipo, responde con un `bookmark`. Para deshacer el cambio, restaura a ese
 punto.
 
+Cambiar un tipo copia la tabla, igual que eliminar una columna de relación.
+Hasta 100.000 filas, la copia se hace dentro de la solicitud. En una tabla más
+grande se hace en segundo plano. La respuesta trae `copy`, con cuántas filas van
+copiadas, y la tabla conserva sus columnas anteriores hasta que termina.
+Mientras tanto la lectura funciona como siempre, pero las escrituras y los
+cambios de tablas reciben un 409. `GET` sobre la base de datos muestra el avance
+en `copy`. Si la copia falla, la tabla queda como estaba y `copy` muestra el
+`error` hasta que lo descartes con `DELETE /copy`.
+
 ## Historial, restauración y exportación
 
 - **`GET /table/:table/row/:id/history`**: cada cambio a una fila en los
@@ -179,5 +203,5 @@ Los errores son JSON con un `error` legible y un `code`:
 | `402` | El plan de la organización no incluye Datos |
 | `403` | El token es de otro proyecto, o la base de datos quedó de solo lectura tras bajar de plan |
 | `404` | No hay una base de datos, tabla o fila con ese nombre |
-| `409` | Una `version` desactualizada, una condición que no cambió nada, un cambio por debajo del mínimo de una columna, una restricción (por ejemplo, hay filas que todavía apuntan a esta) o una base de datos llena |
+| `409` | Una `version` desactualizada, una condición que no cambió nada, un cambio por debajo del mínimo de una columna, una restricción (por ejemplo, hay filas que todavía apuntan a esta), una base de datos llena o una copia de tabla que aún no termina |
 | `429` | Demasiadas solicitudes con este token |

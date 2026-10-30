@@ -4,7 +4,8 @@ import type {
   DataColumnInput,
   DataColumnType,
   DataOnDelete,
-  DataTable
+  DataTable,
+  DataTableCopy
 } from '@ganju/utils/data';
 
 export type {
@@ -13,7 +14,8 @@ export type {
   DataColumnInput,
   DataColumnType,
   DataOnDelete,
-  DataTable
+  DataTable,
+  DataTableCopy
 };
 
 export interface Database {
@@ -26,6 +28,7 @@ export interface Database {
   deletedAt: string | null;
   deleteAfter: string | null;
   createdAt: string;
+  copy?: DataTableCopy | null;
 }
 
 // A relation comes back as the referenced row's id and its display value.

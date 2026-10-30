@@ -46,6 +46,7 @@ export {
   write,
   rowHistory,
   pruneHistory,
+  deleteImpact,
   createTable,
   updateTable,
   dropTable,
@@ -54,6 +55,9 @@ export {
   dropColumn,
   columnChangeNeedsRebuild,
   dropColumnNeedsRebuild,
+  readTableCopy,
+  clearFailedTableCopy,
+  copyTableStep,
   assertActor,
   assertWritable,
   exportRows

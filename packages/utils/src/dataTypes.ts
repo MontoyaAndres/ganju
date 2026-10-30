@@ -238,6 +238,46 @@ export const DATA_MAX_SORT_KEYS = 3;
 export const DATA_MAX_AGGREGATES = 5;
 export const DATA_MAX_GROUP_BY = 3;
 export const DATA_MAX_GROUPS = 100;
-// A type change copies the table in one request up to this size.
+// A type change copies the table in one request up to this size. A larger
+// table is copied in the background, this many rows a step, and the database
+// takes no writes until it is done.
 export const DATA_REBUILD_MAX_ROWS = 100_000;
+export const DATA_COPY_STEP_ROWS = 50_000;
+// A delete preview follows cascades through up to this many rows; past it,
+// its counts are lower bounds.
+export const DATA_IMPACT_MAX_ROWS = 200_000;
+export const DATA_IMPACT_MAX_IDS = DATA_MAX_ROWS_PER_WRITE;
 export const DATA_HISTORY_DAYS = 90;
+
+// What deleting rows does elsewhere: one entry per relation column that points
+// at a row the delete removes, cascades followed all the way down. `depth` is
+// how many cascades away from the deleted rows the pointed-at table is.
+export interface DataDeleteImpact {
+  table: string;
+  rows: number;
+  effects: {
+    table: string;
+    column: string;
+    onDelete: DataOnDelete;
+    rows: number;
+    depth: number;
+  }[];
+  // A restrict would refuse the delete.
+  blocked: boolean;
+  // Past DATA_IMPACT_MAX_ROWS: every count is at least what it says.
+  truncated: boolean;
+}
+
+// A table copy running in the background, as callers see it.
+export interface DataTableCopy {
+  table: string;
+  // The column whose change or drop started it.
+  column: string;
+  kind: 'change' | 'drop';
+  rows: number;
+  copied: number;
+  startedAt: string;
+  actor: string;
+  status: 'running' | 'failed';
+  error: string | null;
+}

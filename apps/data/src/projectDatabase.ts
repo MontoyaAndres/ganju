@@ -2,8 +2,11 @@ import { DurableObject } from 'cloudflare:workers';
 import {
   DataError,
   addColumn,
+  clearFailedTableCopy,
   columnChangeNeedsRebuild,
+  copyTableStep,
   createTable,
+  deleteImpact,
   describe,
   dropColumn,
   dropColumnNeedsRebuild,
@@ -15,6 +18,7 @@ import {
   migrateInternal,
   pruneHistory,
   query,
+  readTableCopy,
   rowHistory,
   setMeta,
   toTableInput,
@@ -93,6 +97,8 @@ interface CallOptions {
   allowDeleted?: boolean;
   // A table copy needs foreign keys off, set before anything is written.
   foreignKeysOff?: boolean;
+  // Changes rows or tables, so it waits for a background table copy.
+  writes?: boolean;
 }
 
 // One project's database. Only our Workers can reach it (through the
@@ -108,6 +114,9 @@ export class ProjectDatabase
   private lifecycle: { initialized: boolean; deleted: boolean } | null = null;
   // Usage the alarm left to report: undefined until read once after a start.
   private unreported: DataUsage | null | undefined = undefined;
+  // Whether a background table copy is running, read once per object start;
+  // starting one, and the alarm step that ends it, clear it.
+  private copying: boolean | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -176,6 +185,7 @@ export class ProjectDatabase
           );
         }
         this.reportAlarmUsage(runner, usage);
+        if (this.isCopying(runner)) await this.whileCopying(options);
       }
       const value = await fn(runner);
       return { ok: true, value, usage };
@@ -224,6 +234,29 @@ export class ProjectDatabase
     };
     setMeta(runner, UNREPORTED_USAGE_KEY, JSON.stringify(total));
     this.unreported = total;
+  }
+
+  private isCopying(runner: SqlRunner) {
+    if (this.copying === null) {
+      this.copying = readTableCopy(runner)?.status === 'running';
+    }
+    return this.copying;
+  }
+
+  // A copy only moves while the alarm runs, so every call makes sure one is
+  // set: an alarm that gave up after its retries would leave the database
+  // refusing writes for good. A call that writes is refused.
+  private async whileCopying(options: CallOptions) {
+    await this.scheduleAlarm(Date.now());
+    if (!options.writes) return;
+    const copy = readTableCopy(this.runner({ rowsRead: 0, rowsWritten: 0 }));
+    if (copy?.status !== 'running') return;
+    const percent = copy.rows ? Math.floor((copy.copied / copy.rows) * 100) : 0;
+    throw new DataError(
+      `${copy.table} is being copied to ${copy.kind === 'drop' ? 'drop' : 'change'} its column ${copy.column} (${percent}% done). The database takes changes again when it finishes.`,
+      'conflict',
+      { copy }
+    );
   }
 
   private readLifecycle(runner: SqlRunner) {
@@ -306,7 +339,8 @@ export class ProjectDatabase
         name: t.name,
         label: t.label,
         columns: t.columns.length
-      }))
+      })),
+      copy: readTableCopy(runner)
     };
   }
 
@@ -427,6 +461,7 @@ export class ProjectDatabase
     this.schemaCache = null;
     this.lifecycle = null;
     this.unreported = undefined;
+    this.copying = null;
     // abort() ends this call too, so it waits until the reply has left.
     setTimeout(() => this.ctx.abort('restore'), 50);
     return { bookmark, undoBookmark: undo };
@@ -439,7 +474,7 @@ export class ProjectDatabase
   }
 
   async createTable(caller: DataCaller, input: unknown) {
-    return this.call({}, runner =>
+    return this.call({ writes: true }, runner =>
       this.ddl(runner, () =>
         createTable(runner, this.schema(runner), this.caller(caller), input)
       )
@@ -447,7 +482,7 @@ export class ProjectDatabase
   }
 
   async updateTable(caller: DataCaller, table: string, patch: unknown) {
-    return this.call({}, runner =>
+    return this.call({ writes: true }, runner =>
       this.ddl(runner, () =>
         updateTable(runner, this.schema(runner), this.caller(caller), table, patch)
       )
@@ -456,7 +491,7 @@ export class ProjectDatabase
 
   // Returns the bookmark from just before, so "undo" is one restore.
   async dropTable(caller: DataCaller, table: string) {
-    return this.call({}, async runner => {
+    return this.call({ writes: true }, async runner => {
       const bookmark = await this.bookmark();
       const result = this.ddl(runner, () =>
         dropTable(runner, this.schema(runner), this.caller(caller), table)
@@ -466,7 +501,7 @@ export class ProjectDatabase
   }
 
   async addColumn(caller: DataCaller, table: string, input: unknown) {
-    return this.call({}, runner =>
+    return this.call({ writes: true }, runner =>
       this.ddl(runner, () =>
         addColumn(runner, this.schema(runner), this.caller(caller), table, input)
       )
@@ -482,12 +517,13 @@ export class ProjectDatabase
     const copies = this.peekSchema(schema =>
       columnChangeNeedsRebuild(schema, table, column, patch)
     );
-    return this.call({ foreignKeysOff: copies }, async runner => {
+    return this.call({ foreignKeysOff: copies, writes: true }, async runner => {
       const bookmark = copies ? await this.bookmark() : null;
+      clearFailedTableCopy(runner);
       const result = this.ddl(runner, () =>
         updateColumn(runner, this.schema(runner), this.caller(caller), table, column, patch)
       );
-      return { table: result, bookmark };
+      return { table: result, bookmark, copy: await this.copyStarted(runner) };
     });
   }
 
@@ -495,12 +531,30 @@ export class ProjectDatabase
     const copies = this.peekSchema(schema =>
       dropColumnNeedsRebuild(schema, table, column)
     );
-    return this.call({ foreignKeysOff: copies }, async runner => {
+    return this.call({ foreignKeysOff: copies, writes: true }, async runner => {
       const bookmark = await this.bookmark();
+      clearFailedTableCopy(runner);
       const result = this.ddl(runner, () =>
         dropColumn(runner, this.schema(runner), this.caller(caller), table, column)
       );
-      return { table: result, bookmark };
+      return { table: result, bookmark, copy: await this.copyStarted(runner) };
+    });
+  }
+
+  // A change to a large table leaves its copy to the alarm: the table answers
+  // unchanged, with the copy's progress next to it.
+  private async copyStarted(runner: SqlRunner) {
+    const copy = readTableCopy(runner);
+    if (copy?.status !== 'running') return null;
+    this.copying = true;
+    await this.scheduleAlarm(Date.now());
+    return copy;
+  }
+
+  async dismissCopy(_caller: DataCaller) {
+    return this.call({}, runner => {
+      clearFailedTableCopy(runner);
+      return { copy: null };
     });
   }
 
@@ -531,11 +585,17 @@ export class ProjectDatabase
   }
 
   async write(caller: DataCaller, args: unknown) {
-    return this.call({}, runner => {
+    return this.call({ writes: true }, runner => {
       const result = write(runner, this.schema(runner), this.caller(caller), args);
       this.recordFirstWrite(runner);
       return result;
     });
+  }
+
+  async deleteImpact(caller: DataCaller, args: { table: string; ids?: number[] }) {
+    return this.call({}, runner =>
+      deleteImpact(runner, this.schema(runner), this.caller(caller), args)
+    );
   }
 
   async history(
@@ -765,7 +825,8 @@ export class ProjectDatabase
     }
   }
 
-  // Alarm: export steps first, then the daily history prune.
+  // Alarm: a table copy's steps first, then export steps, then the daily
+  // history prune.
 
   private async scheduleAlarm(at: number) {
     const current = await this.ctx.storage.getAlarm();
@@ -776,12 +837,29 @@ export class ProjectDatabase
     const usage: DataUsage = { rowsRead: 0, rowsWritten: 0 };
     const runner = this.runner(usage);
     if (!hasInternalTables(runner) || !getMeta(runner, 'initialized_at')) return;
-    runner.all('PRAGMA foreign_keys = ON');
+    // Like a call, foreign keys are set before the first write: off for a
+    // table copy's steps.
+    const copying = readTableCopy(runner)?.status === 'running';
+    runner.all(`PRAGMA foreign_keys = ${copying ? 'OFF' : 'ON'}`);
     try {
-      await this.alarmStep(runner);
+      if (copying) await this.copyStep(runner);
+      else await this.alarmStep(runner);
     } finally {
       this.keepAlarmUsage(runner, usage);
     }
+  }
+
+  private async copyStep(runner: SqlRunner) {
+    const step = copyTableStep(runner, loadSchema(runner));
+    if (step !== 'more') {
+      this.schemaCache = null;
+      this.copying = null;
+      if (step === 'failed') {
+        console.error('project-database-copy-failed', readTableCopy(runner)?.error);
+      }
+    }
+    // The next step, or whatever else the alarm had to do, in a new request.
+    await this.ctx.storage.setAlarm(Date.now());
   }
 
   private async alarmStep(runner: SqlRunner) {

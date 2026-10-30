@@ -39,6 +39,7 @@ const {
   DATA_ROW_CREATE_BODY,
   DATA_ROW_UPDATE_BODY,
   DATA_ROW_DELETE_BODY,
+  DATA_DELETE_PREVIEW_BODY,
   DATA_WRITE_BODY,
   DATA_ROW_HISTORY_QUERY,
   DATA_RESTORE_POINT_BODY,
@@ -106,6 +107,15 @@ export const DATA_API_ROUTES = {
       "Answers with the `bookmark` of the database as it is right now, which `POST /restore-point` accepts. Take one before a large change, such as replacing a table's rows, to undo exactly that change: a time is not that precise.",
     returns: '{ bookmark }'
   },
+  dismissCopy: {
+    method: 'delete',
+    path: '/copy',
+    tag: 'Tables',
+    summary: 'Dismiss a failed table copy',
+    description:
+      'A column change on a table over 100,000 rows copies it in the background, and the database takes no writes until it finishes (`copy` on `GET` shows how far it got). A copy that failed left the table as it was and stays in `copy` with its `error` until dismissed, or until the next column change.',
+    returns: '{ copy: null }'
+  },
   listTables: {
     method: 'get',
     path: '/table',
@@ -155,9 +165,9 @@ export const DATA_API_ROUTES = {
     tag: 'Tables',
     summary: 'Rename a column or change it',
     description:
-      'A type change copies the table and lists the first rows that would not fit. When it copies, the answer carries a `bookmark` from just before.',
+      'A type change copies the table and lists the first rows that would not fit. When it copies, the answer carries a `bookmark` from just before. Over 100,000 rows the copy runs in the background: the answer carries `copy`, the table keeps its old columns until it finishes, and the database refuses writes meanwhile.',
     body: DATA_COLUMN_PATCH,
-    returns: '{ table, bookmark }'
+    returns: '{ table, bookmark, copy }'
   },
   dropColumn: {
     method: 'delete',
@@ -165,8 +175,8 @@ export const DATA_API_ROUTES = {
     tag: 'Tables',
     summary: 'Drop a column',
     description:
-      'The answer carries a `bookmark`: restoring to it brings the column back.',
-    returns: '{ table, bookmark }'
+      'The answer carries a `bookmark`: restoring to it brings the column back. Dropping a relation column copies the table, in the background over 100,000 rows, as for a type change.',
+    returns: '{ table, bookmark, copy }'
   },
   listRows: {
     method: 'get',
@@ -213,6 +223,16 @@ export const DATA_API_ROUTES = {
     description: 'Send the `version` you read, as for a change.',
     body: DATA_ROW_DELETE_BODY,
     returns: '{ deleted }'
+  },
+  deletePreview: {
+    method: 'post',
+    path: '/table/:table/delete-preview',
+    tag: 'Rows',
+    summary: 'What deleting rows would do',
+    description:
+      'For `ids`, or every row without them: each relation column pointing at a row the delete removes, with how many rows it would delete (cascade), clear (set null) or that refuse the delete (restrict). Cascades are followed all the way down. `blocked` says a restrict would refuse it. Past 200,000 affected rows `truncated` is true and the counts are lower bounds. Nothing is deleted.',
+    body: DATA_DELETE_PREVIEW_BODY,
+    returns: '{ table, rows, effects, blocked, truncated }'
   },
   rowHistory: {
     method: 'get',

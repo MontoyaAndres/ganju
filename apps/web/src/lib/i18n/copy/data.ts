@@ -112,6 +112,8 @@ const en = {
   impactRestrict_one: '{count} row in {table} points at it through {column}.',
   impactRestrict_other: '{count} rows in {table} point at it through {column}.',
   impactUnknown: 'Rows in {table} may point at it through {column}.',
+  impactTruncated:
+    'More than 200,000 rows are affected, so each number is at least what it says.',
   impactBlocked:
     'It cannot be deleted while those rows point at it. Delete or change them first.',
 
@@ -362,6 +364,14 @@ const en = {
   importGuessed_other:
     '{count} rows have numbers that read two ways; check them below.',
   undoColumnChanged: 'Column {name} changed type.',
+  copyChangeTitle: 'Changing {column} in {table}',
+  copyDropTitle: 'Dropping {column} from {table}',
+  copyRunningText:
+    '{copied} of {rows} rows copied. Reading works as usual; rows and tables can be changed again once it finishes.',
+  copyFailedTitle: "The change to {column} in {table} didn't finish",
+  copyFailedText: '{error} The table is as it was before.',
+  toastCopyStarted:
+    'The table is large, so the change runs in the background. Progress shows at the top.',
   importCheckpointFailed:
     "The rows were not replaced: a restore point to undo it couldn't be taken. {error}",
   importUndoneText:
@@ -493,6 +503,8 @@ export const DATA: Catalog<DataCopy> = {
     impactRestrict_one: '{count} fila de {table} apunta aquí por {column}.',
     impactRestrict_other: '{count} filas de {table} apuntan aquí por {column}.',
     impactUnknown: 'Puede haber filas de {table} que apuntan aquí por {column}.',
+    impactTruncated:
+      'Se afectan más de 200.000 filas, así que cada número es como mínimo el que se indica.',
     impactBlocked:
       'No se puede eliminar mientras esas filas apunten aquí. Elimínalas o cámbialas primero.',
 
@@ -746,6 +758,14 @@ export const DATA: Catalog<DataCopy> = {
     importGuessed_other:
       '{count} filas tienen números que se leen de dos formas; revísalas abajo.',
     undoColumnChanged: 'La columna {name} cambió de tipo.',
+    copyChangeTitle: 'Cambiando {column} en {table}',
+    copyDropTitle: 'Eliminando {column} de {table}',
+    copyRunningText:
+      '{copied} de {rows} filas copiadas. La lectura funciona como siempre; las filas y las tablas se pueden cambiar de nuevo cuando termine.',
+    copyFailedTitle: 'El cambio de {column} en {table} no terminó',
+    copyFailedText: '{error} La tabla quedó como estaba.',
+    toastCopyStarted:
+      'La tabla es grande, así que el cambio se hace en segundo plano. El avance se ve arriba.',
     importCheckpointFailed:
       'No se reemplazaron las filas: no se pudo tomar un punto de restauración para deshacerlo. {error}',
     importUndoneText:

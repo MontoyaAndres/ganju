@@ -38,7 +38,13 @@ import {
   updateTable,
   write,
   columnChangeNeedsRebuild,
-  dropColumnNeedsRebuild
+  dropColumnNeedsRebuild,
+  deleteImpact,
+  copyTableStep,
+  readTableCopy,
+  clearFailedTableCopy,
+  getMeta,
+  setMeta
 } from '../src/dataEngine.ts';
 import type { SqlRow, SqlRunner } from '../src/dataEngine.ts';
 import { DataError } from '../src/dataTypes.ts';
@@ -1140,4 +1146,153 @@ test('names: a searchable "rank" and tables shaped like index names are refused'
   assert.match(String(identifierIssue('tr_2_log', 'table')), /index names/);
   assert.equal(identifierIssue('tr_records', 'table'), null);
   assert.equal(identifierIssue('ix_1_1', 'column'), null);
+});
+
+test('display column: tables made before the default get their first text column', () => {
+  const { runner } = open();
+  const s = () => loadSchema(runner);
+  createTable(runner, s(), OWNER, {
+    name: 'dishes',
+    columns: [{ name: 'price', type: 'integer' }, { name: 'name', type: 'text' }, { name: 'note', type: 'text' }]
+  });
+  createTable(runner, s(), OWNER, { name: 'by_id', displayColumn: 'id', columns: [{ name: 'name', type: 'text' }] });
+  createTable(runner, s(), OWNER, { name: 'numbers', columns: [{ name: 'n', type: 'integer' }] });
+  assert.equal(s().tables.find(t => t.name === 'by_id')!.displayColumn, null);
+  // As a database made before the default looks: no display column, an older
+  // created_at, and the first version of our tables.
+  runner.all("UPDATE _ganju_tables SET display_column_id = NULL, created_at = '2026-10-21T10:00:00Z' WHERE name IN ('dishes', 'numbers')");
+  setMeta(runner, 'schema_version', '1');
+  migrateInternal(runner);
+  const tables = s().tables;
+  assert.equal(tables.find(t => t.name === 'dishes')!.displayColumn, 'name');
+  assert.equal(tables.find(t => t.name === 'numbers')!.displayColumn, null, 'no text column: the id');
+  assert.equal(tables.find(t => t.name === 'by_id')!.displayColumn, null, 'made since, asking for the id');
+  assert.equal(getMeta(runner, 'schema_version'), '2');
+});
+
+test('delete preview: cascades counted to the end, set null and restrict beside them', () => {
+  const { runner } = open();
+  const s = () => loadSchema(runner);
+  const table = (name: string, columns: object[] = []) =>
+    createTable(runner, s(), OWNER, { name, columns: [{ name: 'name', type: 'text' }, ...columns] });
+  // a ← b ← c ← d ← e (cascades), f clears d, g refuses c, and a tree of
+  // folders that cascades into itself.
+  table('a');
+  table('b', [{ name: 'a', type: 'relation', table: 'a', onDelete: 'cascade' }]);
+  table('c', [{ name: 'b', type: 'relation', table: 'b', onDelete: 'cascade' }]);
+  table('d', [{ name: 'c', type: 'relation', table: 'c', onDelete: 'cascade' }]);
+  table('e', [{ name: 'd', type: 'relation', table: 'd', onDelete: 'cascade' }]);
+  table('f', [{ name: 'd', type: 'relation', table: 'd', onDelete: 'set_null' }]);
+  table('g', [{ name: 'c', type: 'relation', table: 'c', onDelete: 'restrict' }]);
+  const insert = (name: string, rows: object[]) => {
+    for (let i = 0; i < rows.length; i += 500) {
+      write(runner, s(), OWNER, { operations: [{ op: 'insert', table: name, rows: rows.slice(i, i + 500) }] });
+    }
+  };
+  insert('a', [{ name: 'a1' }, { name: 'a2' }]);
+  insert('b', [{ a: 1 }, { a: 1 }, { a: 2 }]);
+  insert('c', [{ b: 1 }, { b: 2 }, { b: 3 }]);
+  insert('d', Array.from({ length: 1500 }, (_, i) => ({ c: (i % 3) + 1 })));
+  insert('e', Array.from({ length: 3000 }, (_, i) => ({ d: (i % 1500) + 1 })));
+  insert('f', [{ d: 1 }, { d: 2 }, { d: 3 }]);
+
+  const one = deleteImpact(runner, s(), OWNER, { table: 'a', ids: [1] });
+  assert.equal(one.rows, 1);
+  assert.equal(one.blocked, false);
+  assert.equal(one.truncated, false);
+  const byTable = Object.fromEntries(one.effects.map(e => [e.table, e]));
+  assert.deepEqual(byTable.b, { table: 'b', column: 'a', onDelete: 'cascade', rows: 2, depth: 0 });
+  assert.equal(byTable.c.rows, 2);
+  // Four levels down, and past the 1,000 rows the old preview stopped at.
+  assert.equal(byTable.d.rows, 1000);
+  assert.deepEqual(byTable.e, { table: 'e', column: 'd', onDelete: 'cascade', rows: 2000, depth: 3 });
+  // f's rows on d 1 and 2 are cleared; d 3 hangs off c 3, which stays.
+  assert.deepEqual(byTable.f, { table: 'f', column: 'd', onDelete: 'set_null', rows: 2, depth: 3 });
+  assert.deepEqual(one.effects.map(e => e.depth), [...one.effects.map(e => e.depth)].sort());
+
+  insert('g', [{ c: 3 }]);
+  const all = deleteImpact(runner, s(), OWNER, { table: 'a' });
+  assert.equal(all.rows, 2);
+  assert.equal(all.blocked, true);
+  assert.deepEqual(all.effects.find(e => e.table === 'g'), { table: 'g', column: 'c', onDelete: 'restrict', rows: 1, depth: 2 });
+  assert.equal(deleteImpact(runner, s(), OWNER, { table: 'a', ids: [1] }).blocked, false, "g points at a2's rows only");
+  assert.deepEqual(deleteImpact(runner, s(), OWNER, { table: 'e', ids: [1, 2, 999999] }), {
+    table: 'e', rows: 2, effects: [], blocked: false, truncated: false
+  });
+
+  createTable(runner, s(), OWNER, { name: 'folders', columns: [{ name: 'name', type: 'text' }] });
+  addColumn(runner, s(), OWNER, 'folders', { name: 'parent', type: 'relation', table: 'folders', onDelete: 'cascade' });
+  insert('folders', [{ name: 'root' }]);
+  for (let i = 1; i <= 6; i++) insert('folders', [{ name: `level ${i}`, parent: i }]);
+  const tree = deleteImpact(runner, s(), OWNER, { table: 'folders', ids: [1] });
+  assert.deepEqual(tree.effects, [{ table: 'folders', column: 'parent', onDelete: 'cascade', rows: 6, depth: 0 }]);
+
+  throwsData(() => deleteImpact(runner, s(), BOT('p1'), { table: 'a' }), /for the owner/, 'forbidden');
+  throwsData(() => deleteImpact(runner, s(), OWNER, { table: 'a', ids: [0] }), /lists row ids/);
+  throwsData(() => deleteImpact(runner, s(), OWNER, { table: 'nope' }), /Unknown table/, 'not_found');
+});
+
+test('table copy: over 100,000 rows it runs in steps, and the table reads as it was until the swap', () => {
+  const { db, runner } = open();
+  const s = () => loadSchema(runner);
+  createTable(runner, s(), OWNER, {
+    name: 'products',
+    columns: [{ name: 'name', type: 'text', searchable: true }, { name: 'code', type: 'text', filterable: true }]
+  });
+  createTable(runner, s(), OWNER, {
+    name: 'lines',
+    columns: [{ name: 'product', type: 'relation', table: 'products', onDelete: 'cascade', required: true }]
+  });
+  const rows = 120_001;
+  runner.all(
+    `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${rows})
+     INSERT INTO products (id, name, code) SELECT i, 'product ' || i, CAST(i AS TEXT) FROM n`
+  );
+  runner.all('INSERT INTO lines (product) VALUES (1), (120001)');
+  const offKeys = <T>(fn: () => T): T => {
+    db.exec('PRAGMA foreign_keys = OFF');
+    try {
+      return fn();
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON');
+    }
+  };
+
+  const unchanged = offKeys(() => updateColumn(runner, s(), OWNER, 'products', 'code', { type: 'integer' }));
+  assert.equal(unchanged.columns.find(c => c.name === 'code')!.type, 'text');
+  assert.deepEqual(
+    { ...readTableCopy(runner), startedAt: undefined },
+    { table: 'products', column: 'code', kind: 'change', rows, copied: 0, startedAt: undefined, actor: 'user:owner', status: 'running', error: null }
+  );
+  const steps: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const step = offKeys(() => copyTableStep(runner, s()));
+    steps.push(step);
+    if (step === 'more') {
+      // Between steps the table still reads with its old type.
+      const page = query(runner, s(), OWNER, { table: 'products', where: { code: '5' } });
+      assert.equal(page.rows[0].code, '5');
+    }
+    if (step !== 'more') break;
+  }
+  assert.deepEqual(steps, ['more', 'more', 'more', 'done']);
+  assert.equal(readTableCopy(runner), null);
+  const products = s().tables.find(t => t.name === 'products')!;
+  assert.equal(products.columns.find(c => c.name === 'code')!.type, 'integer');
+  assert.equal(runner.all('SELECT count(*) AS n FROM products')[0].n, rows);
+  assert.equal(runner.all("SELECT typeof(code) AS t FROM products WHERE id = 77")[0].t, 'integer');
+  assert.equal(runner.all('SELECT count(*) AS n FROM lines')[0].n, 2, 'the swap cascaded into nothing');
+  assert.equal(query(runner, s(), OWNER, { table: 'products', search: 'product 120001' }).rows[0].id, 120001);
+  assert.equal(copyTableStep(runner, s()), 'idle');
+
+  // A step that keeps dying ends the copy, leaving the table as it was.
+  offKeys(() => updateColumn(runner, s(), OWNER, 'products', 'code', { type: 'text' }));
+  const raw = JSON.parse(getMeta(runner, 'table_copy')!);
+  setMeta(runner, 'table_copy', JSON.stringify({ ...raw, attempts: 3 }));
+  assert.equal(offKeys(() => copyTableStep(runner, s())), 'failed');
+  assert.match(readTableCopy(runner)!.error!, /stopped 3 times/);
+  assert.equal(runner.all("SELECT count(*) AS n FROM sqlite_master WHERE name = 'products__new'")[0].n, 0);
+  assert.equal(s().tables.find(t => t.name === 'products')!.columns.find(c => c.name === 'code')!.type, 'integer');
+  clearFailedTableCopy(runner);
+  assert.equal(readTableCopy(runner), null);
 });

@@ -293,3 +293,80 @@ test('a large export is cut into equal parts, rows intact across them, and its r
   assert.ok(billed >= 200, `billed ${billed}`);
   assert.ok((await call('info')).usage.rowsRead < 50, 'billed once');
 });
+
+test('a delete preview follows the cascades in one call', async () => {
+  const call = callOn('impact');
+  await restaurant(call);
+  await call('write', owner, {
+    operations: [
+      { op: 'insert', table: 'orders', values: {} },
+      { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: 1, quantity: 2 } }
+    ]
+  });
+  const order = await call('deleteImpact', owner, { table: 'orders', ids: [1] });
+  assert.equal(order.ok, true, JSON.stringify(order));
+  assert.deepEqual(order.value, {
+    table: 'orders',
+    rows: 1,
+    effects: [{ table: 'order_lines', column: 'order', onDelete: 'cascade', rows: 1, depth: 0 }],
+    blocked: false,
+    truncated: false
+  });
+  const menu = await call('deleteImpact', owner, { table: 'menu' });
+  assert.equal(menu.value.blocked, true);
+  assert.equal((await call('deleteImpact', bot, { table: 'menu' })).error.code, 'forbidden');
+});
+
+test('a column change on a large table copies it from the alarm, refusing writes meanwhile', async () => {
+  const call = callOn('large-copy');
+  await call('init', { artifactId: 'large-copy', name: 'big' });
+  await call('createTable', owner, {
+    name: 'products',
+    columns: [{ name: 'code', type: 'text' }]
+  });
+  const rows = 100_001;
+  for (let start = 0; start < rows; start += 5_000) {
+    const count = Math.min(5_000, rows - start);
+    const operations = [];
+    for (let i = 0; i < count; i += 500) {
+      operations.push({
+        op: 'insert',
+        table: 'products',
+        rows: Array.from({ length: Math.min(500, count - i) }, (_, j) => ({ code: String(start + i + j) }))
+      });
+    }
+    const inserted = await call('write', owner, { operations });
+    assert.equal(inserted.ok, true, JSON.stringify(inserted).slice(0, 300));
+  }
+
+  const changed = await call('updateColumn', owner, 'products', 'code', { type: 'integer' });
+  assert.equal(changed.ok, true, JSON.stringify(changed));
+  assert.equal(changed.value.copy.status, 'running');
+  assert.equal(changed.value.copy.rows, rows);
+  assert.ok(changed.value.bookmark);
+  assert.equal(changed.value.table.columns[0].type, 'text', 'unchanged until the swap');
+
+  const refused = await call('write', owner, {
+    operations: [{ op: 'insert', table: 'products', values: { code: 'x' } }]
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error.code, 'conflict');
+  assert.match(refused.error.message, /products is being copied to change its column code/);
+  assert.equal((await call('query', owner, { table: 'products', limit: 1 })).ok, true, 'reads go on');
+
+  let info;
+  for (let i = 0; i < 100; i++) {
+    info = await call('info');
+    if (!info.value.copy) break;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  assert.equal(info.value.copy, null, JSON.stringify(info.value.copy));
+  const schema = await call('schemaRead');
+  assert.equal(schema.value.tables[0].columns[0].type, 'integer');
+  const found = await call('query', owner, { table: 'products', where: { code: 100_000 } });
+  assert.equal(found.value.rows.length, 1);
+  const after = await call('write', owner, {
+    operations: [{ op: 'insert', table: 'products', values: { code: 7 } }]
+  });
+  assert.equal(after.ok, true, JSON.stringify(after));
+});

@@ -27,6 +27,7 @@ import type { Database, DataTable, RowPage } from './types';
 
 // How often a database still being set up is checked again.
 const CREATING_POLL_MS = 3000;
+const COPY_POLL_MS = 3000;
 
 // The grid is the heaviest thing on the page; every view shares one bundle,
 // so it loads only when a table's rows are shown.
@@ -164,6 +165,36 @@ export const Data = ({ plan }: DataProps) => {
     const timer = setTimeout(() => load(), CREATING_POLL_MS);
     return () => clearTimeout(timer);
   }, [database]);
+
+  // A large table's copy runs in the background: follow it, and read the
+  // tables again once it is over, without the page's loading state.
+  useEffect(() => {
+    if (database?.copy?.status !== 'running') return;
+    const timer = setTimeout(async () => {
+      const result = await dataRequest<{ database: Database | null }>(base, '');
+      if (!result.ok) {
+        setDatabase(prev => (prev ? { ...prev } : prev));
+        return;
+      }
+      setDatabase(result.data.database);
+      if (result.data.database?.copy?.status !== 'running') {
+        await loadTables();
+        setRowsVersion(n => n + 1);
+      }
+    }, COPY_POLL_MS);
+    return () => clearTimeout(timer);
+  }, [database]);
+
+  const handleDismissCopy = async () => {
+    const result = await dataRequest<{ copy: null }>(base, '/copy', {
+      method: 'DELETE'
+    });
+    if (!result.ok) {
+      snackbar.error(result.error || t('toastSaveColumnFailed'));
+      return;
+    }
+    setDatabase(prev => (prev ? { ...prev, copy: null } : prev));
+  };
 
   // A narrow screen shows one pane at a time: the table list, or the open
   // table. On a wide one both stay up, so open the first table.
@@ -339,6 +370,39 @@ export const Data = ({ plan }: DataProps) => {
               <span className="button-text">{t('upgrade')}</span>
             </UI.Button>
           </div>
+        </div>
+      )}
+      {ready && database?.copy && (
+        <div
+          className={`data-banner${database.copy.status === 'failed' ? ' data-banner-danger' : ''}`}
+        >
+          <div className="data-banner-text">
+            <strong>
+              {t(
+                database.copy.status === 'failed'
+                  ? 'copyFailedTitle'
+                  : database.copy.kind === 'drop'
+                    ? 'copyDropTitle'
+                    : 'copyChangeTitle',
+                { table: database.copy.table, column: database.copy.column }
+              )}
+            </strong>
+            <span>
+              {database.copy.status === 'failed'
+                ? t('copyFailedText', { error: database.copy.error ?? '' })
+                : t('copyRunningText', {
+                    copied: t.n(database.copy.copied),
+                    rows: t.n(database.copy.rows)
+                  })}
+            </span>
+          </div>
+          {database.copy.status === 'failed' && (
+            <div className="data-banner-actions">
+              <UI.Button size="small" onClick={handleDismissCopy}>
+                <span className="button-text">{c('dismiss')}</span>
+              </UI.Button>
+            </div>
+          )}
         </div>
       )}
       {undo && (
@@ -622,6 +686,9 @@ export const Data = ({ plan }: DataProps) => {
                 onDropped={handleTableDropped}
                 onColumnDropped={handleColumnDropped}
                 onColumnTypeChanged={handleColumnTypeChanged}
+                onCopyStarted={copy =>
+                  setDatabase(prev => (prev ? { ...prev, copy } : prev))
+                }
               />
             )}
           </>

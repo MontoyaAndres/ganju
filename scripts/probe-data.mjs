@@ -2,6 +2,7 @@
 //
 //   PROBE_API_URL=https://development-api.example.com node scripts/probe-data.mjs
 //   node scripts/probe-data.mjs --purge-check <artifact_database id>
+//   ... --large-copy also copies a 100,001-row table in the background
 //
 // Defaults to http://localhost:8080. Needs .env (or .env.prod with --prod) for
 // DATABASE_URL and JWT_SECRET, like probe-access-tokens.mjs: the person is a
@@ -10,8 +11,8 @@
 // Scaffolds a throwaway user, a PRO and a FREE organization, each with a
 // project and an artifact, and checks the database lifecycle and the Data API:
 //   - Free can't create one; Pro creates it once, however many times it asks;
-//   - two related tables, rows, foreign-key restrict and cascade, search, and
-//     paging past two pages;
+//   - two related tables, rows, foreign-key restrict and cascade with their
+//     delete previews, search, and paging past two pages;
 //   - a type change that some values don't fit;
 //   - two orders at once for the last item (exactly one wins), a multi-table
 //     write whose third step fails (nothing is written), a stale-version
@@ -194,7 +195,7 @@ try {
     Object.values(openapi?.paths ?? {}).reduce(
       (n, methods) => n + Object.keys(methods).length,
       0
-    ) === 24,
+    ) === 26,
     `${Object.keys(openapi?.paths ?? {}).length} paths`
   );
   const menu = await call(
@@ -363,6 +364,30 @@ try {
     order.body?.error
   );
   const orderId = order.body?.results?.[0]?.id;
+  const productPreview = await call(
+    `${data}/table/menu/delete-preview`,
+    json('POST', { ids: [inserted.body?.ids?.[2]] })
+  );
+  check(
+    'the delete preview says a line blocks deleting its product',
+    productPreview.status === 200 &&
+      productPreview.body?.blocked === true &&
+      productPreview.body.effects?.[0]?.onDelete === 'restrict' &&
+      productPreview.body.effects[0].rows === 1,
+    JSON.stringify(productPreview.body)
+  );
+  const orderPreview = await call(
+    `${data}/table/orders/delete-preview`,
+    json('POST', { ids: [orderId] })
+  );
+  check(
+    'the delete preview counts the lines an order takes with it',
+    orderPreview.status === 200 &&
+      orderPreview.body?.blocked === false &&
+      orderPreview.body.effects?.[0]?.table === 'order_lines' &&
+      orderPreview.body.effects[0].rows === 1,
+    JSON.stringify(orderPreview.body)
+  );
   const restricted = await call(
     `${data}/table/menu/row/${inserted.body?.ids?.[2]}`,
     json('DELETE', {})
@@ -587,6 +612,102 @@ try {
     elsewhere.status === 403,
     `${elsewhere.status}`
   );
+
+  // A type change on a table over 100,000 rows copies it in the background.
+  // Opt-in: it writes 100,001 rows.
+  if (process.argv.includes('--large-copy')) {
+    section('a large table copy');
+    const big = await call(
+      `${data}/table`,
+      json('POST', { name: 'big', columns: [{ name: 'code', type: 'text' }] })
+    );
+    check('a "big" table is created', big.status === 201, big.body?.error);
+    const rows = 100_001;
+    let filled = 0;
+    for (let start = 0; start < rows; start += 5_000) {
+      const count = Math.min(5_000, rows - start);
+      const operations = [];
+      for (let i = 0; i < count; i += 500) {
+        operations.push({
+          op: 'insert',
+          table: 'big',
+          rows: Array.from({ length: Math.min(500, count - i) }, (_, j) => ({
+            code: String(start + i + j)
+          }))
+        });
+      }
+      const written = await call(`${data}/write`, json('POST', { operations }));
+      if (written.status !== 200) {
+        console.log(`  write at ${start}: ${written.status} ${written.body?.error}`);
+        break;
+      }
+      filled += count;
+    }
+    check(`${rows.toLocaleString('en-US')} rows go in`, filled === rows, `${filled}`);
+    const changed = await call(
+      `${data}/table/big/column/code`,
+      json('PATCH', { type: 'integer' })
+    );
+    check(
+      'changing "code" to integer starts a background copy',
+      changed.status === 200 &&
+        changed.body?.copy?.status === 'running' &&
+        changed.body.copy.rows === rows &&
+        changed.body.table?.columns?.[0]?.type === 'text',
+      `${changed.status} ${JSON.stringify(changed.body?.copy ?? changed.body?.error)}`
+    );
+    const refusedWrite = await call(
+      `${data}/table/big/row`,
+      json('POST', { values: { code: 'x' } })
+    );
+    // A copy this size can be over before the next request arrives; then the
+    // write meets the integer column instead.
+    const raced =
+      refusedWrite.status === 400 && /whole number/.test(refusedWrite.body?.error ?? '');
+    check(
+      '  ...writes are refused meanwhile',
+      (refusedWrite.status === 409 && /being copied/.test(refusedWrite.body?.error ?? '')) ||
+        raced,
+      raced
+        ? 'the copy had already finished'
+        : `${refusedWrite.status} ${refusedWrite.body?.error}`
+    );
+    const reading = await call(`${data}/table/big/row?limit=1`);
+    check('  ...and reads go on', reading.status === 200, reading.body?.error);
+    let copy;
+    let seenProgress = false;
+    const started = Date.now();
+    do {
+      await new Promise(resolve => setTimeout(resolve, 2_000));
+      copy = (await call(`${data}`)).body?.database?.copy;
+      if (copy && copy.copied > 0) seenProgress = true;
+    } while (copy?.status === 'running' && Date.now() - started < 180_000);
+    check(
+      '  ...it finishes',
+      copy === null,
+      `${Math.round((Date.now() - started) / 1000)} s${copy ? ` ${JSON.stringify(copy)}` : ''}${seenProgress ? ', progress seen' : ''}`
+    );
+    const tables = await call(`${data}/table`);
+    check(
+      '  ...and "code" is an integer',
+      tables.body?.tables?.find(t => t.name === 'big')?.columns?.[0]?.type === 'integer'
+    );
+    const found = await call(
+      `${data}/table/big/row?where=${encodeURIComponent(JSON.stringify({ code: 100_000 }))}`
+    );
+    check(
+      '  ...with every row, converted',
+      found.body?.rows?.length === 1 && found.body.rows[0].code === 100_000,
+      JSON.stringify(found.body?.rows ?? found.body?.error)
+    );
+    const after = await call(`${data}/table/big/row`, json('POST', { values: { code: 7 } }));
+    check('  ...and writes work again', after.status === 201, after.body?.error);
+    const droppedBig = await call(
+      `${data}/table/big`,
+      json('DELETE', { confirmName: 'big' })
+    );
+    check('  ...then "big" is dropped', droppedBig.status === 200, droppedBig.body?.error);
+  }
 
   section('deleting and restoring');
   const wrongName = await call(`${base(pro)}/artifact/data`, {

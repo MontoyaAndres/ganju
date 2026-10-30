@@ -104,6 +104,20 @@ with the row as it is now in `details.current` and who changed it in
 `details.updatedBy`. Reload and try again. To overwrite their change, send the
 request without `version`.
 
+Before deleting, you can ask what the delete would do to the rows that point
+at it. Nothing is deleted:
+
+```bash
+curl -X POST ... $DATA/table/orders/delete-preview -d '{ "ids": [12, 13] }'
+```
+
+Leave out `ids` to preview deleting every row. The answer lists each column
+that points at a deleted row, with how many rows it would delete (`cascade`),
+clear (`set_null`) or that refuse the delete (`restrict`). Cascades are
+followed all the way down, and `depth` says how many cascades away each one
+is. `blocked` is true when a restrict would refuse the delete. Past 200,000
+affected rows, `truncated` is true and each count is a lower bound.
+
 ## Write an order safely
 
 `POST /write` takes a list of inserts, updates and deletes across tables. They
@@ -146,6 +160,14 @@ change is refused and the answer lists the first 10 rows that don't. Dropping a
 table or a column, and changing a type, answers with a `bookmark`. To undo the
 change, restore to it.
 
+A type change copies the table, and so does dropping a relation column. Up to
+100,000 rows that happens in the request. On a larger table the copy runs in
+the background. The answer has `copy`, with how many rows are copied so far,
+and the table keeps its old columns until the copy is done. Meanwhile reads
+work as usual, but writes and table changes get a 409. `GET` on the database
+shows its progress in `copy`. If the copy fails, the table is left as it was
+and `copy` shows the `error` until you dismiss it with `DELETE /copy`.
+
 ## History, restore and export
 
 - **`GET /table/:table/row/:id/history`**: every change to a row in the last 90
@@ -176,5 +198,5 @@ Errors are JSON with a readable `error` and a `code`:
 | `402` | The organization's plan doesn't include Data |
 | `403` | The token is for another project, or the database is read-only after a downgrade |
 | `404` | No database, table or row by that name |
-| `409` | A stale `version`, a guard that changed nothing, a change below a column's minimum, a constraint (for example, rows still point at this one), or a full database |
+| `409` | A stale `version`, a guard that changed nothing, a change below a column's minimum, a constraint (for example, rows still point at this one), a full database, or a table copy still running |
 | `429` | Too many requests for this token |

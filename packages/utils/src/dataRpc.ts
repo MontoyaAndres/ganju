@@ -3,9 +3,11 @@
 // it through databaseStub. Every method resolves to a DataResult.
 import type {
   DataCaller,
+  DataDeleteImpact,
   DataResult,
   DataSchema,
-  DataTable
+  DataTable,
+  DataTableCopy
 } from './dataTypes';
 
 export type ExportFormat = 'jsonl' | 'csv';
@@ -51,6 +53,9 @@ export interface DatabaseInfo {
   schemaVersion: number;
   size: number;
   tables: { name: string; label: string | null; columns: number }[];
+  // A column change copying a large table in the background: the database
+  // takes no writes while it runs.
+  copy: DataTableCopy | null;
 }
 
 export interface RestoreResult {
@@ -86,18 +91,24 @@ export interface ProjectDatabaseRpc {
     table: string,
     column: string,
     patch: unknown
-  ): R<{ table: DataTable; bookmark: string | null }>;
+  ): R<{ table: DataTable; bookmark: string | null; copy: DataTableCopy | null }>;
   dropColumn(
     caller: DataCaller,
     table: string,
     column: string
-  ): R<{ table: DataTable; bookmark: string }>;
+  ): R<{ table: DataTable; bookmark: string; copy: DataTableCopy | null }>;
+  // Forgets a failed background copy once the owner has seen why.
+  dismissCopy(caller: DataCaller): R<{ copy: null }>;
   describe(caller: DataCaller, args?: unknown): R<unknown>;
   query(caller: DataCaller, args: unknown): R<unknown>;
   write(
     caller: DataCaller,
     args: unknown
   ): R<{ ok: true; results: unknown[] }>;
+  deleteImpact(
+    caller: DataCaller,
+    args: { table: string; ids?: number[] }
+  ): R<DataDeleteImpact>;
   history(
     caller: DataCaller,
     args: { table: string; id: number; limit?: number; cursor?: number }

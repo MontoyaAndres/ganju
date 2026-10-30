@@ -19,7 +19,7 @@ import {
 import { columnTitle, dataRequest, incomingRelations, tableTitle } from './api';
 import { i18n } from '../../../lib';
 
-import type { DataAccess, DataColumn, DataTable } from './types';
+import type { DataAccess, DataColumn, DataTable, DataTableCopy } from './types';
 
 // Columns a relation can show for its rows.
 const DISPLAY_TYPES = ['text', 'email', 'url', 'phone', 'enum', 'integer', 'decimal', 'date', 'datetime'];
@@ -35,6 +35,8 @@ interface SchemaTabProps {
   onColumnDropped: (table: string, column: string, bookmark: string) => void;
   // A type change answers with the bookmark from just before it.
   onColumnTypeChanged: (table: string, column: string, bookmark: string) => void;
+  // A change to a large table answers before its copy is done.
+  onCopyStarted: (copy: DataTableCopy) => void;
 }
 
 interface Settings {
@@ -65,7 +67,8 @@ export const SchemaTab = ({
   onChanged,
   onDropped,
   onColumnDropped,
-  onColumnTypeChanged
+  onColumnTypeChanged,
+  onCopyStarted
 }: SchemaTabProps) => {
   const snackbar = UI.Alert.useSnackbar();
   const t = i18n.useT(i18n.copy.DATA);
@@ -136,6 +139,7 @@ export const SchemaTab = ({
     const { column, draft } = editing;
     let result;
     let bookmark: string | null = null;
+    let copy: DataTableCopy | null = null;
     if (column) {
       const patch = patchFromDraft(column, draft);
       if (!Object.keys(patch).length) {
@@ -146,11 +150,13 @@ export const SchemaTab = ({
       const patched = await dataRequest<{
         table: DataTable;
         bookmark: string | null;
+        copy: DataTableCopy | null;
       }>(base, `${tablePath}/column/${encodeURIComponent(column.name)}`, {
         method: 'PATCH',
         body: patch
       });
-      if (patched.ok && patch.type) bookmark = patched.data.bookmark ?? null;
+      if (patched.ok) copy = patched.data.copy ?? null;
+      if (patched.ok && patch.type && !copy) bookmark = patched.data.bookmark ?? null;
       result = patched;
     } else {
       setSavingColumn(true);
@@ -166,6 +172,11 @@ export const SchemaTab = ({
       return;
     }
     setEditing(null);
+    if (copy) {
+      snackbar.success(t('toastCopyStarted'));
+      onCopyStarted(copy);
+      return;
+    }
     snackbar.success(column ? t('toastColumnSaved') : t('toastColumnAdded'));
     if (column && bookmark) {
       onColumnTypeChanged(table.name, draft.name.trim() || column.name, bookmark);
@@ -176,7 +187,11 @@ export const SchemaTab = ({
   const handleDropColumn = async () => {
     if (!dropColumn || dropping) return;
     setDropping(true);
-    const result = await dataRequest<{ table: DataTable; bookmark: string }>(
+    const result = await dataRequest<{
+      table: DataTable;
+      bookmark: string;
+      copy: DataTableCopy | null;
+    }>(
       base,
       `${tablePath}/column/${encodeURIComponent(dropColumn.name)}`,
       { method: 'DELETE' }
@@ -188,6 +203,11 @@ export const SchemaTab = ({
     }
     const name = dropColumn.name;
     setDropColumn(null);
+    if (result.data.copy) {
+      snackbar.success(t('toastCopyStarted'));
+      onCopyStarted(result.data.copy);
+      return;
+    }
     onColumnDropped(table.name, name, result.data.bookmark);
     await onChanged();
   };

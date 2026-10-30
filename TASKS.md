@@ -1183,8 +1183,17 @@ one's bookmark.
     trigger.
   - **Cursors are keyset** (sort values + id), signed with the table and
     sort they were made for.
-  - **A table copy runs in one request, up to 100,000 rows.** The chunked
-    copy for larger tables is still to build.
+  - **A table copy runs in one request, up to 100,000 rows.** Larger tables
+    (done 2026-10-30, not deployed yet) get an empty `<table>__new`, and the
+    object's alarm copies 50,000 rows a step. The metadata moves only at the
+    swap, so the table reads as before until then. Writes and table changes
+    get a 409 while it runs, since a cascade from another table could reach
+    the rows being copied. A step that dies 3 times fails the job: the copy is
+    dropped and the table is left as it was. Progress is in `copy` on
+    `GET …/artifact/data`, with a banner on the Data page, and
+    `DELETE …/copy` dismisses a failed one. Still bounded: the swap (indexes,
+    the search table, the foreign-key check) is one step within `cpu_ms`
+    30,000, so a table of several million rows may need a higher limit.
 - **Pulled forward from phase 2**, to drive the check above:
   - the database routes `GET`, `POST` and `DELETE …/artifact/data`, and
     `POST …/artifact/data/restore`;
@@ -1549,11 +1558,17 @@ website deployed. Walked through on dev in Spanish:
   - a delete 20 s before a replace stays deleted after Undo, while the
     table's 41 rows come back;
   - a new table gets `name` as its display column.
-- **Left:**
-  - Tables made before the display-column default keep showing ids until
-    their display column is set in the Schema tab.
-  - The delete preview counts cascades 3 levels deep. Past that, or past
-    1,000 rows, it says rows "may" point here.
+- **Left (done 2026-10-30, not deployed yet):**
+  - Tables made before the display-column default kept showing ids. Internal
+    migration 2 gives every table created before 2026-10-24 with no display
+    column its first text column. A table that asked for the id before then
+    can't be told apart, and gets the text column too.
+  - The delete preview counted cascades 3 levels deep and stopped at 1,000
+    rows ("may point here"). It is now one recursive query in the object
+    (`deleteImpact`, `POST /table/:table/delete-preview`), which follows every
+    cascade, cycles included, up to 200,000 rows. Past that, `truncated` makes
+    the counts lower bounds. "May point here" now only shows when the preview
+    couldn't be read.
 
 **4. CLI — M**
 

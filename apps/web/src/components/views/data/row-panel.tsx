@@ -28,11 +28,14 @@ import type {
 } from './types';
 
 // What deleting rows does to the rows that point at them, read before the
-// owner confirms. A cascade is followed into the tables that point at the
-// rows it deletes, `depth` levels down from the rows being deleted.
+// owner confirms. The database follows every cascade to the end; `depth` is
+// how many cascades away from the deleted rows an effect is. `rows` is null
+// when the preview couldn't be read.
 export interface Impact {
   loading: boolean;
   blocked: boolean;
+  // Past the preview's limit: each count is a lower bound.
+  truncated: boolean;
   count: number;
   effects: {
     table: DataTable;
@@ -43,12 +46,17 @@ export interface Impact {
   }[];
 }
 
-// How many levels of cascades are followed, and how many cascaded rows'
-// ids are read to follow one; past either, the effect says it can't tell.
-const CASCADE_DEPTH = 3;
-const CASCADE_IDS = 1000;
-// Ids per `in` filter.
-const IDS_PER_FILTER = 50;
+interface ImpactAnswer {
+  effects: {
+    table: string;
+    column: string;
+    onDelete: DataOnDelete;
+    rows: number;
+    depth: number;
+  }[];
+  blocked: boolean;
+  truncated: boolean;
+}
 
 // `ids` is the rows to delete, or 'all' for every row of the table.
 export const useDeleteImpact = (
@@ -60,6 +68,7 @@ export const useDeleteImpact = (
   const [impact, setImpact] = useState<Impact>({
     loading: false,
     blocked: false,
+    truncated: false,
     count: 0,
     effects: []
   });
@@ -67,117 +76,58 @@ export const useDeleteImpact = (
 
   useEffect(() => {
     const count = ids === 'all' ? 0 : ids.length;
-    if (ids !== 'all' && ids.length === 0) {
-      setImpact({ loading: false, blocked: false, count: 0, effects: [] });
+    const relations = incomingRelations(tables, table.name);
+    if ((ids !== 'all' && ids.length === 0) || relations.length === 0) {
+      setImpact({ loading: false, blocked: false, truncated: false, count, effects: [] });
       return;
     }
-    let cancelled = false;
-    const relations = incomingRelations(tables, table.name);
-    setImpact({ loading: relations.length > 0, blocked: false, count, effects: [] });
-    if (relations.length === 0) return;
-
-    // The filters that find the rows of `other` pointing at `targets`.
-    const filters = (column: DataColumn, targets: number[] | 'all') => {
-      if (targets === 'all') return [{ [column.name]: { isNull: false } }];
-      const out = [];
-      for (let i = 0; i < targets.length; i += IDS_PER_FILTER) {
-        out.push({ [column.name]: { in: targets.slice(i, i + IDS_PER_FILTER) } });
-      }
-      return out;
-    };
-    const path = (other: DataTable) =>
-      `/table/${encodeURIComponent(other.name)}/row`;
-
-    const countPointing = async (
-      other: DataTable,
-      column: DataColumn,
-      targets: number[] | 'all'
-    ) => {
-      let rows = 0;
-      for (const where of filters(column, targets)) {
-        const result = await dataRequest<RowPage>(base, path(other), {
-          query: { limit: 1, where: JSON.stringify(where) }
-        });
-        if (!result.ok || result.data.total === undefined) return null;
-        rows += result.data.total;
-      }
-      return rows;
-    };
-
-    // The ids a cascade deletes, or null past CASCADE_IDS.
-    const idsPointing = async (
-      other: DataTable,
-      column: DataColumn,
-      targets: number[] | 'all'
-    ) => {
-      const found = new Set<number>();
-      for (const where of filters(column, targets)) {
-        let cursor: string | undefined;
-        do {
-          const result = await dataRequest<RowPage>(base, path(other), {
-            query: { limit: 500, cursor, where: JSON.stringify(where) }
-          });
-          if (!result.ok) return null;
-          for (const row of result.data.rows) found.add(row.id);
-          if (found.size > CASCADE_IDS) return null;
-          cursor = result.data.nextCursor;
-        } while (cursor);
-      }
-      return [...found];
-    };
-
+    const controller = new AbortController();
+    setImpact({ loading: true, blocked: false, truncated: false, count, effects: [] });
     (async () => {
-      const effects: Impact['effects'] = [];
-      // Rows a cascade would delete whose own dependants can't be counted.
-      const unknownBelow = (other: DataTable, depth: number) => {
-        for (const below of incomingRelations(tables, other.name)) {
-          effects.push({
-            table: below.table,
-            column: below.column,
-            onDelete: below.column.onDelete ?? 'restrict',
+      const result = await dataRequest<ImpactAnswer>(
+        base,
+        `/table/${encodeURIComponent(table.name)}/delete-preview`,
+        {
+          method: 'POST',
+          body: ids === 'all' ? {} : { ids },
+          signal: controller.signal
+        }
+      );
+      if (controller.signal.aborted) return;
+      if (!result.ok) {
+        // Unread: every column pointing here may be affected.
+        setImpact({
+          loading: false,
+          blocked: false,
+          truncated: false,
+          count,
+          effects: relations.map(({ table: other, column }) => ({
+            table: other,
+            column,
+            onDelete: column.onDelete ?? 'restrict',
             rows: null,
-            depth
-          });
-        }
-      };
-      let frontier: { table: DataTable; ids: number[] | 'all' }[] = [
-        { table, ids }
-      ];
-      for (let depth = 0; frontier.length && !cancelled; depth++) {
-        const next: typeof frontier = [];
-        for (const step of frontier) {
-          for (const { table: other, column } of incomingRelations(
-            tables,
-            step.table.name
-          )) {
-            if (cancelled) return;
-            const onDelete = column.onDelete ?? 'restrict';
-            const rows = await countPointing(other, column, step.ids);
-            if (rows === 0) continue;
-            effects.push({ table: other, column, onDelete, rows, depth });
-            if (onDelete !== 'cascade' || rows === null) continue;
-            if (depth + 1 >= CASCADE_DEPTH) {
-              unknownBelow(other, depth + 1);
-              continue;
-            }
-            const cascaded = await idsPointing(other, column, step.ids);
-            if (cascaded === null) unknownBelow(other, depth + 1);
-            else if (cascaded.length) next.push({ table: other, ids: cascaded });
-          }
-        }
-        frontier = next;
+            depth: 0
+          }))
+        });
+        return;
       }
-      if (cancelled) return;
+      const effects: Impact['effects'] = [];
+      for (const effect of result.data.effects) {
+        const other = tables.find(t => t.name === effect.table);
+        const column = other?.columns.find(c => c.name === effect.column);
+        if (other && column) effects.push({ ...effect, table: other, column });
+      }
       setImpact({
         loading: false,
-        blocked: effects.some(e => e.onDelete === 'restrict' && (e.rows ?? 0) > 0),
+        blocked: result.data.blocked,
+        truncated: result.data.truncated,
         count,
         effects
       });
-    })();
-    return () => {
-      cancelled = true;
-    };
+    })().catch(() => {
+      // Aborted: the rows to delete changed.
+    });
+    return () => controller.abort();
   }, [base, table.name, key]);
 
   return impact;
@@ -225,6 +175,9 @@ export const ImpactList = ({ impact }: { impact: Impact }) => {
             );
           })}
         </ul>
+      )}
+      {impact.truncated && (
+        <p className="dialog-muted">{t('impactTruncated')}</p>
       )}
       {impact.blocked && (
         <p className="dialog-danger">{t('impactBlocked')}</p>

@@ -281,7 +281,9 @@ const getDatabase = async (c: Context<AppEnv>) => {
     .set({ sizeBytes: info.size, sizeCheckedAt: new Date() })
     .where(eq(db.schema.artifactDatabase.id, row.id))
     .returning();
-  return c.json({ database: { ...present(updated), tables: info.tables } });
+  return c.json({
+    database: { ...present(updated), tables: info.tables, copy: info.copy }
+  });
 };
 
 const create = async (c: Context<AppEnv>) => {
@@ -436,6 +438,17 @@ const checkpoint = (c: Context<AppEnv>) =>
   });
 
 // Tables
+
+const dismissCopy = (c: Context<AppEnv>) =>
+  withDatabase(c, {}, async request =>
+    c.json(
+      await callData(
+        'dismissCopy',
+        () => request.opened.stub.dismissCopy(request.caller),
+        request.tally
+      )
+    )
+  );
 
 const listTables = (c: Context<AppEnv>) =>
   withDatabase(c, {}, async request => {
@@ -633,6 +646,25 @@ const deleteRow = async (c: Context<AppEnv>) => {
   });
 };
 
+const deletePreview = async (c: Context<AppEnv>) => {
+  const { table } = await pathOf(c, Schema.DATA_TABLE_PARAMS);
+  const body = await bodyOf(c, Schema.DATA_DELETE_PREVIEW_BODY);
+  return withDatabase(c, {}, async request =>
+    c.json(
+      await callData(
+        'deleteImpact',
+        () =>
+          request.opened.stub.deleteImpact(
+            request.caller,
+            body.ids ? { table, ids: body.ids } : { table }
+          ),
+        request.tally,
+        { retryRead: true }
+      )
+    )
+  );
+};
+
 const rowHistory = async (c: Context<AppEnv>) => {
   const { table, id } = await pathOf(c, Schema.DATA_ROW_PARAMS);
   const query = await queryOf(c, Schema.DATA_ROW_HISTORY_QUERY);
@@ -803,6 +835,7 @@ export const DataController = {
   restore,
   restorePoint,
   checkpoint,
+  dismissCopy,
   listTables,
   createTable,
   updateTable,
@@ -815,6 +848,7 @@ export const DataController = {
   getRow,
   updateRow,
   deleteRow,
+  deletePreview,
   rowHistory,
   write,
   startExport,
