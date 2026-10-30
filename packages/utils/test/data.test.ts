@@ -42,6 +42,7 @@ import {
   deleteImpact,
   copyTableStep,
   readTableCopy,
+  writeReachesCopy,
   clearFailedTableCopy,
   getMeta,
   setMeta
@@ -1265,7 +1266,7 @@ test('table copy: over 100,000 rows it runs in steps, and the table reads as it 
     { table: 'products', column: 'code', kind: 'change', rows, copied: 0, startedAt: undefined, actor: 'user:owner', status: 'running', error: null }
   );
   const steps: string[] = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 100; i++) {
     const step = offKeys(() => copyTableStep(runner, s()));
     steps.push(step);
     if (step === 'more') {
@@ -1275,7 +1276,10 @@ test('table copy: over 100,000 rows it runs in steps, and the table reads as it 
     }
     if (step !== 'more') break;
   }
-  assert.deepEqual(steps, ['more', 'more', 'more', 'done']);
+  // 5,000 rows a step: 24 full ones, the last row, then the swap.
+  assert.equal(steps.length, 26);
+  assert.equal(steps.at(-1), 'done');
+  assert.equal(readTableCopy(runner), null);
   assert.equal(readTableCopy(runner), null);
   const products = s().tables.find(t => t.name === 'products')!;
   assert.equal(products.columns.find(c => c.name === 'code')!.type, 'integer');
@@ -1295,4 +1299,125 @@ test('table copy: over 100,000 rows it runs in steps, and the table reads as it 
   assert.equal(s().tables.find(t => t.name === 'products')!.columns.find(c => c.name === 'code')!.type, 'integer');
   clearFailedTableCopy(runner);
   assert.equal(readTableCopy(runner), null);
+});
+
+test('table copy: only writes that would change the copied rows wait', () => {
+  const { runner } = open();
+  const s = () => loadSchema(runner);
+  const table = (name: string, columns: object[] = []) =>
+    createTable(runner, s(), OWNER, { name, columns: [{ name: 'name', type: 'text' }, ...columns] });
+  // customers ← orders (cascade) ← lines (cascade, copied) → menu (set null),
+  // lines → units (restrict); notes point at lines.
+  table('customers');
+  table('orders', [{ name: 'customer', type: 'relation', table: 'customers', onDelete: 'cascade' }]);
+  table('menu');
+  table('units');
+  table('lines', [
+    { name: 'order', type: 'relation', table: 'orders', onDelete: 'cascade' },
+    { name: 'dish', type: 'relation', table: 'menu', onDelete: 'set_null' },
+    { name: 'unit', type: 'relation', table: 'units', onDelete: 'restrict' }
+  ]);
+  table('notes', [{ name: 'line', type: 'relation', table: 'lines', onDelete: 'cascade' }]);
+  const copy = { table: 'lines' };
+  const reaches = (op: string, name: string) =>
+    writeReachesCopy(s(), copy, { operations: [{ op, table: name, id: 1 }] });
+  for (const op of ['insert', 'update', 'delete']) assert.equal(reaches(op, 'lines'), true, `${op} lines`);
+  assert.equal(reaches('delete', 'orders'), true, 'cascades into lines');
+  assert.equal(reaches('delete', 'customers'), true, 'cascades into orders, then lines');
+  assert.equal(reaches('delete', 'menu'), true, 'clears lines.dish');
+  assert.equal(reaches('delete', 'units'), false, 'restrict only reads lines');
+  assert.equal(reaches('delete', 'notes'), false);
+  assert.equal(reaches('insert', 'notes'), false, 'a relation into lines stays valid');
+  assert.equal(reaches('insert', 'orders'), false);
+  assert.equal(reaches('update', 'menu'), false);
+  assert.equal(
+    writeReachesCopy(s(), copy, { operations: [{ op: 'insert', table: 'menu', values: {} }, { op: 'update', table: 'lines', id: 1 }] }),
+    true,
+    'any operation of the write'
+  );
+});
+
+test("delete preview: all rows without reading the table's own, and a self-relation that goes too", () => {
+  const { runner } = open();
+  const s = () => loadSchema(runner);
+  createTable(runner, s(), OWNER, { name: 'menu', columns: [{ name: 'name', type: 'text' }] });
+  createTable(runner, s(), OWNER, {
+    name: 'lines',
+    columns: [{ name: 'dish', type: 'relation', table: 'menu', onDelete: 'cascade' }, { name: 'n', type: 'integer' }]
+  });
+  createTable(runner, s(), OWNER, {
+    name: 'notes',
+    columns: [{ name: 'line', type: 'relation', table: 'lines', onDelete: 'cascade' }]
+  });
+  addColumn(runner, s(), OWNER, 'menu', { name: 'parent', type: 'relation', table: 'menu', onDelete: 'restrict' });
+  write(runner, s(), OWNER, { operations: [
+    { op: 'insert', table: 'menu', rows: Array.from({ length: 400 }, (_, i) => ({ name: `dish ${i}` })) },
+    { op: 'insert', table: 'lines', rows: [{ dish: 1 }, { dish: 2 }, { dish: null }] },
+    { op: 'insert', table: 'notes', rows: [{ line: 1 }, { line: 2 }, { line: 3 }] }
+  ] });
+  runner.all('UPDATE menu SET parent = 1 WHERE id = 2');
+
+  let read = 0;
+  const counting: SqlRunner = {
+    ...runner,
+    all: (sql, params) => {
+      const rows = runner.all(sql, params);
+      if (/count\(\*\)/.test(sql)) read++;
+      return rows;
+    }
+  };
+  const all = deleteImpact(counting, s(), OWNER, { table: 'menu' });
+  assert.deepEqual(all, {
+    table: 'menu',
+    rows: 400,
+    effects: [
+      { table: 'menu', column: 'parent', onDelete: 'restrict', rows: 1, depth: 0 },
+      { table: 'lines', column: 'dish', onDelete: 'cascade', rows: 2, depth: 0 },
+      { table: 'notes', column: 'line', onDelete: 'cascade', rows: 2, depth: 1 }
+    ],
+    blocked: true,
+    truncated: false
+  });
+  assert.equal(read, 1, 'one counting statement');
+
+  // menu 2 points at menu 1 with restrict. SQLite checks it as each row
+  // goes, so deleting both is refused like deleting 1 alone: the preview and
+  // the delete agree, and the delete says why.
+  for (const ids of [[1], [1, 2]]) {
+    const preview = deleteImpact(runner, s(), OWNER, { table: 'menu', ids });
+    assert.equal(preview.blocked, true, `ids ${ids}`);
+    assert.deepEqual(preview.effects.find(e => e.column === 'parent'), { table: 'menu', column: 'parent', onDelete: 'restrict', rows: 1, depth: 0 });
+    throwsData(
+      () => write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'menu', where: { id: { in: ids } } }] }),
+      /1 row in menu still points at these rows|1 row in menu still points at this row/,
+      'constraint'
+    );
+  }
+  runner.all('UPDATE menu SET parent = NULL WHERE id = 2');
+  assert.equal(deleteImpact(runner, s(), OWNER, { table: 'menu', ids: [1, 2] }).blocked, false);
+  write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'menu', where: { id: { in: [1, 2] } } }] });
+});
+
+test('delete preview: every row of a table with a restrict to itself is blocked, as the delete is', () => {
+  const { runner } = open();
+  const s = () => loadSchema(runner);
+  createTable(runner, s(), OWNER, { name: 'staff', columns: [{ name: 'name', type: 'text' }] });
+  addColumn(runner, s(), OWNER, 'staff', { name: 'boss', type: 'relation', table: 'staff', onDelete: 'restrict' });
+  addColumn(runner, s(), OWNER, 'staff', { name: 'mentor', type: 'relation', table: 'staff', onDelete: 'set_null' });
+  write(runner, s(), OWNER, { operations: [{ op: 'insert', table: 'staff', rows: [{ name: 'Ana' }, { name: 'Luis', boss: 1, mentor: 1 }] }] });
+  const expected = [{ table: 'staff', column: 'boss', onDelete: 'restrict', rows: 1, depth: 0 }];
+  const all = deleteImpact(runner, s(), OWNER, { table: 'staff' });
+  assert.equal(all.blocked, true);
+  assert.deepEqual(all.effects, expected, "the set null goes with the rows; the restrict doesn't");
+  const byIds = deleteImpact(runner, s(), OWNER, { table: 'staff', ids: [1, 2] });
+  assert.equal(byIds.blocked, true);
+  assert.deepEqual(byIds.effects.filter(e => e.onDelete === 'restrict'), expected);
+  throwsData(
+    () => write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'staff', where: { id: { gt: 0 } } }] }),
+    /1 row in staff still points at these rows \(staff.boss\)/,
+    'constraint'
+  );
+  runner.all('UPDATE staff SET boss = NULL');
+  assert.equal(deleteImpact(runner, s(), OWNER, { table: 'staff' }).blocked, false);
+  write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'staff', where: { id: { gt: 0 } } }] });
 });

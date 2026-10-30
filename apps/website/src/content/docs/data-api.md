@@ -164,7 +164,10 @@ A type change copies the table, and so does dropping a relation column. Up to
 100,000 rows that happens in the request. On a larger table the copy runs in
 the background. The answer has `copy`, with how many rows are copied so far,
 and the table keeps its old columns until the copy is done. Meanwhile reads
-work as usual, but writes and table changes get a 409. `GET` on the database
+and writes to other tables work as usual. A 409 answers table changes, and
+writes that would change the copied table's rows: inserts, updates and
+deletes on it, and deletes in a table it points at with cascade or set null.
+`GET` on the database
 shows its progress in `copy`. If the copy fails, the table is left as it was
 and `copy` shows the `error` until you dismiss it with `DELETE /copy`.
 

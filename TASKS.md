@@ -1184,11 +1184,14 @@ one's bookmark.
   - **Cursors are keyset** (sort values + id), signed with the table and
     sort they were made for.
   - **A table copy runs in one request, up to 100,000 rows.** Larger tables
-    (done 2026-10-30, not deployed yet) get an empty `<table>__new`, and the
-    object's alarm copies 50,000 rows a step. The metadata moves only at the
-    swap, so the table reads as before until then. Writes and table changes
-    get a 409 while it runs, since a cascade from another table could reach
-    the rows being copied. A step that dies 3 times fails the job: the copy is
+    (done 2026-10-30, on dev and production) get an empty `<table>__new`, and the
+    object's alarm copies it a step at a time. The metadata moves only at the
+    swap, so the table reads as before until then. Table changes get a 409
+    while it runs, and so do writes that would change the copied rows:
+    inserts, updates and deletes on the table, and deletes in a table it
+    points at with cascade or set null (through cascade chains too). Other
+    writes go on, since row ids survive the copy. Steps are 5,000 rows, tens
+    of milliseconds, so other requests are served in between. A step that dies 3 times fails the job: the copy is
     dropped and the table is left as it was. Progress is in `copy` on
     `GET …/artifact/data`, with a banner on the Data page, and
     `DELETE …/copy` dismisses a failed one. Still bounded: the swap (indexes,
@@ -1502,7 +1505,7 @@ still passes on every case.
   relation to it, enter rows, search, and delete the database with the typed
   name, entirely from the dashboard. Check on the phone layout.
 
-**Phase 3 status (2026-10-23): done on dev.** apps/data, api, web and the
+**Phase 3 status (2026-10-23): done on dev; production since 2026-10-30** (`0081`–`0082` applied, `ganju-data-production` deployed, `probe-data.mjs --prod` 57/57). apps/data, api, web and the
 website deployed. Walked through on dev in Spanish:
 - the empty state and "Crear base de datos";
 - `menu` and `orders` with a relation, built in the dialog;
@@ -1558,7 +1561,7 @@ website deployed. Walked through on dev in Spanish:
   - a delete 20 s before a replace stays deleted after Undo, while the
     table's 41 rows come back;
   - a new table gets `name` as its display column.
-- **Left (done 2026-10-30, not deployed yet):**
+- **Left (done 2026-10-30, on dev and production):**
   - Tables made before the display-column default kept showing ids. Internal
     migration 2 gives every table created before 2026-10-24 with no display
     column its first text column. A table that asked for the id before then
@@ -1569,6 +1572,13 @@ website deployed. Walked through on dev in Spanish:
     cascade, cycles included, up to 200,000 rows. Past that, `truncated` makes
     the counts lower bounds. "May point here" now only shows when the preview
     couldn't be read.
+  - Follow-ups the same day: a preview of every row ("Replace all rows")
+    reads only the rows pointing in, never the table's own; a restrict
+    relation to itself still counts there (rows with it set), so it blocks
+    as the delete does. A restrict
+    relation to its own table counts rows the same delete removes, because
+    SQLite checks it row by row; the delete's own pre-check now does the
+    same, so it refuses with the readable message rather than SQLite's.
 
 **4. CLI — M**
 

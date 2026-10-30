@@ -58,6 +58,7 @@ export {
   readTableCopy,
   clearFailedTableCopy,
   copyTableStep,
+  writeReachesCopy,
   assertActor,
   assertWritable,
   exportRows

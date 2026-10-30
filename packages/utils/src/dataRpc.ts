@@ -53,8 +53,8 @@ export interface DatabaseInfo {
   schemaVersion: number;
   size: number;
   tables: { name: string; label: string | null; columns: number }[];
-  // A column change copying a large table in the background: the database
-  // takes no writes while it runs.
+  // A column change copying a large table in the background: table changes,
+  // and writes that would change its rows, wait while it runs.
   copy: DataTableCopy | null;
 }
 

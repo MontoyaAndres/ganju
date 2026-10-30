@@ -168,8 +168,11 @@ Cambiar un tipo copia la tabla, igual que eliminar una columna de relación.
 Hasta 100.000 filas, la copia se hace dentro de la solicitud. En una tabla más
 grande se hace en segundo plano. La respuesta trae `copy`, con cuántas filas van
 copiadas, y la tabla conserva sus columnas anteriores hasta que termina.
-Mientras tanto la lectura funciona como siempre, pero las escrituras y los
-cambios de tablas reciben un 409. `GET` sobre la base de datos muestra el avance
+Mientras tanto la lectura y las escrituras en otras tablas funcionan como
+siempre. Reciben un 409 los cambios de tablas y las escrituras que cambiarían
+filas de la tabla que se copia: inserciones, cambios y borrados en ella, y
+borrados en una tabla a la que apunta con `cascade` o `set_null`. `GET` sobre
+la base de datos muestra el avance
 en `copy`. Si la copia falla, la tabla queda como estaba y `copy` muestra el
 `error` hasta que lo descartes con `DELETE /copy`.
 

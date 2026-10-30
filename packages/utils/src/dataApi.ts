@@ -113,7 +113,7 @@ export const DATA_API_ROUTES = {
     tag: 'Tables',
     summary: 'Dismiss a failed table copy',
     description:
-      'A column change on a table over 100,000 rows copies it in the background, and the database takes no writes until it finishes (`copy` on `GET` shows how far it got). A copy that failed left the table as it was and stays in `copy` with its `error` until dismissed, or until the next column change.',
+      'A column change on a table over 100,000 rows copies it in the background; table changes, and writes that would change its rows, wait until it finishes (`copy` on `GET` shows how far it got). A copy that failed left the table as it was and stays in `copy` with its `error` until dismissed, or until the next column change.',
     returns: '{ copy: null }'
   },
   listTables: {
@@ -165,7 +165,7 @@ export const DATA_API_ROUTES = {
     tag: 'Tables',
     summary: 'Rename a column or change it',
     description:
-      'A type change copies the table and lists the first rows that would not fit. When it copies, the answer carries a `bookmark` from just before. Over 100,000 rows the copy runs in the background: the answer carries `copy`, the table keeps its old columns until it finishes, and the database refuses writes meanwhile.',
+      'A type change copies the table and lists the first rows that would not fit. When it copies, the answer carries a `bookmark` from just before. Over 100,000 rows the copy runs in the background: the answer carries `copy`, the table keeps its old columns until it finishes, and meanwhile table changes, and writes that would change its rows, are refused.',
     body: DATA_COLUMN_PATCH,
     returns: '{ table, bookmark, copy }'
   },

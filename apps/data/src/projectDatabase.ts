@@ -20,6 +20,7 @@ import {
   query,
   readTableCopy,
   rowHistory,
+  writeReachesCopy,
   setMeta,
   toTableInput,
   updateColumn,
@@ -97,8 +98,9 @@ interface CallOptions {
   allowDeleted?: boolean;
   // A table copy needs foreign keys off, set before anything is written.
   foreignKeysOff?: boolean;
-  // Changes rows or tables, so it waits for a background table copy.
-  writes?: boolean;
+  // Waits for a background table copy: a change to the tables always, rows
+  // only when the write would reach the table being copied.
+  writes?: 'tables' | { rows: unknown };
 }
 
 // One project's database. Only our Workers can reach it (through the
@@ -185,7 +187,7 @@ export class ProjectDatabase
           );
         }
         this.reportAlarmUsage(runner, usage);
-        if (this.isCopying(runner)) await this.whileCopying(options);
+        if (this.isCopying(runner)) await this.whileCopying(runner, options);
       }
       const value = await fn(runner);
       return { ok: true, value, usage };
@@ -245,18 +247,30 @@ export class ProjectDatabase
 
   // A copy only moves while the alarm runs, so every call makes sure one is
   // set: an alarm that gave up after its retries would leave the database
-  // refusing writes for good. A call that writes is refused.
-  private async whileCopying(options: CallOptions) {
+  // waiting for good. A write that would reach the copied table is refused.
+  private async whileCopying(runner: SqlRunner, options: CallOptions) {
     await this.scheduleAlarm(Date.now());
     if (!options.writes) return;
-    const copy = readTableCopy(this.runner({ rowsRead: 0, rowsWritten: 0 }));
+    const copy = readTableCopy(runner);
     if (copy?.status !== 'running') return;
-    const percent = copy.rows ? Math.floor((copy.copied / copy.rows) * 100) : 0;
-    throw new DataError(
-      `${copy.table} is being copied to ${copy.kind === 'drop' ? 'drop' : 'change'} its column ${copy.column} (${percent}% done). The database takes changes again when it finishes.`,
-      'conflict',
-      { copy }
-    );
+    if (options.writes === 'tables') {
+      throw new DataError(
+        `${copy.table} is being copied to ${copy.kind === 'drop' ? 'drop' : 'change'} its column ${copy.column} (${this.percent(copy)}% done). Tables can be changed again when it finishes.`,
+        'conflict',
+        { copy }
+      );
+    }
+    if (writeReachesCopy(this.schema(runner), copy, options.writes.rows)) {
+      throw new DataError(
+        `${copy.table} is being copied to ${copy.kind === 'drop' ? 'drop' : 'change'} its column ${copy.column} (${this.percent(copy)}% done), and this write would change its rows. Try again when it finishes.`,
+        'conflict',
+        { copy }
+      );
+    }
+  }
+
+  private percent(copy: { rows: number; copied: number }) {
+    return copy.rows ? Math.floor((copy.copied / copy.rows) * 100) : 0;
   }
 
   private readLifecycle(runner: SqlRunner) {
@@ -474,7 +488,7 @@ export class ProjectDatabase
   }
 
   async createTable(caller: DataCaller, input: unknown) {
-    return this.call({ writes: true }, runner =>
+    return this.call({ writes: 'tables' }, runner =>
       this.ddl(runner, () =>
         createTable(runner, this.schema(runner), this.caller(caller), input)
       )
@@ -482,7 +496,7 @@ export class ProjectDatabase
   }
 
   async updateTable(caller: DataCaller, table: string, patch: unknown) {
-    return this.call({ writes: true }, runner =>
+    return this.call({ writes: 'tables' }, runner =>
       this.ddl(runner, () =>
         updateTable(runner, this.schema(runner), this.caller(caller), table, patch)
       )
@@ -491,7 +505,7 @@ export class ProjectDatabase
 
   // Returns the bookmark from just before, so "undo" is one restore.
   async dropTable(caller: DataCaller, table: string) {
-    return this.call({ writes: true }, async runner => {
+    return this.call({ writes: 'tables' }, async runner => {
       const bookmark = await this.bookmark();
       const result = this.ddl(runner, () =>
         dropTable(runner, this.schema(runner), this.caller(caller), table)
@@ -501,7 +515,7 @@ export class ProjectDatabase
   }
 
   async addColumn(caller: DataCaller, table: string, input: unknown) {
-    return this.call({ writes: true }, runner =>
+    return this.call({ writes: 'tables' }, runner =>
       this.ddl(runner, () =>
         addColumn(runner, this.schema(runner), this.caller(caller), table, input)
       )
@@ -517,7 +531,7 @@ export class ProjectDatabase
     const copies = this.peekSchema(schema =>
       columnChangeNeedsRebuild(schema, table, column, patch)
     );
-    return this.call({ foreignKeysOff: copies, writes: true }, async runner => {
+    return this.call({ foreignKeysOff: copies, writes: 'tables' }, async runner => {
       const bookmark = copies ? await this.bookmark() : null;
       clearFailedTableCopy(runner);
       const result = this.ddl(runner, () =>
@@ -531,7 +545,7 @@ export class ProjectDatabase
     const copies = this.peekSchema(schema =>
       dropColumnNeedsRebuild(schema, table, column)
     );
-    return this.call({ foreignKeysOff: copies, writes: true }, async runner => {
+    return this.call({ foreignKeysOff: copies, writes: 'tables' }, async runner => {
       const bookmark = await this.bookmark();
       clearFailedTableCopy(runner);
       const result = this.ddl(runner, () =>
@@ -585,7 +599,7 @@ export class ProjectDatabase
   }
 
   async write(caller: DataCaller, args: unknown) {
-    return this.call({ writes: true }, runner => {
+    return this.call({ writes: { rows: args } }, runner => {
       const result = write(runner, this.schema(runner), this.caller(caller), args);
       this.recordFirstWrite(runner);
       return result;

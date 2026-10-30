@@ -317,12 +317,16 @@ test('a delete preview follows the cascades in one call', async () => {
   assert.equal((await call('deleteImpact', bot, { table: 'menu' })).error.code, 'forbidden');
 });
 
-test('a column change on a large table copies it from the alarm, refusing writes meanwhile', async () => {
+test('a column change on a large table copies it from the alarm, refusing the writes that reach it', async () => {
   const call = callOn('large-copy');
   await call('init', { artifactId: 'large-copy', name: 'big' });
   await call('createTable', owner, {
     name: 'products',
     columns: [{ name: 'code', type: 'text' }]
+  });
+  await call('createTable', owner, {
+    name: 'visits',
+    columns: [{ name: 'note', type: 'text' }]
   });
   const rows = 100_001;
   for (let start = 0; start < rows; start += 5_000) {
@@ -339,6 +343,11 @@ test('a column change on a large table copies it from the alarm, refusing writes
     assert.equal(inserted.ok, true, JSON.stringify(inserted).slice(0, 300));
   }
 
+  // Previewing a delete of every row doesn't read them.
+  const preview = await call('deleteImpact', owner, { table: 'products' });
+  assert.equal(preview.value.rows, rows);
+  assert.ok(preview.usage.rowsRead < 10, `${preview.usage.rowsRead} rows read`);
+
   const changed = await call('updateColumn', owner, 'products', 'code', { type: 'integer' });
   assert.equal(changed.ok, true, JSON.stringify(changed));
   assert.equal(changed.value.copy.status, 'running');
@@ -351,7 +360,16 @@ test('a column change on a large table copies it from the alarm, refusing writes
   });
   assert.equal(refused.ok, false);
   assert.equal(refused.error.code, 'conflict');
-  assert.match(refused.error.message, /products is being copied to change its column code/);
+  assert.match(refused.error.message, /products is being copied to change its column code.*would change its rows/);
+  const elsewhere = await call('write', owner, {
+    operations: [{ op: 'insert', table: 'visits', values: { note: 'during the copy' } }]
+  });
+  assert.equal(elsewhere.ok, true, 'a write that can\'t reach products goes on');
+  assert.equal(
+    (await call('addColumn', owner, 'visits', { name: 'n', type: 'integer' })).error?.code,
+    'conflict',
+    'table changes wait'
+  );
   assert.equal((await call('query', owner, { table: 'products', limit: 1 })).ok, true, 'reads go on');
 
   let info;

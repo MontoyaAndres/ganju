@@ -239,10 +239,11 @@ export const DATA_MAX_AGGREGATES = 5;
 export const DATA_MAX_GROUP_BY = 3;
 export const DATA_MAX_GROUPS = 100;
 // A type change copies the table in one request up to this size. A larger
-// table is copied in the background, this many rows a step, and the database
-// takes no writes until it is done.
+// table is copied in the background, this many rows a step (tens of
+// milliseconds, so other requests are served in between), and writes that
+// would change its rows wait until it is done.
 export const DATA_REBUILD_MAX_ROWS = 100_000;
-export const DATA_COPY_STEP_ROWS = 50_000;
+export const DATA_COPY_STEP_ROWS = 5_000;
 // A delete preview follows cascades through up to this many rows; past it,
 // its counts are lower bounds.
 export const DATA_IMPACT_MAX_ROWS = 200_000;

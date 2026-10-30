@@ -367,7 +367,7 @@ const en = {
   copyChangeTitle: 'Changing {column} in {table}',
   copyDropTitle: 'Dropping {column} from {table}',
   copyRunningText:
-    '{copied} of {rows} rows copied. Reading works as usual; rows and tables can be changed again once it finishes.',
+    "{copied} of {rows} rows copied. Everything else works as usual; this table's rows and the table settings can be changed again once it finishes.",
   copyFailedTitle: "The change to {column} in {table} didn't finish",
   copyFailedText: '{error} The table is as it was before.',
   toastCopyStarted:
@@ -761,7 +761,7 @@ export const DATA: Catalog<DataCopy> = {
     copyChangeTitle: 'Cambiando {column} en {table}',
     copyDropTitle: 'Eliminando {column} de {table}',
     copyRunningText:
-      '{copied} de {rows} filas copiadas. La lectura funciona como siempre; las filas y las tablas se pueden cambiar de nuevo cuando termine.',
+      '{copied} de {rows} filas copiadas. Todo lo demás funciona como siempre; las filas de esta tabla y la configuración de las tablas se pueden cambiar de nuevo cuando termine.',
     copyFailedTitle: 'El cambio de {column} en {table} no terminó',
     copyFailedText: '{error} La tabla quedó como estaba.',
     toastCopyStarted:

@@ -1697,24 +1697,21 @@ const runOperation = (
             .map(r => Number(r.id))
         : assertBoundedTarget();
     // A readable "3 rows in order_lines still point at this order" before
-    // SQLite's bare foreign key error.
+    // SQLite's bare foreign key error. A row of the same table counts even
+    // when this delete removes it too: SQLite checks a restrict as each row
+    // goes, so a child still there when its parent is deleted refuses it.
     for (const other of schema.tables) {
       for (const c of other.columns) {
         if (c.type !== 'relation' || c.table !== table.name) continue;
         if ((c.onDelete ?? 'restrict') !== 'restrict' || ids.length === 0) continue;
-        // A relation to its own table binds each id twice.
-        const self = other.name === table.name;
-        const size = self ? Math.floor(DATA_MAX_PARAMS / 2) : DATA_MAX_PARAMS;
         let n = 0;
-        for (let i = 0; i < ids.length; i += size) {
-          const slice = ids.slice(i, i + size);
+        for (let i = 0; i < ids.length; i += DATA_MAX_PARAMS) {
+          const slice = ids.slice(i, i + DATA_MAX_PARAMS);
           n += Number(
             first(
               runner,
-              `SELECT count(*) AS n FROM ${q(other.name)} WHERE ${q(c.name)} IN (${slice.map(() => '?').join(', ')})${
-                self ? ` AND id NOT IN (${slice.map(() => '?').join(', ')})` : ''
-              }`,
-              self ? [...slice, ...slice] : slice
+              `SELECT count(*) AS n FROM ${q(other.name)} WHERE ${q(c.name)} IN (${slice.map(() => '?').join(', ')})`,
+              slice
             )?.n ?? 0
           );
         }
@@ -1828,7 +1825,10 @@ export const write = (
 // What deleting `ids` of a table, or all its rows, would do to the rows that
 // point at them, counted the way SQLite applies it: cascades are followed to
 // the end in one recursive query, which stops at DATA_IMPACT_MAX_ROWS rows.
-// For the owner: a bot's deletes go through the confirmation rules instead.
+// Without ids the table's own rows are never read: every non-empty relation
+// to it points at a deleted row, and the cascades start from those. `rows`
+// is then an estimate. For the owner: a bot's deletes go through the
+// confirmation rules instead.
 export const deleteImpact = (
   runner: SqlRunner,
   schema: DataSchema,
@@ -1872,6 +1872,19 @@ export const deleteImpact = (
     }
   }
   const doomedIn = (t: DataTable) => `(SELECT id FROM doomed WHERE t = ${t.id})`;
+  // The rows of `other` whose `column` points at a deleted row of `parent`.
+  const pointing = (parent: DataTable, column: DataColumn) =>
+    !ids && parent.id === table.id
+      ? `c.${q(column.name)} IS NOT NULL`
+      : `c.${q(column.name)} IN ${doomedIn(parent)}`;
+  const base = ids
+    ? [`SELECT ${table.id}, id FROM ${q(table.name)} WHERE id IN (SELECT value FROM json_each(?))`]
+    : incoming(table.name)
+        .filter(edge => edge.onDelete === 'cascade' && edge.other.id !== table.id)
+        .map(
+          ({ other, column }) =>
+            `SELECT ${other.id}, c.id FROM ${q(other.name)} c WHERE ${pointing(table, column)}`
+        );
   const recursive = reached.flatMap(parent =>
     incoming(parent.name)
       .filter(edge => edge.onDelete === 'cascade')
@@ -1880,22 +1893,28 @@ export const deleteImpact = (
           `SELECT ${other.id}, c.id FROM ${q(other.name)} c JOIN doomed d ON d.t = ${parent.id} AND c.${q(column.name)} = d.id`
       )
   );
+  // Without ids, a cascade or a set null on the table's own rows doesn't
+  // matter: they all go. A restrict to itself still refuses the delete.
   const edges = reached.flatMap(parent =>
-    incoming(parent.name).map(edge => ({ ...edge, parent }))
+    incoming(parent.name)
+      .filter(edge => ids || edge.other.id !== table.id || edge.onDelete === 'restrict')
+      .map(edge => ({ ...edge, parent }))
   );
   const counts = [
     `SELECT -1 AS k, count(*) AS n FROM doomed`,
     `SELECT -2 AS k, count(*) AS n FROM doomed WHERE t = ${table.id}`,
     ...edges.map(
       ({ other, column, onDelete, parent }, i) =>
-        `SELECT ${i} AS k, count(*) AS n FROM ${q(other.name)} c WHERE c.${q(column.name)} IN ${doomedIn(parent)}${
-          // A cleared row that is deleted anyway isn't cleared.
+        `SELECT ${i} AS k, count(*) AS n FROM ${q(other.name)} c WHERE ${pointing(parent, column)}${
+          // A cleared row that is deleted anyway isn't cleared. A restrict
+          // counts every row, even one the same delete removes: SQLite
+          // checks it as each row goes, before the rest are gone.
           onDelete === 'set_null' ? ` AND c.id NOT IN ${doomedIn(other)}` : ''
         }`
     )
   ];
   const sql = `WITH RECURSIVE doomed(t, id) AS MATERIALIZED (
-    SELECT ${table.id}, id FROM ${q(table.name)}${ids ? ' WHERE id IN (SELECT value FROM json_each(?))' : ''}
+    ${base.length ? base.join('\n    UNION ') : 'SELECT 0, 0 WHERE 0'}
     ${recursive.map(s => `UNION ${s}`).join('\n    ')}
     LIMIT ${DATA_IMPACT_MAX_ROWS}
   )
@@ -1915,7 +1934,7 @@ export const deleteImpact = (
     .sort((a, b) => a.depth - b.depth);
   return {
     table: table.name,
-    rows: n.get(-2) ?? 0,
+    rows: ids ? (n.get(-2) ?? 0) : estimateRows(runner, table),
     effects,
     blocked: effects.some(e => e.onDelete === 'restrict'),
     truncated: (n.get(-1) ?? 0) >= DATA_IMPACT_MAX_ROWS
@@ -2527,6 +2546,47 @@ export const readTableCopy = (runner: SqlRunner): DataTableCopy | null => {
     status: job.status,
     error: job.error
   };
+};
+
+// Whether a write would change rows of the table being copied, which the
+// copy would then miss: an insert, update or delete on it, or a delete in a
+// table it points at with cascade or set null, directly or through a chain of
+// cascades. Only those wait for the copy. Every other write goes on: row ids
+// survive the copy, so a relation pointing into the table stays valid.
+export const writeReachesCopy = (
+  schema: DataSchema,
+  copy: Pick<DataTableCopy, 'table'>,
+  rawArgs: unknown
+): boolean => {
+  const reaching = new Set([copy.table]);
+  const queue = [copy.table];
+  while (queue.length) {
+    const name = queue.shift()!;
+    const table = schema.tables.find(t => t.name === name);
+    for (const column of table?.columns ?? []) {
+      if (column.type !== 'relation' || !column.table) continue;
+      const onDelete = column.onDelete ?? 'restrict';
+      // A cleared relation changes the copied table's own rows only.
+      const reaches =
+        onDelete === 'cascade' || (onDelete === 'set_null' && name === copy.table);
+      if (reaches && !reaching.has(column.table)) {
+        reaching.add(column.table);
+        queue.push(column.table);
+      }
+    }
+  }
+  let operations: unknown;
+  try {
+    operations = tidyArgs(rawArgs).operations;
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(operations)) return false;
+  return operations.some(
+    op =>
+      isPlainObject(op) &&
+      (op.table === copy.table || (op.op === 'delete' && reaching.has(String(op.table))))
+  );
 };
 
 // Forgets a failed copy once the owner has seen it, or a new change starts.
