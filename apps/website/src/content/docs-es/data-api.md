@@ -2,7 +2,7 @@
 title: API de Datos
 description: Administra las tablas y filas de un proyecto por HTTP — crea tablas, inserta y busca filas, registra pedidos sin errores y exporta — con un token de acceso personal.
 order: 7
-updated: 2026-10-21
+updated: 2026-10-30
 ---
 
 Cada proyecto en **Pro** o **Enterprise** puede tener su propia **base de
@@ -195,6 +195,85 @@ en `copy`. Si la copia falla, la tabla queda como estaba y `copy` muestra el
   `GET /export/file?exportId=<id>&table=<tabla>`. Sin `table`, descargas
   `schema.json`. Las exportaciones también funcionan durante los 7 días
   después de eliminar la base de datos.
+
+## Desde la línea de comandos
+
+Los comandos `ganju data` de la CLI llaman a estas mismas rutas, para el
+proyecto de `ganju.json`. Instálala con `npm install -g @ganju/cli`, y luego
+ejecuta `ganju login` y `ganju link`. En una máquina sin navegador, define
+`GANJU_API_TOKEN` con un token de acceso personal: lo que la CLI escriba queda
+registrado como `cli:<id del token>`, y si recibe un `429` espera y sigue sola.
+
+```bash
+ganju data create
+ganju data info
+ganju data tables
+
+# Filas: filtrar, ordenar, buscar y paginar
+ganju data rows menu --where 'price<30000' --where size=30cm --sort -price --limit 50
+ganju data rows menu --search pizza --json
+ganju data get menu 12
+ganju data insert menu --input '{"name":"Margarita","price":28000}'
+ganju data insert menu --input-file menu.jsonl
+ganju data update menu 12 --input '{"stock":{"decrement":2}}' --version 3
+ganju data delete orders 7 --yes
+
+# Un archivo CSV o JSONL, emparejado con las columnas igual que en el panel
+ganju data import menu menu.csv
+ganju data import menu menu.csv --map 'Precio (COP)=price'
+ganju data import menu menu.csv --replace --yes --confirm menu
+```
+
+`--where` acepta `columna=valor` y `!=`, `>`, `>=`, `<`, `<=`, `~` (contiene)
+y `^=` (empieza por). `status=[open,done]` coincide con cualquiera de los
+valores, `code="007"` deja el valor como texto y `note=null` encuentra los
+vacíos. Repite `--where` para exigir varias condiciones, o pasa directamente el
+JSON de `where`.
+
+`delete` muestra lo que un borrado en cascada también eliminaría, y se niega si
+una relación `restrict` lo impide. `import` lee números como "28.000", reconoce
+las relaciones por el nombre que muestra la otra tabla y deja las filas
+rechazadas, con el motivo, en un CSV que puedes corregir e importar de nuevo.
+
+### El esquema como código
+
+`ganju data schema pull` escribe las tablas de la base de datos en
+`ganju.data.json`, con la misma forma que el `schema.json` de una exportación.
+Edítalo y revísalo como cualquier código. `ganju data schema diff` muestra lo
+que cambiaría, y `ganju data schema push` lo aplica:
+
+```bash
+ganju data schema diff
++ create table orders (customer, status)
++ add column menu.notes long_text
+~ change table menu: label "Menú"
+- change menu.price: type "decimal" (copies the table) (needs --yes)
+- drop column menu.code (needs --yes)
+```
+
+Las tablas y columnas se emparejan por nombre, y las tablas nuevas se crean en
+un orden en el que la tabla a la que apunta cada relación ya existe. Las tablas
+y columnas nuevas y los cambios de configuración se aplican de una vez. Las
+eliminaciones y los cambios de tipo se listan y solo se aplican con `--yes`,
+después de tomar un punto de restauración que los deshace. Un cambio de nombre
+en el archivo se lee como eliminar y agregar: para renombrar, usa
+`ganju data column rename` o `ganju data table rename`.
+
+### Comandos destructivos
+
+Todo lo que elimina, borra o reescribe datos necesita `--yes`. Eliminar la base
+de datos o una tabla también pide su nombre, escrito con `--confirm`:
+
+```bash
+ganju data table rm orders --yes --confirm orders
+ganju data drop --yes --confirm acme-support
+ganju data restore                              # deshace la eliminación, dentro de 7 días
+ganju data restore --at 2026-10-30T09:15:00-05:00 --yes
+ganju data restore --bookmark <bookmark> --yes  # el deshacer que mostró una eliminación
+ganju data export --format csv --out respaldo/
+```
+
+En una terminal, la CLI pregunta por lo que falte. En un script, se niega.
 
 ## Errores
 

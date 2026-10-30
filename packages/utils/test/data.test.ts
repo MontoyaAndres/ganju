@@ -692,6 +692,26 @@ test('history: who changed what, cascades included, pruned after 90 days', () =>
   assert.equal(rowHistory(runner, s(), OWNER, { table: 'menu', id: 1 }).entries.length, 0);
 });
 
+test("history: a new table doesn't inherit a dropped table's id or history", () => {
+  const { runner, s } = restaurant();
+  write(runner, s(), BOT('ana'), {
+    operations: [
+      { op: 'insert', table: 'orders', values: {} },
+      { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: 1, quantity: 1 } }
+    ]
+  });
+  // The newest table: the one whose id SQLite would hand out again.
+  const dropped = s().tables.find(t => t.name === 'order_lines')!.id;
+  dropTable(runner, s(), OWNER, 'order_lines');
+  createTable(runner, s(), OWNER, { name: 'notes', columns: [{ name: 'text', type: 'text' }] });
+  assert.ok(s().tables.find(t => t.name === 'notes')!.id > dropped);
+  write(runner, s(), { actor: 'user:owner' }, { operations: [{ op: 'insert', table: 'notes', values: { text: 'hi' } }] });
+  assert.deepEqual(
+    rowHistory(runner, s(), OWNER, { table: 'notes', id: 1 }).entries.map(e => [e.op, e.actor]),
+    [['insert', 'user:owner']]
+  );
+});
+
 test('schema: add, rename and drop columns keep search, indexes and history working', () => {
   const { runner, s } = restaurant();
   addColumn(runner, s(), OWNER, 'menu', { name: 'spicy', type: 'boolean', default: false, filterable: true });

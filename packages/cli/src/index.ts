@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import { CliError, isCliError } from './errors.js';
 import { color, fail, note, say } from './output.js';
 import { build } from './commands/build.js';
+import { data, dataUsage } from './commands/data/index.js';
 import { deploy } from './commands/deploy.js';
 import { init } from './commands/init.js';
 import { link, showLink } from './commands/link.js';
@@ -44,7 +45,27 @@ const FLAGS = {
   organization: { type: 'string' },
   project: { type: 'string' },
   expires: { type: 'string' },
-  status: { type: 'boolean' }
+  status: { type: 'boolean' },
+  // ganju data
+  name: { type: 'string' },
+  yes: { type: 'boolean', short: 'y' },
+  confirm: { type: 'string' },
+  at: { type: 'string' },
+  bookmark: { type: 'string' },
+  format: { type: 'string' },
+  out: { type: 'string' },
+  schema: { type: 'string' },
+  // Repeatable: every condition has to hold.
+  where: { type: 'string', multiple: true },
+  sort: { type: 'string' },
+  search: { type: 'string' },
+  include: { type: 'string' },
+  cursor: { type: 'string' },
+  all: { type: 'boolean' },
+  replace: { type: 'boolean' },
+  'no-wait': { type: 'boolean' },
+  'decimal-mark': { type: 'string' },
+  map: { type: 'string', multiple: true }
 } as const;
 
 declare const __GANJU_CLI_VERSION__: string;
@@ -52,12 +73,13 @@ const VERSION =
   typeof __GANJU_CLI_VERSION__ === 'string' ? __GANJU_CLI_VERSION__ : 'dev';
 
 const usage = () => {
-  say(`${color.bold('ganju')} — write, deploy and debug custom tools
+  say(`${color.bold('ganju')} — write, deploy and debug custom tools, and manage project data
 
 ${color.bold('Getting started')}
   ganju init [dir]              scaffold a project that deploys as-is
   ganju login                   sign in on this machine
   ganju link                    point ganju.json at an organization and project
+                                (creates it if there is none)
 
 ${color.bold('Working on tools')}
   ganju build                   compile and minify, and report the size
@@ -70,6 +92,10 @@ ${color.bold('Managing what is live')}
   ganju rollback <version>      put a previously live version back
   ganju secret set|list|rm      the values ctx.secret() reads
   ganju token                   credentials for CI, scoped to this project
+
+${color.bold('Project data')}
+  ganju data                    the project's database: tables, rows, import,
+                                export, schema as code (ganju data help)
 
 ${color.bold('Other')}
   ganju whoami                  who this machine is signed in as
@@ -90,11 +116,71 @@ ${color.bold('Flags')}
   --expires <days|never>        token create: when it stops working
   --json                        machine-readable output where it makes sense
 
+  data:
+  -y, --yes                     go ahead with a drop, delete or rewrite
+  --confirm <name>              the database's or table's name, for drops
+  --name <name>                 create: the database's name
+  --at <ISO time>               restore: a point in time, with its offset
+  --bookmark <bookmark>         restore: a bookmark a drop or checkpoint gave
+  --format jsonl|csv            export: the file format (default jsonl)
+  --out <path>                  export: the folder; import: the refused-rows file
+  --schema <file>               table create / schema: the schema file
+  --where <condition>           rows: a filter, repeatable (ganju data help)
+  --sort <columns>              rows: e.g. -created_at,name
+  --search <text>               rows: full-text search
+  --include <relations>         rows/get: relation columns to expand
+  --limit <n> / --cursor <c>    rows: page size (max 500) and the next page
+  --all                         rows: every page
+  --input / --input-file        insert/update/write: the values, as JSON or JSONL
+  --version <n>                 update/delete: the row version you read
+  --replace                     import: replace every row; create: replace a
+                                deleted database
+  --no-wait                     column change/rm: don't wait for a table copy
+  --decimal-mark . | ,          import: how the file writes decimals
+  --map 'Header=column'         import: a header to a column, repeatable
+
 ${color.bold('Environment')}
   GANJU_API_URL                 which deployment to talk to
   GANJU_API_TOKEN               a token for a machine with no browser
                                 (ganju token create mints a durable one)
   GANJU_SECRET_VALUE            secret set: the value, kept out of shell history`);
+};
+
+/**
+ * `--sort -price` the way people type it. parseArgs reads a value that starts
+ * with a dash as a flag the value was forgotten for, and refuses it; a value
+ * like `-price` or `-5` that names no flag of ours is plainly the value, so
+ * it is joined onto its flag before parsing.
+ */
+const joinDashValues = (args: string[]): string[] => {
+  const takesValue = new Set(
+    Object.entries(FLAGS)
+      .filter(([, option]) => option.type === 'string')
+      .map(([name]) => `--${name}`)
+  );
+  const shorts = new Set(
+    Object.values(FLAGS).flatMap(option =>
+      'short' in option ? [`-${option.short}`] : []
+    )
+  );
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    const next = args[i + 1];
+    if (
+      takesValue.has(arg) &&
+      next !== undefined &&
+      next.startsWith('-') &&
+      !next.startsWith('--') &&
+      !shorts.has(next)
+    ) {
+      out.push(`${arg}=${next}`);
+      i++;
+      continue;
+    }
+    out.push(arg);
+  }
+  return out;
 };
 
 const main = async (argv: string[]): Promise<void> => {
@@ -121,7 +207,7 @@ const main = async (argv: string[]): Promise<void> => {
   let parsed;
   try {
     parsed = parseArgs({
-      args: rest,
+      args: joinDashValues(rest),
       allowPositionals: true,
       strict: true,
       options: FLAGS
@@ -134,7 +220,8 @@ const main = async (argv: string[]): Promise<void> => {
   const { values, positionals } = parsed;
 
   if (values.help) {
-    usage();
+    if (command === 'data') dataUsage();
+    else usage();
     return;
   }
 
@@ -187,6 +274,32 @@ const main = async (argv: string[]): Promise<void> => {
       return token(positionals, {
         expires: flag('expires'),
         json: flag('json')
+      });
+    case 'data':
+      return data(positionals, {
+        name: flag('name'),
+        yes: flag('yes'),
+        confirm: flag('confirm'),
+        at: flag('at'),
+        bookmark: flag('bookmark'),
+        format: flag('format'),
+        out: flag('out'),
+        schema: flag('schema'),
+        where: flag('where'),
+        sort: flag('sort'),
+        limit,
+        search: flag('search'),
+        include: flag('include'),
+        cursor: flag('cursor'),
+        all: flag('all'),
+        input: flag('input'),
+        inputFile: flag('input-file'),
+        version: flag('version'),
+        json: flag('json'),
+        replace: flag('replace'),
+        wait: !flag<boolean>('no-wait'),
+        decimalMark: flag('decimal-mark'),
+        map: flag('map')
       });
     default:
       fail(`Unknown command "${command}"`);

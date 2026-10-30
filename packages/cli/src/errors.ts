@@ -23,3 +23,37 @@ export class CliError extends Error {
 
 export const isCliError = (error: unknown): error is CliError =>
   error instanceof CliError;
+
+/**
+ * A failure the API answered with. Most commands only print it; the few that
+ * can do something about it (a stale row version, a table busy copying) read
+ * its `code` and `details`.
+ */
+export class ApiError extends CliError {
+  readonly status: number;
+  readonly code?: string;
+  readonly details?: Record<string, unknown>;
+  // Seconds, from a 429's Retry-After.
+  readonly retryAfter?: number;
+
+  constructor(
+    message: string,
+    options: {
+      status: number;
+      code?: string;
+      details?: Record<string, unknown>;
+      retryAfter?: number;
+      hint?: string;
+    }
+  ) {
+    super(message, { hint: options.hint });
+    this.name = 'ApiError';
+    this.status = options.status;
+    this.code = options.code;
+    this.details = options.details;
+    this.retryAfter = options.retryAfter;
+  }
+}
+
+export const isApiError = (error: unknown): error is ApiError =>
+  error instanceof ApiError;

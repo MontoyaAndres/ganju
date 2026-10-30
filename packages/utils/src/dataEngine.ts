@@ -48,6 +48,7 @@ import {
 } from './dataCompiler';
 import type { CompileContext, SortKey, SqlJoin, SqlValue } from './dataCompiler';
 import {
+  toTableInput,
   DATA_ACCESS_LEVELS,
   DATA_COLUMN_TYPES,
   DATA_DEFAULT_PAGE,
@@ -274,33 +275,8 @@ export const loadSchema = (runner: SqlRunner): DataSchema => {
   };
 };
 
-// The table as the owner would write it again: what `ganju.data.json` and an
-// export's schema.json hold.
-export const toTableInput = (table: DataTable): DataTableInput => ({
-  name: table.name,
-  label: table.label,
-  description: table.description,
-  displayColumn: table.displayColumn,
-  access: table.access,
-  customerScoped: table.customerScoped,
-  history: table.history,
-  columns: table.columns.map(column => {
-    const out: DataColumnInput = { name: column.name, type: column.type };
-    if (column.label) out.label = column.label;
-    if (column.description) out.description = column.description;
-    if (column.required) out.required = true;
-    if (column.unique) out.unique = true;
-    if (column.filterable) out.filterable = true;
-    if (column.searchable) out.searchable = true;
-    if (column.personal) out.personal = true;
-    if (column.values) out.values = column.values;
-    if (column.table) out.table = column.table;
-    if (column.onDelete) out.onDelete = column.onDelete;
-    if (column.min !== null) out.min = column.min;
-    if (column.default !== undefined) out.default = column.default;
-    return out;
-  })
-});
+// Kept with the types, so a client can build it without the engine.
+export { toTableInput };
 
 const tableNamed = (schema: DataSchema, name: unknown): DataTable => {
   const table = schema.tables.find(t => t.name === name);
@@ -2157,10 +2133,23 @@ export const createTable = (
     const position = Number(
       first(runner, 'SELECT coalesce(max(position), -1) + 1 AS p FROM _ganju_tables')?.p ?? 0
     );
+    // Never an id a dropped table had: its row history stays in the log
+    // (a restore to the drop's bookmark brings both back), and a new table
+    // reusing the id would show that history as its own.
+    const nextId = Number(
+      first(
+        runner,
+        `SELECT max(
+           coalesce((SELECT max(id) FROM _ganju_tables), 0),
+           coalesce((SELECT max(table_id) FROM _ganju_row_log), 0)
+         ) + 1 AS id`
+      )?.id ?? 1
+    );
     const tableId = Number(
       runner.all(
-        'INSERT INTO _ganju_tables (name, label, description, access, customer_scoped, history, position) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id',
+        'INSERT INTO _ganju_tables (id, name, label, description, access, customer_scoped, history, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
         [
+          nextId,
           name,
           cleanText(input.label, DATA_MAX_LABEL, `${name} label`),
           cleanText(input.description, DATA_MAX_DESCRIPTION, `${name} description`),

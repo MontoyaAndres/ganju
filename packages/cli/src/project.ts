@@ -99,7 +99,7 @@ export const loadProject = async (): Promise<LoadedProject> => {
     throw new CliError(
       `No ${PROJECT_FILE} found in this directory or any above it`,
       {
-        hint: 'Run `ganju init` to create one.'
+        hint: 'Run `ganju link` to make one for a project, or `ganju init` to scaffold custom tools.'
       }
     );
   }

@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 import { ApiClient } from '../api.js';
 import { CliError } from '../errors.js';
 import { color, note, success } from '../output.js';
@@ -34,15 +36,15 @@ export const link = async (flags: {
   organization?: string;
   project?: string;
 }): Promise<void> => {
-  const project = (await findProject()) ?? null;
-  if (!project) {
-    throw new CliError(
-      `No ${PROJECT_FILE} found in this directory or any above it`,
-      {
-        hint: 'Run `ganju init` first.'
-      }
-    );
-  }
+  // With no project file anywhere above, one is made here: someone who only
+  // wants `ganju data` has no tools to scaffold with `ganju init`. It is
+  // written once a project is picked, so a link given up on leaves nothing.
+  const found = await findProject();
+  const project = found ?? {
+    root: process.cwd(),
+    path: join(process.cwd(), PROJECT_FILE),
+    file: {}
+  };
 
   const api = new ApiClient(apiUrlFor(project));
   const organizations = await api.request<OrganizationRow[]>('/organization');
@@ -99,7 +101,7 @@ export const link = async (flags: {
     `linked to ${color.bold(chosen.name)} in ${organization.name}` +
       (artifact?.slug ? ` ${color.gray(`(${artifact.slug})`)}` : '')
   );
-  note(color.gray(`  written to ${project.path}`));
+  note(color.gray(`  ${found ? 'written to' : 'created'} ${project.path}`));
 };
 
 const pick = <T extends { id: string; name: string }>(

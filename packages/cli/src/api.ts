@@ -1,4 +1,4 @@
-import { CliError } from './errors.js';
+import { ApiError, CliError } from './errors.js';
 import {
   readAccount,
   writeAccount,
@@ -23,6 +23,8 @@ export interface ApiOptions {
   // which is source text.
   body?: string;
   headers?: Record<string, string>;
+  // Answer with the body as text, unparsed: a file, not a JSON answer.
+  raw?: boolean;
 }
 
 /**
@@ -112,6 +114,7 @@ export class ApiClient {
 
     if (response.status === 204) return undefined as T;
     const text = await response.text();
+    if (options.raw) return text as T;
     if (!text) return undefined as T;
     try {
       return JSON.parse(text) as T;
@@ -136,14 +139,28 @@ const describeFailure = async (
 ): Promise<CliError> => {
   const payload = (await response.json().catch(() => null)) as {
     error?: string;
+    code?: string;
+    feature?: string;
+    details?: Record<string, unknown>;
     errors?: Array<{ path?: string; message?: string }>;
   } | null;
+  const retryAfter = Number(response.headers.get('retry-after'));
+  // What a caller may want to act on (a stale version's current row, how long
+  // a rate limit lasts), kept beside the message.
+  const facts = {
+    status: response.status,
+    code: payload?.code,
+    details: payload?.details,
+    retryAfter:
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined
+  };
 
   if (payload?.errors?.length) {
     const lines = payload.errors.map(issue =>
       issue.path ? `${issue.path}: ${issue.message}` : (issue.message ?? '')
     );
-    return new CliError(lines[0] ?? 'The request was rejected', {
+    return new ApiError(lines[0] ?? 'The request was rejected', {
+      ...facts,
       hint: lines.length > 1 ? lines.slice(1).join('\n  ') : undefined
     });
   }
@@ -161,6 +178,14 @@ const describeFailure = async (
           hint: 'Run `ganju login` again.'
         });
   }
+  // A project database whose organization left the paid plan: the token and
+  // the role are fine, the plan is what changed.
+  if (response.status === 403 && payload?.code === 'read_only') {
+    return new ApiError(payload.error ?? 'The database is read-only', {
+      ...facts,
+      hint: 'Reads and exports still work. Upgrade the organization to Pro to write again.'
+    });
+  }
   if (response.status === 403) {
     // The server's own message when it has one: an access token used against an
     // organization it is not scoped to is refused here too, and "you are not an
@@ -176,12 +201,17 @@ const describeFailure = async (
         });
   }
   if (response.status === 402) {
-    return new CliError(payload?.error ?? 'Your plan does not include this', {
-      hint: 'Custom tools are a paid feature — upgrade the organization to Pro.'
+    return new ApiError(payload?.error ?? 'Your plan does not include this', {
+      ...facts,
+      hint:
+        payload?.feature === 'data'
+          ? 'Project data is on Pro and Enterprise — upgrade the organization in the dashboard, under its billing settings.'
+          : 'Custom tools are a paid feature — upgrade the organization to Pro.'
     });
   }
 
-  return new CliError(
-    payload?.error ?? `${apiUrl} answered HTTP ${response.status}`
+  return new ApiError(
+    payload?.error ?? `${apiUrl} answered HTTP ${response.status}`,
+    facts
   );
 };

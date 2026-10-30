@@ -19,6 +19,9 @@ import {
 } from './dataTypes';
 
 export { identifierIssue, isValidIdentifier } from './dataIdentifiers';
+// The CLI reads tables through this entry point too, and writes them back
+// out the way an export's schema.json does.
+export { toTableInput } from './dataTypes';
 
 // A cell as a parser hands it over. Dates are expected as ISO strings: the
 // caller converts its parser's own date objects first.

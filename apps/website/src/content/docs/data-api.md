@@ -2,7 +2,7 @@
 title: Data API
 description: Manage a project's tables and rows over HTTP — create tables, insert and search rows, write orders safely, and export — with a personal access token.
 order: 7
-updated: 2026-10-21
+updated: 2026-10-30
 ---
 
 Every project on **Pro** or **Enterprise** can have its own **database**: tables
@@ -190,6 +190,83 @@ and `copy` shows the `error` until you dismiss it with `DELETE /copy`.
   `GET /export/file?exportId=<id>&table=<table>`. Leave out `table` to get
   `schema.json`. Exports also work during the 7 days after you delete the
   database.
+
+## From the command line
+
+The CLI's `ganju data` commands call these same routes, for the project in
+`ganju.json`. Install it with `npm install -g @ganju/cli`, then `ganju login`
+and `ganju link`. On a machine with no browser, set `GANJU_API_TOKEN` to a
+personal access token instead: the CLI's writes are then recorded as
+`cli:<token id>`, and waits out a `429` on its own.
+
+```bash
+ganju data create
+ganju data info
+ganju data tables
+
+# Rows: filter, sort, search, page
+ganju data rows menu --where 'price<30000' --where size=30cm --sort -price --limit 50
+ganju data rows menu --search pizza --json
+ganju data get menu 12
+ganju data insert menu --input '{"name":"Margherita","price":28000}'
+ganju data insert menu --input-file menu.jsonl
+ganju data update menu 12 --input '{"stock":{"decrement":2}}' --version 3
+ganju data delete orders 7 --yes
+
+# A CSV or JSONL file, matched to the columns the way the dashboard does
+ganju data import menu menu.csv
+ganju data import menu menu.csv --map 'Price (COP)=price'
+ganju data import menu menu.csv --replace --yes --confirm menu
+```
+
+`--where` takes `column=value` and `!=`, `>`, `>=`, `<`, `<=`, `~` (contains),
+`^=` (starts with). `status=[open,done]` matches any of the values,
+`code="007"` keeps a value as text, and `note=null` finds empty ones. Repeat
+`--where` to require several conditions, or pass the JSON `where` itself.
+
+`delete` shows what a cascade would also remove, and refuses when a restrict
+blocks it. `import` reads numbers like "28.000", matches relations by the name
+the other table shows, and puts the rows it refused, with why, in a CSV you
+can fix and import again.
+
+### Schema as code
+
+`ganju data schema pull` writes the database's tables to `ganju.data.json`, in
+the same shape as an export's `schema.json`. Edit it and review it like code.
+`ganju data schema diff` shows what would change, and `ganju data schema push`
+applies it:
+
+```bash
+ganju data schema diff
++ create table orders (customer, status)
++ add column menu.notes long_text
+~ change table menu: label "Menu"
+- change menu.price: type "decimal" (copies the table) (needs --yes)
+- drop column menu.code (needs --yes)
+```
+
+Tables and columns are matched by name, and new tables are created in an
+order where every relation's target exists first. New tables and columns and
+changed settings are applied straight away. Drops and type changes are listed
+and applied only with `--yes`, after a restore point that undoes them. A rename
+in the file reads as a drop and an add: rename with
+`ganju data column rename` or `ganju data table rename` instead.
+
+### Destructive commands
+
+Anything that drops, deletes or rewrites data needs `--yes`. Dropping the
+database or a table also needs its name, typed with `--confirm`:
+
+```bash
+ganju data table rm orders --yes --confirm orders
+ganju data drop --yes --confirm acme-support
+ganju data restore                              # undo the delete, within 7 days
+ganju data restore --at 2026-10-30T09:15:00-05:00 --yes
+ganju data restore --bookmark <bookmark> --yes  # the undo a drop printed
+ganju data export --format csv --out backup/
+```
+
+In a terminal, a missing flag is asked for. In a script, it is refused.
 
 ## Errors
 

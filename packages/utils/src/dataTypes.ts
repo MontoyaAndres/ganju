@@ -282,3 +282,31 @@ export interface DataTableCopy {
   status: 'running' | 'failed';
   error: string | null;
 }
+
+// The table as the owner would write it again: what `ganju.data.json` and an
+// export's schema.json hold.
+export const toTableInput = (table: DataTable): DataTableInput => ({
+  name: table.name,
+  label: table.label,
+  description: table.description,
+  displayColumn: table.displayColumn,
+  access: table.access,
+  customerScoped: table.customerScoped,
+  history: table.history,
+  columns: table.columns.map(column => {
+    const out: DataColumnInput = { name: column.name, type: column.type };
+    if (column.label) out.label = column.label;
+    if (column.description) out.description = column.description;
+    if (column.required) out.required = true;
+    if (column.unique) out.unique = true;
+    if (column.filterable) out.filterable = true;
+    if (column.searchable) out.searchable = true;
+    if (column.personal) out.personal = true;
+    if (column.values) out.values = column.values;
+    if (column.table) out.table = column.table;
+    if (column.onDelete) out.onDelete = column.onDelete;
+    if (column.min !== null) out.min = column.min;
+    if (column.default !== undefined) out.default = column.default;
+    return out;
+  })
+});

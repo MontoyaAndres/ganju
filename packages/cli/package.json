@@ -1,6 +1,6 @@
 {
   "name": "@ganju/cli",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Write, deploy and debug Ganju custom tools from the terminal",
   "license": "Apache-2.0",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
@@ -37,6 +37,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
+    "test": "node --import ./test/resolveSourceImports.mjs --test 'test/**/*.test.ts'",
     "prepublishOnly": "npm run build",
     "clean": "rm -rf dist && rm -rf node_modules"
   },
