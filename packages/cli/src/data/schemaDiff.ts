@@ -275,8 +275,9 @@ const orderCreates = (
  * table that points at another dropped table goes before it.
  *
  * Tables that point at each other can't either go first. The cycle is broken
- * by dropping the relation columns that point at one of them (the first by
- * name, so the same file always gives the same plan), which frees it.
+ * by dropping the relation columns that point at one of them, which frees it:
+ * the first by name whose pointing tables all keep another column, so the
+ * same file always gives the same plan.
  */
 const orderDrops = (dropped: DataTableInput[]): SchemaStep[] => {
   const pending = new Map(
@@ -295,7 +296,21 @@ const orderDrops = (dropped: DataTableInput[]): SchemaStep[] => {
     );
     let batch = [...pending.keys()].filter(n => !pointedAt.has(n)).sort();
     if (!batch.length) {
-      const freed = [...pending.keys()].sort()[0];
+      // The API won't drop a table's last column, so a table can only be
+      // freed when every table pointing at it keeps another column.
+      const freeable = (target: string) =>
+        [...pending.values()].every(table => {
+          const dropping = pointsAt(table, target);
+          return (
+            dropping.length === 0 || table.columns.length > dropping.length
+          );
+        });
+      const freed = [...pending.keys()].sort().find(freeable);
+      if (!freed) {
+        throw new SchemaFileError([
+          `${[...pending.keys()].sort().join(', ')} point at each other through their only columns, so none of them can be dropped first. Add a column to one of them, or drop them in the dashboard one relation at a time.`
+        ]);
+      }
       for (const table of [...pending.values()].sort((a, b) =>
         a.name.localeCompare(b.name)
       )) {

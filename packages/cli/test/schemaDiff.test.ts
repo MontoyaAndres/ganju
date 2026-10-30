@@ -461,6 +461,38 @@ test('dropping tables that point at each other drops a relation column first', (
   }
 });
 
+test("a cycle is broken where it can be: never by dropping a table's only column", () => {
+  // x has another column; y's only column points at x. Freeing x would drop
+  // y's last column, which the API refuses, so y is freed instead.
+  const x: DataTableInput = {
+    name: 'x',
+    columns: [
+      { name: 'n', type: 'integer' },
+      { name: 'y', type: 'relation', table: 'y' }
+    ]
+  };
+  const y: DataTableInput = {
+    name: 'y',
+    columns: [{ name: 'x', type: 'relation', table: 'x' }]
+  };
+  assert.deepEqual(kinds(diffSchema([x, y], []).steps), [
+    'dropColumn x.y',
+    'dropTable y',
+    'dropTable x'
+  ]);
+  // Both only point at each other: nothing can go first, said up front.
+  const onlyX: DataTableInput = {
+    name: 'x',
+    columns: [{ name: 'y', type: 'relation', table: 'y' }]
+  };
+  assert.throws(
+    () => diffSchema([onlyX, y], []),
+    (error: unknown) =>
+      error instanceof SchemaFileError &&
+      /x, y point at each other through their only columns/.test(error.message)
+  );
+});
+
 test('a cycle of three dropped tables, and a self-relation, still drop in a valid order', () => {
   const a: DataTableInput = {
     name: 'a',
@@ -478,13 +510,14 @@ test('a cycle of three dropped tables, and a self-relation, still drop in a vali
     columns: [{ name: 'to_a', type: 'relation', table: 'a' }]
   };
   const plan = diffSchema([a, b, c], []);
-  // c.to_a goes, which frees a; then the chain unwinds. The self-relation
-  // never holds a table back.
+  // Freeing a would drop c's only column, which the API refuses. a.to_b goes
+  // instead (a keeps its self-relation), which frees b; then the chain
+  // unwinds. The self-relation never holds a table back.
   assert.deepEqual(kinds(plan.steps), [
-    'dropColumn c.to_a',
-    'dropTable a',
+    'dropColumn a.to_b',
     'dropTable b',
-    'dropTable c'
+    'dropTable c',
+    'dropTable a'
   ]);
 });
 
