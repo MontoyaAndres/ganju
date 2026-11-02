@@ -5,7 +5,10 @@ import type {
   DataColumnType,
   DataOnDelete,
   DataTable,
-  DataTableCopy
+  DataTableCopy,
+  DataQuery,
+  DataQueryParam,
+  DataQueryParamType
 } from '@ganju/utils/data';
 
 export type {
@@ -15,7 +18,10 @@ export type {
   DataColumnType,
   DataOnDelete,
   DataTable,
-  DataTableCopy
+  DataTableCopy,
+  DataQuery,
+  DataQueryParam,
+  DataQueryParamType
 };
 
 export interface Database {
@@ -28,6 +34,7 @@ export interface Database {
   deletedAt: string | null;
   deleteAfter: string | null;
   createdAt: string;
+  timeZone?: string | null;
   copy?: DataTableCopy | null;
 }
 

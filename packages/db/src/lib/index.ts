@@ -10,7 +10,8 @@ import {
   findArtifactDatabase,
   openArtifactDatabase,
   dataCaller,
-  recordDataUsage
+  recordDataUsage,
+  recordChange
 } from './data';
 import {
   limitsFor,
@@ -67,7 +68,8 @@ export const data = {
   findArtifactDatabase,
   openArtifactDatabase,
   dataCaller,
-  recordDataUsage
+  recordDataUsage,
+  recordChange
 };
 
 export {

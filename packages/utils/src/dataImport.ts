@@ -552,3 +552,6 @@ export const csvLine = (cells: ImportCell[]) =>
       return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
     })
     .join(',');
+
+export { detectSeparator, parseCsv } from './dataCsv';
+export type { ParsedCsv } from './dataCsv';

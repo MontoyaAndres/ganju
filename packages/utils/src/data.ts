@@ -64,6 +64,26 @@ export {
   exportRows
 } from './dataEngine';
 export type { SqlRow, SqlRunner } from './dataEngine';
+export {
+  DATA_QUERY_PARAM_TYPES,
+  DATA_MAX_QUERIES,
+  DATA_MAX_QUERY_SQL,
+  DATA_MAX_QUERY_PARAMS,
+  DATA_DEFAULT_QUERY_ROWS,
+  compileQuerySql,
+  checkQueryPlan,
+  listQueries,
+  queriesFor,
+  saveQuery,
+  dropQuery,
+  runQuery
+} from './dataQueries';
+export type {
+  DataQuery,
+  DataQueryInput,
+  DataQueryParam,
+  DataQueryParamType
+} from './dataQueries';
 export type {
   ProjectDatabaseRpc,
   DatabaseInfo,
@@ -72,3 +92,17 @@ export type {
   ExportState,
   RestoreResult
 } from './dataRpc';
+export {
+  DATA_TOOL_DESCRIBE,
+  DATA_TOOL_QUERY,
+  DATA_TOOL_WRITE,
+  DATA_TOOL_ADMIN,
+  DATA_TOOL_NAMES,
+  DATA_TOOL_TITLES,
+  DATA_TOOL_MAX_LIMIT,
+  DATA_ADMIN_ACTIONS,
+  hasDataToolTables,
+  dataToolDefinitions,
+  dataAdminToolDefinition
+} from './dataTools';
+export type { DataToolDefinition, DataAdminAction } from './dataTools';

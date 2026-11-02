@@ -134,7 +134,8 @@ const SDK_REJECTION =
 export const collectRejectedToolCalls = async (
   messages: JsonRpcRequest[],
   response: Response | undefined,
-  toolIds: Map<string, string>
+  // A data tool has no install row: null.
+  toolIds: Map<string, string | null>
 ): Promise<PendingRequest[]> => {
   const calls = new Map(
     messages

@@ -2,6 +2,13 @@ import { Context } from 'hono';
 import { eq, sql, and, gt, inArray, InferSelectModel } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
+import {
+  DATA_TOOL_NAMES,
+  DATA_TOOL_WRITE,
+  isSensitiveWrite,
+  tidyArgs
+} from '@ganju/utils/data';
+import type { DataSchema } from '@ganju/utils/data';
 
 import { collectSources, selectCitedSources } from './sources';
 import { transcribeVoiceNotes } from './voiceNotes';
@@ -922,7 +929,9 @@ const runTurn = async (
   const mcp = await createMcpClient(c, artifactRow.slug, mcpAuthToken, {
     channelId: channelRow.id,
     platform: channelRow.platform,
-    conversationId: conversation.id
+    conversationId: conversation.id,
+    participantId: participant.id,
+    timeZone: channelTimeZone
   });
   let assistantText = '';
   let assistantMessageId = '';
@@ -943,6 +952,30 @@ const runTurn = async (
   const untrustedCarried = utils.conversationReadUntrustedRecently(
     conversation.metadata
   );
+  // The database's schema, read once and only when the model calls
+  // data-write: the hold rule needs each column's minimum. Unreadable, the
+  // rule falls back to ids alone, which holds more, never less.
+  let dataSchemaLoad: Promise<DataSchema | undefined> | null = null;
+  const dataSchema = () =>
+    (dataSchemaLoad ??= (async () => {
+      const opened = await db.data.openArtifactDatabase(
+        dbInstance,
+        c.env.PROJECT_DATABASE,
+        artifactRow.id
+      );
+      if (!opened) return undefined;
+      return db.data.callData(
+        'schemaRead',
+        () => opened.stub.schemaRead(),
+        undefined,
+        {
+          retryRead: true
+        }
+      );
+    })().catch(error => {
+      console.error('data-schema-read-failed', error);
+      return undefined;
+    }));
   // How the confirmation summary names a tool: its title, else its name.
   const toolTitles = new Map<string, string>();
   // Sensitive calls the model made this turn, held for the participant's yes.
@@ -1299,14 +1332,46 @@ const runTurn = async (
       // usual. A call repeated within the step is held once — confirming it
       // must not run it twice.
       const stepCalls = completion.assistant.toolCalls;
+      // Models write the data tools' arguments in shapes the engine accepts
+      // but the MCP server's schema refuses before it gets there: `where` as
+      // a JSON string, keys quoted twice (Gemini, often). Tidied here the way
+      // the engine would, so the call reaches it and the hold check and the
+      // confirmation summary read what will run.
+      for (const call of stepCalls) {
+        if (!(DATA_TOOL_NAMES as readonly string[]).includes(call.name))
+          continue;
+        try {
+          call.arguments = tidyArgs(call.arguments);
+        } catch {
+          // Not an object: sent as it is, and the server explains.
+        }
+      }
       // Saving to memory counts as sensitive once outside content is in the
       // turn: text hidden in a page or document could otherwise plant a
       // "fact" (a fake discount) in every later prompt for this customer. A
       // fact that itself reads like instructions asks first too, whoever
       // wrote it.
       const untrusted = readUntrusted || untrustedCarried;
+      // data-write is one tool for an order and for a delete. Its calls are
+      // held by what they do: a delete or a value set outright is sensitive,
+      // an insert or a stock decrement isn't, decided against the schema
+      // (a column's minimum counts) by the rule the MCP server applies.
+      const routineWrites = new Set<string>();
+      for (const call of stepCalls) {
+        if (call.name !== DATA_TOOL_WRITE || !sensitiveToolNames.has(call.name))
+          continue;
+        const schema = await dataSchema();
+        let sensitive = true;
+        try {
+          sensitive = isSensitiveWrite(call.arguments, schema);
+        } catch {
+          // Arguments it can't read: held, and the engine explains them.
+        }
+        if (!sensitive) routineWrites.add(call.id);
+      }
       const isHeld = (call: LlmToolCall) =>
         (sensitiveToolNames.has(call.name) &&
+          !routineWrites.has(call.id) &&
           (chain.requireToolConfirmation || untrusted)) ||
         (memoryEnabled &&
           call.name === utils.PARTICIPANT_MEMORY_TOOL_NAME &&

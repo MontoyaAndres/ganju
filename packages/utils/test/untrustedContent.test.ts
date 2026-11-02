@@ -207,7 +207,7 @@ test('reports each passage once and at most five', () => {
   assert.equal(new Set(found.map(f => f.toLowerCase())).size, 5);
 });
 
-// --- tool results -------------------------------------------------------------
+// tool results
 //
 // The cases first checked against a local MCP server, kept here as tests: the
 // functions are the ones the proxy and the tools run.

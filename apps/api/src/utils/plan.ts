@@ -179,8 +179,17 @@ export const countArtifactTools = async (
     if (row.id === excludeToolId) continue;
     total += await countInstallToolsIn(executor, row);
   }
+  // A project with a database also puts the data tools in front of a channel
+  // bot: data-describe, data-query and data-write. They register first, so
+  // past the limit an install would be the one dropped.
+  const database = await db.data.findArtifactDatabase(executor, artifactId);
+  if (database?.status === constants.ARTIFACT_DATABASE_STATUS_READY) {
+    total += DATA_CHANNEL_TOOLS;
+  }
   return total;
 };
+
+const DATA_CHANNEL_TOOLS = 3;
 
 export const assertPromptQuota = (
   { plan, limits }: Pick<EffectivePlan, 'plan' | 'limits'>,

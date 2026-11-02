@@ -185,3 +185,27 @@ export const recordDataUsage = async (
       .where(and(eq(db.id, databaseId), or(isNull(db.lastWriteAt), lt(db.lastWriteAt, stale))));
   }
 };
+
+// One line in the database's change log: who changed its tables, restored
+// it, exported it or deleted it, with the bookmark that undoes it if any.
+// The API and the owner's data-admin tool write it the same way.
+export const recordChange = async (
+  executor: DbExecutor,
+  databaseId: string,
+  change: {
+    actor: string;
+    kind: string;
+    target?: string | null;
+    detail?: unknown;
+    bookmark?: string | null;
+  }
+) => {
+  await executor.insert(schema.artifactDatabaseChange).values({
+    databaseId,
+    actor: change.actor,
+    kind: change.kind,
+    target: change.target ?? null,
+    detail: change.detail ?? null,
+    bookmark: change.bookmark ?? null
+  });
+};

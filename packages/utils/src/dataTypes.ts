@@ -104,6 +104,9 @@ export interface DataTable {
 
 export interface DataSchema {
   tables: DataTable[];
+  // The zone the owner set for the database: datetimes come back in it for
+  // callers that send none. Null when unset (UTC).
+  timeZone?: string | null;
 }
 
 // Who is calling and under which rules. `actor` is recorded on every row a
@@ -116,6 +119,9 @@ export interface DataCaller {
   restricted?: boolean;
   // Customer-scoped tables: fill and filter `participant_id` with this.
   participantId?: string;
+  // Only these tables exist for the caller (a function's `data.tables`):
+  // every other one is hidden, through relations and filters too.
+  tables?: string[];
   // Datetimes come back in this zone, with the offset.
   timeZone?: string;
   limits?: DataCallerLimits;

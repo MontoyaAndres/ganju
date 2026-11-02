@@ -8,6 +8,13 @@ import {
   createTable,
   deleteImpact,
   describe,
+  dropQuery,
+  listQueries,
+  queriesFor,
+  runQuery,
+  saveQuery,
+  assertWritable,
+  assertActor,
   dropColumn,
   dropColumnNeedsRebuild,
   dropTable,
@@ -284,8 +291,15 @@ export class ProjectDatabase
     return this.lifecycle;
   }
 
-  private caller(caller: DataCaller): DataCaller {
-    return { ...caller, timeZone: validTimeZone(caller?.timeZone) };
+  // A caller that sends no zone gets the one the owner set for the
+  // database, else UTC.
+  private caller(caller: DataCaller, runner: SqlRunner): DataCaller {
+    return {
+      ...caller,
+      timeZone:
+        validTimeZone(caller?.timeZone) ??
+        validTimeZone(this.schema(runner).timeZone)
+    };
   }
 
   private recordFirstWrite(runner: SqlRunner) {
@@ -347,6 +361,7 @@ export class ProjectDatabase
       initializedAt: getMeta(runner, 'initialized_at'),
       deletedAt: getMeta(runner, 'deleted_at'),
       firstWriteAt: getMeta(runner, 'first_write_at'),
+      timeZone: getMeta(runner, 'time_zone'),
       schemaVersion: INTERNAL_SCHEMA_VERSION,
       size: runner.databaseSize(),
       tables: schema.tables.map(t => ({
@@ -365,6 +380,23 @@ export class ProjectDatabase
   async rename(args: { name: string }) {
     return this.call({}, runner => {
       setMeta(runner, 'name', args.name);
+      return this.readInfo(runner);
+    });
+  }
+
+  // The zone datetimes come back in for callers that send none: the
+  // assistant, functions, and anything that leaves it to the database.
+  async setTimeZone(caller: DataCaller, args: { timeZone: string | null }) {
+    return this.call({}, runner => {
+      assertActor(caller);
+      const zone = args.timeZone === null ? null : validTimeZone(args.timeZone);
+      if (args.timeZone !== null && !zone) {
+        throw new DataError(
+          `"${String(args.timeZone)}" isn't a time zone; use an IANA name such as America/Bogota.`
+        );
+      }
+      setMeta(runner, 'time_zone', zone ?? null);
+      this.schemaCache = null;
       return this.readInfo(runner);
     });
   }
@@ -490,7 +522,7 @@ export class ProjectDatabase
   async createTable(caller: DataCaller, input: unknown) {
     return this.call({ writes: 'tables' }, runner =>
       this.ddl(runner, () =>
-        createTable(runner, this.schema(runner), this.caller(caller), input)
+        createTable(runner, this.schema(runner), this.caller(caller, runner), input)
       )
     );
   }
@@ -498,7 +530,7 @@ export class ProjectDatabase
   async updateTable(caller: DataCaller, table: string, patch: unknown) {
     return this.call({ writes: 'tables' }, runner =>
       this.ddl(runner, () =>
-        updateTable(runner, this.schema(runner), this.caller(caller), table, patch)
+        updateTable(runner, this.schema(runner), this.caller(caller, runner), table, patch)
       )
     );
   }
@@ -508,7 +540,7 @@ export class ProjectDatabase
     return this.call({ writes: 'tables' }, async runner => {
       const bookmark = await this.bookmark();
       const result = this.ddl(runner, () =>
-        dropTable(runner, this.schema(runner), this.caller(caller), table)
+        dropTable(runner, this.schema(runner), this.caller(caller, runner), table)
       );
       return { ...result, bookmark };
     });
@@ -517,7 +549,7 @@ export class ProjectDatabase
   async addColumn(caller: DataCaller, table: string, input: unknown) {
     return this.call({ writes: 'tables' }, runner =>
       this.ddl(runner, () =>
-        addColumn(runner, this.schema(runner), this.caller(caller), table, input)
+        addColumn(runner, this.schema(runner), this.caller(caller, runner), table, input)
       )
     );
   }
@@ -535,7 +567,7 @@ export class ProjectDatabase
       const bookmark = copies ? await this.bookmark() : null;
       clearFailedTableCopy(runner);
       const result = this.ddl(runner, () =>
-        updateColumn(runner, this.schema(runner), this.caller(caller), table, column, patch)
+        updateColumn(runner, this.schema(runner), this.caller(caller, runner), table, column, patch)
       );
       return { table: result, bookmark, copy: await this.copyStarted(runner) };
     });
@@ -549,7 +581,7 @@ export class ProjectDatabase
       const bookmark = await this.bookmark();
       clearFailedTableCopy(runner);
       const result = this.ddl(runner, () =>
-        dropColumn(runner, this.schema(runner), this.caller(caller), table, column)
+        dropColumn(runner, this.schema(runner), this.caller(caller, runner), table, column)
       );
       return { table: result, bookmark, copy: await this.copyStarted(runner) };
     });
@@ -588,19 +620,19 @@ export class ProjectDatabase
 
   async describe(caller: DataCaller, args: unknown = {}) {
     return this.call({}, runner =>
-      describe(runner, this.schema(runner), this.caller(caller), args)
+      describe(runner, this.schema(runner), this.caller(caller, runner), args)
     );
   }
 
   async query(caller: DataCaller, args: unknown) {
     return this.call({}, runner =>
-      query(runner, this.schema(runner), this.caller(caller), args)
+      query(runner, this.schema(runner), this.caller(caller, runner), args)
     );
   }
 
   async write(caller: DataCaller, args: unknown) {
     return this.call({ writes: { rows: args } }, runner => {
-      const result = write(runner, this.schema(runner), this.caller(caller), args);
+      const result = write(runner, this.schema(runner), this.caller(caller, runner), args);
       this.recordFirstWrite(runner);
       return result;
     });
@@ -608,7 +640,7 @@ export class ProjectDatabase
 
   async deleteImpact(caller: DataCaller, args: { table: string; ids?: number[] }) {
     return this.call({}, runner =>
-      deleteImpact(runner, this.schema(runner), this.caller(caller), args)
+      deleteImpact(runner, this.schema(runner), this.caller(caller, runner), args)
     );
   }
 
@@ -617,7 +649,36 @@ export class ProjectDatabase
     args: { table: string; id: number; limit?: number; cursor?: number }
   ) {
     return this.call({}, runner =>
-      rowHistory(runner, this.schema(runner), this.caller(caller), args)
+      rowHistory(runner, this.schema(runner), this.caller(caller, runner), args)
+    );
+  }
+
+  // Named queries
+
+  // A channel bot sees only those it may run; everyone else sees all of them.
+  async listQueries(caller: DataCaller) {
+    return this.call({}, runner =>
+      queriesFor(runner, this.schema(runner), this.caller(caller, runner))
+    );
+  }
+
+  async saveQuery(caller: DataCaller, input: unknown) {
+    return this.call({}, runner => {
+      assertWritable(runner, caller, false);
+      return saveQuery(runner, this.schema(runner), this.caller(caller, runner), input);
+    });
+  }
+
+  async dropQuery(caller: DataCaller, name: string) {
+    return this.call({}, runner => {
+      assertWritable(runner, caller, false);
+      return dropQuery(runner, name);
+    });
+  }
+
+  async runQuery(caller: DataCaller, args: unknown) {
+    return this.call({}, runner =>
+      runQuery(runner, this.schema(runner), this.caller(caller, runner), args)
     );
   }
 
@@ -647,7 +708,14 @@ export class ProjectDatabase
         {
           exportedAt: new Date().toISOString(),
           format,
-          tables: schema.tables.map(toTableInput)
+          tables: schema.tables.map(toTableInput),
+          queries: listQueries(runner).map(query => ({
+            name: query.name,
+            description: query.description,
+            sql: query.sql,
+            params: query.params,
+            assistant: query.assistant
+          }))
         },
         null,
         2

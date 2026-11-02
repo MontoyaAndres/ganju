@@ -22,6 +22,7 @@ export type DataRouteId = keyof Routes;
 const ROUTES = {
   getDatabase: { method: 'get', path: '' },
   create: { method: 'post', path: '' },
+  updateDatabase: { method: 'patch', path: '' },
   remove: { method: 'delete', path: '' },
   restore: { method: 'post', path: '/restore' },
   restorePoint: { method: 'post', path: '/restore-point' },
@@ -42,6 +43,10 @@ const ROUTES = {
   deletePreview: { method: 'post', path: '/table/:table/delete-preview' },
   rowHistory: { method: 'get', path: '/table/:table/row/:id/history' },
   write: { method: 'post', path: '/write' },
+  listQueries: { method: 'get', path: '/query' },
+  saveQuery: { method: 'post', path: '/query' },
+  dropQuery: { method: 'delete', path: '/query/:name' },
+  runQuery: { method: 'post', path: '/query/:name/run' },
   startExport: { method: 'post', path: '/export' },
   exportStatus: { method: 'get', path: '/export' },
   exportFile: { method: 'get', path: '/export/file' },
@@ -51,7 +56,7 @@ const ROUTES = {
 };
 
 export interface DataRequestOptions extends Pick<ApiOptions, 'query' | 'json'> {
-  // The path's `:table`, `:column` and `:id`.
+  // The path's `:table`, `:column`, `:id` and `:name`.
   params?: Record<string, string | number>;
 }
 

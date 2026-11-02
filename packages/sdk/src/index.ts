@@ -34,9 +34,13 @@ export const createHandler = (
       return json({ error: 'This endpoint only accepts POST' }, 405);
     }
 
-    let body: { tool?: unknown; input?: unknown };
+    let body: { tool?: unknown; input?: unknown; call?: unknown };
     try {
-      body = (await request.json()) as { tool?: unknown; input?: unknown };
+      body = (await request.json()) as {
+        tool?: unknown;
+        input?: unknown;
+        call?: unknown;
+      };
     } catch {
       return json({ error: 'The request body is not valid JSON' });
     }
@@ -69,7 +73,10 @@ export const createHandler = (
       });
     }
 
-    const { ctx, logs } = createContext(env);
+    const { ctx, logs } = createContext(
+      env,
+      typeof body.call === 'string' ? body.call : ''
+    );
     const input =
       body.input && typeof body.input === 'object'
         ? (body.input as Record<string, unknown>)
@@ -100,6 +107,14 @@ const json = (body: unknown, status = 200): Response =>
 export type { ToolContext, ToolEnv, ToolHandler };
 export type {
   Connection,
+  DataContext,
+  DataOperation,
+  DataQueryArgs,
+  DataQueryResult,
+  DataQueryRun,
+  DataRow,
+  DataWhere,
+  DataWriteResult,
   CreateResourceOptions,
   CreatedResource,
   DeletedResource,

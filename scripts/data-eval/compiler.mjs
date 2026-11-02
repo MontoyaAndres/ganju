@@ -34,6 +34,7 @@ const engine = await loadEngine();
 export const DataError = engine.DataError;
 export const ACCESS_RANK = engine.DATA_ACCESS_RANK;
 export const isSensitiveWrite = engine.isSensitiveWrite;
+export const dataToolDefinitions = engine.dataToolDefinitions;
 
 // The engine's source files, for the harness's tools hash.
 export const ENGINE_SOURCES = fs
@@ -75,7 +76,7 @@ const runnerFor = db => {
 // The eval's sessions as the engine's callers: the owner's MCP session sees
 // every table; a channel customer is held to each table's access and sees
 // only their own rows on customer-scoped tables.
-const callerFor = (state, actor) =>
+export const callerFor = (state, actor) =>
   actor?.mode === 'owner'
     ? { actor: 'mcp:owner', timeZone: state.definition.timeZone }
     : {

@@ -1,6 +1,6 @@
 # Examples
 
-Six small Ganju projects you can deploy as they are, then change into your
+Seven small Ganju projects you can deploy as they are, then change into your
 own. Each one is a `ganju.json` plus a few short TypeScript files, and each
 adds one host capability to what the one before it used.
 
@@ -12,6 +12,7 @@ adds one host capability to what the one before it used.
 | [calendar-free-time](calendar-free-time/) | `find-free-time` | `ctx.connection` | Google Calendar connected |
 | [news-digest](news-digest/) | `hn-top-stories`, `email-hn-digest` | `ctx.resources.create` + `ctx.sendFile` | Gmail connected |
 | [order-desk](order-desk/) | `order-lookup`, `order-add-note`, `order-refund` | `annotations` + confirming sensitive actions | None |
+| [data-orders](data-orders/) | `place-order`, `sales-report` | `ctx.data` + saved queries | A database (`ganju data create`) |
 
 ## Running one
 

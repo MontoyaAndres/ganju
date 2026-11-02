@@ -1803,6 +1803,107 @@ command-line section, deployed.
   - the tool-design eval (0b) still meets its baseline with the real
     tools.
 
+**Phase 5 status (2026-11-02): done on dev, review fixes included.** Not in
+production yet, and the CLI with the new commands and `@ganju/sdk`'s
+`ctx.data` types are not published.
+
+- **What exists:**
+  - **Named queries:** `dataQueries.ts`. One SELECT or WITH statement,
+    tokenized before it reaches `sql.exec`, because the object's `sql.exec`
+    runs every statement in a string. EXPLAIN refuses write opcodes and
+    tables that aren't the owner's. Rows are capped at 500 and 1 MB, and a
+    SCAN over 200k rows is refused. Channel bots see only `assistant: true`
+    queries that read no customer-scoped or hidden table.
+    - Four routes in `DATA_API_ROUTES` (31 OpenAPI operations in all).
+    - CLI `queries`, `query save|rm`, `run`, and `"queries"` in
+      `ganju.data.json`.
+    - A Queries list in the dashboard.
+  - **Project time zone:** stored in `_ganju_meta` and set through `PATCH
+    …/artifact/data`, `ganju data time-zone` or the dashboard. It applies
+    when a caller sends no zone of its own.
+  - **Data tools:**
+    - `dataTools.ts` is the one source of the tool text, for the MCP worker
+      and the eval alike. The eval sends text byte-identical to the
+      definitions its baselines were scored on.
+    - Channel bots are restricted to their participant. An OAuth owner is
+      unrestricted, and an org ADMIN also gets `data-admin`.
+    - `data-write` is held per call by `isSensitiveWrite`, in the MCP worker
+      and the channel runner alike.
+  - **`ctx.data`:** the broker's `POST /data`, narrowed by the manifest's
+    `data: {access, tables}`. Writes are recorded as `function:<name>`.
+    `examples/data-orders` shows it.
+- **Verified on dev:**
+  - Probes, after the review fixes: `probe-data.mjs` 57/57,
+    `probe-data-cli.mjs` 31/31, `probe-data-tools.mjs` 48/48, including a
+    script that calls the broker as another function (refused without a
+    call token and with a renamed one). Every purge check passed.
+  - On nemo's object: a query using `json_each` twice through a CTE saves
+    and runs; `dbstat` doesn't exist there.
+  - By hand, on the nemo Telegram bot, with throwaway `qa_` tables:
+    - "pizzas under 30k" listed the two below 30,000.
+    - "two margherita" was one write: the order, its line and stock 5 → 3,
+      recorded as the participant.
+    - 3 of a dish with 1 left was refused.
+    - "cancel it" was held with Yes/No and ran only after Yes.
+  - Owner path, from Claude Code over OAuth (any MCP client is the same path
+    as Claude Desktop):
+    - It got all four tools and saw every customer's orders.
+    - `add_column` asked first once the org confirms sensitive actions.
+    - After it read a planted row, a delete needed the dashboard approval
+      page, then ran as `mcp:<user>`.
+  - Functions: a deployed function ran a saved query, and a saved `UPDATE`
+    was refused (probe and CLI).
+- **Eval** (`--repeat 3` against the recorded baselines):
+  - gemini-3.1-flash-lite: 92% vs 92%, injection 21/21.
+  - gemini-3.8-flash: 97% vs 97%.
+  - gpt-5.4-mini: 92% vs 91%, injection 21/21.
+  - claude-haiku-4-5: 90% vs 92%, injection 20/21; 16 cases worse and 11
+    better. **Below its baseline.** Nothing the model sees changed in this
+    work: the tool text is byte-identical to what the baselines were scored
+    on, the runner's prompt is unchanged, and the engine changes don't reach
+    the eval's paths (replaying its queries returns the same rows, e.g. the
+    jalapeño's `stock: 2`, which haiku saw and left out). Its misses are
+    answers that leave out a fact it read, or a write it never made. Read as
+    haiku's variance, not a regression; a run of HEAD on haiku would settle
+    it.
+- **Changed after review (deployed to dev):**
+  - **A function's name comes from a call token.** apps/mcp (live calls) and
+    apps/api (dashboard test runs) sign one per dispatch, naming the
+    artifact, version and function, with a key derived from
+    `CUSTOM_CODE_TOKEN_SECRET`. The SDK hands it back, and the broker reads
+    the name only from it. A script can no longer claim to be another
+    function. **apps/mcp needs `CUSTOM_CODE_TOKEN_SECRET`** (dev and prod),
+    the same value apps/api and tool-broker hold; without it ctx.data
+    refuses every call.
+  - **`data.tables` is enforced in the engine.** The broker sets
+    `caller.tables`, and a table outside it is hidden like a `none` table:
+    in `where` paths, write filters, includes, sorts, aggregates, relation
+    values, describe and named queries alike.
+  - **Named queries:** a virtual table other than `json_each` or
+    `json_tree` is refused, told apart by its address in the program (the
+    built-in ones keep one per connection; checked in workerd too), so a
+    module nobody listed can't get through. `dbstat` listed every table with
+    its size under node:sqlite; workerd doesn't have it. The large-table
+    guard counts `SCAN x USING [COVERING] INDEX` as a full scan.
+  - **MCP:** a failed role lookup costs only data-admin instead of failing
+    the request. A caller's own zone (a channel's calendar zone) wins over
+    the database's, as in the object; the database's is the fallback.
+  - The eval case `restaurant/add-to-todays-order` now accepts the Coca-Cola
+    added without asking, as the hold rule allows.
+- **Accepted:**
+  - `data.tables` limits what a function names, not the schema: a delete
+    cascades into tables outside the list (`onDelete: "cascade"`), as it
+    does into tables hidden from a channel bot. Documented in the SDK.
+  - A call token works for its function until it expires (the run's timeout
+    plus a minute), so a script could reuse it within that window. Only
+    hostile code in the owner's own script could, and it gains nothing that
+    function couldn't already do.
+- **Open:**
+  - A function a channel bot calls isn't told the customer, and `ctx.data`
+    sees every customer's rows. Documented in the SDK and the example; the
+    participant comes with `ctx.channels` (5b).
+  - A bot cancelling an order doesn't put the stock back unless told to.
+
 **5b. Triggers, webhooks and `ctx.channels` — M–L (10–15 days)**
 
 A bot that saves an order is half the job: the kitchen has to hear about

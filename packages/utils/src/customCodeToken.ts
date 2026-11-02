@@ -178,6 +178,80 @@ export const verifyCustomCodeToken = async (
   };
 };
 
+// Names the function one dispatch runs.
+//
+// The tool token names the artifact and version but not the function: one
+// script serves every function, and it would otherwise say itself which one
+// is calling. What a function may do with the database (its manifest's
+// `data`) needs a name the script can't choose, so the dispatcher signs one
+// per call and passes it in with the input; the script only hands it back.
+// Signed with a key derived from the same secret, so a call token is never
+// a tool token or the other way round.
+export interface CustomCodeCallPayload {
+  v: string;
+  artifactId: string;
+  versionId: string;
+  tool: string;
+  exp: number;
+}
+
+const callSecret = (secret: string) => `${secret}:call`;
+
+export const mintCustomCodeCallToken = async (
+  payload: Omit<CustomCodeCallPayload, 'v' | 'exp'> & { ttlMs: number },
+  secret: string,
+  issuedAt: number = Date.now()
+): Promise<string> => {
+  const body: CustomCodeCallPayload = {
+    v: constants.CUSTOM_CODE_TOKEN_VERSION,
+    artifactId: payload.artifactId,
+    versionId: payload.versionId,
+    tool: payload.tool,
+    exp: Math.ceil((issuedAt + payload.ttlMs) / 1000)
+  };
+  const encodedPayload = toBase64Url(
+    bytesToBase64(encoder.encode(JSON.stringify(body)))
+  );
+  const signature = await signPayload(encodedPayload, callSecret(secret));
+  return `${encodedPayload}.${signature}`;
+};
+
+export const verifyCustomCodeCallToken = async (
+  token: string,
+  secret: string,
+  now: number = Date.now()
+): Promise<CustomCodeCallPayload | null> => {
+  const separator = token.lastIndexOf('.');
+  if (separator <= 0) return null;
+  const encodedPayload = token.slice(0, separator);
+  try {
+    const key = await importKey(callSecret(secret));
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      new Uint8Array(base64ToBytes(fromBase64Url(token.slice(separator + 1)))),
+      encoder.encode(encodedPayload)
+    );
+    if (!valid) return null;
+    const candidate = JSON.parse(
+      new TextDecoder().decode(base64ToBytes(fromBase64Url(encodedPayload)))
+    ) as Partial<CustomCodeCallPayload>;
+    if (
+      candidate.v !== constants.CUSTOM_CODE_TOKEN_VERSION ||
+      typeof candidate.artifactId !== 'string' ||
+      typeof candidate.versionId !== 'string' ||
+      typeof candidate.tool !== 'string' ||
+      typeof candidate.exp !== 'number' ||
+      candidate.exp * 1000 <= now
+    ) {
+      return null;
+    }
+    return candidate as CustomCodeCallPayload;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * The legacy dispatch-namespace script name for an artifact: `artifact_<id>`.
  *

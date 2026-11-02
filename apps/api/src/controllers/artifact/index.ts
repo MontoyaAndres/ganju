@@ -2128,6 +2128,7 @@ const testCustomCodeVersion = async (c: Context<AppEnv>) => {
 
     const run = await invokeCustomCodeScript(c, {
       artifactId: artifact.id,
+      versionId: version.id,
       scriptName: deployed.scriptName,
       toolName: currentValues.tool,
       args: currentValues.input,

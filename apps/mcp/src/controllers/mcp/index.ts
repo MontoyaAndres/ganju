@@ -24,6 +24,11 @@ import {
   type PromptInventoryItem
 } from '../../tools';
 import {
+  loadDataTools,
+  registerDataTools,
+  type DataSession
+} from '../../tools/data';
+import {
   readResourceContent,
   withResourceContent,
   BOOT_RESOURCE_SELECTION,
@@ -176,12 +181,6 @@ const business = async (c: Context<AppEnv>) => {
     utils.isExposedResource(r)
   );
 
-  const credentialsStartedAt = Date.now();
-  const refreshedCredentials = await Promise.all(
-    artifact.artifactCredentials.map(cred => refreshCredentialIfNeeded(c, cred))
-  );
-  const credentialsMs = Date.now() - credentialsStartedAt;
-
   // Channel-relayed self-fetches from the API worker tag themselves so we can
   // distinguish them from direct MCP clients (Claude Desktop, mcp-inspector).
   // Only honor these on trusted auth paths — internal-secret (the API holds it)
@@ -200,6 +199,100 @@ const business = async (c: Context<AppEnv>) => {
   const channelConversationId = channelTrust
     ? (c.req.header(utils.constants.MCP_CHANNEL_CONVERSATION_HEADER) ?? null)
     : null;
+
+  // Who this request is to the project's database. A channel turn is a bot:
+  // each table's assistant access applies, and customer-scoped tables hold
+  // only its participant's rows. A person signed in to their own client
+  // works on every table, as in the dashboard, and an owner or admin of the
+  // organization also gets data-admin. Anything else (a machine token) is
+  // held to the assistant's access, with no customer.
+  const channelParticipantId = channelTrust
+    ? (c.req.header(utils.constants.MCP_CHANNEL_PARTICIPANT_HEADER) ?? null)
+    : null;
+  const channelTimeZone = channelTrust
+    ? (c.req.header(utils.constants.MCP_CHANNEL_TIME_ZONE_HEADER) ?? undefined)
+    : undefined;
+  const signedInUser =
+    !channelTrust && authContext?.kind === 'jwt' && jwtUserId
+      ? jwtUserId
+      : null;
+  const dataTally = db.data.createDataUsageTally();
+
+  const dataSessionLoad = (async (): Promise<DataSession> => {
+    if (channelTrust) {
+      return {
+        caller: {
+          actor: `channel:${channelParticipantId ?? channelConversationId ?? channelIdHeader ?? 'internal'}`,
+          restricted: true,
+          ...(channelParticipantId
+            ? { participantId: channelParticipantId }
+            : {}),
+          ...(channelTimeZone ? { timeZone: channelTimeZone } : {})
+        },
+        owner: false
+      };
+    }
+    if (!signedInUser) {
+      return { caller: { actor: 'mcp:token', restricted: true }, owner: false };
+    }
+    // The session's own user and their role in the organization, never
+    // anything the client says about itself. A lookup that fails only costs
+    // data-admin.
+    const member = await dbInstance
+      .select({ role: db.schema.organizationUser.role })
+      .from(db.schema.organizationUser)
+      .where(
+        and(
+          eq(db.schema.organizationUser.userId, signedInUser),
+          eq(
+            db.schema.organizationUser.organizationId,
+            artifact.project.organizationId
+          )
+        )
+      )
+      .limit(1)
+      .then(rows => rows[0])
+      .catch(error => {
+        console.error('data-role-lookup-failed', error);
+        return undefined;
+      });
+    return {
+      caller: { actor: `mcp:${signedInUser}` },
+      owner: member?.role === utils.constants.USER_ROLE_ADMIN
+    };
+  })();
+  const credentialsStartedAt = Date.now();
+  let credentialsMs = 0;
+  let dataMs = 0;
+  const [refreshedCredentials, loadedData] = await Promise.all([
+    Promise.all(
+      artifact.artifactCredentials.map(cred =>
+        refreshCredentialIfNeeded(c, cred)
+      )
+    ).finally(() => {
+      credentialsMs = Date.now() - credentialsStartedAt;
+    }),
+    // A database that can't be reached leaves the data tools out; the rest
+    // of the server still answers.
+    dataSessionLoad
+      .then(session =>
+        loadDataTools(
+          dbInstance,
+          c.env.PROJECT_DATABASE,
+          artifact.id,
+          session,
+          dataTally
+        )
+      )
+      .catch(error => {
+        console.error('data-tools-load-failed', error);
+        return null;
+      })
+      .finally(() => {
+        dataMs = Date.now() - credentialsStartedAt;
+      })
+  ]);
+  const dataSession = await dataSessionLoad;
 
   const userAgent = c.req.header('user-agent') ?? null;
   const externalSessionId = resolveExternalSessionId(
@@ -569,7 +662,7 @@ const business = async (c: Context<AppEnv>) => {
   // Keyed by MCP tool name, valued by the install row that registered it, so a
   // call the SDK rejects before any handler runs can still be recorded
   // against the row it was meant for.
-  const registeredToolNames = new Map<string, string>();
+  const registeredToolNames = new Map<string, string | null>();
   // Proxied resources/prompts register alongside native ones; track the URIs and
   // prompt names already claimed (native first, then earlier proxy installs) so a
   // duplicate is skipped instead of throwing and aborting the whole boot.
@@ -653,6 +746,21 @@ const business = async (c: Context<AppEnv>) => {
       dbInstance,
       artifact.project.organizationId
     ));
+
+  // The data tools come before every install: their names are reserved, and
+  // a channel keeps the first 40 tools it is listed.
+  const dataToolNames = loadedData
+    ? registerDataTools(mcpServer, {
+        loaded: loadedData,
+        session: dataSession,
+        tally: dataTally,
+        dbInstance,
+        bucket,
+        artifactId: artifact.id,
+        pendingRequests,
+        registeredToolNames
+      })
+    : [];
 
   for (const artifactTool of orderedArtifactTools) {
     // Resolved from the shipped catalog rather than a join. Null means the row
@@ -1046,7 +1154,8 @@ const business = async (c: Context<AppEnv>) => {
       // No published version yet is the ordinary state of a freshly installed
       // tool, not an error — the artifact simply contributes no tools.
       if (!codeConfig?.activeVersionId) continue;
-      const activeVersion = versionById.get(codeConfig.activeVersionId);
+      const activeVersionId = codeConfig.activeVersionId;
+      const activeVersion = versionById.get(activeVersionId);
       if (!activeVersion) continue;
       const versionTools = activeVersion.tools;
 
@@ -1168,10 +1277,12 @@ const business = async (c: Context<AppEnv>) => {
                 codeConfig,
                 {
                   artifactId: artifact.id,
+                  versionId: activeVersionId,
                   scriptName,
                   toolName: entry.name,
                   args
-                }
+                },
+                utils.getEnv(c, utils.constants.CUSTOM_CODE_TOKEN_SECRET_ENV)
               );
 
               // A tool that declares an outputSchema must return
@@ -1574,6 +1685,8 @@ const business = async (c: Context<AppEnv>) => {
       bootMs: loadMs + credentialsMs + versionsMs,
       loadMs,
       credentialsMs,
+      dataMs,
+      dataTools: dataToolNames.length,
       versionsMs,
       handleMs: Date.now() - handleStartedAt,
       resources: bootResources ? bootResources.length : null,
@@ -1594,6 +1707,21 @@ const business = async (c: Context<AppEnv>) => {
     ...pendingRequests,
     ...rejected
   ];
+  // Rows the database read and wrote for this request, into the org's
+  // meters, whoever the caller was.
+  if (loadedData && dataTally.requests > 0) {
+    c.executionCtx.waitUntil(
+      db.data
+        .recordDataUsage(
+          dbInstance,
+          loadedData.opened.row.organizationId,
+          loadedData.opened.row.id,
+          dataTally
+        )
+        .catch(error => console.error('data-usage-record-failed', error))
+    );
+  }
+
   if (allRequests.length === 0) return response;
 
   c.executionCtx.waitUntil(

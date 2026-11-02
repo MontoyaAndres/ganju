@@ -16,7 +16,7 @@ export interface DataApiRoute {
   path: string;
   summary: string;
   description?: string;
-  tag: 'Database' | 'Tables' | 'Rows' | 'History and export';
+  tag: 'Database' | 'Tables' | 'Rows' | 'Queries' | 'History and export';
   body?: z.ZodType;
   query?: z.ZodObject;
   // What a 200/201 answers with, in a sentence.
@@ -29,6 +29,7 @@ export interface DataApiRoute {
 const {
   DATA_DATABASE_CREATE,
   DATA_DATABASE_DELETE,
+  DATA_DATABASE_PATCH,
   DATA_TABLE_INPUT,
   DATA_TABLE_PATCH,
   DATA_COLUMN_INPUT,
@@ -46,7 +47,9 @@ const {
   DATA_EXPORT_BODY,
   DATA_EXPORT_QUERY,
   DATA_EXPORT_FILE_QUERY,
-  DATA_CHANGE_LIST_QUERY
+  DATA_CHANGE_LIST_QUERY,
+  DATA_QUERY_INPUT,
+  DATA_QUERY_RUN_BODY
 } = Schema;
 
 export const DATA_API_ROUTES = {
@@ -69,6 +72,16 @@ export const DATA_API_ROUTES = {
     body: DATA_DATABASE_CREATE.pick({ name: true, replaceDeleted: true }),
     returns: '{ database }',
     status: 201
+  },
+  updateDatabase: {
+    method: 'patch',
+    path: '',
+    tag: 'Database',
+    summary: "Change the database's settings",
+    description:
+      '`timeZone`, an IANA zone such as `America/Bogota`, or null for UTC. Datetimes come back in it for callers that send no `timeZone` of their own: the assistant, functions and scripts. Datetimes without an offset are read in it too.',
+    body: DATA_DATABASE_PATCH,
+    returns: '{ database }'
   },
   remove: {
     method: 'delete',
@@ -253,6 +266,43 @@ export const DATA_API_ROUTES = {
     body: DATA_WRITE_BODY,
     returns: '{ results }'
   },
+  listQueries: {
+    method: 'get',
+    path: '/query',
+    tag: 'Queries',
+    summary: 'Named queries',
+    description:
+      'Each with its SQL, parameters, the tables it reads and its plan (`SCAN orders` means it reads the whole table).',
+    returns: '{ queries }'
+  },
+  saveQuery: {
+    method: 'post',
+    path: '/query',
+    tag: 'Queries',
+    summary: 'Save a named query',
+    description:
+      "One `SELECT` (or `WITH … SELECT`) with named parameters such as `:from`, each declared in `params` with its type. It is compiled, never run, and refused unless it only reads this database's tables. Saving under an existing name replaces it. `assistant: true` lets channel bots run it from data-query.",
+    body: DATA_QUERY_INPUT,
+    returns: '{ query }',
+    status: 201
+  },
+  dropQuery: {
+    method: 'delete',
+    path: '/query/:name',
+    tag: 'Queries',
+    summary: 'Delete a named query',
+    returns: '{ dropped }'
+  },
+  runQuery: {
+    method: 'post',
+    path: '/query/:name/run',
+    tag: 'Queries',
+    summary: 'Run a named query',
+    description:
+      'With its `params`, up to `limit` rows (100 by default, 500 at most) and 1 MB; `truncated` says it stopped early. A query that would scan a table over 200,000 rows is refused.',
+    body: DATA_QUERY_RUN_BODY,
+    returns: '{ query, rows, truncated? }'
+  },
   startExport: {
     method: 'post',
     path: '/export',
@@ -397,6 +447,7 @@ export const dataOpenApi = (serverUrl: string) => {
       { name: 'Database' },
       { name: 'Tables' },
       { name: 'Rows' },
+      { name: 'Queries' },
       { name: 'History and export' }
     ],
     paths,

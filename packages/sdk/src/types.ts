@@ -196,6 +196,143 @@ export interface SendFileReceipt {
   permalink?: string;
 }
 
+/** A filter, as data-query and the Data API take it: `{ status: "open", price: { lt: 30000 } }`. */
+export type DataWhere = Record<string, unknown>;
+
+export interface DataQueryArgs {
+  table: string;
+  where?: DataWhere;
+  /** Words to look for in the table's searchable columns, ranked. */
+  search?: string;
+  /** Columns, `-` first for descending: `["-created_at"]`. */
+  sort?: string[];
+  /** 1 to 500; 20 by default. */
+  limit?: number;
+  cursor?: string;
+  /** Relation columns to expand into the related row. */
+  include?: string[];
+  /** Compute instead of listing: `[{ fn: "sum", column: "total" }]`. */
+  aggregate?: {
+    fn: 'count' | 'sum' | 'avg' | 'min' | 'max';
+    column?: string;
+    times?: string;
+  }[];
+  groupBy?: string[];
+}
+
+/** One row. Relation columns come back as `{ id, label }`. */
+export type DataRow = Record<string, unknown> & { id: number };
+
+export interface DataQueryResult {
+  table: string;
+  rows: DataRow[];
+  /** How many rows match, on the first page. */
+  total?: number;
+  /** Pass back as `cursor` for the next page. */
+  nextCursor?: string;
+  /** With `aggregate`: one entry per group. */
+  groups?: Record<string, unknown>[];
+  [key: string]: unknown;
+}
+
+/**
+ * One step of an all-or-nothing write. A relation value or an `id` may be
+ * `{ $ref: n }`, the id an earlier insert in the same write created.
+ */
+export type DataOperation =
+  | { op: 'insert'; table: string; values: Record<string, unknown> }
+  | { op: 'insert'; table: string; rows: Record<string, unknown>[] }
+  | {
+      op: 'update';
+      table: string;
+      id?: number | { $ref: number };
+      where?: DataWhere;
+      /** A value, or `{ increment: n }` / `{ decrement: n }` for numbers. */
+      set: Record<string, unknown>;
+      /** How many rows must change, or nothing is written. */
+      expect?: number;
+    }
+  | {
+      op: 'delete';
+      table: string;
+      id?: number | { $ref: number };
+      where?: DataWhere;
+      expect?: number;
+    };
+
+export type DataWriteResult =
+  | { op: 'insert'; table: string; id: number }
+  | { op: 'insert'; table: string; ids: number[] }
+  | { op: 'update' | 'delete'; table: string; changed: number };
+
+export interface DataQueryRun {
+  query: string;
+  rows: Record<string, unknown>[];
+  /** Set when the rows stopped at the limit or 1 MB. */
+  truncated?: string;
+}
+
+/**
+ * The project's database. Every call goes through the platform, under the
+ * same rules as the dashboard and the assistant, and writes are recorded as
+ * this function. There is no SQL: named queries are how a report the filters
+ * can't express is run.
+ *
+ * A function sees every row, customer-scoped tables included, even when a
+ * channel bot is the one calling it: it isn't told which customer is
+ * talking. Anything about the customer in its input came from the model, so
+ * don't treat it as who they are. Keep a function a bot calls to the tables
+ * it needs with `data.tables`.
+ *
+ * `data.tables` limits what a function names, not what the schema does:
+ * deleting a row still deletes the rows that point at it with `onDelete:
+ * "cascade"`, in tables outside the list too.
+ */
+export interface DataContext {
+  /** Tables, columns, row counts and descriptions; one table when named. */
+  describe(table?: string): Promise<{ tables: Record<string, unknown>[] }>;
+  query(args: DataQueryArgs): Promise<DataQueryResult>;
+  /** Full-text search over a table's searchable columns. */
+  search(
+    table: string,
+    text: string,
+    options?: Omit<DataQueryArgs, 'table' | 'search'>
+  ): Promise<DataQueryResult>;
+  /** One row (returns its id) or several (their ids). */
+  insert(
+    table: string,
+    values: Record<string, unknown>
+  ): Promise<{ id: number }>;
+  insert(
+    table: string,
+    rows: Record<string, unknown>[]
+  ): Promise<{ ids: number[] }>;
+  /**
+   * Change one row by id, or the rows a filter matches. `options.where` adds
+   * a guard that must hold (`{ stock: { gte: 2 } }`); when it doesn't, nothing
+   * changes and the call throws with the reason.
+   */
+  update(
+    table: string,
+    target: number | DataWhere,
+    set: Record<string, unknown>,
+    options?: { where?: DataWhere; expect?: number }
+  ): Promise<{ changed: number }>;
+  delete(
+    table: string,
+    target: number | DataWhere,
+    options?: { where?: DataWhere; expect?: number }
+  ): Promise<{ changed: number }>;
+  /** Several operations, applied together or not at all. */
+  write(operations: DataOperation[]): Promise<{ results: DataWriteResult[] }>;
+  /** A named query the owner saved, by name. */
+  run(
+    name: string,
+    params?: Record<string, unknown>,
+    options?: { limit?: number }
+  ): Promise<DataQueryRun>;
+}
+
 export interface ToolContext {
   /**
    * A short-lived access token for one of the artifact's managed connections.
@@ -256,6 +393,11 @@ export interface ToolContext {
    * as an account is the same privilege as reading its token.
    */
   sendFile(options: SendFileOptions): Promise<SendFileReceipt>;
+  /**
+   * The project's database, when it has one. A function's `data` field in
+   * ganju.json can narrow it: `{ "access": "read", "tables": ["menu"] }`.
+   */
+  data: DataContext;
   /**
    * Buffered in the isolate and returned with the result, where it is recorded
    * against the tool call. Costs no network round trip, so logging freely is

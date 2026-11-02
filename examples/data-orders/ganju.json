@@ -1,0 +1,53 @@
+{
+  "connections": [],
+  "allowedHosts": [],
+  "timeoutMs": 10000,
+  "tools": [
+    {
+      "name": "place-order",
+      "title": "Place an order",
+      "description": "Take a customer's order: the dishes by name and how many of each, and the name and phone to call when it is ready. It saves the order and its lines and takes the dishes out of stock together; if a dish is short, nothing is saved and the answer says how many are left. Use once the customer has said everything they want.",
+      "entry": "src/placeOrder.ts",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": false },
+      "data": { "access": "write", "tables": ["menu", "orders", "order_lines"] },
+      "input": {
+        "type": "object",
+        "properties": {
+          "customer": { "type": "string", "minLength": 1, "maxLength": 100, "description": "The customer's name" },
+          "phone": { "type": "string", "maxLength": 20, "description": "A phone number to call when it is ready" },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "What they ordered",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dish": { "type": "string", "description": "The dish's name as the menu has it, e.g. Margherita" },
+                "quantity": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How many" }
+              },
+              "required": ["dish", "quantity"]
+            }
+          }
+        },
+        "required": ["customer", "items"]
+      }
+    },
+    {
+      "name": "sales-report",
+      "title": "Sales by dish",
+      "description": "Units sold and revenue per dish for a period, from the saved sales_by_dish query. Use when the owner asks how sales went, e.g. this week or last month.",
+      "entry": "src/salesReport.ts",
+      "annotations": { "readOnlyHint": true, "openWorldHint": false },
+      "data": { "access": "read" },
+      "input": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string", "description": "Start, ISO 8601 with offset, e.g. 2026-10-01T00:00:00-05:00" },
+          "to": { "type": "string", "description": "End, exclusive, in the same form" }
+        },
+        "required": ["from", "to"]
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import {
   Add,
   ArrowBack,
   LockOutlined,
+  ManageSearchOutlined,
   SettingsOutlined,
   StorageOutlined,
   TableChartOutlined,
@@ -19,6 +20,7 @@ import { SchemaTab } from './schema';
 import { NewTableDialog } from './new-table';
 import { ImportDialog } from './import';
 import { SettingsDialog, ExportControl } from './settings';
+import { QueriesView } from './queries';
 import { dataRequest, tableTitle } from './api';
 import { i18n } from '../../../lib';
 
@@ -64,6 +66,8 @@ export const Data = ({ plan }: DataProps) => {
   >('idle');
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('rows');
+  // The named queries take the main pane instead of a table.
+  const [queriesOpen, setQueriesOpen] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
   const [rowCounts, setRowCounts] = useState<Record<string, number>>({});
   // Bumped after an import, so the open table reads its rows again.
@@ -199,7 +203,7 @@ export const Data = ({ plan }: DataProps) => {
   // A narrow screen shows one pane at a time: the table list, or the open
   // table. On a wide one both stay up, so open the first table.
   useEffect(() => {
-    if (selected || tables.length === 0) return;
+    if (selected || queriesOpen || tables.length === 0) return;
     if (typeof window !== 'undefined' && window.innerWidth >= 768) {
       setSelected(tables[0].name);
     }
@@ -551,7 +555,7 @@ export const Data = ({ plan }: DataProps) => {
 
   const renderTables = () => (
     <div
-      className={`data-layout ${selectedTable ? 'has-selection' : ''}`}
+      className={`data-layout ${selectedTable || queriesOpen ? 'has-selection' : ''}`}
     >
       <aside className="data-tables">
         <div className="data-tables-header">
@@ -593,6 +597,7 @@ export const Data = ({ plan }: DataProps) => {
               className={`data-table-item ${selected === table.name ? 'active' : ''}`}
               onClick={() => {
                 setSelected(table.name);
+                setQueriesOpen(false);
                 setTab('rows');
               }}
             >
@@ -608,10 +613,28 @@ export const Data = ({ plan }: DataProps) => {
           {tables.length > 0 && visibleTables.length === 0 && (
             <p className="data-tables-none">{t('noTablesMatch')}</p>
           )}
+          <div className="data-tables-divider" />
+          <button
+            type="button"
+            className={`data-table-item ${queriesOpen ? 'active' : ''}`}
+            onClick={() => {
+              setQueriesOpen(true);
+              setSelected(null);
+            }}
+          >
+            <ManageSearchOutlined />
+            <span className="data-table-item-name">{t('queries')}</span>
+          </button>
         </div>
       </aside>
       <section className="data-main">
-        {selectedTable ? (
+        {queriesOpen ? (
+          <QueriesView
+            base={base}
+            readOnly={readOnly}
+            onBack={() => setQueriesOpen(false)}
+          />
+        ) : selectedTable ? (
           <>
             <div className="data-main-header">
               <IconButton

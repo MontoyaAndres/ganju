@@ -707,6 +707,23 @@ const DATA_RESTORE_POINT_BODY = z.union([
   z.strictObject({ bookmark: z.string().min(1).max(200) })
 ]);
 
+// The database's own settings. `timeZone` is an IANA zone (America/Bogota),
+// or null for UTC: datetimes come back in it for callers that send none.
+const DATA_DATABASE_PATCH = z.strictObject({
+  timeZone: z
+    .string()
+    .max(100)
+    .refine(zone => {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: zone });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Use an IANA time zone, such as America/Bogota.')
+    .nullable()
+});
+
 const DATA_EXPORT_BODY = z.strictObject({
   format: z.enum(['jsonl', 'csv']).optional()
 });
@@ -726,11 +743,36 @@ const DATA_CHANGE_LIST_QUERY = z.strictObject({
   cursor: z.uuid().optional()
 });
 
+// Named queries: a SELECT the owner writes once, with named parameters
+// (`:from`), checked to only read when it is saved.
+const DATA_QUERY_PARAM = z.strictObject({
+  name: DATA_IDENTIFIER,
+  type: z.enum(['text', 'integer', 'decimal', 'boolean', 'date', 'datetime']),
+  description: z.string().max(300).nullish(),
+  required: z.boolean().optional()
+});
+
+const DATA_QUERY_INPUT = z.strictObject({
+  name: DATA_IDENTIFIER,
+  description: z.string().max(300).nullish(),
+  sql: z.string().min(1).max(10_000),
+  params: z.array(DATA_QUERY_PARAM).max(20).optional(),
+  // Channel bots may run it from data-query.
+  assistant: z.boolean().optional()
+});
+
+const DATA_QUERY_RUN_BODY = z.strictObject({
+  params: z.record(z.string(), z.unknown()).optional(),
+  limit: z.number().int().min(1).max(500).optional(),
+  timeZone: z.string().max(100).optional()
+});
+
 const DATA_TABLE_PARAMS = DATA_DATABASE_GET.extend({ table: DATA_IDENTIFIER });
 const DATA_COLUMN_PARAMS = DATA_TABLE_PARAMS.extend({
   column: DATA_IDENTIFIER
 });
 const DATA_ROW_PARAMS = DATA_TABLE_PARAMS.extend({ id: DATA_ROW_ID });
+const DATA_QUERY_PATH_PARAMS = DATA_DATABASE_GET.extend({ name: DATA_IDENTIFIER });
 
 const ARTIFACT_UPLOAD_RESOURCE_FILE = z.object({
   resourceId: z.uuid(),
@@ -1362,7 +1404,17 @@ const CUSTOM_CODE_TOOL = z.object({
   description: z.string().max(2000).optional(),
   inputSchema: SCHEMA_DEFINITION.default({ type: 'object', properties: {} }),
   outputSchema: SCHEMA_DEFINITION.optional(),
-  annotations: TOOL_ANNOTATIONS.optional()
+  annotations: TOOL_ANNOTATIONS.optional(),
+  // What this function may do through ctx.data. Absent means everything: it
+  // is the owner's code. Narrowing matters most for a function a channel bot
+  // calls after reading customer text, and the broker enforces it, since
+  // anything in the script can be edited.
+  data: z
+    .strictObject({
+      access: z.enum(['read', 'write']).optional(),
+      tables: z.array(z.string().min(1).max(63)).max(50).optional()
+    })
+    .optional()
 });
 
 // The manifest a `ganju deploy` (or the dashboard) uploads alongside a bundle.
@@ -1609,6 +1661,16 @@ const CUSTOM_CODE_BROKER_SECRET = z.object({
   // The credential's label, which is the lookup key for custom-code secrets
   // (they carry no id inside the script). See CREDENTIAL_PROVIDER_CUSTOM_CODE.
   name: z.string().min(1).max(200)
+});
+
+// One ctx.data call. `call` is the token the dispatcher signed for the
+// function being run, which the script hands back: the broker reads the
+// function's name from it, never from the script, and applies that
+// function's `data` narrowing.
+const CUSTOM_CODE_BROKER_DATA = z.object({
+  call: z.string().min(1).max(4000),
+  op: z.enum(['describe', 'query', 'write', 'run']),
+  args: z.record(z.string(), z.unknown()).default({})
 });
 
 const CUSTOM_CODE_BROKER_RESOURCE_SEARCH = z.object({
@@ -1971,6 +2033,11 @@ export const Schema = {
   DATA_EXPORT_FILE_QUERY,
   DATA_CHANGE_LIST_QUERY,
   DATA_TABLE_PARAMS,
+  DATA_DATABASE_PATCH,
+  DATA_QUERY_PARAM,
+  DATA_QUERY_INPUT,
+  DATA_QUERY_RUN_BODY,
+  DATA_QUERY_PATH_PARAMS,
   DATA_COLUMN_PARAMS,
   DATA_ROW_PARAMS,
   ARTIFACT_REMOVE_RESOURCE,
@@ -2034,6 +2101,7 @@ export const Schema = {
   CUSTOM_CODE_INVOKE_RESPONSE,
   CUSTOM_CODE_BROKER_CONNECTION,
   CUSTOM_CODE_BROKER_SECRET,
+  CUSTOM_CODE_BROKER_DATA,
   CUSTOM_CODE_BROKER_RESOURCE_SEARCH,
   CUSTOM_CODE_BROKER_RESOURCE_READ,
   CUSTOM_CODE_BROKER_RESOURCE_CREATE,

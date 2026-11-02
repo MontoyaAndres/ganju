@@ -71,6 +71,10 @@ export const parseCustomCodeTools = (raw: unknown): CustomCodeToolEntry[] => {
   return parsed;
 };
 
+// A call token outlives its run by this much, so a call the script starts
+// just before its deadline still reaches the broker.
+const CALL_TOKEN_MARGIN_MS = 60_000;
+
 /**
  * Run one tool from an artifact's deployed script.
  *
@@ -97,9 +101,13 @@ export const executeCustomCodeCall = async (
     // version row by the boot loop. Passed rather than derived: a name is minted
     // per upload now, so there is no convention left to reconstruct it from.
     scriptName: string;
+    // The active version, which the call token names for the broker.
+    versionId: string;
     toolName: string;
     args: Record<string, unknown>;
-  }
+  },
+  // Signs the call token. Without it the function runs, but ctx.data refuses.
+  tokenSecret?: string
 ): Promise<{ result: ToolResult; logs: string[]; dispatched: boolean }> => {
   if (!dispatcher) {
     return {
@@ -151,7 +159,23 @@ export const executeCustomCodeCall = async (
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ tool: input.toolName, input: input.args })
+          body: JSON.stringify({
+            tool: input.toolName,
+            input: input.args,
+            ...(tokenSecret
+              ? {
+                  call: await utils.mintCustomCodeCallToken(
+                    {
+                      artifactId: input.artifactId,
+                      versionId: input.versionId,
+                      tool: input.toolName,
+                      ttlMs: config.timeoutMs + CALL_TOKEN_MARGIN_MS
+                    },
+                    tokenSecret
+                  )
+                }
+              : {})
+          })
         }
       ),
       config.timeoutMs

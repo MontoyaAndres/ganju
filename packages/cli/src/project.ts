@@ -41,6 +41,16 @@ export interface ProjectTool {
     idempotentHint?: boolean;
     openWorldHint?: boolean;
   };
+  /**
+   * What this function may do with the project's database through
+   * `ctx.data`. Left out, everything. `{ "access": "read", "tables": ["menu"] }`
+   * suits a function a channel bot calls after reading customer text; the
+   * platform enforces it, not the script.
+   */
+  data?: {
+    access?: 'read' | 'write';
+    tables?: string[];
+  };
 }
 
 export interface ProjectFile {
@@ -196,7 +206,8 @@ export const buildManifest = (tools: ProjectTool[]) => ({
     ...(tool.description ? { description: tool.description } : {}),
     ...(tool.input ? { inputSchema: tool.input } : {}),
     ...(tool.output ? { outputSchema: tool.output } : {}),
-    ...(tool.annotations ? { annotations: tool.annotations } : {})
+    ...(tool.annotations ? { annotations: tool.annotations } : {}),
+    ...(tool.data ? { data: tool.data } : {})
   }))
 });
 

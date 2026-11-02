@@ -65,7 +65,8 @@ const FLAGS = {
   replace: { type: 'boolean' },
   'no-wait': { type: 'boolean' },
   'decimal-mark': { type: 'string' },
-  map: { type: 'string', multiple: true }
+  map: { type: 'string', multiple: true },
+  clear: { type: 'boolean' }
 } as const;
 
 declare const __GANJU_CLI_VERSION__: string;
@@ -299,7 +300,8 @@ const main = async (argv: string[]): Promise<void> => {
         replace: flag('replace'),
         wait: !flag<boolean>('no-wait'),
         decimalMark: flag('decimal-mark'),
-        map: flag('map')
+        map: flag('map'),
+        clear: flag('clear')
       });
     default:
       fail(`Unknown command "${command}"`);

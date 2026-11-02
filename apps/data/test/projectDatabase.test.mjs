@@ -388,3 +388,63 @@ test('a column change on a large table copies it from the alarm, refusing the wr
   });
   assert.equal(after.ok, true, JSON.stringify(after));
 });
+
+test('named queries: checked by the object\'s own SQLite, run by name, never writing', async () => {
+  const call = callOn('queries');
+  await restaurant(call);
+  const saved = await call('saveQuery', owner, {
+    name: 'priciest',
+    sql: 'SELECT name, price FROM menu WHERE price >= :min ORDER BY price DESC',
+    params: [{ name: 'min', type: 'integer' }],
+    assistant: true
+  });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.deepEqual(saved.value.tables, ['menu']);
+
+  // exec runs every statement in a string; the second one must never get there.
+  const twice = await call('saveQuery', owner, { name: 'x', sql: 'SELECT 1 AS a; DELETE FROM menu' });
+  assert.match(twice.error.message, /one statement/);
+  const update = await call('saveQuery', owner, { name: 'x', sql: 'UPDATE menu SET price = 0' });
+  assert.match(update.error.message, /starts with SELECT/);
+  const hidden = await call('saveQuery', owner, { name: 'x', sql: 'SELECT * FROM _ganju_row_log' });
+  assert.match(hidden.error.message, /isn't one of/);
+  // Virtual tables are told apart by the object's own SQLite: JSON passes,
+  // dbstat (every table and its size) doesn't, whether workerd has it or not.
+  const json = await call('saveQuery', owner, {
+    name: 'tags',
+    sql: "WITH t AS (SELECT value FROM json_each('[1,2]')) SELECT a.value FROM t a, t b, json_tree('{}') k"
+  });
+  assert.equal(json.ok, true, JSON.stringify(json));
+  assert.equal((await call('dropQuery', owner, 'tags')).ok, true);
+  const stat = await call('saveQuery', owner, { name: 'x', sql: 'SELECT name, pgsize FROM dbstat' });
+  assert.match(stat.error.message, /other virtual tables|doesn't compile/);
+
+  const run = await call('runQuery', bot, { name: 'priciest', params: { min: 30000 } });
+  assert.deepEqual(run.value.rows, [{ name: 'Pizza Jalapeño', price: 32000 }]);
+  const menu = await call('query', owner, { table: 'menu' });
+  assert.equal(menu.value.total, 2, 'nothing was deleted');
+
+  assert.deepEqual((await call('listQueries', bot)).value.map(q => q.name), ['priciest']);
+  assert.equal((await call('dropQuery', owner, 'priciest')).ok, true);
+  assert.equal((await call('runQuery', owner, { name: 'priciest' })).error.code, 'not_found');
+});
+
+test('a time zone set on the database applies to callers that send none', async () => {
+  const call = callOn('zone');
+  await call('init', { artifactId: 'zone', name: 'zone' });
+  await call('createTable', owner, { name: 'events', columns: [{ name: 'at', type: 'datetime' }] });
+  await call('write', owner, { operations: [{ op: 'insert', table: 'events', values: { at: '2026-10-20T20:00:00Z' } }] });
+  const utc = await call('query', { actor: 'function:x' }, { table: 'events' });
+  assert.equal(utc.value.rows[0].at, '2026-10-20T20:00:00Z');
+  const bad = await call('setTimeZone', owner, { timeZone: 'Mars/Olympus' });
+  assert.equal(bad.ok, false);
+  const set = await call('setTimeZone', owner, { timeZone: 'America/Bogota' });
+  assert.equal(set.value.timeZone, 'America/Bogota');
+  const local = await call('query', { actor: 'function:x' }, { table: 'events' });
+  assert.equal(local.value.rows[0].at, '2026-10-20T15:00:00-05:00');
+  const theirs = await call('query', { actor: 'user:x', timeZone: 'Europe/Madrid' }, { table: 'events' });
+  assert.equal(theirs.value.rows[0].at, '2026-10-20T22:00:00+02:00', "a caller's own zone wins");
+  assert.equal((await call('schemaRead')).value.timeZone, 'America/Bogota');
+  await call('setTimeZone', owner, { timeZone: null });
+  assert.equal((await call('info')).value.timeZone, null);
+});

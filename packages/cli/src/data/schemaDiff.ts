@@ -1,4 +1,8 @@
-import type { DataColumnInput, DataTableInput } from '@ganju/utils/data';
+import type {
+  DataColumnInput,
+  DataQueryInput,
+  DataTableInput
+} from '@ganju/utils/data';
 
 /**
  * What `ganju data schema push` would do to turn the database's schema into
@@ -30,7 +34,9 @@ export type SchemaStep =
       patch: Partial<Record<keyof Omit<DataTableInput, 'columns'>, unknown>>;
     }
   | { kind: 'dropColumn'; table: string; column: string }
-  | { kind: 'dropTable'; table: string };
+  | { kind: 'dropTable'; table: string }
+  | { kind: 'saveQuery'; name: string; input: DataQueryInput; changed: boolean }
+  | { kind: 'dropQuery'; name: string };
 
 export interface SchemaPlan {
   steps: SchemaStep[];
@@ -333,9 +339,82 @@ const orderDrops = (dropped: DataTableInput[]): SchemaStep[] => {
   return out;
 };
 
+/**
+ * The file's named queries, or undefined when it has no `queries` key: such
+ * a file, pulled before queries were written into it, leaves the database's
+ * queries alone. The API checks the SQL itself.
+ */
+export const checkSchemaQueries = (
+  value: unknown
+): DataQueryInput[] | undefined => {
+  const queries = (value as { queries?: unknown } | null)?.queries;
+  if (queries === undefined) return undefined;
+  if (!Array.isArray(queries)) {
+    throw new SchemaFileError([
+      '"queries" is a list of { name, sql, params, … }'
+    ]);
+  }
+  const problems: string[] = [];
+  const names = new Set<string>();
+  for (const [index, query] of queries.entries()) {
+    const { name, sql } = (query ?? {}) as { name?: unknown; sql?: unknown };
+    if (typeof name !== 'string' || !name) {
+      problems.push(`queries[${index}] has no "name"`);
+      continue;
+    }
+    if (names.has(name)) problems.push(`query "${name}" is listed twice`);
+    names.add(name);
+    if (typeof sql !== 'string' || !sql.trim()) {
+      problems.push(`query "${name}" has no "sql"`);
+    }
+  }
+  if (problems.length) throw new SchemaFileError(problems);
+  return queries as DataQueryInput[];
+};
+
+// A query as the API keeps it, so the file and the database compare equal
+// whatever defaults either one leaves out.
+export const normaliseQuery = (query: DataQueryInput) => ({
+  name: query.name,
+  description: query.description?.trim() || null,
+  sql: query.sql.trim(),
+  params: (query.params ?? []).map(p => ({
+    name: p.name,
+    type: p.type,
+    description: p.description?.trim() || null,
+    required: p.required !== false
+  })),
+  assistant: query.assistant === true
+});
+
+const diffQueries = (
+  current: DataQueryInput[],
+  desired: DataQueryInput[]
+): { saves: SchemaStep[]; drops: SchemaStep[] } => {
+  const currentByName = new Map(current.map(q => [q.name, q]));
+  const desiredNames = new Set(desired.map(q => q.name));
+  const saves: SchemaStep[] = [];
+  for (const query of desired) {
+    const existing = currentByName.get(query.name);
+    if (existing && same(normaliseQuery(existing), normaliseQuery(query)))
+      continue;
+    saves.push({
+      kind: 'saveQuery',
+      name: query.name,
+      input: query,
+      changed: Boolean(existing)
+    });
+  }
+  const drops: SchemaStep[] = current
+    .filter(q => !desiredNames.has(q.name))
+    .map(q => ({ kind: 'dropQuery', name: q.name }));
+  return { saves, drops };
+};
+
 export const diffSchema = (
   current: DataTableInput[],
-  desired: DataTableInput[]
+  desired: DataTableInput[],
+  queries?: { current: DataQueryInput[]; desired: DataQueryInput[] | undefined }
 ): SchemaPlan => {
   const currentByName = new Map(current.map(t => [t.name, t]));
   const desiredByName = new Map(desired.map(t => [t.name, t]));
@@ -458,17 +537,24 @@ export const diffSchema = (
   // Additive first, so a push stopped at a destructive step has still done
   // everything that was safe; type changes before drops, since a drop is the
   // one step that can't be retried with a fixed value.
+  // Queries are saved once the tables they read are in place, and dropped
+  // before a table they read can go.
+  const { saves, drops: queryDrops } = queries?.desired
+    ? diffQueries(queries.current, queries.desired)
+    : { saves: [], drops: [] };
   steps.push(
     ...additions,
     ...columnChanges,
     ...tableChanges,
+    ...saves,
     ...typeChanges,
+    ...queryDrops,
     ...columnDrops,
     ...tableDrops
   );
   return {
     steps,
-    destructive: [...typeChanges, ...columnDrops, ...tableDrops]
+    destructive: [...typeChanges, ...queryDrops, ...columnDrops, ...tableDrops]
   };
 };
 
@@ -498,5 +584,13 @@ export const describeStep = (step: SchemaStep): string => {
       return `drop column ${step.table}.${step.column}`;
     case 'dropTable':
       return `drop table ${step.table}`;
+    case 'saveQuery':
+      return `${step.changed ? 'change' : 'save'} query ${step.name}${
+        step.input.params?.length
+          ? ` (${step.input.params.map(p => `:${p.name}`).join(', ')})`
+          : ''
+      }`;
+    case 'dropQuery':
+      return `drop query ${step.name}`;
   }
 };

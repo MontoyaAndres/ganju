@@ -37,6 +37,7 @@ export type Bindings = {
   NEXT_PUBLIC_API_URL?: string;
   NEXT_PUBLIC_WEB_URL?: string;
   MCP_INTERNAL_SECRET?: string;
+  CUSTOM_CODE_TOKEN_SECRET?: string;
 };
 
 export type AppEnv = {

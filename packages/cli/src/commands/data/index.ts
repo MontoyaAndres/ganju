@@ -8,9 +8,11 @@ import {
   drop,
   exportData,
   info,
-  restore
+  restore,
+  timeZone
 } from './database.js';
 import { importFile } from './import.js';
+import { queries, queryCommand, run } from './queries.js';
 import { get, history, insert, remove, rows, update, write } from './rows.js';
 import { schemaCommand } from './schema.js';
 import type { DataOptions } from './shared.js';
@@ -37,6 +39,7 @@ ${color.bold('Database')}
   ganju data restore --at <ISO time> --yes   go back to a point in time
   ganju data restore --bookmark <b> --yes    go back to a bookmark (the undo of a drop)
   ganju data checkpoint                      take a bookmark of right now
+  ganju data time-zone [<zone> | --clear]    the zone datetimes come back in (America/Bogota)
   ganju data export [--format jsonl|csv] [--out <dir>]
   ganju data changes                         the schema change log
   ganju data copy [status|wait|dismiss]      a table copy running in the background
@@ -68,6 +71,12 @@ ${color.bold('Rows')}
   ganju data import <table> <file.csv|.jsonl> [--map 'Header=column']
                           [--replace --yes --confirm <table>]
 
+${color.bold('Named queries')} (a SELECT saved once, run by name)
+  ganju data queries                         the saved queries and what they read
+  ganju data query save --input-file <file>  { name, description, sql, params, assistant }
+  ganju data query rm <name> --yes
+  ganju data run <name> [--input '{"from":"2026-10-01"}'] [--limit 100] [--json]
+
 ${color.bold('--where')}
   column=value  !=  >  >=  <  <=  ~ (contains)  ^= (starts with)
   status=[open,done] (any of)   note=null (empty)   code="007" (quotes: text)
@@ -96,6 +105,9 @@ export const data = async (
       return restore(options);
     case 'checkpoint':
       return checkpoint(options);
+    case 'time-zone':
+    case 'timezone':
+      return timeZone(rest[0], options);
     case 'export':
       return exportData(options);
     case 'changes':
@@ -128,6 +140,12 @@ export const data = async (
       return write(options);
     case 'import':
       return importFile(rest[0], rest[1], options);
+    case 'queries':
+      return queries(options);
+    case 'query':
+      return queryCommand(rest, options);
+    case 'run':
+      return run(rest[0], options);
     default:
       throw new CliError(`Unknown command "data ${command}"`, {
         hint: 'Run `ganju data` to see what there is.'

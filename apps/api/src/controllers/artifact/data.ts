@@ -282,7 +282,36 @@ const getDatabase = async (c: Context<AppEnv>) => {
     .where(eq(db.schema.artifactDatabase.id, row.id))
     .returning();
   return c.json({
-    database: { ...present(updated), tables: info.tables, copy: info.copy }
+    database: {
+      ...present(updated),
+      timeZone: info.timeZone,
+      tables: info.tables,
+      copy: info.copy
+    }
+  });
+};
+
+const updateDatabase = async (c: Context<AppEnv>) => {
+  const body = await bodyOf(c, Schema.DATA_DATABASE_PATCH);
+  return withDatabase(c, {}, async request => {
+    const info = await callData(
+      'setTimeZone',
+      () => request.opened.stub.setTimeZone(request.caller, body),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'database.update',
+      detail: body
+    });
+    return c.json({
+      database: {
+        ...present(request.opened.row),
+        timeZone: info.timeZone,
+        tables: info.tables,
+        copy: info.copy
+      }
+    });
   });
 };
 
@@ -698,6 +727,76 @@ const write = async (c: Context<AppEnv>) => {
   });
 };
 
+// Named queries
+
+const listQueries = (c: Context<AppEnv>) =>
+  withDatabase(c, {}, async request =>
+    c.json({
+      queries: await callData(
+        'listQueries',
+        () => request.opened.stub.listQueries(request.caller),
+        request.tally,
+        { retryRead: true }
+      )
+    })
+  );
+
+const saveQuery = async (c: Context<AppEnv>) => {
+  const input = await bodyOf(c, Schema.DATA_QUERY_INPUT);
+  return withDatabase(c, {}, async request => {
+    const query = await callData(
+      'saveQuery',
+      () => request.opened.stub.saveQuery(request.caller, input),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'query.save',
+      target: query.name,
+      detail: input
+    });
+    return c.json({ query }, 201);
+  });
+};
+
+const dropQuery = async (c: Context<AppEnv>) => {
+  const { name } = await pathOf(c, Schema.DATA_QUERY_PATH_PARAMS);
+  return withDatabase(c, {}, async request => {
+    const result = await callData(
+      'dropQuery',
+      () => request.opened.stub.dropQuery(request.caller, name),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'query.drop',
+      target: name
+    });
+    return c.json(result);
+  });
+};
+
+const runQuery = async (c: Context<AppEnv>) => {
+  const { name } = await pathOf(c, Schema.DATA_QUERY_PATH_PARAMS);
+  const body = await bodyOf(c, Schema.DATA_QUERY_RUN_BODY);
+  return withDatabase(c, { timeZone: body.timeZone }, async request =>
+    c.json(
+      await callData(
+        'runQuery',
+        () =>
+          request.opened.stub.runQuery(
+            request.caller,
+            defined({ name, params: body.params, limit: body.limit }) as {
+              name: string;
+            }
+          ),
+        request.tally,
+        { retryRead: true }
+      )
+    )
+  );
+};
+
 // Export
 
 // What a client sees of an export: no storage keys.
@@ -830,6 +929,7 @@ const listChanges = async (c: Context<AppEnv>) => {
 // DATA_API_ROUTES, so a route without a handler doesn't compile.
 export const DataController = {
   getDatabase,
+  updateDatabase,
   create,
   remove,
   restore,
@@ -851,6 +951,10 @@ export const DataController = {
   deletePreview,
   rowHistory,
   write,
+  listQueries,
+  saveQuery,
+  dropQuery,
+  runQuery,
   startExport,
   exportStatus,
   exportFile,

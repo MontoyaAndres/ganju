@@ -1,13 +1,20 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 
-import type { DataTable, DataTableCopy } from '@ganju/utils/data';
+import type {
+  DataQuery,
+  DataQueryInput,
+  DataTable,
+  DataTableCopy,
+  DataTableInput
+} from '@ganju/utils/data';
 import { toTableInput } from '@ganju/utils/dataImport';
 
 import type { DataApi } from '../../data/routes.js';
 import {
   SchemaFileError,
   checkSchemaFile,
+  checkSchemaQueries,
   describeStep,
   diffSchema,
   type SchemaPlan,
@@ -37,8 +44,9 @@ import {
  * `ganju.data.json` — the database's schema, kept beside the code and
  * reviewed like it.
  *
- * It holds the same shape an export's schema.json does, `{ "tables": [...] }`,
- * each table written the way you would type it to create it. So `pull` after
+ * It holds the same shape an export's schema.json does: `{ "tables": [...] }`,
+ * each table written the way you would type it to create it, and the named
+ * queries as `"queries": [...]` when the database has any. So `pull` after
  * `push` gives back the file you pushed, and a diff in a pull request reads as
  * a change to the schema rather than to its encoding.
  */
@@ -47,7 +55,12 @@ export const SCHEMA_FILE = 'ganju.data.json';
 const schemaPath = (root: string, options: DataOptions) =>
   resolve(options.schema ?? join(root, SCHEMA_FILE));
 
-const readSchemaFile = async (path: string) => {
+const readSchemaFile = async (
+  path: string
+): Promise<{
+  tables: DataTableInput[];
+  queries: DataQueryInput[] | undefined;
+}> => {
   let text: string;
   try {
     text = await readFile(path, 'utf8');
@@ -65,7 +78,10 @@ const readSchemaFile = async (path: string) => {
     });
   }
   try {
-    return checkSchemaFile(parsed);
+    return {
+      tables: checkSchemaFile(parsed),
+      queries: checkSchemaQueries(parsed)
+    };
   } catch (error) {
     if (!(error instanceof SchemaFileError)) throw error;
     throw new CliError(`${path}: ${error.problems[0]}`, {
@@ -79,8 +95,16 @@ const planFor = async (options: DataOptions) => {
   const path = schemaPath(project.root, options);
   const desired = await readSchemaFile(path);
   const current = (await listTables(data)).map(toTableInput);
+  const currentQueries = desired.queries ? await listQueryInputs(data) : [];
   try {
-    return { data, path, plan: diffSchema(current, desired) };
+    return {
+      data,
+      path,
+      plan: diffSchema(current, desired.tables, {
+        current: currentQueries,
+        desired: desired.queries
+      })
+    };
   } catch (error) {
     if (!(error instanceof SchemaFileError)) throw error;
     throw new CliError(`${path}: ${error.problems[0]}`);
@@ -89,7 +113,11 @@ const planFor = async (options: DataOptions) => {
 
 const symbol = (step: SchemaStep, destructive: boolean) => {
   if (destructive) return color.red('-');
-  if (step.kind === 'createTable' || step.kind === 'addColumn')
+  if (
+    step.kind === 'createTable' ||
+    step.kind === 'addColumn' ||
+    (step.kind === 'saveQuery' && !step.changed)
+  )
     return color.green('+');
   return color.yellow('~');
 };
@@ -102,11 +130,31 @@ const printPlan = (plan: SchemaPlan) => {
   }
 };
 
+// The database's named queries as the file writes them: what saving them
+// again would send.
+const listQueryInputs = async (data: DataApi): Promise<DataQueryInput[]> => {
+  const { queries } = await data.request<{ queries: DataQuery[] }>(
+    'listQueries'
+  );
+  return queries.map(query => ({
+    name: query.name,
+    ...(query.description ? { description: query.description } : {}),
+    sql: query.sql,
+    ...(query.params.length ? { params: query.params } : {}),
+    ...(query.assistant ? { assistant: true } : {})
+  }));
+};
+
 export const pull = async (options: DataOptions): Promise<void> => {
   const { data, project } = await dataContext();
   await requireDatabase(data);
   const tables = (await listTables(data)).map(toTableInput);
-  const body = `${JSON.stringify({ tables }, null, 2)}\n`;
+  const queries = await listQueryInputs(data);
+  const body = `${JSON.stringify(
+    { tables, ...(queries.length ? { queries } : {}) },
+    null,
+    2
+  )}\n`;
   if (options.json) {
     process.stdout.write(body);
     return;
@@ -178,6 +226,12 @@ const apply = async (data: DataApi, step: SchemaStep): Promise<void> => {
         params: { table: step.table },
         json: { confirmName: step.table }
       });
+      break;
+    case 'saveQuery':
+      await data.request('saveQuery', { json: step.input });
+      break;
+    case 'dropQuery':
+      await data.request('dropQuery', { params: { name: step.name } });
       break;
   }
   // The next step may touch the same table, which refuses changes until the

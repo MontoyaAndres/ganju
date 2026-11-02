@@ -22,34 +22,12 @@ export const {
   openArtifactDatabase,
   dataCaller,
   recordDataUsage,
+  recordChange,
   dataLimitsFor
 } = db.data;
 export { databaseStub, callData };
 
 const GRACE_MS = constants.DATA_DELETE_GRACE_DAYS * 86_400_000;
-
-// One line in the database's change log: who changed its tables, restored
-// it, exported it or deleted it, with the bookmark that undoes it if any.
-export const recordChange = async (
-  executor: DbExecutor,
-  databaseId: string,
-  change: {
-    actor: string;
-    kind: string;
-    target?: string | null;
-    detail?: unknown;
-    bookmark?: string | null;
-  }
-) => {
-  await executor.insert(db.schema.artifactDatabaseChange).values({
-    databaseId,
-    actor: change.actor,
-    kind: change.kind,
-    target: change.target ?? null,
-    detail: change.detail ?? null,
-    bookmark: change.bookmark ?? null
-  });
-};
 
 // Only Pro and Enterprise create databases. An org that left them keeps what
 // it has, read-only; this is the gate for making a new one.

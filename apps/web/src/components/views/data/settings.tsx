@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { UI } from '@ganju/ui';
+
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
 
 import { DownloadOutlined } from '@mui/icons-material';
 
@@ -19,6 +22,20 @@ const EXPORT_POLL_MS = 2000;
 const EXPORT_POLL_LIMIT_MS = 15 * 60 * 1000;
 
 const pad = (n: number) => String(n).padStart(2, '0');
+
+// Every IANA zone the browser knows; older ones list none, so a few common
+// ones stand in.
+const timeZoneOptions = (): string[] => {
+  try {
+    const zones = (
+      Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
+    ).supportedValuesOf?.('timeZone');
+    if (zones?.length) return zones;
+  } catch {
+    // fall through
+  }
+  return ['America/Bogota', 'America/Mexico_City', 'America/Sao_Paulo', 'Europe/Madrid'];
+};
 const toLocalInput = (date: Date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
@@ -197,6 +214,31 @@ export const SettingsDialog = ({
   const [undoBookmark, setUndoBookmark] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const zones = useMemo(timeZoneOptions, []);
+  const [timeZone, setTimeZone] = useState<string | null>(
+    database.timeZone ?? null
+  );
+  const [savingZone, setSavingZone] = useState(false);
+
+  useEffect(() => {
+    if (open) setTimeZone(database.timeZone ?? null);
+  }, [open, database.timeZone]);
+
+  const handleSaveZone = async () => {
+    if (savingZone) return;
+    setSavingZone(true);
+    const result = await dataRequest<{ database: Database }>(base, '', {
+      method: 'PATCH',
+      body: { timeZone }
+    });
+    setSavingZone(false);
+    if (!result.ok) {
+      snackbar.error(result.error || t('toastTimeZoneFailed'));
+      return;
+    }
+    snackbar.success(t('toastTimeZoneSaved'));
+    onChanged();
+  };
 
   const now = new Date();
   const earliest = new Date(now.getTime() - RESTORE_DAYS * DAY + 60_000);
@@ -282,6 +324,41 @@ export const SettingsDialog = ({
                 <span style={{ width: `${Math.min(100, (used / maxBytes) * 100)}%` }} />
               </div>
             ) : null}
+          </section>
+
+          <section className="dialog-section">
+            <h4 className="dialog-subtitle">{t('timeZoneTitle')}</h4>
+            <p className="dialog-muted">{t('timeZoneHelp')}</p>
+            <div className="timezone-row">
+              <Autocomplete
+                size="small"
+                options={zones}
+                value={timeZone}
+                disabled={readOnly || savingZone}
+                onChange={(_, next) => setTimeZone(next)}
+                renderInput={params => (
+                  <TextField
+                    {...params}
+                    label={t('timeZoneLabel')}
+                    placeholder={t('timeZoneNone')}
+                  />
+                )}
+              />
+              <UI.Button
+                size="small"
+                variant="outlined"
+                disabled={
+                  readOnly ||
+                  savingZone ||
+                  timeZone === (database.timeZone ?? null)
+                }
+                onClick={handleSaveZone}
+              >
+                <span className="button-text">
+                  {savingZone ? c('saving') : t('saveTimeZone')}
+                </span>
+              </UI.Button>
+            </div>
           </section>
 
           <section className="dialog-section">

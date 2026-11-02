@@ -1188,7 +1188,7 @@ test('display column: tables made before the default get their first text column
   assert.equal(tables.find(t => t.name === 'dishes')!.displayColumn, 'name');
   assert.equal(tables.find(t => t.name === 'numbers')!.displayColumn, null, 'no text column: the id');
   assert.equal(tables.find(t => t.name === 'by_id')!.displayColumn, null, 'made since, asking for the id');
-  assert.equal(getMeta(runner, 'schema_version'), '2');
+  assert.equal(getMeta(runner, 'schema_version'), '3');
 });
 
 test('delete preview: cascades counted to the end, set null and restrict beside them', () => {

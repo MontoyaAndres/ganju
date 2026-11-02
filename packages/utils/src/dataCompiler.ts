@@ -83,7 +83,11 @@ export const unknownColumn = (table: DataTable, name: string) =>
 // Access
 
 export const accessOf = (caller: DataCaller, table: DataTable): DataAccess =>
-  caller.restricted ? table.access : 'full';
+  caller.tables && !caller.tables.includes(table.name)
+    ? 'none'
+    : caller.restricted
+      ? table.access
+      : 'full';
 
 export const visibleTables = (schema: DataSchema, caller: DataCaller) =>
   schema.tables.filter(table => DATA_ACCESS_RANK[accessOf(caller, table)] >= 1);

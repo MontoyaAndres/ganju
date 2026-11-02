@@ -57,6 +57,7 @@ long import halfway.
 | `ganju data restore --at <ISO time> --yes` | Put everything back as it was then (within 30 days). The time needs its offset: `2026-10-30T09:15:00-05:00` or `…Z` |
 | `ganju data restore --bookmark <b> --yes` | Put everything back to a bookmark: the one a drop, a type change, an import `--replace` or a checkpoint printed |
 | `ganju data checkpoint` | A bookmark of right now, alone on stdout: `B=$(ganju data checkpoint)` |
+| `ganju data time-zone [<zone>] [--clear]` | The zone datetimes come back in for the assistant, functions and anyone who sends none, e.g. `America/Bogota`. Without a zone, prints it |
 | `ganju data export [--format jsonl\|csv] [--out <dir>]` | `schema.json` and one file per table, downloaded into a folder |
 | `ganju data changes` | The schema change log: who changed what, when |
 | `ganju data copy [status\|wait\|dismiss]` | A type change on a table over 100,000 rows copies it in the background; follow it, or clear a failed one |
@@ -90,6 +91,20 @@ While it runs, the table refuses other changes and writes that reach it.
 | `ganju data history <table> <id>` | Every change in the last 90 days, and who made it |
 | `ganju data write --input-file ops.json` | Several inserts, updates and deletes across tables, all or nothing (`{ "$ref": <step> }` for an earlier insert's id) |
 | `ganju data import <table> <file>` | A `.csv`, `.tsv`, `.json` or `.jsonl` file, in batches of 500 |
+
+### Named queries
+
+A `SELECT` saved once with named parameters (`:from`), for reports the row
+filters can't express. It is checked when saved: one statement, reading only
+this database's tables. Functions run it with `ctx.data.run`; with
+`"assistant": true` channel bots can run it too.
+
+| Command | What it does |
+| --- | --- |
+| `ganju data queries` | The saved queries, their parameters and the tables they read |
+| `ganju data query save --input-file sales.json` | `{ "name", "description", "sql", "params": [{ "name": "from", "type": "datetime" }], "assistant" }`. Saving an existing name replaces it |
+| `ganju data query rm <name> --yes` | Delete it |
+| `ganju data run <name> [--input '{"from":"2026-10-01T00:00:00-05:00"}'] [--limit 100] [--json]` | Its rows, up to 500 |
 
 **`--where`** is one condition per flag, and every one has to hold:
 
@@ -158,6 +173,11 @@ diff in a pull request is a change to the schema and nothing else.
 - drop table promos (needs --yes)
 ```
 
+- Named queries go in `"queries": [...]`, each as `ganju data query save`
+  takes it, and are matched by name too: `+ save query sales_by_dish (:from,
+  :to)`. `pull` writes them when the database has any. A file without
+  `queries` leaves the database's queries alone; with it, a query missing from
+  the file is dropped, which needs `--yes`.
 - Keys left out of the file mean their defaults (`access` `read`, `history`
   true, `onDelete` `restrict`, the first text column as `displayColumn`), so a
   short hand-written file and a pulled one compare equal.

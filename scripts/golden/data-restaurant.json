@@ -459,7 +459,7 @@
       "ask": "Agrégale una Coca-Cola a mi pedido de hoy",
       "confirm": true,
       "expect": {
-        "judge": "Either adds one Coca-Cola to today's order (after the customer confirmed), or explains that the order is already being prepared and offers a separate order. Must not claim the Coca-Cola was added if no write ran.",
+        "judge": "Either adds one Coca-Cola to today's order, or explains that the order is already being prepared and offers a separate order. Adding it without asking first is fine: a new line and a one-row total change are routine writes that aren't held. Must not claim the Coca-Cola was added if no write ran.",
         "maxCalls": 6
       }
     },

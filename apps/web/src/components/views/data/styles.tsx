@@ -408,6 +408,12 @@ export const Wrapper = styled.div`
         }
       }
 
+      .data-tables-divider {
+        height: 1px;
+        margin: 6px 0;
+        background: ${theme.colors.alto};
+      }
+
       .data-tables-none {
         font-size: ${theme.fonts.sm};
         color: ${theme.colors.bastille}80;
@@ -461,6 +467,88 @@ export const Wrapper = styled.div`
         font-size: ${theme.fonts.sm};
         color: ${theme.colors.bastille}99;
         margin: 0;
+      }
+
+      .query-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow-y: auto;
+      }
+
+      .query-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 12px 14px;
+        border: 1px solid ${theme.colors.alto};
+        border-radius: 10px;
+        font-size: ${theme.fonts.sm};
+        color: ${theme.colors.bastille};
+
+        .query-item-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .query-item-name {
+          font-size: ${theme.fonts.sm};
+          font-weight: 600;
+        }
+
+        .query-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: ${theme.fonts.xs};
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: ${theme.colors.bastille}0d;
+
+          svg {
+            width: 14px;
+            height: 14px;
+          }
+        }
+
+        .query-item-actions {
+          margin-left: auto;
+          display: flex;
+          gap: 2px;
+        }
+
+        .query-item-description {
+          margin: 0;
+          color: ${theme.colors.bastille}b3;
+        }
+
+        .query-item-meta {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 2px 12px;
+          margin: 0;
+          font-size: ${theme.fonts.xs};
+
+          dt {
+            color: ${theme.colors.bastille}80;
+          }
+
+          dd {
+            margin: 0;
+            overflow-wrap: anywhere;
+          }
+        }
+
+        .query-item-scan {
+          margin: 0;
+          font-size: ${theme.fonts.xs};
+          color: ${theme.colors.romanCoffee};
+        }
       }
 
       .data-main-placeholder {
@@ -839,6 +927,100 @@ export const DialogContent = styled.div`
       @media (min-width: ${theme.screens.md}) {
         flex-direction: row;
         align-items: flex-start;
+      }
+    }
+
+    .query-sql textarea {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: ${theme.fonts.xs};
+    }
+
+    .query-param-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      @media (min-width: ${theme.screens.md}) {
+        flex-direction: row;
+        align-items: center;
+
+        > .MuiFormControl-root,
+        > .MuiTextField-root {
+          flex: 1;
+        }
+      }
+
+      .query-param-required {
+        margin: 0;
+        white-space: nowrap;
+      }
+    }
+
+    .query-param-add {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .query-assistant-label {
+      display: flex;
+      flex-direction: column;
+
+      small {
+        color: ${theme.colors.bastille}99;
+      }
+    }
+
+    .query-run-params {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+
+      @media (min-width: ${theme.screens.md}) {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .query-results {
+      overflow: auto;
+      max-height: 50vh;
+      border: 1px solid ${theme.colors.alto};
+      border-radius: 8px;
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: ${theme.fonts.xs};
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 6px 10px;
+        border-bottom: 1px solid ${theme.colors.alto};
+        white-space: nowrap;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        background: ${theme.colors.white};
+        font-weight: 600;
+      }
+    }
+
+    .timezone-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      @media (min-width: ${theme.screens.md}) {
+        flex-direction: row;
+        align-items: flex-start;
+
+        > :first-child {
+          flex: 1;
+        }
       }
     }
 

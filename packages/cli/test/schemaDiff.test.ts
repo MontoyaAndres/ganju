@@ -580,3 +580,64 @@ test('the file is checked for its own mistakes before anything is sent', () => {
     ]
   );
 });
+
+test('named queries: saved after the tables, dropped before them and only with --yes', async () => {
+  const { checkSchemaQueries } = await import('../src/data/schemaDiff.ts');
+  const menu = pulled({
+    name: 'menu',
+    columns: [{ name: 'price', type: 'integer' }]
+  });
+  const cheapest = {
+    name: 'cheapest',
+    sql: 'SELECT * FROM menu ORDER BY price LIMIT :n',
+    params: [{ name: 'n', type: 'integer' as const }]
+  };
+  const old = { name: 'old_report', sql: 'SELECT count(*) FROM menu' };
+
+  // A file without "queries" leaves the database's alone.
+  assert.equal(checkSchemaQueries({ tables: [] }), undefined);
+  assert.deepEqual(
+    diffSchema([menu], [menu], { current: [old], desired: undefined }).steps,
+    []
+  );
+
+  // The same query as the API returns it (defaults spelled out) is no change.
+  const asStored = {
+    ...cheapest,
+    description: null,
+    params: [{ name: 'n', type: 'integer' as const, required: true }],
+    assistant: false
+  };
+  assert.deepEqual(
+    diffSchema([menu], [menu], { current: [asStored], desired: [cheapest] })
+      .steps,
+    []
+  );
+
+  const plan = diffSchema([], [menu], {
+    current: [old],
+    desired: [{ ...cheapest, assistant: true }]
+  });
+  assert.deepEqual(plan.steps.map(describeStep), [
+    'create table menu (price)',
+    'save query cheapest (:n)',
+    'drop query old_report'
+  ]);
+  assert.deepEqual(plan.destructive.map(describeStep), [
+    'drop query old_report'
+  ]);
+  assert.equal(
+    describeStep(
+      diffSchema([menu], [menu], {
+        current: [asStored],
+        desired: [{ ...cheapest, assistant: true }]
+      }).steps[0]
+    ),
+    'change query cheapest (:n)'
+  );
+  assert.throws(
+    () => checkSchemaQueries({ queries: [cheapest, cheapest] }),
+    (error: unknown) =>
+      error instanceof SchemaFileError && /listed twice/.test(error.message)
+  );
+});

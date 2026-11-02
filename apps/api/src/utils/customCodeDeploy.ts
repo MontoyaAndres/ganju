@@ -518,6 +518,8 @@ export const invokeCustomCodeScript = async (
   c: Context<AppEnv>,
   input: {
     artifactId: string;
+    // The version under test, which the call token names for the broker.
+    versionId: string;
     scriptName: string;
     toolName: string;
     args: Record<string, unknown>;
@@ -533,6 +535,10 @@ export const invokeCustomCodeScript = async (
   }
 
   const { scriptName } = input;
+  const tokenSecret = utils.getEnv(
+    c,
+    utils.constants.CUSTOM_CODE_TOKEN_SECRET_ENV
+  );
   const startedAt = Date.now();
 
   let response;
@@ -559,7 +565,24 @@ export const invokeCustomCodeScript = async (
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ tool: input.toolName, input: input.args })
+          body: JSON.stringify({
+            tool: input.toolName,
+            input: input.args,
+            // Names the function for ctx.data, as a live call's does.
+            ...(tokenSecret
+              ? {
+                  call: await utils.mintCustomCodeCallToken(
+                    {
+                      artifactId: input.artifactId,
+                      versionId: input.versionId,
+                      tool: input.toolName,
+                      ttlMs: input.timeoutMs + 60_000
+                    },
+                    tokenSecret
+                  )
+                }
+              : {})
+          })
         }
       ),
       input.timeoutMs

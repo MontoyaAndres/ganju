@@ -391,7 +391,59 @@ const en = {
     'These values match no row in the related table. Pick the row each one means; rows whose value stays unmatched are left out.',
   importUnmatchedValue_one: '"{value}" in {column} · {count} row',
   importUnmatchedValue_other: '"{value}" in {column} · {count} rows',
-  importUnmatchedMore: '{count} more values not shown: fix them in the file.'
+  importUnmatchedMore: '{count} more values not shown: fix them in the file.',
+
+  queries: 'Queries',
+  queriesTitle: 'Named queries',
+  queriesHelp:
+    'Reports the filters can\'t express: a SELECT written once, with parameters, run by name from functions (ctx.data.run), the CLI, the API and, when you allow it, the assistant.',
+  queriesEmpty: 'No named queries yet.',
+  newQuery: 'New query',
+  newQueryTitle: 'New named query',
+  editQueryTitle: 'Edit {name}',
+  editQuery: 'Edit',
+  deleteQuery: 'Delete query',
+  deleteQueryTitle: 'Delete {name}?',
+  deleteQueryText:
+    'Functions and the assistant that run it by name will get an error until you save one with the same name.',
+  runQuery: 'Run',
+  runQueryTitle: 'Run {name}',
+  runningQuery: 'Running...',
+  queryAssistantBadge: 'Assistant',
+  queryAssistant: 'The assistant can run it',
+  queryAssistantHelp:
+    'Channel bots can run it from data-query. A query that reads a customer-scoped table never is, since it would see every customer\'s rows.',
+  queryParams: 'Parameters',
+  queryParamsHelp: 'Each :name in the SQL, with its type. A value is checked against the type before it runs.',
+  queryReads: 'Reads',
+  queryScans: 'Reads all of {tables}: on a large table, filter on an indexed column.',
+  queryName: 'Name',
+  queryNameHelp: 'Lowercase letters, digits and _. Functions run it by this name.',
+  queryNameFixed: 'Saving under another name makes a new query.',
+  queryDescription: 'Description',
+  queryDescriptionPlaceholder: 'What it answers, for the assistant and your team',
+  querySqlHelp:
+    'One SELECT (or WITH … SELECT) over your tables, with named parameters like :from. It is checked when saved: it can only read.',
+  queryParamName: 'Parameter',
+  queryParamDescription: 'Description',
+  queryParamRequired: 'Required',
+  addQueryParam: 'Add parameter',
+  removeQueryParam: 'Remove parameter',
+  queryNoRows: 'No rows.',
+  toastQuerySaved: 'Query saved',
+  toastQuerySaveFailed: "Couldn't save the query",
+  toastQueryDeleted: 'Query deleted',
+  toastQueryDeleteFailed: "Couldn't delete the query",
+  toastQueryRunFailed: "Couldn't run the query",
+
+  timeZoneTitle: 'Time zone',
+  timeZoneLabel: 'Time zone',
+  timeZoneNone: 'UTC (none)',
+  timeZoneHelp:
+    'Dates and times come back in this zone for the assistant, your functions and the API when they don\'t ask for one. This page shows them in your browser\'s zone.',
+  saveTimeZone: 'Save',
+  toastTimeZoneSaved: 'Time zone saved',
+  toastTimeZoneFailed: "Couldn't save the time zone"
 };
 
 type DataCopy = typeof en;
@@ -786,6 +838,58 @@ export const DATA: Catalog<DataCopy> = {
       'Estos valores no coinciden con ninguna fila de la tabla relacionada. Elige la fila a la que se refiere cada uno; las filas cuyo valor quede sin coincidencia se dejan fuera.',
     importUnmatchedValue_one: '"{value}" en {column} · {count} fila',
     importUnmatchedValue_other: '"{value}" en {column} · {count} filas',
-    importUnmatchedMore: '{count} valores más no se muestran: corrígelos en el archivo.'
+    importUnmatchedMore: '{count} valores más no se muestran: corrígelos en el archivo.',
+
+    queries: 'Consultas',
+    queriesTitle: 'Consultas guardadas',
+    queriesHelp:
+      'Informes que los filtros no pueden expresar: un SELECT escrito una vez, con parámetros, que se ejecuta por su nombre desde funciones (ctx.data.run), la CLI, la API y, si lo permites, el asistente.',
+    queriesEmpty: 'Aún no hay consultas guardadas.',
+    newQuery: 'Nueva consulta',
+    newQueryTitle: 'Nueva consulta guardada',
+    editQueryTitle: 'Editar {name}',
+    editQuery: 'Editar',
+    deleteQuery: 'Eliminar consulta',
+    deleteQueryTitle: '¿Eliminar {name}?',
+    deleteQueryText:
+      'Las funciones y el asistente que la ejecutan por su nombre recibirán un error hasta que guardes otra con el mismo nombre.',
+    runQuery: 'Ejecutar',
+    runQueryTitle: 'Ejecutar {name}',
+    runningQuery: 'Ejecutando...',
+    queryAssistantBadge: 'Asistente',
+    queryAssistant: 'El asistente puede ejecutarla',
+    queryAssistantHelp:
+      'Los bots de los canales pueden ejecutarla desde data-query. Una consulta que lee una tabla limitada al cliente nunca puede, porque vería las filas de todos los clientes.',
+    queryParams: 'Parámetros',
+    queryParamsHelp: 'Cada :nombre del SQL, con su tipo. El valor se revisa contra el tipo antes de ejecutarla.',
+    queryReads: 'Lee',
+    queryScans: 'Lee toda la tabla {tables}: en una tabla grande, filtra por una columna con índice.',
+    queryName: 'Nombre',
+    queryNameHelp: 'Minúsculas, dígitos y _. Las funciones la ejecutan con este nombre.',
+    queryNameFixed: 'Guardarla con otro nombre crea una consulta nueva.',
+    queryDescription: 'Descripción',
+    queryDescriptionPlaceholder: 'Qué responde, para el asistente y tu equipo',
+    querySqlHelp:
+      'Un solo SELECT (o WITH … SELECT) sobre tus tablas, con parámetros con nombre como :from. Se revisa al guardarla: solo puede leer.',
+    queryParamName: 'Parámetro',
+    queryParamDescription: 'Descripción',
+    queryParamRequired: 'Obligatorio',
+    addQueryParam: 'Agregar parámetro',
+    removeQueryParam: 'Quitar parámetro',
+    queryNoRows: 'Sin filas.',
+    toastQuerySaved: 'Consulta guardada',
+    toastQuerySaveFailed: 'No se pudo guardar la consulta',
+    toastQueryDeleted: 'Consulta eliminada',
+    toastQueryDeleteFailed: 'No se pudo eliminar la consulta',
+    toastQueryRunFailed: 'No se pudo ejecutar la consulta',
+
+    timeZoneTitle: 'Zona horaria',
+    timeZoneLabel: 'Zona horaria',
+    timeZoneNone: 'UTC (ninguna)',
+    timeZoneHelp:
+      'Las fechas y horas vuelven en esta zona para el asistente, tus funciones y la API cuando no piden otra. Esta página las muestra en la zona de tu navegador.',
+    saveTimeZone: 'Guardar',
+    toastTimeZoneSaved: 'Zona horaria guardada',
+    toastTimeZoneFailed: 'No se pudo guardar la zona horaria'
   }
 };

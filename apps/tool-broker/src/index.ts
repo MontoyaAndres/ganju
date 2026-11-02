@@ -10,8 +10,8 @@ import { allowBrokerCall } from './utils';
 import type { AppEnv } from './types';
 
 // The host capabilities a custom-code script gets: managed OAuth connections,
-// per-tool secrets, reading and writing the artifact's resources, and file
-// delivery.
+// per-tool secrets, reading and writing the artifact's resources, file
+// delivery, and the project's database (ctx.data).
 //
 // This is a separate worker rather than routes on apps/api for one reason —
 // every deployed user script holds a service binding to it, and a binding to the
@@ -76,6 +76,7 @@ app
   .post(
     utils.constants.CUSTOM_CODE_BROKER_PATH_SEND_FILE,
     BrokerController.sendFile
-  );
+  )
+  .post(utils.constants.CUSTOM_CODE_BROKER_PATH_DATA, BrokerController.data);
 
 export default app;

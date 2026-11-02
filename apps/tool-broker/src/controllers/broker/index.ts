@@ -2,6 +2,7 @@ import { Context } from 'hono';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
+import { DataError } from '@ganju/utils/data';
 
 import {
   resolveConnection,
@@ -420,6 +421,156 @@ const sendFile = async (c: Context<AppEnv>) => {
   return c.json({ result: sent.result });
 };
 
+/**
+ * One ctx.data call: describe, query, write or run a named query on the
+ * project's own database.
+ *
+ * The token decides the project, so a function only ever reaches its own
+ * project's database, through the same object methods the Data API calls.
+ * Which function is calling comes from the call token the dispatcher signed
+ * for this run, never from the script: one script serves every function, and
+ * a read-only one could otherwise say it was another. Writes are recorded as
+ * `function:<name>`, and its manifest's `data` narrows what it may do:
+ * `access: "read"` refuses writes, and `tables` hides every other table from
+ * it in the engine, through relations and filters too.
+ */
+const data = async (c: Context<AppEnv>) => {
+  const tool = c.get('tool');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = utils.Schema.CUSTOM_CODE_BROKER_DATA.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        error: 'ctx.data needs the call token, an operation and its arguments.'
+      },
+      400
+    );
+  }
+  const { call, op, args } = parsed.data;
+  const secret = utils.getEnv(c, utils.constants.CUSTOM_CODE_TOKEN_SECRET_ENV);
+  const signed = secret
+    ? await utils.verifyCustomCodeCallToken(call, secret)
+    : null;
+  if (
+    !signed ||
+    signed.artifactId !== tool.artifactId ||
+    signed.versionId !== tool.versionId
+  ) {
+    return c.json(
+      {
+        error:
+          'ctx.data works only inside a function call Ganju started, while it runs.',
+        code: 'forbidden'
+      },
+      403
+    );
+  }
+  const name = signed.tool;
+  const dbInstance = db.create(c);
+
+  const [version] = await dbInstance
+    .select({ tools: db.schema.artifactToolVersion.tools })
+    .from(db.schema.artifactToolVersion)
+    .where(eq(db.schema.artifactToolVersion.id, tool.versionId))
+    .limit(1);
+  const entry = (Array.isArray(version?.tools) ? version.tools : [])
+    .map(raw => utils.Schema.CUSTOM_CODE_TOOL.safeParse(raw))
+    .find(result => result.success && result.data.name === name);
+  if (!entry?.success) {
+    return c.json({ error: `"${name}" is not a function of this tool.` }, 403);
+  }
+  const narrowing = entry.data.data;
+
+  const opened = await db.data.openArtifactDatabase(
+    dbInstance,
+    c.env.PROJECT_DATABASE,
+    tool.artifactId
+  );
+  if (!opened) {
+    return c.json(
+      {
+        error:
+          "This project doesn't have a database. Create one on the Data page."
+      },
+      404
+    );
+  }
+  const caller = db.data.dataCaller(opened, {
+    actor: `function:${name}`,
+    ...(narrowing?.tables ? { tables: narrowing.tables } : {})
+  });
+  const tally = db.data.createDataUsageTally();
+
+  try {
+    let value: unknown;
+    if (op === 'write') {
+      if (narrowing?.access === 'read') {
+        return c.json(
+          {
+            error: `${name} may only read the database (its "data.access" is "read").`,
+            code: 'forbidden'
+          },
+          403
+        );
+      }
+      value = await db.data.callData(
+        'write',
+        () => opened.stub.write(caller, args),
+        tally
+      );
+    } else if (op === 'query') {
+      value = await db.data.callData(
+        'query',
+        () => opened.stub.query(caller, args),
+        tally,
+        {
+          retryRead: true
+        }
+      );
+    } else if (op === 'run') {
+      value = await db.data.callData(
+        'runQuery',
+        () => opened.stub.runQuery(caller, args as { name: string }),
+        tally,
+        { retryRead: true }
+      );
+    } else {
+      value = await db.data.callData(
+        'describe',
+        () => opened.stub.describe(caller, args),
+        tally,
+        {
+          retryRead: true
+        }
+      );
+    }
+    return c.json({ result: value });
+  } catch (error) {
+    if (error instanceof DataError) {
+      return c.json(
+        {
+          error: error.message,
+          code: error.code,
+          ...(error.details ? { details: error.details } : {})
+        },
+        error.status
+      );
+    }
+    throw error;
+  } finally {
+    c.executionCtx.waitUntil(
+      db.data
+        .recordDataUsage(
+          dbInstance,
+          opened.row.organizationId,
+          opened.row.id,
+          tally
+        )
+        .catch(error => console.error('data-usage-record-failed', error))
+    );
+  }
+};
+
 export const BrokerController = {
   connection,
   secret,
@@ -428,5 +579,6 @@ export const BrokerController = {
   readResource,
   createResource,
   deleteResource,
-  sendFile
+  sendFile,
+  data
 };

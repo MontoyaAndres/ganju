@@ -10,6 +10,9 @@ import { bytesToBase64 } from '@ganju/utils/base64';
 import type {
   Connection,
   CreatedResource,
+  DataContext,
+  DataOperation,
+  DataWhere,
   CreateResourceOptions,
   DeletedResource,
   DeleteResourceOptions,
@@ -64,7 +67,10 @@ const createLogBuffer = () => {
   return { entries, push };
 };
 
-export const createContext = (env: ToolEnv) => {
+// `callToken` is what the dispatcher signed for this call, naming the
+// function it runs: ctx.data hands it to the broker, which records that
+// function as the writer and applies its manifest's `data`.
+export const createContext = (env: ToolEnv, callToken = '') => {
   const logs = createLogBuffer();
 
   const call = async <T>(path: string, body?: unknown): Promise<T> => {
@@ -98,6 +104,82 @@ export const createContext = (env: ToolEnv) => {
     }
 
     return (await response.json()) as T;
+  };
+
+  const dataCall = async <T>(op: string, args: object): Promise<T> => {
+    if (!callToken) {
+      throw new Error(
+        'ctx.data works inside a function Ganju runs; this call came without one.'
+      );
+    }
+    return (
+      await call<{ result: T }>(constants.CUSTOM_CODE_BROKER_PATH_DATA, {
+        call: callToken,
+        op,
+        args
+      })
+    ).result;
+  };
+
+  // One row by id, or the rows a filter matches.
+  const target = (value: number | DataWhere) =>
+    typeof value === 'number' ? { id: value } : { where: value };
+
+  const single = async <T>(operation: DataOperation): Promise<T> => {
+    const { results } = await dataCall<{ results: T[] }>('write', {
+      operations: [operation]
+    });
+    return results[0];
+  };
+
+  const data: DataContext = {
+    describe: table => dataCall('describe', table ? { table } : {}),
+    query: args => dataCall('query', args),
+    search: (table, text, options = {}) =>
+      dataCall('query', { ...options, table, search: text }),
+    insert: (async (
+      table: string,
+      values: Record<string, unknown> | Record<string, unknown>[]
+    ) => {
+      const result = await single<{ id?: number; ids?: number[] }>(
+        Array.isArray(values)
+          ? { op: 'insert', table, rows: values }
+          : { op: 'insert', table, values }
+      );
+      return Array.isArray(values)
+        ? { ids: result.ids ?? [] }
+        : { id: result.id as number };
+    }) as DataContext['insert'],
+    update: async (table, which, set, options = {}) => {
+      const guard = options.where;
+      const base = target(which);
+      const where = 'where' in base ? { ...base.where, ...guard } : guard;
+      const result = await single<{ changed: number }>({
+        op: 'update',
+        table,
+        set,
+        ...('id' in base ? { id: base.id } : {}),
+        ...(where ? { where } : {}),
+        ...(options.expect !== undefined ? { expect: options.expect } : {})
+      });
+      return { changed: result.changed };
+    },
+    delete: async (table, which, options = {}) => {
+      const guard = options.where;
+      const base = target(which);
+      const where = 'where' in base ? { ...base.where, ...guard } : guard;
+      const result = await single<{ changed: number }>({
+        op: 'delete',
+        table,
+        ...('id' in base ? { id: base.id } : {}),
+        ...(where ? { where } : {}),
+        ...(options.expect !== undefined ? { expect: options.expect } : {})
+      });
+      return { changed: result.changed };
+    },
+    write: operations => dataCall('write', { operations }),
+    run: (name, params = {}, options = {}) =>
+      dataCall('run', { name, params, ...options })
   };
 
   const ctx: ToolContext = {
@@ -169,6 +251,8 @@ export const createContext = (env: ToolEnv) => {
       );
       return result;
     },
+
+    data,
 
     log: (...values: unknown[]) => logs.push('log', values)
   };

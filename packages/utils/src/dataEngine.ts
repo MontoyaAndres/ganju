@@ -172,6 +172,22 @@ export const INTERNAL_MIGRATIONS: readonly (readonly string[])[] = [
       WHERE c.table_id = _ganju_tables.id AND c.type = 'text'
       ORDER BY c.position, c.id LIMIT 1
     ) WHERE display_column_id IS NULL AND created_at < '2026-10-24T00:00:00Z'`
+  ],
+  // Named queries: the owner's SELECTs, run by name. `tables` and `plan` are
+  // what the check found when each was saved.
+  [
+    `CREATE TABLE IF NOT EXISTS _ganju_queries (
+      name TEXT PRIMARY KEY,
+      description TEXT,
+      sql TEXT NOT NULL,
+      params TEXT NOT NULL DEFAULT '[]',
+      assistant INTEGER NOT NULL DEFAULT 0,
+      tables TEXT NOT NULL DEFAULT '[]',
+      plan TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL}),
+      updated_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL}),
+      updated_by TEXT
+    ) WITHOUT ROWID`
   ]
 ];
 
@@ -271,7 +287,8 @@ export const loadSchema = (runner: SqlRunner): DataSchema => {
             position: Number(c.position)
           };
         })
-    }))
+    })),
+    timeZone: getMeta(runner, 'time_zone')
   };
 };
 
@@ -1356,7 +1373,8 @@ const insertValues = (
 // A bot may only point a relation at a row it could read: none in a table
 // hidden from it, and only its own customer's in a scoped one. Otherwise it
 // could link an order to another customer and read their name back as the
-// label.
+// label. A caller held to some tables (a function's `data.tables`) may not
+// point outside them either.
 const assertRelationsVisible = (
   runner: SqlRunner,
   schema: DataSchema,
@@ -1364,7 +1382,7 @@ const assertRelationsVisible = (
   table: DataTable,
   values: Map<string, SqlValue>
 ) => {
-  if (!caller.restricted) return;
+  if (!caller.restricted && !caller.tables) return;
   for (const [name, value] of values) {
     if (value === null) continue;
     const column = table.columns.find(c => c.name === name);
@@ -1373,7 +1391,9 @@ const assertRelationsVisible = (
     if (!target) continue;
     if (!canRead(caller, target)) {
       throw new DataError(
-        `${table.name}.${name} points at a table the assistant can't use.`,
+        caller.restricted
+          ? `${table.name}.${name} points at a table the assistant can't use.`
+          : `${table.name}.${name} points at ${target.name}, which isn't one of this caller's tables.`,
         'forbidden'
       );
     }

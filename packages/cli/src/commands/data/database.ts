@@ -37,6 +37,12 @@ const printDatabase = (database: Database) => {
     ],
     [color.gray('created'), formatWhen(database.createdAt)]
   ];
+  if (database.status === 'READY') {
+    rows.push([
+      color.gray('time zone'),
+      database.timeZone ?? color.gray('UTC')
+    ]);
+  }
   if (database.deleteAfter) {
     rows.push([
       color.gray('deleted'),
@@ -46,6 +52,27 @@ const printDatabase = (database: Database) => {
   if (database.error)
     rows.push([color.gray('error'), color.red(database.error)]);
   table(rows);
+};
+
+/**
+ * `ganju data time-zone [<zone> | --clear]`: the zone datetimes come back in
+ * for the assistant, functions and anyone who sends none.
+ */
+export const timeZone = async (
+  zone: string | undefined,
+  options: DataOptions
+): Promise<void> => {
+  const { data } = await dataContext();
+  if (zone === undefined && !options.clear) {
+    const database = await requireDatabase(data);
+    say(database.timeZone ?? 'UTC');
+    return;
+  }
+  const { database } = await data.request<{ database: Database }>(
+    'updateDatabase',
+    { json: { timeZone: options.clear ? null : zone } }
+  );
+  success(`Datetimes come back in ${database.timeZone ?? 'UTC'}`);
 };
 
 export const create = async (options: DataOptions): Promise<void> => {

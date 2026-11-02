@@ -1,0 +1,121 @@
+{
+  "tables": [
+    {
+      "name": "menu",
+      "description": "one row per dish; price in COP, tax included",
+      "displayColumn": "name",
+      "access": "read",
+      "columns": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "unique": true,
+          "searchable": true
+        },
+        {
+          "name": "price",
+          "type": "integer",
+          "required": true,
+          "min": 0
+        },
+        {
+          "name": "stock",
+          "type": "integer",
+          "required": true,
+          "min": 0,
+          "default": 0
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "description": "one row per customer order; status goes pending → ready → delivered",
+      "displayColumn": "customer",
+      "access": "read",
+      "columns": [
+        {
+          "name": "customer",
+          "type": "text",
+          "required": true,
+          "personal": true
+        },
+        {
+          "name": "phone",
+          "type": "phone",
+          "personal": true
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "values": [
+            "pending",
+            "ready",
+            "delivered",
+            "cancelled"
+          ],
+          "default": "pending",
+          "filterable": true
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "required": true,
+          "min": 0
+        }
+      ]
+    },
+    {
+      "name": "order_lines",
+      "description": "the dishes in an order",
+      "access": "read",
+      "columns": [
+        {
+          "name": "order",
+          "type": "relation",
+          "table": "orders",
+          "onDelete": "cascade",
+          "required": true
+        },
+        {
+          "name": "dish",
+          "type": "relation",
+          "table": "menu",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "integer",
+          "required": true,
+          "min": 1
+        },
+        {
+          "name": "price",
+          "type": "integer",
+          "required": true,
+          "min": 0
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "sales_by_dish",
+      "description": "Units sold and revenue per dish between two moments, cancelled orders left out",
+      "sql": "SELECT m.name AS dish, sum(l.quantity) AS units, sum(l.quantity * l.price) AS revenue FROM order_lines l JOIN menu m ON m.id = l.dish JOIN orders o ON o.id = l.\"order\" WHERE o.status <> 'cancelled' AND o.created_at >= :from AND o.created_at < :to GROUP BY m.name ORDER BY revenue DESC",
+      "params": [
+        {
+          "name": "from",
+          "type": "datetime",
+          "description": "start, inclusive"
+        },
+        {
+          "name": "to",
+          "type": "datetime",
+          "description": "end, exclusive"
+        }
+      ],
+      "assistant": true
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import { Context } from 'hono';
 import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
+import { DATA_TOOL_TITLES } from '@ganju/utils/data';
 import { db } from '@ganju/db';
 
 import { Plan } from '../../utils';
@@ -328,6 +329,24 @@ const getToolHealth = async (c: Context<AppEnv>) => {
       const install = row.artifact_tool_id
         ? installById.get(row.artifact_tool_id)
         : undefined;
+      // The data tools come with the project's database, not an install.
+      const dataTitle = install ? undefined : DATA_TOOL_TITLES[row.name];
+      if (dataTitle) {
+        return {
+          name: row.name,
+          title: dataTitle,
+          kind: 'native' as const,
+          artifactToolId: null,
+          enabled: true,
+          calls: row.calls,
+          errors: row.errors,
+          schemaRejections: row.schema_rejections,
+          retries: row.retries,
+          switchedAfterError: row.switched_after_error,
+          p95Ms: row.p95_ms,
+          lastUsedAt: row.last_used_at
+        };
+      }
       return {
         name: row.name,
         // A native tool's name is its catalog key; anything else is named by

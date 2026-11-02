@@ -42,6 +42,10 @@ type ToolConfig = {
   title?: string;
   inputSchema?: Record<string, unknown>;
   annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+  // For a tool whose annotation can only say "may be destructive": whether
+  // this call is. data-write is one tool for an order and for a delete, and
+  // only the delete should ask. Not sent to clients.
+  sensitiveCall?: (args: Record<string, unknown>) => boolean;
   [key: string]: unknown;
 };
 type ToolCallback = (...args: unknown[]) => unknown;
@@ -403,7 +407,8 @@ export const confirmSensitiveTools = (
         }
       : cb;
 
-  const wrapped: RegisterTool = (name, config, original) => {
+  const wrapped: RegisterTool = (name, fullConfig, original) => {
+    const { sensitiveCall, ...config } = fullConfig;
     const cb = marking(original);
     if (!utils.isSensitiveTool(config.annotations)) {
       return register(name, config, cb);
@@ -422,6 +427,9 @@ export const confirmSensitiveTools = (
         >;
         // A tool registered without inputs is called with `extra` alone.
         const run = () => (hadInput ? cb(args, extra) : cb(extra));
+        // A call its tool says changes nothing that needs a yes runs as is,
+        // after outside content too: an order's insert, not its delete.
+        if (sensitiveCall && !sensitiveCall(args)) return run();
         const given =
           typeof confirmation === 'string' ? confirmation.trim() : '';
         const title = config.title || name;

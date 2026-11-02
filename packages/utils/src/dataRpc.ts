@@ -9,6 +9,7 @@ import type {
   DataTable,
   DataTableCopy
 } from './dataTypes';
+import type { DataQuery } from './dataQueries';
 
 export type ExportFormat = 'jsonl' | 'csv';
 
@@ -50,6 +51,8 @@ export interface DatabaseInfo {
   initializedAt: string | null;
   deletedAt: string | null;
   firstWriteAt: string | null;
+  // The zone set for the database, or null for UTC.
+  timeZone: string | null;
   schemaVersion: number;
   size: number;
   tables: { name: string; label: string | null; columns: number }[];
@@ -70,6 +73,7 @@ export interface ProjectDatabaseRpc {
   info(): R<DatabaseInfo>;
   rename(args: { name: string }): R<DatabaseInfo>;
   size(): R<{ bytes: number }>;
+  setTimeZone(caller: DataCaller, args: { timeZone: string | null }): R<DatabaseInfo>;
   markDeleted(
     caller: DataCaller
   ): R<{ deletedAt: string | null; bookmark: string }>;
@@ -113,6 +117,13 @@ export interface ProjectDatabaseRpc {
     caller: DataCaller,
     args: { table: string; id: number; limit?: number; cursor?: number }
   ): R<unknown>;
+  listQueries(caller: DataCaller): R<DataQuery[]>;
+  saveQuery(caller: DataCaller, input: unknown): R<DataQuery>;
+  dropQuery(caller: DataCaller, name: string): R<{ dropped: string }>;
+  runQuery(
+    caller: DataCaller,
+    args: { name: string; params?: Record<string, unknown>; limit?: number }
+  ): R<{ query: string; rows: Record<string, unknown>[]; truncated?: string }>;
   exportStart(
     caller: DataCaller,
     args?: { format?: ExportFormat }

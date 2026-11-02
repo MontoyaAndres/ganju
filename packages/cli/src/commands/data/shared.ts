@@ -33,6 +33,7 @@ export interface DataOptions {
   wait?: boolean;
   decimalMark?: string;
   map?: string[];
+  clear?: boolean;
 }
 
 export interface Database {
@@ -44,6 +45,7 @@ export interface Database {
   deletedAt: string | null;
   deleteAfter: string | null;
   createdAt: string;
+  timeZone?: string | null;
   tables?: { name: string; label: string | null; columns: number }[];
   copy?: DataTableCopy | null;
 }

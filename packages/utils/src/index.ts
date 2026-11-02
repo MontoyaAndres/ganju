@@ -109,12 +109,17 @@ import {
 import {
   mintCustomCodeToken,
   verifyCustomCodeToken,
+  mintCustomCodeCallToken,
+  verifyCustomCodeCallToken,
   customCodeScriptName,
   customCodePreviewScriptName,
   customCodeUploadName,
   customCodePreviewUploadName
 } from './customCodeToken';
-import type { CustomCodeTokenPayload } from './customCodeToken';
+import type {
+  CustomCodeCallPayload,
+  CustomCodeTokenPayload
+} from './customCodeToken';
 import {
   mintContainmentToken,
   verifyContainmentToken
@@ -411,6 +416,8 @@ export const utils = {
   listResourcesPage,
   mintCustomCodeToken,
   verifyCustomCodeToken,
+  mintCustomCodeCallToken,
+  verifyCustomCodeCallToken,
   customCodeScriptName,
   customCodePreviewScriptName,
   customCodeUploadName,
@@ -657,6 +664,7 @@ export type {
   CustomCodeManifest,
   CustomCodeSendFile,
   CustomCodeCreateResource,
+  CustomCodeCallPayload,
   CustomCodeTokenPayload,
   ContainmentTokenPayload,
   OAuthProviderConfig,

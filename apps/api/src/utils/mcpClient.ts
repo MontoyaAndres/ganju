@@ -10,6 +10,10 @@ export interface McpClientChannelContext {
   channelId: string;
   platform: string;
   conversationId: string;
+  // The customer this turn is for: customer-scoped tables hold only their
+  // rows. And the zone the turn resolves dates in, for the data tools.
+  participantId?: string;
+  timeZone?: string | null;
 }
 
 export const createMcpClient = async (
@@ -60,6 +64,18 @@ export const createMcpClient = async (
           utils.constants.MCP_CHANNEL_CONVERSATION_HEADER,
           channelContext.conversationId
         );
+        if (channelContext.participantId) {
+          headers.set(
+            utils.constants.MCP_CHANNEL_PARTICIPANT_HEADER,
+            channelContext.participantId
+          );
+        }
+        if (channelContext.timeZone) {
+          headers.set(
+            utils.constants.MCP_CHANNEL_TIME_ZONE_HEADER,
+            channelContext.timeZone
+          );
+        }
       }
       const forwarded = { ...(init ?? {}), headers };
       return mcpBinding.fetch(
