@@ -1565,6 +1565,40 @@ export const artifactDatabaseTriggerRun = pgTable(
   ]
 );
 
+// Addresses outside the organization that email triggers may write to, once
+// they confirm from the link Ganju sends them, until they unsubscribe.
+// Members need no confirming. The token is in both links.
+export const dataEmailRecipient = pgTable(
+  'data_email_recipient',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    // Lowercased.
+    email: text('email').notNull(),
+    token: text('token').notNull(),
+    confirmedAt: timestamp('confirmed_at', { mode: 'date' }),
+    unsubscribedAt: timestamp('unsubscribed_at', { mode: 'date' }),
+    // When its one confirmation link went out.
+    requestedAt: timestamp('requested_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [
+    uniqueIndex('data_email_recipient_org_email_idx').on(
+      table.organizationId,
+      table.email
+    ),
+    uniqueIndex('data_email_recipient_token_idx').on(table.token),
+    index('data_email_recipient_org_requestedAt_idx').on(
+      table.organizationId,
+      table.requestedAt
+    )
+  ]
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),

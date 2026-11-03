@@ -80,6 +80,16 @@ In a message, `{{column}}` inserts that column's value from the row, as plain
 text. `id`, `created_at`, `updated_at` and `participant_id` work too. Messages
 are never formatted as markup: a row may hold text a customer wrote.
 
+**Email** goes to the organization's members right away. Any other address
+first gets one email from Ganju, naming the project and the organization, with
+a link to confirm it wants these emails. Until it confirms, runs leave it out:
+a run that reached someone else is **ok** and says who was left out, and one
+that reached nobody is **skipped**. The dashboard and `ganju deploy` list who
+still has to confirm. An organization sends at most 20 of these links a day;
+the rest go out when the trigger is saved again. Every email to a confirmed
+address has a link to unsubscribe, and supports one-click unsubscribe in mail
+apps.
+
 **Message the customer** needs a table where **each customer sees only their
 own rows**, since that is how a row knows its customer. A row the owner typed in
 has no customer, and its run fails saying so. The channel's daily limit per
@@ -269,5 +279,8 @@ must be `https`, and private or local addresses are refused.
 - On **Pro**, triggers run up to 5,000,000 times a month. Past that, they
   pause until the next billing period, and the organization's admins get an
   email. Enterprise has no such limit.
+- Email triggers run up to 500 times in 24 hours per organization on Pro, and
+  5,000 on Enterprise. The limit counts runs, and each run writes to up to 10
+  addresses. Past it, runs are skipped and say so.
 - If the organization's plan no longer includes Data, triggers pause: their
   runs are skipped.

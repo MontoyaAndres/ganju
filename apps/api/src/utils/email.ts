@@ -15,6 +15,7 @@ interface OutboundEmail {
   text: string;
   html?: string;
   replyTo?: string;
+  headers?: Record<string, string>;
 }
 
 /**

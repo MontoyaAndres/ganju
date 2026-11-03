@@ -20,10 +20,12 @@ import { ContainmentController } from './containment';
 import { ObservabilityController } from './observability';
 import { ToolApprovalController } from './toolApproval';
 import { DataController } from './artifact/data';
+import { DataEmailController } from './dataEmail';
 
 export {
   BillingController,
   DataController,
+  DataEmailController,
   ToolApprovalController,
   ObservabilityController,
   ContainmentController,

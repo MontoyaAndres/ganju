@@ -84,6 +84,17 @@ texto plano. También funcionan `id`, `created_at`, `updated_at` y
 `participant_id`. Los mensajes nunca se envían con formato: una fila puede
 tener texto que escribió un cliente.
 
+El **correo** les llega de inmediato a los miembros de la organización.
+Cualquier otra dirección recibe primero un solo correo de Ganju, con el nombre
+del proyecto y de la organización, y un enlace para confirmar que quiere estos
+correos. Mientras no confirme, las ejecuciones la dejan fuera: una ejecución
+que le llegó a alguien más queda **ok** y dice a quién dejó fuera, y una que no
+le llegó a nadie queda **omitida**. El panel y `ganju deploy` muestran quién
+falta por confirmar. Una organización envía como máximo 20 de estos enlaces al
+día; los demás salen al volver a guardar el disparador. Cada correo a una
+dirección confirmada trae un enlace para darse de baja, y admite la baja con un
+clic en las apps de correo.
+
 **Escribirle al cliente** necesita una tabla donde **cada cliente ve solo sus
 propias filas**, porque así es como una fila sabe quién es su cliente. Una fila
 que escribió el dueño no tiene cliente, y su ejecución falla diciéndolo. Aplica
@@ -285,5 +296,9 @@ se rechazan.
   Pasado ese número, se pausan hasta el siguiente periodo de facturación, y los
   administradores de la organización reciben un correo. Enterprise no tiene
   ese límite.
+- Los disparadores de correo se ejecutan hasta 500 veces cada 24 horas por
+  organización en Pro, y 5.000 en Enterprise. El límite cuenta ejecuciones, y
+  cada una escribe a hasta 10 direcciones. Pasado ese número, las ejecuciones
+  se omiten y lo dicen.
 - Si el plan de la organización ya no incluye Datos, los disparadores se
   pausan: sus ejecuciones se omiten.

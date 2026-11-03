@@ -1480,7 +1480,10 @@ const CUSTOM_CODE_TOOL = z.object({
       access: z.enum(['read', 'write']).optional(),
       tables: z.array(z.string().min(1).max(63)).max(50).optional()
     })
-    .optional()
+    .optional(),
+  // true: the function may message customers and chats through ctx.channels.
+  // Left out, the broker refuses it.
+  channels: z.boolean().optional()
 });
 
 // The manifest a `ganju deploy` (or the dashboard) uploads alongside a bundle.

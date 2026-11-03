@@ -106,6 +106,21 @@ Message the project's customers and staff chats. Messages go out as the bot,
 as plain text, and are recorded on the conversation, so the bot's next turn
 knows what the customer was told. They aren't billed as assistant replies.
 
+A function only gets `ctx.channels` when it asks for it: set `"channels": true`
+on it in `ganju.json`, or turn on **Can message through channels** in its
+dialog on the Functions tab. Without it, every call throws "… can't use
+ctx.channels". `ganju deploy` lists the functions that have it. Versions
+published before this setting existed keep `ctx.channels`; add it to
+`ganju.json` before you deploy them again.
+
+```json
+{
+  "name": "tell-customer",
+  "entry": "src/tellCustomer.ts",
+  "channels": true
+}
+```
+
 ```ts
 // A customer the bot has spoken with, in their private chat
 await ctx.channels.send({
@@ -147,6 +162,7 @@ dialog on the Functions tab:
   "name": "tell-customer",
   "entry": "src/tellCustomer.ts",
   "expose": false,
+  "channels": true,
   "data": { "access": "read", "tables": ["orders"] }
 }
 ```

@@ -549,6 +549,8 @@ const en = {
   webhookSecretLabel: 'Secret',
   webhookSecretCopied: 'Secret copied',
   toastTriggerSaved: 'Trigger saved',
+  toastTriggerSavedConfirming:
+    'Trigger saved. {emails} must confirm before they get these emails; Ganju sends each a link once.',
   toastTriggerSaveFailed: "Couldn't save the trigger",
   toastTriggerDeleted: 'Trigger deleted',
   toastTriggerDeleteFailed: "Couldn't delete the trigger",
@@ -1119,6 +1121,8 @@ export const DATA: Catalog<DataCopy> = {
     webhookSecretLabel: 'Secreto',
     webhookSecretCopied: 'Secreto copiado',
     toastTriggerSaved: 'Disparador guardado',
+    toastTriggerSavedConfirming:
+      'Disparador guardado. {emails} deben confirmar antes de recibir estos correos; Ganju les envía un enlace una sola vez.',
     toastTriggerSaveFailed: 'No se pudo guardar el disparador',
     toastTriggerDeleted: 'Disparador eliminado',
     toastTriggerDeleteFailed: 'No se pudo eliminar el disparador',

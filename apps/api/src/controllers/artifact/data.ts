@@ -18,11 +18,14 @@ import {
   restoreDeletedDatabase,
   softDeleteDatabase
 } from '../../utils/dataDatabase';
-import { checkTriggerTargets } from '../../utils/dataTriggers';
+import {
+  checkTriggerTargets,
+  requestEmailConfirmations
+} from '../../utils/dataTriggers';
 
 // types
 import type { Handler } from 'hono';
-import type { OpenedDatabase, DataUsageTally } from '@ganju/db';
+import type { DbExecutor, OpenedDatabase, DataUsageTally } from '@ganju/db';
 import type {
   DataCaller,
   DataTriggerEventMessage,
@@ -836,6 +839,42 @@ const listTriggers = (c: Context<AppEnv>) =>
     )
   );
 
+// Email triggers' addresses that still have to confirm; each gets a link.
+// A failure here doesn't undo the save: the runs say who is waiting.
+const confirmRecipients = async (
+  c: Context<AppEnv>,
+  request: {
+    dbInstance: DbExecutor;
+    artifactId: string;
+    organizationId: string;
+  },
+  inputs: Record<string, unknown>[]
+): Promise<string[]> => {
+  try {
+    const [project] = await request.dbInstance
+      .select({ name: db.schema.project.name })
+      .from(db.schema.artifact)
+      .innerJoin(
+        db.schema.project,
+        eq(db.schema.project.id, db.schema.artifact.projectId)
+      )
+      .where(eq(db.schema.artifact.id, request.artifactId))
+      .limit(1);
+    return await requestEmailConfirmations(
+      c,
+      request.dbInstance,
+      {
+        organizationId: request.organizationId,
+        projectName: project?.name ?? 'A project'
+      },
+      inputs
+    );
+  } catch (error) {
+    console.error('data-email-confirm-failed', error);
+    return [];
+  }
+};
+
 // Answers with a new webhook's secret, the only time it is shown.
 const saveTrigger = async (c: Context<AppEnv>) => {
   const input = await bodyOf(c, Schema.DATA_TRIGGER_INPUT);
@@ -852,7 +891,19 @@ const saveTrigger = async (c: Context<AppEnv>) => {
       target: saved.trigger.name,
       detail: input
     });
-    return c.json(saved, 201);
+    const confirming = await confirmRecipients(
+      c,
+      {
+        dbInstance: request.dbInstance,
+        artifactId: request.artifactId,
+        organizationId: request.opened.row.organizationId
+      },
+      [input]
+    );
+    return c.json(
+      { ...saved, ...(confirming.length > 0 ? { confirming } : {}) },
+      201
+    );
   });
 };
 
@@ -914,7 +965,19 @@ const deployTriggers = async (c: Context<AppEnv>) => {
         removed: result.removed
       }
     });
-    return c.json(result);
+    const confirming = await confirmRecipients(
+      c,
+      {
+        dbInstance: request.dbInstance,
+        artifactId: request.artifactId,
+        organizationId: request.opened.row.organizationId
+      },
+      triggers
+    );
+    return c.json({
+      ...result,
+      ...(confirming.length > 0 ? { confirming } : {})
+    });
   });
 };
 

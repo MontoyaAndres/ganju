@@ -746,6 +746,7 @@ const TriggerDialog = ({
     const result = await dataRequest<{
       trigger: DataTrigger;
       secret?: string;
+      confirming?: string[];
     }>(base, '/trigger', {
       method: 'POST',
       body: {
@@ -770,7 +771,12 @@ const TriggerDialog = ({
       setError(result.error || t('toastTriggerSaveFailed'));
       return;
     }
-    snackbar.success(t('toastTriggerSaved'));
+    const confirming = result.data.confirming ?? [];
+    snackbar.success(
+      confirming.length > 0
+        ? t('toastTriggerSavedConfirming', { emails: confirming.join(', ') })
+        : t('toastTriggerSaved')
+    );
     onSaved(result.data.secret ?? null);
   };
 

@@ -56,6 +56,11 @@ export interface ProjectTool {
    * it, and it doesn't count toward the project's tools.
    */
   expose?: boolean;
+  /**
+   * `true` lets the function message customers and chats through
+   * `ctx.channels`. Left out, those calls are refused.
+   */
+  channels?: boolean;
 }
 
 /**
@@ -233,7 +238,8 @@ export const buildManifest = (tools: ProjectTool[]) => ({
     ...(tool.output ? { outputSchema: tool.output } : {}),
     ...(tool.annotations ? { annotations: tool.annotations } : {}),
     ...(tool.data ? { data: tool.data } : {}),
-    ...(typeof tool.expose === 'boolean' ? { expose: tool.expose } : {})
+    ...(typeof tool.expose === 'boolean' ? { expose: tool.expose } : {}),
+    ...(typeof tool.channels === 'boolean' ? { channels: tool.channels } : {})
   }))
 });
 

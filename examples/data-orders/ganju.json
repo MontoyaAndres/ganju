@@ -55,6 +55,7 @@
       "description": "Posts a new order and its dishes to the staff group. Run by a trigger on orders, never by the assistant.",
       "entry": "src/notifyKitchen.ts",
       "expose": false,
+      "channels": true,
       "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": true },
       "data": { "access": "write", "tables": ["orders", "order_lines", "menu"] },
       "input": { "type": "object", "properties": {} }
@@ -65,6 +66,7 @@
       "description": "Messages the customer who placed the order. Run by a trigger when an order becomes ready, never by the assistant.",
       "entry": "src/tellCustomer.ts",
       "expose": false,
+      "channels": true,
       "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": true },
       "data": { "access": "read", "tables": ["orders"] },
       "input": { "type": "object", "properties": {} }

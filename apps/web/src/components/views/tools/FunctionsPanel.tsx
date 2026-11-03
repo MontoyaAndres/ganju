@@ -51,6 +51,8 @@ export interface ManifestTool {
   expose?: boolean;
   // What it may do to the project's database. The dialog keeps it as is.
   data?: { access?: 'read' | 'write'; tables?: string[] };
+  // true: it may message customers and chats through ctx.channels.
+  channels?: boolean;
 }
 
 // The three answers the dialog offers to "what does it do?", and the MCP
@@ -1497,6 +1499,7 @@ const FunctionModal = ({
   );
   const [effect, setEffect] = useState<ToolEffect>(effectOf(initial));
   const [expose, setExpose] = useState(initial?.expose !== false);
+  const [channels, setChannels] = useState(initial?.channels === true);
   const [error, setError] = useState<string | null>(null);
 
   const t = i18n.useT(i18n.copy.TOOLS);
@@ -1584,6 +1587,8 @@ const FunctionModal = ({
     else delete tool.outputSchema;
     if (expose) delete tool.expose;
     else tool.expose = false;
+    if (channels) tool.channels = true;
+    else delete tool.channels;
     onSave(tool);
   };
 
@@ -1656,6 +1661,20 @@ const FunctionModal = ({
                 />
               </div>
               <small>{t('fnExposeHelp')}</small>
+            </div>
+            <div className="tools-field-switch">
+              <div className="tools-field-switch-row">
+                <span id="function-channels-label">{t('fnChannelsLabel')}</span>
+                <Switch
+                  checked={channels}
+                  disabled={!editable}
+                  slotProps={{
+                    input: { 'aria-labelledby': 'function-channels-label' }
+                  }}
+                  onChange={(_, checked) => setChannels(checked)}
+                />
+              </div>
+              <small>{t('fnChannelsHelp')}</small>
             </div>
             {/* Under the fields they are about, not below the schema editors,
                 so they stay in view while the description is being written. */}

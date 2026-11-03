@@ -12,6 +12,8 @@ import { invokeCustomCodeScript } from '../utils/customCodeDeploy';
 import {
   activeFunctions,
   emailEach,
+  emailRecipients,
+  emailRecipientsEach,
   organizationAdminEmails
 } from '../utils/dataTriggers';
 
@@ -40,6 +42,8 @@ const run = db.schema.artifactDatabaseTriggerRun;
 
 // A failure no retry fixes: recorded and not sent again.
 class FinalError extends Error {}
+// Nothing to do yet: recorded as skipped, which never counts as a failure.
+class SkipRun extends Error {}
 
 const errorText = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).slice(0, 1000);
@@ -100,7 +104,7 @@ const runAction = async (
     trigger: DataTriggerWithSecret;
   },
   job: DataTriggerJob
-) => {
+): Promise<string | undefined> => {
   const { trigger, stub } = context;
   const action = trigger.action;
   const source = { env };
@@ -211,21 +215,40 @@ const runAction = async (
       return;
     }
     case 'email': {
+      // Only to the organization's members and addresses that confirmed.
+      const { allowed, pending, stopped } = await emailRecipients(
+        executor,
+        context.organizationId,
+        action.to
+      );
+      const notes = [
+        pending.length > 0
+          ? `${pending.join(', ')} ${pending.length === 1 ? "hasn't" : "haven't"} confirmed yet.`
+          : '',
+        stopped.length > 0 ? `${stopped.join(', ')} unsubscribed.` : ''
+      ].filter(Boolean);
+      if (allowed.length === 0) {
+        throw new SkipRun(`Not sent: ${notes.join(' ')}`);
+      }
       const row = await rowFor(stub, job);
-      const failed = await emailEach(source, action.to, {
+      const failed = await emailRecipientsEach(source, allowed, {
         subject: renderTriggerText(action.subject, row).slice(0, 200),
         text: renderTriggerText(action.text, row)
       });
-      if (failed.length === action.to.length) {
+      if (failed.length === allowed.length) {
         throw new Error(`The email couldn't be sent to ${failed.join(', ')}.`);
       }
       // Sent to some: a retry would mail those again.
       if (failed.length > 0) {
         throw new FinalError(
-          `The email couldn't be sent to ${failed.join(', ')}; the others got it.`
+          [
+            `The email couldn't be sent to ${failed.join(', ')}; the others got it.`,
+            ...notes
+          ].join(' ')
         );
       }
-      return;
+      // Sent to everyone it may write to: ok, with who was left out.
+      return notes.length > 0 ? `Sent. ${notes.join(' ')}` : undefined;
     }
     case 'customer': {
       const row = await rowFor(stub, job);
@@ -502,6 +525,43 @@ const processEvent = async (
     return 'done';
   }
 
+  // Email goes out from Ganju's own domain: a daily cap per organization.
+  const emailCap = limits.dailyTriggerEmailCap;
+  if (
+    trigger.action.type === 'email' &&
+    current.attempts === 0 &&
+    emailCap !== null &&
+    emailCap !== undefined
+  ) {
+    const [sent] = await executor
+      .select({ n: sql<number>`count(*)::int` })
+      .from(run)
+      .innerJoin(
+        db.schema.artifactDatabase,
+        eq(db.schema.artifactDatabase.id, run.databaseId)
+      )
+      .where(
+        and(
+          eq(
+            db.schema.artifactDatabase.organizationId,
+            database.organizationId
+          ),
+          eq(run.action, 'email'),
+          ne(run.id, current.id),
+          gt(run.startedAt, new Date(Date.now() - 24 * 60 * 60_000))
+        )
+      );
+    if ((sent?.n ?? 0) >= emailCap) {
+      await finish(
+        executor,
+        current.id,
+        'skipped',
+        `Not sent: the organization reached its ${emailCap} email trigger runs for the last 24 hours.`
+      );
+      return 'done';
+    }
+  }
+
   if (current.attempts === 0) {
     await countRun(env, executor, database.organizationId, cap ?? null).catch(
       error => console.error('data-trigger-count-failed', errorText(error))
@@ -518,14 +578,25 @@ const processEvent = async (
     .where(eq(run.id, current.id));
 
   const startedAt = Date.now();
+  let note: string | undefined;
   try {
-    await runAction(
+    note = await runAction(
       env,
       executor,
       { organizationId: database.organizationId, stub, trigger },
       job
     );
   } catch (error) {
+    if (error instanceof SkipRun) {
+      await finish(
+        executor,
+        current.id,
+        'skipped',
+        errorText(error),
+        startedAt
+      );
+      return 'done';
+    }
     const final = error instanceof FinalError || attempts > MAX_RETRIES;
     await finish(executor, current.id, 'failed', errorText(error), startedAt);
     if (!final) throw error;
@@ -534,7 +605,7 @@ const processEvent = async (
     );
     return 'failed';
   }
-  await finish(executor, current.id, 'ok', null, startedAt);
+  await finish(executor, current.id, 'ok', note ?? null, startedAt);
   return 'done';
 };
 

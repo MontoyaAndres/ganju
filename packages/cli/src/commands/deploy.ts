@@ -118,7 +118,9 @@ export const deploy = async (flags: {
   for (const tool of tools) {
     note(
       color.gray(
-        `  ${tool.name}${tool.expose === false ? ' (triggers only)' : ''}`
+        `  ${tool.name}${tool.expose === false ? ' (triggers only)' : ''}${
+          tool.channels === true ? ' (messages through channels)' : ''
+        }`
       )
     );
   }
@@ -133,6 +135,7 @@ export const deploy = async (flags: {
     triggers: { name: string; table: string; on: string }[];
     removed: string[];
     secrets: Record<string, string>;
+    confirming?: string[];
   }>('deployTriggers', { json: { triggers } });
   for (const trigger of result.triggers) {
     note(color.gray(`  ${trigger.name}: ${trigger.table} ${trigger.on}`));
@@ -141,5 +144,10 @@ export const deploy = async (flags: {
   for (const [name, secret] of Object.entries(result.secrets)) {
     // Shown once, like a token: the receiver checks signatures with it.
     success(`${name}'s webhook signing secret (shown once): ${secret}`);
+  }
+  if (result.confirming?.length) {
+    note(
+      `${result.confirming.join(', ')} must confirm before email triggers write to them; Ganju sends each a link once.`
+    );
   }
 };

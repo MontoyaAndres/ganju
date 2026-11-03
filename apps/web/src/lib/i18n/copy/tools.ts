@@ -349,6 +349,9 @@ const en = {
   fnExposeLabel: 'Assistant can use this function',
   fnExposeHelp:
     "Off: only database triggers run it; the assistant never sees it, and it doesn't count toward the tool limit.",
+  fnChannelsLabel: 'Can message through channels',
+  fnChannelsHelp:
+    "On: it may message customers and the bot's chats with ctx.channels. Off, those calls are refused.",
   fnTriggersOnly: 'Triggers only',
   fnErrNameCharset:
     'Name may only contain letters, digits, underscore or hyphen',
@@ -988,6 +991,9 @@ export const TOOLS: Catalog<ToolsCopy> = {
     fnExposeLabel: 'El asistente puede usar esta función',
     fnExposeHelp:
       'Apagado: solo la ejecutan los disparadores de la base de datos; el asistente nunca la ve y no cuenta para el límite de herramientas.',
+    fnChannelsLabel: 'Puede escribir por los canales',
+    fnChannelsHelp:
+      'Encendido: puede escribirles a los clientes y a los chats del bot con ctx.channels. Apagado, esas llamadas se rechazan.',
     fnTriggersOnly: 'Solo disparadores',
     fnErrNameCharset:
       'El nombre solo puede tener letras, dígitos, guion bajo o guion',

@@ -328,9 +328,9 @@ export const DATA_API_ROUTES = {
     tag: 'Triggers',
     summary: 'Save a trigger',
     description:
-      'Runs one action when rows of `table` are inserted, updated or deleted, and `when` holds: `{ "status": { "changedTo": "READY" } }` fires on the transition only; `changedFrom`, `changed: true` and `equals` test a column too, and `all` / `any` combine them. The action is one of `function` (a function of this project, given `{ event, table, row, previous, actor, eventId, triggerId }`), `webhook` (an https URL, sent a POST signed in `x-ganju-signature`), `chat` (`{ channelId, chatId, text }`), `email` (`{ to, subject, text }`) or `customer` (`{ text, template? }`, to the row\'s customer on a customer-scoped table). Texts take `{{field}}` from the row, inserted as plain text. Saving under an existing name replaces it, unless `replace` is false; with no `name`, it always creates a new trigger, named from the table, event and action and numbered past those taken. Left out, `enabled` keeps a saved trigger on or off as it was. A new webhook answers with its signing `secret`, shown this once. Delivery is at least once: every event carries an `eventId`.',
+      'Runs one action when rows of `table` are inserted, updated or deleted, and `when` holds: `{ "status": { "changedTo": "READY" } }` fires on the transition only; `changedFrom`, `changed: true` and `equals` test a column too, and `all` / `any` combine them. The action is one of `function` (a function of this project, given `{ event, table, row, previous, actor, eventId, triggerId }`), `webhook` (an https URL, sent a POST signed in `x-ganju-signature`), `chat` (`{ channelId, chatId, text }`), `email` (`{ to, subject, text }`) or `customer` (`{ text, template? }`, to the row\'s customer on a customer-scoped table). Texts take `{{field}}` from the row, inserted as plain text. Saving under an existing name replaces it, unless `replace` is false; with no `name`, it always creates a new trigger, named from the table, event and action and numbered past those taken. Left out, `enabled` keeps a saved trigger on or off as it was. A new webhook answers with its signing `secret`, shown this once. An `email` goes to the organization\'s members; any other address is sent a link to confirm first, and those still waiting come back as `confirming`. Delivery is at least once: every event carries an `eventId`.',
     body: DATA_TRIGGER_INPUT,
-    returns: '{ trigger, secret? }',
+    returns: '{ trigger, secret?, confirming? }',
     status: 201
   },
   updateTrigger: {
@@ -356,9 +356,9 @@ export const DATA_API_ROUTES = {
     tag: 'Triggers',
     summary: 'Deploy the triggers of ganju.json',
     description:
-      "What `ganju deploy` sends: every trigger listed is saved as managed by the CLI, and the CLI's earlier ones not listed are deleted. Triggers made in the dashboard are left alone. All or nothing. New webhooks' secrets come back once, by name.",
+      "What `ganju deploy` sends: every trigger listed is saved as managed by the CLI, and the CLI's earlier ones not listed are deleted. Triggers made in the dashboard are left alone. All or nothing. New webhooks' secrets come back once, by name, and email addresses still to confirm as `confirming`.",
     body: DATA_TRIGGER_DEPLOY_BODY,
-    returns: '{ triggers, removed, secrets }'
+    returns: '{ triggers, removed, secrets, confirming? }'
   },
   listTriggerRuns: {
     method: 'get',

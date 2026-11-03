@@ -421,6 +421,23 @@ const sendFile = async (c: Context<AppEnv>) => {
   return c.json({ result: sent.result });
 };
 
+// The manifest entry of the function a call token names, in that version.
+const functionEntry = async (
+  executor: ReturnType<typeof db.create>,
+  versionId: string,
+  name: string
+) => {
+  const [version] = await executor
+    .select({ tools: db.schema.artifactToolVersion.tools })
+    .from(db.schema.artifactToolVersion)
+    .where(eq(db.schema.artifactToolVersion.id, versionId))
+    .limit(1);
+  const entry = (Array.isArray(version?.tools) ? version.tools : [])
+    .map(raw => utils.Schema.CUSTOM_CODE_TOOL.safeParse(raw))
+    .find(result => result.success && result.data.name === name);
+  return entry?.success ? entry.data : null;
+};
+
 /**
  * One ctx.data call: describe, query, write or run a named query on the
  * project's own database.
@@ -468,18 +485,11 @@ const data = async (c: Context<AppEnv>) => {
   const name = signed.tool;
   const dbInstance = db.create(c);
 
-  const [version] = await dbInstance
-    .select({ tools: db.schema.artifactToolVersion.tools })
-    .from(db.schema.artifactToolVersion)
-    .where(eq(db.schema.artifactToolVersion.id, tool.versionId))
-    .limit(1);
-  const entry = (Array.isArray(version?.tools) ? version.tools : [])
-    .map(raw => utils.Schema.CUSTOM_CODE_TOOL.safeParse(raw))
-    .find(result => result.success && result.data.name === name);
-  if (!entry?.success) {
+  const entry = await functionEntry(dbInstance, tool.versionId, name);
+  if (!entry) {
     return c.json({ error: `"${name}" is not a function of this tool.` }, 403);
   }
-  const narrowing = entry.data.data;
+  const narrowing = entry.data;
 
   const opened = await db.data.openArtifactDatabase(
     dbInstance,
@@ -574,6 +584,9 @@ const data = async (c: Context<AppEnv>) => {
   }
 };
 
+const NOT_IN_A_RUN =
+  'ctx.channels works only inside a function call Ganju started, while it runs.';
+
 // The function a ctx.channels call comes from, named by its call token as
 // for ctx.data.
 const channelCaller = async (c: Context<AppEnv>, call: string) => {
@@ -587,9 +600,22 @@ const channelCaller = async (c: Context<AppEnv>, call: string) => {
     signed.artifactId !== tool.artifactId ||
     signed.versionId !== tool.versionId
   ) {
-    return null;
+    return { error: c.json({ error: NOT_IN_A_RUN, code: 'forbidden' }, 403) };
   }
-  return signed;
+  // Only a function that asked for it in its manifest.
+  const entry = await functionEntry(db.create(c), tool.versionId, signed.tool);
+  if (entry?.channels !== true) {
+    return {
+      error: c.json(
+        {
+          error: `${signed.tool} can't use ctx.channels: turn on "channels" for it, in ganju.json or on the Tools page, and deploy again.`,
+          code: 'forbidden'
+        },
+        403
+      )
+    };
+  }
+  return { signed };
 };
 
 const channelError = (c: Context<AppEnv>, error: unknown) => {
@@ -598,9 +624,6 @@ const channelError = (c: Context<AppEnv>, error: unknown) => {
   }
   throw error;
 };
-
-const NOT_IN_A_RUN =
-  'ctx.channels works only inside a function call Ganju started, while it runs.';
 
 /**
  * ctx.channels.send: a message to a customer the bot has spoken with, on the
@@ -621,8 +644,9 @@ const channelsSend = async (c: Context<AppEnv>) => {
       400
     );
   }
-  const signed = await channelCaller(c, parsed.data.call);
-  if (!signed) return c.json({ error: NOT_IN_A_RUN, code: 'forbidden' }, 403);
+  const caller = await channelCaller(c, parsed.data.call);
+  if (caller.error) return caller.error;
+  const { signed } = caller;
   try {
     const result = await db.channels.sendToParticipant(db.create(c), {
       artifactId: signed.artifactId,
@@ -650,8 +674,9 @@ const channelsPost = async (c: Context<AppEnv>) => {
       400
     );
   }
-  const signed = await channelCaller(c, parsed.data.call);
-  if (!signed) return c.json({ error: NOT_IN_A_RUN, code: 'forbidden' }, 403);
+  const caller = await channelCaller(c, parsed.data.call);
+  if (caller.error) return caller.error;
+  const { signed } = caller;
   try {
     const result = await db.channels.postToChat(db.create(c), {
       artifactId: signed.artifactId,

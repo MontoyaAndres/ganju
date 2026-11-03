@@ -25,7 +25,8 @@ import {
   BillingController,
   ContainmentController,
   ToolApprovalController,
-  DataController
+  DataController,
+  DataEmailController
 } from './controllers';
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
@@ -184,6 +185,14 @@ app
     `${utils.constants.CONTAINMENT_PATH}/:token`,
     ContainmentController.apply
   )
+
+  // The links an email trigger's outside recipient gets: confirm, and
+  // unsubscribe (also the one-click target). Public: the token is the
+  // authority, and each GET only renders.
+  .get('/data/email/confirm/:token', DataEmailController.showConfirm)
+  .post('/data/email/confirm/:token', DataEmailController.confirm)
+  .get('/data/email/unsubscribe/:token', DataEmailController.showUnsubscribe)
+  .post('/data/email/unsubscribe/:token', DataEmailController.unsubscribe)
 
   // An MCP client's sensitive call, held for its user's own yes after the
   // session read outside content. The controller also requires a dashboard

@@ -110,6 +110,21 @@ salen como el bot, en texto plano, y quedan en la conversación, así que el
 siguiente turno del bot sabe qué se le dijo al cliente. No se cobran como
 respuestas del asistente.
 
+Una función solo tiene `ctx.channels` si lo pide: pon `"channels": true` en
+ella en `ganju.json`, o activa **Puede escribir por los canales** en su diálogo
+de la pestaña Funciones. Sin eso, cada llamada lanza "… can't use
+ctx.channels". `ganju deploy` muestra qué funciones lo tienen. Las versiones
+publicadas antes de que existiera este ajuste conservan `ctx.channels`;
+agrégalo a `ganju.json` antes de volver a desplegarlas.
+
+```json
+{
+  "name": "tell-customer",
+  "entry": "src/tellCustomer.ts",
+  "channels": true
+}
+```
+
 ```ts
 // Un cliente con el que el bot ya habló, en su chat privado
 await ctx.channels.send({
@@ -151,6 +166,7 @@ asistente puede usar esta función** en su diálogo de la pestaña Funciones:
   "name": "tell-customer",
   "entry": "src/tellCustomer.ts",
   "expose": false,
+  "channels": true,
   "data": { "access": "read", "tables": ["orders"] }
 }
 ```

@@ -2271,6 +2271,9 @@ interface PlanLimits {
   maxDataTablesPerDatabase: number | null;
   // Abuse backstop on data trigger runs a month. `null` = no backstop.
   triggerRunHardCap: number | null;
+  // Email trigger runs a day per organization, each to at most 10 addresses.
+  // They go out from Ganju's own domain. `null` = no cap.
+  dailyTriggerEmailCap: number | null;
 }
 
 const PLAN_LIMITS: Record<
@@ -2315,7 +2318,8 @@ const PLAN_LIMITS: Record<
     canUseData: false,
     maxDataBytes: null,
     maxDataTablesPerDatabase: null,
-    triggerRunHardCap: 0
+    triggerRunHardCap: 0,
+    dailyTriggerEmailCap: 0
   },
   PRO: {
     maxProjects: null,
@@ -2346,7 +2350,8 @@ const PLAN_LIMITS: Record<
     canUseData: true,
     maxDataBytes: DATA_MAX_DATABASE_BYTES,
     maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
-    triggerRunHardCap: DATA_TRIGGER_RUN_HARD_CAP
+    triggerRunHardCap: DATA_TRIGGER_RUN_HARD_CAP,
+    dailyTriggerEmailCap: 500
   },
   ENTERPRISE: {
     maxProjects: null,
@@ -2377,7 +2382,8 @@ const PLAN_LIMITS: Record<
     canUseData: true,
     maxDataBytes: DATA_MAX_DATABASE_BYTES,
     maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
-    triggerRunHardCap: null
+    triggerRunHardCap: null,
+    dailyTriggerEmailCap: 5000
   }
 };
 

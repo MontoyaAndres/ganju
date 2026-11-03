@@ -359,7 +359,8 @@ export interface ChannelMessageReceipt {
 /**
  * The project's channels. Messages go out as the bot, as plain text, and are
  * recorded on the conversation, so the bot's next turn knows what the
- * customer was told. Not billed as assistant replies.
+ * customer was told. Not billed as assistant replies. Only a function with
+ * `"channels": true` in ganju.json may use it; any other gets an error.
  */
 export interface ChannelsContext {
   /**

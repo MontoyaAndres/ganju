@@ -2236,7 +2236,12 @@ pass on both, and the Telegram checks were done by hand on dev.
     - a restore clears only the outbox events from before it was requested, and the consumer skips a fresh delivery of an event that already ran;
     - a retry marks the run before queueing it;
     - Slack text is escaped, so `<!channel>` from a row pings nobody.
-  - **Decide:** a daily email cap per organization, or verified recipients only, for email triggers; a `channels` opt-in in the manifest for `ctx.channels`.
+  - **Email recipients and `ctx.channels` opt-in** (migration 0086, `data_email_recipient`), decided 2026-11-03:
+    - Email triggers write to the organization's members at once; any other address gets one confirm link (GET renders, POST confirms; at most 20 new links per organization a day; fixed subject, project and organization names shortened to 60). Runs leave unconfirmed addresses out: ok with a note when someone got it, skipped when nobody did, failed only for mail that didn't go out. Save and deploy answer with `confirming`; the dashboard toast and `ganju deploy` show it.
+    - Every email to a confirmed outsider has an unsubscribe link and List-Unsubscribe / List-Unsubscribe-Post one-click headers; the confirmed page can unsubscribe too. Confirm and unsubscribe pages are in English and Spanish.
+    - A daily cap per organization on email trigger runs (Pro 500, Enterprise 5,000 in 24 hours; up to 10 addresses a run); past it runs are skipped.
+    - `"channels": true` on a function (ganju.json, or the dialog's switch) is required for `ctx.channels`; the broker refuses the rest. Migration 0086 sets it on the functions of versions published since 2026-11-01 (ctx.channels shipped on 2026-11-02, a day of margin), so live functions keep working; a new deploy from an old ganju.json needs it added. Dev ran the earlier, unnarrowed form.
+    - The trigger probe checks the refusal; the example's notify-kitchen and tell-customer opt in.
 - **Open:**
   - **The function dialog's `expose` switch** wasn't seen in a browser:
     nemo's live version is a CLI bundle, so the dialog is read-only there.

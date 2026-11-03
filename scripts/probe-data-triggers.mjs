@@ -26,6 +26,7 @@
 //     deploy that names the old column is refused;
 //   - a function that updates the row it was triggered by doesn't loop;
 //   - a chain of triggers stops at depth 3 with a visible error;
+//   - ctx.channels refused to a function without "channels": true;
 //   - ctx.channels.send to a WhatsApp customer outside the 24-hour window
 //     without a template fails with the readable error;
 //   - runs and their errors in the runs list, "Retry", and
@@ -244,9 +245,16 @@ const PROBE_SOURCE = `
 import { createHandler, defineTool } from '@ganju/sdk';
 
 export default createHandler({
-  // Marks the new order with the event it was told about.
+  // Marks the new order with the event it was told about, and what ctx.channels
+  // answers a function that didn't ask for it.
   't-kitchen': defineTool(async (event, ctx) => {
-    await ctx.data.update('qa_orders', event.row.id, { note: 'kitchen:' + event.eventId });
+    let channels = 'allowed';
+    try {
+      await ctx.channels.post({ channelId: 'none', chatId: 'none', text: 'probe' });
+    } catch (error) {
+      channels = error instanceof Error ? error.message : String(error);
+    }
+    await ctx.data.update('qa_orders', event.row.id, { note: 'kitchen:' + event.eventId, address: channels });
     return { ok: true };
   }),
   // Updates the row its own trigger fired for: must not run again for it.
@@ -301,7 +309,8 @@ const MANIFEST = [
     description: 'Trigger only.',
     inputSchema: EMPTY,
     expose: false,
-    data: { access: 'write', tables: ['qa_orders'] }
+    data: { access: 'write', tables: ['qa_orders'] },
+    channels: true
   },
   {
     name: 'visible',
@@ -679,6 +688,11 @@ try {
     '  ...which wrote the row with its eventId',
     marked?.note === `kitchen:${kitchenEvent}`,
     marked?.note
+  );
+  check(
+    "  ...and ctx.channels refused it, since it didn't opt in",
+    /can't use ctx\.channels/.test(marked?.address ?? ''),
+    marked?.address
   );
   const history = await call(`${data}/table/qa_orders/row/${orderId}/history`);
   const kitchenTrigger = listed.body?.triggers?.find(
