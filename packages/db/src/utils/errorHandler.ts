@@ -125,8 +125,13 @@ export const handleError = async (
     // The error knows its own HTTP status (e.g. PlanLimitError → 402). Trust it
     // and merge any structured fields it exposes into the response body.
     status = carried.status as HandleErrorResult['status'];
+    const message = err?.message || String(error);
     body = {
-      error: err?.message || String(error),
+      // The data engine writes English; the dashboard may read Spanish.
+      error:
+        err?.name === 'DataError'
+          ? utils.localizeDataError(message, requestLanguage(source))
+          : message,
       ...(typeof carried.toBody === 'function' ? carried.toBody() : {})
     };
   } else if (options.status) {

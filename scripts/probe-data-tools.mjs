@@ -1,11 +1,12 @@
 // Drives the assistant's and functions' way into a project's database against
-// the DEPLOYED dev stack, over real HTTP and MCP.
+// the DEPLOYED dev stack (or production with --prod), over real HTTP and MCP.
 //
 //   PROBE_API_URL=https://development-api.vocesqueabrazan.com node scripts/probe-data-tools.mjs
+//   node scripts/probe-data-tools.mjs --prod
 //   PROBE_MCP_URL=http://localhost:8081 node scripts/probe-data-tools.mjs   (another MCP worker)
-//   node scripts/probe-data-tools.mjs --purge-check <artifact_database id>
+//   node scripts/probe-data-tools.mjs --purge-check <artifact_database id> [--prod]
 //
-// Needs .env: DATABASE_URL, JWT_SECRET, MCP_INTERNAL_SECRET,
+// Needs .env (or .env.prod with --prod): DATABASE_URL, JWT_SECRET, MCP_INTERNAL_SECRET,
 // CLOUDFLARE_ACCOUNT_ID, CUSTOM_CODE_CF_API_TOKEN and CUSTOM_CODE_TOKEN_SECRET.
 // The MCP URL is not read from .env: there it points at the local worker.
 //
@@ -37,7 +38,11 @@ import { v7 as uuid } from 'uuid';
 import { utils } from '@ganju/utils';
 
 const root = new URL('..', import.meta.url).pathname;
-const env = fs.readFileSync(path.join(root, '.env'), 'utf8');
+const isProd = process.argv.includes('--prod');
+const env = fs.readFileSync(
+  path.join(root, isProd ? '.env.prod' : '.env'),
+  'utf8'
+);
 const read = key =>
   env
     .match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1]
@@ -45,10 +50,16 @@ const read = key =>
     .trim();
 
 const API = (
-  process.env.PROBE_API_URL ?? 'https://development-api.vocesqueabrazan.com'
+  process.env.PROBE_API_URL ??
+  (isProd
+    ? 'https://api.ganju.ai'
+    : 'https://development-api.vocesqueabrazan.com')
 ).replace(/\/+$/, '');
 const MCP_ORIGIN = (
-  process.env.PROBE_MCP_URL ?? 'https://development-mcp.vocesqueabrazan.com'
+  process.env.PROBE_MCP_URL ??
+  (isProd
+    ? 'https://mcp.ganju.ai'
+    : 'https://development-mcp.vocesqueabrazan.com')
 ).replace(/\/+$/, '');
 const DATABASE_URL = read('DATABASE_URL');
 const JWT_SECRET = read('JWT_SECRET');
@@ -56,8 +67,9 @@ const MCP_SECRET = read('MCP_INTERNAL_SECRET');
 const ACCOUNT_ID = read('CLOUDFLARE_ACCOUNT_ID');
 const CF_TOKEN = read('CUSTOM_CODE_CF_API_TOKEN');
 const TOKEN_SECRET = read('CUSTOM_CODE_TOKEN_SECRET');
-const NAMESPACE = 'ganju-tools-development';
-const BROKER_SERVICE = 'ganju-tool-broker-development';
+const STAGE = isProd ? 'production' : 'development';
+const NAMESPACE = `ganju-tools-${STAGE}`;
+const BROKER_SERVICE = `ganju-tool-broker-${STAGE}`;
 
 const sql = postgres(DATABASE_URL, { ssl: 'require', max: 1, prepare: false });
 
@@ -619,7 +631,7 @@ try {
     (n, methods) => n + Object.keys(methods).length,
     0
   );
-  check('the OpenAPI file has every route', operations === 31, `${operations}`);
+  check('the OpenAPI file has every route', operations === 38, `${operations}`);
 
   section('a channel bot');
   const channelId = uuid();
@@ -1107,7 +1119,7 @@ try {
   console.log('  removed the throwaway user, organization and project');
   if (leftForPurge) {
     console.log(
-      `  left database ${leftForPurge} DELETING with its grace period over; after the next hourly cron run:\n    node scripts/probe-data-tools.mjs --purge-check ${leftForPurge}`
+      `  left database ${leftForPurge} DELETING with its grace period over; after the next hourly cron run:\n    node scripts/probe-data-tools.mjs --purge-check ${leftForPurge}${isProd ? ' --prod' : ''}`
     );
   }
   fs.rmSync(buildDir, { recursive: true, force: true });

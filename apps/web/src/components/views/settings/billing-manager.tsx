@@ -40,6 +40,14 @@ interface BillingStatus {
     toolCallsUsed: number;
     includedToolCalls: number;
     voiceNotes?: { count: number; seconds: number; onPlatformKey: number };
+    data?: {
+      storageBytes?: number;
+      rowsRead: number;
+      rowsWritten: number;
+      requests: number;
+      peakMb: number;
+      triggerRuns: number;
+    };
   };
   subscription: {
     status: string;
@@ -433,6 +441,61 @@ export const BillingManager = (props: BillingManagerProps) => {
             })}
           </div>
         )}
+        {/* Tracked, not billed: measured so a price can follow real numbers.
+            Shown on the plans that have Data, or once there is any. */}
+        {status.usage.data &&
+          (!isFree ||
+            status.usage.data.requests > 0 ||
+            (status.usage.data.storageBytes ?? 0) > 0) && (
+            <div className="billing-data">
+              <strong>{t('usageDataTitle')}</strong>
+              <p>{t('usageDataHint')}</p>
+              <dl>
+                <dt>{t('usageDataStorage')}</dt>
+                <dd>{t.bytes(status.usage.data.storageBytes ?? 0)}</dd>
+                {status.usage.data.peakMb > 0 && (
+                  <>
+                    <dt>{t('usageDataPeak')}</dt>
+                    <dd>
+                      {t.bytes(status.usage.data.peakMb * utils.constants.MB)}
+                    </dd>
+                  </>
+                )}
+                <dt>{t('usageDataRowsWritten')}</dt>
+                <dd>{t.n(status.usage.data.rowsWritten)}</dd>
+                <dt>{t('usageDataRowsRead')}</dt>
+                <dd>{t.n(status.usage.data.rowsRead)}</dd>
+                <dt>{t('usageDataRequests')}</dt>
+                <dd>{t.n(status.usage.data.requests)}</dd>
+                <dt>{t('usageDataTriggerRuns')}</dt>
+                <dd>{t.n(status.usage.data.triggerRuns)}</dd>
+              </dl>
+              <style jsx>{`
+                .billing-data {
+                  margin-top: 16px;
+                  font-size: 13px;
+                }
+                .billing-data p {
+                  margin: 4px 0 8px;
+                  opacity: 0.6;
+                  font-size: 12px;
+                }
+                .billing-data dl {
+                  display: grid;
+                  grid-template-columns: max-content 1fr;
+                  gap: 4px 16px;
+                  margin: 0;
+                }
+                .billing-data dt {
+                  opacity: 0.7;
+                }
+                .billing-data dd {
+                  margin: 0;
+                  font-variant-numeric: tabular-nums;
+                }
+              `}</style>
+            </div>
+          )}
       </div>
     </>
   );

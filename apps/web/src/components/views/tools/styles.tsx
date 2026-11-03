@@ -2264,6 +2264,31 @@ export const ModalDialog = styled.div`
 
     ${jsonField(theme)}
 
+    .tools-field-switch {
+      margin-bottom: 16px;
+
+      .tools-field-switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+
+        & > span {
+          font-size: ${theme.fonts.sm};
+          font-weight: 600;
+          color: ${theme.colors.bastille};
+        }
+      }
+
+      & > small {
+        display: block;
+        margin-top: 5px;
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.bastille}80;
+        line-height: 1.45;
+      }
+    }
+
     .tools-field-error {
       margin: 0 0 8px 0;
       font-size: ${theme.fonts.sm};

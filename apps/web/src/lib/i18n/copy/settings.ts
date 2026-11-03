@@ -87,6 +87,15 @@ const en = {
     'Only tools you wrote in code count here — calls to the integrations we ship, and to remote MCP servers, are included in your plan.',
   usageVoiceNotes:
     'Voice notes this period: {count} (about {minutes} min). Transcribing them is included — only the reply counts as a message.',
+  usageDataTitle: 'Data',
+  usageDataHint:
+    'Project databases this period. Tracked, not billed yet: Data is included in your plan.',
+  usageDataStorage: 'Storage',
+  usageDataPeak: 'Peak this period',
+  usageDataRowsWritten: 'Rows written',
+  usageDataRowsRead: 'Rows read',
+  usageDataRequests: 'Requests',
+  usageDataTriggerRuns: 'Trigger runs',
   toastCheckoutSuccess: 'Subscription active — welcome to Pro!',
   toastCheckoutCancelled: 'Checkout cancelled.',
   toastBillingFailed: 'Could not open billing. Try again.',
@@ -377,6 +386,15 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Aquí solo cuentan las funciones que escribiste en código — las llamadas a las integraciones que incluimos, y a servidores MCP remotos, van incluidas en tu plan.',
     usageVoiceNotes:
       'Notas de voz este periodo: {count} (unos {minutes} min). Transcribirlas va incluido; solo la respuesta cuenta como mensaje.',
+    usageDataTitle: 'Datos',
+    usageDataHint:
+      'Bases de datos de tus proyectos este periodo. Se miden, todavía no se cobran: Datos va incluido en tu plan.',
+    usageDataStorage: 'Almacenamiento',
+    usageDataPeak: 'Pico del periodo',
+    usageDataRowsWritten: 'Filas escritas',
+    usageDataRowsRead: 'Filas leídas',
+    usageDataRequests: 'Solicitudes',
+    usageDataTriggerRuns: 'Ejecuciones de disparadores',
     toastCheckoutSuccess: 'Suscripción activa — ¡bienvenido a Pro!',
     toastCheckoutCancelled: 'Cancelaste el pago.',
     toastBillingFailed: 'No pudimos abrir la facturación. Inténtalo de nuevo.',

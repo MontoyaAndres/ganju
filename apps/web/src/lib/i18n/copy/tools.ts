@@ -346,6 +346,10 @@ const en = {
   fnEffectSensitive: 'Sends, deletes, charges or can’t be undone',
   fnEffectHelp:
     'Sent to MCP clients as tool annotations. When the organization confirms sensitive actions, a channel bot asks before running a function of the last kind.',
+  fnExposeLabel: 'Assistant can use this function',
+  fnExposeHelp:
+    "Off: only database triggers run it; the assistant never sees it, and it doesn't count toward the tool limit.",
+  fnTriggersOnly: 'Triggers only',
   fnErrNameCharset:
     'Name may only contain letters, digits, underscore or hyphen',
   fnErrNameTaken: 'This script already declares a function by that name',
@@ -981,6 +985,10 @@ export const TOOLS: Catalog<ToolsCopy> = {
     fnEffectSensitive: 'Envía, borra, cobra o no se puede deshacer',
     fnEffectHelp:
       'Se envía a los clientes MCP como anotaciones de la herramienta. Si la organización confirma acciones sensibles, un bot de canal pregunta antes de ejecutar una función del último tipo.',
+    fnExposeLabel: 'El asistente puede usar esta función',
+    fnExposeHelp:
+      'Apagado: solo la ejecutan los disparadores de la base de datos; el asistente nunca la ve y no cuenta para el límite de herramientas.',
+    fnTriggersOnly: 'Solo disparadores',
     fnErrNameCharset:
       'El nombre solo puede tener letras, dígitos, guion bajo o guion',
     fnErrNameTaken: 'Este script ya declara una función con ese nombre',

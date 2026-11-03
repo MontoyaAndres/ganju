@@ -107,6 +107,10 @@ const json = (body: unknown, status = 200): Response =>
 export type { ToolContext, ToolEnv, ToolHandler };
 export type {
   Connection,
+  ChannelsContext,
+  ChannelMessageReceipt,
+  ChannelTemplate,
+  TriggerEvent,
   DataContext,
   DataOperation,
   DataQueryArgs,

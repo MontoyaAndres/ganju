@@ -1,0 +1,273 @@
+---
+title: Triggers and webhooks
+description: Run something when a table's rows change — a function, a signed webhook, a chat message, an email or a message to the customer — and how delivery, retries and webhook signatures work.
+order: 57
+updated: 2026-11-03
+---
+
+A **trigger** is a rule on a table: when a row is added, changed or deleted,
+and a condition holds, Ganju runs one action. A new order posts to the
+kitchen's group; an order that becomes `ready` messages the customer; every
+change to `bookings` reaches your own system as a webhook.
+
+Triggers fire for every write, wherever it came from: the assistant on a
+channel, the dashboard, the CLI, the API or a function. A write that is undone
+(because a guard failed, say) fires nothing.
+
+## Create one
+
+Open a table on the **Data** page, then its **Triggers** tab, and click **New
+trigger**:
+
+1. **When**: a row is added, a row changes, or a row is deleted.
+2. **Only if**: optional. A column and a test, such as `status` **changes to**
+   `ready`. **Advanced (JSON)** takes any [condition](#conditions).
+3. **Then**: the [action](#actions).
+4. **Runs a minute**: 60 by default, up to 600. Past it, events wait and go out
+   later.
+
+A trigger can be turned off and on from its card. **Recent runs** lists each
+event it handled, with its status and error, and **Retry** sends a failed one
+again.
+
+A database holds up to 50 triggers. Dropping a table deletes its triggers.
+Renaming a column renames it in the triggers that use it, in their conditions
+and `{{column}}` texts. A column a trigger uses can't be dropped until you
+change or delete that trigger.
+
+## Conditions
+
+A condition tests the row before and after the change:
+
+| Test | Holds when |
+| --- | --- |
+| `{ "status": { "changedTo": "ready" } }` | `status` is now `ready` and wasn't before |
+| `{ "status": { "changedFrom": "open" } }` | `status` was `open` and isn't now |
+| `{ "price": { "changed": true } }` | `price` has a different value |
+| `{ "zone": { "equals": "north" } }` | `zone` is `north` (on the row after the change, or the deleted row) |
+
+An added row has no "before", and a deleted row no "after", so each counts as
+every column empty: an insert **changes to** the values it was created with,
+and a delete **changes from** the values it had. On a trigger for changed
+rows, `status` **changes to** `ready` fires once, when the order becomes ready,
+not again on every later edit of a ready order.
+
+Tests on several columns must all hold. `all` and `any` combine conditions:
+
+```json
+{
+  "any": [
+    { "status": { "changedTo": "ready" } },
+    { "all": [{ "status": { "equals": "open" } }, { "total": { "changed": true } }] }
+  ]
+}
+```
+
+Values compare exactly: `3` and `3.0` match, `"3"` and `3` don't. `null` means
+empty.
+
+## Actions
+
+| Action | In `ganju.json` | What happens |
+| --- | --- | --- |
+| Run a function | `"function": "notify-kitchen"` | The function runs with the event. See [functions only triggers run](/docs/data/functions/#functions-only-triggers-run) |
+| Call a webhook | `"webhook": "https://example.com/hooks/orders"` | The event is POSTed as JSON, [signed](#verify-a-webhook) |
+| Send a chat message | `"chat": { "channelId": "…", "chatId": "-1001234567890", "text": "New order #{{id}}" }` | Posted to a Telegram group or a Slack or Discord channel the bot is in |
+| Send an email | `"email": { "to": ["kitchen@example.com"], "subject": "Order {{id}}", "text": "…" }` | Up to 10 addresses. The subject defaults to `<table>: {{id}}` |
+| Message the customer | `"customer": { "text": "Your order #{{id}} is ready." }` | Sent to the customer whose conversation wrote the row, on the channel they used |
+
+In a message, `{{column}}` inserts that column's value from the row, as plain
+text. `id`, `created_at`, `updated_at` and `participant_id` work too. Messages
+are never formatted as markup: a row may hold text a customer wrote.
+
+**Message the customer** needs a table where **each customer sees only their
+own rows**, since that is how a row knows its customer. A row the owner typed in
+has no customer, and its run fails saying so. The channel's daily limit per
+customer applies.
+
+On **WhatsApp**, free text only reaches a customer within 24 hours of their last
+message. Turn on **Use a WhatsApp template** and give a template Meta approved,
+its language, and one parameter per line (fixed text or `{{column}}`):
+
+```json
+"customer": {
+  "text": "Your order #{{id}} is ready.",
+  "template": { "name": "order_ready", "language": "es", "params": ["{{id}}"] }
+}
+```
+
+Within the window the customer gets the text; outside it, the template. Meta
+bills template messages to your own WhatsApp account. A chat message can't go
+to WhatsApp.
+
+Messages sent by a trigger are recorded on the conversation, so the bot's next
+turn knows what the customer was told. They aren't billed as assistant replies.
+
+## Deploy triggers with the CLI
+
+List them under `"triggers"` in `ganju.json`, next to your functions, and
+`ganju deploy` publishes both:
+
+```json
+{
+  "tools": [ … ],
+  "triggers": [
+    { "table": "orders", "on": "insert", "function": "notify-kitchen" },
+    {
+      "name": "order-ready",
+      "table": "orders",
+      "on": "update",
+      "when": { "status": { "changedTo": "ready" } },
+      "function": "tell-customer"
+    },
+    { "table": "orders", "on": "update", "webhook": "https://example.com/hooks/orders", "rateLimit": 120 }
+  ]
+}
+```
+
+- `on` is `insert`, `update` or `delete`, and each trigger has exactly one
+  action.
+- Without a `name`, one is made from the table, the event and the action:
+  `orders-insert-notify-kitchen`. Names are lowercase letters, digits, `_` and
+  `-`. In the dashboard and the API, saving a trigger without a name always
+  creates a new one, numbered when the name is taken
+  (`orders-insert-webhook-2`), so it never replaces another.
+- `ganju deploy` adds and updates the triggers listed and removes the ones it
+  deployed before that aren't listed anymore. Triggers made in the dashboard are
+  left alone, and a name used by both is refused.
+- **Renaming a column a deployed trigger uses:** run
+  `ganju data column rename`, which renames it in the trigger too, then change
+  ganju.json to the new name before the next deploy. A deploy that still names
+  the old column is refused. `ganju data schema push` reads a renamed column as
+  a drop and an add, and a drop is refused while a trigger uses the column.
+- **Dropping one:** take it out of the trigger in ganju.json and deploy first,
+  then drop the column.
+- A trigger turned off in the dashboard, or by Ganju after failures, stays off
+  through later deploys unless its entry says `"enabled": true`.
+- Leave `"triggers"` out and a deploy doesn't touch the database's triggers.
+  `"triggers": []` removes the ones the CLI deployed.
+- A new webhook's signing secret is printed once.
+
+In the dashboard, a deployed trigger shows **Managed by the CLI (ganju.json)**.
+You change it in the file, but can still turn it off and on there.
+
+The [Data API](/docs/data-api/) has the same: `GET /trigger`, `POST /trigger`
+(the shape above), `PATCH /trigger/:name` with `{ "enabled": false }`,
+`DELETE /trigger/:name`, `POST /trigger/deploy`, `GET /trigger/:name/run` and
+`POST /trigger/:name/run/:runId/retry`.
+
+## How events are delivered
+
+- **At least once.** The same event can arrive twice. Every event has an
+  `eventId`, the same on every delivery and on a **Retry**, so a receiver can
+  skip one it already handled. The data-orders example keeps it on the row.
+- **Order** is kept per row as far as possible, not across rows.
+- **Retries.** A failed run is tried three more times, waiting longer each time.
+  Some failures aren't retried, because trying again wouldn't change them: a
+  function that isn't published, a customer outside WhatsApp's window, a
+  chain that went too deep.
+- **Turned off after 20 failures in a row.** The trigger's card says why, and
+  the organization's admins get an email. Turn it back on once the
+  cause is fixed.
+- **Rate.** A trigger's runs a minute count from when each run starts, so a
+  backlog goes out at that rate too.
+- **Large rows.** A row over 48 KB (in UTF-8 bytes) is sent without `row` and `previous`, with
+  `truncated: true` and its `rowId`, to read it by id.
+- **Restores.** Events still waiting when you restore the database are
+  dropped, and the rows a restore brings back don't fire triggers.
+
+### Loops and chains
+
+- A function a trigger runs writes as that trigger (`trigger:<id>`), and those
+  writes never fire the same trigger again. `notify-kitchen` can mark the
+  order it just posted without posting it twice.
+- Its writes can fire *other* triggers, one level deeper. A chain stops at
+  three levels, and the run that would go deeper fails with that error.
+
+## Verify a webhook
+
+A webhook trigger gets a secret that starts with `whsec_`. It is shown once,
+when the trigger is created (or printed once by `ganju deploy`). Keep it with
+your receiver.
+
+Each event is a `POST` with a JSON body:
+
+```json
+{
+  "eventId": "…",
+  "triggerId": "trg_…",
+  "trigger": "orders-update-webhook",
+  "table": "orders",
+  "event": "update",
+  "rowId": 42,
+  "row": { "id": 42, "status": "ready", "total": 56000, … },
+  "previous": { "id": 42, "status": "open", "total": 56000, … },
+  "actor": "user:…",
+  "at": "2026-11-03T15:04:05Z"
+}
+```
+
+and these headers:
+
+| Header | Value |
+| --- | --- |
+| `x-ganju-signature` | `t=<unix seconds>,v1=<signature>` |
+| `x-ganju-event-id` | The `eventId` |
+| `x-ganju-event` | `<table>.<event>`, such as `orders.update` |
+| `x-ganju-trigger` | The trigger's name |
+
+The signature is the hex HMAC-SHA256 of `<t>.<raw body>`, keyed with the
+secret. To check it, recompute it over the body exactly as it arrived, before
+parsing it, compare in constant time, and refuse an old `t`:
+
+```js
+import crypto from 'node:crypto';
+import express from 'express';
+
+const SECRET = process.env.GANJU_WEBHOOK_SECRET; // whsec_…
+const TOLERANCE_SECONDS = 5 * 60;
+
+const verify = (header, rawBody) => {
+  const parts = Object.fromEntries(
+    (header ?? '').split(',').map(part => part.split('='))
+  );
+  const t = Number(parts.t);
+  if (!parts.v1 || !Number.isInteger(t)) return false;
+  if (Math.abs(Date.now() / 1000 - t) > TOLERANCE_SECONDS) return false;
+  const expected = crypto
+    .createHmac('sha256', SECRET)
+    .update(`${t}.${rawBody}`)
+    .digest('hex');
+  const a = Buffer.from(expected, 'hex');
+  const b = Buffer.from(parts.v1, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
+const app = express();
+app.post(
+  '/hooks/orders',
+  express.raw({ type: 'application/json' }),
+  (req, res) => {
+    const raw = req.body.toString('utf8');
+    if (!verify(req.get('x-ganju-signature'), raw)) return res.sendStatus(401);
+    const event = JSON.parse(raw);
+    // Skip an eventId you already handled, then do the work.
+    res.sendStatus(200);
+  }
+);
+app.listen(3000);
+```
+
+Answer with a `2xx` within 10 seconds. Anything else, a redirect included, is
+a failure and is retried. Each delivery is signed again with a new `t`. The URL
+must be `https`, and private or local addresses are refused.
+
+## Usage and limits
+
+- Every run counts on the billing page's **Data** block, as a trigger run. A
+  run that calls a function also counts as a custom tool call.
+- On **Pro**, triggers run up to 5,000,000 times a month. Past that, they
+  pause until the next billing period, and the organization's admins get an
+  email. Enterprise has no such limit.
+- If the organization's plan no longer includes Data, triggers pause: their
+  runs are skipped.

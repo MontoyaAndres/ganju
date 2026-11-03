@@ -1,6 +1,6 @@
 {
   "name": "@ganju/cli",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Write, deploy and debug Ganju custom tools from the terminal",
   "license": "Apache-2.0",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",

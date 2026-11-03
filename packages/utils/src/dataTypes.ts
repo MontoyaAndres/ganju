@@ -124,6 +124,9 @@ export interface DataCaller {
   tables?: string[];
   // Datetimes come back in this zone, with the offset.
   timeZone?: string;
+  // A function a trigger ran: how deep in a chain of triggers its writes
+  // are (its actor is `trigger:<id>`).
+  triggerDepth?: number;
   limits?: DataCallerLimits;
 }
 

@@ -582,6 +582,27 @@
       "when": 1792521243637,
       "tag": "0082_artifact_database",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1793654665961,
+      "tag": "0083_data_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1793720038140,
+      "tag": "0084_data_meters",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1793732080895,
+      "tag": "0085_trigger_run_started",
+      "breakpoints": true
     }
   ]
 }

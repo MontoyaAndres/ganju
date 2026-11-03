@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UI } from '@ganju/ui';
 
 import IconButton from '@mui/material/IconButton';
@@ -256,6 +256,7 @@ const QueryDialog = ({
   const [assistant, setAssistant] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -268,6 +269,16 @@ const QueryDialog = ({
     setAssistant(query?.assistant ?? false);
     setError(null);
   }, [open, query]);
+
+  // The dialog scrolls; a save error lands under the fields, out of view.
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
+    }
+  }, [error]);
 
   // The :names the SQL uses that have no row yet, offered as one click.
   const used = [
@@ -471,7 +482,11 @@ const QueryDialog = ({
             </span>
           }
         />
-        {error && <p className="dialog-danger">{error}</p>}
+        {error && (
+          <p ref={errorRef} className="dialog-danger" role="alert">
+            {error}
+          </p>
+        )}
       </DialogContent>
     </UI.Modal>
   );
@@ -525,6 +540,17 @@ const RunDialog = ({ base, query, onClose }: RunDialogProps) => {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runningNow, setRunningNow] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  // The dialog scrolls; a run error lands under the fields, out of view.
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
+    }
+  }, [error]);
 
   const handleRun = async () => {
     if (runningNow) return;
@@ -636,7 +662,11 @@ const RunDialog = ({ base, query, onClose }: RunDialogProps) => {
             )}
           </div>
         )}
-        {error && <p className="dialog-danger">{error}</p>}
+        {error && (
+          <p ref={errorRef} className="dialog-danger" role="alert">
+            {error}
+          </p>
+        )}
         {result && result.rows.length === 0 && (
           <p className="dialog-muted">{t('queryNoRows')}</p>
         )}

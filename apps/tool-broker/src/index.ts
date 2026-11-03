@@ -77,6 +77,14 @@ app
     utils.constants.CUSTOM_CODE_BROKER_PATH_SEND_FILE,
     BrokerController.sendFile
   )
-  .post(utils.constants.CUSTOM_CODE_BROKER_PATH_DATA, BrokerController.data);
+  .post(utils.constants.CUSTOM_CODE_BROKER_PATH_DATA, BrokerController.data)
+  .post(
+    utils.constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_SEND,
+    BrokerController.channelsSend
+  )
+  .post(
+    utils.constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_POST,
+    BrokerController.channelsPost
+  );
 
 export default app;

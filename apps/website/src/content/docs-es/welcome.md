@@ -34,6 +34,9 @@ combinas para definir exactamente qué sabe tu asistente, qué hace y dónde viv
 - **[Recursos](/es/docs/resources/)** — apoya tu IA en tu propio conocimiento:
   importa desde Google Drive u OneDrive, rastrea un sitio web o sube archivos,
   todo consultable y con citas.
+- **[Datos](/es/docs/data/)** — dale a un proyecto su propia base de datos:
+  tablas que el asistente y tus funciones leen y escriben, con disparadores que
+  se ejecutan cuando cambian las filas.
 - **[Herramientas](/es/docs/tools/)** — deja que actúe: correo (Gmail, Outlook),
   Slack, calendarios (Google, Cal.com), búsqueda web, servidores MCP remotos como
   GitHub y Notion, o tus propias APIs HTTP.

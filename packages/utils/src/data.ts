@@ -106,3 +106,43 @@ export {
   dataAdminToolDefinition
 } from './dataTools';
 export type { DataToolDefinition, DataAdminAction } from './dataTools';
+export {
+  DATA_TRIGGER_EVENTS,
+  DATA_TRIGGER_ACTIONS,
+  DATA_MAX_TRIGGERS,
+  DATA_TRIGGER_MAX_DEPTH,
+  DATA_TRIGGER_DEFAULT_RATE,
+  DATA_TRIGGER_MAX_RATE,
+  DATA_OUTBOX_BATCH,
+  DATA_TRIGGER_MAX_MESSAGE_BYTES,
+  utf8Bytes,
+  conditionMatches,
+  renderTriggerText,
+  normaliseTrigger,
+  listTriggers,
+  getTrigger,
+  saveTrigger,
+  dropTrigger,
+  setTriggerEnabled,
+  replaceManagedTriggers,
+  collectTriggerEvents,
+  readOutbox,
+  deleteOutbox,
+  outboxSize,
+  clearOutbox,
+  triggersUsingColumn,
+  renameColumnInTriggers
+} from './dataTriggers';
+export type {
+  DataTrigger,
+  DataTriggerAction,
+  DataTriggerActionType,
+  DataTriggerCondition,
+  DataTriggerEvent,
+  DataTriggerEventMessage,
+  DataTriggerInput,
+  DataTriggerTemplate,
+  DataTriggerTest,
+  DataTriggerWithSecret,
+  SavedTrigger
+} from './dataTriggers';

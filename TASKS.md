@@ -2055,6 +2055,196 @@ object knowing, so every change is caught.
   - every run shows in `data_trigger_run_count`, and the billing page's Data
     block matches the number of runs.
 
+**Phase 5b status (2026-11-02): done, on dev and production.** The probes
+pass on both, and the Telegram checks were done by hand on dev.
+
+- **What exists:**
+  - **Engine** (`dataTriggers.ts`, internal migration 4):
+    - `_ganju_triggers`, `_ganju_changes` and `_ganju_outbox`.
+    - Every table gets three capture triggers (`tr_<id>_ev_*`). They copy
+      old and new rows into `_ganju_changes` only while an enabled trigger
+      listens on that table and event. Tables made earlier get theirs with
+      their first trigger.
+    - `write()` turns the changes into outbox events before it commits,
+      cascades included. A rollback leaves none.
+    - Rules:
+      - a trigger skips writes made as `trigger:<its id>`;
+      - depth over 3 stores an event that only records the error;
+      - rows over 48 KB travel as `truncated`, with `rowId`;
+      - `dropTable` deletes the table's triggers.
+  - **Object:**
+    - Trigger RPCs.
+    - `write` sets the alarm when the outbox has events. The alarm sends the
+      outbox to `DATA_TRIGGER_QUEUE` first, before any copy or export step,
+      in batches under 200 KB, and deletes events once queued.
+    - `restore` deletes the alarm. The API calls `clearOutbox` once the
+      object is back.
+  - **Consumer** (apps/api `queue/dataTrigger.ts`):
+    - One row per event in `artifact_database_trigger_run`, keyed by
+      `eventId`, so a redelivery after success does nothing.
+    - Skipped when: the plan lost Data, the month's
+      `triggerRunHardCap` was reached, the trigger was deleted, or it is off.
+    - Past `rateLimit`, an event is sent again with a 20 s delay, so it
+      doesn't spend its retries.
+    - Each event counts once in `data_trigger_run_count`. The run that
+      reaches the cap emails the admins and `ALERT_EMAIL`.
+    - Retries: 3, with backoff. A channel's own refusal and the chain error
+      are final.
+    - After 20 failed runs in a row, the trigger is turned off with the
+      reason, and the admins get an email.
+    - Old runs are swept after 30 days by the hourly purge.
+  - **Actions:**
+    - **function:** `invokeCustomCodeScript` (now usable without a Hono
+      context), with a call token carrying `trigger: {id, depth}`. It counts
+      as a custom tool call.
+    - **webhook:** `isBlockedUrl`, no redirects, 10 s, signed in
+      `x-ganju-signature: t=…,v1=hex(HMAC-SHA256(secret, "t.body"))`, with
+      `x-ganju-event-id`.
+    - **chat**, **email** and **customer:** `{{field}}` templates as plain
+      text.
+  - **`ctx.channels`:**
+    - `send` / `post` through the broker (`/channels/send`, `/channels/post`).
+    - Both use `@ganju/db`'s `channels` module, shared with the consumer. It
+      decrypts the tokens, sends plain text, and enforces the WhatsApp
+      24-hour window and the per-customer daily limit.
+    - Messages are recorded as the bot's on the conversation, with
+      `metadata.source` set to `function` or `trigger`, and are not billed.
+    - The runner's history shows them as "(Sent automatically by the
+      business's …)".
+    - A WhatsApp template is passed to Meta as given. Its approval check is
+      5c.
+  - **`expose: false`:**
+    - In `CUSTOM_CODE_TOOL`.
+    - apps/mcp leaves those functions out of tools/list (channels included).
+    - `customCodeFunctions` leaves them out of the tool count.
+    - The CLI passes it through.
+  - **API:** seven routes in `DATA_API_ROUTES` (38 operations):
+    - list, save, on/off, delete;
+    - `POST /trigger/deploy`, which is what `ganju deploy` sends after
+      publishing when ganju.json has `"triggers"`;
+    - runs, and retry.
+
+    Save and deploy check that functions are published and channels are the
+    project's.
+  - **Billing:**
+    - The billing endpoint returns `usage.data`, and the page shows a "Data"
+      block: peak storage, rows written and read, requests, trigger runs.
+    - `ganju_data_trigger_runs` is reported to Polar as a full count with
+      its own mark (`reported_data_trigger_runs`, migration 0083 with the
+      runs table).
+  - **Dashboard:** a Triggers tab per table, the function dialog's switch,
+    and the restore note.
+  - **Example:** examples/data-orders gains `notify-kitchen` and
+    `tell-customer` (`expose: false`) and `"triggers"`. `orders` is now
+    customer-scoped, with `access: "add"`.
+- **Checked:**
+  - utils: 216 tests, 10 of them on triggers.
+  - apps/data in workerd: 12 tests, including write → outbox → alarm →
+    queue, with a rollback that sends nothing.
+  - cli: 42 tests.
+  - The eval's `--check` passes.
+- **Verified on dev:**
+  - `probe-data-triggers.mjs`: 34/34. It covers:
+    - trigger-only functions left out of tools/list;
+    - deploying from ganju.json, with CLI triggers not editable;
+    - a bot's order running a function, recorded as `trigger:<id>`;
+    - a webhook failing with 500, then retried with the same `eventId` and
+      a valid signature;
+    - `changedTo` firing once;
+    - a function updating its own row without looping;
+    - a chain stopping at depth 3;
+    - the WhatsApp window error;
+    - Retry;
+    - `data_trigger_run_count` matching the runs and the billing block.
+  - The phase 5 probes still pass:
+    - `probe-data.mjs`: 57/57;
+    - `probe-data-cli.mjs`: 31/31;
+    - `probe-data-tools.mjs`: 48/48.
+  - Dashboard, on nemo with a throwaway `qa_trigger_orders` table (dropped
+    after):
+    - creating a webhook trigger with a `changedTo` condition, and its
+      secret shown once;
+    - an inline save error, scrolled into view;
+    - the card;
+    - the runs list, with error and Retry;
+    - on / off;
+    - the billing page's Data block.
+  - The Polar meter "Data trigger runs" exists in sandbox and production.
+    It isn't on a product price yet.
+- **After the dev check:**
+  - The billing block shows the databases' current size
+    (`artifact_database.size_bytes`). Nothing writes `peak_data_mb`: the
+    hourly storage measurement of decision 8 was never built.
+  - The runs list names the event in words ("Fila 1 cambiada").
+  - The named-query save and run dialogs scroll their error into view, like
+    the triggers dialog.
+- **Verified in production (2026-11-02):**
+  - `probe-data-triggers.mjs --prod`: 34/34;
+  - `probe-data.mjs`: 57/57;
+  - `probe-data-cli.mjs`: 31/31;
+  - `probe-data-tools.mjs`: 48/48.
+  - A dev rerun of the triggers probe failed only its webhook checks: every
+    delivery got 404 from webhook.site, the probe's public receiver. Run
+    again alone, it passed 34/34.
+- **By hand on dev** (nemo's Telegram bot, a throwaway `qa_orders` table,
+  dropped after):
+  - The bot took an order, and "New order #1: 2× Margherita" was posted by
+    chat triggers to the owner's Telegram chat and to the Discord channel.
+    nemo has no Telegram group, so the private chat stood in for one.
+    Function triggers posting with `ctx.channels` are covered by the probe.
+  - Setting the order to ready sent "¡Tu pedido #1 (2× Margherita) está
+    listo!" to the customer, recorded with `source: trigger`.
+  - The bot's next turn ("¿Ya está listo mi pedido?") answered that it was
+    ready.
+  - Not checked: a WhatsApp template outside the window. There is no
+    WhatsApp channel and no approved template; that belongs with 5c.
+- **After production (2026-11-03), not deployed:**
+  - **Storage is measured.** The hourly metering run reads each live or
+    in-grace database's size from its object, stores it on the row, and
+    keeps the period's peak in `peak_data_mb`. A database that doesn't
+    answer counts at its last reading. The billing block shows the current
+    size and the period's peak.
+  - **All four data meters report** in full: `ganju_data_storage` (the peak,
+    in MB), `ganju_data_rows_written`, `ganju_data_rows_read` and
+    `ganju_data_trigger_runs`. Each has its own mark (migration 0084), which
+    is snapshotted at rollover. `scripts/verify-data-metering.mjs` covers
+    this against a throwaway org; it needs 0084 on the database.
+  - **Tool health shows trigger runs**, read from the runs table rather than
+    `mcp_request`: per trigger, runs, failed, skipped, p95 and last run, with
+    the last error for admins. A row opens the table's Triggers tab.
+  - **Engine errors in Spanish:** `handleError` translates `DataError`
+    messages by `Accept-Language` (`localizeDataError.ts`, 269 templates). A
+    test fails on any engine message without an entry. Still English: SQLite
+    and Cloudflare text inside a message, and stored errors (a database's
+    `error`, trigger run errors).
+  - **Website docs:** Data, Data from functions, and Triggers and webhooks
+    (with signature verification), in English and Spanish. The Data API page
+    is now in the nav.
+  - The four purge checks pending from the dev probes passed.
+  - **Polar (sandbox and production):** meters "Data storage", "Data rows
+    written" and "Data rows read" (Scalar, Sum over `units`) were created,
+    and all four data meters are on Pro and Enterprise at $0. Polar refuses
+    a $0 `metered_unit` price, so they are `metered_tiers` with one
+    graduated tier at 0. Pricing one later means replacing that price.
+  - **Trigger review fixes** (migration 0085, `started_at` on runs):
+    - a trigger's rate counts runs by when they started, so a backlog keeps the rate;
+    - an unnamed trigger gets a numbered name instead of replacing one, and the dashboard's create sends `replace: false`;
+    - sizes are counted in UTF-8 bytes, and an event too large for a queue message goes out as a failed run, so it no longer blocks the outbox;
+    - renaming a column renames it in its triggers (refused when the rename also copies the table); dropping one a trigger uses is refused;
+    - an email run with no mail sent fails; one sent to only some recipients fails without a retry;
+    - a deploy keeps a trigger's on/off state unless ganju.json sets `enabled`;
+    - a restore clears only the outbox events from before it was requested, and the consumer skips a fresh delivery of an event that already ran;
+    - a retry marks the run before queueing it;
+    - Slack text is escaped, so `<!channel>` from a row pings nobody.
+  - **Decide:** a daily email cap per organization, or verified recipients only, for email triggers; a `channels` opt-in in the manifest for `ctx.channels`.
+- **Open:**
+  - **The function dialog's `expose` switch** wasn't seen in a browser:
+    nemo's live version is a CLI bundle, so the dialog is read-only there.
+  - **A WhatsApp template sent outside the window** hasn't been checked
+    (5c).
+  - **Reconciling with Cloudflare** (`scripts/reconcile-data-usage.mjs`)
+    isn't written.
+
 **5c. WhatsApp message templates — M (4–6 days)**
 
 Messaging a WhatsApp customer outside the 24-hour window needs a template

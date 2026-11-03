@@ -236,7 +236,11 @@ export const rollUsagePeriodIfDue = async (
         reportedMessageOverage: sub.reportedMessageOverage,
         reportedSharedMessageOverage: sub.reportedSharedMessageOverage,
         reportedEmbeddedOverageMb: sub.reportedEmbeddedOverageMb,
-        reportedToolCallOverage: sub.reportedToolCallOverage
+        reportedToolCallOverage: sub.reportedToolCallOverage,
+        reportedDataStorageMb: sub.reportedDataStorageMb,
+        reportedDataRowsWritten: sub.reportedDataRowsWritten,
+        reportedDataRowsRead: sub.reportedDataRowsRead,
+        reportedDataTriggerRuns: sub.reportedDataTriggerRuns
       })
       .onConflictDoNothing();
   }
@@ -255,6 +259,10 @@ export const rollUsagePeriodIfDue = async (
       reportedSharedMessageOverage: 0,
       reportedEmbeddedOverageMb: 0,
       reportedToolCallOverage: 0,
+      reportedDataStorageMb: 0,
+      reportedDataRowsWritten: 0,
+      reportedDataRowsRead: 0,
+      reportedDataTriggerRuns: 0,
       peakEmbeddedMb: 0,
       dataRowsReadCount: 0,
       dataRowsWrittenCount: 0,

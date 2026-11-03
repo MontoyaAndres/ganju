@@ -544,6 +544,12 @@ export const Wrapper = styled.div`
           }
         }
 
+        .trigger-disabled-reason {
+          margin: 0;
+          font-size: ${theme.fonts.xs};
+          color: ${theme.colors.thunderbird};
+        }
+
         .query-item-scan {
           margin: 0;
           font-size: ${theme.fonts.xs};
@@ -681,6 +687,12 @@ export const Wrapper = styled.div`
       flex-direction: column;
       gap: 16px;
       padding-bottom: 24px;
+    }
+
+    .trigger-pending {
+      margin: 6px 0 0;
+      font-size: ${theme.fonts.sm};
+      color: ${theme.colors.romanCoffee};
     }
 
     .data-card {
@@ -1021,6 +1033,74 @@ export const DialogContent = styled.div`
         > :first-child {
           flex: 1;
         }
+      }
+    }
+
+    .trigger-runs {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .trigger-run {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 12px;
+      border: 1px solid ${theme.colors.alto};
+      border-radius: 8px;
+
+      .trigger-run-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .trigger-run-status {
+        font-size: ${theme.fonts.xs};
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: ${theme.colors.bastille}0d;
+
+        &.is-ok {
+          color: ${theme.colors.japaneseLaurel};
+          background: ${theme.colors.peppermint};
+        }
+
+        &.is-failed {
+          color: ${theme.colors.thunderbird};
+          background: ${theme.colors.thunderbird}14;
+        }
+
+        &.is-waiting,
+        &.is-running {
+          color: ${theme.colors.romanCoffee};
+        }
+      }
+
+      .trigger-run-meta {
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.bastille}99;
+      }
+
+      .trigger-run-retry {
+        margin-left: auto;
+      }
+
+      .trigger-run-error {
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.thunderbird};
+        overflow-wrap: anywhere;
+      }
+
+      .trigger-run-event {
+        align-self: flex-start;
+        color: ${theme.colors.bastille}80;
       }
     }
 

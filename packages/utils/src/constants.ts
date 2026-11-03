@@ -23,6 +23,8 @@ import {
   CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE,
   CUSTOM_CODE_BROKER_PATH_SEND_FILE,
   CUSTOM_CODE_BROKER_PATH_DATA,
+  CUSTOM_CODE_BROKER_PATH_CHANNELS_SEND,
+  CUSTOM_CODE_BROKER_PATH_CHANNELS_POST,
   CUSTOM_CODE_HEALTH_TOOL,
   CUSTOM_CODE_MAX_LOGS,
   CUSTOM_CODE_MAX_LOG_LENGTH
@@ -2422,9 +2424,17 @@ const BILLING_METER_EMBEDDED = 'ganju_embedded_storage';
 // of ours quotes.
 const BILLING_METER_TOOL_CALLS = 'ganju_custom_tool_calls';
 
+// Project data, reported in full (not past an allowance) and attached at $0:
+// measured before they are priced. Storage is the period's peak in whole MB,
+// rows and trigger runs are counts.
+const BILLING_METER_DATA_STORAGE = 'ganju_data_storage';
+const BILLING_METER_DATA_ROWS_WRITTEN = 'ganju_data_rows_written';
+const BILLING_METER_DATA_ROWS_READ = 'ganju_data_rows_read';
+const BILLING_METER_DATA_TRIGGER_RUNS = 'ganju_data_trigger_runs';
+
 // The metadata property every meter aggregates (`sum` over it). Ingested events
 // carry the increment under this key, so it has to agree with the aggregation
-// configured on all four meters — which is why it lives beside their names
+// configured on every meter — which is why it lives beside their names
 // rather than at the call site.
 const BILLING_METER_UNITS_KEY = 'units';
 
@@ -2599,6 +2609,10 @@ export const constants = {
   BILLING_METER_SHARED_MESSAGES,
   BILLING_METER_EMBEDDED,
   BILLING_METER_TOOL_CALLS,
+  BILLING_METER_DATA_STORAGE,
+  BILLING_METER_DATA_ROWS_WRITTEN,
+  BILLING_METER_DATA_ROWS_READ,
+  BILLING_METER_DATA_TRIGGER_RUNS,
   BILLING_METER_UNITS_KEY,
   POLAR_API_BASE,
   POLAR_SANDBOX_API_BASE,
@@ -3097,6 +3111,8 @@ export const constants = {
   CUSTOM_CODE_BROKER_PATH_RESOURCES_DELETE,
   CUSTOM_CODE_BROKER_PATH_SEND_FILE,
   CUSTOM_CODE_BROKER_PATH_DATA,
+  CUSTOM_CODE_BROKER_PATH_CHANNELS_SEND,
+  CUSTOM_CODE_BROKER_PATH_CHANNELS_POST,
   CUSTOM_CODE_OUTBOUND_PARAM_ARTIFACT_ID,
   CUSTOM_CODE_OUTBOUND_PARAM_ALLOWED_HOSTS,
   CUSTOM_CODE_PLATFORM_HOSTS,

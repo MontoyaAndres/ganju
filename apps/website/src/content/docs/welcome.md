@@ -33,6 +33,9 @@ you combine to shape exactly what your assistant knows, does, and where it lives
 - **[Resources](/docs/resources/)** — ground your AI in your own knowledge: import
   from Google Drive or OneDrive, crawl a website, or upload files, all searchable
   with citations.
+- **[Data](/docs/data/)** — give a project its own database: tables the
+  assistant and your functions read and write, with triggers that run when rows
+  change.
 - **[Tools](/docs/tools/)** — let it take action: email (Gmail, Outlook), Slack,
   calendars (Google, Cal.com), web search, remote MCP servers like GitHub and
   Notion, or your own HTTP APIs.

@@ -2074,7 +2074,10 @@ const loadRecentHistory = async (
   kept.forEach((r, i) => {
     history.push({
       role: r.role as 'user' | 'assistant',
-      content: withoutConfirmationSummary(r.content || '', r.metadata)
+      content: sentBy(
+        r.metadata,
+        withoutConfirmationSummary(r.content || '', r.metadata)
+      )
     });
     // A failed turn has no answer of its own; this one stands in for the
     // error the customer was shown, after the last of its messages.
@@ -2086,6 +2089,15 @@ const loadRecentHistory = async (
     }
   });
   return history;
+};
+
+// A message a function or a trigger sent ("your order is ready"): the
+// model sees it was sent for the business, not written by itself.
+const sentBy = (metadata: unknown, content: string): string => {
+  const meta = metadata as Record<string, unknown> | null;
+  const source = meta?.[db.channels.CHANNEL_MESSAGE_SOURCE_KEY];
+  if (source !== 'function' && source !== 'trigger') return content;
+  return `(Sent automatically by the business's ${source} ${String(meta?.[source] ?? '')}:) ${content}`;
 };
 
 const TURN_FAILED_METADATA_KEY = 'turnFailed';

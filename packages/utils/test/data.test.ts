@@ -248,13 +248,13 @@ test('FTS: accent-insensitive table and triggers over searchable columns only', 
   const triggers = desiredTriggers(table);
   assert.deepEqual(
     triggers.map(t => t.name),
-    ['tr_3_fts_ai', 'tr_3_fts_ad', 'tr_3_fts_au']
+    ['tr_3_fts_ai', 'tr_3_fts_ad', 'tr_3_fts_au', 'tr_3_ev_ai', 'tr_3_ev_au', 'tr_3_ev_ad']
   );
   assert.match(triggers[2].sql, /AFTER UPDATE OF "name" ON "menu"/);
   assert.equal(ftsCreateSql({ ...table, columns: [table.columns[1]] }), null);
   const withHistory = desiredTriggers({ ...table, history: true });
   assert.deepEqual(
-    withHistory.slice(3).map(t => t.name),
+    withHistory.slice(3, 6).map(t => t.name),
     ['tr_3_log_ai', 'tr_3_log_au', 'tr_3_log_ad']
   );
 });
@@ -1188,7 +1188,7 @@ test('display column: tables made before the default get their first text column
   assert.equal(tables.find(t => t.name === 'dishes')!.displayColumn, 'name');
   assert.equal(tables.find(t => t.name === 'numbers')!.displayColumn, null, 'no text column: the id');
   assert.equal(tables.find(t => t.name === 'by_id')!.displayColumn, null, 'made since, asking for the id');
-  assert.equal(getMeta(runner, 'schema_version'), '3');
+  assert.equal(getMeta(runner, 'schema_version'), '4');
 });
 
 test('delete preview: cascades counted to the end, set null and restrict beside them', () => {

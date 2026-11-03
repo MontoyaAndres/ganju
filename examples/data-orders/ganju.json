@@ -48,6 +48,35 @@
         },
         "required": ["from", "to"]
       }
+    },
+    {
+      "name": "notify-kitchen",
+      "title": "Tell the kitchen about a new order",
+      "description": "Posts a new order and its dishes to the staff group. Run by a trigger on orders, never by the assistant.",
+      "entry": "src/notifyKitchen.ts",
+      "expose": false,
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": true },
+      "data": { "access": "write", "tables": ["orders", "order_lines", "menu"] },
+      "input": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "tell-customer",
+      "title": "Tell the customer their order is ready",
+      "description": "Messages the customer who placed the order. Run by a trigger when an order becomes ready, never by the assistant.",
+      "entry": "src/tellCustomer.ts",
+      "expose": false,
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": true },
+      "data": { "access": "read", "tables": ["orders"] },
+      "input": { "type": "object", "properties": {} }
+    }
+  ],
+  "triggers": [
+    { "table": "orders", "on": "insert", "function": "notify-kitchen" },
+    {
+      "table": "orders",
+      "on": "update",
+      "when": { "status": { "changedTo": "ready" } },
+      "function": "tell-customer"
     }
   ]
 }

@@ -515,7 +515,7 @@ export interface CustomCodeRunResult {
  * production is refused it here.
  */
 export const invokeCustomCodeScript = async (
-  c: Context<AppEnv>,
+  c: EnvSource & { env: AppEnv['Bindings'] },
   input: {
     artifactId: string;
     // The version under test, which the call token names for the broker.
@@ -525,6 +525,8 @@ export const invokeCustomCodeScript = async (
     args: Record<string, unknown>;
     allowedHosts: string[];
     timeoutMs: number;
+    // A run a database trigger started, named in the call token.
+    trigger?: { id: string; depth: number };
   }
 ): Promise<CustomCodeRunResult> => {
   const dispatcher = c.env.DISPATCH;
@@ -576,7 +578,8 @@ export const invokeCustomCodeScript = async (
                       artifactId: input.artifactId,
                       versionId: input.versionId,
                       tool: input.toolName,
-                      ttlMs: input.timeoutMs + 60_000
+                      ttlMs: input.timeoutMs + 60_000,
+                      ...(input.trigger ? { trigger: input.trigger } : {})
                     },
                     tokenSecret
                   )

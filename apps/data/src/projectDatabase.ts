@@ -33,7 +33,20 @@ import {
   updateColumn,
   updateTable,
   write,
-  INTERNAL_SCHEMA_VERSION
+  INTERNAL_SCHEMA_VERSION,
+  DATA_OUTBOX_BATCH,
+  DATA_TRIGGER_MAX_MESSAGE_BYTES,
+  clearOutbox,
+  deleteOutbox,
+  dropTrigger,
+  getTrigger,
+  listTriggers,
+  outboxSize,
+  readOutbox,
+  replaceManagedTriggers,
+  saveTrigger,
+  setTriggerEnabled,
+  utf8Bytes
 } from '@ganju/utils/data';
 import type {
   DatabaseInfo,
@@ -67,6 +80,10 @@ const EXPORT_PREFIX = 'data-exports';
 const UNREPORTED_USAGE_KEY = 'unreported_usage';
 // Point-in-time recovery keeps 30 days.
 const RESTORE_WINDOW_MS = 30 * 86_400_000;
+// A queue batch carries at most 256 KB; each event is at most 120 KB.
+const QUEUE_BATCH_BYTES = 200_000;
+// A failed hand-over to the queue is tried again this much later.
+const OUTBOX_RETRY_MS = 10_000;
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -502,8 +519,12 @@ export class ProjectDatabase
     });
   }
 
+  // The restored outbox holds events that went out at the time; the caller
+  // clears it (clearOutbox) once the object is back, and no alarm runs before
+  // then to send them again.
   private async restore(bookmark: string) {
     const undo = await this.ctx.storage.onNextSessionRestoreBookmark(bookmark);
+    await this.ctx.storage.deleteAlarm();
     this.schemaCache = null;
     this.lifecycle = null;
     this.unreported = undefined;
@@ -631,9 +652,11 @@ export class ProjectDatabase
   }
 
   async write(caller: DataCaller, args: unknown) {
-    return this.call({ writes: { rows: args } }, runner => {
+    return this.call({ writes: { rows: args } }, async runner => {
       const result = write(runner, this.schema(runner), this.caller(caller, runner), args);
       this.recordFirstWrite(runner);
+      // Events the write stored go to the queue right after it.
+      if (outboxSize(runner) > 0) await this.scheduleAlarm(Date.now());
       return result;
     });
   }
@@ -680,6 +703,113 @@ export class ProjectDatabase
     return this.call({}, runner =>
       runQuery(runner, this.schema(runner), this.caller(caller, runner), args)
     );
+  }
+
+  // Triggers
+
+  async listTriggers(_caller: DataCaller) {
+    return this.call({}, runner => ({
+      triggers: listTriggers(runner, this.schema(runner)),
+      pending: outboxSize(runner)
+    }));
+  }
+
+  // With its webhook secret: for the queue's consumer only.
+  async getTrigger(nameOrId: string) {
+    return this.call({}, runner => getTrigger(runner, this.schema(runner), nameOrId));
+  }
+
+  async saveTrigger(caller: DataCaller, input: unknown) {
+    return this.call({}, runner => {
+      assertWritable(runner, caller, false);
+      return saveTrigger(runner, this.schema(runner), caller, input);
+    });
+  }
+
+  async dropTrigger(caller: DataCaller, name: string) {
+    return this.call({}, runner => {
+      assertWritable(runner, caller, false);
+      return dropTrigger(runner, name);
+    });
+  }
+
+  async setTriggerEnabled(
+    caller: DataCaller,
+    args: { name: string; enabled: boolean; reason?: string | null }
+  ) {
+    return this.call({}, runner => {
+      assertActor(caller);
+      return setTriggerEnabled(
+        runner,
+        this.schema(runner),
+        caller,
+        args.name,
+        args.enabled === true,
+        args.reason ?? null
+      );
+    });
+  }
+
+  async replaceManagedTriggers(caller: DataCaller, inputs: unknown) {
+    return this.call({}, runner => {
+      assertWritable(runner, caller, false);
+      return replaceManagedTriggers(runner, this.schema(runner), caller, inputs);
+    });
+  }
+
+  // After a restore: the events pending at the restored moment went out
+  // then, so they are dropped rather than sent twice. `before` is when the
+  // restore was asked for: events stored since are new writes', and stay.
+  async clearOutbox(args: { before: number }) {
+    return this.call({ allowDeleted: true }, async runner => {
+      if (typeof args?.before !== 'number' || !Number.isFinite(args.before)) {
+        throw new DataError('Clearing the outbox needs "before".');
+      }
+      const before = new Date(args.before).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const cleared = clearOutbox(runner, before);
+      await this.scheduleAlarm(Date.now() + PRUNE_INTERVAL_MS);
+      return { cleared };
+    });
+  }
+
+  // Hands pending events to the queue, oldest first, and forgets them once
+  // queued. A crash in between sends them again: delivery is at least once,
+  // and every event carries its id. Returns true while more are waiting.
+  private async drainOutbox(runner: SqlRunner): Promise<boolean> {
+    const queue = this.env.DATA_TRIGGER_QUEUE;
+    if (!queue) return false;
+    const pending = readOutbox(runner, DATA_OUTBOX_BATCH);
+    if (pending.length === 0) return false;
+    let bytes = 0;
+    const batch: typeof pending = [];
+    for (const event of pending) {
+      let size = utf8Bytes(event.message);
+      // Too large for one message even on its own: sent as a failed run
+      // instead, or every later event would wait behind it.
+      if (size > DATA_TRIGGER_MAX_MESSAGE_BYTES) {
+        event.message = {
+          ...event.message,
+          row: null,
+          previous: null,
+          error: `Not run: the event was ${size.toLocaleString('en-US')} bytes, more than a queue message holds.`
+        };
+        size = utf8Bytes(event.message);
+      }
+      if (batch.length > 0 && bytes + size > QUEUE_BATCH_BYTES) break;
+      batch.push(event);
+      bytes += size;
+    }
+    try {
+      await queue.sendBatch(
+        batch.map(event => ({ body: event.message, contentType: 'json' as const }))
+      );
+    } catch (error) {
+      console.error('project-database-outbox-failed', errorText(error));
+      await this.ctx.storage.setAlarm(Date.now() + OUTBOX_RETRY_MS);
+      return false;
+    }
+    deleteOutbox(runner, batch[batch.length - 1].seq);
+    return batch.length < pending.length || outboxSize(runner) > 0;
   }
 
   // Export
@@ -924,8 +1054,11 @@ export class ProjectDatabase
     const copying = readTableCopy(runner)?.status === 'running';
     runner.all(`PRAGMA foreign_keys = ${copying ? 'OFF' : 'ON'}`);
     try {
+      // Trigger events go first: a long copy or export mustn't hold them up.
+      const more = await this.drainOutbox(runner);
       if (copying) await this.copyStep(runner);
       else await this.alarmStep(runner);
+      if (more) await this.ctx.storage.setAlarm(Date.now());
     } finally {
       this.keepAlarmUsage(runner, usage);
     }

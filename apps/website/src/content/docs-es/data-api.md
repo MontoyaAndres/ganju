@@ -2,14 +2,15 @@
 title: API de Datos
 description: Administra las tablas y filas de un proyecto por HTTP — crea tablas, inserta y busca filas, registra pedidos sin errores y exporta — con un token de acceso personal.
 order: 7
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 
 Cada proyecto en **Pro** o **Enterprise** puede tener su propia **base de
 datos**: tablas con columnas tipadas, relaciones entre ellas y búsqueda de texto
 completo. La **API de Datos** es la forma de administrarla desde tu propio
 código. El panel y la CLI usan las mismas rutas, así que todo lo que ellos
-hacen, tu código también lo puede hacer.
+hacen, tu código también lo puede hacer. [Datos](/es/docs/data/) explica la
+base de datos en sí.
 
 La referencia completa es un archivo OpenAPI:
 [`https://api.ganju.ai/openapi/data.json`](https://api.ganju.ai/openapi/data.json).
@@ -195,6 +196,25 @@ en `copy`. Si la copia falla, la tabla queda como estaba y `copy` muestra el
   `GET /export/file?exportId=<id>&table=<tabla>`. Sin `table`, descargas
   `schema.json`. Las exportaciones también funcionan durante los 7 días
   después de eliminar la base de datos.
+
+## Consultas guardadas y disparadores
+
+| Ruta | Qué hace |
+| --- | --- |
+| `GET /query` | Las consultas guardadas |
+| `POST /query` | Guarda una: `{ "name", "description", "sql", "params", "assistant" }` |
+| `DELETE /query/:name` | Elimina una |
+| `POST /query/:name/run` | Ejecuta una: `{ "params": { "from": "2026-10-01T00:00:00-05:00" } }` |
+| `GET /trigger` | Los disparadores |
+| `POST /trigger` | Guarda uno, por nombre |
+| `PATCH /trigger/:name` | Lo enciende o lo apaga: `{ "enabled": false }` |
+| `DELETE /trigger/:name` | Elimina uno |
+| `POST /trigger/deploy` | Reemplaza los disparadores de un despliegue de la CLI: `{ "triggers": [...] }` |
+| `GET /trigger/:name/run` | Sus ejecuciones recientes |
+| `POST /trigger/:name/run/:runId/retry` | Vuelve a enviar una ejecución que falló o se omitió |
+
+Mira [Consultas guardadas](/es/docs/data/#consultas-guardadas) y
+[Disparadores y webhooks](/es/docs/data/triggers/) para saber qué reciben.
 
 ## Desde la línea de comandos
 

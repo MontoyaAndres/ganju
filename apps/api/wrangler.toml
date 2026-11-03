@@ -99,6 +99,16 @@ queue = "ganju-onedrive-discover-development"
 [[env.development.queues.producers]]
 binding = "ONEDRIVE_FILE_QUEUE"
 queue = "ganju-onedrive-file-development"
+[[env.development.queues.producers]]
+binding = "DATA_TRIGGER_QUEUE"
+queue = "ganju-data-triggers-development"
+[[env.development.queues.consumers]]
+queue = "ganju-data-triggers-development"
+max_batch_size = 10
+max_batch_timeout = 1
+max_concurrency = 10
+max_retries = 3
+dead_letter_queue = "ganju-data-triggers-dlq-development"
 [[env.development.queues.consumers]]
 queue = "ganju-index-development"
 max_batch_size = 1
@@ -265,6 +275,16 @@ queue = "ganju-onedrive-discover-production"
 [[env.production.queues.producers]]
 binding = "ONEDRIVE_FILE_QUEUE"
 queue = "ganju-onedrive-file-production"
+[[env.production.queues.producers]]
+binding = "DATA_TRIGGER_QUEUE"
+queue = "ganju-data-triggers-production"
+[[env.production.queues.consumers]]
+queue = "ganju-data-triggers-production"
+max_batch_size = 10
+max_batch_timeout = 1
+max_concurrency = 10
+max_retries = 3
+dead_letter_queue = "ganju-data-triggers-dlq-production"
 [[env.production.queues.consumers]]
 queue = "ganju-index-production"
 max_batch_size = 1

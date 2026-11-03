@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@ganju/db';
-import type { DbExecutor } from '@ganju/db';
+import type { DataNamespaceLike, DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
 import type { PlanLimits } from '@ganju/utils';
 
@@ -65,6 +65,62 @@ const reportMeter = async (
   }
 };
 
+// The statuses whose databases still hold data: live ones, and deleted ones
+// in their grace period, which keep everything until the purge.
+const STORED_DATABASE_STATUSES = [
+  constants.ARTIFACT_DATABASE_STATUS_READY,
+  constants.ARTIFACT_DATABASE_STATUS_DELETING
+];
+
+// Read each of the org's databases' size from its object, store it on the row
+// and return the total. A database that doesn't answer counts at its last
+// reading, so one slow object can't make the peak drop.
+const measureDataStorage = async (
+  executor: DbExecutor,
+  namespace: DataNamespaceLike,
+  organizationId: string
+): Promise<number> => {
+  const table = db.schema.artifactDatabase;
+  const rows = await executor
+    .select({
+      id: table.id,
+      objectName: table.objectName,
+      sizeBytes: table.sizeBytes
+    })
+    .from(table)
+    .where(
+      and(
+        eq(table.organizationId, organizationId),
+        inArray(table.status, STORED_DATABASE_STATUSES)
+      )
+    );
+  const sizes = await Promise.all(
+    rows.map(async row => {
+      try {
+        const stub = db.data.databaseStub(namespace, row.objectName);
+        const { bytes } = await db.data.callData(
+          'size',
+          () => stub.size(),
+          undefined,
+          { retryRead: true }
+        );
+        await executor
+          .update(table)
+          .set({ sizeBytes: bytes, sizeCheckedAt: new Date() })
+          .where(eq(table.id, row.id));
+        return bytes;
+      } catch (error) {
+        console.error(
+          `[metering] size of database ${row.id} unavailable:`,
+          error instanceof Error ? error.message : error
+        );
+        return row.sizeBytes;
+      }
+    })
+  );
+  return sizes.reduce((total, bytes) => total + bytes, 0);
+};
+
 /**
  * Bring this org's period and its storage high-water up to date, and hand back
  * the row.
@@ -81,7 +137,8 @@ const reportMeter = async (
  */
 const measureOrganization = async (
   executor: DbExecutor,
-  organizationId: string
+  organizationId: string,
+  dataNamespace?: DataNamespaceLike
 ): Promise<typeof db.schema.subscription.$inferSelect | undefined> => {
   // Roll the period over first if due — this snapshots the closing period, then
   // zeroes the counters, so a fresh month re-bills stored content and resets the
@@ -99,12 +156,26 @@ const measureOrganization = async (
   const embeddedMb = Math.ceil(
     (await sumEmbeddedStorage(executor, organizationId)) / constants.MB
   );
-  if (embeddedMb > sub.peakEmbeddedMb) {
+  // Without the binding (a script run) the data peak stays as it was.
+  const dataMb = dataNamespace
+    ? Math.ceil(
+        (await measureDataStorage(executor, dataNamespace, organizationId)) /
+          constants.MB
+      )
+    : 0;
+  const peaks = {
+    peakEmbeddedMb: Math.max(sub.peakEmbeddedMb, embeddedMb),
+    peakDataMb: Math.max(sub.peakDataMb, dataMb)
+  };
+  if (
+    peaks.peakEmbeddedMb > sub.peakEmbeddedMb ||
+    peaks.peakDataMb > sub.peakDataMb
+  ) {
     await executor
       .update(db.schema.subscription)
-      .set({ peakEmbeddedMb: embeddedMb })
+      .set(peaks)
       .where(eq(db.schema.subscription.id, sub.id));
-    return { ...sub, peakEmbeddedMb: embeddedMb };
+    return { ...sub, ...peaks };
   }
 
   return sub;
@@ -120,13 +191,19 @@ const measureOrganization = async (
 // Exported for one organization at a time, which is the only way to exercise the
 // delta arithmetic without a sweep that would roll the period and move the
 // reported marks of every other organization in the database. The cron
-// entrypoint is still `runOverageMetering` below.
+// entrypoint is still `runOverageMetering` below. `dataNamespace` is what reads
+// the databases' storage; scripts leave it out.
 export const meterOrganization = async (
   executor: DbExecutor,
   polar: PolarClient | null,
-  organizationId: string
+  organizationId: string,
+  dataNamespace?: DataNamespaceLike
 ): Promise<void> => {
-  const sub = await measureOrganization(executor, organizationId);
+  const sub = await measureOrganization(
+    executor,
+    organizationId,
+    dataNamespace
+  );
 
   if (!polar || !sub?.billingCustomerId) return;
 
@@ -165,6 +242,17 @@ export const meterOrganization = async (
   );
   const toolCallDelta = toolCallOverage - sub.reportedToolCallOverage;
 
+  // Project data: all of it, at $0 for now. Storage is the period's peak, so
+  // like the counts it only grows within a period.
+  const dataStorageMb = sub.peakDataMb;
+  const dataStorageDelta = dataStorageMb - sub.reportedDataStorageMb;
+  const rowsWritten = sub.dataRowsWrittenCount;
+  const rowsWrittenDelta = rowsWritten - sub.reportedDataRowsWritten;
+  const rowsRead = sub.dataRowsReadCount;
+  const rowsReadDelta = rowsRead - sub.reportedDataRowsRead;
+  const triggerRuns = sub.dataTriggerRunCount;
+  const triggerRunDelta = triggerRuns - sub.reportedDataTriggerRuns;
+
   // Embedded storage: a live level. We bill the high-water mark of the overage
   // within the period (decreases aren't credited), in whole MB. The peak the
   // measure pass just recorded is what this is taken from, so a spike between
@@ -181,8 +269,8 @@ export const meterOrganization = async (
     `${sub.id}:${meterName}:${period ? period.getTime() : 0}:${mark}`;
 
   // Each meter reports on its own, so one that is missing or rejecting can't
-  // take the others down with it. Four requests an hour per paid org buys that
-  // isolation: the ingest endpoint takes a batch, but reports no per-event
+  // take the others down with it. A request per meter an hour per paid org buys
+  // that isolation: the ingest endpoint takes a batch, but reports no per-event
   // status, so batching would make the whole run all-or-nothing. What comes
   // back is whether the event landed — which is what the marks below are
   // written from.
@@ -214,6 +302,34 @@ export const meterOrganization = async (
     eventId(constants.BILLING_METER_TOOL_CALLS, toolCallOverage),
     toolCallDelta
   );
+  const dataStorageReported = await reportMeter(
+    polar,
+    constants.BILLING_METER_DATA_STORAGE,
+    organizationId,
+    eventId(constants.BILLING_METER_DATA_STORAGE, dataStorageMb),
+    dataStorageDelta
+  );
+  const rowsWrittenReported = await reportMeter(
+    polar,
+    constants.BILLING_METER_DATA_ROWS_WRITTEN,
+    organizationId,
+    eventId(constants.BILLING_METER_DATA_ROWS_WRITTEN, rowsWritten),
+    rowsWrittenDelta
+  );
+  const rowsReadReported = await reportMeter(
+    polar,
+    constants.BILLING_METER_DATA_ROWS_READ,
+    organizationId,
+    eventId(constants.BILLING_METER_DATA_ROWS_READ, rowsRead),
+    rowsReadDelta
+  );
+  const triggerRunsReported = await reportMeter(
+    polar,
+    constants.BILLING_METER_DATA_TRIGGER_RUNS,
+    organizationId,
+    eventId(constants.BILLING_METER_DATA_TRIGGER_RUNS, triggerRuns),
+    triggerRunDelta
+  );
 
   // Advance only the marks whose meter event actually went through. A mark that
   // moves without its event loses that usage for good — nothing re-derives it,
@@ -223,7 +339,11 @@ export const meterOrganization = async (
     messageReported ||
     sharedReported ||
     embeddedReported ||
-    toolCallReported
+    toolCallReported ||
+    dataStorageReported ||
+    rowsWrittenReported ||
+    rowsReadReported ||
+    triggerRunsReported
   ) {
     await executor
       .update(db.schema.subscription)
@@ -239,7 +359,19 @@ export const meterOrganization = async (
           : sub.reportedEmbeddedOverageMb,
         reportedToolCallOverage: toolCallReported
           ? toolCallOverage
-          : sub.reportedToolCallOverage
+          : sub.reportedToolCallOverage,
+        reportedDataStorageMb: dataStorageReported
+          ? dataStorageMb
+          : sub.reportedDataStorageMb,
+        reportedDataRowsWritten: rowsWrittenReported
+          ? rowsWritten
+          : sub.reportedDataRowsWritten,
+        reportedDataRowsRead: rowsReadReported
+          ? rowsRead
+          : sub.reportedDataRowsRead,
+        reportedDataTriggerRuns: triggerRunsReported
+          ? triggerRuns
+          : sub.reportedDataTriggerRuns
       })
       .where(eq(db.schema.subscription.id, sub.id));
   }
@@ -294,7 +426,12 @@ export const runOverageMetering = async (
 
   for (const { organizationId } of subs) {
     try {
-      await meterOrganization(dbInstance, polar, organizationId);
+      await meterOrganization(
+        dbInstance,
+        polar,
+        organizationId,
+        source.env.PROJECT_DATABASE
+      );
     } catch (error) {
       // Log and continue — never let one org abort the whole sweep.
       console.error(

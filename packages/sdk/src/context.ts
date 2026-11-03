@@ -10,6 +10,7 @@ import { bytesToBase64 } from '@ganju/utils/base64';
 import type {
   Connection,
   CreatedResource,
+  ChannelsContext,
   DataContext,
   DataOperation,
   DataWhere,
@@ -182,6 +183,23 @@ export const createContext = (env: ToolEnv, callToken = '') => {
       dataCall('run', { name, params, ...options })
   };
 
+  const channelCall = async <T>(path: string, body: object): Promise<T> => {
+    if (!callToken) {
+      throw new Error(
+        'ctx.channels works inside a function Ganju runs; this call came without one.'
+      );
+    }
+    return (await call<{ result: T }>(path, { call: callToken, ...body }))
+      .result;
+  };
+
+  const channels: ChannelsContext = {
+    send: message =>
+      channelCall(constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_SEND, message),
+    post: message =>
+      channelCall(constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_POST, message)
+  };
+
   const ctx: ToolContext = {
     connection: (provider: string) =>
       call<Connection>(constants.CUSTOM_CODE_BROKER_PATH_CONNECTION, {
@@ -253,6 +271,8 @@ export const createContext = (env: ToolEnv, callToken = '') => {
     },
 
     data,
+
+    channels,
 
     log: (...values: unknown[]) => logs.push('log', values)
   };

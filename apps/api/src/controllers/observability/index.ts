@@ -113,6 +113,18 @@ interface ToolHealthRow {
   last_used_at: string | Date;
 }
 
+interface TriggerHealthRow {
+  name: string;
+  table_name: string;
+  action: string | null;
+  runs: number;
+  failed: number;
+  skipped: number;
+  p95_ms: number | null;
+  last_run_at: string | Date;
+  last_error: string | null;
+}
+
 interface TopErrorRow {
   tool: string;
   message: string;
@@ -161,9 +173,15 @@ const getToolHealth = async (c: Context<AppEnv>) => {
   const followUpSeconds = utils.constants.OBSERVABILITY_FOLLOW_UP_SECONDS;
   const schemaRejection = `${utils.constants.OBSERVABILITY_SCHEMA_REJECTION_PREFIX}%`;
 
-  const [healthRows, errorRows, usedRows, installs, effectivePlan] =
-    await Promise.all([
-      dbInstance.execute(sql`
+  const [
+    healthRows,
+    errorRows,
+    usedRows,
+    installs,
+    effectivePlan,
+    triggerRows
+  ] = await Promise.all([
+    dbInstance.execute(sql`
       WITH calls AS (
         SELECT
           r.tool_name,
@@ -235,12 +253,12 @@ const getToolHealth = async (c: Context<AppEnv>) => {
       ORDER BY calls DESC, name
     `) as unknown as Promise<ToolHealthRow[]>,
 
-      // Grouped by the kind of failure, not the instance of it: quoted values,
-      // ids and long numbers are masked, so "No Pokémon named "mew"" and
-      // "… "ditto"" are one error. Short numbers stay — "answered 403" and
-      // "answered 500" are different failures. Opened, an error shows its most
-      // recent call whole.
-      dbInstance.execute(sql`
+    // Grouped by the kind of failure, not the instance of it: quoted values,
+    // ids and long numbers are masked, so "No Pokémon named "mew"" and
+    // "… "ditto"" are one error. Short numbers stay — "answered 403" and
+    // "answered 500" are different failures. Opened, an error shows its most
+    // recent call whole.
+    dbInstance.execute(sql`
       WITH failed AS (
         SELECT
           r.id,
@@ -272,44 +290,71 @@ const getToolHealth = async (c: Context<AppEnv>) => {
       LIMIT ${utils.constants.OBSERVABILITY_TOP_ERRORS}
     `) as unknown as Promise<TopErrorRow[]>,
 
-      dbInstance
-        .selectDistinct({ id: db.schema.mcpRequest.artifactToolId })
-        .from(db.schema.mcpRequest)
-        .innerJoin(
-          db.schema.mcpSession,
-          eq(db.schema.mcpSession.id, db.schema.mcpRequest.sessionId)
+    dbInstance
+      .selectDistinct({ id: db.schema.mcpRequest.artifactToolId })
+      .from(db.schema.mcpRequest)
+      .innerJoin(
+        db.schema.mcpSession,
+        eq(db.schema.mcpSession.id, db.schema.mcpRequest.sessionId)
+      )
+      .where(
+        and(
+          eq(db.schema.mcpSession.artifactId, artifactId),
+          eq(db.schema.mcpRequest.method, toolsCall),
+          isNotNull(db.schema.mcpRequest.artifactToolId),
+          gte(db.schema.mcpRequest.createdAt, unusedSince)
         )
-        .where(
-          and(
-            eq(db.schema.mcpSession.artifactId, artifactId),
-            eq(db.schema.mcpRequest.method, toolsCall),
-            isNotNull(db.schema.mcpRequest.artifactToolId),
-            gte(db.schema.mcpRequest.createdAt, unusedSince)
-          )
-        ),
+      ),
 
-      dbInstance
-        .select({
-          id: db.schema.artifactTool.id,
-          toolKey: db.schema.artifactTool.toolKey,
-          enabled: db.schema.artifactTool.enabled,
-          config: db.schema.artifactTool.config,
-          metadata: db.schema.artifactTool.metadata,
-          createdAt: db.schema.artifactTool.createdAt,
-          serverName: db.schema.mcpServerCatalog.name
-        })
-        .from(db.schema.artifactTool)
-        .leftJoin(
-          db.schema.mcpServerCatalog,
-          eq(
-            db.schema.mcpServerCatalog.id,
-            db.schema.artifactTool.mcpServerCatalogId
-          )
+    dbInstance
+      .select({
+        id: db.schema.artifactTool.id,
+        toolKey: db.schema.artifactTool.toolKey,
+        enabled: db.schema.artifactTool.enabled,
+        config: db.schema.artifactTool.config,
+        metadata: db.schema.artifactTool.metadata,
+        createdAt: db.schema.artifactTool.createdAt,
+        serverName: db.schema.mcpServerCatalog.name
+      })
+      .from(db.schema.artifactTool)
+      .leftJoin(
+        db.schema.mcpServerCatalog,
+        eq(
+          db.schema.mcpServerCatalog.id,
+          db.schema.artifactTool.mcpServerCatalogId
         )
-        .where(eq(db.schema.artifactTool.artifactId, artifactId)),
+      )
+      .where(eq(db.schema.artifactTool.artifactId, artifactId)),
 
-      Plan.getEffectivePlan(dbInstance, currentValues.organizationId)
-    ]);
+    Plan.getEffectivePlan(dbInstance, currentValues.organizationId),
+
+    // The database's triggers run outside any session, so they are read
+    // from their own runs. A skipped run (trigger off, plan without Data)
+    // did no work and isn't counted as one.
+    dbInstance.execute(sql`
+      SELECT
+        r.trigger_name AS name,
+        r.table_name,
+        (array_agg(r.action ORDER BY r.created_at DESC)
+          FILTER (WHERE r.action IS NOT NULL))[1] AS action,
+        count(*) FILTER (WHERE r.status <> 'skipped')::int AS runs,
+        count(*) FILTER (WHERE r.status = 'failed')::int AS failed,
+        count(*) FILTER (WHERE r.status = 'skipped')::int AS skipped,
+        round(
+          percentile_cont(0.95) WITHIN GROUP (ORDER BY r.duration_ms)
+            FILTER (WHERE r.status <> 'skipped')
+        )::int AS p95_ms,
+        max(r.created_at) AS last_run_at,
+        (array_agg(r.error ORDER BY r.created_at DESC)
+          FILTER (WHERE r.status = 'failed'))[1] AS last_error
+      FROM artifact_database_trigger_run r
+      JOIN artifact_database d ON d.id = r.database_id
+      WHERE d.artifact_id = ${artifactId}
+        AND r.created_at >= ${sinceParam}
+      GROUP BY r.trigger_name, r.table_name
+      ORDER BY runs DESC, name
+    `) as unknown as Promise<TriggerHealthRow[]>
+  ]);
 
   const installById = new Map(installs.map(row => [row.id, row]));
   // What each enabled install puts in front of a model: an MCP server is every
@@ -380,6 +425,18 @@ const getToolHealth = async (c: Context<AppEnv>) => {
           lastSeenAt: row.last_seen_at,
           lastRequestId: row.last_request_id
         })),
+    // Like the errors above, a run's error text is only for a signed-in admin.
+    triggers: triggerRows.map(row => ({
+      name: row.name,
+      table: row.table_name,
+      action: row.action,
+      runs: row.runs,
+      failed: row.failed,
+      skipped: row.skipped,
+      p95Ms: row.p95_ms,
+      lastRunAt: row.last_run_at,
+      lastError: c.get('apiToken') ? null : row.last_error
+    })),
     // Judged per install row, the unit the Tools page switches on and off: an
     // MCP server or a script counts as used when any of its tools was called.
     // A row younger than the window hasn't had the chance to be used.

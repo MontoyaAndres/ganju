@@ -495,8 +495,11 @@ const data = async (c: Context<AppEnv>) => {
       404
     );
   }
+  // A run a trigger started writes as that trigger, so the trigger never
+  // matches its own run's writes and a chain of them can be stopped.
   const caller = db.data.dataCaller(opened, {
-    actor: `function:${name}`,
+    actor: signed.trigger ? `trigger:${signed.trigger.id}` : `function:${name}`,
+    ...(signed.trigger ? { triggerDepth: signed.trigger.depth } : {}),
     ...(narrowing?.tables ? { tables: narrowing.tables } : {})
   });
   const tally = db.data.createDataUsageTally();
@@ -571,6 +574,99 @@ const data = async (c: Context<AppEnv>) => {
   }
 };
 
+// The function a ctx.channels call comes from, named by its call token as
+// for ctx.data.
+const channelCaller = async (c: Context<AppEnv>, call: string) => {
+  const tool = c.get('tool');
+  const secret = utils.getEnv(c, utils.constants.CUSTOM_CODE_TOKEN_SECRET_ENV);
+  const signed = secret
+    ? await utils.verifyCustomCodeCallToken(call, secret)
+    : null;
+  if (
+    !signed ||
+    signed.artifactId !== tool.artifactId ||
+    signed.versionId !== tool.versionId
+  ) {
+    return null;
+  }
+  return signed;
+};
+
+const channelError = (c: Context<AppEnv>, error: unknown) => {
+  if (error instanceof db.channels.ChannelSendError) {
+    return c.json({ error: error.message }, error.status);
+  }
+  throw error;
+};
+
+const NOT_IN_A_RUN =
+  'ctx.channels works only inside a function call Ganju started, while it runs.';
+
+/**
+ * ctx.channels.send: a message to a customer the bot has spoken with, on the
+ * channel they wrote from. The participant must be on one of this project's
+ * channels; the channel's tokens never reach the script. Recorded on their
+ * conversation, so the bot's next turn knows they were told.
+ */
+const channelsSend = async (c: Context<AppEnv>) => {
+  const parsed = utils.Schema.CUSTOM_CODE_BROKER_CHANNELS_SEND.safeParse(
+    await c.req.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return c.json(
+      {
+        error:
+          'ctx.channels.send needs a participantId and text, a template, or both.'
+      },
+      400
+    );
+  }
+  const signed = await channelCaller(c, parsed.data.call);
+  if (!signed) return c.json({ error: NOT_IN_A_RUN, code: 'forbidden' }, 403);
+  try {
+    const result = await db.channels.sendToParticipant(db.create(c), {
+      artifactId: signed.artifactId,
+      encryptionKey: utils.getCredentialEncryptionKey(c),
+      participantId: parsed.data.participantId,
+      text: parsed.data.text ?? null,
+      template: parsed.data.template ?? null,
+      source: { kind: 'function', name: signed.tool }
+    });
+    return c.json({ result });
+  } catch (error) {
+    return channelError(c, error);
+  }
+};
+
+// ctx.channels.post: a message to a chat the bot is in, such as the staff
+// group, on one of this project's channels.
+const channelsPost = async (c: Context<AppEnv>) => {
+  const parsed = utils.Schema.CUSTOM_CODE_BROKER_CHANNELS_POST.safeParse(
+    await c.req.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return c.json(
+      { error: 'ctx.channels.post needs a channelId, a chatId and text.' },
+      400
+    );
+  }
+  const signed = await channelCaller(c, parsed.data.call);
+  if (!signed) return c.json({ error: NOT_IN_A_RUN, code: 'forbidden' }, 403);
+  try {
+    const result = await db.channels.postToChat(db.create(c), {
+      artifactId: signed.artifactId,
+      encryptionKey: utils.getCredentialEncryptionKey(c),
+      channelId: parsed.data.channelId,
+      chatId: String(parsed.data.chatId),
+      text: parsed.data.text,
+      source: { kind: 'function', name: signed.tool }
+    });
+    return c.json({ result });
+  } catch (error) {
+    return channelError(c, error);
+  }
+};
+
 export const BrokerController = {
   connection,
   secret,
@@ -580,5 +676,7 @@ export const BrokerController = {
   createResource,
   deleteResource,
   sendFile,
-  data
+  data,
+  channelsSend,
+  channelsPost
 };

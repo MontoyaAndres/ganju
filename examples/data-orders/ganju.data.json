@@ -32,7 +32,8 @@
       "name": "orders",
       "description": "one row per customer order; status goes pending → ready → delivered",
       "displayColumn": "customer",
-      "access": "read",
+      "access": "add",
+      "customerScoped": true,
       "columns": [
         {
           "name": "customer",
@@ -62,13 +63,18 @@
           "type": "integer",
           "required": true,
           "min": 0
+        },
+        {
+          "name": "notified_event",
+          "type": "text",
+          "description": "the trigger event notify-kitchen last posted, so a repeat is skipped"
         }
       ]
     },
     {
       "name": "order_lines",
       "description": "the dishes in an order",
-      "access": "read",
+      "access": "add",
       "columns": [
         {
           "name": "order",

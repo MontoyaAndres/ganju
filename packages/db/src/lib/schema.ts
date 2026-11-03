@@ -410,6 +410,28 @@ export const subscription = pgTable(
     reportedToolCallOverage: integer('reported_tool_call_overage')
       .notNull()
       .default(0),
+    // Project data reported to its meters, which count all of it (at $0
+    // until it is priced): storage as the peak in MB, rows and trigger runs.
+    reportedDataStorageMb: bigint('reported_data_storage_mb', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedDataRowsWritten: bigint('reported_data_rows_written', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedDataRowsRead: bigint('reported_data_rows_read', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedDataTriggerRuns: bigint('reported_data_trigger_runs', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
     // High-water mark of TOTAL embedded storage this period, in whole MB — not
     // the overage. Storage is a level rather than a counter, so the figure worth
     // invoicing is the most that was held, and reading it at period close would
@@ -510,6 +532,28 @@ export const usagePeriod = pgTable(
       .notNull()
       .default(0),
     reportedToolCallOverage: integer('reported_tool_call_overage')
+      .notNull()
+      .default(0),
+    // Project data reported to its meters, which count all of it (at $0
+    // until it is priced): storage as the peak in MB, rows and trigger runs.
+    reportedDataStorageMb: bigint('reported_data_storage_mb', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedDataRowsWritten: bigint('reported_data_rows_written', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedDataRowsRead: bigint('reported_data_rows_read', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedDataTriggerRuns: bigint('reported_data_trigger_runs', {
+      mode: 'number'
+    })
       .notNull()
       .default(0),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
@@ -1473,6 +1517,50 @@ export const artifactDatabaseChange = pgTable(
     index('artifact_database_change_databaseId_createdAt_idx').on(
       table.databaseId,
       table.createdAt
+    )
+  ]
+);
+
+// One run of a database trigger: a delivered event and what came of it.
+// The event is kept so "Retry" sends the same one, with the same id.
+export const artifactDatabaseTriggerRun = pgTable(
+  'artifact_database_trigger_run',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    databaseId: text('database_id')
+      .notNull()
+      .references(() => artifactDatabase.id, { onDelete: 'cascade' }),
+    triggerId: text('trigger_id').notNull(),
+    triggerName: text('trigger_name').notNull(),
+    eventId: text('event_id').notNull(),
+    tableName: text('table_name').notNull(),
+    event: text('event').notNull(),
+    rowId: integer('row_id'),
+    action: text('action'),
+    // running · waiting · ok · failed · skipped
+    status: text('status').notNull(),
+    error: text('error'),
+    attempts: integer('attempts').notNull().default(0),
+    durationMs: integer('duration_ms'),
+    message: json('message'),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    // When its first attempt began: what a trigger's rate counts.
+    startedAt: timestamp('started_at', { mode: 'date' }),
+    finishedAt: timestamp('finished_at', { mode: 'date' })
+  },
+  table => [
+    uniqueIndex('artifact_database_trigger_run_eventId_idx').on(table.eventId),
+    index('artifact_database_trigger_run_trigger_createdAt_idx').on(
+      table.databaseId,
+      table.triggerId,
+      table.createdAt
+    ),
+    index('artifact_database_trigger_run_trigger_startedAt_idx').on(
+      table.databaseId,
+      table.triggerId,
+      table.startedAt
     )
   ]
 );

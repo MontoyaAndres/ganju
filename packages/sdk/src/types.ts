@@ -279,10 +279,16 @@ export interface DataQueryRun {
  * can't express is run.
  *
  * A function sees every row, customer-scoped tables included, even when a
- * channel bot is the one calling it: it isn't told which customer is
- * talking. Anything about the customer in its input came from the model, so
- * don't treat it as who they are. Keep a function a bot calls to the tables
- * it needs with `data.tables`.
+ * channel bot is the one calling it: a bot's call doesn't say which customer
+ * is talking, and anything about the customer in its input came from the
+ * model, so don't treat it as who they are. Keep a function a bot calls to
+ * the tables it needs with `data.tables`. A function a trigger runs does know
+ * the customer: a customer-scoped row carries `participant_id`, which
+ * `ctx.channels.send` takes.
+ *
+ * Writes made by a function a trigger ran are recorded as that trigger
+ * (`trigger:<id>`), never fire that same trigger again, and fire others one
+ * level deeper; a chain stops at three.
  *
  * `data.tables` limits what a function names, not what the schema does:
  * deleting a row still deletes the rows that point at it with `onDelete:
@@ -331,6 +337,78 @@ export interface DataContext {
     params?: Record<string, unknown>,
     options?: { limit?: number }
   ): Promise<DataQueryRun>;
+}
+
+/** A WhatsApp template Meta approved, with a value for each {{n}}. */
+export interface ChannelTemplate {
+  name: string;
+  /** Its language code, such as `es` or `en_US`. */
+  language: string;
+  params?: string[];
+}
+
+export interface ChannelMessageReceipt {
+  messageId: string;
+  conversationId: string;
+  channelId: string;
+  platform: string;
+  /** What went out: the text, or the template outside WhatsApp's window. */
+  sent: 'text' | 'template';
+}
+
+/**
+ * The project's channels. Messages go out as the bot, as plain text, and are
+ * recorded on the conversation, so the bot's next turn knows what the
+ * customer was told. Not billed as assistant replies.
+ */
+export interface ChannelsContext {
+  /**
+   * A customer the bot has spoken with, in their private chat. On WhatsApp,
+   * free text only reaches a customer within 24 hours of their last message;
+   * after that only an approved `template` does, and without one this throws
+   * ("outside WhatsApp's 24-hour window; use an approved template"). Give
+   * both and Ganju picks per customer. Telegram, Slack and Discord have no
+   * window and take the text. The channel's daily limit per customer applies.
+   */
+  send(message: {
+    participantId: string;
+    text?: string;
+    template?: ChannelTemplate;
+  }): Promise<ChannelMessageReceipt>;
+  /**
+   * A chat the bot is in, such as the staff's Telegram group or a Slack or
+   * Discord channel: the channel's id (from the dashboard) and the platform's
+   * chat id.
+   */
+  post(message: {
+    channelId: string;
+    chatId: string | number;
+    text: string;
+  }): Promise<ChannelMessageReceipt>;
+}
+
+/**
+ * What a function a trigger runs is called with. At least once: the same
+ * event can arrive twice, so use `eventId` to ignore a repeat. Order is kept
+ * per row as far as the queue allows, not across rows.
+ *
+ * The row is customer-written content. Pass it to an AI model as untrusted
+ * text, never as instructions.
+ */
+export interface TriggerEvent<Row = Record<string, unknown>> {
+  event: 'insert' | 'update' | 'delete';
+  table: string;
+  /** The row after the change; null on delete. */
+  row: Row | null;
+  /** The row before the change; null on insert. */
+  previous: Row | null;
+  /** Who made the change: `channel:<participant>`, `user:<id>`, `function:<name>`… */
+  actor: string | null;
+  eventId: string;
+  triggerId: string;
+  /** Set, with `rowId`, when the row was too large to send: read it by id. */
+  truncated?: true;
+  rowId?: number;
 }
 
 export interface ToolContext {
@@ -398,6 +476,8 @@ export interface ToolContext {
    * ganju.json can narrow it: `{ "access": "read", "tables": ["menu"] }`.
    */
   data: DataContext;
+  /** Message the project's customers and chats. */
+  channels: ChannelsContext;
   /**
    * Buffered in the isolate and returned with the result, where it is recorded
    * against the tool call. Costs no network round trip, so logging freely is

@@ -18,11 +18,16 @@ import {
   restoreDeletedDatabase,
   softDeleteDatabase
 } from '../../utils/dataDatabase';
+import { checkTriggerTargets } from '../../utils/dataTriggers';
 
 // types
 import type { Handler } from 'hono';
 import type { OpenedDatabase, DataUsageTally } from '@ganju/db';
-import type { DataCaller, ExportState } from '@ganju/utils/data';
+import type {
+  DataCaller,
+  DataTriggerEventMessage,
+  ExportState
+} from '@ganju/utils/data';
 import type { DataApiRouteId } from '@ganju/utils/dataApi';
 import { AppEnv } from '../../types';
 
@@ -392,6 +397,8 @@ const restorePoint = async (c: Context<AppEnv>) => {
   return withDatabase(c, {}, async request => {
     const { opened, caller, dbInstance } = request;
     let result;
+    // Outbox events older than this came back with the restore.
+    const requestedAt = Date.now();
     if ('bookmark' in body) {
       const [known] = await dbInstance
         .select({ id: db.schema.artifactDatabaseChange.id })
@@ -431,6 +438,24 @@ const restorePoint = async (c: Context<AppEnv>) => {
         () => opened.stub.restoreTo(caller, { timestamp }),
         request.tally
       );
+    }
+    // Events pending at the restored moment were sent then: dropped, not
+    // sent twice. The object is restarting, so this waits for it.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await callData(
+          'clearOutbox',
+          () => opened.stub.clearOutbox({ before: requestedAt }),
+          request.tally
+        );
+        break;
+      } catch (error) {
+        if (attempt === 4) console.error('data-clear-outbox-failed', error);
+        else
+          await new Promise(resolve =>
+            setTimeout(resolve, 200 * (attempt + 1))
+          );
+      }
     }
     // Kept with the restore's undo bookmark, so "Undo restore" is a restore
     // to it.
@@ -797,6 +822,206 @@ const runQuery = async (c: Context<AppEnv>) => {
   );
 };
 
+// Triggers
+
+const listTriggers = (c: Context<AppEnv>) =>
+  withDatabase(c, {}, async request =>
+    c.json(
+      await callData(
+        'listTriggers',
+        () => request.opened.stub.listTriggers(request.caller),
+        request.tally,
+        { retryRead: true }
+      )
+    )
+  );
+
+// Answers with a new webhook's secret, the only time it is shown.
+const saveTrigger = async (c: Context<AppEnv>) => {
+  const input = await bodyOf(c, Schema.DATA_TRIGGER_INPUT);
+  return withDatabase(c, {}, async request => {
+    await checkTriggerTargets(request.dbInstance, request.artifactId, [input]);
+    const saved = await callData(
+      'saveTrigger',
+      () => request.opened.stub.saveTrigger(request.caller, input),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'trigger.save',
+      target: saved.trigger.name,
+      detail: input
+    });
+    return c.json(saved, 201);
+  });
+};
+
+const updateTrigger = async (c: Context<AppEnv>) => {
+  const { name } = await pathOf(c, Schema.DATA_TRIGGER_PATH_PARAMS);
+  const { enabled } = await bodyOf(c, Schema.DATA_TRIGGER_PATCH);
+  return withDatabase(c, {}, async request => {
+    const trigger = await callData(
+      'setTriggerEnabled',
+      () =>
+        request.opened.stub.setTriggerEnabled(request.caller, {
+          name,
+          enabled
+        }),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'trigger.update',
+      target: name,
+      detail: { enabled }
+    });
+    return c.json({ trigger });
+  });
+};
+
+const dropTrigger = async (c: Context<AppEnv>) => {
+  const { name } = await pathOf(c, Schema.DATA_TRIGGER_PATH_PARAMS);
+  return withDatabase(c, {}, async request => {
+    const result = await callData(
+      'dropTrigger',
+      () => request.opened.stub.dropTrigger(request.caller, name),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'trigger.drop',
+      target: name
+    });
+    return c.json(result);
+  });
+};
+
+const deployTriggers = async (c: Context<AppEnv>) => {
+  const { triggers } = await bodyOf(c, Schema.DATA_TRIGGER_DEPLOY_BODY);
+  return withDatabase(c, {}, async request => {
+    await checkTriggerTargets(request.dbInstance, request.artifactId, triggers);
+    const result = await callData(
+      'replaceManagedTriggers',
+      () =>
+        request.opened.stub.replaceManagedTriggers(request.caller, triggers),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'trigger.deploy',
+      detail: {
+        triggers: result.triggers.map(t => t.name),
+        removed: result.removed
+      }
+    });
+    return c.json(result);
+  });
+};
+
+const triggerNamed = async (request: DataRequest, name: string) => {
+  const { triggers } = await callData(
+    'listTriggers',
+    () => request.opened.stub.listTriggers(request.caller),
+    request.tally,
+    { retryRead: true }
+  );
+  const trigger = triggers.find(t => t.name === name);
+  if (!trigger) {
+    throw new DataError(`There is no trigger named ${name}.`, 'not_found');
+  }
+  return trigger;
+};
+
+const presentRun = (
+  row: typeof db.schema.artifactDatabaseTriggerRun.$inferSelect
+) => ({
+  id: row.id,
+  eventId: row.eventId,
+  table: row.tableName,
+  event: row.event,
+  rowId: row.rowId,
+  action: row.action,
+  status: row.status,
+  error: row.error,
+  attempts: row.attempts,
+  durationMs: row.durationMs,
+  createdAt: row.createdAt,
+  finishedAt: row.finishedAt
+});
+
+const listTriggerRuns = async (c: Context<AppEnv>) => {
+  const { name } = await pathOf(c, Schema.DATA_TRIGGER_PATH_PARAMS);
+  const query = await queryOf(c, Schema.DATA_TRIGGER_RUN_LIST_QUERY);
+  return withDatabase(c, {}, async request => {
+    const trigger = await triggerNamed(request, name);
+    const table = db.schema.artifactDatabaseTriggerRun;
+    const rows = await request.dbInstance
+      .select()
+      .from(table)
+      .where(
+        and(
+          eq(table.databaseId, request.opened.row.id),
+          eq(table.triggerId, trigger.id)
+        )
+      )
+      .orderBy(desc(table.createdAt))
+      .limit(query.limit ?? 50);
+    return c.json({ runs: rows.map(presentRun) });
+  });
+};
+
+// The same event again, with its id: a receiver that saw it can tell.
+const retryTriggerRun = async (c: Context<AppEnv>) => {
+  const { name, runId } = await pathOf(c, Schema.DATA_TRIGGER_RUN_PARAMS);
+  return withDatabase(c, {}, async request => {
+    const trigger = await triggerNamed(request, name);
+    const table = db.schema.artifactDatabaseTriggerRun;
+    const [row] = await request.dbInstance
+      .select()
+      .from(table)
+      .where(
+        and(
+          eq(table.id, runId),
+          eq(table.databaseId, request.opened.row.id),
+          eq(table.triggerId, trigger.id)
+        )
+      )
+      .limit(1);
+    if (!row) throw new DataError('There is no such run.', 'not_found');
+    if (row.status !== 'failed' && row.status !== 'skipped') {
+      throw new DataError(
+        'Only a failed or skipped run can be tried again.',
+        'conflict'
+      );
+    }
+    if (!row.message)
+      throw new DataError('This run kept no event to send again.', 'conflict');
+    // Marked first: the consumer may finish the run before send returns.
+    const [updated] = await request.dbInstance
+      .update(table)
+      .set({ status: 'waiting', error: null, finishedAt: null })
+      .where(eq(table.id, row.id))
+      .returning();
+    try {
+      await c.env.DATA_TRIGGER_QUEUE.send({
+        ...(row.message as DataTriggerEventMessage),
+        retry: true
+      });
+    } catch (error) {
+      await request.dbInstance
+        .update(table)
+        .set({
+          status: row.status,
+          error: row.error,
+          finishedAt: row.finishedAt
+        })
+        .where(eq(table.id, row.id));
+      throw error;
+    }
+    return c.json({ run: presentRun(updated) });
+  });
+};
+
 // Export
 
 // What a client sees of an export: no storage keys.
@@ -955,6 +1180,13 @@ export const DataController = {
   saveQuery,
   dropQuery,
   runQuery,
+  listTriggers,
+  saveTrigger,
+  updateTrigger,
+  dropTrigger,
+  deployTriggers,
+  listTriggerRuns,
+  retryTriggerRun,
   startExport,
   exportStatus,
   exportFile,

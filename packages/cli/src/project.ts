@@ -51,6 +51,26 @@ export interface ProjectTool {
     access?: 'read' | 'write';
     tables?: string[];
   };
+  /**
+   * `false` deploys the function for triggers only: the assistant never sees
+   * it, and it doesn't count toward the project's tools.
+   */
+  expose?: boolean;
+}
+
+/**
+ * A rule on a table of the project's database, deployed with the functions:
+ * `{ "table": "orders", "on": "insert", "function": "notify-kitchen" }`.
+ * `when` narrows it (`{ "status": { "changedTo": "READY" } }`), and instead of
+ * `function` it can post a `webhook`, a `chat` message, an `email` or a
+ * message to the row's `customer`. The API checks the rest.
+ */
+export interface ProjectTrigger {
+  name?: string;
+  table: string;
+  on: 'insert' | 'update' | 'delete';
+  when?: Record<string, unknown>;
+  [action: string]: unknown;
 }
 
 export interface ProjectFile {
@@ -66,6 +86,11 @@ export interface ProjectFile {
   timeoutMs?: number;
   resourceAccess?: 'own' | 'all';
   tools?: ProjectTool[];
+  /**
+   * The database triggers this project deploys. Left out, `ganju deploy`
+   * leaves the database's triggers alone; `[]` removes the ones it deployed.
+   */
+  triggers?: ProjectTrigger[];
 }
 
 export interface LoadedProject {
@@ -207,9 +232,27 @@ export const buildManifest = (tools: ProjectTool[]) => ({
     ...(tool.input ? { inputSchema: tool.input } : {}),
     ...(tool.output ? { outputSchema: tool.output } : {}),
     ...(tool.annotations ? { annotations: tool.annotations } : {}),
-    ...(tool.data ? { data: tool.data } : {})
+    ...(tool.data ? { data: tool.data } : {}),
+    ...(typeof tool.expose === 'boolean' ? { expose: tool.expose } : {})
   }))
 });
+
+/** The triggers to deploy, or null when ganju.json doesn't list any. */
+export const readTriggers = (
+  project: LoadedProject
+): ProjectTrigger[] | null => {
+  const triggers = project.file.triggers;
+  if (triggers === undefined) return null;
+  if (
+    !Array.isArray(triggers) ||
+    triggers.some(t => !t || typeof t !== 'object' || Array.isArray(t))
+  ) {
+    throw new CliError(
+      `"triggers" in ${PROJECT_FILE} is a list of triggers, each an object`
+    );
+  }
+  return triggers;
+};
 
 /**
  * The row-level config, sent beside the manifest.

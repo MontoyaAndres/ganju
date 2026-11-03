@@ -1,6 +1,7 @@
 // The SQL a project's database runs to build and change its tables. Pure
 // string building: every name in here passed identifierIssue or is one of
 // ours, and every owner-supplied value is a literal escaped by sqlLiteral.
+import { changeCaptureTriggers } from './dataTriggers';
 import { quoteIdentifier as q } from './dataIdentifiers';
 import type {
   DataColumn,
@@ -339,7 +340,8 @@ const historyTriggers = (table: DataTable): NamedStatement[] => {
 
 export const desiredTriggers = (table: DataTable): NamedStatement[] => [
   ...ftsTriggers(table),
-  ...historyTriggers(table)
+  ...historyTriggers(table),
+  ...changeCaptureTriggers(table)
 ];
 
 // Type changes

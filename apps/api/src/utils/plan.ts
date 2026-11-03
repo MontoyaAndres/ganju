@@ -119,8 +119,9 @@ export const toolLimitFor = ({
     constants.CHANNEL_MAX_TOOLS
   );
 
-// The function names of a custom-code row's published version, or [] when
-// nothing is published.
+// The function names of a custom-code row's published version the assistant
+// sees, or [] when nothing is published. A function with `expose: false` only
+// runs from triggers, so it doesn't count toward the tools.
 export const customCodeFunctions = async (
   executor: DbExecutor,
   config: unknown
@@ -134,7 +135,8 @@ export const customCodeFunctions = async (
     .where(eq(db.schema.artifactToolVersion.id, versionId))
     .limit(1);
   return Array.isArray(version?.tools)
-    ? (version.tools as Array<{ name?: unknown }>)
+    ? (version.tools as Array<{ name?: unknown; expose?: unknown }>)
+        .filter(tool => tool?.expose !== false)
         .map(tool => tool?.name)
         .filter((name): name is string => typeof name === 'string')
     : [];
@@ -533,32 +535,68 @@ export type OrganizationUsage = {
   includedToolCalls: number;
   // Voice notes transcribed this period: tracked, not billed.
   voiceNotes: { count: number; seconds: number; onPlatformKey: number };
+  // Project databases this period: tracked, not billed yet. Storage is their
+  // size as last read; trigger runs count every run of every kind.
+  data: {
+    storageBytes: number;
+    rowsRead: number;
+    rowsWritten: number;
+    requests: number;
+    peakMb: number;
+    triggerRuns: number;
+  };
 };
 
 export const getOrganizationUsage = async (
   executor: DbExecutor,
   organizationId: string
 ): Promise<OrganizationUsage> => {
-  const [[{ projectCount }], rawBytes, embeddedBytes, cap, toolCalls, [voice]] =
-    await Promise.all([
-      executor
-        .select({ projectCount: sql<number>`count(*)::int` })
-        .from(db.schema.project)
-        .where(eq(db.schema.project.organizationId, organizationId)),
-      sumRawStorage(executor, organizationId),
-      sumEmbeddedStorage(executor, organizationId),
-      checkMessageCap(executor, organizationId),
-      checkToolCallBudget(executor, organizationId),
-      executor
-        .select({
-          count: db.schema.subscription.voiceNoteCount,
-          seconds: db.schema.subscription.voiceNoteSeconds,
-          onPlatformKey: db.schema.subscription.voiceNotePlatformCount
-        })
-        .from(db.schema.subscription)
-        .where(eq(db.schema.subscription.organizationId, organizationId))
-        .limit(1)
-    ]);
+  const [
+    [{ projectCount }],
+    rawBytes,
+    embeddedBytes,
+    cap,
+    toolCalls,
+    [voice],
+    [dataStorage]
+  ] = await Promise.all([
+    executor
+      .select({ projectCount: sql<number>`count(*)::int` })
+      .from(db.schema.project)
+      .where(eq(db.schema.project.organizationId, organizationId)),
+    sumRawStorage(executor, organizationId),
+    sumEmbeddedStorage(executor, organizationId),
+    checkMessageCap(executor, organizationId),
+    checkToolCallBudget(executor, organizationId),
+    executor
+      .select({
+        count: db.schema.subscription.voiceNoteCount,
+        seconds: db.schema.subscription.voiceNoteSeconds,
+        onPlatformKey: db.schema.subscription.voiceNotePlatformCount,
+        dataRowsRead: db.schema.subscription.dataRowsReadCount,
+        dataRowsWritten: db.schema.subscription.dataRowsWrittenCount,
+        dataRequests: db.schema.subscription.dataRequestCount,
+        dataPeakMb: db.schema.subscription.peakDataMb,
+        dataTriggerRuns: db.schema.subscription.dataTriggerRunCount
+      })
+      .from(db.schema.subscription)
+      .where(eq(db.schema.subscription.organizationId, organizationId))
+      .limit(1),
+    executor
+      .select({
+        bytes: sql<number>`coalesce(sum(${db.schema.artifactDatabase.sizeBytes}), 0)::bigint`
+      })
+      .from(db.schema.artifactDatabase)
+      .where(
+        and(
+          eq(db.schema.artifactDatabase.organizationId, organizationId),
+          eq(
+            db.schema.artifactDatabase.status,
+            constants.ARTIFACT_DATABASE_STATUS_READY
+          )
+        )
+      )
+  ]);
 
   return {
     projectCount: Number(projectCount) || 0,
@@ -574,6 +612,14 @@ export const getOrganizationUsage = async (
       count: voice?.count ?? 0,
       seconds: voice?.seconds ?? 0,
       onPlatformKey: voice?.onPlatformKey ?? 0
+    },
+    data: {
+      storageBytes: Number(dataStorage?.bytes ?? 0),
+      rowsRead: Number(voice?.dataRowsRead ?? 0),
+      rowsWritten: Number(voice?.dataRowsWritten ?? 0),
+      requests: Number(voice?.dataRequests ?? 0),
+      peakMb: Number(voice?.dataPeakMb ?? 0),
+      triggerRuns: Number(voice?.dataTriggerRuns ?? 0)
     }
   };
 };

@@ -5,7 +5,8 @@ import {
   searchResourceChunks,
   toResourceSearchResult,
   plan,
-  data
+  data,
+  channels
 } from './lib';
 import { handleError } from './utils';
 
@@ -16,7 +17,8 @@ export const db = {
   searchResourceChunks,
   toResourceSearchResult,
   plan,
-  data
+  data,
+  channels
 };
 export const utils = {
   handleError
@@ -37,5 +39,8 @@ export type {
   DataNamespaceLike,
   DataUsageTally,
   ArtifactDatabaseRow,
-  OpenedDatabase
+  OpenedDatabase,
+  ChannelMessageSource,
+  ChannelSendResult,
+  ChannelTemplate
 } from './lib';

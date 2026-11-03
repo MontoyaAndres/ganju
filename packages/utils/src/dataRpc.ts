@@ -10,6 +10,7 @@ import type {
   DataTableCopy
 } from './dataTypes';
 import type { DataQuery } from './dataQueries';
+import type { DataTrigger, DataTriggerWithSecret, SavedTrigger } from './dataTriggers';
 
 export type ExportFormat = 'jsonl' | 'csv';
 
@@ -124,6 +125,20 @@ export interface ProjectDatabaseRpc {
     caller: DataCaller,
     args: { name: string; params?: Record<string, unknown>; limit?: number }
   ): R<{ query: string; rows: Record<string, unknown>[]; truncated?: string }>;
+  // Triggers. `pending` counts events waiting for the queue.
+  listTriggers(caller: DataCaller): R<{ triggers: DataTrigger[]; pending: number }>;
+  getTrigger(nameOrId: string): R<DataTriggerWithSecret>;
+  saveTrigger(caller: DataCaller, input: unknown): R<SavedTrigger>;
+  dropTrigger(caller: DataCaller, name: string): R<{ dropped: string }>;
+  setTriggerEnabled(
+    caller: DataCaller,
+    args: { name: string; enabled: boolean; reason?: string | null }
+  ): R<DataTrigger>;
+  replaceManagedTriggers(
+    caller: DataCaller,
+    inputs: unknown
+  ): R<{ triggers: DataTrigger[]; removed: string[]; secrets: Record<string, string> }>;
+  clearOutbox(args: { before: number }): R<{ cleared: number }>;
   exportStart(
     caller: DataCaller,
     args?: { format?: ExportFormat }

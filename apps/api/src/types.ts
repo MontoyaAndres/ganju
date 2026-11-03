@@ -19,7 +19,8 @@ import type {
   GdriveDiscoverJob,
   GdriveFileJob,
   OnedriveDiscoverJob,
-  OnedriveFileJob
+  OnedriveFileJob,
+  DataTriggerJob
 } from './queue';
 
 export type Variables = {
@@ -53,6 +54,7 @@ export type Bindings = {
   GDRIVE_FILE_QUEUE: Queue<GdriveFileJob>;
   ONEDRIVE_DISCOVER_QUEUE: Queue<OnedriveDiscoverJob>;
   ONEDRIVE_FILE_QUEUE: Queue<OnedriveFileJob>;
+  DATA_TRIGGER_QUEUE: Queue<DataTriggerJob>;
   RESOURCE_HANDLER: DurableObjectNamespace<ResourceHandler>;
   RESOURCE_HANDLER_PORT: string;
   DISCORD_GATEWAY: DurableObjectNamespace<DiscordGatewayDO>;

@@ -1178,6 +1178,8 @@ const business = async (c: Context<AppEnv>) => {
 
       for (const entry of parseCustomCodeTools(versionTools)) {
         if (allowedCodeTools && !allowedCodeTools.has(entry.name)) continue;
+        // Deployed for triggers only: never offered to the assistant.
+        if (entry.expose === false) continue;
         if (registeredToolNames.has(entry.name)) continue;
 
         // Schemas were compiled once at upload time, so a failure here means the

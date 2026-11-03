@@ -2,13 +2,14 @@
 title: Data API
 description: Manage a project's tables and rows over HTTP — create tables, insert and search rows, write orders safely, and export — with a personal access token.
 order: 7
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 
 Every project on **Pro** or **Enterprise** can have its own **database**: tables
 with typed columns, relations between them, and full-text search. The **Data
 API** is how you manage it from your own code. The dashboard and the CLI use the
-same routes, so anything they can do, your code can do too.
+same routes, so anything they can do, your code can do too. [Data](/docs/data/)
+explains the database itself.
 
 The full reference is an OpenAPI file:
 [`https://api.ganju.ai/openapi/data.json`](https://api.ganju.ai/openapi/data.json).
@@ -190,6 +191,25 @@ and `copy` shows the `error` until you dismiss it with `DELETE /copy`.
   `GET /export/file?exportId=<id>&table=<table>`. Leave out `table` to get
   `schema.json`. Exports also work during the 7 days after you delete the
   database.
+
+## Named queries and triggers
+
+| Route | What it does |
+| --- | --- |
+| `GET /query` | Named queries |
+| `POST /query` | Save one: `{ "name", "description", "sql", "params", "assistant" }` |
+| `DELETE /query/:name` | Delete one |
+| `POST /query/:name/run` | Run one: `{ "params": { "from": "2026-10-01T00:00:00-05:00" } }` |
+| `GET /trigger` | Triggers |
+| `POST /trigger` | Save one, by name |
+| `PATCH /trigger/:name` | Turn it on or off: `{ "enabled": false }` |
+| `DELETE /trigger/:name` | Delete one |
+| `POST /trigger/deploy` | Replace the triggers a CLI deploy made: `{ "triggers": [...] }` |
+| `GET /trigger/:name/run` | Its recent runs |
+| `POST /trigger/:name/run/:runId/retry` | Send a failed or skipped run again |
+
+See [Named queries](/docs/data/#named-queries) and
+[Triggers and webhooks](/docs/data/triggers/) for what they take.
 
 ## From the command line
 

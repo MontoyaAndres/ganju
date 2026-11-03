@@ -14,6 +14,13 @@ import {
   recordChange
 } from './data';
 import {
+  ChannelSendError,
+  CHANNEL_MESSAGE_SOURCE_KEY,
+  WHATSAPP_WINDOW_MS,
+  sendToParticipant,
+  postToChat
+} from './channels';
+import {
   limitsFor,
   isEntitled,
   planFromSubscription,
@@ -37,6 +44,11 @@ export type {
   ArtifactDatabaseRow,
   OpenedDatabase
 } from './data';
+export type {
+  ChannelMessageSource,
+  ChannelSendResult,
+  ChannelTemplate
+} from './channels';
 export type {
   ResourceChunkSearch,
   ResourceChunkMatch,
@@ -70,6 +82,14 @@ export const data = {
   dataCaller,
   recordDataUsage,
   recordChange
+};
+
+export const channels = {
+  ChannelSendError,
+  CHANNEL_MESSAGE_SOURCE_KEY,
+  WHATSAPP_WINDOW_MS,
+  sendToParticipant,
+  postToChat
 };
 
 export {

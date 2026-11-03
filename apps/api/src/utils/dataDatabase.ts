@@ -28,6 +28,7 @@ export const {
 export { databaseStub, callData };
 
 const GRACE_MS = constants.DATA_DELETE_GRACE_DAYS * 86_400_000;
+const TRIGGER_RUN_RETENTION_MS = 30 * 86_400_000;
 
 // Only Pro and Enterprise create databases. An org that left them keeps what
 // it has, read-only; this is the gate for making a new one.
@@ -401,6 +402,16 @@ export const runDataPurge = async (
 ): Promise<DataPurgeResult> => {
   const dbInstance = db.create(source);
   const result: DataPurgeResult = { due: 0, purged: 0, failed: 0 };
+  // Trigger runs are kept for the dashboard's recent list, a month at most.
+  await dbInstance
+    .delete(db.schema.artifactDatabaseTriggerRun)
+    .where(
+      lt(
+        db.schema.artifactDatabaseTriggerRun.createdAt,
+        new Date(now.getTime() - TRIGGER_RUN_RETENTION_MS)
+      )
+    )
+    .catch(error => console.error('data-trigger-run-purge-failed', error));
   if (!source.env.PROJECT_DATABASE) return result;
   const table = db.schema.artifactDatabase;
   // Due: past the grace period, and either waiting or claimed by a run that

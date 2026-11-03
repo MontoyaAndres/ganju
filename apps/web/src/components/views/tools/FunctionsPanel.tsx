@@ -47,6 +47,10 @@ export interface ManifestTool {
     idempotentHint?: boolean;
     openWorldHint?: boolean;
   };
+  // false: only database triggers run it; the MCP server doesn't list it.
+  expose?: boolean;
+  // What it may do to the project's database. The dialog keeps it as is.
+  data?: { access?: 'read' | 'write'; tables?: string[] };
 }
 
 // The three answers the dialog offers to "what does it do?", and the MCP
@@ -1171,6 +1175,11 @@ export const FunctionsPanel = ({
                           {t('fnStructuredOutput')}
                         </span>
                       )}
+                      {fn.expose === false && (
+                        <span className="tools-function-tag">
+                          {t('fnTriggersOnly')}
+                        </span>
+                      )}
                     </span>
                   </button>
                   <div className="tools-function-item-actions">
@@ -1442,6 +1451,7 @@ export const FunctionsPanel = ({
         <FunctionModal
           initial={editing.mode === 'edit' ? editing.tool : null}
           existing={manifest.map(t => t.name)}
+          editable={editable}
           others={manifest.filter(
             t => editing.mode !== 'edit' || t.name !== editing.tool.name
           )}
@@ -1463,12 +1473,14 @@ export const FunctionsPanel = ({
 const FunctionModal = ({
   initial,
   existing,
+  editable,
   others,
   onCancel,
   onSave
 }: {
   initial: ManifestTool | null;
   existing: string[];
+  editable: boolean;
   // The script's other functions, which this one may be confused with.
   others: ManifestTool[];
   onCancel: () => void;
@@ -1484,6 +1496,7 @@ const FunctionModal = ({
     initial?.outputSchema ? JSON.stringify(initial.outputSchema, null, 2) : ''
   );
   const [effect, setEffect] = useState<ToolEffect>(effectOf(initial));
+  const [expose, setExpose] = useState(initial?.expose !== false);
   const [error, setError] = useState<string | null>(null);
 
   const t = i18n.useT(i18n.copy.TOOLS);
@@ -1553,19 +1566,25 @@ const FunctionModal = ({
       );
       return;
     }
-    onSave({
+    // Fields the dialog doesn't ask about (like `data`) are kept as they were.
+    const tool: ManifestTool = {
+      ...initial,
       name: trimmed,
       title: title.trim() || undefined,
       description: description.trim() || undefined,
       inputSchema,
-      ...(outputSchema ? { outputSchema } : {}),
       // Any other hints the manifest carried are kept; the dialog only owns
       // the two it asks about.
       annotations: {
         ...initial?.annotations,
         ...utils.annotationsForEffect(effect)
       }
-    });
+    };
+    if (outputSchema) tool.outputSchema = outputSchema;
+    else delete tool.outputSchema;
+    if (expose) delete tool.expose;
+    else tool.expose = false;
+    onSave(tool);
   };
 
   return (
@@ -1624,6 +1643,20 @@ const FunctionModal = ({
               </select>
               <small>{t('fnEffectHelp')}</small>
             </label>
+            <div className="tools-field-switch">
+              <div className="tools-field-switch-row">
+                <span id="function-expose-label">{t('fnExposeLabel')}</span>
+                <Switch
+                  checked={expose}
+                  disabled={!editable}
+                  slotProps={{
+                    input: { 'aria-labelledby': 'function-expose-label' }
+                  }}
+                  onChange={(_, checked) => setExpose(checked)}
+                />
+              </div>
+              <small>{t('fnExposeHelp')}</small>
+            </div>
             {/* Under the fields they are about, not below the schema editors,
                 so they stay in view while the description is being written. */}
             {warnings.length > 0 && (

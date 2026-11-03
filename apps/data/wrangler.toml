@@ -21,6 +21,9 @@ invocation_logs = true
 [[env.development.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-development"
+[[env.development.queues.producers]]
+binding = "DATA_TRIGGER_QUEUE"
+queue = "ganju-data-triggers-development"
 [[env.development.durable_objects.bindings]]
 name = "PROJECT_DATABASE"
 class_name = "ProjectDatabase"
@@ -40,6 +43,9 @@ invocation_logs = true
 [[env.production.r2_buckets]]
 binding = "STORAGE_BUCKET"
 bucket_name = "ganju-storage-production"
+[[env.production.queues.producers]]
+binding = "DATA_TRIGGER_QUEUE"
+queue = "ganju-data-triggers-production"
 [[env.production.durable_objects.bindings]]
 name = "PROJECT_DATABASE"
 class_name = "ProjectDatabase"

@@ -88,6 +88,21 @@ const SPEC: DocNavSpec[] = [
   { slug: 'prompts', label: { en: 'Prompts', es: 'Prompts' } },
   { slug: 'resources', label: { en: 'Resources', es: 'Recursos' } },
   {
+    slug: 'data',
+    label: { en: 'Data', es: 'Datos' },
+    items: [
+      {
+        slug: 'data/functions',
+        label: { en: 'Data from functions', es: 'Datos desde funciones' }
+      },
+      {
+        slug: 'data/triggers',
+        label: { en: 'Triggers and webhooks', es: 'Disparadores y webhooks' }
+      },
+      { slug: 'data-api', label: { en: 'Data API', es: 'API de Datos' } }
+    ]
+  },
+  {
     slug: 'tools',
     label: { en: 'Tools', es: 'Herramientas' },
     // The three tabs of the Tools page, in the order they appear on it. The

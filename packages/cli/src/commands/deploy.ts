@@ -2,7 +2,13 @@ import { bundleProject } from '../bundle.js';
 import { commandContext, describeTarget } from '../context.js';
 import { printLintFindings } from '../lint.js';
 import { color, formatBytes, note, step, success } from '../output.js';
-import { buildConfig, buildManifest, readTools } from '../project.js';
+import { DataApi } from '../data/routes.js';
+import {
+  buildConfig,
+  buildManifest,
+  readTools,
+  readTriggers
+} from '../project.js';
 
 import type { ToolLintFinding } from '@ganju/utils/toolLint';
 
@@ -109,5 +115,31 @@ export const deploy = async (flags: {
       tools.length
     } ${tools.length === 1 ? 'tool' : 'tools'}`
   );
-  for (const tool of tools) note(color.gray(`  ${tool.name}`));
+  for (const tool of tools) {
+    note(
+      color.gray(
+        `  ${tool.name}${tool.expose === false ? ' (triggers only)' : ''}`
+      )
+    );
+  }
+
+  // After the publish, so a trigger can name a function this deploy added.
+  const triggers = readTriggers(project);
+  if (triggers === null) return;
+  step(
+    `deploying ${triggers.length} ${triggers.length === 1 ? 'trigger' : 'triggers'}`
+  );
+  const result = await new DataApi(api, `${artifactPath}/data`).request<{
+    triggers: { name: string; table: string; on: string }[];
+    removed: string[];
+    secrets: Record<string, string>;
+  }>('deployTriggers', { json: { triggers } });
+  for (const trigger of result.triggers) {
+    note(color.gray(`  ${trigger.name}: ${trigger.table} ${trigger.on}`));
+  }
+  for (const name of result.removed) note(color.gray(`  removed ${name}`));
+  for (const [name, secret] of Object.entries(result.secrets)) {
+    // Shown once, like a token: the receiver checks signatures with it.
+    success(`${name}'s webhook signing secret (shown once): ${secret}`);
+  }
 };

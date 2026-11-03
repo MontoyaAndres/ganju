@@ -767,12 +767,75 @@ const DATA_QUERY_RUN_BODY = z.strictObject({
   timeZone: z.string().max(100).optional()
 });
 
+// A trigger, as the dashboard, the API and ganju.json's "triggers" write it:
+// a table, an event, an optional condition and exactly one action. The
+// object checks the rest (columns, fields used in texts) against the schema.
+const DATA_TRIGGER_NAME = z
+  .string()
+  .regex(
+    /^[a-z][a-z0-9_-]{0,62}$/,
+    'Lowercase letters, digits, _ and -, starting with a letter'
+  );
+const DATA_TRIGGER_TEMPLATE = z.strictObject({
+  name: z.string().min(1).max(512),
+  language: z.string().min(1).max(20),
+  // Each {{n}} of the template in order: fixed text or a {{field}} of the row.
+  params: z.array(z.string().max(1024)).max(20).optional()
+});
+const DATA_TRIGGER_INPUT = z.strictObject({
+  name: DATA_TRIGGER_NAME.optional(),
+  description: z.string().max(300).nullish(),
+  table: DATA_IDENTIFIER,
+  on: z.enum(['insert', 'update', 'delete']),
+  // { column: { changedTo | changedFrom | equals: value, changed: true } },
+  // combined with { all: [...] } or { any: [...] }.
+  when: z.record(z.string(), z.unknown()).nullish(),
+  enabled: z.boolean().optional(),
+  // false: refuse to save over an existing trigger of this name.
+  replace: z.boolean().optional(),
+  // Runs a minute; past it events wait in the queue. 60 by default.
+  rateLimit: z.number().int().min(1).max(600).optional(),
+  function: z.string().min(1).max(64).optional(),
+  webhook: z.url().max(2000).optional(),
+  chat: z
+    .strictObject({
+      channelId: z.string().min(1).max(100),
+      chatId: z.union([z.string().min(1).max(200), z.number().int()]),
+      text: z.string().min(1).max(2000)
+    })
+    .optional(),
+  email: z
+    .strictObject({
+      to: z.union([z.email(), z.array(z.email()).min(1).max(10)]),
+      subject: z.string().min(1).max(200).optional(),
+      text: z.string().min(1).max(2000)
+    })
+    .optional(),
+  customer: z
+    .strictObject({
+      text: z.string().min(1).max(2000),
+      template: DATA_TRIGGER_TEMPLATE.optional()
+    })
+    .optional()
+});
+const DATA_TRIGGER_PATCH = z.strictObject({ enabled: z.boolean() });
+const DATA_TRIGGER_DEPLOY_BODY = z.strictObject({
+  triggers: z.array(DATA_TRIGGER_INPUT).max(50)
+});
+const DATA_TRIGGER_RUN_LIST_QUERY = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional()
+});
+
 const DATA_TABLE_PARAMS = DATA_DATABASE_GET.extend({ table: DATA_IDENTIFIER });
 const DATA_COLUMN_PARAMS = DATA_TABLE_PARAMS.extend({
   column: DATA_IDENTIFIER
 });
 const DATA_ROW_PARAMS = DATA_TABLE_PARAMS.extend({ id: DATA_ROW_ID });
 const DATA_QUERY_PATH_PARAMS = DATA_DATABASE_GET.extend({ name: DATA_IDENTIFIER });
+const DATA_TRIGGER_PATH_PARAMS = DATA_DATABASE_GET.extend({ name: DATA_TRIGGER_NAME });
+const DATA_TRIGGER_RUN_PARAMS = DATA_TRIGGER_PATH_PARAMS.extend({
+  runId: z.string().min(1).max(64)
+});
 
 const ARTIFACT_UPLOAD_RESOURCE_FILE = z.object({
   resourceId: z.uuid(),
@@ -1409,6 +1472,9 @@ const CUSTOM_CODE_TOOL = z.object({
   // is the owner's code. Narrowing matters most for a function a channel bot
   // calls after reading customer text, and the broker enforces it, since
   // anything in the script can be edited.
+  // false: deployed and run by triggers, but never offered to the assistant
+  // (left out of tools/list, and not counted toward its tools).
+  expose: z.boolean().optional(),
   data: z
     .strictObject({
       access: z.enum(['read', 'write']).optional(),
@@ -1671,6 +1737,21 @@ const CUSTOM_CODE_BROKER_DATA = z.object({
   call: z.string().min(1).max(4000),
   op: z.enum(['describe', 'query', 'write', 'run']),
   args: z.record(z.string(), z.unknown()).default({})
+});
+
+// ctx.channels: a message to a customer the bot has spoken with, or a post
+// to a chat the bot is in. `call` names the function, as for ctx.data.
+const CUSTOM_CODE_BROKER_CHANNELS_SEND = z.object({
+  call: z.string().min(1).max(4000),
+  participantId: z.string().min(1).max(100),
+  text: z.string().min(1).max(4000).optional(),
+  template: DATA_TRIGGER_TEMPLATE.optional()
+});
+const CUSTOM_CODE_BROKER_CHANNELS_POST = z.object({
+  call: z.string().min(1).max(4000),
+  channelId: z.string().min(1).max(100),
+  chatId: z.union([z.string().min(1).max(200), z.number().int()]),
+  text: z.string().min(1).max(4000)
 });
 
 const CUSTOM_CODE_BROKER_RESOURCE_SEARCH = z.object({
@@ -2038,6 +2119,12 @@ export const Schema = {
   DATA_QUERY_INPUT,
   DATA_QUERY_RUN_BODY,
   DATA_QUERY_PATH_PARAMS,
+  DATA_TRIGGER_INPUT,
+  DATA_TRIGGER_PATCH,
+  DATA_TRIGGER_DEPLOY_BODY,
+  DATA_TRIGGER_RUN_LIST_QUERY,
+  DATA_TRIGGER_PATH_PARAMS,
+  DATA_TRIGGER_RUN_PARAMS,
   DATA_COLUMN_PARAMS,
   DATA_ROW_PARAMS,
   ARTIFACT_REMOVE_RESOURCE,
@@ -2102,6 +2189,8 @@ export const Schema = {
   CUSTOM_CODE_BROKER_CONNECTION,
   CUSTOM_CODE_BROKER_SECRET,
   CUSTOM_CODE_BROKER_DATA,
+  CUSTOM_CODE_BROKER_CHANNELS_SEND,
+  CUSTOM_CODE_BROKER_CHANNELS_POST,
   CUSTOM_CODE_BROKER_RESOURCE_SEARCH,
   CUSTOM_CODE_BROKER_RESOURCE_READ,
   CUSTOM_CODE_BROKER_RESOURCE_CREATE,

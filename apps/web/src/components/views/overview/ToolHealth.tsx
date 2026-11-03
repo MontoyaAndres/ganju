@@ -60,11 +60,24 @@ interface UnusedRow {
   createdAt: string;
 }
 
+interface TriggerRow {
+  name: string;
+  table: string;
+  action: string | null;
+  runs: number;
+  failed: number;
+  skipped: number;
+  p95Ms: number | null;
+  lastRunAt: string;
+  lastError: string | null;
+}
+
 interface Health {
   since: string;
   days: number;
   tools: ToolRow[];
   errors: ErrorRow[];
+  triggers: TriggerRow[];
   unused: UnusedRow[];
   unusedDays: number;
   toolQuota: { plan: string; limit: number | null; enabled: number };
@@ -254,6 +267,18 @@ export const ToolHealth = ({ days }: { days: number }) => {
   // The install waiting on the reader's yes before it is disabled.
   const [confirming, setConfirming] = useState<UnusedRow | null>(null);
   const [stack, setStack] = useState<View[]>([]);
+
+  // A trigger's runs, retry included, live on its table's Triggers tab.
+  const openTrigger = (row: TriggerRow) =>
+    router.push({
+      pathname: '/organization/[id]/project/[projectId]/data',
+      query: {
+        id: organizationId,
+        projectId,
+        table: row.table,
+        tab: 'triggers'
+      }
+    });
 
   const fetchHealth = async (signal?: AbortSignal) => {
     setStatus('pending');
@@ -498,6 +523,82 @@ export const ToolHealth = ({ days }: { days: number }) => {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {!!health?.triggers?.length && (
+        <div className="health-section">
+          <p className="health-section-title">{t('triggersTitle')}</p>
+          <p className="health-muted">
+            {t('triggersHelp', { days: rangeDays })}
+          </p>
+          <div className="health-table-scroll">
+            <table className="health-table">
+              <thead>
+                <tr>
+                  <th>{t('colTrigger')}</th>
+                  <th className="num">{t('colRuns')}</th>
+                  <th className="num">{t('colFailed')}</th>
+                  <th className="num">
+                    <Tooltip title={t('colP95TriggerHint')}>
+                      <span>{t('colP95')}</span>
+                    </Tooltip>
+                  </th>
+                  <th>{t('colLastRun')}</th>
+                  <th aria-hidden="true" />
+                </tr>
+              </thead>
+              <tbody>
+                {health.triggers.map(row => (
+                  <tr
+                    key={`${row.table}:${row.name}`}
+                    tabIndex={0}
+                    onClick={() => openTrigger(row)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') openTrigger(row);
+                    }}
+                  >
+                    <td>
+                      <span className="health-tool">
+                        <span className="health-tool-name">{row.name}</span>
+                        <code className="health-tool-key">{row.table}</code>
+                        {row.skipped > 0 && (
+                          <Tooltip title={t('triggerSkippedHint')}>
+                            <span className="health-badge">
+                              {t.plural('triggerSkipped', row.skipped)}
+                            </span>
+                          </Tooltip>
+                        )}
+                      </span>
+                    </td>
+                    <td className="num">{t.n(row.runs)}</td>
+                    <td className={`num ${row.failed > 0 ? 'is-error' : ''}`}>
+                      {row.failed > 0 ? (
+                        <Tooltip title={row.lastError ?? ''}>
+                          <span>
+                            {`${t.n(row.failed)} · ${percent(row.failed, row.runs, t)}`}
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        '0'
+                      )}
+                    </td>
+                    <td className="num">
+                      {row.p95Ms != null
+                        ? t('latencyMs', { ms: t.n(row.p95Ms) })
+                        : '—'}
+                    </td>
+                    <td className="health-muted">
+                      {t.relativeShort(row.lastRunAt)}
+                    </td>
+                    <td className="health-chevron">
+                      <ChevronRight />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

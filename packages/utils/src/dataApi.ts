@@ -16,7 +16,13 @@ export interface DataApiRoute {
   path: string;
   summary: string;
   description?: string;
-  tag: 'Database' | 'Tables' | 'Rows' | 'Queries' | 'History and export';
+  tag:
+    | 'Database'
+    | 'Tables'
+    | 'Rows'
+    | 'Queries'
+    | 'Triggers'
+    | 'History and export';
   body?: z.ZodType;
   query?: z.ZodObject;
   // What a 200/201 answers with, in a sentence.
@@ -49,7 +55,11 @@ const {
   DATA_EXPORT_FILE_QUERY,
   DATA_CHANGE_LIST_QUERY,
   DATA_QUERY_INPUT,
-  DATA_QUERY_RUN_BODY
+  DATA_QUERY_RUN_BODY,
+  DATA_TRIGGER_INPUT,
+  DATA_TRIGGER_PATCH,
+  DATA_TRIGGER_DEPLOY_BODY,
+  DATA_TRIGGER_RUN_LIST_QUERY
 } = Schema;
 
 export const DATA_API_ROUTES = {
@@ -303,6 +313,71 @@ export const DATA_API_ROUTES = {
     body: DATA_QUERY_RUN_BODY,
     returns: '{ query, rows, truncated? }'
   },
+  listTriggers: {
+    method: 'get',
+    path: '/trigger',
+    tag: 'Triggers',
+    summary: 'Triggers',
+    description:
+      'Each with its table, event, condition and action. `pending` counts events not yet handed to the queue. Webhook secrets are never listed.',
+    returns: '{ triggers, pending }'
+  },
+  saveTrigger: {
+    method: 'post',
+    path: '/trigger',
+    tag: 'Triggers',
+    summary: 'Save a trigger',
+    description:
+      'Runs one action when rows of `table` are inserted, updated or deleted, and `when` holds: `{ "status": { "changedTo": "READY" } }` fires on the transition only; `changedFrom`, `changed: true` and `equals` test a column too, and `all` / `any` combine them. The action is one of `function` (a function of this project, given `{ event, table, row, previous, actor, eventId, triggerId }`), `webhook` (an https URL, sent a POST signed in `x-ganju-signature`), `chat` (`{ channelId, chatId, text }`), `email` (`{ to, subject, text }`) or `customer` (`{ text, template? }`, to the row\'s customer on a customer-scoped table). Texts take `{{field}}` from the row, inserted as plain text. Saving under an existing name replaces it, unless `replace` is false; with no `name`, it always creates a new trigger, named from the table, event and action and numbered past those taken. Left out, `enabled` keeps a saved trigger on or off as it was. A new webhook answers with its signing `secret`, shown this once. Delivery is at least once: every event carries an `eventId`.',
+    body: DATA_TRIGGER_INPUT,
+    returns: '{ trigger, secret? }',
+    status: 201
+  },
+  updateTrigger: {
+    method: 'patch',
+    path: '/trigger/:name',
+    tag: 'Triggers',
+    summary: 'Turn a trigger on or off',
+    description:
+      'Turning one back on clears why Ganju turned it off (20 failed runs in a row).',
+    body: DATA_TRIGGER_PATCH,
+    returns: '{ trigger }'
+  },
+  dropTrigger: {
+    method: 'delete',
+    path: '/trigger/:name',
+    tag: 'Triggers',
+    summary: 'Delete a trigger',
+    returns: '{ dropped }'
+  },
+  deployTriggers: {
+    method: 'post',
+    path: '/trigger/deploy',
+    tag: 'Triggers',
+    summary: 'Deploy the triggers of ganju.json',
+    description:
+      "What `ganju deploy` sends: every trigger listed is saved as managed by the CLI, and the CLI's earlier ones not listed are deleted. Triggers made in the dashboard are left alone. All or nothing. New webhooks' secrets come back once, by name.",
+    body: DATA_TRIGGER_DEPLOY_BODY,
+    returns: '{ triggers, removed, secrets }'
+  },
+  listTriggerRuns: {
+    method: 'get',
+    path: '/trigger/:name/run',
+    tag: 'Triggers',
+    summary: "A trigger's recent runs",
+    description:
+      'Newest first, up to 50: `ok`, `failed` with its error, `skipped`, or `running`.',
+    query: DATA_TRIGGER_RUN_LIST_QUERY,
+    returns: '{ runs }'
+  },
+  retryTriggerRun: {
+    method: 'post',
+    path: '/trigger/:name/run/:runId/retry',
+    tag: 'Triggers',
+    summary: 'Run a failed event again',
+    description: 'The same event, with the same `eventId`.',
+    returns: '{ run }'
+  },
   startExport: {
     method: 'post',
     path: '/export',
@@ -448,6 +523,7 @@ export const dataOpenApi = (serverUrl: string) => {
       { name: 'Tables' },
       { name: 'Rows' },
       { name: 'Queries' },
+      { name: 'Triggers' },
       { name: 'History and export' }
     ],
     paths,

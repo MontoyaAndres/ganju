@@ -43,6 +43,7 @@ export interface CustomCodeToolEntry {
     idempotentHint?: boolean;
     openWorldHint?: boolean;
   };
+  expose?: boolean;
 }
 
 /**

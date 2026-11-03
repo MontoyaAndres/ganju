@@ -1,0 +1,1233 @@
+import { useEffect, useRef, useState } from 'react';
+import { UI } from '@ganju/ui';
+import {
+  DATA_TRIGGER_DEFAULT_RATE,
+  DATA_TRIGGER_MAX_DEPTH,
+  DATA_TRIGGER_MAX_RATE
+} from '@ganju/utils/data';
+
+import IconButton from '@mui/material/IconButton';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import {
+  Add,
+  DeleteOutlined,
+  EditOutlined,
+  HistoryOutlined,
+  ReplayOutlined,
+  TerminalOutlined
+} from '@mui/icons-material';
+
+import { DialogContent, FooterActions } from './styles';
+import { dataRequest } from './api';
+import { i18n } from '../../../lib';
+
+import type { Translate } from '../../../lib';
+import type {
+  DataColumnType,
+  DataTable,
+  DataTrigger,
+  DataTriggerAction,
+  DataTriggerActionType,
+  DataTriggerCondition,
+  DataTriggerEvent,
+  DataTriggerRun
+} from './types';
+
+const EVENTS: DataTriggerEvent[] = ['insert', 'update', 'delete'];
+const ACTIONS: DataTriggerActionType[] = [
+  'function',
+  'webhook',
+  'chat',
+  'email',
+  'customer'
+];
+type TestKey = 'changedTo' | 'changedFrom' | 'equals' | 'changed';
+const TESTS: TestKey[] = ['changedTo', 'changedFrom', 'equals', 'changed'];
+
+// The platforms a trigger can post to a group or channel on.
+const CHAT_PLATFORMS: Record<string, string> = {
+  telegram: 'Telegram',
+  slack: 'Slack',
+  discord: 'Discord'
+};
+
+const NAME_PATTERN = /^[a-z][a-z0-9_-]{0,62}$/;
+
+interface ProjectFunction {
+  name: string;
+  expose?: boolean;
+}
+
+interface ProjectChannel {
+  id: string;
+  label: string;
+}
+
+interface ChannelRow {
+  id: string;
+  platform: string;
+  metadata: {
+    telegram?: { bot?: { firstName?: string; username?: string } };
+    slack?: { bot?: { teamName?: string; username?: string } };
+    discord?: { bot?: { username?: string; globalName?: string | null } };
+  } | null;
+}
+
+const channelLabel = (channel: ChannelRow) => {
+  const meta = channel.metadata;
+  const telegram = meta?.telegram?.bot;
+  const bot =
+    channel.platform === 'telegram'
+      ? telegram?.username
+        ? `@${telegram.username}`
+        : telegram?.firstName
+      : channel.platform === 'slack'
+        ? meta?.slack?.bot?.teamName || meta?.slack?.bot?.username
+        : meta?.discord?.bot?.globalName || meta?.discord?.bot?.username;
+  return `${CHAT_PLATFORMS[channel.platform]} · ${bot || channel.id.slice(0, 8)}`;
+};
+
+// The live script's functions and the project's chat channels, for the
+// dialog's selects. Either list comes back empty when it can't be read.
+const useTargets = (base: string) => {
+  const [functions, setFunctions] = useState<ProjectFunction[] | null>(null);
+  const [channels, setChannels] = useState<ProjectChannel[]>([]);
+
+  useEffect(() => {
+    const artifactBase = base.replace(/\/data$/, '');
+    const projectBase = base.replace(/\/artifact\/data$/, '');
+    dataRequest<{
+      activeVersionId: string | null;
+      versions: { id: string; tools: ProjectFunction[] }[];
+    }>(artifactBase, '/custom-code/versions').then(result => {
+      const live = result.ok
+        ? result.data.versions?.find(v => v.id === result.data.activeVersionId)
+        : null;
+      setFunctions(live?.tools ?? []);
+    });
+    dataRequest<ChannelRow[]>(projectBase, '/channel').then(result => {
+      if (!result.ok || !Array.isArray(result.data)) return;
+      setChannels(
+        result.data
+          .filter(channel => channel.platform in CHAT_PLATFORMS)
+          .map(channel => ({ id: channel.id, label: channelLabel(channel) }))
+      );
+    });
+  }, [base]);
+
+  return { functions, channels };
+};
+
+interface TriggersTabProps {
+  base: string;
+  table: DataTable;
+  readOnly: boolean;
+}
+
+/** The table's triggers: what runs when its rows change. */
+export const TriggersTab = ({ base, table, readOnly }: TriggersTabProps) => {
+  const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.DATA);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const [triggers, setTriggers] = useState<DataTrigger[] | null>(null);
+  const [pending, setPending] = useState(0);
+  const [failed, setFailed] = useState(false);
+  // null: closed; a trigger: editing it; 'new': a new one.
+  const [editing, setEditing] = useState<DataTrigger | 'new' | null>(null);
+  const [dropping, setDropping] = useState<DataTrigger | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [runsOf, setRunsOf] = useState<DataTrigger | null>(null);
+  // A new webhook's secret, shown once.
+  const [secret, setSecret] = useState<string | null>(null);
+  const targets = useTargets(base);
+
+  const load = async () => {
+    const result = await dataRequest<{
+      triggers: DataTrigger[];
+      pending: number;
+    }>(base, '/trigger');
+    if (!result.ok) {
+      setFailed(true);
+      return;
+    }
+    setFailed(false);
+    setTriggers(result.data.triggers.filter(tr => tr.table === table.name));
+    setPending(result.data.pending ?? 0);
+  };
+
+  useEffect(() => {
+    load();
+  }, [base, table.name]);
+
+  const handleToggle = async (trigger: DataTrigger, enabled: boolean) => {
+    if (toggling) return;
+    setToggling(trigger.name);
+    const result = await dataRequest<{ trigger: DataTrigger }>(
+      base,
+      `/trigger/${encodeURIComponent(trigger.name)}`,
+      { method: 'PATCH', body: { enabled } }
+    );
+    setToggling(null);
+    if (!result.ok) {
+      snackbar.error(result.error || t('toastTriggerToggleFailed'));
+      return;
+    }
+    setTriggers(prev =>
+      prev
+        ? prev.map(tr => (tr.name === trigger.name ? result.data.trigger : tr))
+        : prev
+    );
+  };
+
+  const handleDrop = async () => {
+    if (!dropping || deleting) return;
+    setDeleting(true);
+    const result = await dataRequest(
+      base,
+      `/trigger/${encodeURIComponent(dropping.name)}`,
+      { method: 'DELETE' }
+    );
+    setDeleting(false);
+    if (!result.ok) {
+      snackbar.error(result.error || t('toastTriggerDeleteFailed'));
+      return;
+    }
+    setDropping(null);
+    snackbar.success(t('toastTriggerDeleted'));
+    load();
+  };
+
+  const actionSummary = (action: DataTriggerAction) => {
+    switch (action.type) {
+      case 'function':
+        return action.function;
+      case 'webhook':
+        return action.url;
+      case 'chat': {
+        const channel = targets.channels.find(ch => ch.id === action.channelId);
+        return `${channel?.label ?? action.channelId} · ${action.chatId}`;
+      }
+      case 'email':
+        return action.to.join(', ');
+      case 'customer':
+        return action.template
+          ? `${t('triggerCustomerSummary')} · ${t('triggerTemplateSummary', { name: action.template.name })}`
+          : t('triggerCustomerSummary');
+    }
+  };
+
+  return (
+    <div className="data-schema">
+      <section className="data-card">
+        <div className="data-card-header">
+          <div>
+            <h3>{t('triggersTitle')}</h3>
+            <p className="data-card-muted">
+              {t('triggersHelp', { depth: DATA_TRIGGER_MAX_DEPTH })}
+            </p>
+            {pending > 0 && (
+              <p className="trigger-pending">
+                {t.plural('triggersPending', pending)}
+              </p>
+            )}
+          </div>
+          <UI.Button
+            variant="contained"
+            size="small"
+            disabled={readOnly}
+            onClick={() => setEditing('new')}
+          >
+            <Add />
+            <span className="button-text">{t('newTrigger')}</span>
+          </UI.Button>
+        </div>
+
+        {failed && <p className="data-error">{c('somethingWentWrong')}</p>}
+        {!triggers && !failed && <UI.Skeleton variant="rounded" height={120} />}
+        {triggers && triggers.length === 0 && (
+          <p className="data-card-muted">{t('triggersEmpty')}</p>
+        )}
+        {triggers && triggers.length > 0 && (
+          <ul className="query-list">
+            {triggers.map(trigger => {
+              const managed = trigger.managed === 'cli';
+              return (
+                <li key={trigger.id} className="query-item">
+                  <div className="query-item-header">
+                    <code className="query-item-name">{trigger.name}</code>
+                    {managed && (
+                      <span
+                        className="query-badge"
+                        title={t('triggerManagedHelp')}
+                      >
+                        <TerminalOutlined />
+                        {t('triggerManagedBadge')}
+                      </span>
+                    )}
+                    {!trigger.enabled && (
+                      <span className="query-badge">{t('triggerOff')}</span>
+                    )}
+                    <div className="query-item-actions">
+                      <Switch
+                        size="small"
+                        checked={trigger.enabled}
+                        disabled={readOnly || toggling !== null}
+                        slotProps={{
+                          input: { 'aria-label': t('triggerToggle') }
+                        }}
+                        onChange={(_, checked) =>
+                          handleToggle(trigger, checked)
+                        }
+                      />
+                      <IconButton
+                        size="small"
+                        title={t('triggerRuns')}
+                        aria-label={t('triggerRuns')}
+                        onClick={() => setRunsOf(trigger)}
+                      >
+                        <HistoryOutlined />
+                      </IconButton>
+                      {!managed && (
+                        <>
+                          <IconButton
+                            size="small"
+                            title={t('editTrigger')}
+                            aria-label={t('editTrigger')}
+                            disabled={readOnly}
+                            onClick={() => setEditing(trigger)}
+                          >
+                            <EditOutlined />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            title={t('deleteTrigger')}
+                            aria-label={t('deleteTrigger')}
+                            disabled={readOnly}
+                            onClick={() => setDropping(trigger)}
+                          >
+                            <DeleteOutlined />
+                          </IconButton>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {trigger.description && (
+                    <p className="query-item-description">
+                      {trigger.description}
+                    </p>
+                  )}
+                  {trigger.disabledReason && (
+                    <p className="trigger-disabled-reason">
+                      {t('triggerDisabledReason', {
+                        reason: trigger.disabledReason
+                      })}
+                    </p>
+                  )}
+                  <dl className="query-item-meta">
+                    <dt>{t('triggerWhen')}</dt>
+                    <dd>{t(`triggerOn_${trigger.on}`)}</dd>
+                    <dt>{t('triggerCondition')}</dt>
+                    <dd>
+                      {trigger.when ? (
+                        <code>{describeCondition(trigger.when, t)}</code>
+                      ) : (
+                        t('triggerConditionAlways')
+                      )}
+                    </dd>
+                    <dt>{t('triggerAction')}</dt>
+                    <dd>
+                      {t(`triggerAction_${trigger.action.type}`)}:{' '}
+                      {actionSummary(trigger.action)}
+                    </dd>
+                    <dt>{t('triggerRateLimit')}</dt>
+                    <dd>{t.n(trigger.rateLimit)}</dd>
+                  </dl>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <TriggerDialog
+        open={editing !== null}
+        base={base}
+        table={table}
+        trigger={editing === 'new' ? null : editing}
+        functions={targets.functions}
+        channels={targets.channels}
+        onClose={() => setEditing(null)}
+        onSaved={newSecret => {
+          setEditing(null);
+          if (newSecret) setSecret(newSecret);
+          load();
+        }}
+      />
+      {runsOf && (
+        <RunsDialog
+          base={base}
+          trigger={runsOf}
+          readOnly={readOnly}
+          onClose={() => setRunsOf(null)}
+        />
+      )}
+      <UI.Modal
+        open={!!secret}
+        title={t('webhookSecretTitle')}
+        closeLabel={c('close')}
+        width={560}
+        closeOnBackdrop={false}
+        onClose={() => setSecret(null)}
+        footer={
+          <FooterActions>
+            <UI.Button
+              variant="contained"
+              size="small"
+              onClick={() => setSecret(null)}
+            >
+              {c('close')}
+            </UI.Button>
+          </FooterActions>
+        }
+      >
+        <DialogContent>
+          <p>{t('webhookSecretText')}</p>
+          <UI.CopyableBlock
+            label={t('webhookSecretLabel')}
+            text={secret ?? ''}
+            onCopy={() => snackbar.success(t('webhookSecretCopied'))}
+          />
+        </DialogContent>
+      </UI.Modal>
+      <UI.Alert
+        open={!!dropping}
+        title={t('deleteTriggerTitle', { name: dropping?.name ?? '' })}
+        description={t('deleteTriggerText')}
+        confirmText={t('deleteTrigger')}
+        cancelText={c('cancel')}
+        loadingText={c('deleting')}
+        loading={deleting}
+        onConfirm={handleDrop}
+        onCancel={() => setDropping(null)}
+      />
+    </div>
+  );
+};
+
+type DataT = Translate<(typeof i18n.copy.DATA)['en']>;
+
+// "status changes to READY" for a one-column test; JSON for anything else.
+const describeCondition = (when: DataTriggerCondition, t: DataT) => {
+  const simple = simpleCondition(when);
+  if (!simple) return JSON.stringify(when);
+  const value = JSON.stringify(simple.raw);
+  return t(`condition_${simple.test}`, { column: simple.column, value });
+};
+
+interface SimpleCondition {
+  column: string;
+  test: TestKey;
+  raw: unknown;
+}
+
+// A condition the form's one row can show, or null when it needs the JSON.
+const simpleCondition = (
+  when: DataTriggerCondition | null
+): SimpleCondition | null => {
+  if (!when) return null;
+  const columns = Object.keys(when);
+  if (columns.length !== 1 || columns[0] === 'all' || columns[0] === 'any') {
+    return null;
+  }
+  const test = (when as Record<string, Record<string, unknown>>)[columns[0]];
+  const keys = test && typeof test === 'object' ? Object.keys(test) : [];
+  if (keys.length !== 1 || !TESTS.includes(keys[0] as TestKey)) return null;
+  return { column: columns[0], test: keys[0] as TestKey, raw: test[keys[0]] };
+};
+
+// A typed value from the form's text, as the condition compares it.
+const conditionValue = (type: DataColumnType | 'id', text: string) => {
+  if (text === '') return null;
+  if (type === 'boolean') return text === 'true';
+  if (
+    type === 'id' ||
+    type === 'integer' ||
+    type === 'decimal' ||
+    type === 'relation'
+  ) {
+    const number = Number(text);
+    return Number.isNaN(number) ? text : number;
+  }
+  return text;
+};
+
+interface TriggerDialogProps {
+  open: boolean;
+  base: string;
+  table: DataTable;
+  trigger: DataTrigger | null;
+  functions: ProjectFunction[] | null;
+  channels: ProjectChannel[];
+  onClose: () => void;
+  onSaved: (secret: string | null) => void;
+}
+
+const TriggerDialog = ({
+  open,
+  base,
+  table,
+  trigger,
+  functions,
+  channels,
+  onClose,
+  onSaved
+}: TriggerDialogProps) => {
+  const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.DATA);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [on, setOn] = useState<DataTriggerEvent>('insert');
+  const [column, setColumn] = useState('');
+  const [test, setTest] = useState<TestKey>('changedTo');
+  const [value, setValue] = useState('');
+  const [advanced, setAdvanced] = useState(false);
+  const [json, setJson] = useState('');
+  const [actionType, setActionType] =
+    useState<DataTriggerActionType>('function');
+  const [fn, setFn] = useState('');
+  const [webhook, setWebhook] = useState('');
+  const [channelId, setChannelId] = useState('');
+  const [chatId, setChatId] = useState('');
+  const [text, setText] = useState('');
+  const [emailTo, setEmailTo] = useState('');
+  const [subject, setSubject] = useState('');
+  const [useTemplate, setUseTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateLanguage, setTemplateLanguage] = useState('');
+  const [templateParams, setTemplateParams] = useState('');
+  const [rateLimit, setRateLimit] = useState(String(DATA_TRIGGER_DEFAULT_RATE));
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const action = trigger?.action;
+    const simple = simpleCondition(trigger?.when ?? null);
+    const complex = !!trigger?.when && !simple;
+    setName(trigger?.name ?? '');
+    setDescription(trigger?.description ?? '');
+    setOn(trigger?.on ?? 'insert');
+    setColumn(simple?.column ?? '');
+    setTest(simple?.test ?? 'changedTo');
+    setValue(
+      simple && simple.raw !== null && simple.test !== 'changed'
+        ? String(simple.raw)
+        : ''
+    );
+    setAdvanced(complex);
+    setJson(trigger?.when ? JSON.stringify(trigger.when, null, 2) : '');
+    setActionType(action?.type ?? 'function');
+    setFn(action?.type === 'function' ? action.function : '');
+    setWebhook(action?.type === 'webhook' ? action.url : '');
+    setChannelId(action?.type === 'chat' ? action.channelId : '');
+    setChatId(action?.type === 'chat' ? action.chatId : '');
+    setText(
+      action?.type === 'chat' ||
+        action?.type === 'email' ||
+        action?.type === 'customer'
+        ? action.text
+        : ''
+    );
+    setEmailTo(action?.type === 'email' ? action.to.join(', ') : '');
+    setSubject(action?.type === 'email' ? action.subject : '');
+    const template = action?.type === 'customer' ? action.template : undefined;
+    setUseTemplate(!!template);
+    setTemplateName(template?.name ?? '');
+    setTemplateLanguage(template?.language ?? '');
+    setTemplateParams(template?.params?.join('\n') ?? '');
+    setRateLimit(String(trigger?.rateLimit ?? DATA_TRIGGER_DEFAULT_RATE));
+    setError(null);
+  }, [open, trigger]);
+
+  // The dialog scrolls; a save error lands under the fields, out of view.
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
+    }
+  }, [error]);
+
+  const columns: {
+    name: string;
+    type: DataColumnType | 'id';
+    values: string[];
+  }[] = [
+    { name: 'id', type: 'id', values: [] },
+    ...table.columns.map(col => ({
+      name: col.name,
+      type: col.type,
+      values: col.values ?? []
+    }))
+  ];
+  const picked = columns.find(col => col.name === column);
+
+  const actions = ACTIONS.filter(
+    type =>
+      type !== 'customer' ||
+      table.customerScoped ||
+      trigger?.action.type === 'customer'
+  );
+
+  // Kept in the list when it isn't in the live script any more.
+  const functionOptions = [
+    ...(functions ?? []).map(f => ({
+      label:
+        f.expose === false
+          ? t('triggerFunctionTriggersOnly', { name: f.name })
+          : f.name,
+      value: f.name
+    })),
+    ...(fn && functions && !functions.some(f => f.name === fn)
+      ? [{ label: t('triggerFunctionMissing', { name: fn }), value: fn }]
+      : [])
+  ];
+  const channelOptions = [
+    ...channels.map(ch => ({ label: ch.label, value: ch.id })),
+    ...(channelId && !channels.some(ch => ch.id === channelId)
+      ? [{ label: channelId, value: channelId }]
+      : [])
+  ];
+
+  const pickColumn = (next: string) => {
+    setColumn(next);
+    const col = columns.find(col => col.name === next);
+    setValue(
+      col?.type === 'boolean'
+        ? 'true'
+        : col?.type === 'enum'
+          ? (col.values[0] ?? '')
+          : ''
+    );
+  };
+
+  const toggleAdvanced = (checked: boolean) => {
+    if (checked) {
+      const when = simpleWhen();
+      setJson(when ? JSON.stringify(when, null, 2) : '');
+    } else {
+      const parsed = (() => {
+        try {
+          return json.trim() ? JSON.parse(json) : null;
+        } catch {
+          return undefined;
+        }
+      })();
+      const simple = parsed ? simpleCondition(parsed) : null;
+      if (parsed === null) setColumn('');
+      if (simple) {
+        setColumn(simple.column);
+        setTest(simple.test);
+        setValue(
+          simple.raw !== null && simple.test !== 'changed'
+            ? String(simple.raw)
+            : ''
+        );
+      }
+    }
+    setAdvanced(checked);
+  };
+
+  const simpleWhen = (): DataTriggerCondition | null => {
+    if (!column || !picked) return null;
+    return {
+      [column]: {
+        [test]: test === 'changed' ? true : conditionValue(picked.type, value)
+      }
+    } as DataTriggerCondition;
+  };
+
+  const actionBody = (): Record<string, unknown> => {
+    switch (actionType) {
+      case 'function':
+        return { function: fn.trim() };
+      case 'webhook':
+        return { webhook: webhook.trim() };
+      case 'chat':
+        return { chat: { channelId, chatId: chatId.trim(), text } };
+      case 'email':
+        return {
+          email: {
+            to: emailTo
+              .split(',')
+              .map(address => address.trim())
+              .filter(Boolean),
+            ...(subject.trim() ? { subject: subject.trim() } : {}),
+            text
+          }
+        };
+      case 'customer': {
+        const params = templateParams
+          .split('\n')
+          .map(param => param.trim())
+          .filter(Boolean);
+        return {
+          customer: {
+            text,
+            ...(useTemplate
+              ? {
+                  template: {
+                    name: templateName.trim(),
+                    language: templateLanguage.trim(),
+                    ...(params.length ? { params } : {})
+                  }
+                }
+              : {})
+          }
+        };
+      }
+    }
+  };
+
+  const actionReady = (() => {
+    switch (actionType) {
+      case 'function':
+        return !!fn.trim();
+      case 'webhook':
+        return !!webhook.trim();
+      case 'chat':
+        return !!channelId && !!chatId.trim() && !!text.trim();
+      case 'email':
+        return !!emailTo.trim() && !!text.trim();
+      case 'customer':
+        return (
+          !!text.trim() &&
+          (!useTemplate || (!!templateName.trim() && !!templateLanguage.trim()))
+        );
+    }
+  })();
+
+  const handleSave = async () => {
+    if (saving) return;
+    setError(null);
+    const trimmedName = name.trim();
+    if (!trigger && trimmedName && !NAME_PATTERN.test(trimmedName)) {
+      setError(t('triggerNameInvalid'));
+      return;
+    }
+    const rate = Number(rateLimit);
+    if (!Number.isInteger(rate) || rate < 1 || rate > DATA_TRIGGER_MAX_RATE) {
+      setError(t('triggerRateLimitInvalid', { max: DATA_TRIGGER_MAX_RATE }));
+      return;
+    }
+    let when: unknown = null;
+    if (advanced) {
+      if (json.trim()) {
+        try {
+          when = JSON.parse(json);
+        } catch {
+          setError(t('triggerAdvancedInvalid'));
+          return;
+        }
+        if (!when || typeof when !== 'object' || Array.isArray(when)) {
+          setError(t('triggerAdvancedNotObject'));
+          return;
+        }
+      }
+    } else {
+      when = simpleWhen();
+    }
+    setSaving(true);
+    const result = await dataRequest<{
+      trigger: DataTrigger;
+      secret?: string;
+    }>(base, '/trigger', {
+      method: 'POST',
+      body: {
+        ...(trigger
+          ? { name: trigger.name }
+          : trimmedName
+            ? { name: trimmedName }
+            : {}),
+        description: description.trim() || null,
+        table: table.name,
+        on,
+        when,
+        // Saving replaces the trigger: keep it on or off as it was. A new
+        // one never replaces another of the same name.
+        ...(trigger ? { enabled: trigger.enabled } : { replace: false }),
+        rateLimit: rate,
+        ...actionBody()
+      }
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error || t('toastTriggerSaveFailed'));
+      return;
+    }
+    snackbar.success(t('toastTriggerSaved'));
+    onSaved(result.data.secret ?? null);
+  };
+
+  return (
+    <UI.Modal
+      open={open}
+      title={
+        trigger
+          ? t('editTriggerTitle', { name: trigger.name })
+          : t('newTriggerTitle', { table: table.name })
+      }
+      closeLabel={c('close')}
+      width={720}
+      onClose={() => !saving && onClose()}
+      footer={
+        <FooterActions>
+          <UI.Button size="small" disabled={saving} onClick={onClose}>
+            {c('cancel')}
+          </UI.Button>
+          <UI.Button
+            variant="contained"
+            size="small"
+            disabled={saving || !actionReady}
+            onClick={handleSave}
+          >
+            {saving ? c('saving') : c('save')}
+          </UI.Button>
+        </FooterActions>
+      }
+    >
+      <DialogContent>
+        <div className="dialog-row">
+          <UI.Input
+            size="small"
+            label={t('triggerName')}
+            placeholder="order_ready"
+            value={name}
+            disabled={saving || !!trigger}
+            helperText={trigger ? t('triggerNameFixed') : t('triggerNameHelp')}
+            onChange={e => setName(e.target.value)}
+          />
+          <UI.Input
+            size="small"
+            label={t('triggerDescription')}
+            value={description}
+            disabled={saving}
+            onChange={e => setDescription(e.target.value)}
+          />
+        </div>
+
+        <UI.Select
+          size="small"
+          label={t('triggerWhen')}
+          value={on}
+          disabled={saving}
+          onChange={e => setOn(e.target.value as DataTriggerEvent)}
+          options={EVENTS.map(event => ({
+            label: t(`triggerOn_${event}`),
+            value: event
+          }))}
+        />
+
+        <h4 className="dialog-subtitle">{t('triggerCondition')}</h4>
+        {advanced ? (
+          <UI.Input
+            size="small"
+            className="query-sql"
+            label="JSON"
+            multiline
+            minRows={5}
+            placeholder={
+              '{\n  "any": [\n    { "status": { "changedTo": "READY" } },\n    { "total": { "equals": 0 } }\n  ]\n}'
+            }
+            value={json}
+            disabled={saving}
+            helperText={t('triggerAdvancedHelp')}
+            onChange={e => setJson(e.target.value)}
+          />
+        ) : (
+          <div className="query-param-row">
+            <UI.Select
+              size="small"
+              label={t('triggerConditionColumn')}
+              value={column || '-'}
+              disabled={saving}
+              onChange={e =>
+                pickColumn(e.target.value === '-' ? '' : e.target.value)
+              }
+              options={[
+                { label: t('triggerConditionNone'), value: '-' },
+                ...columns.map(col => ({ label: col.name, value: col.name }))
+              ]}
+            />
+            {column && (
+              <UI.Select
+                size="small"
+                label={t('triggerConditionTest')}
+                value={test}
+                disabled={saving}
+                onChange={e => setTest(e.target.value as TestKey)}
+                options={TESTS.map(key => ({
+                  label: t(`triggerTest_${key}`),
+                  value: key
+                }))}
+              />
+            )}
+            {column &&
+              test !== 'changed' &&
+              (picked?.type === 'boolean' ||
+              (picked?.type === 'enum' && picked.values.length > 0) ? (
+                <UI.Select
+                  size="small"
+                  label={t('triggerConditionValue')}
+                  value={value}
+                  disabled={saving}
+                  onChange={e => setValue(String(e.target.value))}
+                  options={(picked.type === 'boolean'
+                    ? ['true', 'false']
+                    : picked.values
+                  ).map(option => ({ label: option, value: option }))}
+                />
+              ) : (
+                <UI.Input
+                  size="small"
+                  label={t('triggerConditionValue')}
+                  value={value}
+                  disabled={saving}
+                  helperText={t('triggerConditionValueHelp')}
+                  onChange={e => setValue(e.target.value)}
+                />
+              ))}
+          </div>
+        )}
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={advanced}
+              disabled={saving}
+              onChange={e => toggleAdvanced(e.target.checked)}
+            />
+          }
+          label={t('triggerAdvanced')}
+        />
+
+        <h4 className="dialog-subtitle">{t('triggerAction')}</h4>
+        <UI.Select
+          size="small"
+          label={t('triggerAction')}
+          value={actionType}
+          disabled={saving}
+          onChange={e => setActionType(e.target.value as DataTriggerActionType)}
+          options={actions.map(type => ({
+            label: t(`triggerAction_${type}`),
+            value: type
+          }))}
+        />
+
+        {actionType === 'function' &&
+          (functions && functions.length > 0 ? (
+            <UI.Select
+              size="small"
+              label={t('triggerFunction')}
+              value={fn}
+              disabled={saving}
+              helperText={t('triggerFunctionHelp')}
+              onChange={e => setFn(String(e.target.value))}
+              options={functionOptions}
+            />
+          ) : (
+            <UI.Input
+              size="small"
+              label={t('triggerFunction')}
+              placeholder="notify-kitchen"
+              value={fn}
+              disabled={saving}
+              helperText={t('triggerFunctionFreeHelp')}
+              onChange={e => setFn(e.target.value)}
+            />
+          ))}
+
+        {actionType === 'webhook' && (
+          <UI.Input
+            size="small"
+            label={t('triggerWebhook')}
+            placeholder="https://example.com/hooks/orders"
+            type="url"
+            value={webhook}
+            disabled={saving}
+            helperText={t('triggerWebhookHelp')}
+            onChange={e => setWebhook(e.target.value)}
+          />
+        )}
+
+        {actionType === 'chat' && (
+          <>
+            {channelOptions.length === 0 ? (
+              <p className="dialog-warning">{t('triggerChannelNone')}</p>
+            ) : (
+              <div className="dialog-row">
+                <UI.Select
+                  size="small"
+                  label={t('triggerChannel')}
+                  value={channelId}
+                  disabled={saving}
+                  onChange={e => setChannelId(String(e.target.value))}
+                  options={channelOptions}
+                />
+                <UI.Input
+                  size="small"
+                  label={t('triggerChatId')}
+                  placeholder="-1001234567890"
+                  value={chatId}
+                  disabled={saving}
+                  helperText={t('triggerChatIdHelp')}
+                  onChange={e => setChatId(e.target.value)}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {actionType === 'email' && (
+          <>
+            <UI.Input
+              size="small"
+              label={t('triggerEmailTo')}
+              placeholder="kitchen@example.com, owner@example.com"
+              value={emailTo}
+              disabled={saving}
+              helperText={t('triggerEmailToHelp')}
+              onChange={e => setEmailTo(e.target.value)}
+            />
+            <UI.Input
+              size="small"
+              label={t('triggerEmailSubject')}
+              value={subject}
+              disabled={saving}
+              onChange={e => setSubject(e.target.value)}
+            />
+          </>
+        )}
+
+        {actionType === 'customer' && (
+          <p className="dialog-muted">{t('triggerCustomerHelp')}</p>
+        )}
+
+        {(actionType === 'chat' ||
+          actionType === 'email' ||
+          actionType === 'customer') && (
+          <UI.Input
+            size="small"
+            label={t('triggerText')}
+            multiline
+            minRows={3}
+            value={text}
+            disabled={saving}
+            helperText={t('triggerTextHelp')}
+            onChange={e => setText(e.target.value)}
+          />
+        )}
+
+        {actionType === 'customer' && (
+          <>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={useTemplate}
+                  disabled={saving}
+                  onChange={e => setUseTemplate(e.target.checked)}
+                />
+              }
+              label={
+                <span className="query-assistant-label">
+                  {t('triggerTemplate')}
+                  <small>{t('triggerTemplateHelp')}</small>
+                </span>
+              }
+            />
+            {useTemplate && (
+              <>
+                <div className="dialog-row">
+                  <UI.Input
+                    size="small"
+                    label={t('triggerTemplateName')}
+                    placeholder="order_ready"
+                    value={templateName}
+                    disabled={saving}
+                    onChange={e => setTemplateName(e.target.value)}
+                  />
+                  <UI.Input
+                    size="small"
+                    label={t('triggerTemplateLanguage')}
+                    placeholder="es_MX"
+                    value={templateLanguage}
+                    disabled={saving}
+                    onChange={e => setTemplateLanguage(e.target.value)}
+                  />
+                </div>
+                <UI.Input
+                  size="small"
+                  label={t('triggerTemplateParams')}
+                  multiline
+                  minRows={2}
+                  value={templateParams}
+                  disabled={saving}
+                  helperText={t('triggerTemplateParamsHelp')}
+                  onChange={e => setTemplateParams(e.target.value)}
+                />
+              </>
+            )}
+          </>
+        )}
+
+        <UI.Input
+          size="small"
+          label={t('triggerRateLimit')}
+          type="number"
+          value={rateLimit}
+          disabled={saving}
+          helperText={t('triggerRateLimitHelp', {
+            default: DATA_TRIGGER_DEFAULT_RATE,
+            max: DATA_TRIGGER_MAX_RATE
+          })}
+          slotProps={{ htmlInput: { min: 1, max: DATA_TRIGGER_MAX_RATE } }}
+          onChange={e => setRateLimit(e.target.value)}
+        />
+        {error && (
+          <p ref={errorRef} className="dialog-danger" role="alert">
+            {error}
+          </p>
+        )}
+      </DialogContent>
+    </UI.Modal>
+  );
+};
+
+interface RunsDialogProps {
+  base: string;
+  trigger: DataTrigger;
+  readOnly: boolean;
+  onClose: () => void;
+}
+
+const RunsDialog = ({ base, trigger, readOnly, onClose }: RunsDialogProps) => {
+  const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.DATA);
+  const c = i18n.useT(i18n.copy.COMMON);
+  const [runs, setRuns] = useState<DataTriggerRun[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
+
+  const load = async () => {
+    const result = await dataRequest<{ runs: DataTriggerRun[] }>(
+      base,
+      `/trigger/${encodeURIComponent(trigger.name)}/run`,
+      { query: { limit: 50 } }
+    );
+    if (!result.ok) {
+      setFailed(true);
+      return;
+    }
+    setFailed(false);
+    setRuns(result.data.runs);
+  };
+
+  useEffect(() => {
+    load();
+  }, [base, trigger.name]);
+
+  const handleRetry = async (run: DataTriggerRun) => {
+    if (retrying) return;
+    setRetrying(run.id);
+    const result = await dataRequest<{ run: DataTriggerRun }>(
+      base,
+      `/trigger/${encodeURIComponent(trigger.name)}/run/${encodeURIComponent(run.id)}/retry`,
+      { method: 'POST' }
+    );
+    setRetrying(null);
+    if (!result.ok) {
+      snackbar.error(result.error || t('toastRunRetryFailed'));
+      return;
+    }
+    snackbar.success(t('toastRunRetried'));
+    setRuns(prev =>
+      prev ? prev.map(r => (r.id === run.id ? result.data.run : r)) : prev
+    );
+  };
+
+  return (
+    <UI.Modal
+      open
+      title={t('triggerRunsTitle', { name: trigger.name })}
+      closeLabel={c('close')}
+      width={720}
+      onClose={onClose}
+      footer={
+        <FooterActions>
+          <UI.Button size="small" onClick={load}>
+            {t('triggerRunsRefresh')}
+          </UI.Button>
+          <UI.Button variant="contained" size="small" onClick={onClose}>
+            {c('close')}
+          </UI.Button>
+        </FooterActions>
+      }
+    >
+      <DialogContent>
+        {failed && <p className="dialog-danger">{c('somethingWentWrong')}</p>}
+        {!runs && !failed && <UI.Skeleton variant="rounded" height={120} />}
+        {runs && runs.length === 0 && (
+          <p className="dialog-muted">{t('triggerRunsEmpty')}</p>
+        )}
+        {runs && runs.length > 0 && (
+          <ul className="trigger-runs">
+            {runs.map(run => (
+              <li key={run.id} className="trigger-run">
+                <div className="trigger-run-header">
+                  <span className={`trigger-run-status is-${run.status}`}>
+                    {t(`triggerRunStatus_${run.status}`)}
+                  </span>
+                  <span className="trigger-run-meta">
+                    {t.date(run.createdAt, {
+                      dateStyle: 'medium',
+                      timeStyle: 'medium'
+                    })}
+                    {' · '}
+                    {t(`triggerRunRow_${run.event}`, { id: run.rowId ?? '' })}
+                    {' · '}
+                    {t.plural('triggerRunAttempts', run.attempts)}
+                    {run.durationMs !== null &&
+                      ` · ${t('triggerRunDuration', { ms: t.n(run.durationMs) })}`}
+                  </span>
+                  {(run.status === 'failed' || run.status === 'skipped') && (
+                    <UI.Button
+                      size="small"
+                      className="trigger-run-retry"
+                      disabled={readOnly || retrying !== null}
+                      onClick={() => handleRetry(run)}
+                    >
+                      <ReplayOutlined />
+                      <span className="button-text">
+                        {retrying === run.id
+                          ? t('triggerRunRetrying')
+                          : t('triggerRunRetry')}
+                      </span>
+                    </UI.Button>
+                  )}
+                </div>
+                {run.error && <p className="trigger-run-error">{run.error}</p>}
+                <code className="trigger-run-event">{run.eventId}</code>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </UI.Modal>
+  );
+};

@@ -108,6 +108,19 @@ const en = {
   /** How many times the same error happened. */
   errorTimes: '{count}×',
 
+  triggersTitle: 'Database triggers',
+  triggersHelp:
+    "Runs of this project's database triggers over the last {days} days. Click one to see its runs.",
+  colTrigger: 'Trigger',
+  colRuns: 'Runs',
+  colFailed: 'Failed',
+  colP95TriggerHint: '95% of runs finished faster than this.',
+  colLastRun: 'Last run',
+  triggerSkipped_one: '{count} skipped',
+  triggerSkipped_other: '{count} skipped',
+  triggerSkippedHint:
+    'Events that did nothing: the trigger was off or deleted, or the plan no longer includes Data.',
+
   unusedTitle: 'Unused in {days} days',
   unusedHelp:
     'Enabled, but not called once in {days} days. Every enabled tool is sent to the model on every turn.',
@@ -256,6 +269,19 @@ export const OVERVIEW: Catalog<OverviewCopy> = {
     errorsTitle: 'Errores más comunes',
     errorsEmpty: 'Sin errores en los últimos {days} días.',
     errorTimes: '{count}×',
+
+    triggersTitle: 'Disparadores de la base de datos',
+    triggersHelp:
+      'Ejecuciones de los disparadores de la base de datos del proyecto en los últimos {days} días. Haz clic en uno para ver sus ejecuciones.',
+    colTrigger: 'Disparador',
+    colRuns: 'Ejecuciones',
+    colFailed: 'Fallidas',
+    colP95TriggerHint: 'El 95% de las ejecuciones terminó en menos de esto.',
+    colLastRun: 'Última ejecución',
+    triggerSkipped_one: '{count} omitida',
+    triggerSkipped_other: '{count} omitidas',
+    triggerSkippedHint:
+      'Eventos que no hicieron nada: el disparador estaba apagado o eliminado, o el plan ya no incluye Datos.',
 
     unusedTitle: 'Sin uso en {days} días',
     unusedHelp:

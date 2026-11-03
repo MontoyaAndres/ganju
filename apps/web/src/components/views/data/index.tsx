@@ -38,11 +38,19 @@ const RowsTab = dynamic(() => import('./rows').then(m => m.RowsTab), {
   loading: () => <UI.Skeleton variant="rounded" height={360} />
 });
 
+const TriggersTab = dynamic(
+  () => import('./triggers').then(m => m.TriggersTab),
+  {
+    ssr: false,
+    loading: () => <UI.Skeleton variant="rounded" height={200} />
+  }
+);
+
 interface DataProps {
   plan: Plan | null;
 }
 
-type Tab = 'rows' | 'schema';
+type Tab = 'rows' | 'schema' | 'triggers';
 
 type ImportTarget = { mode: 'new' } | { mode: 'existing'; table: string };
 
@@ -204,6 +212,13 @@ export const Data = ({ plan }: DataProps) => {
   // table. On a wide one both stay up, so open the first table.
   useEffect(() => {
     if (selected || queriesOpen || tables.length === 0) return;
+    // A link from Tool health names the table and the tab.
+    const linked = tables.find(table => table.name === router.query.table);
+    if (linked) {
+      setSelected(linked.name);
+      if (router.query.tab === 'triggers') setTab('triggers');
+      return;
+    }
     if (typeof window !== 'undefined' && window.innerWidth >= 768) {
       setSelected(tables[0].name);
     }
@@ -668,6 +683,15 @@ export const Data = ({ plan }: DataProps) => {
                 >
                   {t('tabSchema')}
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'triggers'}
+                  className={`data-tab ${tab === 'triggers' ? 'active' : ''}`}
+                  onClick={() => setTab('triggers')}
+                >
+                  {t('tabTriggers')}
+                </button>
               </div>
             </div>
             {selectedTable.description && (
@@ -694,6 +718,13 @@ export const Data = ({ plan }: DataProps) => {
                     table: selectedTable.name
                   })
                 }
+              />
+            ) : tab === 'triggers' ? (
+              <TriggersTab
+                key={selectedTable.name}
+                base={base}
+                table={selectedTable}
+                readOnly={readOnly}
               />
             ) : (
               <SchemaTab

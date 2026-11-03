@@ -56,3 +56,17 @@ test('renaming the function in a call token breaks its signature', async () => {
     null
   );
 });
+
+test('a run a trigger started carries the trigger and its depth', async () => {
+  const token = await mintCustomCodeCallToken(
+    { ...CALL, trigger: { id: 'trg_1', depth: 2 } },
+    SECRET
+  );
+  const payload = await verifyCustomCodeCallToken(token, SECRET);
+  assert.deepEqual(payload?.trigger, { id: 'trg_1', depth: 2 });
+  const plain = await verifyCustomCodeCallToken(
+    await mintCustomCodeCallToken(CALL, SECRET),
+    SECRET
+  );
+  assert.equal(plain?.trigger, undefined);
+});

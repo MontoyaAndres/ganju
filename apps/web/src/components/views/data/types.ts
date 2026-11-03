@@ -8,7 +8,13 @@ import type {
   DataTableCopy,
   DataQuery,
   DataQueryParam,
-  DataQueryParamType
+  DataQueryParamType,
+  DataTrigger,
+  DataTriggerAction,
+  DataTriggerActionType,
+  DataTriggerCondition,
+  DataTriggerEvent,
+  DataTriggerTest
 } from '@ganju/utils/data';
 
 export type {
@@ -21,7 +27,13 @@ export type {
   DataTableCopy,
   DataQuery,
   DataQueryParam,
-  DataQueryParamType
+  DataQueryParamType,
+  DataTrigger,
+  DataTriggerAction,
+  DataTriggerActionType,
+  DataTriggerCondition,
+  DataTriggerEvent,
+  DataTriggerTest
 };
 
 export interface Database {
@@ -65,6 +77,22 @@ export interface ExportState {
   finishedAt: string | null;
   error: string | null;
   files: { table: string | null; rows: number; bytes: number }[];
+}
+
+// One time a trigger ran (or tried to) for one event, newest first.
+export interface DataTriggerRun {
+  id: string;
+  eventId: string;
+  table: string;
+  event: DataTriggerEvent;
+  rowId: number | null;
+  action: string;
+  status: 'running' | 'waiting' | 'ok' | 'failed' | 'skipped';
+  error: string | null;
+  attempts: number;
+  durationMs: number | null;
+  createdAt: string;
+  finishedAt: string | null;
 }
 
 // `data` is set when `ok`; `error` (the API's message, or empty) when not.

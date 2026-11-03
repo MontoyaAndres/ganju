@@ -165,6 +165,7 @@ import { formatRelative } from './formatRelative';
 import { formatRelativeTime } from './formatRelativeTime';
 import { languageCookieDomain } from './languageCookieDomain';
 import { localizeZodIssue, languageFromHeader } from './localizeZodIssue';
+import { localizeDataError } from './localizeDataError';
 import { slugifyTitle } from './slugifyTitle';
 import { resourceUriFromTitle } from './resourceUri';
 import {
@@ -451,6 +452,7 @@ export const utils = {
   languageCookieDomain,
   localizeZodIssue,
   languageFromHeader,
+  localizeDataError,
   slugifyTitle,
   resourceUriFromTitle,
   accessTokenHint,

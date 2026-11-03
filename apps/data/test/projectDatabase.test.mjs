@@ -52,7 +52,25 @@ before(async () => {
         durableObjects: {
           PROJECT_DATABASE: { className: 'ProjectDatabase', useSQLite: true }
         },
-        r2Buckets: ['STORAGE_BUCKET']
+        r2Buckets: ['STORAGE_BUCKET'],
+        queueProducers: { DATA_TRIGGER_QUEUE: 'data-triggers' }
+      },
+      {
+        // Stands in for apps/api's consumer: keeps what it was handed.
+        name: 'sink',
+        modules: true,
+        compatibilityDate: '2025-11-17',
+        kvNamespaces: ['SEEN'],
+        queueConsumers: { 'data-triggers': { maxBatchTimeout: 0 } },
+        script: `export default {
+          async queue(batch, env) {
+            for (const m of batch.messages) await env.SEEN.put(m.body.eventId, JSON.stringify(m.body));
+          },
+          async fetch(request, env) {
+            const list = await env.SEEN.list();
+            return Response.json(await Promise.all(list.keys.map(async k => await env.SEEN.get(k.name))));
+          }
+        }`
       }
     ]
   });
@@ -447,4 +465,58 @@ test('a time zone set on the database applies to callers that send none', async 
   assert.equal((await call('schemaRead')).value.timeZone, 'America/Bogota');
   await call('setTimeZone', owner, { timeZone: null });
   assert.equal((await call('info')).value.timeZone, null);
+});
+
+test('triggers: a write\'s events reach the queue from the alarm; a rolled-back one sends none', async () => {
+  const call = callOn('triggers');
+  await restaurant(call);
+  const saved = await call('saveTrigger', owner, {
+    table: 'orders',
+    on: 'insert',
+    function: 'notify-kitchen'
+  });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  const ready = await call('saveTrigger', owner, {
+    name: 'ready',
+    table: 'orders',
+    on: 'update',
+    when: { status: { changedTo: 'ready' } },
+    webhook: 'https://example.com/hook'
+  });
+  assert.match(ready.value.secret, /^whsec_/);
+
+  const placed = await call('write', bot, {
+    operations: [
+      { op: 'insert', table: 'orders', values: {} },
+      { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: 1, quantity: 2 } }
+    ]
+  });
+  assert.equal(placed.ok, true, JSON.stringify(placed));
+  const refused = await call('write', bot, {
+    operations: [
+      { op: 'insert', table: 'orders', values: {} },
+      { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: 2, quantity: 0 } }
+    ]
+  });
+  assert.equal(refused.ok, false);
+  await call('write', owner, { operations: [{ op: 'update', table: 'orders', id: 1, set: { status: 'ready' } }] });
+
+  let seen = [];
+  for (let i = 0; i < 50 && seen.length < 2; i++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const sink = await mf.getWorker('sink');
+    seen = (await (await sink.fetch('http://sink/')).json()).map(raw => JSON.parse(raw));
+  }
+  seen.sort((a, b) => a.at.localeCompare(b.at));
+  assert.deepEqual(seen.map(e => [e.triggerName, e.event, e.rowId]), [
+    ['orders-insert-notify-kitchen', 'insert', 1],
+    ['ready', 'update', 1]
+  ]);
+  assert.equal(seen[0].artifactId, 'artifact-1');
+  assert.equal(seen[0].row.participant_id, 'ana');
+  assert.equal(seen[1].previous.status, 'pending');
+  const listed = await call('listTriggers', owner);
+  assert.equal(listed.value.pending, 0, 'queued events leave the outbox');
+  const withSecret = await call('getTrigger', 'ready');
+  assert.equal(withSecret.value.secret, ready.value.secret);
 });

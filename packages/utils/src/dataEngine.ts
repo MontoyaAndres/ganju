@@ -3,6 +3,7 @@
 // the tests and the tool-design eval. The runner executes; everything about
 // which SQL is allowed and how results look is decided here.
 import { identifierIssue, quoteIdentifier as q } from './dataIdentifiers';
+import { collectTriggerEvents, renameColumnInTriggers, triggersUsingColumn } from './dataTriggers';
 import {
   DATA_NOW_SQL,
   NUMERIC_TYPES,
@@ -188,6 +189,44 @@ export const INTERNAL_MIGRATIONS: readonly (readonly string[])[] = [
       updated_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL}),
       updated_by TEXT
     ) WITHOUT ROWID`
+  ],
+  // Triggers: the owner's rules, the rows a write changed while one listens
+  // (emptied before the write commits), and the events waiting for the queue.
+  [
+    `CREATE TABLE IF NOT EXISTS _ganju_triggers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      table_id INTEGER NOT NULL,
+      event TEXT NOT NULL,
+      condition TEXT,
+      action TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      disabled_reason TEXT,
+      managed TEXT,
+      rate_limit INTEGER NOT NULL DEFAULT 60,
+      secret TEXT,
+      created_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL}),
+      updated_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL}),
+      updated_by TEXT
+    ) WITHOUT ROWID`,
+    'CREATE INDEX IF NOT EXISTS _ganju_triggers_table ON _ganju_triggers(table_id, event)',
+    `CREATE TABLE IF NOT EXISTS _ganju_changes (
+      id INTEGER PRIMARY KEY,
+      table_id INTEGER NOT NULL,
+      event TEXT NOT NULL,
+      row_id INTEGER NOT NULL,
+      actor TEXT,
+      old TEXT,
+      new TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS _ganju_outbox (
+      seq INTEGER PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE,
+      trigger_id TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL})
+    )`
   ]
 ];
 
@@ -1796,6 +1835,8 @@ export const write = (
   assertWritable(runner, caller, addsData);
   return runner.transaction(() => {
     setContextActor(runner, caller.actor);
+    // Rows left by a change that wasn't a write (a schema change) fire nothing.
+    runner.all('DELETE FROM _ganju_changes');
     const results: WriteResult[] = [];
     operations.forEach((op, index) => {
       try {
@@ -1812,6 +1853,7 @@ export const write = (
         throw error;
       }
     });
+    collectTriggerEvents(runner, schema, caller);
     return { ok: true as const, results };
   });
 };
@@ -2288,6 +2330,8 @@ export const dropTable = (
     dropTriggers(runner, table);
     runner.all(`DROP TABLE IF EXISTS ${q(ftsTableName(table))}`);
     runner.all(`DROP TABLE ${q(table.name)}`);
+    // Its triggers go with it; a later table of the same name starts with none.
+    runner.all('DELETE FROM _ganju_triggers WHERE table_id = ?', [table.id]);
     runner.all('UPDATE _ganju_tables SET display_column_id = NULL WHERE id = ?', [table.id]);
     runner.all('DELETE FROM _ganju_columns WHERE table_id = ?', [table.id]);
     runner.all('DELETE FROM _ganju_tables WHERE id = ?', [table.id]);
@@ -2662,6 +2706,20 @@ export const copyTableStep = (
   }
 };
 
+// Triggers name columns in their conditions and texts, checked only when
+// saved: a column one of them uses can't be dropped under it.
+const assertNoTriggerUses = (runner: SqlRunner, table: DataTable, column: string) => {
+  const triggers = triggersUsingColumn(runner, table.id, column);
+  if (triggers.length === 0) return;
+  throw new DataError(
+    triggers.length === 1
+      ? `${table.name}.${column} can't be dropped while the trigger ${triggers[0]} uses it; change or delete that trigger first.`
+      : `${table.name}.${column} can't be dropped while the triggers ${triggers.join(', ')} use it; change or delete those triggers first.`,
+    'constraint',
+    { triggers }
+  );
+};
+
 export const updateColumn = (
   runner: SqlRunner,
   schema: DataSchema,
@@ -2690,6 +2748,16 @@ export const updateColumn = (
   }
 
   if (columnChangeNeedsRebuild(schema, table.name, column.name, patch)) {
+    // A rename renames the column in its triggers too; a copy can't, so the
+    // two go one after the other.
+    const triggers = draft.name !== column.name ? triggersUsingColumn(runner, table.id, column.name) : [];
+    if (triggers.length) {
+      throw new DataError(
+        `${table.name}.${column.name} is used by triggers (${triggers.join(', ')}): rename it on its own, then make the other changes.`,
+        'constraint',
+        { triggers }
+      );
+    }
     return rebuildTable(
       runner,
       schema,
@@ -2707,6 +2775,7 @@ export const updateColumn = (
       runner.all(
         `ALTER TABLE ${q(table.name)} RENAME COLUMN ${q(column.name)} TO ${q(draft.name)}`
       );
+      renameColumnInTriggers(runner, table.id, column.name, draft.name);
     }
     updateColumnMeta(runner, schema, table, column.id, draft);
     touchTable(runner, table.id);
@@ -2729,6 +2798,7 @@ export const dropColumn = (
   if (table.columns.length === 1) {
     throw new DataError(`${table.name} needs at least one column; drop the table instead.`);
   }
+  assertNoTriggerUses(runner, table, column.name);
   if (dropColumnNeedsRebuild(schema, table.name, column.name)) {
     return rebuildTable(
       runner,

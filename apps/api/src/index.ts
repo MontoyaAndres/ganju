@@ -51,7 +51,8 @@ import {
   handleGdriveDiscoverBatch,
   handleGdriveFileBatch,
   handleOnedriveDiscoverBatch,
-  handleOnedriveFileBatch
+  handleOnedriveFileBatch,
+  handleDataTriggerBatch
 } from './queue';
 
 // types
@@ -69,7 +70,8 @@ import type {
   GdriveDiscoverJob,
   GdriveFileJob,
   OnedriveDiscoverJob,
-  OnedriveFileJob
+  OnedriveFileJob,
+  DataTriggerJob
 } from './queue';
 
 const app = new Hono<AppEnv>();
@@ -801,10 +803,18 @@ export default {
       | GdriveFileJob
       | OnedriveDiscoverJob
       | OnedriveFileJob
+      | DataTriggerJob
     >,
     env: Bindings,
     ctx: ExecutionContext
   ) => {
+    if (batch.queue.startsWith('ganju-data-triggers')) {
+      return handleDataTriggerBatch(
+        batch as MessageBatch<DataTriggerJob>,
+        env,
+        ctx
+      );
+    }
     if (batch.queue.startsWith('ganju-crawl-discover')) {
       return handleCrawlDiscoverBatch(
         batch as MessageBatch<CrawlDiscoverJob>,
