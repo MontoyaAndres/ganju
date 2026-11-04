@@ -30,6 +30,7 @@ const en = {
   panelConversation: 'Conversation',
   tabOverview: 'Overview',
   tabConversations: 'Conversations',
+  tabTemplates: 'Message templates',
 
   // Create form.
   platform: 'Platform',
@@ -117,6 +118,12 @@ const en = {
     'In the Meta app dashboard → WhatsApp → Configuration, subscribe the webhook to the ',
   whatsappWebhookHintAfter:
     ' field. Use the same Verify token you entered here.',
+  whatsappTemplateWebhookHint:
+    ": optional. With it, a message template's review shows as soon as Meta decides; without it, Ganju checks pending templates every hour.",
+  whatsappTemplatesPermissionBefore:
+    'For message templates, the token also needs ',
+  whatsappTemplatesPermissionAfter:
+    '. Without it the bot still answers; the Message templates tab explains how to add it.',
   whatsappCredentials: 'Credentials',
   whatsappCredentialsBefore:
     'Access token: a permanent System User token with ',
@@ -281,6 +288,7 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     panelConversation: 'Conversación',
     tabOverview: 'Resumen',
     tabConversations: 'Conversaciones',
+    tabTemplates: 'Plantillas de mensaje',
 
     platform: 'Plataforma',
     platformSoon: 'Pronto',
@@ -365,6 +373,12 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
       'En el panel de Meta → WhatsApp → Configuration, suscribe el webhook al campo ',
     whatsappWebhookHintAfter:
       '. Usa el mismo Verify token que escribiste aquí.',
+    whatsappTemplateWebhookHint:
+      ': opcional. Con él, la revisión de una plantilla se ve apenas Meta decide; sin él, Ganju revisa las plantillas pendientes cada hora.',
+    whatsappTemplatesPermissionBefore:
+      'Para las plantillas de mensaje, el token también necesita ',
+    whatsappTemplatesPermissionAfter:
+      '. Sin él el bot responde igual; la pestaña Plantillas de mensaje explica cómo agregarlo.',
     whatsappCredentials: 'Credenciales',
     whatsappCredentialsBefore:
       'Access token: un token permanente de System User con el permiso ',

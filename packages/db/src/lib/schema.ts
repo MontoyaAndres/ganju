@@ -1599,6 +1599,46 @@ export const dataEmailRecipient = pgTable(
   ]
 );
 
+// A WhatsApp channel's message templates, as Meta last reported them. Meta
+// is the source of truth: a sync overwrites status and components, and
+// removes the ones deleted there. Only the variables' labels are Ganju's.
+export const channelWhatsappTemplate = pgTable(
+  'channel_whatsapp_template',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    channelId: text('channel_id')
+      .notNull()
+      .references(() => channel.id, { onDelete: 'cascade' }),
+    // Meta's id for the template.
+    templateId: text('template_id').notNull(),
+    name: text('name').notNull(),
+    language: text('language').notNull(),
+    category: text('category').notNull(),
+    // APPROVED, PENDING, REJECTED, PAUSED, DISABLED, … as Meta says it.
+    status: text('status').notNull(),
+    rejectedReason: text('rejected_reason'),
+    components: json('components').notNull(),
+    // {{n}}'s label at n - 1, such as "order number".
+    variableLabels: json('variable_labels'),
+    syncedAt: timestamp('synced_at', { mode: 'date' }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    uniqueIndex('channel_whatsapp_template_channel_name_language_idx').on(
+      table.channelId,
+      table.name,
+      table.language
+    ),
+    index('channel_whatsapp_template_status_idx').on(table.status)
+  ]
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -1798,8 +1838,19 @@ export const channelRelations = relations(channel, ({ one, many }) => ({
     references: [organizationLlm.id]
   }),
   conversations: many(channelConversation),
-  participants: many(channelParticipant)
+  participants: many(channelParticipant),
+  whatsappTemplates: many(channelWhatsappTemplate)
 }));
+
+export const channelWhatsappTemplateRelations = relations(
+  channelWhatsappTemplate,
+  ({ one }) => ({
+    channel: one(channel, {
+      fields: [channelWhatsappTemplate.channelId],
+      references: [channel.id]
+    })
+  })
+);
 
 export const channelConversationRelations = relations(
   channelConversation,

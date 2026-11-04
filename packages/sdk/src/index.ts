@@ -110,6 +110,7 @@ export type {
   ChannelsContext,
   ChannelMessageReceipt,
   ChannelTemplate,
+  ChannelTemplateInfo,
   TriggerEvent,
   DataContext,
   DataOperation,

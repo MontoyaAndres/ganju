@@ -146,10 +146,19 @@ await ctx.channels.post({
   `participant_id`.
 - **WhatsApp** solo acepta texto libre dentro de las 24 horas siguientes al
   último mensaje del cliente. Después solo le llega una plantilla aprobada por
-  Meta; pásala como `template: { name, language, params }`. Si das `text` y
-  `template`, Ganju elige según el cliente. Sin plantilla, `send` lanza un
-  error: "Outside WhatsApp's 24-hour window … use an approved template." Meta le
-  cobra los mensajes de plantilla a tu propia cuenta de WhatsApp.
+  Meta; pásala como `template: { name, language, params }`, con un valor por
+  variable. Si das `text` y `template`, Ganju elige según el cliente. Sin
+  plantilla, `send` lanza un error: "Outside WhatsApp's 24-hour window … use an
+  approved template." Cuando puede leer las plantillas de la cuenta, Ganju
+  revisa que la plantilla esté aprobada antes de llamar a Meta, y lanza un error con el motivo de Meta cuando está en
+  revisión, rechazada, pausada o desactivada. Meta le cobra los mensajes de
+  plantilla a tu propia cuenta de WhatsApp.
+- **`templates()`** lista las plantillas aprobadas por Meta en los canales de
+  WhatsApp del proyecto que Ganju puede enviar, cada una con su `name`, `language`, `category`, `text`
+  y `variables` (`{ n, label, example }`), para que una función elija una. Las
+  plantillas se crean en
+  [Plantillas de mensaje](/es/docs/channels/whatsapp/#5-plantillas-de-mensaje)
+  del canal.
 - **`post`** recibe el id del canal que muestra el panel y el id del chat en la
   plataforma, como `-1001234567890` para un grupo de Telegram. No publica en
   WhatsApp.

@@ -39,6 +39,8 @@ import type { WhatsappBotInfo } from './whatsapp';
 import { loadCommandPrompts } from './proxiedPrompts';
 import { claimBufferedBatch } from './debounce';
 import { assertNoChannelConflict } from './conflicts';
+import { loadProjectChannel } from './projectChannel';
+import { subscribeWhatsappApp } from './whatsappTemplates';
 import {
   registerTelegramBotCommands,
   registerDiscordCommands,
@@ -88,10 +90,6 @@ const create = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
   const encryptionKey = utils.getCredentialEncryptionKey(c);
-  const encryptedCredentials = utils.encryptString(
-    JSON.stringify(currentValues.credentials),
-    encryptionKey
-  );
 
   const rawSecret = uuid().replace(/-/g, '') + uuid().replace(/-/g, '');
   const hashedSecret = await utils.sha256Hex(rawSecret);
@@ -167,7 +165,26 @@ const create = async (c: Context<AppEnv>) => {
       currentValues.credentials.phoneNumberId
     );
     platformMetadata = { whatsapp: { bot: whatsappBotInfo } };
+    // Message templates belong to the business account. The token usually
+    // tells which one; when it can't, the templates page asks for it.
+    if (!currentValues.credentials.businessAccountId?.trim()) {
+      const found = await db.whatsappTemplates
+        .detectBusinessAccount(
+          currentValues.credentials.accessToken,
+          currentValues.credentials.phoneNumberId
+        )
+        .catch(() => null);
+      delete currentValues.credentials.businessAccountId;
+      if (found?.businessAccountId) {
+        currentValues.credentials.businessAccountId = found.businessAccountId;
+      }
+    }
   }
+
+  const encryptedCredentials = utils.encryptString(
+    JSON.stringify(currentValues.credentials),
+    encryptionKey
+  );
 
   const result = await dbInstance.transaction(async tx => {
     const [project] = await tx
@@ -322,6 +339,19 @@ const create = async (c: Context<AppEnv>) => {
 
     return channelRow;
   });
+
+  // Meta only posts a number's messages to the Callback URL once the app is
+  // subscribed to its business account; owners rarely know to do it.
+  if (
+    currentValues.platform === utils.constants.CHANNEL_PLATFORM_WHATSAPP &&
+    currentValues.credentials.businessAccountId
+  ) {
+    await subscribeWhatsappApp(c, result.id, {
+      accessToken: currentValues.credentials.accessToken,
+      phoneNumberId: currentValues.credentials.phoneNumberId,
+      businessAccountId: currentValues.credentials.businessAccountId
+    });
+  }
 
   // Open the persistent Gateway connection AFTER the channel row is committed —
   // the DiscordGatewayDO reads the row (over its own connection) on start().
@@ -515,30 +545,6 @@ const listMessages = async (c: Context<AppEnv>) => {
       }))
     }))
   );
-};
-
-// A channel of this project, or a 404. The project routes check the caller's
-// access to the project; this checks the channel is in it.
-const loadProjectChannel = async (
-  dbInstance: ReturnType<typeof db.create>,
-  projectId: string,
-  channelId: string
-) => {
-  const [row] = await dbInstance
-    .select({ channel: db.schema.channel })
-    .from(db.schema.channel)
-    .innerJoin(
-      db.schema.artifact,
-      eq(db.schema.artifact.id, db.schema.channel.artifactId)
-    )
-    .where(
-      and(
-        eq(db.schema.channel.id, channelId),
-        eq(db.schema.artifact.projectId, projectId)
-      )
-    )
-    .limit(1);
-  return row?.channel ?? null;
 };
 
 // Forget everything the bot remembers about one customer.

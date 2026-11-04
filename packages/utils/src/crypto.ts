@@ -1,6 +1,6 @@
-import { Context } from 'hono';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { getEnv } from './getEnv';
+import type { EnvSource } from './getEnv';
 import { base64ToBytes, bytesToBase64 } from './base64';
 
 const PREFIX = 'enc:v1:';
@@ -8,7 +8,8 @@ const NONCE_BYTES = 24;
 const KEY_BYTES = 32;
 const KEY_ENV = 'CRYPTO_SECRET';
 
-export const getCredentialEncryptionKey = (c: Context) => {
+// A request's context, or anything with the worker's env (a cron, a queue).
+export const getCredentialEncryptionKey = (c: EnvSource) => {
   const rawKey = getEnv(c, KEY_ENV);
   if (!rawKey) {
     throw new Error(`Missing env: ${KEY_ENV}`);

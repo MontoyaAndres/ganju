@@ -98,6 +98,7 @@ import {
   runDataPurge
 } from './dataDatabase';
 import { runErrorAlerts, runToolCallAlerts, recentErrors } from './alerting';
+import { runWhatsappTemplateSync } from './whatsappTemplates';
 import {
   consentActorFromRequest,
   recordConsent,
@@ -123,6 +124,7 @@ export {
   runDataPurge,
   runErrorAlerts,
   runToolCallAlerts,
+  runWhatsappTemplateSync,
   recentErrors,
   consentActorFromRequest,
   recordConsent,

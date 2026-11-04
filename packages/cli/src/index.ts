@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import { CliError, isCliError } from './errors.js';
 import { color, fail, note, say } from './output.js';
 import { build } from './commands/build.js';
+import { channel } from './commands/channel.js';
 import { data, dataUsage } from './commands/data/index.js';
 import { deploy } from './commands/deploy.js';
 import { init } from './commands/init.js';
@@ -93,6 +94,9 @@ ${color.bold('Managing what is live')}
   ganju rollback <version>      put a previously live version back
   ganju secret set|list|rm      the values ctx.secret() reads
   ganju token                   credentials for CI, scoped to this project
+
+${color.bold('Channels')}
+  ganju channel templates       WhatsApp message templates and Meta's status
 
 ${color.bold('Project data')}
   ganju data                    the project's database: tables, rows, import,
@@ -276,6 +280,8 @@ const main = async (argv: string[]): Promise<void> => {
         expires: flag('expires'),
         json: flag('json')
       });
+    case 'channel':
+      return channel(positionals, { json: flag('json') });
     case 'data':
       return data(positionals, {
         name: flag('name'),

@@ -32,6 +32,7 @@ export const CUSTOM_CODE_BROKER_PATH_SEND_FILE = '/send-file';
 export const CUSTOM_CODE_BROKER_PATH_DATA = '/data';
 export const CUSTOM_CODE_BROKER_PATH_CHANNELS_SEND = '/channels/send';
 export const CUSTOM_CODE_BROKER_PATH_CHANNELS_POST = '/channels/post';
+export const CUSTOM_CODE_BROKER_PATH_CHANNELS_TEMPLATES = '/channels/templates';
 
 // Injected at upload time and echoed back by the health probe below. Uploading a
 // script into the dispatch namespace is not read-your-writes: dispatching to the

@@ -2351,6 +2351,69 @@ and use templates from the WhatsApp channel's settings.
   - a token without `whatsapp_business_management` gets the explanation,
     not an error.
 
+**Phase 5c status (2026-11-03): built, not deployed, not checked against
+Meta.** Migration 0087 (`channel_whatsapp_template`) is generated and not run.
+
+- **Spike (from Meta's docs, unverified with a live token):** `GET
+  /debug_token?input_token=<token>` lists the WABAs the token manages under
+  `granular_scopes` → `whatsapp_business_management.target_ids`. With several,
+  `/<WABA>/phone_numbers` picks the one with the channel's number. Channel
+  create fills `businessAccountId` this way, and so do the templates tab and
+  the first template send. The id field only shows in the templates tab when
+  Meta can't tell.
+- **What exists:**
+  - `packages/utils/src/whatsappTemplates.ts`: languages, the checks (start/end
+    variable, adjacent, too dense, numbering, examples, lengths), Meta
+    components both ways, param cleaning, Meta send error codes in words with
+    retry or final. 12 tests.
+  - `packages/db/src/lib/whatsappTemplates.ts`: detection, sync (overwrites,
+    removes deleted ones only when every page was read), webhook status,
+    create/edit/delete, channels with templates in review.
+  - `sendToParticipant` checks the template against the cache before Meta
+    (syncing once on a miss), checks the number of values, cleans them, and
+    records the filled body. Meta's send errors are readable; final ones don't
+    retry.
+  - API: `GET/POST …/channel/:id/whatsapp/template`, `POST …/template/sync`
+    (the reading call that checks the permission), `PUT/DELETE
+    …/template/:templateId`, `PUT …/whatsapp/account` (new token and/or
+    WABA id, merged into the credentials).
+  - Webhook: `message_template_status_update` and `template_category_update`,
+    handled even with the bot paused; an unknown template triggers a sync.
+  - Hourly cron re-syncs up to 50 channels with templates in review.
+  - Paused/disabled: the org admins get an email when a trigger (via the DO's
+    `listTriggers`) or a function (sends in the last 30 days) uses it.
+  - Dashboard: "Message templates" tab on WhatsApp channels (list, refresh,
+    WABA/permission/expired-token notices, create/edit dialog with variable
+    chips, examples, preview and the checks, delete). The setup steps list
+    `message_template_status_update` and the management permission. The
+    trigger dialog picks an approved template and maps each variable to a
+    column or fixed text.
+  - `ctx.channels.templates()` (broker `/channels/templates`), `ganju channel
+    templates [--json]`.
+  - Docs (en + es): WhatsApp channel §5, Triggers, Data from functions.
+- **Not done:** the test send to the owner's own number from the trigger
+  dialog.
+- **Checked on dev (2026-11-04), with Meta's test number +1 555-175-6095**
+  (channel `01a1a45f-3f7e-72be-ac8f-339dae41f2ab`, WABA `1787098836752406`):
+  `scripts/probe-whatsapp-templates.mjs` passes, offline and `--live`. A
+  trigger sent a template outside the window and text inside it to a real
+  phone, and a template stored as in review that Meta had approved was read
+  again and sent. Still to see: a template with a variable sent live
+  (`qa_order_ready_mw1jpujq` was in Meta's review), and the hourly re-read on
+  dev after a cron run.
+- **To do by the owner, once there is a real WhatsApp number:**
+  - Verify the WhatsApp Business account with a real phone number. Until then
+    Meta only gives tokens that last an hour, even System User ones, so every
+    dev test needs a fresh token pasted in the channel's Message templates
+    tab.
+  - Then generate a System User token that never expires (Business Settings →
+    System users → assign the app and the WhatsApp account with full control
+    → Generate new token, expiration Never, `whatsapp_business_messaging` and
+    `whatsapp_business_management`), and put it on the dev channel. Do the same
+    for the prod Meta app.
+  - Rerun `node scripts/probe-whatsapp-templates.mjs --live <channel id>` with
+    it.
+
 **6. Meters, index advice and abandoned databases — M**
 
 - Meters as in decision 8:

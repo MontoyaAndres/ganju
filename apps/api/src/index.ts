@@ -16,6 +16,7 @@ import {
   OAuthController,
   CatalogController,
   ChannelController,
+  WhatsappTemplateController,
   GoogleDriveController,
   GoogleCalendarController,
   CalcomController,
@@ -43,7 +44,8 @@ import {
   runCustomCodeScriptSweep,
   runDataPurge,
   runErrorAlerts,
-  runToolCallAlerts
+  runToolCallAlerts,
+  runWhatsappTemplateSync
 } from './utils';
 import {
   handleIndexBatch,
@@ -689,6 +691,36 @@ app
     UserMiddleware.verify,
     ChannelController.clearParticipantMemory
   )
+  .get(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/whatsapp/template',
+    UserMiddleware.verify,
+    WhatsappTemplateController.list
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/whatsapp/template',
+    UserMiddleware.verify,
+    WhatsappTemplateController.create
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/whatsapp/template/sync',
+    UserMiddleware.verify,
+    WhatsappTemplateController.sync
+  )
+  .put(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/whatsapp/template/:templateId',
+    UserMiddleware.verify,
+    WhatsappTemplateController.update
+  )
+  .delete(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/whatsapp/template/:templateId',
+    UserMiddleware.verify,
+    WhatsappTemplateController.remove
+  )
+  .put(
+    '/organization/:organizationId/project/:projectId/channel/:channelId/whatsapp/account',
+    UserMiddleware.verify,
+    WhatsappTemplateController.updateAccount
+  )
 
   // Channel webhook (public, signed by platform secret)
   .post(
@@ -802,6 +834,9 @@ export default {
     // because the signal it reads is a per-hour rate, and because the monthly
     // ceiling — not this email — is what actually bounds the spend.
     ctx.waitUntil(runToolCallAlerts({ env }));
+    // WhatsApp templates still in Meta's review, and once a day the rest, for
+    // owners whose Meta app doesn't send the status webhook.
+    ctx.waitUntil(runWhatsappTemplateSync({ env }));
   },
   queue: (
     batch: MessageBatch<

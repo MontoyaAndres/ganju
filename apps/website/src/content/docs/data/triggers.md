@@ -96,8 +96,12 @@ has no customer, and its run fails saying so. The channel's daily limit per
 customer applies.
 
 On **WhatsApp**, free text only reaches a customer within 24 hours of their last
-message. Turn on **Use a WhatsApp template** and give a template Meta approved,
-its language, and one parameter per line (fixed text or `{{column}}`):
+message. Turn on **Use a WhatsApp template**, pick one of the templates Meta
+approved on the project's WhatsApp channels, and give each of its variables a
+column of the row or a fixed text; the labels you gave the variables show next
+to them. Templates are created in the channel's
+[Message templates](/docs/channels/whatsapp/#5-message-templates). In
+`ganju.json`, `params` has one value per variable, in order:
 
 ```json
 "customer": {
@@ -106,9 +110,13 @@ its language, and one parameter per line (fixed text or `{{column}}`):
 }
 ```
 
-Within the window the customer gets the text; outside it, the template. Meta
-bills template messages to your own WhatsApp account. A chat message can't go
-to WhatsApp.
+Within the window the customer gets the text; outside it, the template. When it
+can read the account's templates, Ganju checks the template is approved before
+sending it: one in review, rejected,
+paused or disabled fails the run with Meta's reason, and so do Meta's own
+refusals (the customer turned off marketing messages, the number's quality was
+limited), in words on the run list. Meta bills template messages to your own
+WhatsApp account. A chat message can't go to WhatsApp.
 
 Messages sent by a trigger are recorded on the conversation, so the bot's next
 turn knows what the customer was told. They aren't billed as assistant replies.

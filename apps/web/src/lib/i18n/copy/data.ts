@@ -518,10 +518,14 @@ const en = {
     "Outside WhatsApp's 24-hour window only an approved template reaches the customer. Meta bills template messages to your own WhatsApp account.",
   triggerTemplateSummary: 'template {name}',
   triggerTemplateName: 'Template name',
-  triggerTemplateLanguage: 'Language',
-  triggerTemplateParams: 'Parameters',
-  triggerTemplateParamsHelp:
-    "One per line, in the template's order: fixed text or {{column}}.",
+  triggerTemplatePickHelp:
+    "Approved templates of the project's WhatsApp channels. Each variable takes a column of the row or fixed text.",
+  triggerTemplateNone:
+    "No approved templates yet: create one in the WhatsApp channel's Message templates.",
+  triggerTemplateMissing: '{name} (not approved, or not found)',
+  triggerTemplateFromColumn: 'Column {column}',
+  triggerTemplateFixed: 'Fixed text',
+  triggerTemplateFixedValue: 'Text',
   triggerRateLimit: 'Runs a minute',
   triggerRateLimitHelp:
     '{default} by default, up to {max}. Past it, events wait and go out later.',
@@ -1089,10 +1093,14 @@ export const DATA: Catalog<DataCopy> = {
       'Fuera de la ventana de 24 horas de WhatsApp, solo una plantilla aprobada le llega al cliente. Meta cobra los mensajes con plantilla a tu propia cuenta de WhatsApp.',
     triggerTemplateSummary: 'plantilla {name}',
     triggerTemplateName: 'Nombre de la plantilla',
-    triggerTemplateLanguage: 'Idioma',
-    triggerTemplateParams: 'Parámetros',
-    triggerTemplateParamsHelp:
-      'Uno por línea, en el orden de la plantilla: texto fijo o {{column}}.',
+    triggerTemplatePickHelp:
+      'Plantillas aprobadas de los canales de WhatsApp del proyecto. Cada variable toma una columna de la fila o un texto fijo.',
+    triggerTemplateNone:
+      'Todavía no hay plantillas aprobadas: crea una en Plantillas de mensaje del canal de WhatsApp.',
+    triggerTemplateMissing: '{name} (sin aprobar, o no encontrada)',
+    triggerTemplateFromColumn: 'Columna {column}',
+    triggerTemplateFixed: 'Texto fijo',
+    triggerTemplateFixedValue: 'Texto',
     triggerRateLimit: 'Ejecuciones por minuto',
     triggerRateLimitHelp:
       '{default} por defecto, hasta {max}. Pasado ese límite, los eventos esperan y salen después.',

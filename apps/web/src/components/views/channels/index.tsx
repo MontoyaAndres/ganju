@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 
 import { Wrapper, UsageModalOverlay } from './styles';
+import { WhatsappTemplates } from './templates';
 import { i18n } from '../../../lib';
 
 import type { Translate } from '../../../lib';
@@ -155,7 +156,7 @@ interface Message {
   usages: MessageUsage[];
 }
 
-type Tab = 'overview' | 'conversations';
+type Tab = 'overview' | 'conversations' | 'templates';
 
 const PLATFORMS = [
   {
@@ -431,11 +432,16 @@ const WhatsappRequirements = ({ t }: { t: ChannelsT }) => (
       <p className="slack-requirements-label">{t('whatsappWebhookFields')}</p>
       <div className="slack-scope-chips">
         <code className="slack-scope-chip">messages</code>
+        <code className="slack-scope-chip">message_template_status_update</code>
       </div>
       <p className="slack-requirements-hint">
         {t('whatsappWebhookHintBefore')}
         <code>messages</code>
         {t('whatsappWebhookHintAfter')}
+      </p>
+      <p className="slack-requirements-hint">
+        <code>message_template_status_update</code>
+        {t('whatsappTemplateWebhookHint')}
       </p>
     </div>
     <div className="slack-requirements-group">
@@ -444,6 +450,11 @@ const WhatsappRequirements = ({ t }: { t: ChannelsT }) => (
         {t('whatsappCredentialsBefore')}
         <code>whatsapp_business_messaging</code>
         {t('whatsappCredentialsAfter')}
+      </p>
+      <p className="slack-requirements-hint">
+        {t('whatsappTemplatesPermissionBefore')}
+        <code>whatsapp_business_management</code>
+        {t('whatsappTemplatesPermissionAfter')}
       </p>
     </div>
   </div>
@@ -1142,6 +1153,16 @@ export const Channels = () => {
               >
                 {t('tabConversations')}
               </button>
+              {selectedChannel.platform ===
+                utils.constants.CHANNEL_PLATFORM_WHATSAPP && (
+                <button
+                  type="button"
+                  className={`panel-tab ${activeTab === 'templates' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('templates')}
+                >
+                  {t('tabTemplates')}
+                </button>
+              )}
             </div>
           )}
 
@@ -1479,6 +1500,16 @@ export const Channels = () => {
                 </div>
               </div>
             )}
+
+            {selectedChannel &&
+              !isCreating &&
+              activeTab === 'templates' &&
+              selectedChannel.platform ===
+                utils.constants.CHANNEL_PLATFORM_WHATSAPP && (
+                <WhatsappTemplates
+                  channelPath={`${apiBase}/${selectedChannel.id}`}
+                />
+              )}
 
             {selectedChannel && !isCreating && activeTab === 'overview' && (
               <div>

@@ -197,7 +197,9 @@ export const createContext = (env: ToolEnv, callToken = '') => {
     send: message =>
       channelCall(constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_SEND, message),
     post: message =>
-      channelCall(constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_POST, message)
+      channelCall(constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_POST, message),
+    templates: () =>
+      channelCall(constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_TEMPLATES, {})
   };
 
   const ctx: ToolContext = {

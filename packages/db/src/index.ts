@@ -6,7 +6,8 @@ import {
   toResourceSearchResult,
   plan,
   data,
-  channels
+  channels,
+  whatsappTemplates
 } from './lib';
 import { handleError } from './utils';
 
@@ -18,7 +19,8 @@ export const db = {
   toResourceSearchResult,
   plan,
   data,
-  channels
+  channels,
+  whatsappTemplates
 };
 export const utils = {
   handleError
@@ -42,5 +44,8 @@ export type {
   OpenedDatabase,
   ChannelMessageSource,
   ChannelSendResult,
-  ChannelTemplate
+  ChannelTemplate,
+  WhatsappChannelCredentials,
+  WhatsappTemplateErrorReason,
+  WhatsappTemplateTransition
 } from './lib';

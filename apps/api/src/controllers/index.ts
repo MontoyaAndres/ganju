@@ -9,6 +9,7 @@ import { AccessTokenController } from './accessToken';
 import { OAuthController } from './oauth';
 import { CatalogController } from './catalog';
 import { ChannelController } from './channel';
+import { WhatsappTemplateController } from './channel/whatsappTemplates';
 import { GoogleDriveController } from './googleDrive';
 import { GoogleCalendarController } from './googleCalendar';
 import { CalcomController } from './calcom';
@@ -41,6 +42,7 @@ export {
   OAuthController,
   CatalogController,
   ChannelController,
+  WhatsappTemplateController,
   GoogleDriveController,
   GoogleCalendarController,
   CalcomController,

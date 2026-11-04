@@ -2,6 +2,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 
 import * as schema from './schema';
+import { lastTemplatesRead, syncWhatsappTemplates } from './whatsappTemplates';
 import type { DbExecutor } from './usage';
 
 const { constants } = utils;
@@ -59,6 +60,7 @@ interface Credentials {
   botToken?: string;
   accessToken?: string;
   phoneNumberId?: string;
+  businessAccountId?: string;
 }
 
 const credentialsOf = (
@@ -238,9 +240,14 @@ const postWhatsapp = async (
   const body = await readJson(response);
   if (!response?.ok) {
     const error = body.error as
-      | { message?: string; error_data?: { details?: string } }
+      | { code?: number; message?: string; error_data?: { details?: string } }
       | undefined;
-    throw failed('WhatsApp', error?.error_data?.details ?? error?.message);
+    // Meta's codes in words; one a retry won't fix is final.
+    const { text, retry } = utils.whatsappSendError(
+      error?.code,
+      error?.error_data?.details ?? error?.message
+    );
+    throw new ChannelSendError(`WhatsApp: ${text}`, retry ? 502 : 409);
   }
   return String(
     (body.messages as { id?: string }[] | undefined)?.[0]?.id ?? ''
@@ -316,6 +323,180 @@ const record = async (
     .set({ messageCount: sql`(${schema.channel.messageCount}::int + 1)::int` })
     .where(eq(schema.channel.id, input.channelId));
   return row.id;
+};
+
+type TemplateRow = typeof schema.channelWhatsappTemplate.$inferSelect;
+
+const findTemplate = async (
+  executor: DbExecutor,
+  channelId: string,
+  name: string,
+  language: string
+): Promise<TemplateRow | undefined> => {
+  const [row] = await executor
+    .select()
+    .from(schema.channelWhatsappTemplate)
+    .where(
+      and(
+        eq(schema.channelWhatsappTemplate.channelId, channelId),
+        eq(schema.channelWhatsappTemplate.name, name),
+        eq(schema.channelWhatsappTemplate.language, language)
+      )
+    )
+    .limit(1);
+  return row;
+};
+
+// Meta is read at most this often per channel for sends, whether the last
+// read worked or not: a misspelled name in a busy trigger, or a token that
+// can't read templates, would otherwise call Meta on every row.
+const TEMPLATE_RESYNC_MS = 5 * 60 * 1000;
+
+/**
+ * The template, checked against what Meta last said about it. Refused only
+ * when Ganju knows: Meta's status isn't approved, the list was read and it
+ * isn't there, or Ganju can't fill it. Null when the list can't be read (a
+ * token without whatsapp_business_management, no business account known):
+ * then the template goes to Meta as given and Meta decides. A stored one
+ * that isn't approved is read again once it's 5 minutes old, in case Meta
+ * approved it and no webhook said so.
+ */
+const checkedTemplate = async (
+  executor: DbExecutor,
+  channel: ChannelRow,
+  credentials: Credentials,
+  template: ChannelTemplate,
+  now: Date
+): Promise<TemplateRow | null> => {
+  let row = await findTemplate(
+    executor,
+    channel.id,
+    template.name,
+    template.language
+  );
+  const canRead =
+    !!credentials.businessAccountId &&
+    !!credentials.accessToken &&
+    !!credentials.phoneNumberId;
+  if (!canRead) return row ?? null;
+  const stale =
+    !row ||
+    (row.status !== utils.WHATSAPP_TEMPLATE_STATUS_APPROVED &&
+      now.getTime() - new Date(row.syncedAt).getTime() >= TEMPLATE_RESYNC_MS);
+  let readOk: boolean;
+  const last = lastTemplatesRead(channel.metadata);
+  if (
+    stale &&
+    !(last && now.getTime() - new Date(last.at).getTime() < TEMPLATE_RESYNC_MS)
+  ) {
+    try {
+      await syncWhatsappTemplates(executor, channel.id, {
+        accessToken: credentials.accessToken!,
+        phoneNumberId: credentials.phoneNumberId!,
+        businessAccountId: credentials.businessAccountId
+      });
+      readOk = true;
+    } catch (error) {
+      console.error(
+        'whatsapp-template-sync-failed',
+        channel.id,
+        error instanceof Error ? error.message : String(error)
+      );
+      readOk = false;
+    }
+    row = await findTemplate(
+      executor,
+      channel.id,
+      template.name,
+      template.language
+    );
+  } else {
+    // Not read now: the stored row, or the last read's answer, decides.
+    readOk = last ? last.ok : !!row;
+  }
+  // Missing from a list Ganju couldn't read: Meta decides.
+  if (!row && !readOk) return null;
+  const label = `The WhatsApp template ${template.name} (${template.language})`;
+  if (!row) {
+    throw new ChannelSendError(
+      `${label} isn't on this channel's WhatsApp Business account. Create it in the channel's Message templates, or check its name and language.`,
+      409
+    );
+  }
+  if (row.status !== utils.WHATSAPP_TEMPLATE_STATUS_APPROVED) {
+    const status = row.status.toLowerCase().replace(/_/g, ' ');
+    const why =
+      row.status === 'PENDING'
+        ? "is still in Meta's review"
+        : row.status === 'REJECTED'
+          ? `was rejected by Meta${row.rejectedReason ? ` (${row.rejectedReason})` : ''}`
+          : `is ${status} by Meta${row.rejectedReason ? ` (${row.rejectedReason})` : ''}`;
+    throw new ChannelSendError(
+      `${label} ${why}; only approved templates can be sent.`,
+      409
+    );
+  }
+  if (!utils.whatsappTemplateSendable(row.components)) {
+    throw new ChannelSendError(
+      `${label} has a media header, a header variable or a button that takes a value; Ganju only fills the message's variables. Make a version without them.`,
+      409
+    );
+  }
+  return row;
+};
+
+/**
+ * The approved WhatsApp templates on a project's channels that Ganju can
+ * send, for ctx.channels.templates(). Read from the cache the dashboard and the hourly
+ * sync keep.
+ */
+export const listApprovedTemplates = async (
+  executor: DbExecutor,
+  artifactId: string
+) => {
+  const rows = await executor
+    .select({ template: schema.channelWhatsappTemplate })
+    .from(schema.channelWhatsappTemplate)
+    .innerJoin(
+      schema.channel,
+      eq(schema.channel.id, schema.channelWhatsappTemplate.channelId)
+    )
+    .where(
+      and(
+        eq(schema.channel.artifactId, artifactId),
+        eq(
+          schema.channelWhatsappTemplate.status,
+          utils.WHATSAPP_TEMPLATE_STATUS_APPROVED
+        )
+      )
+    );
+  // Only the ones Ganju can fill: media headers and buttons with values
+  // would be refused by Meta.
+  return rows
+    .filter(({ template }) =>
+      utils.whatsappTemplateSendable(template.components)
+    )
+    .map(({ template }) => {
+      const content = utils.whatsappTemplateContent(template.components);
+      const labels = Array.isArray(template.variableLabels)
+        ? (template.variableLabels as unknown[]).map(l => String(l ?? ''))
+        : [];
+      return {
+        channelId: template.channelId,
+        name: template.name,
+        language: template.language,
+        category: template.category,
+        text: content.body,
+        variables: Array.from(
+          { length: utils.whatsappTemplateVariableCount(content.body) },
+          (_, i) => ({
+            n: i + 1,
+            label: labels[i] || null,
+            example: content.examples[i] ?? null
+          })
+        )
+      };
+    });
 };
 
 const notLimitNotice = sql`(${schema.channelMessage.metadata}->>${utils.PARTICIPANT_LIMIT_METADATA_KEY}) is null`;
@@ -466,7 +647,26 @@ export const sendToParticipant = async (
   let content: string;
   if (useTemplate) {
     const template = input.template!;
-    const params = (template.params ?? []).map(p => String(p).slice(0, 1024));
+    const known = await checkedTemplate(
+      executor,
+      channel,
+      credentials,
+      template,
+      now
+    );
+    const body = known
+      ? utils.whatsappTemplateContent(known.components).body
+      : '';
+    const expected = utils.whatsappTemplateVariableCount(body);
+    const params = (template.params ?? []).map(
+      utils.cleanWhatsappTemplateParam
+    );
+    // Only a template Ganju has read can be counted; Meta checks the rest.
+    if (known && params.length !== expected) {
+      throw new ChannelSendError(
+        `The WhatsApp template ${template.name} has ${expected} ${expected === 1 ? 'variable' : 'variables'}; ${params.length} ${params.length === 1 ? 'value was' : 'values were'} given.`
+      );
+    }
     externalId = await postWhatsapp(credentials, {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -487,9 +687,10 @@ export const sendToParticipant = async (
           : {})
       }
     });
-    content =
-      text ??
-      `[template ${template.name}${params.length ? `: ${params.join(' · ')}` : ''}]`;
+    // What the customer read, so the bot's next turn knows.
+    content = body
+      ? utils.fillWhatsappTemplate(body, params)
+      : `[template ${template.name}${params.length ? `: ${params.join(' · ')}` : ''}]`;
   } else {
     externalId = await sendText(channel, credentials, chatId, text!);
     content = text!;

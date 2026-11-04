@@ -24,6 +24,18 @@ import {
   DATA_MAX_WRITE_OPERATIONS,
   DATA_ON_DELETE
 } from './dataTypes';
+import {
+  WHATSAPP_TEMPLATE_BODY_MAX,
+  WHATSAPP_TEMPLATE_BUTTON_MAX,
+  WHATSAPP_TEMPLATE_BUTTONS_MAX,
+  WHATSAPP_TEMPLATE_CATEGORIES,
+  WHATSAPP_TEMPLATE_EXAMPLE_MAX,
+  WHATSAPP_TEMPLATE_FOOTER_MAX,
+  WHATSAPP_TEMPLATE_HEADER_MAX,
+  WHATSAPP_TEMPLATE_LABEL_MAX,
+  WHATSAPP_TEMPLATE_NAME_MAX,
+  WHATSAPP_TEMPLATE_VARIABLES_MAX
+} from './whatsappTemplates';
 
 // A prompt title becomes a slash command; it must not collide with a command
 // the channel runner handles itself (e.g. `/link`).
@@ -1750,6 +1762,11 @@ const CUSTOM_CODE_BROKER_CHANNELS_SEND = z.object({
   text: z.string().min(1).max(4000).optional(),
   template: DATA_TRIGGER_TEMPLATE.optional()
 });
+// ctx.channels.templates: the approved WhatsApp templates of the project's
+// channels.
+const CUSTOM_CODE_BROKER_CHANNELS_TEMPLATES = z.object({
+  call: z.string().min(1).max(4000)
+});
 const CUSTOM_CODE_BROKER_CHANNELS_POST = z.object({
   call: z.string().min(1).max(4000),
   channelId: z.string().min(1).max(100),
@@ -2000,6 +2017,60 @@ const CHANNEL_LIST_MESSAGES = z.object({
   organizationId: z.uuid()
 });
 
+const CHANNEL_WHATSAPP_PARAMS = z.object({
+  channelId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+// A new access token, the business account's id, or both, for a WhatsApp
+// channel's message templates. The rest of its credentials stay as they are.
+const CHANNEL_WHATSAPP_ACCOUNT = z
+  .strictObject({
+    accessToken: z.string().trim().min(20).max(2000).optional(),
+    businessAccountId: z
+      .string()
+      .trim()
+      .regex(/^\d{5,30}$/, 'The business account id is a number')
+      .optional()
+  })
+  .refine(
+    v => v.accessToken !== undefined || v.businessAccountId !== undefined,
+    'Give a new access token, the business account id, or both'
+  );
+
+// A WhatsApp message template as the dashboard writes it. Meta's own rules
+// are checked with checkWhatsappTemplate before it is sent for review.
+const CHANNEL_WHATSAPP_TEMPLATE_CONTENT = z.strictObject({
+  category: z.enum(WHATSAPP_TEMPLATE_CATEGORIES),
+  header: z.string().max(WHATSAPP_TEMPLATE_HEADER_MAX).nullish(),
+  body: z.string().trim().min(1).max(WHATSAPP_TEMPLATE_BODY_MAX),
+  footer: z.string().max(WHATSAPP_TEMPLATE_FOOTER_MAX).nullish(),
+  buttons: z
+    .array(z.string().max(WHATSAPP_TEMPLATE_BUTTON_MAX))
+    .max(WHATSAPP_TEMPLATE_BUTTONS_MAX)
+    .optional(),
+  // {{n}}'s example value and label are at n - 1.
+  examples: z
+    .array(z.string().max(WHATSAPP_TEMPLATE_EXAMPLE_MAX))
+    .max(WHATSAPP_TEMPLATE_VARIABLES_MAX)
+    .optional(),
+  labels: z
+    .array(z.string().max(WHATSAPP_TEMPLATE_LABEL_MAX))
+    .max(WHATSAPP_TEMPLATE_VARIABLES_MAX)
+    .optional()
+});
+const CHANNEL_WHATSAPP_TEMPLATE_CREATE = CHANNEL_WHATSAPP_TEMPLATE_CONTENT.extend(
+  {
+    name: z.string().trim().min(1).max(WHATSAPP_TEMPLATE_NAME_MAX),
+    language: z.string().trim().min(2).max(10)
+  }
+);
+const CHANNEL_WHATSAPP_TEMPLATE_PARAMS = CHANNEL_WHATSAPP_PARAMS.extend({
+  templateId: z.uuid()
+});
+
 const CHANNEL_CREATE_VIEW = CHANNEL_CREATE.omit({
   projectId: true,
   userId: true,
@@ -2164,6 +2235,11 @@ export const Schema = {
   CHANNEL_REMOVE,
   CHANNEL_LIST_CONVERSATIONS,
   CHANNEL_LIST_MESSAGES,
+  CHANNEL_WHATSAPP_PARAMS,
+  CHANNEL_WHATSAPP_ACCOUNT,
+  CHANNEL_WHATSAPP_TEMPLATE_CREATE,
+  CHANNEL_WHATSAPP_TEMPLATE_CONTENT,
+  CHANNEL_WHATSAPP_TEMPLATE_PARAMS,
   ARTIFACT_UPDATE_RESOURCE_SHOW_SOURCE,
   ARTIFACT_UPDATE_RESOURCE_SYNC_INTERVAL,
   ARTIFACT_SYNC_RESOURCE,
@@ -2194,6 +2270,7 @@ export const Schema = {
   CUSTOM_CODE_BROKER_DATA,
   CUSTOM_CODE_BROKER_CHANNELS_SEND,
   CUSTOM_CODE_BROKER_CHANNELS_POST,
+  CUSTOM_CODE_BROKER_CHANNELS_TEMPLATES,
   CUSTOM_CODE_BROKER_RESOURCE_SEARCH,
   CUSTOM_CODE_BROKER_RESOURCE_READ,
   CUSTOM_CODE_BROKER_RESOURCE_CREATE,

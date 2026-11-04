@@ -142,10 +142,18 @@ await ctx.channels.post({
   `participant_id`.
 - **WhatsApp** only takes free text within 24 hours of the customer's last
   message. After that only a template Meta approved reaches them; pass it as
-  `template: { name, language, params }`. Give both `text` and `template` and
-  Ganju picks per customer. Without a template, `send` throws: "Outside
-  WhatsApp's 24-hour window … use an approved template." Meta bills template
-  messages to your own WhatsApp account.
+  `template: { name, language, params }`, with one value per variable. Give
+  both `text` and `template` and Ganju picks per customer. Without a template,
+  `send` throws: "Outside WhatsApp's 24-hour window … use an approved
+  template." When it can read the account's templates, Ganju checks the
+  template is approved before calling Meta, and
+  throws with Meta's reason when it is in review, rejected, paused or
+  disabled. Meta bills template messages to your own WhatsApp account.
+- **`templates()`** lists the templates Meta approved on the project's
+  WhatsApp channels that Ganju can send, each with its `name`, `language`, `category`, `text` and
+  `variables` (`{ n, label, example }`), so a function can choose one.
+  Templates are created in the channel's
+  [Message templates](/docs/channels/whatsapp/#5-message-templates).
 - **`post`** takes the channel's id from the dashboard and the platform's chat
   id, such as a Telegram group's `-1001234567890`. It doesn't post to
   WhatsApp.

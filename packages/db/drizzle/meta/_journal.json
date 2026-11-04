@@ -610,6 +610,13 @@
       "when": 1793747514605,
       "tag": "0086_data_email_recipient",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793756516057,
+      "tag": "0087_channel_whatsapp_template",
+      "breakpoints": true
     }
   ]
 }

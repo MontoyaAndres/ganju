@@ -14,6 +14,7 @@ import { resolveSlashPrompt } from './slashPrompt';
 import { bufferChannelMessage, toRunUserMessages } from './debounce';
 import { VoiceNoteTooLong } from './voiceNotes';
 import { markdownToWhatsapp } from '../../utils';
+import { notifyStoppedTemplates } from '../../utils/whatsappTemplates';
 import { startChannelLink } from './link';
 
 import type { ChannelAttachment, RunUserMessage } from './runner';
@@ -23,6 +24,7 @@ import type {
   BufferedVoiceNote,
   ChannelBufferEnvelope
 } from '@ganju/utils';
+import type { WhatsappTemplateTransition } from '@ganju/db';
 import type { AppEnv, Bindings } from '../../types';
 
 const WHATSAPP_BASE = `${utils.constants.WHATSAPP_API_BASE}/${utils.constants.WHATSAPP_API_VERSION}`;
@@ -35,6 +37,9 @@ interface WhatsappCredentials {
   verifyToken: string;
   // The Meta app secret — used to verify the x-hub-signature-256 on every POST.
   appSecret: string;
+  // The WhatsApp Business Account the number belongs to; its message
+  // templates live there.
+  businessAccountId?: string;
 }
 
 export interface WhatsappBotInfo {
@@ -91,6 +96,10 @@ const inboundVoice = (
     : null;
 
 interface WhatsappWebhookValue {
+  event?: string;
+  message_template_id?: number | string;
+  reason?: string;
+  new_category?: string;
   messaging_product?: string;
   metadata?: { display_phone_number?: string; phone_number_id?: string };
   contacts?: Array<{ profile?: { name?: string }; wa_id?: string }>;
@@ -185,10 +194,6 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
     return c.json({ ok: false, error: 'Invalid signature' }, 401);
   }
 
-  if (channelRow.status !== utils.constants.STATUS_ACTIVE) {
-    return c.json({ ok: true, skipped: 'disabled' });
-  }
-
   let payload: WhatsappWebhookPayload;
   try {
     payload = JSON.parse(rawBody) as WhatsappWebhookPayload;
@@ -196,7 +201,42 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
     return c.json({ ok: true });
   }
 
-  const value = payload.entry?.[0]?.changes?.[0]?.value;
+  // Template reviews apply whether or not the bot is paused; a message in the
+  // same call is still handled below.
+  const templateChanges = (payload.entry ?? []).flatMap(entry =>
+    (entry.changes ?? []).filter(
+      change =>
+        change.field === TEMPLATE_STATUS_FIELD ||
+        change.field === TEMPLATE_CATEGORY_FIELD
+    )
+  );
+  if (templateChanges.length > 0) {
+    c.executionCtx.waitUntil(
+      applyTemplateChanges(
+        c,
+        channelRow.id,
+        credentials,
+        templateChanges
+      ).catch(err =>
+        dbUtils.handleError(c, err, {
+          service: utils.constants.SERVICE_NAME_API,
+          metadata: {
+            source: 'whatsapp-template-webhook',
+            channelId: channelRow.id
+          }
+        })
+      )
+    );
+  }
+
+  if (channelRow.status !== utils.constants.STATUS_ACTIVE) {
+    return c.json({ ok: true, skipped: 'disabled' });
+  }
+
+  // The change carrying a message, wherever Meta put it in the batch.
+  const value = (payload.entry ?? [])
+    .flatMap(entry => entry.changes ?? [])
+    .find(change => change.value?.messages?.length)?.value;
 
   const message = value?.messages?.[0];
   // Only react to inbound text, voice notes and confirmation-button taps —
@@ -247,6 +287,59 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
   );
 
   return c.json({ ok: true });
+};
+
+const TEMPLATE_STATUS_FIELD = 'message_template_status_update';
+const TEMPLATE_CATEGORY_FIELD = 'template_category_update';
+
+// Meta's review of a template: its new status (or category) goes into the
+// cache. One the cache doesn't know yet means the channel is synced instead.
+const applyTemplateChanges = async (
+  c: Context<AppEnv>,
+  channelId: string,
+  credentials: WhatsappCredentials,
+  changes: { field?: string; value?: WhatsappWebhookValue }[]
+): Promise<void> => {
+  const executor = db.create(c);
+  const transitions: WhatsappTemplateTransition[] = [];
+  let resync = false;
+  for (const { field, value } of changes) {
+    if (!value?.message_template_id) continue;
+    const templateId = String(value.message_template_id);
+    if (field === TEMPLATE_CATEGORY_FIELD) {
+      if (!value.new_category) continue;
+      await executor
+        .update(db.schema.channelWhatsappTemplate)
+        .set({ category: value.new_category })
+        .where(
+          and(
+            eq(db.schema.channelWhatsappTemplate.channelId, channelId),
+            eq(db.schema.channelWhatsappTemplate.templateId, templateId)
+          )
+        );
+      continue;
+    }
+    if (!value.event) continue;
+    // A reinstated template is approved again.
+    const status = value.event === 'REINSTATED' ? 'APPROVED' : value.event;
+    const transition = await db.whatsappTemplates.applyWhatsappTemplateStatus(
+      executor,
+      channelId,
+      { templateId, status, reason: value.reason ?? null }
+    );
+    if (transition) transitions.push(transition);
+    else resync = true;
+  }
+  if (resync && credentials.businessAccountId) {
+    transitions.push(
+      ...(await db.whatsappTemplates.syncWhatsappTemplates(
+        executor,
+        channelId,
+        credentials
+      ))
+    );
+  }
+  await notifyStoppedTemplates(c, executor, transitions);
 };
 
 // Has this wamid already been recorded for the channel? Scoped through the

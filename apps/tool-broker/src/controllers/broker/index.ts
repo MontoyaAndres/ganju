@@ -692,6 +692,24 @@ const channelsPost = async (c: Context<AppEnv>) => {
   }
 };
 
+// ctx.channels.templates: the approved WhatsApp templates of this project's
+// channels, so a function can choose one to send.
+const channelsTemplates = async (c: Context<AppEnv>) => {
+  const parsed = utils.Schema.CUSTOM_CODE_BROKER_CHANNELS_TEMPLATES.safeParse(
+    await c.req.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return c.json({ error: NOT_IN_A_RUN, code: 'forbidden' }, 403);
+  }
+  const caller = await channelCaller(c, parsed.data.call);
+  if (caller.error) return caller.error;
+  const result = await db.channels.listApprovedTemplates(
+    db.create(c),
+    caller.signed.artifactId
+  );
+  return c.json({ result });
+};
+
 export const BrokerController = {
   connection,
   secret,
@@ -703,5 +721,6 @@ export const BrokerController = {
   sendFile,
   data,
   channelsSend,
-  channelsPost
+  channelsPost,
+  channelsTemplates
 };

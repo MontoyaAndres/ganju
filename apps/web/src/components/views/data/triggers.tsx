@@ -64,6 +64,20 @@ interface ProjectChannel {
   label: string;
 }
 
+// An approved WhatsApp template on one of the project's channels.
+interface ProjectTemplate {
+  name: string;
+  language: string;
+  body: string;
+  labels: string[];
+  variableCount: number;
+}
+
+const templateKey = (name: string, language: string) =>
+  `${name}\u0000${language}`;
+// A parameter that is exactly {{column}} reads that column of the row.
+const FIELD_PARAM = /^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$/;
+
 interface ChannelRow {
   id: string;
   platform: string;
@@ -88,11 +102,13 @@ const channelLabel = (channel: ChannelRow) => {
   return `${CHAT_PLATFORMS[channel.platform]} · ${bot || channel.id.slice(0, 8)}`;
 };
 
-// The live script's functions and the project's chat channels, for the
-// dialog's selects. Either list comes back empty when it can't be read.
+// The live script's functions, the project's chat channels and its approved
+// WhatsApp templates, for the dialog's selects. Each list comes back empty
+// when it can't be read.
 const useTargets = (base: string) => {
   const [functions, setFunctions] = useState<ProjectFunction[] | null>(null);
   const [channels, setChannels] = useState<ProjectChannel[]>([]);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
 
   useEffect(() => {
     const artifactBase = base.replace(/\/data$/, '');
@@ -106,17 +122,39 @@ const useTargets = (base: string) => {
         : null;
       setFunctions(live?.tools ?? []);
     });
-    dataRequest<ChannelRow[]>(projectBase, '/channel').then(result => {
+    dataRequest<ChannelRow[]>(projectBase, '/channel').then(async result => {
       if (!result.ok || !Array.isArray(result.data)) return;
       setChannels(
         result.data
           .filter(channel => channel.platform in CHAT_PLATFORMS)
           .map(channel => ({ id: channel.id, label: channelLabel(channel) }))
       );
+      const lists = await Promise.all(
+        result.data
+          .filter(channel => channel.platform === 'whatsapp')
+          .map(channel =>
+            dataRequest<{
+              templates: (ProjectTemplate & {
+                status: string;
+                sendable: boolean;
+              })[];
+            }>(projectBase, `/channel/${channel.id}/whatsapp/template`)
+          )
+      );
+      const found = new Map<string, ProjectTemplate>();
+      for (const list of lists) {
+        if (!list.ok) continue;
+        for (const template of list.data.templates ?? []) {
+          // Ganju fills body variables only; Meta would refuse the rest.
+          if (template.status !== 'APPROVED' || !template.sendable) continue;
+          found.set(templateKey(template.name, template.language), template);
+        }
+      }
+      setTemplates([...found.values()]);
     });
   }, [base]);
 
-  return { functions, channels };
+  return { functions, channels, templates };
 };
 
 interface TriggersTabProps {
@@ -358,6 +396,7 @@ export const TriggersTab = ({ base, table, readOnly }: TriggersTabProps) => {
         trigger={editing === 'new' ? null : editing}
         functions={targets.functions}
         channels={targets.channels}
+        templates={targets.templates}
         onClose={() => setEditing(null)}
         onSaved={newSecret => {
           setEditing(null);
@@ -470,6 +509,7 @@ interface TriggerDialogProps {
   trigger: DataTrigger | null;
   functions: ProjectFunction[] | null;
   channels: ProjectChannel[];
+  templates: ProjectTemplate[];
   onClose: () => void;
   onSaved: (secret: string | null) => void;
 }
@@ -481,6 +521,7 @@ const TriggerDialog = ({
   trigger,
   functions,
   channels,
+  templates,
   onClose,
   onSaved
 }: TriggerDialogProps) => {
@@ -507,7 +548,7 @@ const TriggerDialog = ({
   const [useTemplate, setUseTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templateLanguage, setTemplateLanguage] = useState('');
-  const [templateParams, setTemplateParams] = useState('');
+  const [templateParams, setTemplateParams] = useState<string[]>([]);
   const [rateLimit, setRateLimit] = useState(String(DATA_TRIGGER_DEFAULT_RATE));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -548,7 +589,7 @@ const TriggerDialog = ({
     setUseTemplate(!!template);
     setTemplateName(template?.name ?? '');
     setTemplateLanguage(template?.language ?? '');
-    setTemplateParams(template?.params?.join('\n') ?? '');
+    setTemplateParams(template?.params ?? []);
     setRateLimit(String(trigger?.rateLimit ?? DATA_TRIGGER_DEFAULT_RATE));
     setError(null);
   }, [open, trigger]);
@@ -603,6 +644,49 @@ const TriggerDialog = ({
       ? [{ label: channelId, value: channelId }]
       : [])
   ];
+
+  const pickedTemplate = templates.find(
+    tpl => tpl.name === templateName && tpl.language === templateLanguage
+  );
+  const templateOptions = [
+    ...templates.map(tpl => ({
+      label: `${tpl.name} · ${tpl.language}`,
+      value: templateKey(tpl.name, tpl.language)
+    })),
+    ...(templateName && !pickedTemplate
+      ? [
+          {
+            label: t('triggerTemplateMissing', {
+              name: `${templateName} · ${templateLanguage}`
+            }),
+            value: templateKey(templateName, templateLanguage)
+          }
+        ]
+      : [])
+  ];
+  const pickTemplate = (key: string) => {
+    const next = templates.find(
+      tpl => templateKey(tpl.name, tpl.language) === key
+    );
+    if (!next) return;
+    setTemplateName(next.name);
+    setTemplateLanguage(next.language);
+    setTemplateParams(prev =>
+      Array.from({ length: next.variableCount }, (_, i) => prev[i] ?? '')
+    );
+  };
+  const setTemplateParam = (index: number, value: string) =>
+    setTemplateParams(prev =>
+      Array.from({ length: Math.max(prev.length, index + 1) }, (_, i) =>
+        i === index ? value : (prev[i] ?? '')
+      )
+    );
+  // Each variable as a column of the row, or fixed text.
+  const FIXED = '\u0000fixed';
+  const paramSource = (param: string) => {
+    const field = FIELD_PARAM.exec(param.trim())?.[1];
+    return field && columns.some(col => col.name === field) ? field : FIXED;
+  };
 
   const pickColumn = (next: string) => {
     setColumn(next);
@@ -672,10 +756,7 @@ const TriggerDialog = ({
           }
         };
       case 'customer': {
-        const params = templateParams
-          .split('\n')
-          .map(param => param.trim())
-          .filter(Boolean);
+        const params = templateParams.map(param => param.trim());
         return {
           customer: {
             text,
@@ -707,7 +788,12 @@ const TriggerDialog = ({
       case 'customer':
         return (
           !!text.trim() &&
-          (!useTemplate || (!!templateName.trim() && !!templateLanguage.trim()))
+          (!useTemplate ||
+            (!!templateName.trim() &&
+              !!templateLanguage.trim() &&
+              (!pickedTemplate ||
+                (templateParams.length === pickedTemplate.variableCount &&
+                  templateParams.every(param => !!param.trim())))))
         );
     }
   })();
@@ -1059,34 +1145,76 @@ const TriggerDialog = ({
             />
             {useTemplate && (
               <>
-                <div className="dialog-row">
-                  <UI.Input
-                    size="small"
-                    label={t('triggerTemplateName')}
-                    placeholder="order_ready"
-                    value={templateName}
-                    disabled={saving}
-                    onChange={e => setTemplateName(e.target.value)}
-                  />
-                  <UI.Input
-                    size="small"
-                    label={t('triggerTemplateLanguage')}
-                    placeholder="es_MX"
-                    value={templateLanguage}
-                    disabled={saving}
-                    onChange={e => setTemplateLanguage(e.target.value)}
-                  />
-                </div>
-                <UI.Input
+                <UI.Select
                   size="small"
-                  label={t('triggerTemplateParams')}
-                  multiline
-                  minRows={2}
-                  value={templateParams}
-                  disabled={saving}
-                  helperText={t('triggerTemplateParamsHelp')}
-                  onChange={e => setTemplateParams(e.target.value)}
+                  label={t('triggerTemplateName')}
+                  value={
+                    templateName
+                      ? templateKey(templateName, templateLanguage)
+                      : ''
+                  }
+                  disabled={saving || templateOptions.length === 0}
+                  helperText={
+                    templateOptions.length === 0
+                      ? t('triggerTemplateNone')
+                      : t('triggerTemplatePickHelp')
+                  }
+                  options={templateOptions}
+                  onChange={e => pickTemplate(String(e.target.value))}
                 />
+                {pickedTemplate && (
+                  <>
+                    <p className="dialog-muted">{pickedTemplate.body}</p>
+                    {Array.from(
+                      { length: pickedTemplate.variableCount },
+                      (_, i) => {
+                        const param = templateParams[i] ?? '';
+                        const source = paramSource(param);
+                        const label = pickedTemplate.labels[i];
+                        return (
+                          <div key={i} className="dialog-row">
+                            <UI.Select
+                              size="small"
+                              label={`{{${i + 1}}}${label ? ` · ${label}` : ''}`}
+                              value={source}
+                              disabled={saving}
+                              options={[
+                                ...columns.map(col => ({
+                                  label: t('triggerTemplateFromColumn', {
+                                    column: col.name
+                                  }),
+                                  value: col.name
+                                })),
+                                {
+                                  label: t('triggerTemplateFixed'),
+                                  value: FIXED
+                                }
+                              ]}
+                              onChange={e => {
+                                const next = String(e.target.value);
+                                setTemplateParam(
+                                  i,
+                                  next === FIXED ? '' : `{{${next}}}`
+                                );
+                              }}
+                            />
+                            {source === FIXED && (
+                              <UI.Input
+                                size="small"
+                                label={t('triggerTemplateFixedValue')}
+                                value={param}
+                                disabled={saving}
+                                onChange={e =>
+                                  setTemplateParam(i, e.target.value)
+                                }
+                              />
+                            )}
+                          </div>
+                        );
+                      }
+                    )}
+                  </>
+                )}
               </>
             )}
           </>

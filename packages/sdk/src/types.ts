@@ -356,6 +356,20 @@ export interface ChannelMessageReceipt {
   sent: 'text' | 'template';
 }
 
+/** An approved WhatsApp template, as `ctx.channels.templates()` lists it. */
+export interface ChannelTemplateInfo {
+  /** The WhatsApp channel whose business account has it. */
+  channelId: string;
+  name: string;
+  language: string;
+  /** `UTILITY` or `MARKETING`. */
+  category: string;
+  /** The body, with its `{{1}}`, `{{2}}`… */
+  text: string;
+  /** One per `{{n}}`, in order: what the owner called it, and Meta's example. */
+  variables: { n: number; label: string | null; example: string | null }[];
+}
+
 /**
  * The project's channels. Messages go out as the bot, as plain text, and are
  * recorded on the conversation, so the bot's next turn knows what the
@@ -366,7 +380,9 @@ export interface ChannelsContext {
   /**
    * A customer the bot has spoken with, in their private chat. On WhatsApp,
    * free text only reaches a customer within 24 hours of their last message;
-   * after that only an approved `template` does, and without one this throws
+   * after that only an approved `template` does (Ganju checks Meta approved
+   * it before sending; Meta bills it to your WhatsApp Business account), and
+   * without one this throws
    * ("outside WhatsApp's 24-hour window; use an approved template"). Give
    * both and Ganju picks per customer. Telegram, Slack and Discord have no
    * window and take the text. The channel's daily limit per customer applies.
@@ -386,6 +402,11 @@ export interface ChannelsContext {
     chatId: string | number;
     text: string;
   }): Promise<ChannelMessageReceipt>;
+  /**
+   * The WhatsApp templates Meta approved on the project's channels, to pick
+   * one for `send`. Give `params` one value per variable, in order.
+   */
+  templates(): Promise<ChannelTemplateInfo[]>;
 }
 
 /**

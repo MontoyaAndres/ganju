@@ -101,9 +101,12 @@ que escribió el dueño no tiene cliente, y su ejecución falla diciéndolo. Apl
 el límite diario por cliente del canal.
 
 En **WhatsApp**, el texto libre solo le llega a un cliente dentro de las 24
-horas siguientes a su último mensaje. Activa **Usar una plantilla de WhatsApp**
-y da una plantilla aprobada por Meta, su idioma y un parámetro por línea (texto
-fijo o `{{columna}}`):
+horas siguientes a su último mensaje. Activa **Usar una plantilla de WhatsApp**,
+elige una de las plantillas aprobadas por Meta en los canales de WhatsApp del
+proyecto y dale a cada variable una columna de la fila o un texto fijo; junto a
+cada una se ve la etiqueta que le pusiste. Las plantillas se crean en
+[Plantillas de mensaje](/es/docs/channels/whatsapp/#5-plantillas-de-mensaje)
+del canal. En `ganju.json`, `params` lleva un valor por variable, en orden:
 
 ```json
 "customer": {
@@ -113,8 +116,13 @@ fijo o `{{columna}}`):
 ```
 
 Dentro de la ventana el cliente recibe el texto; fuera de ella, la plantilla.
-Meta le cobra los mensajes de plantilla a tu propia cuenta de WhatsApp. Un
-mensaje de chat no puede ir a WhatsApp.
+Cuando puede leer las plantillas de la cuenta, Ganju revisa que esté aprobada
+antes de enviarla: una en revisión,
+rechazada, pausada o desactivada hace fallar la ejecución con el motivo de
+Meta, y lo mismo los rechazos del propio Meta (el cliente desactivó los
+mensajes de marketing, Meta limitó la calidad del número), explicados en la
+lista de ejecuciones. Meta le cobra los mensajes de plantilla a tu propia
+cuenta de WhatsApp. Un mensaje de chat no puede ir a WhatsApp.
 
 Los mensajes que envía un disparador quedan en la conversación, así que el
 siguiente turno del bot sabe qué se le dijo al cliente. No se cobran como

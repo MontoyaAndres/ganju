@@ -18,8 +18,22 @@ import {
   CHANNEL_MESSAGE_SOURCE_KEY,
   WHATSAPP_WINDOW_MS,
   sendToParticipant,
-  postToChat
+  postToChat,
+  listApprovedTemplates
 } from './channels';
+import {
+  WHATSAPP_MANAGEMENT_SCOPE,
+  WhatsappTemplateError,
+  detectBusinessAccount,
+  subscribeAppToAccount,
+  syncWhatsappTemplates,
+  applyWhatsappTemplateStatus,
+  createWhatsappTemplate,
+  editWhatsappTemplate,
+  deleteWhatsappTemplate,
+  channelsToResync,
+  lastTemplatesRead
+} from './whatsappTemplates';
 import {
   limitsFor,
   isEntitled,
@@ -49,6 +63,11 @@ export type {
   ChannelSendResult,
   ChannelTemplate
 } from './channels';
+export type {
+  WhatsappChannelCredentials,
+  WhatsappTemplateErrorReason,
+  WhatsappTemplateTransition
+} from './whatsappTemplates';
 export type {
   ResourceChunkSearch,
   ResourceChunkMatch,
@@ -89,7 +108,22 @@ export const channels = {
   CHANNEL_MESSAGE_SOURCE_KEY,
   WHATSAPP_WINDOW_MS,
   sendToParticipant,
-  postToChat
+  postToChat,
+  listApprovedTemplates
+};
+
+export const whatsappTemplates = {
+  WHATSAPP_MANAGEMENT_SCOPE,
+  WhatsappTemplateError,
+  detectBusinessAccount,
+  subscribeAppToAccount,
+  syncWhatsappTemplates,
+  applyWhatsappTemplateStatus,
+  createWhatsappTemplate,
+  editWhatsappTemplate,
+  deleteWhatsappTemplate,
+  channelsToResync,
+  lastTemplatesRead
 };
 
 export {

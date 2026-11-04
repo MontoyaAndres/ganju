@@ -365,12 +365,69 @@ import {
   fetchGoogleCalendarTimeZone,
   fetchCalcomTimeZone
 } from './vendorTimeZone';
+import {
+  WHATSAPP_TEMPLATE_CATEGORIES,
+  WHATSAPP_TEMPLATE_STATUS_APPROVED,
+  WHATSAPP_TEMPLATE_STATUSES_WAITING,
+  WHATSAPP_TEMPLATE_STATUSES_STOPPED,
+  WHATSAPP_TEMPLATE_NAME_MAX,
+  WHATSAPP_TEMPLATE_BODY_MAX,
+  WHATSAPP_TEMPLATE_HEADER_MAX,
+  WHATSAPP_TEMPLATE_FOOTER_MAX,
+  WHATSAPP_TEMPLATE_BUTTON_MAX,
+  WHATSAPP_TEMPLATE_BUTTONS_MAX,
+  WHATSAPP_TEMPLATE_VARIABLES_MAX,
+  WHATSAPP_TEMPLATE_LABEL_MAX,
+  WHATSAPP_TEMPLATE_EXAMPLE_MAX,
+  WHATSAPP_TEMPLATE_LANGUAGES,
+  whatsappTemplateVariables,
+  whatsappTemplateVariableCount,
+  checkWhatsappTemplate,
+  whatsappTemplateIssueText,
+  whatsappTemplateComponents,
+  whatsappTemplateContent,
+  fillWhatsappTemplate,
+  whatsappTemplateSendable,
+  cleanWhatsappTemplateParam,
+  whatsappSendError
+} from './whatsappTemplates';
+import type {
+  WhatsappTemplateCategory,
+  WhatsappTemplateDraft,
+  WhatsappTemplateContent,
+  WhatsappTemplateIssue,
+  WhatsappTemplateIssueCode
+} from './whatsappTemplates';
 import { PlanLimitError, isPlanLimitError } from './planLimitError';
 import type { PlanLimitDetails } from './planLimitError';
 import type { PlanLimits } from './constants';
 
 export const utils = {
   Schema,
+  WHATSAPP_TEMPLATE_CATEGORIES,
+  WHATSAPP_TEMPLATE_STATUS_APPROVED,
+  WHATSAPP_TEMPLATE_STATUSES_WAITING,
+  WHATSAPP_TEMPLATE_STATUSES_STOPPED,
+  WHATSAPP_TEMPLATE_NAME_MAX,
+  WHATSAPP_TEMPLATE_BODY_MAX,
+  WHATSAPP_TEMPLATE_HEADER_MAX,
+  WHATSAPP_TEMPLATE_FOOTER_MAX,
+  WHATSAPP_TEMPLATE_BUTTON_MAX,
+  WHATSAPP_TEMPLATE_BUTTONS_MAX,
+  WHATSAPP_TEMPLATE_VARIABLES_MAX,
+  WHATSAPP_TEMPLATE_LABEL_MAX,
+  WHATSAPP_TEMPLATE_EXAMPLE_MAX,
+  WHATSAPP_TEMPLATE_LANGUAGES,
+  whatsappTemplateVariables,
+  whatsappTemplateVariableCount,
+  checkWhatsappTemplate,
+  whatsappTemplateIssueText,
+  whatsappTemplateComponents,
+  whatsappTemplateContent,
+  fillWhatsappTemplate,
+  whatsappTemplateSendable,
+  cleanWhatsappTemplateParam,
+  whatsappSendError,
   getEnv,
   fetcher,
   constants,
@@ -677,5 +734,10 @@ export type {
   SyncableResource,
   ResourceSyncProvider,
   PlanLimitDetails,
-  PlanLimits
+  PlanLimits,
+  WhatsappTemplateCategory,
+  WhatsappTemplateDraft,
+  WhatsappTemplateContent,
+  WhatsappTemplateIssue,
+  WhatsappTemplateIssueCode
 };

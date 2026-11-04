@@ -85,6 +85,10 @@ app
   .post(
     utils.constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_POST,
     BrokerController.channelsPost
+  )
+  .post(
+    utils.constants.CUSTOM_CODE_BROKER_PATH_CHANNELS_TEMPLATES,
+    BrokerController.channelsTemplates
   );
 
 export default app;
