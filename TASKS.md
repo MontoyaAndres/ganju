@@ -2668,7 +2668,7 @@ Rows point at knowledge; files stay in knowledge.
   an image by a dev Telegram bot, and deleting that photo from Knowledge
   warns about the row and clears it.
 
-**Phase 7 status (2026-11-05): done on dev; production not deployed.** No
+**Phase 7 status (2026-11-05): done on dev and production.** No
 Postgres migration and no change to the database object's own tables. Tests
 pass (utils 245, data 12, cli 42); api, mcp, tool-broker, data, cli, sdk and web typecheck;
 i18n at 0 errors / 65 warnings.
@@ -2735,9 +2735,16 @@ i18n at 0 errors / 65 warnings.
   - On the first ask the bot (gpt-5.4-mini) said it had sent the photo
     without calling send-resource; it did on the second. MCP `data-query`
     now adds a `files` note to results with file values: a file reaches
-    the user only through send-resource (not deployed yet).
-- **Left:** deploy mcp to dev with that note; then deploy to production
-  (data first, for the new calls; then api, mcp, tool-broker, web).
+    the user only through send-resource.
+- **Deployed** to dev and production, the `files` note included.
+- **Checked on production (2026-11-05, "Girardot - demos" / test, throwaway
+  `qa_menu_files`, dropped after, both uploads deleted):** two uploads from
+  the row form (thumbnails in the form and grid, COMPLETED, not indexed,
+  under "Datos adjuntos"); a json `{ "uri": … }` kept as typed; a made-up
+  uri refused in Spanish; the delete dialog's "Lo usa 1 fila de QA menú
+  (Foto)"; the photo's link cleared and the required Ficha left as
+  "Archivo no encontrado", both in row history under `system:knowledge`.
+  Not tried on production: a channel bot sending the file (checked on dev).
 
 **8. Later — only when asked for**
 
