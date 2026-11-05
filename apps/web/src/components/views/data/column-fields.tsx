@@ -115,7 +115,9 @@ export const inputFromDraft = (draft: ColumnDraft): DataColumnInput => {
   if (draft.required) input.required = true;
   if (draft.unique && UNIQUE.includes(draft.type)) input.unique = true;
   if (draft.filterable && FILTERABLE.includes(draft.type)) input.filterable = true;
-  if (draft.searchable && SEARCHABLE.includes(draft.type)) input.searchable = true;
+  if (draft.searchable && (SEARCHABLE.includes(draft.type) || draft.type === 'file')) {
+    input.searchable = true;
+  }
   if (draft.type === 'enum') {
     input.values = draft.values
       .split(/[,\n]/)
@@ -334,6 +336,9 @@ export const ColumnFields = ({
         {!compact &&
           SEARCHABLE.includes(draft.type) &&
           flag('searchable', t('flagSearchable'), t('flagSearchableHelp'))}
+        {!compact &&
+          draft.type === 'file' &&
+          flag('searchable', t('flagSearchableFile'), t('flagSearchableFileHelp'))}
       </div>
     </div>
   );

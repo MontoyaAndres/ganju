@@ -300,6 +300,46 @@ export interface DataDeleteImpact {
   truncated: boolean;
 }
 
+// A file column links a knowledge item by its uri. Reads return it as
+// { uri }, which the workers fill with the item's title and type.
+export const DATA_FILE_URI_MAX = 2048;
+export const DATA_FILE_LINKS_MAX_URIS = 500;
+
+export interface DataFileValue {
+  uri: string;
+  // The item's id and size: only in the dashboard's reads, for previews.
+  id?: string;
+  size?: number;
+  title?: string;
+  mimeType?: string;
+  // No knowledge item has this uri any more.
+  missing?: true;
+}
+
+// The rows whose file columns point at some uris, per column.
+export interface DataFileLinks {
+  links: {
+    table: string;
+    tableLabel: string | null;
+    column: string;
+    columnLabel: string | null;
+    required: boolean;
+    rows: number;
+  }[];
+}
+
+export interface DataFileLinkChange {
+  from: string;
+  // null clears the link.
+  to: string | null;
+}
+
+export interface DataFileLinksReplaced {
+  updated: number;
+  // Required columns can't be emptied: their links stay, and show as missing.
+  kept: { table: string; column: string; rows: number }[];
+}
+
 // A table copy running in the background, as callers see it.
 export interface DataTableCopy {
   table: string;

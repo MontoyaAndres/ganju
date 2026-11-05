@@ -8,6 +8,7 @@ import {
   DATA_ACCESS_RANK,
   DATA_MAX_IN_VALUES,
   DATA_MAX_PARAMS,
+  DATA_FILE_URI_MAX,
   DATA_MAX_VALUE_BYTES,
   DataError
 } from './dataTypes';
@@ -260,6 +261,37 @@ const checkSize = (label: string, value: string) => {
   return value;
 };
 
+// A knowledge item's uri, given as the text or as { uri } (how reads return
+// it). Any scheme: knowledge holds resource://, website and drive uris.
+export const fileUriOf = (value: unknown, label: string): string => {
+  const raw =
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? (value as { uri?: unknown }).uri
+      : value;
+  const uri = typeof raw === 'string' ? raw.trim() : '';
+  if (!/^[a-z][a-z0-9+.-]*:\/\/\S+$/i.test(uri)) {
+    throw new DataError(
+      `${label} takes a knowledge item's uri, e.g. resource://menu-photo.`
+    );
+  }
+  if (uri.length > DATA_FILE_URI_MAX) {
+    throw new DataError(
+      `${label}: a uri is at most ${DATA_FILE_URI_MAX} characters.`,
+      'too_large'
+    );
+  }
+  return uri;
+};
+
+// A write that links uris no item of the project has: the workers check,
+// since the database object can't see knowledge.
+export const unknownFileUris = (uris: string[]) =>
+  new DataError(
+    `No resource in this project has the uri ${uris.join(', ')}; link an existing resource by its uri.`,
+    'invalid',
+    { uris }
+  );
+
 // Turns a value from a caller into what the column stores, or explains why
 // it can't. `timeZone` is the project's, for datetimes sent without an
 // offset.
@@ -337,6 +369,8 @@ export const toStored = (
         throw new DataError(`${label} must be a URL starting with http(s)://.`);
       }
       return checkSize(label, value.trim());
+    case 'file':
+      return fileUriOf(value, label);
     case 'phone': {
       if (typeof value !== 'string' && typeof value !== 'number') {
         throw new DataError(`${label} must be a phone number.`);

@@ -24,7 +24,13 @@ export const {
   dataCaller,
   recordDataUsage,
   recordChange,
-  dataLimitsFor
+  dataLimitsFor,
+  resolveFileValues,
+  flattenFileValues,
+  assertFileUrisExist,
+  fileLinksFor,
+  updateFileLinks,
+  clearedLinks
 } = db.data;
 export { databaseStub, callData };
 

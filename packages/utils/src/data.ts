@@ -26,6 +26,8 @@ export {
   encodeCursor,
   decodeCursor,
   isSensitiveWrite,
+  fileUriOf,
+  unknownFileUris,
   tidyArgs,
   zoned
 } from './dataCompiler';
@@ -47,6 +49,8 @@ export {
   rowHistory,
   pruneHistory,
   deleteImpact,
+  fileLinks,
+  replaceFileLinks,
   createTable,
   updateTable,
   dropTable,

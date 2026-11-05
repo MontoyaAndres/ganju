@@ -98,7 +98,8 @@ const rowFor = async (
         { table: job.table, where: { id: job.rowId }, limit: 1 }
       )
   )) as { rows: Record<string, unknown>[] };
-  return result.rows[0] ?? null;
+  // As in every other event: a file column is its uri.
+  return db.data.flattenFileValues(result).rows[0] ?? null;
 };
 
 const runAction = async (

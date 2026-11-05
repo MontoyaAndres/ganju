@@ -124,8 +124,22 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   '{0}: "min" is a number.': '{0}: "min" es un número.',
   "{0}: a {1} column can't be unique.":
     '{0}: una columna {1} no puede ser única.',
-  '{0}: only text columns can be searchable (text, long_text, email, url, phone, enum).':
-    '{0}: solo las columnas de texto pueden ser buscables (text, long_text, email, url, phone, enum).',
+  '{0}: only text and file columns can be searchable (text, long_text, email, url, phone, enum, file).':
+    '{0}: solo las columnas de texto y de archivo pueden ser buscables (text, long_text, email, url, phone, enum, file).',
+  "{0} takes a knowledge item's uri, e.g. resource://menu-photo.":
+    '{0} lleva el uri de un elemento del conocimiento, p. ej. resource://menu-photo.',
+  '{0}: a uri is at most {1} characters.':
+    '{0}: un uri tiene como máximo {1} caracteres.',
+  '"uris" lists 1 to {0} knowledge item uris.':
+    '"uris" lista de 1 a {0} uris de elementos del conocimiento.',
+  'No resource in this project has the uri {0}; link an existing resource by its uri.':
+    'Ningún recurso de este proyecto tiene el uri {0}; enlaza un recurso que exista por su uri.',
+  'File links are for the owner.':
+    'Los enlaces a archivos son para el dueño.',
+  '"changes" lists 1 to {0} { from, to } pairs.':
+    '"changes" lista de 1 a {0} pares { from, to }.',
+  'Each change is { from, to }; to is null to clear.':
+    'Cada cambio es { from, to }; to es null para quitar el enlace.',
   '{0}: a column named "rank" can\'t be searchable; rename it (e.g. "ranking").':
     '{0}: una columna llamada "rank" no puede ser buscable; cámbiale el nombre (p. ej. "ranking").',
   "{0}: a {1} column can't be filterable; mark it searchable instead.":

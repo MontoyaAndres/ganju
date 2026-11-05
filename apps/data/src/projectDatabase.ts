@@ -8,6 +8,8 @@ import {
   createTable,
   deleteImpact,
   describe,
+  fileLinks,
+  replaceFileLinks,
   dropQuery,
   listQueries,
   queriesFor,
@@ -52,6 +54,7 @@ import {
 import type {
   DatabaseInfo,
   DataCaller,
+  DataFileLinkChange,
   DataResult,
   DataSchema,
   DataUsage,
@@ -678,6 +681,18 @@ export class ProjectDatabase
   async deleteImpact(caller: DataCaller, args: { table: string; ids?: number[] }) {
     return this.call({}, runner =>
       deleteImpact(runner, this.schema(runner), this.caller(caller, runner), args)
+    );
+  }
+
+  async fileLinks(caller: DataCaller, args: { uris: string[] }) {
+    return this.call({}, runner =>
+      fileLinks(runner, this.schema(runner), this.caller(caller, runner), args)
+    );
+  }
+
+  async replaceFileLinks(caller: DataCaller, args: { changes: DataFileLinkChange[] }) {
+    return this.call({ writes: 'tables' }, runner =>
+      replaceFileLinks(runner, this.schema(runner), this.caller(caller, runner), args)
     );
   }
 

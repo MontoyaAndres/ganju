@@ -40,6 +40,8 @@ import {
   columnChangeNeedsRebuild,
   dropColumnNeedsRebuild,
   deleteImpact,
+  fileLinks,
+  replaceFileLinks,
   copyTableStep,
   readTableCopy,
   writeReachesCopy,
@@ -48,6 +50,7 @@ import {
   setMeta
 } from '../src/dataEngine.ts';
 import type { SqlRow, SqlRunner } from '../src/dataEngine.ts';
+import { saveTrigger } from '../src/dataTriggers.ts';
 import { DataError } from '../src/dataTypes.ts';
 import type { DataCaller, DataColumn } from '../src/dataTypes.ts';
 
@@ -1440,4 +1443,101 @@ test('delete preview: every row of a table with a restrict to itself is blocked,
   runner.all('UPDATE staff SET boss = NULL');
   assert.equal(deleteImpact(runner, s(), OWNER, { table: 'staff' }).blocked, false);
   write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'staff', where: { id: { gt: 0 } } }] });
+});
+
+test('file columns: a uri in, { uri } out, links counted, moved and cleared', () => {
+  const { runner } = open();
+  const s = () => loadSchema(runner);
+  createTable(runner, s(), OWNER, {
+    name: 'dishes',
+    history: true,
+    columns: [
+      { name: 'name', type: 'text' },
+      { name: 'photo', type: 'file', searchable: true },
+      { name: 'menu_pdf', type: 'file', required: true },
+      { name: 'meta', type: 'json' }
+    ]
+  });
+  saveTrigger(runner, s(), OWNER, { table: 'dishes', on: 'update', function: 'tell-customer' });
+  // searchable on a file column means its uploads are indexed in knowledge,
+  // not a row search: no search table.
+  assert.equal(
+    runner.all("SELECT name FROM sqlite_master WHERE name LIKE '%fts%'").length,
+    0
+  );
+  throwsData(
+    () => write(runner, s(), OWNER, { operations: [{ op: 'insert', table: 'dishes', values: { name: 'x', photo: 'margherita.jpg', menu_pdf: 'resource://menu' } }] }),
+    /dishes\.photo takes a knowledge item's uri/
+  );
+  write(runner, s(), OWNER, {
+    operations: [
+      {
+        op: 'insert',
+        table: 'dishes',
+        rows: [
+          { name: 'Margherita', photo: ' resource://data/dishes/margherita-1a2b3c ', menu_pdf: 'resource://menu', meta: { uri: 'resource://menu' } },
+          // as reads return it
+          { name: 'Hawaiana', photo: { uri: 'resource://data/dishes/margherita-1a2b3c', title: 'ignored' }, menu_pdf: 'resource://menu' },
+          { name: 'Limonada', photo: 'https://example.com/limonada', menu_pdf: 'gdrive://files/abc' }
+        ]
+      }
+    ]
+  });
+  const rows = query(runner, s(), OWNER, { table: 'dishes', sort: 'id' }) as { rows: Record<string, unknown>[]; fileFields: string[][] };
+  assert.deepEqual(rows.rows[0].photo, { uri: 'resource://data/dishes/margherita-1a2b3c' });
+  // The result says where its file values are; a json { uri } isn't one.
+  assert.deepEqual(rows.fileFields, [['photo'], ['menu_pdf']]);
+  assert.deepEqual(rows.rows[0].meta, { uri: 'resource://menu' });
+  assert.deepEqual(rows.rows[1].photo, { uri: 'resource://data/dishes/margherita-1a2b3c' });
+  // Filters take the uri.
+  const filtered = query(runner, s(), OWNER, { table: 'dishes', where: { photo: 'https://example.com/limonada' } }) as { rows: { name: string }[] };
+  assert.deepEqual(filtered.rows.map(r => r.name), ['Limonada']);
+
+  assert.deepEqual(
+    fileLinks(runner, s(), OWNER, { uris: ['resource://data/dishes/margherita-1a2b3c', 'resource://menu', 'resource://nothing'] }),
+    {
+      links: [
+        { table: 'dishes', tableLabel: null, column: 'photo', columnLabel: null, required: false, rows: 2 },
+        { table: 'dishes', tableLabel: null, column: 'menu_pdf', columnLabel: null, required: true, rows: 2 }
+      ]
+    }
+  );
+  throwsData(() => fileLinks(runner, s(), BOT('p1'), { uris: ['resource://menu'] }), /for the owner/, 'forbidden');
+  throwsData(() => fileLinks(runner, s(), OWNER, { uris: [] }), /"uris" lists 1 to/);
+
+  const outbox = () => Number(runner.all('SELECT count(*) AS n FROM _ganju_outbox')[0].n);
+  const queued = outbox();
+  // A renamed item: its links follow.
+  assert.deepEqual(
+    replaceFileLinks(runner, s(), OWNER, { changes: [{ from: 'resource://data/dishes/margherita-1a2b3c', to: 'resource://margherita' }] }),
+    { updated: 2, kept: [] }
+  );
+  // A deleted item: cleared, except where the column is required.
+  assert.deepEqual(
+    replaceFileLinks(runner, s(), { actor: 'system:knowledge' }, { changes: [{ from: 'resource://margherita', to: null }, { from: 'resource://menu', to: null }] }),
+    { updated: 2, kept: [{ table: 'dishes', column: 'menu_pdf', rows: 2 }] }
+  );
+  const after = query(runner, s(), OWNER, { table: 'dishes', sort: 'id' }) as { rows: Record<string, unknown>[] };
+  assert.deepEqual(after.rows.map(r => r.photo), [null, null, { uri: 'https://example.com/limonada' }]);
+  assert.deepEqual(after.rows[0].menu_pdf, { uri: 'resource://menu' });
+  // Tidying links fires no update trigger; an owner's edit does.
+  assert.equal(outbox(), queued);
+  write(runner, s(), OWNER, { operations: [{ op: 'update', table: 'dishes', id: 1, set: { name: 'Margarita' } }] });
+  assert.equal(outbox(), queued + 1);
+  assert.equal(after.rows[0].version, 3);
+  // Recorded in the row's history under the caller that cleared it.
+  const history = rowHistory(runner, s(), OWNER, { table: 'dishes', id: 1 }) as { entries: { actor: string }[] };
+  assert.ok(history.entries.some(entry => entry.actor === 'system:knowledge'));
+
+  // A text column becomes a file column only when every value is a uri.
+  addColumn(runner, s(), OWNER, 'dishes', { name: 'picture', type: 'text' });
+  write(runner, s(), OWNER, { operations: [{ op: 'update', table: 'dishes', id: 2, set: { picture: 'hawaiana.jpg' } }] });
+  throwsData(
+    () => updateColumn(runner, s(), OWNER, 'dishes', 'picture', { type: 'file' }),
+    /dishes\.picture can't become file: these rows don't fit: id 2 = "hawaiana\.jpg"/
+  );
+  write(runner, s(), OWNER, { operations: [{ op: 'update', table: 'dishes', id: 2, set: { picture: 'resource://hawaiana' } }] });
+  updateColumn(runner, s(), OWNER, 'dishes', 'picture', { type: 'file' });
+  const converted = query(runner, s(), OWNER, { table: 'dishes', where: { id: 2 } }) as { rows: Record<string, unknown>[] };
+  assert.deepEqual(converted.rows[0].picture, { uri: 'resource://hawaiana' });
 });

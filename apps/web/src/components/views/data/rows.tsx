@@ -31,9 +31,12 @@ import {
   browserTimeZone,
   columnTitle,
   dataRequest,
+  inRowSearch,
+  isFileValue,
   isFilterable,
   isRelationValue
 } from './api';
+import { FilePreview, GRID_PREVIEW_MAX_BYTES } from './file-field';
 import { i18n } from '../../../lib';
 
 import type { DataColumn, DataRow, DataTable, RowPage } from './types';
@@ -138,7 +141,7 @@ export const RowsTab = ({
   const t = i18n.useT(i18n.copy.DATA);
   const c = i18n.useT(i18n.copy.COMMON);
   const tablePath = `/table/${encodeURIComponent(table.name)}`;
-  const searchable = table.columns.some(column => column.searchable);
+  const searchable = table.columns.some(inRowSearch);
 
   const [rows, setRows] = useState<DataRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -369,6 +372,36 @@ export const RowsTab = ({
           def.valueFormatter = (value: unknown) =>
             value === null || value === undefined ? '' : JSON.stringify(value);
           break;
+        case 'file':
+          // Filters and sorting go by the uri; the cell shows the resource.
+          def.valueGetter = (value: unknown) =>
+            isFileValue(value) ? value.uri : null;
+          def.renderCell = params => {
+            const value = params.row[column.name];
+            if (!isFileValue(value)) return '';
+            if (value.missing) {
+              return (
+                <span className="data-cell-file missing" title={value.uri}>
+                  {t('fileMissing')}
+                </span>
+              );
+            }
+            return (
+              <span className="data-cell-file" title={value.uri}>
+                <FilePreview
+                  base={base}
+                  value={value}
+                  className="data-cell-thumb"
+                  maxBytes={GRID_PREVIEW_MAX_BYTES}
+                />
+                <span className="data-cell-file-title">{value.title ?? value.uri}</span>
+              </span>
+            );
+          };
+          def.filterOperators = getGridStringOperators().filter(op =>
+            STRING_OPERATORS.includes(op.value)
+          );
+          break;
         default:
           def.filterOperators = getGridStringOperators().filter(op =>
             STRING_OPERATORS.includes(op.value)
@@ -390,7 +423,7 @@ export const RowsTab = ({
           : ''
     });
     return defs;
-  }, [table, t]);
+  }, [table, t, base]);
 
   const localeText = {
     ...(t.lang === 'es'

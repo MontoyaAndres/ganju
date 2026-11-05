@@ -225,7 +225,7 @@ export const DATA_API_ROUTES = {
     tag: 'Rows',
     summary: 'List, filter and search rows',
     description:
-      'Up to 500 rows or 1 MB a page; `nextCursor` reads the next. `where` is JSON, e.g. `{"status":"open","price":{"lt":30000}}`. `sort` is a list of columns, `-` for descending. `q` searches the searchable columns.',
+      'Up to 500 rows or 1 MB a page; `nextCursor` reads the next. `where` is JSON, e.g. `{"status":"open","price":{"lt":30000}}`. `sort` is a list of columns, `-` for descending. `q` searches the searchable columns. A relation comes back as `{ id, label }`; a file column as `{ uri, id, title, mimeType }`, or `{ uri, missing: true }` when no resource has the uri any more. Writes take a file column\'s uri.',
     query: DATA_ROW_LIST_QUERY,
     returns: '{ table, rows, total?, nextCursor? }'
   },

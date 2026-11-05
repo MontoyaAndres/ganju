@@ -220,8 +220,22 @@ export interface DataQueryArgs {
   groupBy?: string[];
 }
 
-/** One row. Relation columns come back as `{ id, label }`. */
+/**
+ * One row. Relation columns come back as `{ id, label }`, file columns as a
+ * {@link DataFile}. Writes take a file column's uri (or the same object).
+ */
 export type DataRow = Record<string, unknown> & { id: number };
+
+/**
+ * A file column's value: a knowledge item, by uri. Read it with
+ * `ctx.resources.read(uri)`. `missing` means no item has the uri any more.
+ */
+export interface DataFile {
+  uri: string;
+  title?: string;
+  mimeType?: string;
+  missing?: true;
+}
 
 export interface DataQueryResult {
   table: string;

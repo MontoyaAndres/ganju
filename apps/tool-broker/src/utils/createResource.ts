@@ -505,6 +505,14 @@ export const deleteResource = async (
     }
   }
 
+  // Data rows that linked them lose the link.
+  await db.data.updateFileLinks(
+    dbInstance,
+    c.env.PROJECT_DATABASE,
+    input.artifactId,
+    db.data.clearedLinks(rows.map(row => row.uri))
+  );
+
   return {
     ok: true,
     resource: { uri: input.uri, deleted: true, count: ids.length }

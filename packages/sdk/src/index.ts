@@ -118,6 +118,7 @@ export type {
   DataQueryResult,
   DataQueryRun,
   DataRow,
+  DataFile,
   DataWhere,
   DataWriteResult,
   CreateResourceOptions,

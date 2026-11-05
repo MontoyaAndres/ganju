@@ -7,6 +7,7 @@ import { getResourceHandler } from '@ganju/containers';
 import { reindexResourceChunks } from '../utils';
 import { markResourceFailed, reportQueueError } from './shared';
 
+import type { FileLinkCleanup } from '@ganju/db';
 import type { Bindings } from '../types';
 
 export interface PageJob {
@@ -27,7 +28,11 @@ interface CrawlPageResponse {
   documents: ExtractedDocument[];
 }
 
-const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
+const processPage = async (
+  env: Bindings,
+  job: PageJob,
+  cleanup: FileLinkCleanup
+): Promise<void> => {
   const source = { env };
   const dbInstance = db.create(source);
 
@@ -55,7 +60,7 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
   // failure throws below and leaves the indexed copy as it was.
   if (response.status === 410) {
     await response.body?.cancel();
-    await removeGonePage(env, resource);
+    await removeGonePage(env, resource, cleanup);
     await maybeCompleteParent(env, resource.parentResourceId);
     return;
   }
@@ -149,19 +154,25 @@ const processPage = async (env: Bindings, job: PageJob): Promise<void> => {
 // parent and the artifact keep. Chunks go with it (they cascade).
 const removeGonePage = async (
   env: Bindings,
-  resource: { id: string; artifactId: string; parentResourceId: string | null }
+  resource: { id: string; artifactId: string; parentResourceId: string | null },
+  cleanup: FileLinkCleanup
 ): Promise<void> => {
   // Only a page under a site. The seed is the crawl's starting point and is
   // never fetched by this job.
   if (!resource.parentResourceId) return;
   const parentResourceId = resource.parentResourceId;
   const dbInstance = db.create({ env });
+  let removedUri: string | null = null;
   await dbInstance.transaction(async tx => {
     const deleted = await tx
       .delete(db.schema.artifactResource)
       .where(eq(db.schema.artifactResource.id, resource.id))
-      .returning({ id: db.schema.artifactResource.id });
+      .returning({
+        id: db.schema.artifactResource.id,
+        uri: db.schema.artifactResource.uri
+      });
     if (deleted.length === 0) return;
+    removedUri = deleted[0].uri;
 
     await tx
       .update(db.schema.artifact)
@@ -177,6 +188,9 @@ const removeGonePage = async (
       })
       .where(eq(db.schema.artifactResource.id, parentResourceId));
   });
+
+  // Data rows that linked it lose the link once the sync is done.
+  if (removedUri) cleanup.add(resource.artifactId, removedUri);
 };
 
 const maybeCompleteParent = async (
@@ -211,8 +225,9 @@ export const handleCrawlPageBatch = async (
   env: Bindings,
   _ctx: ExecutionContext
 ): Promise<void> => {
+  const cleanup = db.data.createFileLinkCleanup();
   await utils.processQueueBatch(batch, {
-    process: async job => processPage(env, job),
+    process: async job => processPage(env, job, cleanup),
     onError: async (error, job, queueName, { final }) => {
       await reportQueueError(env, '/crawl/page', error, {
         resourceId: job.resourceId,
@@ -232,4 +247,7 @@ export const handleCrawlPageBatch = async (
       );
     }
   });
+
+  // The links to removed items, in one call per project.
+  await cleanup.flush(db.create({ env }), env.PROJECT_DATABASE);
 };

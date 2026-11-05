@@ -4,6 +4,9 @@
 import type {
   DataCaller,
   DataDeleteImpact,
+  DataFileLinkChange,
+  DataFileLinks,
+  DataFileLinksReplaced,
   DataResult,
   DataSchema,
   DataTable,
@@ -115,6 +118,12 @@ export interface ProjectDatabaseRpc {
     caller: DataCaller,
     args: { table: string; ids?: number[] }
   ): R<DataDeleteImpact>;
+  // The rows that link knowledge items, and moving or clearing those links.
+  fileLinks(caller: DataCaller, args: { uris: string[] }): R<DataFileLinks>;
+  replaceFileLinks(
+    caller: DataCaller,
+    args: { changes: DataFileLinkChange[] }
+  ): R<DataFileLinksReplaced>;
   history(
     caller: DataCaller,
     args: { table: string; id: number; limit?: number; cursor?: number }

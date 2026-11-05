@@ -44,6 +44,7 @@ export type {
   DataUsageTally,
   ArtifactDatabaseRow,
   OpenedDatabase,
+  FileLinkCleanup,
   IndexAdviceRow,
   ChannelMessageSource,
   ChannelSendResult,

@@ -3,6 +3,7 @@
 // ours, and every owner-supplied value is a literal escaped by sqlLiteral.
 import { changeCaptureTriggers } from './dataTriggers';
 import { quoteIdentifier as q } from './dataIdentifiers';
+import { DATA_FILE_URI_MAX } from './dataTypes';
 import type {
   DataColumn,
   DataColumnType,
@@ -410,6 +411,12 @@ export const invalidAfterConversionSql = (
   if (to.type === 'url') {
     parts.push(
       `NOT ((${converted}) LIKE 'http://%' OR (${converted}) LIKE 'https://%')`
+    );
+  }
+  // A file column holds a knowledge item's uri: scheme://…, no spaces.
+  if (to.type === 'file') {
+    parts.push(
+      `NOT ((${converted}) GLOB '[A-Za-z]*://?*' AND (${converted}) NOT GLOB '*[ ' || char(9) || char(10) || char(13) || ']*' AND length(${converted}) <= ${DATA_FILE_URI_MAX})`
     );
   }
   if (to.type === 'relation' && to.table) {

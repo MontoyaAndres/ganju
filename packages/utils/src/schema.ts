@@ -418,6 +418,14 @@ const ARTIFACT_SYNC_ONE_DRIVE = z.object({
   organizationId: z.uuid()
 });
 
+// A knowledge item uploaded from a Data row: which file column it was for,
+// and whether it is indexed for search too (the column's searchable switch).
+const DATA_ATTACHMENT_METADATA = z.object({
+  table: z.string().min(1).max(64),
+  column: z.string().min(1).max(64),
+  index: z.boolean()
+});
+
 const ARTIFACT_CREATE_RESOURCE = z.object({
   title: z.string().min(3).max(200),
   uri: z.string(),
@@ -527,6 +535,15 @@ const ARTIFACT_GET_RESOURCE_BY_ID = z.object({
   projectId: z.uuid(),
   userId: z.uuid(),
   organizationId: z.uuid()
+});
+
+// The knowledge items a Data file column can link, newest first.
+const ARTIFACT_PICK_RESOURCE = z.object({
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid(),
+  q: z.string().trim().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20)
 });
 
 const ARTIFACT_REMOVE_RESOURCE = z.object({
@@ -2152,6 +2169,8 @@ export const Schema = {
   ARTIFACT_GET_PROMPT,
   ARTIFACT_REMOVE_PROMPT,
   ARTIFACT_CREATE_RESOURCE,
+  DATA_ATTACHMENT_METADATA,
+  ARTIFACT_PICK_RESOURCE,
   ARTIFACT_CREATE_RESOURCE_VIEW,
   ARTIFACT_CREATE_WEBSITE,
   ARTIFACT_CREATE_WEBSITE_VIEW,

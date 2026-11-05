@@ -17,6 +17,7 @@ import {
 import { reportAndFailOnFinal } from './shared';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
+import type { FileLinkCleanup } from '@ganju/db';
 import type { Bindings } from '../types';
 import type { OneDriveFile } from '../utils/oneDrive';
 
@@ -29,9 +30,11 @@ const removeChildResource = async (
   resourceId: string,
   artifactId: string,
   parentId: string,
-  fileKey: string | null
+  fileKey: string | null,
+  cleanup: FileLinkCleanup
 ): Promise<void> => {
   const dbInstance = db.create({ env });
+  let removedUri: string | null = null;
   await dbInstance.transaction(async tx => {
     const deleted = await tx
       .delete(db.schema.artifactResource)
@@ -41,9 +44,13 @@ const removeChildResource = async (
           eq(db.schema.artifactResource.artifactId, artifactId)
         )
       )
-      .returning({ id: db.schema.artifactResource.id });
+      .returning({
+        id: db.schema.artifactResource.id,
+        uri: db.schema.artifactResource.uri
+      });
 
     if (deleted.length === 0) return;
+    removedUri = deleted[0].uri;
 
     await tx
       .update(db.schema.artifact)
@@ -59,6 +66,9 @@ const removeChildResource = async (
       })
       .where(eq(db.schema.artifactResource.id, parentId));
   });
+
+  // Data rows that linked it lose the link once the sync is done.
+  if (removedUri) cleanup.add(artifactId, removedUri);
 
   if (fileKey && env.STORAGE_BUCKET) {
     try {
@@ -297,15 +307,19 @@ const discoverOne = async (
     return childRef?.itemId && !seenItemIds.has(childRef.itemId);
   });
 
+  const cleanup = db.data.createFileLinkCleanup();
   for (const row of toRemove) {
     await removeChildResource(
       env,
       row.id,
       resource.artifactId,
       resource.id,
-      row.fileKey
+      row.fileKey,
+      cleanup
     );
   }
+  // The links to removed items, in one call.
+  await cleanup.flush(dbInstance, env.PROJECT_DATABASE);
 
   const [{ count: liveChildCount }] = await dbInstance
     .select({ count: sql<number>`count(*)::int` })

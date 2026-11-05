@@ -2371,6 +2371,9 @@ done.**
     - `qa_pedido_listo_1105` (Utility, es) was created from the form on
       2026-11-05 and is still PENDING in Meta's review (checked 2026-11-05,
       no `rejected_reason`; the channel's last read was ok at 14:04 UTC).
+      Still PENDING at 20:28 UTC: the hourly re-read at 20:00 UTC reached
+      Meta (`whatsappTemplatesRead.ok: true`), so it's Meta's review, not a
+      stale cache.
       Check `channel_whatsapp_template.status` again; once APPROVED, note
       whether the webhook or a re-read got it there and close 5c. The dev
       token lasts about an hour, so a re-read may need a fresh one pasted.
@@ -2664,6 +2667,77 @@ Rows point at knowledge; files stay in knowledge.
 - Done when: a menu row with a photo uploaded from the Data page is sent as
   an image by a dev Telegram bot, and deleting that photo from Knowledge
   warns about the row and clears it.
+
+**Phase 7 status (2026-11-05): done on dev; production not deployed.** No
+Postgres migration and no change to the database object's own tables. Tests
+pass (utils 245, data 12, cli 42); api, mcp, tool-broker, data, cli, sdk and web typecheck;
+i18n at 0 errors / 65 warnings.
+
+- **Stored as the uri, read as `{ uri }`.** Writes check the format (any
+  `scheme://…`, at most 2,048 characters) and take the uri or `{ uri }`.
+  The API, MCP and the functions' broker fill in `title` and `mimeType` in
+  one Postgres lookup per result (the API adds the item's `id`, for
+  previews); no extra call to the database object, so nothing extra is
+  metered. A uri no item has reads as `{ uri, missing: true }`. Filters take
+  the plain uri. Named queries return raw SQL rows, so their file values
+  stay plain uris, and trigger events carry the plain uri too.
+  - The object's query result names where its file values are
+    (`fileFields`, key paths per row, included relations too); the workers
+    fill only those and drop the list, so a json column holding
+    `{ "uri": … }` is left alone.
+  - Every writer refuses a uri no item has (API and so the CLI, MCP
+    `data-write`, `ctx.data`). The schema is read only when a write carries
+    something uri-like, so other writes cost nothing extra.
+  - Changing a column to `file` is refused, with the rows, when a value
+    isn't a uri.
+- **Two new database calls:** `fileLinks` (rows per file column that point
+  at some uris) and `replaceFileLinks` (moves or clears links, recorded in
+  row history under `system:knowledge`; it fires no trigger, so tidying
+  Resources never messages a customer). A required
+  file column is never cleared: it is `NOT NULL`, so those rows read as
+  missing and the delete dialog says so. The clean-up runs even when the
+  plan made the database read-only.
+- **Keeping links valid:** after each delete path (dashboard, a crawled
+  page that's gone, Drive/OneDrive children and missing files,
+  `ctx.resources.delete`) the links to uris nothing answers to any more are
+  cleared, best-effort. A uri change in the dashboard moves the links. The
+  delete dialog reads `GET …/resource/:id/data-links`. A Drive or OneDrive
+  subfolder removed by a sync clears only its own uri; the files under it
+  read as missing. Syncs gather their removals and clear them once: a
+  discover job at its end, page and file jobs per queue batch. Each such
+  call still wakes the object (billed, as Ganju's own calls are) when the
+  project has a database, even with no file column: skipping it would need
+  the schema's file columns kept in Postgres.
+- **Dashboard:** the row form's file field uploads into Resources (tagged
+  `metadata.dataAttachment`, uri `resource://data/<table>/<name>-<6 hex>`,
+  not indexed and COMPLETED at once unless the column is searchable), picks
+  from `GET …/resource/pick?q=`, or removes. A missing link is cleared when
+  the row is saved. The grid shows a thumbnail for images up to 2 MB (the
+  API's file values carry `size`) and the title for the rest; a preview is
+  fetched only once on screen and released when no cell or form shows it.
+  An upload whose row is never saved stays in Data attachments, unlinked. "Data attachments" is a group in the Resources view, like My
+  folder, not a folder row. On a file column, `searchable` means "indexed in
+  Resources" (uploads from then on); row search ignores it.
+- **Checked on dev (2026-11-05, nemo, throwaway `qa_menu_files`, dropped
+  after):**
+  - "Done when": a photo uploaded from the row form was sent as an image
+    (with caption) by the dev Telegram bot; deleting it from Resources
+    warned "Lo usa 1 fila de QA menú (Foto)" and cleared the link.
+  - The pick list searches files and crawled pages; a json `{ "uri": … }`
+    comes back as typed (API, grid, MCP); the API and MCP `data-write`
+    refuse a made-up uri, in English and Spanish; a required column keeps
+    its link, reads "Archivo no encontrado" in the grid and the form, and
+    the clean-up shows in row history as `system:knowledge`; the
+    "Buscable en recursos" switch saves and row search ignores it.
+  - Fixed after the first pass: the file title showed as a grey button;
+    "Abrir en Recursos" opened My folder instead of the group; the group is
+    "Datos adjuntos" in Spanish.
+  - On the first ask the bot (gpt-5.4-mini) said it had sent the photo
+    without calling send-resource; it did on the second. MCP `data-query`
+    now adds a `files` note to results with file values: a file reaches
+    the user only through send-resource (not deployed yet).
+- **Left:** deploy mcp to dev with that note; then deploy to production
+  (data first, for the new calls; then api, mcp, tool-broker, web).
 
 **8. Later — only when asked for**
 

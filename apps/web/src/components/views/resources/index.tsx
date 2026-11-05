@@ -74,7 +74,17 @@ interface Resource {
 }
 
 type ViewMode = 'sources' | 'all';
-type FolderId = 'files' | 'websites' | 'gdrive' | 'onedrive' | null;
+type FolderId = 'files' | 'data' | 'websites' | 'gdrive' | 'onedrive' | null;
+
+// Rows on the Data page that link an item, as the delete dialog lists them.
+interface DataLink {
+  table: string;
+  tableLabel: string | null;
+  column: string;
+  columnLabel: string | null;
+  required: boolean;
+  rows: number;
+}
 type AddingType = 'file' | 'website' | null;
 
 const isFolderResource = (resource: {
@@ -307,6 +317,7 @@ export const Resources = ({ plan }: ResourcesProps) => {
   >('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteAlert, setDeleteAlert] = useState(false);
+  const [deleteLinks, setDeleteLinks] = useState<DataLink[]>([]);
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(
     null
   );
@@ -383,7 +394,17 @@ export const Resources = ({ plan }: ResourcesProps) => {
             r.sourceType ===
               utils.constants.RESOURCE_SOURCE_TYPE_CUSTOM_CODE) &&
           !isGoogleDriveResource(r) &&
-          !isOneDriveResource(r)
+          !isOneDriveResource(r) &&
+          !utils.dataAttachmentOf(r.metadata)
+      ),
+    [resources]
+  );
+
+  // Files uploaded from a row on the Data page.
+  const dataAttachments = useMemo(
+    () =>
+      resources.filter(
+        r => !r.parentResourceId && utils.dataAttachmentOf(r.metadata)
       ),
     [resources]
   );
@@ -484,6 +505,8 @@ export const Resources = ({ plan }: ResourcesProps) => {
       list = resources.filter(r => !r.parentResourceId);
     } else if (folder === 'files') {
       list = fileResources;
+    } else if (folder === 'data') {
+      list = dataAttachments;
     } else if (folder === 'websites') {
       list = websiteParents;
     } else if (folder === 'gdrive') {
@@ -506,6 +529,7 @@ export const Resources = ({ plan }: ResourcesProps) => {
     currentFolderId,
     childrenByParent,
     fileResources,
+    dataAttachments,
     websiteParents,
     gdriveTopResources,
     onedriveTopResources,
@@ -679,7 +703,8 @@ export const Resources = ({ plan }: ResourcesProps) => {
       } else if (
         match.sourceType === utils.constants.RESOURCE_SOURCE_TYPE_FILE
       ) {
-        setFolder('files');
+        // An upload from Data lives in its own group, not My folder.
+        setFolder(utils.dataAttachmentOf(match.metadata) ? 'data' : 'files');
       }
     }
     if (isFolderResource(match)) {
@@ -1335,6 +1360,26 @@ export const Resources = ({ plan }: ResourcesProps) => {
     return result;
   };
 
+  // The Data rows that link the item, read while the dialog is open. A
+  // failed read just leaves the dialog without them.
+  useEffect(() => {
+    setDeleteLinks([]);
+    if (!deleteAlert || !resourceToDelete) return;
+    let cancelled = false;
+    utils
+      .fetcher({
+        url: `${apiBase}/${resourceToDelete.id}/data-links`,
+        config: { credentials: 'include' }
+      })
+      .then(data => {
+        if (!cancelled && Array.isArray(data?.links)) setDeleteLinks(data.links);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [deleteAlert, resourceToDelete?.id, apiBase]);
+
   const handleDeleteClick = () => {
     if (!selectedResource) return;
     setResourceToDelete(selectedResource);
@@ -1980,6 +2025,30 @@ export const Resources = ({ plan }: ResourcesProps) => {
           {t('addFiles')}
         </button>
       </div>
+      {dataAttachments.length > 0 && (
+        <div
+          className="resource-folder"
+          role="button"
+          tabIndex={0}
+          onClick={() => setFolder('data')}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setFolder('data');
+            }
+          }}
+        >
+          <div className="resource-folder-icon files">
+            <TableChartOutlined />
+          </div>
+          <div className="resource-folder-body">
+            <p className="resource-folder-title">{t('folderDataAttachments')}</p>
+            <p className="resource-folder-meta">
+              {t.plural('countItems', dataAttachments.length)}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -2065,7 +2134,9 @@ export const Resources = ({ plan }: ResourcesProps) => {
   const folderTitle =
     folder === 'files'
       ? t('folderMine')
-      : folder === 'websites'
+      : folder === 'data'
+        ? t('folderDataAttachments')
+        : folder === 'websites'
         ? t('folderWebsites')
         : folder === 'gdrive'
           ? t('folderGoogleDrive')
@@ -2391,7 +2462,9 @@ export const Resources = ({ plan }: ResourcesProps) => {
                           ? t('emptyGdrive')
                           : folder === 'onedrive'
                             ? t('emptyOnedrive')
-                            : t('emptyFiles')}
+                            : folder === 'data'
+                              ? t('emptyDataAttachments')
+                              : t('emptyFiles')}
                   </h3>
                   <p>
                     {folder === 'websites'
@@ -2400,9 +2473,12 @@ export const Resources = ({ plan }: ResourcesProps) => {
                         ? t('emptyGdriveText')
                         : folder === 'onedrive'
                           ? t('emptyOnedriveText')
-                          : t('emptyFilesText')}
+                          : folder === 'data'
+                            ? t('emptyDataAttachmentsText')
+                            : t('emptyFilesText')}
                   </p>
                   {view === 'sources' &&
+                    folder !== 'data' &&
                     (folder === 'gdrive' ? (
                       <UI.Button
                         variant="contained"
@@ -3226,10 +3302,21 @@ export const Resources = ({ plan }: ResourcesProps) => {
             ? isFolderResource(resourceToDelete)
             : false;
           const childCount = resourceToDelete?.childResourceCount ?? 0;
-          if (isFolder && childCount > 0) {
-            return t.plural('confirmDeleteFolder', childCount, { title });
-          }
-          return t('confirmDeleteText', { title });
+          const text =
+            isFolder && childCount > 0
+              ? t.plural('confirmDeleteFolder', childCount, { title })
+              : t('confirmDeleteText', { title });
+          const links = deleteLinks.map(link =>
+            t.plural(
+              link.required ? 'dataLinksKept' : 'dataLinksCleared',
+              link.rows,
+              {
+                table: link.tableLabel || link.table,
+                column: link.columnLabel || link.column
+              }
+            )
+          );
+          return [text, ...links].join(' ');
         })()}
         confirmText={t('confirmDelete')}
         cancelText={c('cancel')}

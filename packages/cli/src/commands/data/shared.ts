@@ -206,6 +206,10 @@ export const formatCell = (value: unknown, max = 60): string => {
     const { id, ...rest } = value as Record<string, unknown>;
     const label = Object.values(rest).find(v => typeof v === 'string');
     text = label ? `${label} (#${id})` : `#${id}`;
+  } else if (typeof value === 'object' && !Array.isArray(value) && 'uri' in value) {
+    // A file column: the item's title, or that it's gone.
+    const file = value as { uri: string; title?: string; missing?: boolean };
+    text = file.missing ? `${file.uri} (missing)` : (file.title ?? file.uri);
   } else if (typeof value === 'object') text = JSON.stringify(value);
   else text = String(value);
   text = text.replace(/\s+/g, ' ');

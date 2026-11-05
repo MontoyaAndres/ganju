@@ -30,6 +30,7 @@ import {
   compileWhere,
   decodeCursor,
   encodeCursor,
+  fileUriOf,
   fromStored,
   ftsMatch,
   isScoped,
@@ -74,6 +75,7 @@ import {
   DATA_COPY_STEP_ROWS,
   DATA_IMPACT_MAX_IDS,
   DATA_IMPACT_MAX_ROWS,
+  DATA_FILE_LINKS_MAX_URIS,
   DATA_REBUILD_MAX_ROWS,
   DataError
 } from './dataTypes';
@@ -85,6 +87,9 @@ import type {
   DataColumnType,
   DataDefaultValue,
   DataDeleteImpact,
+  DataFileLinkChange,
+  DataFileLinks,
+  DataFileLinksReplaced,
   DataOnDelete,
   DataQueryShape,
   DataSchema,
@@ -491,9 +496,14 @@ export const normaliseColumn = (
   if (column.unique && !UNIQUE_TYPES.has(column.type)) {
     throw new DataError(`${label}: a ${column.type} column can't be unique.`);
   }
-  if (column.searchable && !SEARCHABLE_TYPES.has(column.type)) {
+  // On a file column, searchable means its uploads are indexed in knowledge.
+  if (
+    column.searchable &&
+    !SEARCHABLE_TYPES.has(column.type) &&
+    column.type !== 'file'
+  ) {
     throw new DataError(
-      `${label}: only text columns can be searchable (text, long_text, email, url, phone, enum).`
+      `${label}: only text and file columns can be searchable (text, long_text, email, url, phone, enum, file).`
     );
   }
   // The search table has a column of its own called rank.
@@ -794,6 +804,8 @@ const shapeRow = (
                   ? fromStored(display, label, timeZone)
                   : label
             };
+    } else if (column.type === 'file') {
+      row[column.name] = value === null ? null : { uri: String(value) };
     } else {
       row[column.name] = value;
     }
@@ -1080,11 +1092,13 @@ export const query = (
           DATA_MAX_RESULT_BYTES - result.bytes
         )
       : false;
+  const fileFields = fileFieldPaths(schema, table, args.include);
   return {
     table: table.name,
     ...(isScoped(caller, table) ? { scope: SCOPE_NOTE } : {}),
     ...(result.total !== undefined ? { total: result.total } : {}),
     ...(matched ? { searchMatched: matched } : {}),
+    ...(fileFields.length ? { fileFields } : {}),
     rows: out,
     ...(includeTruncated
       ? {
@@ -1102,6 +1116,29 @@ export const query = (
         }
       : {})
   };
+};
+
+// Where a query's rows hold file values, as key paths within each row: the
+// table's file columns, and those of each included relation. The workers
+// fill those in from knowledge and drop this before answering; a json
+// column holding { "uri": … } is never mistaken for one.
+const fileFieldPaths = (
+  schema: DataSchema,
+  table: DataTable,
+  include: unknown
+): string[][] => {
+  const own = table.columns
+    .filter(column => column.type === 'file')
+    .map(column => [column.name]);
+  const included = (Array.isArray(include) ? include : []).flatMap(name => {
+    const column = typeof name === 'string' ? columnFor(table, name) : undefined;
+    if (!column || isSystemColumn(column) || column.type !== 'relation') return [];
+    const target = schema.tables.find(t => t.name === column.table);
+    return (target?.columns ?? [])
+      .filter(c => c.type === 'file')
+      .map(c => [name as string, c.name]);
+  });
+  return [...own, ...included];
 };
 
 // Replaces each relation in `rows` named in `include` with the related row,
@@ -2007,6 +2044,129 @@ export const deleteImpact = (
     blocked: effects.some(e => e.onDelete === 'restrict'),
     truncated: (n.get(-1) ?? 0) >= DATA_IMPACT_MAX_ROWS
   };
+};
+
+// File links
+
+const fileColumns = (schema: DataSchema) =>
+  schema.tables.flatMap(table =>
+    table.columns
+      .filter(column => column.type === 'file')
+      .map(column => ({ table, column }))
+  );
+
+const fileUriList = (value: unknown): string[] => {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > DATA_FILE_LINKS_MAX_URIS
+  ) {
+    throw new DataError(
+      `"uris" lists 1 to ${DATA_FILE_LINKS_MAX_URIS} knowledge item uris.`
+    );
+  }
+  return [...new Set(value.map(uri => fileUriOf(uri, 'uris')))];
+};
+
+// The rows whose file columns point at `uris`, per column: knowledge asks
+// before it deletes an item. Each file column is indexed.
+export const fileLinks = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  rawArgs: unknown
+): DataFileLinks => {
+  assertActor(caller);
+  if (caller.restricted) {
+    throw new DataError('File links are for the owner.', 'forbidden');
+  }
+  const uris = JSON.stringify(fileUriList(tidyArgs(rawArgs).uris));
+  const links: DataFileLinks['links'] = [];
+  for (const { table, column } of fileColumns(schema)) {
+    const rows = Number(
+      first(
+        runner,
+        `SELECT count(*) AS n FROM ${q(table.name)} WHERE ${q(column.name)} IN (SELECT value FROM json_each(?))`,
+        [uris]
+      )?.n ?? 0
+    );
+    if (rows === 0) continue;
+    links.push({
+      table: table.name,
+      tableLabel: table.label,
+      column: column.name,
+      columnLabel: column.label,
+      required: column.required,
+      rows
+    });
+  }
+  return { links };
+};
+
+// Points the links at `from` to `to`, or clears them (`to: null`) once the
+// item is gone. A required column keeps its link, which then reads as
+// missing. Recorded in row history; triggers don't see it.
+export const replaceFileLinks = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  rawArgs: unknown
+): DataFileLinksReplaced => {
+  assertActor(caller);
+  if (caller.restricted) {
+    throw new DataError('File links are for the owner.', 'forbidden');
+  }
+  const raw = tidyArgs(rawArgs).changes;
+  if (
+    !Array.isArray(raw) ||
+    raw.length === 0 ||
+    raw.length > DATA_FILE_LINKS_MAX_URIS
+  ) {
+    throw new DataError(
+      `"changes" lists 1 to ${DATA_FILE_LINKS_MAX_URIS} { from, to } pairs.`
+    );
+  }
+  const changes: DataFileLinkChange[] = raw.map(change => {
+    if (!isPlainObject(change)) {
+      throw new DataError('Each change is { from, to }; to is null to clear.');
+    }
+    return {
+      from: fileUriOf(change.from, 'from'),
+      to: change.to === null ? null : fileUriOf(change.to, 'to')
+    };
+  });
+  const columns = fileColumns(schema);
+  if (columns.length === 0) return { updated: 0, kept: [] };
+  assertWritable(runner, caller, changes.some(change => change.to !== null));
+  return runner.transaction(() => {
+    setContextActor(runner, caller.actor);
+    runner.all('DELETE FROM _ganju_changes');
+    let updated = 0;
+    const kept: DataFileLinksReplaced['kept'] = [];
+    for (const { table, column } of columns) {
+      for (const change of changes) {
+        if (change.to === null && column.required) {
+          const rows = Number(
+            first(
+              runner,
+              `SELECT count(*) AS n FROM ${q(table.name)} WHERE ${q(column.name)} = ?`,
+              [change.from]
+            )?.n ?? 0
+          );
+          if (rows > 0) kept.push({ table: table.name, column: column.name, rows });
+          continue;
+        }
+        updated += runner.all(
+          `UPDATE ${q(table.name)} SET ${q(column.name)} = ?, version = version + 1, updated_at = ${DATA_NOW_SQL}, updated_by = ? WHERE ${q(column.name)} = ? RETURNING id`,
+          [change.to, caller.actor, change.from]
+        ).length;
+      }
+    }
+    // Tidying links after a knowledge change isn't the owner's edit: it
+    // stays in row history but fires no trigger.
+    runner.all('DELETE FROM _ganju_changes');
+    return { updated, kept };
+  });
 };
 
 // Row history

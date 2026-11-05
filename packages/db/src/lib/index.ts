@@ -16,6 +16,18 @@ import {
   recordChange
 } from './data';
 import {
+  knowledgeItemsByUri,
+  resolveFileValues,
+  flattenFileValues,
+  missingFileUris,
+  assertFileUrisExist,
+  fileLinksFor,
+  updateFileLinks,
+  clearedLinks,
+  createFileLinkCleanup
+} from './dataFiles';
+export type { FileLinkCleanup } from './dataFiles';
+import {
   databasesWithStats,
   queryStatSums,
   statsCover,
@@ -118,7 +130,16 @@ export const data = {
   dataCaller,
   recordDataUsage,
   recordQueryStats,
-  recordChange
+  recordChange,
+  knowledgeItemsByUri,
+  resolveFileValues,
+  flattenFileValues,
+  missingFileUris,
+  assertFileUrisExist,
+  fileLinksFor,
+  updateFileLinks,
+  clearedLinks,
+  createFileLinkCleanup
 };
 
 export const dataAdvice = {

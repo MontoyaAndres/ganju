@@ -70,6 +70,17 @@ export interface RelationValue {
   label: unknown;
 }
 
+// A file column: the linked resource, with its id for previews. `missing`
+// when no resource has the uri any more.
+export interface FileValue {
+  uri: string;
+  id?: string;
+  title?: string;
+  mimeType?: string;
+  size?: number;
+  missing?: true;
+}
+
 export type DataRow = Record<string, unknown> & {
   id: number;
   version?: number;

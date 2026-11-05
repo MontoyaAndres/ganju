@@ -526,6 +526,16 @@ const data = async (c: Context<AppEnv>) => {
           403
         );
       }
+      // Functions are often written by a model: a made-up uri is refused.
+      await db.data.assertFileUrisExist(
+        dbInstance,
+        tool.artifactId,
+        () =>
+          db.data.callData('schemaRead', () => opened.stub.schemaRead(), tally, {
+            retryRead: true
+          }),
+        (args as { operations?: unknown } | undefined)?.operations
+      );
       value = await db.data.callData(
         'write',
         () => opened.stub.write(caller, args),
@@ -556,6 +566,10 @@ const data = async (c: Context<AppEnv>) => {
           retryRead: true
         }
       );
+    }
+    // File columns come back with their item's title and type.
+    if (op !== 'describe') {
+      value = await db.data.resolveFileValues(dbInstance, tool.artifactId, value);
     }
     return c.json({ result: value });
   } catch (error) {

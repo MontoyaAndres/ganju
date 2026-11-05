@@ -8,11 +8,14 @@ import TextField from '@mui/material/TextField';
 import { Close, DeleteOutlined } from '@mui/icons-material';
 
 import { DialogContent, FooterActions, PanelContent } from './styles';
+import { FileField } from './file-field';
 import {
   browserTimeZone,
   columnTitle,
   dataRequest,
+  inRowSearch,
   incomingRelations,
+  isFileValue,
   isRelationValue,
   tableTitle
 } from './api';
@@ -23,6 +26,7 @@ import type {
   DataOnDelete,
   DataRow,
   DataTable,
+  FileValue,
   RelationValue,
   RowPage
 } from './types';
@@ -188,17 +192,23 @@ export const ImpactList = ({ impact }: { impact: Impact }) => {
 
 // A form keeps every value as the input shows it; these turn a stored value
 // into that and back.
-type FormValue = string | RelationValue | null;
+type FormValue = string | RelationValue | FileValue | null;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 const toForm = (column: DataColumn, value: unknown): FormValue => {
   if (value === null || value === undefined) {
-    return column.type === 'relation' ? null : '';
+    return column.type === 'relation' || column.type === 'file' ? null : '';
   }
   switch (column.type) {
     case 'relation':
       return isRelationValue(value) ? value : null;
+    case 'file':
+      return isFileValue(value)
+        ? value
+        : typeof value === 'string'
+          ? { uri: value }
+          : null;
     case 'boolean':
       return value ? 'true' : 'false';
     case 'json':
@@ -218,7 +228,17 @@ const fromForm = (
   value: FormValue
 ): { ok: true; value: unknown } | { ok: false } => {
   if (column.type === 'relation') {
-    return { ok: true, value: value && typeof value === 'object' ? value.id : null };
+    return {
+      ok: true,
+      value: isRelationValue(value) ? value.id : null
+    };
+  }
+  if (column.type === 'file') {
+    // A link to nothing is cleared when the row is saved.
+    return {
+      ok: true,
+      value: isFileValue(value) && !value.missing ? value.uri : null
+    };
   }
   const text = typeof value === 'string' ? value : '';
   if (text.trim() === '') return { ok: true, value: null };
@@ -247,10 +267,17 @@ const fromForm = (
   }
 };
 
-const sameValue = (a: FormValue, b: FormValue) =>
-  a && b && typeof a === 'object' && typeof b === 'object'
-    ? a.id === b.id
+// A missing file never counts as unchanged, so saving the row clears it
+// (unless the column is required: then the owner has to pick another).
+const sameValue = (column: DataColumn, a: FormValue, b: FormValue) => {
+  if (isFileValue(a) || isFileValue(b)) {
+    if (isFileValue(a) && a.missing && !column.required) return false;
+    return isFileValue(a) && isFileValue(b) ? a.uri === b.uri : a === b;
+  }
+  return a && b && typeof a === 'object' && typeof b === 'object'
+    ? (a as RelationValue).id === (b as RelationValue).id
     : a === b;
+};
 
 interface RelationFieldProps {
   base: string;
@@ -280,7 +307,7 @@ export const RelationField = ({
   const [options, setOptions] = useState<RelationValue[]>([]);
   const [loading, setLoading] = useState(false);
   const display = target?.displayColumn ?? null;
-  const searchable = target?.columns.some(c => c.searchable) ?? false;
+  const searchable = target?.columns.some(inRowSearch) ?? false;
 
   useEffect(() => {
     if (!target) return;
@@ -448,7 +475,7 @@ export const RowPanel = ({
     const nextErrors: Record<string, string> = {};
     for (const column of table.columns) {
       const value = values[column.name];
-      if (row && sameValue(value, initial[column.name])) continue;
+      if (row && sameValue(column, value, initial[column.name])) continue;
       const parsed = fromForm(column, value);
       if (!parsed.ok) {
         nextErrors[column.name] =
@@ -547,7 +574,19 @@ export const RowPanel = ({
             base={base}
             column={column}
             target={tables.find(other => other.name === column.table)}
-            value={value && typeof value === 'object' ? value : null}
+            value={isRelationValue(value) ? value : null}
+            disabled={disabled}
+            error={error}
+            onChange={next => setValue(column.name, next)}
+          />
+        );
+      case 'file':
+        return (
+          <FileField
+            base={base}
+            table={table}
+            column={column}
+            value={isFileValue(value) ? value : null}
             disabled={disabled}
             error={error}
             onChange={next => setValue(column.name, next)}

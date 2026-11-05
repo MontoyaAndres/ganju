@@ -16,6 +16,8 @@ import {
   openArtifactDatabase,
   recordChange,
   recordDataUsage,
+  assertFileUrisExist,
+  resolveFileValues,
   restoreDeletedDatabase,
   softDeleteDatabase
 } from '../../utils/dataDatabase';
@@ -197,6 +199,18 @@ const withDatabase = async <T>(
   }
 };
 
+// A file column takes the uri of a resource the project has.
+const assertFileUris = (request: DataRequest, operations: unknown) =>
+  assertFileUrisExist(
+    request.dbInstance,
+    request.artifactId,
+    () =>
+      callData('schemaRead', () => request.opened.stub.schemaRead(), request.tally, {
+        retryRead: true
+      }),
+    operations
+  );
+
 // A route that is one operation reads better without the "Operation 0
 // (update orders):" a list of them needs, and a row that isn't there is a 404,
 // not a guard that changed nothing.
@@ -204,6 +218,7 @@ const runOne = async (
   request: DataRequest,
   operation: Record<string, unknown>
 ) => {
+  await assertFileUris(request, [operation]);
   try {
     const { results } = await callData(
       'write',
@@ -248,11 +263,14 @@ const readRow = async (
     request.tally,
     { retryRead: true }
   )) as { rows: Record<string, unknown>[] };
-  const row = result.rows[0];
-  if (!row) {
+  if (!result.rows[0]) {
     throw new DataError(`There is no row ${id} in ${table}.`, 'not_found');
   }
-  return row;
+  // Resolved on the whole result: it says where the file values are.
+  await resolveFileValues(request.dbInstance, request.artifactId, result, {
+    withId: true
+  });
+  return result.rows[0];
 };
 
 // The project's database, with its size and tables when it is live, or
@@ -751,7 +769,11 @@ const listRows = async (c: Context<AppEnv>) => {
       request.tally,
       { retryRead: true }
     );
-    return c.json(result);
+    return c.json(
+      await resolveFileValues(request.dbInstance, request.artifactId, result, {
+        withId: true
+      })
+    );
   });
 };
 
@@ -835,6 +857,7 @@ const rowHistory = async (c: Context<AppEnv>) => {
 const write = async (c: Context<AppEnv>) => {
   const body = await bodyOf(c, Schema.DATA_WRITE_BODY);
   return withDatabase(c, {}, async request => {
+    await assertFileUris(request, body.operations);
     const { results } = await callData(
       'write',
       () => request.opened.stub.write(request.caller, body),

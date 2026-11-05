@@ -16,7 +16,13 @@ import {
   patchFromDraft,
   type ColumnDraft
 } from './column-fields';
-import { columnTitle, dataRequest, incomingRelations, tableTitle } from './api';
+import {
+  columnTitle,
+  dataRequest,
+  inRowSearch,
+  incomingRelations,
+  tableTitle
+} from './api';
 import { i18n } from '../../../lib';
 
 import type { DataAccess, DataColumn, DataTable, DataTableCopy, IndexAdvice } from './types';
@@ -244,7 +250,7 @@ export const SchemaTab = ({
     else if (column.type === 'relation' || column.type === 'file') {
       kinds.push(t('indexAuto'));
     }
-    if (column.searchable) kinds.push(t('indexSearch'));
+    if (inRowSearch(column)) kinds.push(t('indexSearch'));
     return kinds.length ? [{ column, kinds }] : [];
   });
   const displayOptions = [

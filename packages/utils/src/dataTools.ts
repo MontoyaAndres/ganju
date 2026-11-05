@@ -61,7 +61,7 @@ const CHANGES = {
 };
 
 const WHERE_HELP =
-  'Filter object. { "column": value } matches exactly; { "column": { "op": value } } with op one of eq, ne, gt, gte, lt, lte, in, notIn (lists), contains, startsWith (text, case-insensitive), isNull (true/false). Several keys must all match; { "or": [ {...}, {...} ] } matches any. A relation column takes the related row\'s id, or filter on a column of the related table with "relation.column", e.g. { "product.name": "Margherita" }. Datetimes are ISO 8601; include the offset for local times, e.g. "2026-10-19T00:00:00-05:00".';
+  'Filter object. { "column": value } matches exactly; { "column": { "op": value } } with op one of eq, ne, gt, gte, lt, lte, in, notIn (lists), contains, startsWith (text, case-insensitive), isNull (true/false). Several keys must all match; { "or": [ {...}, {...} ] } matches any. A relation column takes the related row\'s id, or filter on a column of the related table with "relation.column", e.g. { "product.name": "Margherita" }. A file column matches the item\'s uri. Datetimes are ISO 8601; include the offset for local times, e.g. "2026-10-19T00:00:00-05:00".';
 
 const accessOf = (caller: DataCaller, table: DataTable) =>
   caller.restricted ? table.access : 'full';
@@ -145,7 +145,7 @@ export const dataToolDefinitions = (
       title: DATA_TOOL_TITLES[DATA_TOOL_QUERY],
       description: [
         "Read rows from the project's database: structured records such as products, prices, stock, orders, bookings or customers. Use it for anything with fields and numbers; use the knowledge/resource tools for documents and pages.",
-        'Returns matching rows (relation columns come back as { id, label }), the total that match, and nextCursor when there are more. With "aggregate" it returns counts, sums, averages, minimums or maximums instead of rows, optionally per group: use that for "how many" and "how much" rather than adding rows up yourself.',
+        'Returns matching rows (relation columns come back as { id, label }; file columns as { uri, title, mimeType }, or { uri, missing: true } when the item is gone: deliver one with send-resource and its uri, or read a document with read-resource), the total that match, and nextCursor when there are more. With "aggregate" it returns counts, sums, averages, minimums or maximums instead of rows, optionally per group: use that for "how many" and "how much" rather than adding rows up yourself.',
         "The database holds only what these tables and columns hold. When a question needs something they don't have (opening hours, parking, calories, reviews, forecasts), look in the knowledge tools if you have them; if nothing has it, say you don't have that information. Never guess it.",
         `Every table also has id, created_at and updated_at. Datetimes come back in the project's time zone (${timeZone}) with their offset; read them as local times.`,
         'Tables:',
@@ -242,7 +242,7 @@ export const dataToolDefinitions = (
       title: DATA_TOOL_TITLES[DATA_TOOL_WRITE],
       description: [
         "Add, change or delete rows in the project's database. All operations in one call succeed together or none is applied, so put everything that belongs together (an order, its lines and the stock they use) in one call.",
-        '- insert: { "op": "insert", "table": "...", "values": { column: value } }. A relation column takes the related row\'s id; to point at a row inserted earlier in the same call use { "$ref": n }, n being that operation\'s position (0-based).',
+        '- insert: { "op": "insert", "table": "...", "values": { column: value } }. A relation column takes the related row\'s id; to point at a row inserted earlier in the same call use { "$ref": n }, n being that operation\'s position (0-based). A file column takes the uri of an item in the project\'s knowledge (from list-resources or search-resources), or null.',
         '- update: { "op": "update", "table": "...", "id": 12, "set": { column: value } }. For numbers, { "decrement": 2 } or { "increment": 2 } changes the value relative to what is stored. Instead of id you can give "where" (same format as data-query).',
         '- delete: { "op": "delete", "table": "...", "id": 12 } (or "where").',
         'Guards: an update or delete also takes "where" conditions that must hold, e.g. "where": { "stock": { "gte": 2 } }, and "expect", how many rows must change (1 by default when id is given). If a guard fails, nothing in the call is written and the error says why (e.g. how much stock is left).',

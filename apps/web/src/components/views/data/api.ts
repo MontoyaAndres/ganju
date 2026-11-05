@@ -1,6 +1,12 @@
 import { utils } from '@ganju/utils';
 
-import type { ApiResult, DataColumn, DataTable, RelationValue } from './types';
+import type {
+  ApiResult,
+  DataColumn,
+  DataTable,
+  FileValue,
+  RelationValue
+} from './types';
 
 // The reader's own zone: datetimes come back in it, with the offset.
 export const browserTimeZone = () => {
@@ -101,6 +107,58 @@ export const isRelationValue = (value: unknown): value is RelationValue =>
   value !== null &&
   'id' in value &&
   typeof (value as RelationValue).id === 'number';
+
+export const isFileValue = (value: unknown): value is FileValue =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as FileValue).uri === 'string';
+
+// Whether a column is in the table's full-text search. On a file column,
+// searchable means its uploads are indexed in Resources instead.
+export const inRowSearch = (column: DataColumn) =>
+  column.searchable && column.type !== 'file';
+
+// The project's Resources API, next to its Data API.
+export const resourceBase = (dataBase: string) =>
+  dataBase.replace(/\/artifact\/data$/, '/artifact/resource');
+
+// Image previews, fetched with the session cookie and shared while any cell
+// or form shows them. The object URL is released when the last one goes.
+const previews = new Map<
+  string,
+  { url: Promise<string | null>; users: number }
+>();
+
+export const acquirePreview = (dataBase: string, id: string) => {
+  let preview = previews.get(id);
+  if (!preview) {
+    preview = {
+      users: 0,
+      url: fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}${resourceBase(dataBase)}/${id}/download`,
+        { credentials: 'include' }
+      )
+        .then(async response =>
+          response.ok ? URL.createObjectURL(await response.blob()) : null
+        )
+        .catch(() => null)
+    };
+    previews.set(id, preview);
+  }
+  preview.users += 1;
+  return preview.url;
+};
+
+export const releasePreview = (id: string) => {
+  const preview = previews.get(id);
+  if (!preview) return;
+  preview.users -= 1;
+  if (preview.users > 0) return;
+  previews.delete(id);
+  preview.url.then(url => {
+    if (url) URL.revokeObjectURL(url);
+  });
+};
 
 // The columns a filter can use without reading the whole table: the
 // database indexes these.

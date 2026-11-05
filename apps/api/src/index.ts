@@ -444,9 +444,19 @@ app
     ArtifactController.createResource
   )
   .get(
+    '/organization/:organizationId/project/:projectId/artifact/resource/pick',
+    UserMiddleware.verify,
+    ArtifactController.pickResources
+  )
+  .get(
     '/organization/:organizationId/project/:projectId/artifact/resource/:resourceId',
     UserMiddleware.verify,
     ArtifactController.getResource
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/artifact/resource/:resourceId/data-links',
+    UserMiddleware.verify,
+    ArtifactController.resourceDataLinks
   )
   .put(
     '/organization/:organizationId/project/:projectId/artifact/resource/:resourceId',

@@ -100,6 +100,21 @@ const en = {
   relationHelp: 'A row in {table}.',
   relationNoRows: 'No rows match.',
   relationLoading: 'Searching...',
+  fileUpload: 'Upload',
+  filePick: 'Pick from resources',
+  fileRemove: 'Remove',
+  fileOpen: 'Open in Resources',
+  fileUploading: 'Uploading...',
+  fileHelp: 'Uploads are kept in Resources, under Data attachments.',
+  fileMissing: 'File missing',
+  fileMissingHelp:
+    'No resource has this uri any more. Saving the row removes the link.',
+  fileMissingRequiredHelp:
+    'No resource has this uri any more. Upload or pick another file.',
+  fileUploadFailed: "Couldn't upload the file.",
+  fileTypeUnsupported: "Resources don't take {type} files.",
+  filePickSearch: 'Search resources',
+  filePickEmpty: 'No resources match.',
   conflict: 'Someone changed this row after you opened it.',
   conflictBy:
     'This row changed after you opened it ({actor}). Load the latest version and make your change again.',
@@ -166,6 +181,9 @@ const en = {
   flagFilterableHelp: 'Indexed, for fast filters',
   flagSearchable: 'Searchable',
   flagSearchableHelp: 'Included in full-text search',
+  flagSearchableFile: 'Searchable in resources',
+  flagSearchableFileHelp:
+    'Files uploaded from here on are indexed, so search-resources finds them',
   moreOptions: 'More options',
   fewerOptions: 'Fewer options',
   columnNumber: 'Column {n}',
@@ -679,6 +697,21 @@ export const DATA: Catalog<DataCopy> = {
     relationHelp: 'Una fila de {table}.',
     relationNoRows: 'Ninguna fila coincide.',
     relationLoading: 'Buscando...',
+    fileUpload: 'Subir',
+    filePick: 'Elegir de recursos',
+    fileRemove: 'Quitar',
+    fileOpen: 'Abrir en Recursos',
+    fileUploading: 'Subiendo...',
+    fileHelp: 'Lo que subas queda en Recursos, en Datos adjuntos.',
+    fileMissing: 'Archivo no encontrado',
+    fileMissingHelp:
+      'Ningún recurso tiene ya este uri. Al guardar la fila se quita el enlace.',
+    fileMissingRequiredHelp:
+      'Ningún recurso tiene ya este uri. Sube o elige otro archivo.',
+    fileUploadFailed: 'No se pudo subir el archivo.',
+    fileTypeUnsupported: 'Recursos no acepta archivos {type}.',
+    filePickSearch: 'Buscar recursos',
+    filePickEmpty: 'Ningún recurso coincide.',
     conflict: 'Alguien cambió esta fila después de que la abriste.',
     conflictBy:
       'Esta fila cambió después de que la abriste ({actor}). Carga la versión más reciente y vuelve a hacer tu cambio.',
@@ -745,6 +778,9 @@ export const DATA: Catalog<DataCopy> = {
     flagFilterableHelp: 'Con índice, para filtrar rápido',
     flagSearchable: 'Buscable',
     flagSearchableHelp: 'Entra en la búsqueda de texto',
+    flagSearchableFile: 'Buscable en recursos',
+    flagSearchableFileHelp:
+      'Los archivos que se suban de ahora en adelante se indexan, y search-resources los encuentra',
     moreOptions: 'Más opciones',
     fewerOptions: 'Menos opciones',
     columnNumber: 'Columna {n}',

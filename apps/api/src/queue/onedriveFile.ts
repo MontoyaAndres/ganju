@@ -18,6 +18,7 @@ import {
 } from './shared';
 import { hasFileChanged } from './onedriveDiscover';
 
+import type { FileLinkCleanup } from '@ganju/db';
 import type { Bindings } from '../types';
 
 export interface OnedriveFileJob {
@@ -32,15 +33,21 @@ const removeMissingFile = async (
     artifactId: string;
     parentResourceId: string | null;
     fileKey: string | null;
-  }
+  },
+  cleanup: FileLinkCleanup
 ): Promise<void> => {
   const dbInstance = db.create({ env });
+  let removedUri: string | null = null;
   await dbInstance.transaction(async tx => {
     const deleted = await tx
       .delete(db.schema.artifactResource)
       .where(eq(db.schema.artifactResource.id, resource.id))
-      .returning({ id: db.schema.artifactResource.id });
+      .returning({
+        id: db.schema.artifactResource.id,
+        uri: db.schema.artifactResource.uri
+      });
     if (deleted.length === 0) return;
+    removedUri = deleted[0].uri;
 
     await tx
       .update(db.schema.artifact)
@@ -59,6 +66,9 @@ const removeMissingFile = async (
     }
   });
 
+  // Data rows that linked it lose the link once the sync is done.
+  if (removedUri) cleanup.add(resource.artifactId, removedUri);
+
   if (resource.fileKey && env.STORAGE_BUCKET) {
     try {
       await env.STORAGE_BUCKET.delete(resource.fileKey);
@@ -70,7 +80,8 @@ const removeMissingFile = async (
 
 const syncOne = async (
   env: Bindings,
-  { resourceId, onlyIfChanged }: OnedriveFileJob
+  { resourceId, onlyIfChanged }: OnedriveFileJob,
+  cleanup: FileLinkCleanup
 ): Promise<void> => {
   const source = { env };
   const dbInstance = db.create(source);
@@ -120,7 +131,7 @@ const syncOne = async (
       artifactId: resource.artifactId,
       parentResourceId: resource.parentResourceId,
       fileKey: resource.fileKey
-    });
+    }, cleanup);
     return;
   }
 
@@ -223,8 +234,12 @@ export const handleOnedriveFileBatch = async (
   env: Bindings,
   _ctx: ExecutionContext
 ): Promise<void> => {
+  const cleanup = db.data.createFileLinkCleanup();
   await utils.processQueueBatch(batch, {
-    process: async job => syncOne(env, job),
+    process: async job => syncOne(env, job, cleanup),
     onError: reportAndFailOnFinal(env, '/onedrive/file')
   });
+
+  // The links to removed items, in one call per project.
+  await cleanup.flush(db.create({ env }), env.PROJECT_DATABASE);
 };

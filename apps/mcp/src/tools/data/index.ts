@@ -145,6 +145,9 @@ const errorResult = (source: string, error: unknown): ToolResult => {
   });
 };
 
+const FILES_NOTE =
+  'File columns hold { uri, title, mimeType }. A file reaches the user only when you call send-resource with its uri; never say it was sent without that call.';
+
 // A page past the result-size limit is read again with fewer rows, so its
 // nextCursor still starts right after the last row shown.
 const MAX_RESULT_BYTES = utils.constants.MCP_PROXY_MAX_RESPONSE_BYTES;
@@ -266,11 +269,29 @@ export const registerDataTools = (
         );
         result = (await read()) as { rows?: unknown[] };
       }
+      // File columns: the item's uri and title, for read-resource or
+      // send-resource. Models read a uri and then said the file was sent;
+      // the note says only send-resource delivers it.
+      const hasFiles =
+        Array.isArray((result as { fileFields?: unknown }).fileFields) &&
+        ((result as { fileFields: unknown[] }).fileFields.length ?? 0) > 0;
+      await db.data.resolveFileValues(options.dbInstance, options.artifactId, result);
+      if (hasFiles) {
+        (result as Record<string, unknown>).files = FILES_NOTE;
+      }
       return rowsResult(DATA_TOOL_QUERY, result);
     },
 
-    [DATA_TOOL_WRITE]: async args =>
-      text(
+    [DATA_TOOL_WRITE]: async args => {
+      // A file column takes an item that exists: a made-up uri would only
+      // read back as missing.
+      await db.data.assertFileUrisExist(
+        options.dbInstance,
+        options.artifactId,
+        async () => schema,
+        args.operations
+      );
+      return text(
         json(
           await db.data.callData(
             'write',
@@ -278,7 +299,8 @@ export const registerDataTools = (
             tally
           )
         )
-      ),
+      );
+    },
 
     [DATA_TOOL_ADMIN]: args => runAdmin(options, args)
   };

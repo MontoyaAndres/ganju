@@ -42,6 +42,7 @@ import {
   enqueueResourceSync,
   Plan
 } from '../../utils';
+import { updateFileLinks, clearedLinks, fileLinksFor } from '../../utils/dataDatabase';
 
 // types
 import { AppEnv } from '../../types';
@@ -672,7 +673,7 @@ const createResource = async (c: Context<AppEnv>) => {
 
   if (isWebsite) {
     await enqueueCrawlDiscover(c.env, result.id);
-  } else {
+  } else if (!utils.skipsIndexing(result.metadata)) {
     await enqueueIndex(c.env, result.id);
   }
 
@@ -692,7 +693,7 @@ const updateResource = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
 
-  const { result, isWebsite } = await dbInstance.transaction(async tx => {
+  const { result, isWebsite, previousUri, skipIndex } = await dbInstance.transaction(async tx => {
     const [project] = await tx
       .select()
       .from(db.schema.project)
@@ -752,7 +753,12 @@ const updateResource = async (c: Context<AppEnv>) => {
         .where(eq(db.schema.artifactResource.id, resourceId))
         .returning();
 
-      return { result: updated, isWebsite: true };
+      return {
+        result: updated,
+        isWebsite: true,
+        previousUri: null,
+        skipIndex: false
+      };
     }
 
     const fileValues = await utils.Schema.ARTIFACT_UPDATE_RESOURCE.parseAsync({
@@ -782,6 +788,13 @@ const updateResource = async (c: Context<AppEnv>) => {
       throw new Error('Resource URI must be unique');
     }
 
+    // An upload from Data stays one when its form sends other metadata.
+    const attachment = utils.dataAttachmentOf(existing.metadata);
+    if (fileValues.metadata !== undefined && attachment) {
+      fileValues.metadata = { ...fileValues.metadata, dataAttachment: attachment };
+    }
+    const skipIndex = utils.skipsIndexing(fileValues.metadata ?? existing.metadata);
+
     const [updated] = await tx
       .update(db.schema.artifactResource)
       .set({
@@ -789,7 +802,9 @@ const updateResource = async (c: Context<AppEnv>) => {
         uri: fileValues.uri,
         type: fileValues.type,
         sourceType: fileValues.sourceType,
-        status: utils.constants.STATUS_PENDING,
+        status: skipIndex
+          ? utils.constants.STATUS_COMPLETED
+          : utils.constants.STATUS_PENDING,
         description: fileValues.description || null,
         mimeType: fileValues.mimeType,
         content: fileValues.content || null,
@@ -819,11 +834,22 @@ const updateResource = async (c: Context<AppEnv>) => {
       throw new Error('Resource not found');
     }
 
-    return { result: updated, isWebsite: false };
+    return {
+      result: updated,
+      isWebsite: false,
+      previousUri: existing.uri,
+      skipIndex
+    };
   });
 
-  if (!isWebsite) {
+  if (!isWebsite && !skipIndex) {
     await enqueueIndex(c.env, result.id);
+  }
+  // Rows that linked the old uri follow the item.
+  if (previousUri && previousUri !== result.uri) {
+    await updateFileLinks(dbInstance, c.env.PROJECT_DATABASE, result.artifactId, [
+      { from: previousUri, to: result.uri }
+    ]);
   }
 
   return c.json(result);
@@ -914,6 +940,8 @@ const removeResource = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
   const fileKeysToDelete: string[] = [];
+  const deletedUris: string[] = [];
+  let artifactId: string | null = null;
 
   await dbInstance.transaction(async tx => {
     const [project] = await tx
@@ -944,6 +972,7 @@ const removeResource = async (c: Context<AppEnv>) => {
     const [seed] = await tx
       .select({
         id: db.schema.artifactResource.id,
+        uri: db.schema.artifactResource.uri,
         fileKey: db.schema.artifactResource.fileKey,
         parentResourceId: db.schema.artifactResource.parentResourceId
       })
@@ -961,6 +990,8 @@ const removeResource = async (c: Context<AppEnv>) => {
     }
 
     if (seed.fileKey) fileKeysToDelete.push(seed.fileKey);
+    artifactId = currentArtifactByProject.id;
+    deletedUris.push(seed.uri);
 
     const allIds = new Set<string>([seed.id]);
     let frontier: string[] = [seed.id];
@@ -968,6 +999,7 @@ const removeResource = async (c: Context<AppEnv>) => {
       const children = await tx
         .select({
           id: db.schema.artifactResource.id,
+          uri: db.schema.artifactResource.uri,
           fileKey: db.schema.artifactResource.fileKey
         })
         .from(db.schema.artifactResource)
@@ -978,6 +1010,7 @@ const removeResource = async (c: Context<AppEnv>) => {
         if (allIds.has(child.id)) continue;
         allIds.add(child.id);
         nextFrontier.push(child.id);
+        deletedUris.push(child.uri);
         if (child.fileKey) fileKeysToDelete.push(child.fileKey);
       }
       frontier = nextFrontier;
@@ -1026,7 +1059,134 @@ const removeResource = async (c: Context<AppEnv>) => {
     }
   }
 
+  if (artifactId) {
+    await updateFileLinks(
+      dbInstance,
+      c.env.PROJECT_DATABASE,
+      artifactId,
+      clearedLinks(deletedUris)
+    );
+  }
+
   return c.json(currentValues);
+};
+
+// The project's artifact, or an error when the project has none.
+const projectArtifact = async (
+  dbInstance: ReturnType<typeof db.create>,
+  projectId: string
+) => {
+  const [artifact] = await dbInstance
+    .select({ id: db.schema.artifact.id })
+    .from(db.schema.artifact)
+    .where(eq(db.schema.artifact.projectId, projectId))
+    .limit(1);
+  if (!artifact) throw new Error('Artifact not found for the project');
+  return artifact;
+};
+
+// The items a Data file column can link: files and pages, not website seeds
+// or drive folders, matched on title or uri.
+const pickResources = async (c: Context<AppEnv>) => {
+  const values = await utils.Schema.ARTIFACT_PICK_RESOURCE.parseAsync({
+    projectId: c.req.param('projectId'),
+    userId: c.get('user').id,
+    organizationId: c.req.param('organizationId'),
+    q: c.req.query('q') || undefined,
+    limit: c.req.query('limit') ?? undefined
+  });
+  const dbInstance = db.create(c);
+  const artifact = await projectArtifact(dbInstance, values.projectId);
+  const resource = db.schema.artifactResource;
+  const pattern = values.q ? `%${values.q.replace(/[\\%_]/g, m => `\\${m}`)}%` : null;
+  const rows = await dbInstance
+    .select({
+      id: resource.id,
+      uri: resource.uri,
+      title: resource.title,
+      mimeType: resource.mimeType,
+      sourceType: resource.sourceType,
+      parentResourceId: resource.parentResourceId,
+      metadata: resource.metadata
+    })
+    .from(resource)
+    .where(
+      and(
+        eq(resource.artifactId, artifact.id),
+        sql`not (${resource.sourceType} = ${utils.constants.RESOURCE_SOURCE_TYPE_WEBSITE} and ${resource.parentResourceId} is null)`,
+        sql`${resource.sourceType} not in (${utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER}, ${utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER})`,
+        pattern
+          ? sql`(${resource.title} ilike ${pattern} or ${resource.uri} ilike ${pattern})`
+          : undefined
+      )
+    )
+    .orderBy(desc(resource.createdAt))
+    .limit(values.limit);
+  return c.json({
+    items: rows.map(row => ({
+      id: row.id,
+      uri: row.uri,
+      title: row.title,
+      mimeType: row.mimeType,
+      sourceType: row.sourceType,
+      dataAttachment: utils.dataAttachmentOf(row.metadata) !== null
+    }))
+  });
+};
+
+// The Data rows that link an item or anything under it, for the delete
+// dialog. A uri another item still answers to is left out: its links stay.
+const resourceDataLinks = async (c: Context<AppEnv>) => {
+  const values = await utils.Schema.ARTIFACT_GET_RESOURCE_BY_ID.parseAsync({
+    resourceId: c.req.param('resourceId'),
+    projectId: c.req.param('projectId'),
+    userId: c.get('user').id,
+    organizationId: c.req.param('organizationId')
+  });
+  const dbInstance = db.create(c);
+  const artifact = await projectArtifact(dbInstance, values.projectId);
+  const resource = db.schema.artifactResource;
+  const [seed] = await dbInstance
+    .select({ id: resource.id, uri: resource.uri })
+    .from(resource)
+    .where(and(eq(resource.id, values.resourceId), eq(resource.artifactId, artifact.id)))
+    .limit(1);
+  if (!seed) throw new Error('Resource not found');
+
+  const ids = new Set<string>([seed.id]);
+  const uris = new Set<string>([seed.uri]);
+  let frontier = [seed.id];
+  while (frontier.length > 0) {
+    const children = await dbInstance
+      .select({ id: resource.id, uri: resource.uri })
+      .from(resource)
+      .where(inArray(resource.parentResourceId, frontier));
+    frontier = [];
+    for (const child of children) {
+      if (ids.has(child.id)) continue;
+      ids.add(child.id);
+      uris.add(child.uri);
+      frontier.push(child.id);
+    }
+  }
+  const others = await dbInstance
+    .select({ id: resource.id, uri: resource.uri })
+    .from(resource)
+    .where(and(eq(resource.artifactId, artifact.id), inArray(resource.uri, [...uris])));
+  for (const other of others) {
+    if (!ids.has(other.id)) uris.delete(other.uri);
+  }
+  const found = await fileLinksFor(
+    dbInstance,
+    c.env.PROJECT_DATABASE,
+    artifact.id,
+    [...uris]
+  ).catch(error => {
+    // The dialog still opens; it just can't say which rows.
+    console.error('data-file-links-read-failed', artifact.id, error);
+    return null;
+  });
+  return c.json({ links: found?.links ?? [] });
 };
 
 const createTool = async (c: Context<AppEnv>) => {
@@ -2917,10 +3077,22 @@ const uploadResourceFile = async (c: Context<AppEnv>) => {
       throw new Error('Resource not found');
     }
 
+    // Nothing to index: the item is ready once its bytes are stored.
+    if (utils.skipsIndexing(artifactResource[0].metadata)) {
+      const [ready] = await tx
+        .update(db.schema.artifactResource)
+        .set({ status: utils.constants.STATUS_COMPLETED })
+        .where(eq(db.schema.artifactResource.id, artifactResource[0].id))
+        .returning();
+      return ready;
+    }
+
     return artifactResource[0];
   });
 
-  await enqueueIndex(c.env, result.id);
+  if (!utils.skipsIndexing(result.metadata)) {
+    await enqueueIndex(c.env, result.id);
+  }
 
   return c.json(result);
 };
@@ -3556,6 +3728,8 @@ export const ArtifactController = {
   createResource,
   updateResource,
   removeResource,
+  pickResources,
+  resourceDataLinks,
   listResources,
   getResource,
   uploadResourceFile,

@@ -32,6 +32,7 @@ const en = {
   folderWebsites: 'Websites',
   folderGoogleDrive: 'Google Drive',
   folderOneDrive: 'OneDrive',
+  folderDataAttachments: 'Data attachments',
   badgeWebsite: 'Website',
 
   /**
@@ -61,6 +62,9 @@ const en = {
     'Pick files or folders from OneDrive to import and keep in sync.',
   emptyFilesText:
     'Upload files or paste text content for this MCP server to serve.',
+  emptyDataAttachments: 'No Data attachments yet',
+  emptyDataAttachmentsText:
+    'Files uploaded from a row on the Data page are kept here.',
 
   // Panel titles.
   panelAddWebsite: 'Add Website',
@@ -183,6 +187,15 @@ const en = {
   confirmDeleteFolder_other:
     'Are you sure you want to delete "{title}"? This will also remove {count} items inside. This action cannot be undone.',
   confirmDelete: 'Delete',
+  // Data rows that link the item being deleted.
+  dataLinksCleared_one:
+    'It is used by {count} row in {table} ({column}); the link will be removed.',
+  dataLinksCleared_other:
+    'It is used by {count} rows in {table} ({column}); their links will be removed.',
+  dataLinksKept_one:
+    'It is used by {count} row in {table} ({column}), a required column: it will show the file as missing.',
+  dataLinksKept_other:
+    'It is used by {count} rows in {table} ({column}), a required column: they will show the file as missing.',
 
   startCrawl: 'Start crawl',
   startingCrawl: 'Starting crawl...',
@@ -291,6 +304,7 @@ export const RESOURCES: Catalog<ResourcesCopy> = {
     folderWebsites: 'Sitios web',
     folderGoogleDrive: 'Google Drive',
     folderOneDrive: 'OneDrive',
+    folderDataAttachments: 'Datos adjuntos',
     badgeWebsite: 'Sitio web',
 
     countItems_one: '{count} elemento',
@@ -315,6 +329,9 @@ export const RESOURCES: Catalog<ResourcesCopy> = {
       'Elige archivos o carpetas de OneDrive para importarlos y mantenerlos sincronizados.',
     emptyFilesText:
       'Sube archivos o pega texto para que este servidor MCP los entregue.',
+    emptyDataAttachments: 'Todavía no hay datos adjuntos',
+    emptyDataAttachmentsText:
+      'Aquí quedan los archivos que subes desde una fila en la página de Datos.',
 
     panelAddWebsite: 'Agregar sitio web',
     panelNewResource: 'Nuevo recurso',
@@ -427,6 +444,14 @@ export const RESOURCES: Catalog<ResourcesCopy> = {
     confirmDeleteFolder_other:
       '¿Seguro que quieres eliminar «{title}»? También se eliminarán los {count} elementos que hay dentro. Esta acción no se puede deshacer.',
     confirmDelete: 'Eliminar',
+    dataLinksCleared_one:
+      'Lo usa {count} fila de {table} ({column}); se quitará el enlace.',
+    dataLinksCleared_other:
+      'Lo usan {count} filas de {table} ({column}); se quitarán sus enlaces.',
+    dataLinksKept_one:
+      'Lo usa {count} fila de {table} ({column}), una columna obligatoria: mostrará el archivo como no encontrado.',
+    dataLinksKept_other:
+      'Lo usan {count} filas de {table} ({column}), una columna obligatoria: mostrarán el archivo como no encontrado.',
 
     startCrawl: 'Iniciar rastreo',
     startingCrawl: 'Iniciando rastreo...',

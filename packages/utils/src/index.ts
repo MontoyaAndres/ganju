@@ -129,6 +129,8 @@ import { oauthProviders } from './oauthProviders';
 import type { OAuthProviderConfig } from './oauthProviders';
 import { resolveAttachment } from './attachment';
 import { isExposedResource } from './exposedResource';
+import { dataAttachmentOf, skipsIndexing } from './dataAttachment';
+import type { DataAttachment } from './dataAttachment';
 import type { ExposableResource } from './exposedResource';
 import {
   isSyncableResource,
@@ -485,6 +487,8 @@ export const utils = {
   oauthProviders,
   resolveAttachment,
   isExposedResource,
+  dataAttachmentOf,
+  skipsIndexing,
   isSyncableResource,
   isResourceSyncInProgress,
   resourceSyncProvider,
@@ -730,6 +734,7 @@ export type {
   AttachmentResource,
   ResolvedAttachment,
   ResolveAttachmentResult,
+  DataAttachment,
   ExposableResource,
   SyncableResource,
   ResourceSyncProvider,
