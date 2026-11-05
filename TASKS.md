@@ -2351,8 +2351,24 @@ and use templates from the WhatsApp channel's settings.
   - a token without `whatsapp_business_management` gets the explanation,
     not an error.
 
-**Phase 5c status (2026-11-03): built, not deployed, not checked against
-Meta.** Migration 0087 (`channel_whatsapp_template`) is generated and not run.
+**Phase 5c status (2026-11-05): built and live on dev and prod (migration
+0087, `channel_whatsapp_template`); two checks by hand left before it is
+done.**
+
+- **Left to close 5c, on dev, each with a fresh token pasted in the channel's
+  Message templates tab:**
+  - create a Utility template from the dashboard form and see it go from
+    pending to approved (by webhook or Refresh);
+  - paste a Graph API Explorer token with only `whatsapp_business_messaging`
+    and check the tab shows the "can't manage templates" explanation and
+    steps, not an error. Then paste a full token back.
+    - First try (2026-11-05): the API answered `access: "permission"`, but the
+      tab showed only Meta's "(#200) You do not have permission…". The tab
+      took any answer with an `error` field as a failed request, and the
+      state carries Meta's text there. Fixed in `templates.tsx`.
+    - Passed on dev after the fix (2026-11-05): the tab shows "El token de
+      este canal no puede administrar plantillas", the three steps, Meta's
+      text under them, and the token field; "Nueva plantilla" is off.
 
 - **Spike (from Meta's docs, unverified with a live token):** `GET
   /debug_token?input_token=<token>` lists the WABAs the token manages under
@@ -2391,8 +2407,8 @@ Meta.** Migration 0087 (`channel_whatsapp_template`) is generated and not run.
   - `ctx.channels.templates()` (broker `/channels/templates`), `ganju channel
     templates [--json]`.
   - Docs (en + es): WhatsApp channel §5, Triggers, Data from functions.
-- **Not done:** the test send to the owner's own number from the trigger
-  dialog.
+- **Moved to "8. Later":** the test send to the owner's own number from the
+  trigger dialog.
 - **Checked on dev (2026-11-04), with Meta's test number +1 555-175-6095**
   (channel `01a1a45f-3f7e-72be-ac8f-339dae41f2ab`, WABA `1787098836752406`):
   `scripts/probe-whatsapp-templates.mjs` passes, offline and `--live`. A
@@ -2405,6 +2421,8 @@ Meta.** Migration 0087 (`channel_whatsapp_template`) is generated and not run.
     ("Tu pedido #2 está listo para recoger…") and the text inside it
     (`--template qa_order_ready_mw1jpujq`). The probe misread that run; it now
     reads only the trigger's messages.
+  - the probe database left for the purge was emptied by the hourly run
+    (`--purge-check`, 2026-11-05).
 - **To do by the owner, once there is a real WhatsApp number:**
   - Verify the WhatsApp Business account with a real phone number. Until then
     Meta only gives tokens that last an hour, even System User ones, so every
@@ -2513,6 +2531,9 @@ Rows point at knowledge; files stay in knowledge.
 - Sync from Google Sheets: a sheet as the source of a table, on the
   existing hourly sync.
 - Composite and partial indexes, views, and computed columns.
+- A test send from the "message the row's customer" trigger dialog to the
+  owner's own number (inside its window), with the template and the mapped
+  values filled from a sample row.
 - Time-based triggers ("an order still `pending` 30 minutes after it was
   created"): an alarm per watched row, or a periodic scan per trigger.
   Needs its own cost limit.

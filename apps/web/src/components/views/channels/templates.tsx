@@ -105,7 +105,10 @@ const request = async <R,>(
         ...(body !== undefined ? { body: JSON.stringify(body) } : {})
       }
     });
-    if (!data || data.error || data.errors) {
+    // A templates state carries Meta's refusal in `error` and is still an
+    // answer, so the notice for it can show.
+    const isState = !!data && typeof data.access === 'string';
+    if (!data || data.errors || (data.error && !isState)) {
       return {
         ok: false,
         data: null as R,
