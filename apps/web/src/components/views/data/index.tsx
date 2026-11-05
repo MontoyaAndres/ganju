@@ -217,6 +217,7 @@ export const Data = ({ plan }: DataProps) => {
     if (linked) {
       setSelected(linked.name);
       if (router.query.tab === 'triggers') setTab('triggers');
+      if (router.query.tab === 'schema') setTab('schema');
       return;
     }
     if (typeof window !== 'undefined' && window.innerWidth >= 768) {
@@ -733,6 +734,16 @@ export const Data = ({ plan }: DataProps) => {
                 table={selectedTable}
                 tables={tables}
                 readOnly={readOnly}
+                advice={(database?.indexAdvice ?? []).filter(
+                  a => a.table === selectedTable.name
+                )}
+                onAdviceChanged={async added => {
+                  // Only the suggestions change; an added index also marks
+                  // its column, which the table list shows.
+                  const result = await dataRequest<{ database: Database | null }>(base, '');
+                  if (result.ok) setDatabase(result.data.database);
+                  if (added) await loadTables();
+                }}
                 onChanged={async renamed => {
                   await loadTables();
                   if (renamed) setSelected(renamed);

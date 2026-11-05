@@ -111,6 +111,11 @@ const en = {
   triggersTitle: 'Database triggers',
   triggersHelp:
     "Runs of this project's database triggers over the last {days} days. Click one to see its runs.",
+  indexAdviceTitle: 'Index suggestions',
+  indexAdviceLine:
+    '{table}.{column}: {queries} queries this week, each reading about {read} rows to return {returned}. An index would help.',
+  indexUnusedLine:
+    '{table}.{column}: indexed, but no query used it in 30 days ({written} rows written).',
   colTrigger: 'Trigger',
   colRuns: 'Runs',
   colFailed: 'Failed',
@@ -273,6 +278,11 @@ export const OVERVIEW: Catalog<OverviewCopy> = {
     triggersTitle: 'Disparadores de la base de datos',
     triggersHelp:
       'Ejecuciones de los disparadores de la base de datos del proyecto en los últimos {days} días. Haz clic en uno para ver sus ejecuciones.',
+    indexAdviceTitle: 'Sugerencias de índices',
+    indexAdviceLine:
+      '{table}.{column}: {queries} consultas esta semana, cada una leyó unas {read} filas para devolver {returned}. Un índice ayudaría.',
+    indexUnusedLine:
+      '{table}.{column}: tiene índice, pero ninguna consulta lo usó en 30 días ({written} filas escritas).',
     colTrigger: 'Disparador',
     colRuns: 'Ejecuciones',
     colFailed: 'Fallidas',

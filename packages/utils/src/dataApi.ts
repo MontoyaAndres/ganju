@@ -69,7 +69,7 @@ export const DATA_API_ROUTES = {
     tag: 'Database',
     summary: "The project's database",
     description:
-      'Its status and size, and its tables when it is ready. `database` is null when the project has none.',
+      'Its status and size, and its tables when it is ready, with `indexAdvice`: the open index suggestions. `database` is null when the project has none.',
     returns: '{ database }'
   },
   create: {
@@ -138,6 +138,24 @@ export const DATA_API_ROUTES = {
     description:
       'A column change on a table over 100,000 rows copies it in the background; table changes, and writes that would change its rows, wait until it finishes (`copy` on `GET` shows how far it got). A copy that failed left the table as it was and stays in `copy` with its `error` until dismissed, or until the next column change.',
     returns: '{ copy: null }'
+  },
+  applyIndexAdvice: {
+    method: 'post',
+    path: '/advice/:adviceId',
+    tag: 'Tables',
+    summary: 'Add a suggested index',
+    description:
+      "`GET` lists the open suggestions in `indexAdvice`: a column filtered or sorted on by 50 or more queries in a week that each read 1,000 or more rows, 20 for every row returned. This marks the column filterable, which indexes it, and records it in the change log. A suggestion of kind `unused` is only a flag; it can't be applied here, only dismissed.",
+    returns: '{ table }'
+  },
+  dismissIndexAdvice: {
+    method: 'delete',
+    path: '/advice/:adviceId',
+    tag: 'Tables',
+    summary: 'Dismiss an index suggestion',
+    description:
+      'It stays dismissed until its numbers double (queries, rows read per query, or rows written for an unused index).',
+    returns: '{ dismissed: true }'
   },
   listTables: {
     method: 'get',

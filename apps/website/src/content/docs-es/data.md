@@ -76,6 +76,33 @@ Cada tabla tiene tres pestañas:
 - **Disparadores**: ejecuta algo cuando cambian las filas de la tabla. Mira
   [Disparadores y webhooks](/es/docs/data/triggers/).
 
+### Sugerencias de índices
+
+Ganju mira cómo se consultan tus tablas, sin guardar nada en tu base de datos,
+y una vez al día sugiere un índice donde valdría la pena. La sugerencia aparece
+arriba en la pestaña **Esquema** de la tabla con los números que la explican,
+por ejemplo: "340 consultas esta semana filtraron u ordenaron por `status`, y
+cada una leyó unas 12.000 filas para devolver 8."
+
+Se sugiere una columna cuando, en los últimos 7 días:
+
+- no tiene índice;
+- 50 consultas o más filtraron u ordenaron por ella;
+- esas consultas leyeron en promedio 1.000 filas o más, y 20 o más por cada
+  fila que devolvieron.
+
+**Agregar índice** marca la columna como filtrable y lo registra en el historial
+de cambios. **Descartar** oculta la sugerencia hasta que sus números se dupliquen.
+
+Ganju también señala un índice que ninguna consulta usó en 30 días en una tabla
+con muchas escrituras, porque cada escritura actualiza también el índice. Es
+solo un aviso: no se quita nada. Desactiva **Filtrable** en la columna si nada
+lo necesita.
+
+Las sugerencias abiertas también aparecen en **Salud de las herramientas** del
+proyecto y en `ganju data info` (`ganju data index add|dismiss <id>` actúa
+sobre una).
+
 ## Quién ve qué
 
 Tus propios clientes MCP, como dueño del proyecto, el panel, la CLI y tus
@@ -197,6 +224,20 @@ Datos es parte de **Pro** y **Enterprise**. Si la organización pasa a Free, sus
 bases de datos se quedan, en **solo lectura**: puedes leer y descargar todo, el
 asistente y tus funciones aún pueden leer, y no se puede cambiar nada hasta que
 mejores el plan.
+
+Una base de datos cuya organización sigue en Free se elimina después de un
+aviso:
+
+- **Día 30 en Free:** el dueño y los administradores reciben un correo con cada
+  base de datos (proyecto, tamaño, tablas), que es de solo lectura y la fecha en
+  que se eliminará, con enlaces para mejorar el plan y para descargar una copia.
+- **3 días antes de esa fecha (día 41):** un recordatorio.
+- **Desde el día 44:** Ganju la elimina a mano. Guardamos una copia 90 días;
+  escríbenos a soporte si la necesitas.
+
+Volver a Pro o Enterprise en cualquier momento lo detiene y conserva todo.
+Descargar una copia no lo detiene. Una base de datos de Pro que simplemente no
+se usa nunca se elimina.
 
 **Ajustes → Plan y facturación** muestra un bloque **Datos** del periodo
 actual: almacenamiento (medido cada hora) y el pico del periodo, filas leídas y

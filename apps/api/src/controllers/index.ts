@@ -22,11 +22,17 @@ import { ObservabilityController } from './observability';
 import { ToolApprovalController } from './toolApproval';
 import { DataController } from './artifact/data';
 import { DataEmailController } from './dataEmail';
+import {
+  DataAbandonedController,
+  runAbandonedExportExpiry
+} from './dataAbandoned';
 
 export {
   BillingController,
   DataController,
   DataEmailController,
+  DataAbandonedController,
+  runAbandonedExportExpiry,
   ToolApprovalController,
   ObservabilityController,
   ContainmentController,

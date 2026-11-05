@@ -64,6 +64,12 @@ export {
   exportRows
 } from './dataEngine';
 export type { SqlRow, SqlRunner } from './dataEngine';
+export { adviseIndexes, adviceDoubled } from './dataIndexAdvice';
+export type {
+  IndexAdviceCandidate,
+  IndexAdviceInput,
+  IndexAdviceStat
+} from './dataIndexAdvice';
 export {
   DATA_QUERY_PARAM_TYPES,
   DATA_MAX_QUERIES,

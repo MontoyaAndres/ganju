@@ -848,6 +848,8 @@ const DATA_TRIGGER_PATH_PARAMS = DATA_DATABASE_GET.extend({ name: DATA_TRIGGER_N
 const DATA_TRIGGER_RUN_PARAMS = DATA_TRIGGER_PATH_PARAMS.extend({
   runId: z.string().min(1).max(64)
 });
+// An index suggestion, by its id.
+const DATA_INDEX_ADVICE_PARAMS = DATA_DATABASE_GET.extend({ adviceId: z.uuid() });
 
 const ARTIFACT_UPLOAD_RESOURCE_FILE = z.object({
   resourceId: z.uuid(),
@@ -2199,6 +2201,7 @@ export const Schema = {
   DATA_TRIGGER_RUN_LIST_QUERY,
   DATA_TRIGGER_PATH_PARAMS,
   DATA_TRIGGER_RUN_PARAMS,
+  DATA_INDEX_ADVICE_PARAMS,
   DATA_COLUMN_PARAMS,
   DATA_ROW_PARAMS,
   ARTIFACT_REMOVE_RESOURCE,

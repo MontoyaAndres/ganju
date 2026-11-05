@@ -469,6 +469,9 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   'Type the table\'s name, "{0}", to drop it.':
     'Escribe el nombre de la tabla, "{0}", para eliminarla.',
   'There is no such run.': 'No existe esa ejecución.',
+  'There is no such index suggestion.': 'No existe esa sugerencia de índice.',
+  'An unused index is only flagged; remove it from the column if you want to, or dismiss the suggestion.':
+    'Un índice sin uso solo se señala; quítalo de la columna si quieres, o descarta la sugerencia.',
   'Only a failed or skipped run can be tried again.':
     'Solo se puede reintentar una ejecución fallida u omitida.',
   'This run kept no event to send again.':

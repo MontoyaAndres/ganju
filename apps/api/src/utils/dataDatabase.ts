@@ -17,6 +17,7 @@ type ApiEnvSource = EnvSource & { env: Bindings };
 // from here; apps/mcp and apps/tool-broker use the same functions from
 // @ganju/db directly.
 export const {
+  callDataMetered,
   createDataUsageTally,
   findArtifactDatabase,
   openArtifactDatabase,
@@ -281,8 +282,11 @@ export const notifyDatabasesDeleted = async (
     rows.map(async row => {
       try {
         const stub = databaseStub(source.env.PROJECT_DATABASE, row.objectName);
-        const { bookmark } = await callData('markDeleted', () =>
-          stub.markDeleted({ actor })
+        const { bookmark } = await db.data.callDataMetered(
+          dbInstance,
+          row,
+          'markDeleted',
+          () => stub.markDeleted({ actor })
         );
         await dbInstance
           .update(db.schema.artifactDatabase)

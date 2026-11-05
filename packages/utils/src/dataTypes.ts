@@ -138,10 +138,32 @@ export interface DataCallerLimits {
   readOnly?: boolean;
 }
 
+// What one query on a table did: the columns it filtered and sorted on, and
+// how many rows it read to return how many. The API sums them per column for
+// a week to suggest indexes.
+export interface DataQueryShape {
+  table: string;
+  filtered: string[];
+  sorted: string[];
+  rowsRead: number;
+  returned: number;
+}
+
+// Rows one write operation wrote to a table, which tells a write-heavy table.
+export interface DataWriteShape {
+  table: string;
+  rowsWritten: number;
+}
+
 export interface DataUsage {
   rowsRead: number;
   rowsWritten: number;
+  queries?: DataQueryShape[];
+  writes?: DataWriteShape[];
 }
+
+// At most this many shapes travel back with one call.
+export const DATA_MAX_USAGE_SHAPES = 20;
 
 export const DATA_ERROR_CODES = [
   'invalid',

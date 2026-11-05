@@ -86,10 +86,13 @@ import type {
   DataDefaultValue,
   DataDeleteImpact,
   DataOnDelete,
+  DataQueryShape,
   DataSchema,
   DataTable,
   DataTableCopy,
-  DataTableInput
+  DataTableInput,
+  DataUsage,
+  DataWriteShape
 } from './dataTypes';
 
 export type SqlRow = Record<string, SqlValue>;
@@ -101,6 +104,11 @@ export interface SqlRunner {
   iterate(sql: string, params?: readonly SqlValue[]): Iterable<SqlRow>;
   transaction<T>(fn: () => T): T;
   databaseSize(): number;
+  // Rows read and written so far in this call, and where a query or write
+  // notes what it did. Optional: tests and internal runners skip them.
+  usageSoFar?(): DataUsage;
+  noteQuery?(shape: DataQueryShape): void;
+  noteWrite?(shape: DataWriteShape): void;
 }
 
 const first = (runner: SqlRunner, sql: string, params?: readonly SqlValue[]) =>
@@ -890,8 +898,20 @@ export const query = (
     caller,
     table,
     joins: new Map(),
-    params: []
+    params: [],
+    filtered: new Set()
   };
+  // What this query read, noted for index advice once it has its rows.
+  const readBefore = runner.usageSoFar?.().rowsRead ?? 0;
+  const sorted: string[] = [];
+  const noteShape = (returned: number) =>
+    runner.noteQuery?.({
+      table: table.name,
+      filtered: [...(ctx.filtered ?? [])],
+      sorted,
+      rowsRead: (runner.usageSoFar?.().rowsRead ?? 0) - readBefore,
+      returned
+    });
   const indexed = new Set<string>();
   const where = compileWhere(ctx, args.where, indexed);
   if (isScoped(caller, table)) {
@@ -907,7 +927,10 @@ export const query = (
   }
 
   if (args.aggregate !== undefined && args.aggregate !== null) {
-    return aggregate(runner, ctx, args, where, searching, indexed.size > 0);
+    const result = aggregate(runner, ctx, args, where, searching, indexed.size > 0);
+    const groups = (result as { groups?: unknown }).groups;
+    noteShape(Array.isArray(groups) ? groups.length : 1);
+    return result;
   }
 
   const limit = args.limit === undefined || args.limit === null ? DATA_DEFAULT_PAGE : args.limit;
@@ -946,6 +969,7 @@ export const query = (
       descending,
       ...(servedByIndex ? {} : { unindexed: resolved.column.name })
     });
+    if (resolved.own && resolved.column.name !== 'id') sorted.push(resolved.column.name);
     if (resolved.own && resolved.column.name === 'id') {
       endsUnique = true;
       break;
@@ -1043,6 +1067,7 @@ export const query = (
   }
 
   const { rows: out, last, more } = result;
+  noteShape(out.length);
   const includeTruncated =
     args.include !== undefined && args.include !== null
       ? includeRelations(
@@ -1840,7 +1865,12 @@ export const write = (
     const results: WriteResult[] = [];
     operations.forEach((op, index) => {
       try {
+        const before = runner.usageSoFar?.().rowsWritten ?? 0;
         results.push(runOperation(runner, schema, caller, op, index, results));
+        runner.noteWrite?.({
+          table: results[results.length - 1].table,
+          rowsWritten: (runner.usageSoFar?.().rowsWritten ?? 0) - before
+        });
       } catch (error) {
         if (error instanceof DataError) {
           const label = isPlainObject(op) ? `${String(op.op)} ${String(op.table)}` : '?';

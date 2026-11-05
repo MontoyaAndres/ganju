@@ -6,6 +6,7 @@ import {
   toResourceSearchResult,
   plan,
   data,
+  dataAdvice,
   channels,
   whatsappTemplates
 } from './lib';
@@ -19,6 +20,7 @@ export const db = {
   toResourceSearchResult,
   plan,
   data,
+  dataAdvice,
   channels,
   whatsappTemplates
 };
@@ -42,6 +44,7 @@ export type {
   DataUsageTally,
   ArtifactDatabaseRow,
   OpenedDatabase,
+  IndexAdviceRow,
   ChannelMessageSource,
   ChannelSendResult,
   ChannelTemplate,

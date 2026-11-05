@@ -81,16 +81,22 @@ export const signWebhook = async (
 // The row a message is built from: the one after the change, or the deleted
 // one. An event whose row was too large to carry reads it back.
 const rowFor = async (
+  executor: DbExecutor,
+  database: { id: string; organizationId: string },
   stub: ReturnType<typeof db.data.databaseStub>,
   job: DataTriggerJob
 ): Promise<Record<string, unknown> | null> => {
   if (job.row || job.previous) return job.row ?? job.previous;
   if (!job.truncated) return null;
-  const result = (await db.data.callData('query', () =>
-    stub.query(
-      { actor: ACTOR },
-      { table: job.table, where: { id: job.rowId }, limit: 1 }
-    )
+  const result = (await db.data.callDataMetered(
+    executor,
+    database,
+    'query',
+    () =>
+      stub.query(
+        { actor: ACTOR },
+        { table: job.table, where: { id: job.rowId }, limit: 1 }
+      )
   )) as { rows: Record<string, unknown>[] };
   return result.rows[0] ?? null;
 };
@@ -99,6 +105,7 @@ const runAction = async (
   env: Bindings,
   executor: DbExecutor,
   context: {
+    databaseId: string;
     organizationId: string;
     stub: ReturnType<typeof db.data.databaseStub>;
     trigger: DataTriggerWithSecret;
@@ -106,6 +113,10 @@ const runAction = async (
   job: DataTriggerJob
 ): Promise<string | undefined> => {
   const { trigger, stub } = context;
+  const database = {
+    id: context.databaseId,
+    organizationId: context.organizationId
+  };
   const action = trigger.action;
   const source = { env };
   switch (action.type) {
@@ -201,7 +212,7 @@ const runAction = async (
       return;
     }
     case 'chat': {
-      const row = await rowFor(stub, job);
+      const row = await rowFor(executor, database, stub, job);
       await sendOrExplain(() =>
         db.channels.postToChat(executor, {
           artifactId: job.artifactId,
@@ -230,7 +241,7 @@ const runAction = async (
       if (allowed.length === 0) {
         throw new SkipRun(`Not sent: ${notes.join(' ')}`);
       }
-      const row = await rowFor(stub, job);
+      const row = await rowFor(executor, database, stub, job);
       const failed = await emailRecipientsEach(source, allowed, {
         subject: renderTriggerText(action.subject, row).slice(0, 200),
         text: renderTriggerText(action.text, row)
@@ -251,7 +262,7 @@ const runAction = async (
       return notes.length > 0 ? `Sent. ${notes.join(' ')}` : undefined;
     }
     case 'customer': {
-      const row = await rowFor(stub, job);
+      const row = await rowFor(executor, database, stub, job);
       const participantId = row?.participant_id;
       if (typeof participantId !== 'string' || !participantId) {
         throw new FinalError(
@@ -379,11 +390,15 @@ const disableIfFailing = async (
   )
     return;
   const reason = `Turned off by Ganju after ${FAILURES_TO_DISABLE} failed runs in a row.`;
-  await db.data.callData('setTriggerEnabled', () =>
-    context.stub.setTriggerEnabled(
-      { actor: ACTOR },
-      { name: job.triggerId, enabled: false, reason }
-    )
+  await db.data.callDataMetered(
+    executor,
+    { id: context.databaseId, organizationId: context.organizationId },
+    'setTriggerEnabled',
+    () =>
+      context.stub.setTriggerEnabled(
+        { actor: ACTOR },
+        { name: job.triggerId, enabled: false, reason }
+      )
   );
   const to = await organizationAdminEmails(executor, context.organizationId);
   const web = utils.getEnv({ env }, 'NEXT_PUBLIC_WEB_URL') ?? '';
@@ -482,13 +497,12 @@ const processEvent = async (
 
   let trigger: DataTriggerWithSecret;
   try {
-    trigger = await db.data.callData(
+    trigger = await db.data.callDataMetered(
+      executor,
+      database,
       'getTrigger',
       () => stub.getTrigger(job.triggerId),
-      undefined,
-      {
-        retryRead: true
-      }
+      { retryRead: true }
     );
   } catch (error) {
     if (error instanceof DataError && error.code === 'not_found') {
@@ -583,7 +597,12 @@ const processEvent = async (
     note = await runAction(
       env,
       executor,
-      { organizationId: database.organizationId, stub, trigger },
+      {
+        databaseId: database.id,
+        organizationId: database.organizationId,
+        stub,
+        trigger
+      },
       job
     );
   } catch (error) {

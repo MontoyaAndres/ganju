@@ -356,6 +356,14 @@ const getToolHealth = async (c: Context<AppEnv>) => {
     `) as unknown as Promise<TriggerHealthRow[]>
   ]);
 
+  // Open index suggestions for the project's database, from the daily job.
+  const dataRow = await db.data.findArtifactDatabase(dbInstance, artifactId);
+  const indexAdvice = dataRow
+    ? await db.dataAdvice
+        .listIndexAdvice(dbInstance, dataRow.id)
+        .catch(() => [])
+    : [];
+
   const installById = new Map(installs.map(row => [row.id, row]));
   // What each enabled install puts in front of a model: an MCP server is every
   // tool it allows, a script every function it keeps.
@@ -436,6 +444,15 @@ const getToolHealth = async (c: Context<AppEnv>) => {
       p95Ms: row.p95_ms,
       lastRunAt: row.last_run_at,
       lastError: c.get('apiToken') ? null : row.last_error
+    })),
+    indexAdvice: indexAdvice.map(row => ({
+      table: row.tableName,
+      column: row.columnName,
+      kind: row.kind,
+      queries: row.queries,
+      avgRowsRead: row.avgRowsRead,
+      avgRowsReturned: row.avgRowsReturned,
+      rowsWritten: row.rowsWritten
     })),
     // Judged per install row, the unit the Tools page switches on and off: an
     // MCP server or a script counts as used when any of its tools was called.

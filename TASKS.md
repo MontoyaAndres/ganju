@@ -2173,8 +2173,8 @@ pass on both, and the Telegram checks were done by hand on dev.
     It isn't on a product price yet.
 - **After the dev check:**
   - The billing block shows the databases' current size
-    (`artifact_database.size_bytes`). Nothing writes `peak_data_mb`: the
-    hourly storage measurement of decision 8 was never built.
+    (`artifact_database.size_bytes`). (Then nothing wrote `peak_data_mb`; the
+    hourly storage reading was added after production, below.)
   - The runs list names the event in words ("Fila 1 cambiada").
   - The named-query save and run dialogs scroll their error into view, like
     the triggers dialog.
@@ -2247,8 +2247,8 @@ pass on both, and the Telegram checks were done by hand on dev.
     nemo's live version is a CLI bundle, so the dialog is read-only there.
   - **A WhatsApp template sent outside the window** hasn't been checked
     (5c).
-  - **Reconciling with Cloudflare** (`scripts/reconcile-data-usage.mjs`)
-    isn't written.
+  - **Reconciling with Cloudflare** (`scripts/reconcile-data-usage.mjs`):
+    written in phase 6, see its status.
 
 **5c. WhatsApp message templates — M (4–6 days)**
 
@@ -2359,6 +2359,12 @@ done.**
   Message templates tab:**
   - create a Utility template from the dashboard form and see it go from
     pending to approved (by webhook or Refresh);
+    - `qa_pedido_listo_1105` (Utility, es) was created from the form on
+      2026-11-05 and is still PENDING in Meta's review (checked 2026-11-05,
+      no `rejected_reason`; the channel's last read was ok at 14:04 UTC).
+      Check `channel_whatsapp_template.status` again; once APPROVED, note
+      whether the webhook or a re-read got it there and close 5c. The dev
+      token lasts about an hour, so a re-read may need a fresh one pasted.
   - paste a Graph API Explorer token with only `whatsapp_business_messaging`
     and check the tab shows the "can't manage templates" explanation and
     steps, not an error. Then paste a full token back.
@@ -2484,6 +2490,110 @@ done.**
     digest;
   - each email is sent once, even with the job run twice;
   - upgrading the org clears it from the flow.
+
+**Phase 6 status (2026-11-05): deployed on dev, not on prod. Migration 0088
+(`data_index_advice_abandoned`) is on dev; the abandoned flow passed on dev
+(34/34). After the deploy: `probe-data.mjs` 56/57, `probe-data-tools.mjs`
+47/48 and `probe-data-triggers.mjs` 39/40; the one failure in each was the
+OpenAPI route count (now 40 with the two advice routes), fixed in the
+probes. Pending on dev: the index-advice check below (after the 2026-11-06
+13:00 UTC run) and the 1% reconcile on a fresh period.**
+
+- **Index-advice check on dev (set up 2026-11-05):** nemo has
+  `qa_advice_orders` (50,000 rows; `city` not filterable) and 60 queries
+  `--where city=Leticia --limit 10` ran that day (stats: 60 queries,
+  3,300,060 rows read, 600 returned). After the next 13:00 UTC run,
+  `ganju data info` in nemo should list an "add" suggestion for
+  `qa_advice_orders.city`; then check the Schema tab notice, "Add index"
+  (change log, column filterable), and drop the table.
+
+- **Meters:**
+  - `scripts/reconcile-data-usage.mjs [--prod] [--org <id>] [--from --to]
+    [--tolerance 1]`: reads Cloudflare's GraphQL analytics for the
+    `ganju-data-*` namespace. `durableObjectsPeriodicGroups` has a `name`
+    dimension, the string given to `idFromName`, which is
+    `artifact_database.object_name`, so every object maps to its row and org.
+    It compares each org's rows read and written for its current (or a
+    closed) period; requests are shown, not judged (Cloudflare can serve
+    several RPC calls as one invocation, so its count runs below ours).
+    Storage is per namespace. The dev token has the permissions it needs.
+  - **First run on dev (2026-11-05), before the fix below:** org "test" off
+    by -50% rows read and -25% rows written. Cause: calls made without a
+    tally (the hourly `size()`, the dashboard's `info()`, trigger runs'
+    `getTrigger`/`query`/`setTriggerEnabled`, the assistant's
+    `schemaRead`, `markDeleted`) also carry the rows the object's alarm read
+    since the last call (exports, history pruning, the outbox), and those
+    never reached a meter. Fixed with `callDataMetered`, which meters a lone
+    call. Periods that started before the deploy won't match; check the
+    1% after a fresh period, or with `--org` on a new throwaway org.
+  - Ganju's own reads (the hourly size, the index job's schema read, the
+    abandoned flow's table reads, the delete script's export calls) pass
+    `ganju: true`: billed, but they leave `last_read_at` / `last_write_at`
+    alone, so the digest's "last read" is the owner's, not Ganju's.
+- **Index advice:**
+  - The engine notes each query's shape (table, filtered and sorted columns,
+    rows read, rows returned) and each write's table and rows written,
+    through optional runner hooks; the object sends up to 20 per call with
+    its usage. Nothing is stored in the customer's database.
+  - `recordDataUsage` upserts them into `artifact_database_query_stat`, one
+    statement per request: a row per (database, table, column, day), with
+    column `''` for the table's totals. Kept 35 days. A failure there is
+    logged and never costs the request its meters.
+  - Daily job (13:00 UTC on the hourly cron, `runDataIndexAdvice`): the rule
+    is `adviseIndexes` in `packages/utils/src/dataIndexAdvice.ts` (unit
+    tests in `test/dataIndexAdvice.test.ts`). An unused index is a filterable
+    (not unique, not relation) column no query used in 30 days, on a table
+    with at least 1,000 rows written and more rows written than queries,
+    only once stats cover 30 days and the column wasn't changed in them.
+    Suggestions are in `artifact_database_index_advice`; a dismissed one
+    reopens when its queries, rows read per query, or rows written double.
+  - The owner sees: a notice at the top of the Schema tab with "Add index"
+    (marks the column filterable, `column.update` in the change log) and
+    "Dismiss"; an "Index suggestions" block in Tool health (a row opens the
+    Schema tab); `ganju data info` lists them, and `ganju data index
+    add|dismiss <id>` acts on one. Data API: `indexAdvice` on `GET`, `POST`
+    and `DELETE /advice/:adviceId`.
+  - `info()` now also returns each table's approximate `rows` (max id).
+- **Abandoned databases** (`apps/api/src/utils/dataAbandoned.ts`, daily at
+  13:00 UTC):
+  - Warning at day 30 on Free to the owner and admins (es then en: each
+    database with project, size, tables and about how many rows; read-only;
+    the deletion date; upgrade and download links). Reminder 3 days before
+    the deletion date. Listed (`delete_ready_at`) from the deletion date,
+    and Ganju's digest to `ALERT_EMAIL` when something is new, `[NEW]` on
+    the new lines (`delete_listed_at`, new in 0088). The deletion date is day
+    44, but never less than 14 days after the warning, so a database found
+    late still gets the full notice.
+  - Each mark is claimed with a conditional `UPDATE` before the send and
+    given back if no address got it, so a second run, or two at once, never
+    emails twice, and a failed send is retried the next day.
+  - A notice that reaches nobody (no owner or admin email, or mail failing)
+    is retried daily, and 3 days after it was due the database goes in the
+    digest as `[CAN'T NOTIFY]`, once, without the delete command (it isn't
+    deletable). Once the notice goes out it leaves that list.
+  - A paid plan clears all four marks; marks older than `plan_changed_at`
+    (an earlier spell on Free) are cleared too. An org on Free with no
+    `plan_changed_at` is skipped.
+  - `scripts/delete-data-database.mjs --artifact <id> [--prod]`: refuses
+    unless READY, listed and on Free, asks for the name, then calls internal
+    API routes (`/internal/data/database/:id/abandoned/…`, internal secret):
+    export (jsonl), wait for it, then delete, which checks all of it again,
+    empties the object, marks the row DELETED with `export_key` (the R2
+    folder), logs a `purge` change, and emails the owners. The hourly cron
+    removes those copies after 90 days (`export.expire` in the change log).
+  - `scripts/verify-data-abandoned.mjs [--prod]` drives the real job on a
+    throwaway org with stubbed mail and objects: days 29, 30 (twice), 40,
+    41 (twice), 44, 45, then an upgrade, then a warning that reaches nobody
+    (days 30 to 35). 34/34 on dev (2026-11-05), with 0088 run.
+- **Docs (en + es):** Data → "Index suggestions" and the abandoned-database
+  policy under "Plans and billing"; Data API → `ganju data index`.
+- **Left for the "done when":**
+  - deploy to dev;
+  - a `qa_` table in nemo seeded with 50k rows, queried 50+ times on an
+    unindexed column, then `runDataIndexAdvice` (or wait for 13:00 UTC):
+    the suggestion shows; "Add index" and the same queries read fewer rows;
+  - `node scripts/reconcile-data-usage.mjs --org <test org>` within 1% on a
+    period that started after the deploy.
 
 **7. Knowledge links — S–M**
 

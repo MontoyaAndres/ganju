@@ -35,6 +35,16 @@ const en = {
   readOnlyTitle: 'Read-only',
   readOnlyText:
     "This organization's plan no longer includes Data. You can read and download everything; nothing can be changed until you upgrade.",
+  indexAdviceTitle: 'An index on {column} would help',
+  indexAdviceText:
+    '{queries} queries this week filtered or sorted on {column}, and each read about {read} rows to return {returned}. An index would make them faster and cheaper.',
+  indexUnusedTitle: 'No query uses the index on {column}',
+  indexUnusedText:
+    'No query filtered or sorted on {column} in 30 days, while {written} rows were written to this table, and every write updates the index too. If nothing needs it, turn off "Filterable" on the column.',
+  indexAdviceAdd: 'Add index',
+  indexAdviceDismiss: 'Dismiss',
+  indexAdviceAdded: 'Index added on {column}.',
+  indexAdviceDismissed: 'Dismissed. It comes back if the numbers double.',
   deletedBannerTitle: 'This database is deleted',
   deletedBannerText:
     'It goes for good on {date}; until then you can restore it.',
@@ -604,6 +614,16 @@ export const DATA: Catalog<DataCopy> = {
     readOnlyTitle: 'Solo lectura',
     readOnlyText:
       'El plan de esta organización ya no incluye Datos. Puedes leer y descargar todo; no se puede cambiar nada hasta que mejores el plan.',
+    indexAdviceTitle: 'Un índice en {column} ayudaría',
+    indexAdviceText:
+      '{queries} consultas esta semana filtraron u ordenaron por {column}, y cada una leyó unas {read} filas para devolver {returned}. Un índice las haría más rápidas y baratas.',
+    indexUnusedTitle: 'Ninguna consulta usa el índice de {column}',
+    indexUnusedText:
+      'Ninguna consulta filtró u ordenó por {column} en 30 días, mientras se escribieron {written} filas en esta tabla, y cada escritura actualiza también el índice. Si nada lo necesita, desactiva "Filtrable" en la columna.',
+    indexAdviceAdd: 'Agregar índice',
+    indexAdviceDismiss: 'Descartar',
+    indexAdviceAdded: 'Índice agregado en {column}.',
+    indexAdviceDismissed: 'Descartada. Vuelve si los números se duplican.',
     deletedBannerTitle: 'Esta base de datos está eliminada',
     deletedBannerText:
       'Se borra para siempre el {date}; hasta entonces puedes restaurarla.',

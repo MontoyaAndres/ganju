@@ -56,7 +56,8 @@ export interface DatabaseInfo {
   timeZone: string | null;
   schemaVersion: number;
   size: number;
-  tables: { name: string; label: string | null; columns: number }[];
+  // `rows` is about how many: the highest id, read from the index.
+  tables: { name: string; label: string | null; columns: number; rows: number }[];
   // A column change copying a large table in the background: table changes,
   // and writes that would change its rows, wait while it runs.
   copy: DataTableCopy | null;

@@ -7,6 +7,7 @@ import {
   create,
   drop,
   exportData,
+  indexAdvice,
   info,
   restore,
   timeZone
@@ -43,6 +44,7 @@ ${color.bold('Database')}
   ganju data export [--format jsonl|csv] [--out <dir>]
   ganju data changes                         the schema change log
   ganju data copy [status|wait|dismiss]      a table copy running in the background
+  ganju data index add|dismiss <id>          act on an index suggestion (ids in info)
 
 ${color.bold('Tables')}
   ganju data tables
@@ -115,6 +117,8 @@ export const data = async (
       return changes(options);
     case 'copy':
       return copy(rest[0], options);
+    case 'index':
+      return indexAdvice(rest[0], rest[1]);
     case 'tables':
       return tables(options);
     case 'table':

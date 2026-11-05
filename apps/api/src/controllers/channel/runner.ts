@@ -964,13 +964,12 @@ const runTurn = async (
         artifactRow.id
       );
       if (!opened) return undefined;
-      return db.data.callData(
+      return db.data.callDataMetered(
+        dbInstance,
+        opened.row,
         'schemaRead',
         () => opened.stub.schemaRead(),
-        undefined,
-        {
-          retryRead: true
-        }
+        { retryRead: true }
       );
     })().catch(error => {
       console.error('data-schema-read-failed', error);

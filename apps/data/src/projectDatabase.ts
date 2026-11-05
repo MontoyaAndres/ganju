@@ -46,7 +46,8 @@ import {
   replaceManagedTriggers,
   saveTrigger,
   setTriggerEnabled,
-  utf8Bytes
+  utf8Bytes,
+  DATA_MAX_USAGE_SHAPES
 } from '@ganju/utils/data';
 import type {
   DatabaseInfo,
@@ -176,7 +177,17 @@ export class ProjectDatabase
         }
       },
       transaction: <T>(fn: () => T): T => this.ctx.storage.transactionSync(fn),
-      databaseSize: () => sql.databaseSize
+      databaseSize: () => sql.databaseSize,
+      usageSoFar: () => ({ rowsRead: usage.rowsRead, rowsWritten: usage.rowsWritten }),
+      // Shapes go back to the API with the call's usage; nothing is stored here.
+      noteQuery: shape => {
+        usage.queries ??= [];
+        if (usage.queries.length < DATA_MAX_USAGE_SHAPES) usage.queries.push(shape);
+      },
+      noteWrite: shape => {
+        usage.writes ??= [];
+        if (usage.writes.length < DATA_MAX_USAGE_SHAPES) usage.writes.push(shape);
+      }
     };
   }
 
@@ -384,7 +395,10 @@ export class ProjectDatabase
       tables: schema.tables.map(t => ({
         name: t.name,
         label: t.label,
-        columns: t.columns.length
+        columns: t.columns.length,
+        rows: Number(
+          runner.all(`SELECT max(id) AS n FROM "${t.name.replace(/"/g, '""')}"`)[0]?.n ?? 0
+        )
       })),
       copy: readTableCopy(runner)
     };

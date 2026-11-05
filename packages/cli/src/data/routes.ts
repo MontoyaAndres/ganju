@@ -35,6 +35,8 @@ const ROUTES = {
   addColumn: { method: 'post', path: '/table/:table/column' },
   updateColumn: { method: 'patch', path: '/table/:table/column/:column' },
   dropColumn: { method: 'delete', path: '/table/:table/column/:column' },
+  applyIndexAdvice: { method: 'post', path: '/advice/:adviceId' },
+  dismissIndexAdvice: { method: 'delete', path: '/advice/:adviceId' },
   listRows: { method: 'get', path: '/table/:table/row' },
   createRows: { method: 'post', path: '/table/:table/row' },
   getRow: { method: 'get', path: '/table/:table/row/:id' },

@@ -125,6 +125,25 @@ export const info = async (options: DataOptions): Promise<void> => {
   } else if (database.status === 'READY') {
     note(color.gray('\n  no tables yet'));
   }
+  if (database.indexAdvice?.length) {
+    say();
+    say(color.bold('Index suggestions'));
+    for (const advice of database.indexAdvice) {
+      const n = (value: number) => value.toLocaleString('en');
+      say(
+        advice.kind === 'unused'
+          ? `  ${advice.table}.${advice.column}: indexed, but no query used it in 30 days (${n(advice.rowsWritten)} rows written)`
+          : `  ${advice.table}.${advice.column}: ${n(advice.queries)} queries this week, each reading ~${n(advice.avgRowsRead)} rows to return ${n(advice.avgRowsReturned)}`
+      );
+      note(
+        color.gray(
+          advice.kind === 'unused'
+            ? `    ganju data index dismiss ${advice.id}`
+            : `    ganju data index add ${advice.id}   (or dismiss)`
+        )
+      );
+    }
+  }
   if (database.copy) {
     say();
     const copy = database.copy;
@@ -145,6 +164,30 @@ export const info = async (options: DataOptions): Promise<void> => {
       )
     );
   }
+};
+
+/**
+ * `ganju data index add|dismiss <id>`: act on a suggestion `ganju data info`
+ * lists. Adding marks the column filterable, which indexes it; a dismissed one
+ * comes back if its numbers double.
+ */
+export const indexAdvice = async (
+  action: string | undefined,
+  id: string | undefined
+): Promise<void> => {
+  if ((action !== 'add' && action !== 'dismiss') || !id) {
+    throw new CliError('Usage: ganju data index add|dismiss <suggestion id>', {
+      hint: '`ganju data info` lists the open suggestions with their ids.'
+    });
+  }
+  const { data } = await dataContext();
+  if (action === 'add') {
+    await data.request('applyIndexAdvice', { params: { adviceId: id } });
+    success('Index added; the column is now filterable');
+    return;
+  }
+  await data.request('dismissIndexAdvice', { params: { adviceId: id } });
+  success('Dismissed; it comes back if the numbers double');
 };
 
 export const drop = async (options: DataOptions): Promise<void> => {

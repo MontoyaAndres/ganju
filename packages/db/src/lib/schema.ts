@@ -1476,6 +1476,8 @@ export const artifactDatabase = pgTable(
     abandonWarnedAt: timestamp('abandon_warned_at', { mode: 'date' }),
     abandonRemindedAt: timestamp('abandon_reminded_at', { mode: 'date' }),
     deleteReadyAt: timestamp('delete_ready_at', { mode: 'date' }),
+    // When it first went out in Ganju's ready-to-delete digest.
+    deleteListedAt: timestamp('delete_listed_at', { mode: 'date' }),
     exportKey: text('export_key'),
     createdById: text('created_by_id').references(() => user.id, {
       onDelete: 'set null'
@@ -1517,6 +1519,78 @@ export const artifactDatabaseChange = pgTable(
     index('artifact_database_change_databaseId_createdAt_idx').on(
       table.databaseId,
       table.createdAt
+    )
+  ]
+);
+
+// How a database's queries used each column, one row per day. `column` is ''
+// for the whole table: every query on it, and the writes to it. Kept a little
+// over 30 days; nothing about queries is stored inside the database itself.
+export const artifactDatabaseQueryStat = pgTable(
+  'artifact_database_query_stat',
+  {
+    databaseId: text('database_id')
+      .notNull()
+      .references(() => artifactDatabase.id, { onDelete: 'cascade' }),
+    tableName: text('table_name').notNull(),
+    columnName: text('column_name').notNull(),
+    day: timestamp('day', { mode: 'date' }).notNull(),
+    queries: integer('queries').notNull().default(0),
+    rowsRead: bigint('rows_read', { mode: 'number' }).notNull().default(0),
+    rowsReturned: bigint('rows_returned', { mode: 'number' })
+      .notNull()
+      .default(0),
+    writes: integer('writes').notNull().default(0),
+    rowsWritten: bigint('rows_written', { mode: 'number' }).notNull().default(0)
+  },
+  table => [
+    primaryKey({
+      columns: [table.databaseId, table.tableName, table.columnName, table.day]
+    }),
+    index('artifact_database_query_stat_day_idx').on(table.day)
+  ]
+);
+
+// An index the daily job suggests adding, or flags as unused, with the numbers
+// behind it. A dismissed one comes back when its numbers double.
+export const artifactDatabaseIndexAdvice = pgTable(
+  'artifact_database_index_advice',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    databaseId: text('database_id')
+      .notNull()
+      .references(() => artifactDatabase.id, { onDelete: 'cascade' }),
+    tableName: text('table_name').notNull(),
+    columnName: text('column_name').notNull(),
+    // 'add' or 'unused'.
+    kind: text('kind').notNull(),
+    status: text('status').notNull().default('open'),
+    // Over the window: 7 days for 'add', 30 for 'unused'.
+    queries: integer('queries').notNull().default(0),
+    avgRowsRead: integer('avg_rows_read').notNull().default(0),
+    avgRowsReturned: integer('avg_rows_returned').notNull().default(0),
+    rowsWritten: bigint('rows_written', { mode: 'number' })
+      .notNull()
+      .default(0),
+    dismissedQueries: integer('dismissed_queries'),
+    dismissedAvgRowsRead: integer('dismissed_avg_rows_read'),
+    dismissedRowsWritten: bigint('dismissed_rows_written', { mode: 'number' }),
+    dismissedAt: timestamp('dismissed_at', { mode: 'date' }),
+    dismissedBy: text('dismissed_by'),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    uniqueIndex('artifact_database_index_advice_column_kind_idx').on(
+      table.databaseId,
+      table.tableName,
+      table.columnName,
+      table.kind
     )
   ]
 );

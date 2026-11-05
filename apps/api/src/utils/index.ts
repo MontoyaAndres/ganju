@@ -99,6 +99,8 @@ import {
 } from './dataDatabase';
 import { runErrorAlerts, runToolCallAlerts, recentErrors } from './alerting';
 import { runWhatsappTemplateSync } from './whatsappTemplates';
+import { runDataIndexAdvice } from './dataIndexAdvice';
+import { runAbandonedDatabases } from './dataAbandoned';
 import {
   consentActorFromRequest,
   recordConsent,
@@ -125,6 +127,8 @@ export {
   runErrorAlerts,
   runToolCallAlerts,
   runWhatsappTemplateSync,
+  runDataIndexAdvice,
+  runAbandonedDatabases,
   recentErrors,
   consentActorFromRequest,
   recordConsent,

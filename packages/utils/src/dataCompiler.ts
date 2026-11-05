@@ -429,6 +429,8 @@ export interface CompileContext {
   table: DataTable;
   joins: Map<string, SqlJoin>;
   params: SqlValue[];
+  // The queried table's own columns a `where` filters on, for index advice.
+  filtered?: Set<string>;
 }
 
 // "column" or "relation.column", adding the join a relation path needs.
@@ -548,6 +550,7 @@ export const compileWhere = (
       continue;
     }
     const resolved = resolvePath(ctx, key);
+    if (resolved.own) ctx.filtered?.add(resolved.column.name);
     // { "customer": { "name": "Ana" } } reads as "customer.name": models
     // write relation filters this way unprompted.
     if (

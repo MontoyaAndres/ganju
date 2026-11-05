@@ -5,7 +5,9 @@ import { DataError } from '@ganju/utils/data';
 import type {
   DataCaller,
   DataCallerLimits,
+  DataQueryShape,
   DataResult,
+  DataWriteShape,
   ProjectDatabaseRpc
 } from '@ganju/utils/data';
 
@@ -41,14 +43,22 @@ export interface DataUsageTally {
   rowsWritten: number;
   requests: number;
   slowCalls: { method: string; ms: number }[];
+  // What the queries and writes did, for index advice.
+  queries: DataQueryShape[];
+  writes: DataWriteShape[];
 }
 
 export const createDataUsageTally = (): DataUsageTally => ({
   rowsRead: 0,
   rowsWritten: 0,
   requests: 0,
-  slowCalls: []
+  slowCalls: [],
+  queries: [],
+  writes: []
 });
+
+// A request keeps at most this many shapes; past them it is still metered.
+const MAX_TALLY_SHAPES = 200;
 
 // A call over 250 ms is held up by, or holding up, everything else the
 // database serves.
@@ -76,6 +86,12 @@ export const callData = async <T>(
     tally.requests += 1;
     tally.rowsRead += result.usage.rowsRead;
     tally.rowsWritten += result.usage.rowsWritten;
+    for (const shape of result.usage.queries ?? []) {
+      if (tally.queries.length < MAX_TALLY_SHAPES) tally.queries.push(shape);
+    }
+    for (const shape of result.usage.writes ?? []) {
+      if (tally.writes.length < MAX_TALLY_SHAPES) tally.writes.push(shape);
+    }
     if (ms > SLOW_CALL_MS) tally.slowCalls.push({ method, ms });
   }
   if (ms > SLOW_CALL_MS) console.warn('data-slow-call', method, ms);
@@ -142,13 +158,15 @@ export const dataCaller = (
 ): DataCaller => ({ ...caller, limits: opened.limits });
 
 // Adds a request's tally to the org's meters (one statement) and moves the
-// database's last read and last write, at most once an hour each.
+// database's last read and last write, at most once an hour each. Ganju's own
+// calls pass `activity: false`: billed, but not the owner using the database.
 export const recordDataUsage = async (
   executor: DbExecutor,
   organizationId: string,
   databaseId: string | null,
   tally: DataUsageTally,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: { activity?: boolean } = {}
 ): Promise<void> => {
   if (tally.requests === 0) return;
   const [sub] = await executor
@@ -172,18 +190,112 @@ export const recordDataUsage = async (
   if (!databaseId) return;
   const stale = new Date(now.getTime() - constants.DATA_ACTIVITY_THROTTLE_MS);
   const db = schema.artifactDatabase;
-  if (tally.rowsRead > 0) {
+  const activity = options.activity ?? true;
+  if (activity && tally.rowsRead > 0) {
     await executor
       .update(db)
       .set({ lastReadAt: now })
       .where(and(eq(db.id, databaseId), or(isNull(db.lastReadAt), lt(db.lastReadAt, stale))));
   }
-  if (tally.rowsWritten > 0) {
+  if (activity && tally.rowsWritten > 0) {
     await executor
       .update(db)
       .set({ lastWriteAt: now })
       .where(and(eq(db.id, databaseId), or(isNull(db.lastWriteAt), lt(db.lastWriteAt, stale))));
   }
+  // Last, and on its own: index advice never costs a request its meters.
+  await recordQueryStats(executor, databaseId, tally, now).catch(error =>
+    console.error('data-query-stats-failed', error)
+  );
+};
+
+// One call made outside a request's tally (the hourly size reading, a trigger
+// run, the dashboard's database read), metered on its own. Any call can carry
+// the rows the object's alarm read since the last one, so none goes untallied.
+// `ganju: true` is Ganju reading for itself (sizes, index advice, the
+// abandoned-database emails): billed, but it leaves last read and last write
+// alone, which the deletion digest relies on.
+export const callDataMetered = async <T>(
+  executor: DbExecutor,
+  database: { id: string; organizationId: string },
+  method: string,
+  run: () => Promise<DataResult<T>>,
+  options: { retryRead?: boolean; ganju?: boolean } = {}
+): Promise<T> => {
+  const tally = createDataUsageTally();
+  try {
+    return await callData(method, run, tally, { retryRead: options.retryRead });
+  } finally {
+    await recordDataUsage(executor, database.organizationId, database.id, tally, new Date(), {
+      activity: !options.ganju
+    }).catch(error => console.error('data-usage-record-failed', error));
+  }
+};
+
+// The day a stat row counts in: midnight UTC.
+export const statDay = (at: Date): Date =>
+  new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
+
+// Adds a request's query and write shapes to the database's daily stats, in
+// one statement: per table ('' column) every query and write, and per column
+// the queries that filtered or sorted on it.
+export const recordQueryStats = async (
+  executor: DbExecutor,
+  databaseId: string,
+  tally: Pick<DataUsageTally, 'queries' | 'writes'>,
+  now: Date = new Date()
+): Promise<void> => {
+  if (tally.queries.length === 0 && tally.writes.length === 0) return;
+  const day = statDay(now);
+  const rows = new Map<
+    string,
+    {
+      tableName: string;
+      columnName: string;
+      queries: number;
+      rowsRead: number;
+      rowsReturned: number;
+      writes: number;
+      rowsWritten: number;
+    }
+  >();
+  const at = (tableName: string, columnName: string) => {
+    const key = JSON.stringify([tableName, columnName]);
+    let row = rows.get(key);
+    if (!row) {
+      row = { tableName, columnName, queries: 0, rowsRead: 0, rowsReturned: 0, writes: 0, rowsWritten: 0 };
+      rows.set(key, row);
+    }
+    return row;
+  };
+  for (const shape of tally.queries) {
+    const read = Math.max(0, shape.rowsRead);
+    for (const columnName of new Set(['', ...shape.filtered, ...shape.sorted])) {
+      const row = at(shape.table, columnName);
+      row.queries += 1;
+      row.rowsRead += read;
+      row.rowsReturned += shape.returned;
+    }
+  }
+  for (const shape of tally.writes) {
+    const row = at(shape.table, '');
+    row.writes += 1;
+    row.rowsWritten += Math.max(0, shape.rowsWritten);
+  }
+  const stat = schema.artifactDatabaseQueryStat;
+  await executor
+    .insert(stat)
+    .values([...rows.values()].map(row => ({ databaseId, day, ...row })))
+    .onConflictDoUpdate({
+      target: [stat.databaseId, stat.tableName, stat.columnName, stat.day],
+      set: {
+        queries: sql`${stat.queries} + excluded.queries`,
+        rowsRead: sql`${stat.rowsRead} + excluded.rows_read`,
+        rowsReturned: sql`${stat.rowsReturned} + excluded.rows_returned`,
+        writes: sql`${stat.writes} + excluded.writes`,
+        rowsWritten: sql`${stat.rowsWritten} + excluded.rows_written`
+      }
+    });
 };
 
 // One line in the database's change log: who changed its tables, restored

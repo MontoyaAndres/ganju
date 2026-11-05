@@ -654,7 +654,7 @@ try {
     (n, methods) => n + Object.keys(methods).length,
     0
   );
-  check('the OpenAPI file has every route', operations === 38, `${operations}`);
+  check('the OpenAPI file has every route', operations === 40, `${operations}`);
 
   section('a new order, from the bot');
   const order = await rpc(ana, anaSession, 'tools/call', {

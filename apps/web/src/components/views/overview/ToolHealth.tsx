@@ -72,9 +72,20 @@ interface TriggerRow {
   lastError: string | null;
 }
 
+interface IndexAdviceRow {
+  table: string;
+  column: string;
+  kind: 'add' | 'unused';
+  queries: number;
+  avgRowsRead: number;
+  avgRowsReturned: number;
+  rowsWritten: number;
+}
+
 interface Health {
   since: string;
   days: number;
+  indexAdvice?: IndexAdviceRow[];
   tools: ToolRow[];
   errors: ErrorRow[];
   triggers: TriggerRow[];
@@ -278,6 +289,13 @@ export const ToolHealth = ({ days }: { days: number }) => {
         table: row.table,
         tab: 'triggers'
       }
+    });
+
+  // A suggestion is handled on its table's Schema tab.
+  const openSchema = (table: string) =>
+    router.push({
+      pathname: '/organization/[id]/project/[projectId]/data',
+      query: { id: organizationId, projectId, table, tab: 'schema' }
     });
 
   const fetchHealth = async (signal?: AbortSignal) => {
@@ -523,6 +541,47 @@ export const ToolHealth = ({ days }: { days: number }) => {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {!!health?.indexAdvice?.length && (
+        <div className="health-section">
+          <p className="health-section-title">{t('indexAdviceTitle')}</p>
+          <div className="health-table-scroll">
+            <table className="health-table">
+              <tbody>
+                {health.indexAdvice.map(row => (
+                  <tr
+                    key={`${row.kind}:${row.table}.${row.column}`}
+                    tabIndex={0}
+                    onClick={() => openSchema(row.table)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') openSchema(row.table);
+                    }}
+                  >
+                    <td>
+                      {row.kind === 'unused'
+                        ? t('indexUnusedLine', {
+                            table: row.table,
+                            column: row.column,
+                            written: t.n(row.rowsWritten)
+                          })
+                        : t('indexAdviceLine', {
+                            table: row.table,
+                            column: row.column,
+                            queries: t.n(row.queries),
+                            read: t.n(row.avgRowsRead),
+                            returned: t.n(row.avgRowsReturned)
+                          })}
+                    </td>
+                    <td className="health-chevron">
+                      <ChevronRight />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

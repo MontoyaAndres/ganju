@@ -2197,6 +2197,36 @@ const DATA_PURGE_BATCH = 20;
 // Postgres write per query.
 const DATA_ACTIVITY_THROTTLE_MS = 60 * 60 * 1000;
 
+// Index advice. A column is worth an index when, over a week, at least 50
+// queries filtered or sorted on it and they read on average 1,000 rows and
+// 20 rows for every row returned. An index no query used in 30 days on a
+// table written at least 1,000 rows (and more rows written than queries) is
+// flagged as unused. Never dropped automatically.
+const DATA_INDEX_ADVICE_WINDOW_DAYS = 7;
+const DATA_INDEX_ADVICE_MIN_QUERIES = 50;
+const DATA_INDEX_ADVICE_MIN_ROWS_READ = 1_000;
+const DATA_INDEX_ADVICE_MIN_READ_RATIO = 20;
+const DATA_INDEX_UNUSED_WINDOW_DAYS = 30;
+const DATA_INDEX_UNUSED_MIN_ROWS_WRITTEN = 1_000;
+// Daily stats are kept past the longest window, then removed.
+const DATA_QUERY_STAT_KEEP_DAYS = 35;
+const DATA_INDEX_ADVICE_ADD = 'add' as 'add';
+const DATA_INDEX_ADVICE_UNUSED = 'unused' as 'unused';
+const DATA_INDEX_ADVICE_OPEN = 'open' as 'open';
+const DATA_INDEX_ADVICE_DISMISSED = 'dismissed' as 'dismissed';
+
+// The daily jobs (index advice and the abandoned-database flow) run on the
+// hourly cron at this UTC hour.
+const DATA_DAILY_JOB_HOUR_UTC = 13;
+
+// Days on Free before a database is warned about, reminded about, and listed
+// for Ganju to delete by hand.
+const DATA_ABANDON_WARN_DAYS = 30;
+const DATA_ABANDON_REMIND_DAYS = 41;
+const DATA_ABANDON_DELETE_DAYS = 44;
+// How long the export taken before a database is deleted is kept.
+const DATA_ABANDON_EXPORT_KEEP_DAYS = 90;
+
 interface PlanLimits {
   // null on any field means "no hard limit" for that plan.
   maxProjects: number | null;
@@ -2588,6 +2618,22 @@ export const constants = {
   DATA_DELETE_GRACE_DAYS,
   DATA_PURGE_BATCH,
   DATA_ACTIVITY_THROTTLE_MS,
+  DATA_INDEX_ADVICE_WINDOW_DAYS,
+  DATA_INDEX_ADVICE_MIN_QUERIES,
+  DATA_INDEX_ADVICE_MIN_ROWS_READ,
+  DATA_INDEX_ADVICE_MIN_READ_RATIO,
+  DATA_INDEX_UNUSED_WINDOW_DAYS,
+  DATA_INDEX_UNUSED_MIN_ROWS_WRITTEN,
+  DATA_QUERY_STAT_KEEP_DAYS,
+  DATA_INDEX_ADVICE_ADD,
+  DATA_INDEX_ADVICE_UNUSED,
+  DATA_INDEX_ADVICE_OPEN,
+  DATA_INDEX_ADVICE_DISMISSED,
+  DATA_DAILY_JOB_HOUR_UTC,
+  DATA_ABANDON_WARN_DAYS,
+  DATA_ABANDON_REMIND_DAYS,
+  DATA_ABANDON_DELETE_DAYS,
+  DATA_ABANDON_EXPORT_KEEP_DAYS,
   ARTIFACT_DATABASE_STATUS_CREATING,
   ARTIFACT_DATABASE_STATUS_READY,
   ARTIFACT_DATABASE_STATUS_FAILED,

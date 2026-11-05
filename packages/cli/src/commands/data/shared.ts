@@ -48,6 +48,19 @@ export interface Database {
   timeZone?: string | null;
   tables?: { name: string; label: string | null; columns: number }[];
   copy?: DataTableCopy | null;
+  indexAdvice?: IndexAdvice[];
+}
+
+// An index the daily job suggests adding, or flags as unused.
+export interface IndexAdvice {
+  id: string;
+  table: string;
+  column: string;
+  kind: 'add' | 'unused';
+  queries: number;
+  avgRowsRead: number;
+  avgRowsReturned: number;
+  rowsWritten: number;
 }
 
 export interface DataContext extends CommandContext {

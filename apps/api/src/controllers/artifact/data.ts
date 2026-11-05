@@ -6,6 +6,7 @@ import { DataError } from '@ganju/utils/data';
 
 import {
   callData,
+  callDataMetered,
   createDataUsageTally,
   createDatabase,
   dataCaller,
@@ -25,7 +26,12 @@ import {
 
 // types
 import type { Handler } from 'hono';
-import type { DbExecutor, OpenedDatabase, DataUsageTally } from '@ganju/db';
+import type {
+  DbExecutor,
+  IndexAdviceRow,
+  OpenedDatabase,
+  DataUsageTally
+} from '@ganju/db';
 import type {
   DataCaller,
   DataTriggerEventMessage,
@@ -73,6 +79,20 @@ const present = (row: typeof db.schema.artifactDatabase.$inferSelect) => ({
   deletedAt: row.deletedAt,
   deleteAfter: row.deleteAfter,
   createdAt: row.createdAt
+});
+
+// An index suggestion as the dashboard and the CLI show it.
+const presentAdvice = (row: IndexAdviceRow) => ({
+  id: row.id,
+  table: row.tableName,
+  column: row.columnName,
+  kind: row.kind,
+  status: row.status,
+  queries: row.queries,
+  avgRowsRead: row.avgRowsRead,
+  avgRowsReturned: row.avgRowsReturned,
+  rowsWritten: row.rowsWritten,
+  updatedAt: row.updatedAt
 });
 
 // Who the change log and row history name: the person, or the personal access
@@ -255,7 +275,7 @@ const getDatabase = async (c: Context<AppEnv>) => {
   const stub = databaseStub(c.env.PROJECT_DATABASE, row.objectName);
   let info;
   try {
-    info = await callData('info', () => stub.info(), undefined, {
+    info = await callDataMetered(dbInstance, row, 'info', () => stub.info(), {
       retryRead: true
     });
   } catch (error) {
@@ -289,12 +309,19 @@ const getDatabase = async (c: Context<AppEnv>) => {
     .set({ sizeBytes: info.size, sizeCheckedAt: new Date() })
     .where(eq(db.schema.artifactDatabase.id, row.id))
     .returning();
+  const advice = await db.dataAdvice
+    .listIndexAdvice(dbInstance, row.id)
+    .catch(error => {
+      console.error('data-index-advice-read-failed', error);
+      return [];
+    });
   return c.json({
     database: {
       ...present(updated),
       timeZone: info.timeZone,
       tables: info.tables,
-      copy: info.copy
+      copy: info.copy,
+      indexAdvice: advice.map(presentAdvice)
     }
   });
 };
@@ -617,6 +644,68 @@ const updateColumn = async (c: Context<AppEnv>) => {
       bookmark: result.bookmark
     });
     return c.json(result);
+  });
+};
+
+// "Add index" on a suggestion: marks the column filterable, which indexes it,
+// and logs it as any column change. The suggestion is done with.
+const applyIndexAdvice = async (c: Context<AppEnv>) => {
+  const { adviceId } = await pathOf(c, Schema.DATA_INDEX_ADVICE_PARAMS);
+  return withDatabase(c, {}, async request => {
+    const advice = await db.dataAdvice.findIndexAdvice(
+      request.dbInstance,
+      request.opened.row.id,
+      adviceId
+    );
+    if (!advice) {
+      throw new DataError('There is no such index suggestion.', 'not_found');
+    }
+    if (advice.kind !== constants.DATA_INDEX_ADVICE_ADD) {
+      throw new DataError(
+        'An unused index is only flagged; remove it from the column if you want to, or dismiss the suggestion.'
+      );
+    }
+    const patch = { filterable: true };
+    const result = await callData(
+      'updateColumn',
+      () =>
+        request.opened.stub.updateColumn(
+          request.caller,
+          advice.tableName,
+          advice.columnName,
+          patch
+        ),
+      request.tally
+    );
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: 'column.update',
+      target: `${advice.tableName}.${advice.columnName}`,
+      detail: { ...patch, indexAdvice: advice.id },
+      bookmark: result.bookmark
+    });
+    await db.dataAdvice.removeIndexAdvice(request.dbInstance, advice.id);
+    return c.json(result);
+  });
+};
+
+const dismissIndexAdvice = async (c: Context<AppEnv>) => {
+  const { adviceId } = await pathOf(c, Schema.DATA_INDEX_ADVICE_PARAMS);
+  return withDatabase(c, {}, async request => {
+    const advice = await db.dataAdvice.findIndexAdvice(
+      request.dbInstance,
+      request.opened.row.id,
+      adviceId
+    );
+    if (!advice) {
+      throw new DataError('There is no such index suggestion.', 'not_found');
+    }
+    await db.dataAdvice.dismissIndexAdvice(
+      request.dbInstance,
+      advice,
+      request.caller.actor
+    );
+    return c.json({ dismissed: true });
   });
 };
 
@@ -1231,6 +1320,8 @@ export const DataController = {
   addColumn,
   updateColumn,
   dropColumn,
+  applyIndexAdvice,
+  dismissIndexAdvice,
   listRows,
   createRows,
   getRow,

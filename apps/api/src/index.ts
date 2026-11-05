@@ -27,7 +27,9 @@ import {
   ContainmentController,
   ToolApprovalController,
   DataController,
-  DataEmailController
+  DataEmailController,
+  DataAbandonedController,
+  runAbandonedExportExpiry
 } from './controllers';
 import { UserMiddleware, rateLimit, clientIp } from './middleware';
 import {
@@ -45,7 +47,9 @@ import {
   runDataPurge,
   runErrorAlerts,
   runToolCallAlerts,
-  runWhatsappTemplateSync
+  runWhatsappTemplateSync,
+  runDataIndexAdvice,
+  runAbandonedDatabases
 } from './utils';
 import {
   handleIndexBatch,
@@ -195,6 +199,21 @@ app
   .post('/data/email/confirm/:token', DataEmailController.confirm)
   .get('/data/email/unsubscribe/:token', DataEmailController.showUnsubscribe)
   .post('/data/email/unsubscribe/:token', DataEmailController.unsubscribe)
+
+  // Internal: scripts/delete-data-database.mjs, for a database of an org that
+  // stayed on Free past its notices (guarded by internal secret).
+  .post(
+    '/internal/data/database/:databaseId/abandoned/export',
+    DataAbandonedController.startExport
+  )
+  .get(
+    '/internal/data/database/:databaseId/abandoned/export/:exportId',
+    DataAbandonedController.exportStatus
+  )
+  .post(
+    '/internal/data/database/:databaseId/abandoned/delete',
+    DataAbandonedController.remove
+  )
 
   // An MCP client's sensitive call, held for its user's own yes after the
   // session read outside content. The controller also requires a dashboard
@@ -837,6 +856,17 @@ export default {
     // WhatsApp templates still in Meta's review, and once a day the rest, for
     // owners whose Meta app doesn't send the status webhook.
     ctx.waitUntil(runWhatsappTemplateSync({ env }));
+    // Copies taken before deleting an abandoned database, gone after 90 days.
+    ctx.waitUntil(runAbandonedExportExpiry({ env }));
+    // Once a day: index advice from the week's queries, and the
+    // abandoned-database flow (each send is marked, so a rerun sends nothing).
+    if (
+      new Date(controller.scheduledTime).getUTCHours() ===
+      utils.constants.DATA_DAILY_JOB_HOUR_UTC
+    ) {
+      ctx.waitUntil(runDataIndexAdvice({ env }));
+      ctx.waitUntil(runAbandonedDatabases({ env }));
+    }
   },
   queue: (
     batch: MessageBatch<

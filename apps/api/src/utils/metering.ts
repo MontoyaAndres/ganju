@@ -98,11 +98,13 @@ const measureDataStorage = async (
     rows.map(async row => {
       try {
         const stub = db.data.databaseStub(namespace, row.objectName);
-        const { bytes } = await db.data.callData(
+        // Metered: the call also carries the rows the object's alarm read.
+        const { bytes } = await db.data.callDataMetered(
+          executor,
+          { id: row.id, organizationId },
           'size',
           () => stub.size(),
-          undefined,
-          { retryRead: true }
+          { retryRead: true, ganju: true }
         );
         await executor
           .update(table)

@@ -224,6 +224,10 @@ ganju data create
 ganju data info
 ganju data tables
 
+# Index suggestions: add one, or dismiss it until its numbers double
+ganju data index add <id>
+ganju data index dismiss <id>
+
 # Rows: filter, sort, search, page
 ganju data rows menu --where 'price<30000' --where size=30cm --sort -price --limit 50
 ganju data rows menu --search pizza --json

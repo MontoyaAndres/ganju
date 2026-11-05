@@ -19,7 +19,7 @@ import {
 import { columnTitle, dataRequest, incomingRelations, tableTitle } from './api';
 import { i18n } from '../../../lib';
 
-import type { DataAccess, DataColumn, DataTable, DataTableCopy } from './types';
+import type { DataAccess, DataColumn, DataTable, DataTableCopy, IndexAdvice } from './types';
 
 // Columns a relation can show for its rows.
 const DISPLAY_TYPES = ['text', 'email', 'url', 'phone', 'enum', 'integer', 'decimal', 'date', 'datetime'];
@@ -29,6 +29,10 @@ interface SchemaTabProps {
   table: DataTable;
   tables: DataTable[];
   readOnly: boolean;
+  // Open index suggestions for this table, and a reload once one is handled.
+  advice?: IndexAdvice[];
+  // `added` when the index was added, so the columns are read again.
+  onAdviceChanged?: (added: boolean) => Promise<void> | void;
   // `renamed` is the table's new name when it changed.
   onChanged: (renamed?: string) => Promise<void> | void;
   onDropped: (name: string, bookmark: string) => void;
@@ -64,6 +68,8 @@ export const SchemaTab = ({
   table,
   tables,
   readOnly,
+  advice = [],
+  onAdviceChanged,
   onChanged,
   onDropped,
   onColumnDropped,
@@ -252,6 +258,15 @@ export const SchemaTab = ({
 
   return (
     <div className="data-schema">
+      {advice.map(item => (
+        <IndexAdviceNotice
+          key={item.id}
+          base={base}
+          advice={item}
+          readOnly={readOnly}
+          onDone={onAdviceChanged}
+        />
+      ))}
       <section className="data-card">
         <div className="data-card-header">
           <div>
@@ -641,6 +656,90 @@ export const SchemaTab = ({
           </p>
         )}
       </ConfirmName>
+    </div>
+  );
+};
+
+// A suggestion from the daily job, with the numbers behind it. "Add index"
+// marks the column filterable; an unused index is only flagged.
+const IndexAdviceNotice = ({
+  base,
+  advice,
+  readOnly,
+  onDone
+}: {
+  base: string;
+  advice: IndexAdvice;
+  readOnly: boolean;
+  onDone?: (added: boolean) => Promise<void> | void;
+}) => {
+  const snackbar = UI.Alert.useSnackbar();
+  const t = i18n.useT(i18n.copy.DATA);
+  const [busy, setBusy] = useState<'add' | 'dismiss' | null>(null);
+  const number = (n: number) => t.n(n);
+  const path = `/advice/${encodeURIComponent(advice.id)}`;
+
+  const act = async (kind: 'add' | 'dismiss') => {
+    setBusy(kind);
+    const result = await dataRequest(base, path, {
+      method: kind === 'add' ? 'POST' : 'DELETE'
+    });
+    setBusy(null);
+    if (!result.ok) {
+      snackbar.error(result.error);
+      return;
+    }
+    snackbar.success(
+      kind === 'add'
+        ? t('indexAdviceAdded', { column: advice.column })
+        : t('indexAdviceDismissed')
+    );
+    await onDone?.(kind === 'add');
+  };
+
+  const unused = advice.kind === 'unused';
+  return (
+    <div className="data-banner data-banner-warning" role="status">
+      <div className="data-banner-text">
+        <strong>
+          {t(unused ? 'indexUnusedTitle' : 'indexAdviceTitle', { column: advice.column })}
+        </strong>
+        <span>
+          {unused
+            ? t('indexUnusedText', {
+                column: advice.column,
+                written: number(advice.rowsWritten)
+              })
+            : t('indexAdviceText', {
+                column: advice.column,
+                queries: number(advice.queries),
+                read: number(advice.avgRowsRead),
+                returned: number(advice.avgRowsReturned)
+              })}
+        </span>
+      </div>
+      {!readOnly && (
+        <div className="data-banner-actions">
+          {!unused && (
+            <UI.Button
+              variant="contained"
+              size="small"
+              disabled={busy !== null}
+              onClick={() => act('add')}
+            >
+              <span className="button-text">{t('indexAdviceAdd')}</span>
+            </UI.Button>
+          )}
+          <UI.Button
+            variant="outlined"
+            size="small"
+            disabled={busy !== null}
+            onClick={() => act('dismiss')}
+          >
+            <span className="button-text">{t('indexAdviceDismiss')}</span>
+          </UI.Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -5,14 +5,28 @@ import { searchResourceChunks, toResourceSearchResult } from './search';
 import {
   databaseStub,
   callData,
+  callDataMetered,
   createDataUsageTally,
   dataLimitsFor,
   findArtifactDatabase,
   openArtifactDatabase,
   dataCaller,
   recordDataUsage,
+  recordQueryStats,
   recordChange
 } from './data';
+import {
+  databasesWithStats,
+  queryStatSums,
+  statsCover,
+  recentlyIndexed,
+  saveIndexAdvice,
+  listIndexAdvice,
+  findIndexAdvice,
+  dismissIndexAdvice,
+  removeIndexAdvice,
+  pruneQueryStats
+} from './dataAdvice';
 import {
   ChannelSendError,
   CHANNEL_MESSAGE_SOURCE_KEY,
@@ -58,6 +72,7 @@ export type {
   ArtifactDatabaseRow,
   OpenedDatabase
 } from './data';
+export type { IndexAdviceRow } from './dataAdvice';
 export type {
   ChannelMessageSource,
   ChannelSendResult,
@@ -94,13 +109,28 @@ export const plan = {
 export const data = {
   databaseStub,
   callData,
+  callDataMetered,
   createDataUsageTally,
   dataLimitsFor,
   findArtifactDatabase,
   openArtifactDatabase,
   dataCaller,
   recordDataUsage,
+  recordQueryStats,
   recordChange
+};
+
+export const dataAdvice = {
+  databasesWithStats,
+  queryStatSums,
+  statsCover,
+  recentlyIndexed,
+  saveIndexAdvice,
+  listIndexAdvice,
+  findIndexAdvice,
+  dismissIndexAdvice,
+  removeIndexAdvice,
+  pruneQueryStats
 };
 
 export const channels = {

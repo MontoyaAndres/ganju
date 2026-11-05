@@ -48,6 +48,20 @@ export interface Database {
   createdAt: string;
   timeZone?: string | null;
   copy?: DataTableCopy | null;
+  indexAdvice?: IndexAdvice[];
+}
+
+// An index the daily job suggests adding (`add`), or flags as unused.
+export interface IndexAdvice {
+  id: string;
+  table: string;
+  column: string;
+  kind: 'add' | 'unused';
+  status: 'open' | 'dismissed';
+  queries: number;
+  avgRowsRead: number;
+  avgRowsReturned: number;
+  rowsWritten: number;
 }
 
 // A relation comes back as the referenced row's id and its display value.

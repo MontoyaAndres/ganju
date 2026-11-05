@@ -75,6 +75,31 @@ Each table has three tabs:
 - **Triggers**: run something when the table's rows change. See
   [Triggers and webhooks](/docs/data/triggers/).
 
+### Index suggestions
+
+Ganju watches how your tables are queried, without storing anything in your
+database, and once a day suggests an index where one would pay off. A
+suggestion shows at the top of the table's **Schema** tab with the numbers
+behind it, for example: "340 queries this week filtered or sorted on `status`,
+and each read about 12,000 rows to return 8."
+
+A column is suggested when, over the last 7 days:
+
+- it has no index;
+- 50 or more queries filtered or sorted on it;
+- those queries read on average 1,000 rows or more, and 20 or more for every
+  row they returned.
+
+**Add index** marks the column filterable and records it in the change log.
+**Dismiss** hides the suggestion until its numbers double.
+
+Ganju also flags an index that no query used in 30 days on a table that is
+written to a lot, since every write updates the index too. It is only a flag:
+nothing is removed. Turn off **Filterable** on the column if nothing needs it.
+
+Open suggestions also show in the project's **Tool health** and in
+`ganju data info` (`ganju data index add|dismiss <id>` acts on one).
+
 ## Who sees what
 
 Your own MCP clients, as the project's owner, the dashboard, the CLI and your
@@ -190,6 +215,19 @@ Data is part of **Pro** and **Enterprise**. If the organization moves to Free,
 its databases stay, **read-only**: you can read and download everything, the
 assistant and your functions can still read, and nothing can be changed until
 you upgrade.
+
+A database whose organization stays on Free is deleted after a notice:
+
+- **Day 30 on Free:** the owner and the admins get an email listing each
+  database (project, size, tables), saying it is read-only and the date it will
+  be deleted, with links to upgrade and to download a copy.
+- **3 days before that date (day 41):** a reminder.
+- **From day 44:** Ganju deletes it by hand. A copy is kept for 90 days; write
+  to support if you need it.
+
+Moving back to Pro or Enterprise at any point stops this and keeps everything.
+Downloading a copy doesn't stop it. A Pro database that is simply idle is never
+deleted.
 
 **Settings → Billing & plan** shows a **Data** block for the current period: storage
 (checked every hour) and the period's peak, rows read and written, requests and
