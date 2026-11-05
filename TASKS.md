@@ -141,7 +141,366 @@ surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
 
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
-## Work on a view where i can chat and build the functions and this agent uses the cli to deploy them
+## Builder: an assistant that builds the project with the owner
+
+**Starts after Project data ("Data") is finished.**
+
+The builder is for owners who don't write code. They describe in their own
+words what their bot should know and do. The assistant builds the pieces the
+project's MCP server is made of:
+
+- **actions** (functions): declared, written, tested, and turned on with the
+  owner's click;
+- **Data**: tables, columns, rows, imports, named queries and triggers;
+- **knowledge**: notes, files and websites;
+- **prompts**;
+- **tools** from the catalog, HTTP endpoints and remote MCP servers, and
+  turning tools on and off.
+
+Anyone who wants to see the code can open it in the editor that exists today.
+The CLI, the catalog and HTTP endpoints keep working as they do now. Technical
+owners lose nothing.
+
+Size: **S** = days, **M** = a week or two, **L** = more. Total: **L** (about
+10–12 weeks).
+
+### Decided 2026-11-05
+
+1. **For non-technical owners.** Everything the owner sees is in plain words
+   (the full list is under "How it works for the owner"). The schemas, the
+   manifest and versions still exist; the assistant fills them in. The CLI
+   patch path (decision 6) is the exception, because only technical owners
+   use the CLI.
+2. **Model: Claude Opus 5.5** (`claude-opus-5-5`), with effort `high` while
+   building and `medium` for questions. It costs $4 / $20 per million tokens,
+   and cache reads cost $0.20. Estimated cost: about **$0.90 per new action**
+   and **$0.25 per edit**. The plan-first step and owners' back-and-forth
+   probably raise this, so phase 0 measures it with requests written the way
+   owners write them.
+   - Kimi K3.1 Pro ($2 / $10) is cheaper per token but close per session,
+     because cache reads cost the same, and it would run through the
+     unverified `openai-compatible` adapter.
+   - GPT-6 Astra ($10 / $50) is about 3× Opus.
+   - Prices were checked on 2026-11-05. Kimi's and Astra's come from
+     third-party trackers.
+3. **What it can change: everything the MCP server is built from.**
+   - Yes: functions, Data, knowledge, prompts and tools, as listed above.
+   - No: channels, members and invitations, billing, LLM connections, API
+     tokens, organization and project settings.
+   - Account connections (OAuth) and secrets only ever go through a card the
+     owner completes. The model never sees a token or a secret value.
+4. **Same endpoints, no second write path.** Every change goes through the
+   code behind the endpoints the dashboard and `ganju` use, extracted into
+   functions both call. The builder never shells out to the CLI.
+5. **Reading is free; changing needs one click.**
+   - The assistant reads anything in scope without asking.
+   - It saves function drafts and runs their tests freely, because nobody
+     sees them.
+   - Anything that changes what the bot or MCP clients see, or that deletes,
+     is collected into a **change set**. The change set is a card in plain
+     words (for example "Create the table Orders with 5 columns", "Turn on the
+     action check-stock") with one **Apply** button. The browser applies it.
+   - Every applied change set can be undone:
+     - functions roll back;
+     - Data uses point-in-time restore;
+     - prompts, knowledge and tools are put back from the before-state the
+       builder records.
+   - What can't be undone (a deleted file's bytes, a message already sent)
+     is marked on the card before the click.
+6. **CLI projects: the AI suggests, the owner builds.**
+   - `ganju deploy` uploads the project's source next to the bundle.
+   - When the live version came from the CLI, the assistant reads that
+     source and answers code changes with a patch. The owner applies it
+     locally and runs `ganju deploy`.
+   - Its changes to Data, knowledge, prompts and tools work the same as in
+     any project.
+   - We never build code on our servers.
+7. **Deploy guard.** `ganju deploy` warns when the live version was made in
+   the editor and is newer than the last CLI deploy. The warning lists the
+   functions that would disappear, and `--force` continues.
+8. **Pro and Enterprise only.** Free has no access, the same as Data: the tab
+   shows an upgrade button and nothing else.
+9. **Billing: builder credits, measured from token usage.**
+   - **1 credit = $0.01 of model cost** at Anthropic's list price, counted
+     from each call's input, cache and output tokens.
+   - Pro includes **1,000 credits a month**, about $10: roughly 10 new
+     actions plus 20 edits.
+   - Beyond that, **$2 per 100 credits** (2× cost), up to a monthly cap the
+     organization sets. The default is 2,000 extra credits ($40).
+   - The 2× covers failed and retried turns and the planning questions,
+     which owners pay for but which don't produce a change.
+   - Sessions were rejected as the unit. A one-line fix and "build me an
+     order system with tables, triggers and two actions" differ 20× or more,
+     so a price per session either overcharges small edits or loses money on
+     big ones.
+   - The owner sees credits, not tokens:
+     - each reply shows what it used;
+     - the tab shows the month's total;
+     - before a large job, the assistant gives an estimate ("about 150
+       credits").
+   - With the organization's own Anthropic key, no credits are used.
+   - Enterprise: by contract.
+   - Whatever the builder creates is billed on its own meters as usual:
+     embedded knowledge, Data rows, function calls.
+10. **Retention: 90 days of conversation, the "why" kept for good.**
+    - A conversation is deleted 90 days after its last message.
+    - Tool results inside it (test output, logs, Data rows, page text) can
+      hold customers' data, so they are stripped after 30 days.
+    - Each applied change set keeps a two-line plain summary for as long as
+      what it changed exists, so "why does this action exist" outlives the
+      chat. Example: "Asked: tell customers if a pizza is sold out. Made: the
+      check-stock action and the Stock column."
+    - Reopening a conversation after the 30 days starts it again from its
+      summary. The prompt cache has expired by then anyway.
+    - The owner can delete a conversation at any time. Deleting the project
+      or the organization deletes them all.
+
+### How it works for the owner
+
+- **Words.** Owners see "action" (es: "acción"), "what it needs to know",
+  "turn it on", "undo", "your accounts", and "try it". They never see
+  schema, manifest, draft, deploy, version or rollback, except in the code
+  view.
+- **Plan first, build second.**
+  - Before changing anything, the assistant says back what it understood, in
+    plain words, and asks about the gaps. For example: "When the stock is 0,
+    should the bot say it's sold out or offer something else?"
+  - The answer becomes the change set it then builds.
+  - Vague requests are the norm, and building the wrong thing costs more
+    than one question.
+- **Tests the owner can read.**
+  - Results are shown as a conversation, for example: "I asked it for the
+    stock of the 30cm pizza and it answered 12. Is that right?"
+  - Then **Try it as a customer**: a test chat in the tab runs the project's
+    own bot (the channel runner, no platform) with the new action in place.
+    No such chat exists today; phase 3 adds it.
+- **Warnings before real effects.**
+  - An action or trigger that sends an email, posts a message or writes
+    rows does it for real during a test.
+  - The assistant says so first, and points tests at the owner: their own
+    email or phone (the trigger test send in 7b), or a test table.
+- **Accounts before keys.**
+  - The assistant prefers an account the owner connects with one click, then
+    a catalog tool, and only then an API key.
+  - When a key is needed, it explains step by step where to find it on that
+    service, then shows the secret card.
+- **The Apply card says what will be possible.** For example: "This action
+  can send emails as you, read your Orders table, and reach
+  api.weather.com." It is built from the function's settings, connections
+  and annotations, not from the model's words. Owners click whatever button
+  they see, so the card is the safeguard.
+- **Keeping it working.**
+  - The builder watches tool health (calls that fail, a connection that
+    expired) for what it built.
+  - It offers the fix in the tab, and by email through the existing
+    alerting. For example: "Your weather action failed 14 times today; the
+    service changed its address. Want me to fix it?"
+  - Without this, every generated action eventually becomes a support
+    ticket.
+
+### Architecture
+
+**Where the loop runs.** A new `controllers/builder/` in `apps/api`.
+- One request per owner message, streamed to the dashboard over SSE. The tool
+  loop runs inside it and is bounded by an iteration cap (~25) and a task
+  budget.
+- It uses the Anthropic SDK's `messages.stream` directly, not `LlmAdapter`,
+  which is non-streaming by design for channels.
+- Bump `@anthropic-ai/sdk` (now `^0.126.0`) to a release that types Opus
+  5.5's effort, adaptive thinking and refusal fallbacks. Check that the
+  channel adapter still works after the bump.
+- Every step is saved as it happens.
+
+**The model's tools: one per area, each with an `action` field**, the way
+`data-admin` is shaped. One tool per operation would come to ~40 tools, and
+tool count is the cost driver measured in `docs/PRICING.md`. Where the MCP
+server already has the implementation (`data-describe`, `data-query`,
+`data-admin`, `search-resources`, `list-resources`, `read-resource`,
+`list-prompts`), the builder calls the same code.
+
+| Tool | Actions | Built on |
+| --- | --- | --- |
+| `project` | Overview: what the server exposes, tool health, connected accounts, secret **labels** | artifact, tools, credentials, tool health |
+| `functions` | read versions and files (editor envelope or CLI snapshot), set manifest, write files, check, save draft, read logs | custom-code handlers, `validateProjectFiles`, linter |
+| `run_test` | Run a function on a sample input against both schemas; send a trigger's test message to the owner | `testCustomCodeVersion`, trigger test send |
+| `data` | describe, query, and stage table, column, row, import, named-query and trigger changes | `apps/data` through `databaseStub` |
+| `knowledge` | search, read, list, and stage notes, websites, deletes. Files are uploaded by the owner through a card | resources |
+| `prompts` | list, read, and stage creates, edits, deletes | prompts |
+| `tools` | search the catalog, and stage installs, HTTP endpoints, remote MCP servers, on/off, removal | catalog, tools |
+| `propose_changes` | Turn the staged changes into the change set card | builder change sets |
+| `propose_patch` | For CLI versions: a unified diff against the source snapshot, with copy and download | source snapshot |
+| `ask_owner` | Cards: connect an account, enter a secret, upload a file. Their values never enter the conversation | credentials, OAuth, uploads |
+
+**Prompt.**
+- The system prompt holds the `ctx` types from `packages/sdk`, the Functions
+  rules (JavaScript only, no build, `index.js` and `ganju-sdk.js`), the Data
+  rules, a few `examples/` projects, and the owner-facing vocabulary.
+- The stable part comes first and is cached with a 1-hour TTL. The
+  conversation is append-only.
+- The assistant answers in the owner's language (en / es).
+
+**Safety.**
+- Test output, logs, page text, Data rows and catalog text go back to the
+  model wrapped as untrusted content, the way the MCP server wraps them.
+- Generated code runs in the same sandbox as any function.
+- Containment (suspending an organization's custom code) also turns the
+  builder off.
+- Limits: turns per user per minute, and one running turn per project at a
+  time.
+
+**Data.**
+- `builder_conversation`: organization, project, artifact, user, title,
+  status, last message time, summary.
+- `builder_message`:
+  - the conversation;
+  - role;
+  - content as the model's blocks, append-only;
+  - tokens and credits.
+  - The tool results are stripped by the 30-day job.
+- `builder_change_set`:
+  - the conversation;
+  - its items: area, operation, target, payload;
+  - the before-state undo needs;
+  - which items can't be undone;
+  - status, and who applied it and when;
+  - the two-line summary.
+  - It outlives the conversation, as decision 10 says.
+- Period counters on `subscription`: builder credits used, and those bought
+  beyond the allowance.
+
+**CLI.**
+- New column `artifact_tool_version.source_snapshot_key` (R2), and a new route
+  `PUT …/custom-code/version/:versionId/source-snapshot`.
+- `ganju deploy` uploads the project's source files:
+  - respects `.gitignore`;
+  - always leaves out `node_modules`, `.ganju` and `.env*`;
+  - capped at about 2 MB.
+- `"uploadSource": false` in `ganju.json` opts out.
+- The dashboard shows the snapshot read-only instead of the minified bundle.
+
+**Dashboard.**
+- An "Assistant" / "Asistente" entry in the project's navigation, not inside
+  the tools view, because it reaches every area.
+- The chat streams progress and shows cards:
+  - the plan;
+  - test results;
+  - change sets with Apply and Undo;
+  - patches;
+  - account, secret and file requests.
+- Also in the tab: the test chat, the month's credits, and past
+  conversations.
+- Links open what was built in its own view (the editor, a Data table, a
+  resource).
+- Copy in English and Spanish.
+
+### Phases
+
+**0. Spike — M (about a week)**
+
+- **Cost.** A golden set of ~10 requests written the way owners write them,
+  vague and in Spanish and English. For example: "quiero que el bot diga si
+  hay pizza", "send me the day's orders every night", "answer from my menu
+  PDF". Run them through Opus 5.5 with the tool set above, on dev.
+  - Record turns, credits, and whether the result works.
+  - Run the same set on Kimi K3.1 Pro once for comparison.
+  - This confirms or corrects the 1,000-credit allowance.
+- **Owners.** Sessions with 3–5 real non-technical owners (restaurant, shop,
+  clinic) on a rough prototype.
+  - Watch where they get stuck: the vocabulary, the plan step, API keys, the
+    Apply card.
+  - Write the findings down here before phase 2.
+- **Runtime.**
+  - Check that a streamed SSE response from `apps/api` can last 5+ minutes,
+    and what happens when the browser disconnects. This decides between a
+    plain request and a Durable Object per conversation.
+  - Check that the SDK bump leaves the channel adapter working.
+- **Schema as code.** Can the server tell that a project's Data schema is
+  managed from `ganju.data.json`? If it can, the assistant warns that its
+  changes will show as drift on the next `ganju data` apply.
+
+**1. CLI source snapshot and the deploy guard — M**
+
+Phase 1 doesn't depend on the rest.
+- The migration, the route, the upload in `ganju deploy`, and
+  `uploadSource`.
+- The read-only view in the dashboard.
+- The editor-version warning with `--force`.
+- Tests and the CLI README.
+
+**2. Builder core and functions — L**
+
+- Extract the custom-code handlers into shared functions.
+- The loop, the streaming route, and the conversation and message tables.
+- The `project`, `functions`, `run_test`, `propose_changes`, `propose_patch`
+  and `ask_owner` tools.
+- Change sets with apply and undo for functions.
+- Untrusted-content wrapping, limits and the containment check.
+
+**3. Dashboard tab and the test chat — M/L**
+
+- The chat, the plan card, the change-set card with the "what will be
+  possible" list, Apply and Undo.
+- The patch view, and the account, secret and upload cards.
+- **Try it as a customer**: a route that runs the channel runner against the
+  project's MCP server with no platform, on the channel's model or the
+  shared one. Its turns count as messages like any other.
+- Credits shown per reply and per month, past conversations, and en / es
+  copy.
+
+**4. Data, knowledge, prompts and tools — M/L**
+
+- The `data`, `knowledge`, `prompts` and `tools` tools on the shared code.
+- Their change-set items, the before-state for undo, and the "can't be
+  undone" marks.
+- Data undo through point-in-time restore.
+
+**5. Keeping it working — S/M**
+
+- Tool-health watching for what the builder made.
+- The fix offer in the tab, and the alert email.
+
+**6. Credits and billing — S/M**
+
+- The counters and credit accounting from each call's usage.
+- A new `BILLING_METER_*` meter in Polar. Polar's $0 prices need
+  `metered_tiers` and the dashboard session.
+- The allowance and default cap in `PLAN_LIMITS`, and the cap setting.
+- A line on the billing page.
+- The own-key bypass.
+
+**7. Retention and evals — S**
+
+- The 30-day stripping job and the 90-day delete job, keeping change-set
+  summaries.
+- The golden set in `scripts/golden`, scored by "the owner's request works
+  with no hand edits", compared with `--repeat 3`. Used to tune the prompt
+  and effort level.
+
+### Verification and docs
+
+- **Evals:** at least 8 of 10 golden requests work with no hand edits.
+- **Owners:** 4 of 5 non-technical owners finish a real request without help.
+- **Manual checks on dev, in org `test` / project `nemo`:**
+  - Editor project: plan, build, test, try it as a customer, Apply, Undo.
+  - A change set touching Data and a prompt: apply it, then undo it.
+  - CLI-deployed project: code changes come back as a patch, and no version
+    is created.
+  - `ganju deploy` over an editor version warns and lists the functions it
+    would remove.
+  - A broken action: the fix offer appears.
+- **Billing and retention:**
+  - Credits recorded in `builder_message` match Anthropic's usage for the
+    same period within 1%.
+  - The retention jobs leave the change-set summaries in place.
+- **Docs:**
+  - a website "Assistant" page (en + es), and the CLI page covers the
+    snapshot and `uploadSource`;
+  - pricing pages show credits, the allowance and the cap;
+  - `docs/PRICING.md` gets the measured cost per request;
+  - `docs/MODELS.md` gets the builder as a third place inference happens;
+  - `docs/ARCHITECTURE.md` gets the builder controller;
+  - `docs/DATA_MODEL.md` gets the three tables and the new column.
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
@@ -2746,6 +3105,140 @@ i18n at 0 errors / 65 warnings.
   "Archivo no encontrado", both in row history under `system:knowledge`.
   Not tried on production: a channel bot sending the file (checked on dev).
 
+**7b. Test send from the "message the row's customer" dialog — S (2–3 days)**
+
+The customer action sends real WhatsApp or Telegram messages, often through a
+template Meta approved. Today the owner learns the mapping is wrong when a
+customer gets "Hola, tu pedido {{1}}". A test send puts the message on the
+owner's own phone first.
+
+- **Who gets it:** the signed-in owner, as a customer of the project's own
+  channels: their `external_identity` (linked with `/link`) gives the
+  participant on that channel. With several linked channels the dialog lets
+  them pick one; with none it explains how: write to your bot from your own
+  phone and send `/link`.
+- **What is sent:** the dialog's action as it stands (saved or not),
+  rendered from a sample row: the one picked in the dialog, or the newest
+  row of the table. Text and template values go through the same
+  `renderTriggerText` as a real run.
+- **Text or template:** `sendToParticipant` picks text inside the 24-hour
+  window and the template outside it. The test adds "send as the template"
+  (on by default when the action has one), because checking the template is
+  the point; `sendToParticipant` gets a `prefer: 'template'` option.
+- **API:** `POST …/artifact/data/trigger/test-send` with
+  `{ table, customer, rowId? }` (new route in `dataApi.ts`, body schema in
+  `utils.Schema`), five tests a minute per user. It answers with what was
+  sent (the rendered text or the template and its values) or the channel's
+  refusal in words (`ChannelSendError`: outside the window with no
+  template, the template not approved, the daily limit).
+- **Not a run:** it isn't listed with the trigger's runs and doesn't count
+  toward the customer's daily limit (`source: { kind: 'trigger-test' }`,
+  left out like the limit notice is).
+- **Dashboard:** a "Send a test" / "Enviar prueba" button in the customer
+  action of `triggers.tsx`, with the row picker, the channel picker when
+  needed, and the answer shown under it. Copy in English and Spanish.
+- **Done when:** on dev, the dialog sends `qa_pedido_listo_1105` (once
+  approved) to the owner's phone on nemo's WhatsApp test number with the
+  values of a sample `qa_` row, and as plain text inside the window when
+  "send as the template" is off; a project with no linked identity shows
+  the `/link` steps.
+
+**7c. Time-based triggers — M (1–2 weeks)**
+
+"An order still `pending` 30 minutes after it was created", "a booking for
+tomorrow nobody confirmed": the flows a restaurant or clinic wants that a
+change can't start, because nothing changes.
+
+- **Shape:** `on: "time"` with `after: { column, minutes }`, and the
+  existing `when` read as a row filter. `column` is `created_at`,
+  `updated_at`, or a `date`/`datetime` column; `minutes` is 5 to 43,200 (30
+  days), also negative for "before" (a reminder a day before a booking).
+  Only tests that read the row as it is are allowed in `when` (`equals`, not
+  `changedTo`/`changedFrom`/`changed`), refused in words otherwise.
+- **Fires once per row and due time:** a new table in the object,
+  `_ganju_trigger_fired (trigger_id, row_id, due_at)`, keyed on all three, so
+  an `updated_at` trigger fires again after the next change and never twice
+  for the same one. Rows already due when the trigger is saved don't fire:
+  only due times after its `created_at`.
+- **The scan:** the object's alarm, every 5 minutes while an enabled time
+  trigger exists (the alarm takes the earliest of this, the outbox, exports
+  and pruning). Per trigger, one indexed query: due between the last scan
+  and now, the `when` filter, not in `_ganju_trigger_fired`, up to 100 rows.
+  Each match is an event in `_ganju_outbox` with `event: "time"`, so the
+  queue, rate limits, runs, retries and "turned off after failures" all
+  apply as they are. The time column is indexed automatically while a time
+  trigger uses it (`created_at` and `updated_at` aren't today).
+- **Cost limit:** at most 10 time triggers per database; 100 events per
+  trigger per scan (more wait for the next); a daily cap of events per
+  database (2,000 to start), past which the trigger turns off with the
+  reason shown. Scans are Ganju's own calls: billed, not activity. Data
+  isn't billed yet, so the meters show what a scan costs before pricing.
+- **Migration:** a new entry in `INTERNAL_MIGRATIONS` (the fired table and
+  a `schedule` column on `_ganju_triggers`). No Postgres migration.
+- **Everywhere triggers are:** the Triggers tab ("When time passes" /
+  "Cuando pase un tiempo": column, amount and unit, conditions), runs show
+  the event, `ganju.json` and `ganju data triggers` deploy it, the SDK types,
+  `data-admin`'s description, the trigger docs page.
+- **Done when:** on dev, a `qa_` orders table with a 5-minute trigger on
+  `created_at` and `status equals pending` sends the chat action once for a
+  row left pending, not for one marked ready first, not again after the
+  object restarts, and not for rows that were already older than 5 minutes
+  when the trigger was saved.
+
+**7d. Sync a table from a spreadsheet — M (about a week)**
+
+Owners keep the menu, the prices or the stock in a sheet. A table whose source
+is that sheet keeps them in step without retyping.
+
+- **Source:** a Resources item that is a spreadsheet or CSV. A Google Sheet
+  imported from Drive is already one (exported as `.xlsx`, `gdrive://files/…`,
+  re-downloaded only when it changed, on its own sync interval); so is a
+  OneDrive Excel file or an uploaded CSV. The table gets
+  `source: { uri, sheet?, key }`: `key` is a unique column that names a row
+  in both (e.g. `sku` or `name`). One-way: the sheet wins.
+- **When it runs:** after the resource's content changes (the Drive and
+  OneDrive file jobs once a changed file is stored, a dashboard upload or
+  replace) and from "Sync now" on the table. A job per table, on an existing
+  queue.
+- **Reading the sheet:** the sheet reader `data-admin`'s import uses (SheetJS
+  in `apps/mcp`) moves to a shared module so the API's job and MCP use the
+  same code: header matching (`matchHeaders`), types (`importCell`), dates.
+  Limits: 5 MB file, 20,000 rows.
+- **Applying it:** a new object call, `syncRows({ table, key, rows })`, in one
+  transaction: insert new keys, update rows whose values differ, delete rows
+  whose key is gone. Unchanged rows aren't written (no version bump, no
+  history). Actor `system:sheet-sync`; real changes fire triggers, so a
+  price or stock change in the sheet can still notify.
+- **Read-only from everywhere else:** row writes to a synced table are
+  refused in words ("menu is synced from 'Menú.xlsx'; change the sheet, or
+  stop syncing it"), from the dashboard, the API, the CLI, functions and
+  the assistant. Removing the source makes the table editable again; schema
+  changes stay allowed.
+- **When it can't sync:** a missing key column, a duplicate key, a value
+  that doesn't fit a column: the sync is refused whole, the table keeps its
+  rows, and the reason shows on the table and in Tool health. The last sync
+  (time, counts, error) is kept in the object's table metadata (same
+  migration as 7c's, or its own).
+- **Dashboard:** table settings "Source: spreadsheet" / "Origen: hoja de
+  cálculo" (the resource picker from phase 7, limited to spreadsheets and
+  CSV; sheet; key column); a banner on the Rows tab ("Synced from Menú.xlsx
+  · 12 min ago · Sync now"); the row form read-only. `ganju.data.json`
+  carries `source`, and the CLI shows it.
+- **Done when:** on dev, a Google Sheet imported in Resources is the source
+  of a `qa_` table; changing a price in Google and pressing "Sync now" on the
+  resource changes that one row (history: `system:sheet-sync`); deleting a
+  line removes its row; a dashboard edit is refused with the message; a
+  sheet with a duplicate key leaves the rows as they were and says why.
+
+**Order and open decisions.** 7b, then 7c, then 7d: 7b is small and checks
+5c end to end; 7c and 7b both work in the trigger dialog; 7d is independent.
+To confirm before each starts:
+- 7b: "send as the template" on by default when the action has one.
+- 7c: a 5-minute scan and a 5-minute minimum delay; 10 time triggers per
+  database and 2,000 events a day to start.
+- 7d: synced changes fire triggers; the whole table is read-only while
+  synced.
+
 **8. Later — only when asked for**
 
 - Parser-checked read-only SQL (decision 3, level 3) for functions and,
@@ -2756,15 +3249,11 @@ i18n at 0 errors / 65 warnings.
   "data" source.
 - Scheduled exports to the owner's Google Drive / OneDrive (reusing the
   connections), for owners who want a copy outside Ganju.
-- Sync from Google Sheets: a sheet as the source of a table, on the
-  existing hourly sync.
+- ~~Sync from Google Sheets~~: planned as 7d.
 - Composite and partial indexes, views, and computed columns.
-- A test send from the "message the row's customer" trigger dialog to the
-  owner's own number (inside its window), with the template and the mapped
-  values filled from a sample row.
-- Time-based triggers ("an order still `pending` 30 minutes after it was
-  created"): an alarm per watched row, or a periodic scan per trigger.
-  Needs its own cost limit.
+- ~~A test send from the "message the row's customer" trigger dialog~~:
+  planned as 7b.
+- ~~Time-based triggers~~: planned as 7c.
 - **Large databases (a future option, for a client that needs more than 10
   GB).** Not for now: build it only when a real client needs it. Two tools,
   in order:
