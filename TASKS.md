@@ -2355,6 +2355,15 @@ and use templates from the WhatsApp channel's settings.
 0087, `channel_whatsapp_template`); two checks by hand left before it is
 done.**
 
+- **Business account ID check (2026-11-05, deployed on dev and prod):** the
+  account ID is checked with Meta before it's saved (its phone numbers must
+  include the channel's), and the field stays editable on any templates
+  error. On prod, the Viva La Marquesita channel (+57 310 2129584, number
+  1475641792288940) refused the test number's account 1787098836752406 with
+  "doesn't have the channel's phone number", took its own account
+  976522698377111, and the templates tab loaded. The account ID is on the
+  app's WhatsApp → Step 2: Production setup → Register your phone number
+  ("Messaging Account ID"), not on Step 1, which shows the test number's.
 - **Left to close 5c, on dev, each with a fresh token pasted in the channel's
   Message templates tab:**
   - create a Utility template from the dashboard form and see it go from
@@ -2491,13 +2500,21 @@ done.**
   - each email is sent once, even with the job run twice;
   - upgrading the org clears it from the flow.
 
-**Phase 6 status (2026-11-05): deployed on dev, not on prod. Migration 0088
-(`data_index_advice_abandoned`) is on dev; the abandoned flow passed on dev
-(34/34). After the deploy: `probe-data.mjs` 56/57, `probe-data-tools.mjs`
+**Phase 6 status (2026-11-05): deployed on dev and prod. Migration 0088
+(`data_index_advice_abandoned`) is on both; the abandoned flow passed on dev
+(34/34). Prod probes: 57/57, 48/48 and 40/40. After the deploy: `probe-data.mjs` 56/57, `probe-data-tools.mjs`
 47/48 and `probe-data-triggers.mjs` 39/40; the one failure in each was the
 OpenAPI route count (now 40 with the two advice routes), fixed in the
-probes. Pending on dev: the index-advice check below (after the 2026-11-06
-13:00 UTC run) and the 1% reconcile on a fresh period.**
+probes. Pending on dev and prod: the index-advice check below (after the 2026-11-06
+13:00 UTC run).**
+
+- **Reconcile on dev (2026-11-05), done:** org "test"'s period started before
+  the deploy, so its totals are still off (-22% read, -21% written). Checked
+  by difference instead: a steady reading at 19:24, then in nemo a
+  `qa_reconcile` table created, 300 rows imported, 10 unindexed queries on
+  `qa_advice_orders.city`, the table dropped, and a steady reading at 19:34.
+  Ours +551,473 rows read, +919 written, +26 calls; Cloudflare +551,546
+  (0.01%), +919, +26. Cloudflare's analytics trailed by about 5 minutes.
 
 - **Index-advice check on dev (set up 2026-11-05):** nemo has
   `qa_advice_orders` (50,000 rows; `city` not filterable) and 60 queries
@@ -2512,7 +2529,7 @@ probes. Pending on dev: the index-advice check below (after the 2026-11-06
   2026-11-06 13:00 UTC run, then drop the table. Prod's abandoned job has
   nothing to do yet: its one READY database is on Enterprise (read-only
   check, 2026-11-05).
-- **Fixed, not deployed (2026-11-05): CLI and MCP bearer tokens refused with
+- **Fixed, deployed on dev and prod (2026-11-05): CLI and MCP bearer tokens refused with
   401 after about 60 requests.** Not the token refresh: the API checks an
   OAuth token by calling better-auth's `/oauth2/userinfo` in-process, with
   no client IP, so better-auth's limiter (60 a minute on userinfo, a window
@@ -2522,9 +2539,10 @@ probes. Pending on dev: the index-advice check below (after the 2026-11-06
   `rateLimit.customRules['/oauth2/userinfo'] = false` in better-auth, and
   MCP's call sends the internal secret so `/auth/*` skips the per-address
   limit for it. Locally with `NODE_ENV=production`: 60×200 then 60×401
-  without the fix, 200×200 with it. Deploy api and mcp, then on dev:
-  150 quick `GET /organization` with a CLI token, all 200, and an MCP
-  client on an opaque token past 30 calls a minute.
+  without the fix, 200×200 with it. On dev after the deploy: 150
+  `GET /organization` with a CLI token, all 200 (it failed at request 117
+  before). MCP on dev: 45 `tools/list` to nemo in 50 s with an opaque
+  token, all 200 with tools (the limit was 30 a minute).
 
 - **Meters:**
   - `scripts/reconcile-data-usage.mjs [--prod] [--org <id>] [--from --to]
