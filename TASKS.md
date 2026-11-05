@@ -2398,9 +2398,13 @@ Meta.** Migration 0087 (`channel_whatsapp_template`) is generated and not run.
   `scripts/probe-whatsapp-templates.mjs` passes, offline and `--live`. A
   trigger sent a template outside the window and text inside it to a real
   phone, and a template stored as in review that Meta had approved was read
-  again and sent. Still to see: a template with a variable sent live
-  (`qa_order_ready_mw1jpujq` was in Meta's review), and the hourly re-read on
-  dev after a cron run.
+  again and sent. Later checks:
+  - the hourly run re-read the channel (04:00 UTC, 2026-11-04);
+  - Meta's status webhook marked `qa_order_ready_mw1jpujq` approved;
+  - on 2026-11-05 a trigger sent it outside the window with the order number
+    ("Tu pedido #2 está listo para recoger…") and the text inside it
+    (`--template qa_order_ready_mw1jpujq`). The probe misread that run; it now
+    reads only the trigger's messages.
 - **To do by the owner, once there is a real WhatsApp number:**
   - Verify the WhatsApp Business account with a real phone number. Until then
     Meta only gives tokens that last an hour, even System User ones, so every

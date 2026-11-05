@@ -2,7 +2,7 @@
 // production with --prod).
 //
 //   node scripts/probe-whatsapp-templates.mjs
-//   node scripts/probe-whatsapp-templates.mjs --live <whatsapp channel id> [--skip-create]
+//   node scripts/probe-whatsapp-templates.mjs --live <whatsapp channel id> [--skip-create | --template <approved name>]
 //   node scripts/probe-whatsapp-templates.mjs --purge-check <artifact_database id> [--prod]
 //
 // Needs .env (or .env.prod with --prod): DATABASE_URL, JWT_SECRET,
@@ -1003,59 +1003,77 @@ try {
       );
     }
     if (process.argv.includes('--skip-create')) throw new SkipLive();
-    const name = `qa_order_ready_${stamp}`;
-    const made = await call(
-      `${base(live.channelId)}/template`,
-      json('POST', {
-        name,
-        language: 'es',
-        category: 'UTILITY',
-        body: BODY,
-        examples: ['42'],
-        labels: ['order number']
-      })
-    );
-    liveTemplate = made.body?.id
-      ? { channelId: live.channelId, id: made.body.id }
-      : null;
-    check(
-      `a Utility template goes to Meta for review (${name})`,
-      made.status === 200 && !!made.body?.templateId,
-      `${made.status} ${made.body?.status ?? made.body?.error}`
-    );
-    console.log(
-      `  waiting up to ${APPROVAL_WAIT_MS / 60_000} minutes for Meta's review…`
-    );
-    const reviewed = await until(
-      async () => {
-        const state = await call(`${base(live.channelId)}/template/sync`, {
-          method: 'POST'
-        });
-        const row = state.body?.templates?.find(t => t.name === name);
-        return row && row.status !== 'PENDING' ? row : null;
-      },
-      APPROVAL_WAIT_MS,
-      15_000
-    );
-    if (reviewed) {
+    // --template <name>: an approved template of the account with a variable,
+    // instead of making one and waiting for Meta's review.
+    const chosen = argAfter('--template');
+    const name = chosen ?? `qa_order_ready_${stamp}`;
+    let reviewed = null;
+    if (chosen) {
+      reviewed =
+        synced.body?.templates?.find(
+          t => t.name === chosen && t.status === 'APPROVED'
+        ) ?? null;
       check(
-        '  ...and Meta approves it',
-        reviewed.status === 'APPROVED',
-        `${reviewed.status} ${reviewed.rejectedReason ?? ''}`
+        `${chosen} is approved and stored`,
+        !!reviewed,
+        JSON.stringify(
+          synced.body?.templates?.find(t => t.name === chosen) ?? 'not found'
+        ).slice(0, 160)
       );
     } else {
-      // Meta's review can take up to a day: not a failure of ours. The
-      // template stays, to watch it change in the channel's Message templates.
-      console.log(
-        `  ..   still in Meta's review after ${APPROVAL_WAIT_MS / 60_000} minutes; ${name} is kept so its approval shows in the dashboard`
+      const made = await call(
+        `${base(live.channelId)}/template`,
+        json('POST', {
+          name,
+          language: 'es',
+          category: 'UTILITY',
+          body: BODY,
+          examples: ['42'],
+          labels: ['order number']
+        })
       );
-      keepTemplate = true;
+      liveTemplate = made.body?.id
+        ? { channelId: live.channelId, id: made.body.id }
+        : null;
+      check(
+        `a Utility template goes to Meta for review (${name})`,
+        made.status === 200 && !!made.body?.templateId,
+        `${made.status} ${made.body?.status ?? made.body?.error}`
+      );
+      console.log(
+        `  waiting up to ${APPROVAL_WAIT_MS / 60_000} minutes for Meta's review…`
+      );
+      reviewed = await until(
+        async () => {
+          const state = await call(`${base(live.channelId)}/template/sync`, {
+            method: 'POST'
+          });
+          const row = state.body?.templates?.find(t => t.name === name);
+          return row && row.status !== 'PENDING' ? row : null;
+        },
+        APPROVAL_WAIT_MS,
+        15_000
+      );
+      if (reviewed) {
+        check(
+          '  ...and Meta approves it',
+          reviewed.status === 'APPROVED',
+          `${reviewed.status} ${reviewed.rejectedReason ?? ''}`
+        );
+      } else {
+        // Meta's review can take up to a day: not a failure of ours. The
+        // template stays, to watch it change in the channel's Message templates.
+        console.log(
+          `  ..   still in Meta's review after ${APPROVAL_WAIT_MS / 60_000} minutes; ${name} is kept so its approval shows in the dashboard`
+        );
+        keepTemplate = true;
+      }
+      const [webhooked] =
+        await sql`select status from channel_whatsapp_template where channel_id = ${LIVE_CHANNEL} and name = ${name}`;
+      console.log(
+        `  the live channel's own cache, from Meta's status webhook: ${webhooked?.status ?? 'not received (the webhook field may be off)'}`
+      );
     }
-    const [webhooked] =
-      await sql`select status from channel_whatsapp_template where channel_id = ${LIVE_CHANNEL} and name = ${name}`;
-    console.log(
-      `  the live channel's own cache, from Meta's status webhook: ${webhooked?.status ?? 'not received (the webhook field may be off)'}`
-    );
 
     // The new template once approved; else one the account already has,
     // with the fewest variables, Utility first.
@@ -1109,8 +1127,9 @@ try {
         });
         return Number(JSON.stringify(result).match(/\\?"id\\?":\s*(\d+)/)?.[1]);
       };
+      // The trigger's own messages: the re-read check above sent one too.
       const assistantMessages = () =>
-        sql`select content, metadata from channel_message where participant_id = ${live.participantId} and role = 'assistant' order by created_at`;
+        sql`select content, metadata from channel_message where participant_id = ${live.participantId} and role = 'assistant' and metadata->>'source' = 'trigger' order by created_at`;
 
       const outside = await placeOrder();
       await call(
