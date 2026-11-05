@@ -2506,6 +2506,25 @@ probes. Pending on dev: the index-advice check below (after the 2026-11-06
   `ganju data info` in nemo should list an "add" suggestion for
   `qa_advice_orders.city`; then check the Schema tab notice, "Add index"
   (change log, column filterable), and drop the table.
+- **The same check on prod (set up 2026-11-05):** org "Girardot - demos",
+  project "test" has `qa_advice_orders` (50,000 rows, `city` not
+  filterable) and 64 queries on `city` that day. Same checks after the
+  2026-11-06 13:00 UTC run, then drop the table. Prod's abandoned job has
+  nothing to do yet: its one READY database is on Enterprise (read-only
+  check, 2026-11-05).
+- **Fixed, not deployed (2026-11-05): CLI and MCP bearer tokens refused with
+  401 after about 60 requests.** Not the token refresh: the API checks an
+  OAuth token by calling better-auth's `/oauth2/userinfo` in-process, with
+  no client IP, so better-auth's limiter (60 a minute on userinfo, a window
+  that restarts with each request) put every CLI user on an isolate in one
+  `no-trusted-ip` bucket. MCP's check over the service binding also shared
+  `AUTH_RATE_LIMITER`'s `unknown` bucket (30 a minute). Fix:
+  `rateLimit.customRules['/oauth2/userinfo'] = false` in better-auth, and
+  MCP's call sends the internal secret so `/auth/*` skips the per-address
+  limit for it. Locally with `NODE_ENV=production`: 60×200 then 60×401
+  without the fix, 200×200 with it. Deploy api and mcp, then on dev:
+  150 quick `GET /organization` with a CLI token, all 200, and an MCP
+  client on an opaque token past 30 calls a minute.
 
 - **Meters:**
   - `scripts/reconcile-data-usage.mjs [--prod] [--org <id>] [--from --to]

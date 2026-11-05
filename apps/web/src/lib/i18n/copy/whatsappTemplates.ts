@@ -43,6 +43,7 @@ const en = {
 
   // What the channel still needs.
   noAccountTitle: 'Which WhatsApp Business account is this number in?',
+  wrongAccountTitle: "That isn't this number's WhatsApp Business account",
   noAccountText:
     "Templates belong to the WhatsApp Business account (WABA), not to the number, and Meta didn't tell Ganju which one this token can manage. Paste its id below.",
   permissionTitle: "This channel's token can't manage templates",
@@ -181,6 +182,8 @@ export const WHATSAPP_TEMPLATES: Catalog<WhatsappTemplatesCopy> = {
     categoryUtilityRecommended: 'Utilidad (recomendada)',
 
     noAccountTitle: '¿En qué cuenta de WhatsApp Business está este número?',
+    wrongAccountTitle:
+      'Esa no es la cuenta de WhatsApp Business de este número',
     noAccountText:
       'Las plantillas pertenecen a la cuenta de WhatsApp Business (WABA), no al número, y Meta no le dijo a Ganju cuál puede administrar este token. Pega su id abajo.',
     permissionTitle: 'El token de este canal no puede administrar plantillas',

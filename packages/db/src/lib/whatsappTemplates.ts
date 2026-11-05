@@ -28,6 +28,8 @@ export interface WhatsappChannelCredentials {
 export type WhatsappTemplateErrorReason =
   // No business account id stored, and Meta didn't give one.
   | 'no_account'
+  // The stored id isn't a business account, or not the number's.
+  | 'account'
   // The token can't manage templates, or can't see that account.
   | 'permission'
   // The token expired or was revoked.
@@ -92,8 +94,23 @@ const metaText = (error: GraphError | undefined) => {
   return (user || error?.message || 'Meta refused the request.').slice(0, 600);
 };
 
+const WRONG_ACCOUNT =
+  "That ID isn't the WhatsApp Business account of this channel's number. Copy the WhatsApp Business Account ID from the app's WhatsApp → API Setup page (not the phone number ID or the app ID).";
+
+// Meta's answer when the id is some other object (a phone number, an app):
+// it has no message_templates or phone_numbers field.
+const isWrongObject = (error: GraphError | undefined) =>
+  error?.code === 100 &&
+  error?.error_subcode !== 33 &&
+  /nonexisting field|unknown path components|does not exist/i.test(
+    error?.message ?? ''
+  );
+
 const toError = (error: GraphError | undefined): WhatsappTemplateError => {
   const code = error?.code;
+  if (isWrongObject(error)) {
+    return new WhatsappTemplateError(WRONG_ACCOUNT, 'account');
+  }
   if (code === 190) {
     return new WhatsappTemplateError(
       "The channel's access token expired or was revoked. Paste a new one.",
@@ -152,6 +169,41 @@ export const detectBusinessAccount = async (
     }
   }
   return { businessAccountId: null, canManage };
+};
+
+/**
+ * Checks an account id before it is stored: it has to be a business account
+ * the token can see, with the channel's number in it. Throws the reason
+ * when it isn't; a token that can't list numbers (permission, expired) is
+ * thrown as such, so the caller decides whether to keep the id anyway.
+ */
+export const checkBusinessAccount = async (
+  accessToken: string,
+  phoneNumberId: string,
+  businessAccountId: string
+): Promise<void> => {
+  const numbers = await graph(
+    accessToken,
+    `/${encodeURIComponent(businessAccountId)}/phone_numbers?fields=id&limit=100`
+  );
+  if (!numbers.ok) {
+    // Meta says "object does not exist or you lack permission" (100/33) both
+    // for a typo and for an account the token can't see.
+    if (numbers.error?.code === 100 && numbers.error?.error_subcode === 33) {
+      throw new WhatsappTemplateError(
+        "Meta can't find a WhatsApp Business account with that ID that this token can see. Check the ID (the WhatsApp Business Account ID on the app's WhatsApp → API Setup page, not the phone number ID), or paste a token with whatsapp_business_management for that account.",
+        'account'
+      );
+    }
+    throw toError(numbers.error);
+  }
+  const list = (numbers.body.data as { id?: string }[] | undefined) ?? [];
+  if (!list.some(n => n.id === phoneNumberId)) {
+    throw new WhatsappTemplateError(
+      "This WhatsApp Business account doesn't have the channel's phone number. Check that you copied the account the number is in.",
+      'account'
+    );
+  }
 };
 
 const accountOf = (credentials: WhatsappChannelCredentials): string => {

@@ -30,7 +30,7 @@ import type {
 // A WhatsApp channel's message templates: Meta's approved messages, the
 // only ones that reach a customer more than 24 hours after they last wrote.
 
-type Access = 'ok' | 'no_account' | 'permission' | 'token' | 'meta';
+type Access = 'ok' | 'no_account' | 'account' | 'permission' | 'token' | 'meta';
 
 export interface WhatsappTemplate {
   id: string;
@@ -363,7 +363,9 @@ const AccountNotice = ({
   const [token, setToken] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const wantsToken = access === 'permission' || access === 'token';
+  // A wrong account can also be a token that can't see the right one.
+  const wantsToken =
+    access === 'permission' || access === 'token' || access === 'account';
 
   const save = async () => {
     if (saving) return;
@@ -391,11 +393,13 @@ const AccountNotice = ({
       <p className="templates-notice-title">
         {access === 'no_account'
           ? t('noAccountTitle')
-          : access === 'permission'
-            ? t('permissionTitle')
-            : access === 'token'
-              ? t('tokenTitle')
-              : t('metaTitle')}
+          : access === 'account'
+            ? t('wrongAccountTitle')
+            : access === 'permission'
+              ? t('permissionTitle')
+              : access === 'token'
+                ? t('tokenTitle')
+                : t('metaTitle')}
       </p>
       {access === 'no_account' && <p>{t('noAccountText')}</p>}
       {access === 'permission' && (
@@ -429,36 +433,32 @@ const AccountNotice = ({
           onChange={e => setToken(e.target.value)}
         />
       )}
-      {access !== 'meta' && (
-        <UI.Input
-          size="small"
-          label={t('businessAccountId')}
-          placeholder="102938475610293"
-          value={accountId}
-          disabled={saving}
-          helperText={t('businessAccountIdHelp')}
-          onChange={e => setAccountId(e.target.value.replace(/\D/g, ''))}
-        />
-      )}
+      <UI.Input
+        size="small"
+        label={t('businessAccountId')}
+        placeholder="102938475610293"
+        value={accountId}
+        disabled={saving}
+        helperText={t('businessAccountIdHelp')}
+        onChange={e => setAccountId(e.target.value.replace(/\D/g, ''))}
+      />
       {saveError && <p className="templates-error">{saveError}</p>}
-      {access !== 'meta' && (
-        <div>
-          <UI.Button
-            size="small"
-            variant="contained"
-            disabled={
-              saving ||
-              (!token.trim() &&
-                (!accountId.trim() || accountId.trim() === businessAccountId))
-            }
-            onClick={save}
-          >
-            <span className="button-text">
-              {saving ? t('saving') : t('save')}
-            </span>
-          </UI.Button>
-        </div>
-      )}
+      <div>
+        <UI.Button
+          size="small"
+          variant="contained"
+          disabled={
+            saving ||
+            (!token.trim() &&
+              (!accountId.trim() || accountId.trim() === businessAccountId))
+          }
+          onClick={save}
+        >
+          <span className="button-text">
+            {saving ? t('saving') : t('save')}
+          </span>
+        </UI.Button>
+      </div>
     </div>
   );
 };

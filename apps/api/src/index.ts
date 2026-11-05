@@ -31,7 +31,12 @@ import {
   DataAbandonedController,
   runAbandonedExportExpiry
 } from './controllers';
-import { UserMiddleware, rateLimit, clientIp } from './middleware';
+import {
+  UserMiddleware,
+  rateLimit,
+  clientIp,
+  authClientKey
+} from './middleware';
 import {
   DATA_API_BASE,
   DATA_API_ROUTES,
@@ -139,7 +144,7 @@ app
     '/auth/*',
     rateLimit({
       binding: 'AUTH_RATE_LIMITER',
-      key: clientIp,
+      key: authClientKey,
       message: 'Too many authentication requests. Please wait a minute.'
     }),
     async c => {

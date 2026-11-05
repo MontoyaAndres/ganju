@@ -92,8 +92,15 @@ const introspectToken = async (
     console.warn('MCP introspection: NEXT_PUBLIC_API_URL is not set');
     return null;
   }
+  // The internal secret keeps this check out of the API's per-address auth
+  // limit: over the service binding there is no address, so every MCP user
+  // would share one bucket.
+  const secret = c.env.MCP_INTERNAL_SECRET;
   const res = await c.env.API.fetch(`${apiUrl}/auth/oauth2/userinfo`, {
-    headers: { authorization: `Bearer ${token}` }
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(secret ? { [utils.constants.MCP_INTERNAL_HEADER]: secret } : {})
+    }
   }).catch((error: unknown) => {
     console.warn(`MCP introspection: userinfo fetch failed — ${error}`);
     return null;

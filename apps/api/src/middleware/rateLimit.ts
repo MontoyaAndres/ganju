@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler, Next } from 'hono';
+import { utils } from '@ganju/utils';
 
 // types
 import type { AppEnv, Bindings, RateLimiter } from '../types';
@@ -33,6 +34,26 @@ export const clientIp = (c: Context<AppEnv>): string =>
   c.req.header('x-real-ip') ??
   c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
   'unknown';
+
+/**
+ * The bucket for /auth/*: the client's address, except for the MCP server
+ * checking a token over the service binding. That request has no client
+ * address, so it would share one bucket with every other MCP user's; the MCP
+ * server limits its own callers.
+ */
+export const authClientKey = (c: Context<AppEnv>): string | null => {
+  const provided = c.req.header(utils.constants.MCP_INTERNAL_HEADER);
+  const expected = utils.getEnv(c, 'MCP_INTERNAL_SECRET');
+  if (
+    c.req.path === '/auth/oauth2/userinfo' &&
+    provided &&
+    expected &&
+    utils.timingSafeEqual(provided, expected)
+  ) {
+    return null;
+  }
+  return clientIp(c);
+};
 
 /**
  * Throttle a route against one of the Rate Limiting bindings.

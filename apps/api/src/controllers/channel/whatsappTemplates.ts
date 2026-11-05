@@ -25,7 +25,7 @@ type TemplateRow = typeof db.schema.channelWhatsappTemplate.$inferSelect;
 // Why templates can't be read right now: no business account known, a
 // token without whatsapp_business_management, an expired token, or another
 // refusal from Meta.
-type Access = 'ok' | 'no_account' | 'permission' | 'token' | 'meta';
+type Access = 'ok' | 'no_account' | 'account' | 'permission' | 'token' | 'meta';
 
 const templateView = (row: TemplateRow) => {
   const content = utils.whatsappTemplateContent(row.components);
@@ -376,7 +376,26 @@ const updateAccount = async (c: Context<AppEnv>) => {
     }
     next.accessToken = input.accessToken;
   }
-  if (input.businessAccountId) next.businessAccountId = input.businessAccountId;
+  if (input.businessAccountId) {
+    // Checked before it is stored, so a wrong id is refused here instead of
+    // breaking the templates page. A token that can't list the account's
+    // numbers can't confirm it either: kept, and the sync says why.
+    try {
+      await db.whatsappTemplates.checkBusinessAccount(
+        next.accessToken,
+        next.phoneNumberId,
+        input.businessAccountId
+      );
+    } catch (error) {
+      if (
+        !(error instanceof db.whatsappTemplates.WhatsappTemplateError) ||
+        error.reason !== 'permission'
+      ) {
+        return metaError(c, error);
+      }
+    }
+    next.businessAccountId = input.businessAccountId;
+  }
   if (!next.businessAccountId) {
     const found = await db.whatsappTemplates.detectBusinessAccount(
       next.accessToken,

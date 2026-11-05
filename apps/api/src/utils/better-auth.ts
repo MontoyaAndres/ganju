@@ -45,6 +45,14 @@ export const createAuth = (
       }
     },
     trustedOrigins: [webUrl, apiUrl],
+    rateLimit: {
+      // No limit here on userinfo. The API and MCP check every bearer token
+      // through it, in-process or over the service binding, with no client IP,
+      // so it was one bucket shared by every CLI and MCP user, and a busy one
+      // locked the rest out with 401s. Outside callers are still limited per
+      // IP on /auth/*, and the API's own check is limited per user after it.
+      customRules: { '/oauth2/userinfo': false }
+    },
     account: {
       storeStateStrategy: 'database',
       skipStateCookieCheck: true
