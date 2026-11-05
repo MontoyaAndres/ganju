@@ -71,7 +71,7 @@ const en = {
   phoneNumberId: 'Phone number ID',
   phoneNumberIdPlaceholder: 'WhatsApp phone number ID',
   phoneNumberIdHelp:
-    'WhatsApp → API Setup → From: the Phone number ID (not the display number).',
+    'WhatsApp → Production setup → Register your phone number: the Phone number ID, not the display number. API Setup shows only the test number.',
   verifyToken: 'Verify token',
   verifyTokenPlaceholder: 'A token you choose',
   verifyTokenHelp:
@@ -128,7 +128,7 @@ const en = {
   whatsappCredentialsBefore:
     'Access token: a permanent System User token with ',
   whatsappCredentialsAfter:
-    ' permission. Phone number ID and App secret come from the WhatsApp → API Setup and App → Settings → Basic pages.',
+    ' permission. The Phone number ID is under WhatsApp → Production setup, and the App secret under App → Settings → Basic.',
 
   // Overview tab.
   fallbackSlackWorkspace: 'Slack workspace',
@@ -328,7 +328,7 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     phoneNumberId: 'Phone number ID',
     phoneNumberIdPlaceholder: 'Phone number ID de WhatsApp',
     phoneNumberIdHelp:
-      'WhatsApp → API Setup → From: el Phone number ID (no el número que se muestra).',
+      'WhatsApp → Configuración de producción → Registra tu número: el Phone number ID, no el número que se muestra. API Setup solo muestra el número de prueba.',
     verifyToken: 'Verify token',
     verifyTokenPlaceholder: 'Un token que elijas',
     verifyTokenHelp:
@@ -383,7 +383,7 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     whatsappCredentialsBefore:
       'Access token: un token permanente de System User con el permiso ',
     whatsappCredentialsAfter:
-      '. El Phone number ID y el App secret están en las páginas WhatsApp → API Setup y App → Settings → Basic.',
+      '. El Phone number ID está en WhatsApp → Configuración de producción, y el App secret en App → Settings → Basic.',
 
     fallbackSlackWorkspace: 'Espacio de Slack',
     fallbackDiscordBot: 'Bot de Discord',

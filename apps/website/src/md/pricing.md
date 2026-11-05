@@ -24,6 +24,7 @@ only for what you use beyond it.
 - Past that: $2 per 1,000 messages on your own AI key, $15 per 1,000 on ours · $2 per extra GB
 - MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
 - Includes 1,000,000 calls/mo to tools you write in code, then $5 per million
+- A database per project (Data): up to 9 GB and 50 tables, restore to any moment in the last 30 days · usage measured, not billed yet
 - Custom domain add-on ($15/mo) · build your own custom tools
 - 24/7 support
 
@@ -32,6 +33,11 @@ channel-bot assistant replies (each runs an LLM tool-calling loop), embedded
 RAG content (stored as vectors in Postgres), and calls to tools you wrote in code
 (which run on our compute). Raw file storage is free, and so are calls to the
 integrations we ship.
+
+Data (the project database) is measured too: storage, rows read and written,
+and trigger runs, all shown on the billing page. It isn't billed yet; a price
+will be set once there are real usage numbers. On Free, an existing database
+stays readable but not editable.
 
 ## Enterprise — Custom
 

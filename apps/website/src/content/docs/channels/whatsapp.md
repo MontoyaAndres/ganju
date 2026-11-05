@@ -14,8 +14,12 @@ copy your **Phone number ID**, then paste Ganju's **Callback URL** back into Met
 
 1. In the [Meta for Developers](https://developers.facebook.com/) dashboard, create
    an app (type **Business**) and add the **WhatsApp** product.
-2. Under **WhatsApp → API Setup**, note your **Phone number ID** (a numeric string
-   — *not* the phone number itself) and your WhatsApp Business Account ID.
+2. Note your **Phone number ID** (a numeric string — *not* the phone number
+   itself) and your **WhatsApp Business Account ID**. For your real number,
+   both are under **WhatsApp → Production setup → Register your WhatsApp phone
+   number**, where Meta labels the account "Messaging Account ID". The **API
+   Setup** (or **Try it**) page shows Meta's free test number and its own test
+   account: use those IDs only to try things with the test number.
 
 ## 2. Generate a permanent access token
 
@@ -97,8 +101,11 @@ Open the channel and the **Message templates** tab. There you can:
 - **The WhatsApp Business account.** Templates belong to the account, not to
   the number. Ganju asks Meta which one your token manages, so usually there's
   nothing to do; when Meta can't tell, the tab asks for the **WhatsApp Business
-  Account ID** (WhatsApp Manager → Account tools → Business account settings,
-  or the app's **WhatsApp → API Setup** page).
+  Account ID** (the app's **WhatsApp → Production setup → Register your
+  WhatsApp phone number**, labelled "Messaging Account ID", or WhatsApp Manager
+  → Account tools → Business account settings). Ganju checks it with Meta before
+  saving it: an account that doesn't have the channel's number is refused, so
+  you can't save the test number's account for a real number by mistake.
 - **The `whatsapp_business_management` permission** on the token, besides
   `whatsapp_business_messaging`. A token made only to send messages lacks it;
   the tab says so and explains how to generate a new one in **Business

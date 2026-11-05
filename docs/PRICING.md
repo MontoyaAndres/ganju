@@ -45,6 +45,22 @@ Two things this replaced: the ~$50/mo instance estimate (too high) and the ~$0.5
 
 A note on the bill: **child branches held 2.69 GB against the root branch's 0.26 GB** — 10× the storage, and it's dev/preview branches rather than customer data. Pruning them is the cheapest line item available.
 
+### Project data — SQLite Durable Objects (checked October 2026)
+
+Each project database is one SQLite-backed Durable Object in apps/data. Cloudflare bills them on Workers Paid; the included amounts are per account, shared by every database we host, not per customer.
+
+| What | Included per month | Then |
+|---|---|---|
+| Storage | 5 GB-month | **$0.20 per GB-month** |
+| Rows written | 50M | **$1.00 per million** |
+| Rows read | 25B | **$0.001 per million** |
+| Requests | 1M | $0.15 per million |
+| Duration | 400,000 GB-s | $12.50 per million GB-s |
+
+Recheck these before setting a price. Rows written are the line that matters: a write also updates every index on the table and the row history, so one insert is several rows written. Rows read are a thousand times cheaper and round to zero for any normal use.
+
+**Measured, so far only on dev.** Our counters match Cloudflare's analytics: on 2026-11-05 a known load in a test database (a table created, 300 rows imported, 10 unindexed queries, the table dropped) moved ours by 551,473 rows read, 919 written and 26 calls, and Cloudflare's by 551,546, 919 and 26 (`scripts/reconcile-data-usage.mjs`). The heaviest test database (40 MB; 6.8M rows read and 0.95M written in a month, mostly seeding a 50,000-row table and rebuilding it) would cost about **$0.97** at the rates above if nothing were included, $0.95 of it rows written. Our estimate for a busy restaurant (10,000 orders a month, 50 MB) is well under $0.25. Real customer traffic is still unmeasured.
+
 ### Estimates still to confirm
 
 | What | Estimate | Note |
@@ -197,6 +213,7 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 | Prompts / channels | 3 / 1 |
 | Storage | 30 MB raw files · 5 MB embedded |
 | Channel messages | **100/month, hard cap**, on our model |
+| Project data | ❌ (a database kept from Pro is read-only, then deleted after notice) |
 | LLM | Ours only (no BYO) |
 | Support | Community |
 
@@ -213,6 +230,7 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 | Included storage | **1 GB** embedded content (~500,000 pages of text) |
 | Included messages | 3,000/month — of which **1,000 may run on Ganju's model** |
 | Included tool calls | 1,000,000/month |
+| Project data | ✅ a database per project, up to 9 GB and 50 tables; measured, billed at $0 for now |
 | Support | 24/7 |
 
 **Overage**
@@ -385,6 +403,7 @@ The guardrails the model depends on are now in code:
 - **Custom tool calls are metered.** `subscription.tool_call_count` counts dispatches into a customer's own code — not native or proxied tools, which cost one screened fetch — and reports overage above **1,000,000/month** to a fourth meter (`ganju_custom_tool_calls`) at **$5 per million**. Counted in apps/mcp, one statement per request, and only for a call that actually reached the isolate. The line in Part 4 that sold this had nothing behind it until now.
 - **A monthly ceiling on that compute.** `toolCallHardCap` — 20,000,000 on Pro, `null` on Enterprise, 10,000 on Free for the downgraded org whose script is still published. The per-script CPU ceiling bounds one call and the rate limiter bounds a minute; this is what bounds a month. Refused at dispatch with the reason, never by dropping the tool from `tools/list`.
 - **An abuse process, not just controls** — the runbook in [ABUSE.md](ABUSE.md), and the one command it leans on.
+- **Project data is measured from day one.** Five counters on `subscription` (rows read, rows written, requests, peak storage in MB, trigger runs), snapshotted into `usage_period`, shown as a Data block on the billing page, and reported to four Polar meters at $0. A monthly reconcile against Cloudflare's analytics keeps the counters honest. Ganju's own reads (the hourly size, the index job, the abandoned-database flow) are counted and billed like the customer's.
 - **Shared-key turns are sold, not blocked.** The runner's old gate stopped a channel at the shared allowance; it now only trips at `PRICING_SHARED_KEY_HARD_CAP` (100,000/mo) as an abuse backstop. Between the allowance and the backstop, shared turns keep running and report to a second meter (`ganju_shared_messages`) at $15/1,000. Own-key turns keep reporting to the original meter at $2/1,000, and no turn bills to both. The metering split reproduces every worked example in Part 5.
 
 ### Billing — Polar, live
@@ -401,6 +420,12 @@ The guardrails the model depends on are now in code:
 | Shared messages | `ganju_shared_messages` | `1.5` | $15.00 / 1,000 messages |
 | Embedded storage | `ganju_embedded_storage` | `0.1953125` | $2.00 / 1,024 MB |
 | Custom-tool calls | `ganju_custom_tool_calls` | `0.0005` | $5.00 / 1,000,000 calls |
+| Data storage | `ganju_data_storage` | $0 (`metered_tiers`) | peak MB in the period |
+| Data rows written | `ganju_data_rows_written` | $0 (`metered_tiers`) | rows |
+| Data rows read | `ganju_data_rows_read` | $0 (`metered_tiers`) | rows |
+| Data trigger runs | `ganju_data_trigger_runs` | $0 (`metered_tiers`) | runs |
+
+The four data meters are attached to Pro and Enterprise at $0 so usage reaches Polar from day one; Polar refuses a `metered_unit` price of 0, so a $0 price is a single graduated tier at 0. They are reported in full, not past an allowance. Pricing Data is then a price change in Polar (new customers only, see below) plus the allowance logic in the sweep, not new plumbing.
 
 How it is wired, the setup for a new instance and the traps are in [DEPLOYMENT.md](DEPLOYMENT.md#billing).
 
@@ -418,4 +443,5 @@ The consequence was not only editorial. The marketing estimator was mirroring St
 2. **Confirm retrieval quality on live traffic after the 1536 change.** Shipped on dev (Part 2.5) and the cost is now ~$2.41/GB, so the $2 price holds and the ~$5/GB fallback is off the table. The residual risk is narrow: the equivalence test used `RETRIEVAL_QUERY` vectors, while documents embed with `RETRIEVAL_DOCUMENT`. Matryoshka shouldn't care, but one real search against freshly-ingested content confirms it for free.
 3. **Watch the first real billing cycle in production.** The two paths nothing but a real month exercises: the hand-rolled webhook signature check on a live `subscription.updated` (`cycled`), and the period rollover writing its `usage_period` row and resetting the `reported_*` marks before the next sweep.
 4. **Confirm the checkout speaks Spanish.** It needs Polar's checkout-localization flag on the *production* organization; without it `locale: "es"` is accepted and silently stored as `en`, so the only check is reading a checkout back.
-5. **The marketing estimator models only the own-key rate.** A two-rate slider tested worse than one, so the calculator quotes $2/1,000 and its hint says the estimate assumes your own key. Revisit if support questions say otherwise.
+5. **Price project data.** After a month or two of production numbers: decide what Pro includes (probably 1 GB and some millions of rows written), the overage per GB and per million rows written, and whether rows read stay free. Then set the Polar prices, add the allowance to the sweep, and update the pricing pages, which today say "measured, not billed yet". Decided 2026-11-05 to wait for those numbers. The cost of waiting: a Polar price change reaches new customers only, so every Pro customer who subscribes before then keeps Data at $0 unless moved to the new pricing by hand.
+6. **The marketing estimator models only the own-key rate.** A two-rate slider tested worse than one, so the calculator quotes $2/1,000 and its hint says the estimate assumes your own key. Revisit if support questions say otherwise.

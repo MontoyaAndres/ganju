@@ -35,7 +35,7 @@ Ganju deploys to Cloudflare. Each Worker app has a `wrangler.toml` with `develop
 | The five Workers | ✅ all deployed | `wrangler deployments list --env production` |
 | Custom domains | ✅ `api` / `mcp` / `app`.ganju.ai all answering | `curl -o /dev/null -w '%{http_code}' https://api.ganju.ai/.well-known/oauth-authorization-server` |
 | Secrets | ✅ 35 — api 23, mcp 3, tool-broker 9 | `wrangler secret list --env production` |
-| Migrations | ✅ 83 applied, through `0082` (2026-10-30) | `select count(*) from drizzle.__drizzle_migrations` |
+| Migrations | ✅ 89 applied, through `0088` (2026-11-05) | `select count(*) from drizzle.__drizzle_migrations` |
 | Bot OAuth client | ✅ row provisioned | `select count(*) from oauth_client` |
 | `mcp_server_catalog` | ✅ 2 rows (GitHub, Notion) | `select count(*) from mcp_server_catalog` |
 | End-to-end CLI probe | ✅ 61/61 against production | [probe-cli.mjs](../scripts/probe-cli.mjs) |
@@ -137,7 +137,7 @@ Migrations live in [packages/db](../packages/db) and run from a local shell agai
 npm run migrate-prod   # generate + apply against .env.prod
 ```
 
-There are 83 migrations, through `0082_artifact_database`. **Code and schema must ship together**, because the current code writes to columns the later migrations add: `artifact_tool.tool_key` and `.enabled` from the first request, `artifact_tool_version.script_name` at boot, `access_token` on any request carrying a `ganju_pat_` bearer token, `subscription.tool_call_count` on every custom tool call, `channel_participant.memory` on every channel turn, `subscription.voice_note_count` whenever a voice note is transcribed, and `artifact_database` on every Data request. Deploy without migrating and the first request fails. `0079` also builds an index on `channel_message`, which holds writes to that table while it builds — run it when the bots are quiet.
+There are 89 migrations, through `0088_data_index_advice_abandoned`. **Code and schema must ship together**, because the current code writes to columns the later migrations add: `artifact_tool.tool_key` and `.enabled` from the first request, `artifact_tool_version.script_name` at boot, `access_token` on any request carrying a `ganju_pat_` bearer token, `subscription.tool_call_count` on every custom tool call, `channel_participant.memory` on every channel turn, `subscription.voice_note_count` whenever a voice note is transcribed, `artifact_database` on every Data request, the `reported_data_*` marks (`0084`) on every hourly sweep, `artifact_database_trigger_run` (`0083`, `started_at` in `0085`) on every trigger delivery, `channel_whatsapp_template` (`0087`) on every templates read, and `artifact_database_query_stat` (`0088`) on every Data request. Deploy without migrating and the first request fails. `0079` also builds an index on `channel_message`, which holds writes to that table while it builds — run it when the bots are quiet.
 
 Check what the target database already has before assuming a range:
 

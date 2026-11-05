@@ -15,8 +15,13 @@ URL** de Ganju de vuelta en Meta.
 
 1. En el panel de [Meta for Developers](https://developers.facebook.com/), crea una
    app (tipo **Business**) y agrega el producto **WhatsApp**.
-2. En **WhatsApp → API Setup**, anota tu **Phone number ID** (una cadena numérica —
-   *no* el número de teléfono en sí) y el ID de tu cuenta de WhatsApp Business.
+2. Anota tu **Phone number ID** (una cadena numérica — *no* el número de
+   teléfono en sí) y el **ID de tu cuenta de WhatsApp Business**. Para tu número
+   real, los dos están en **WhatsApp → Configuración de producción → Registra tu
+   número de teléfono de WhatsApp**, donde Meta llama a la cuenta "Messaging
+   Account ID" o "Identificador de la cuenta de mensajes". La página **API
+   Setup** (o **Pruébalo**) muestra el número de prueba gratuito de Meta y su
+   propia cuenta de prueba: usa esos IDs solo para probar con ese número.
 
 ## 2. Genera un token de acceso permanente
 
@@ -99,8 +104,12 @@ Abre el canal y la pestaña **Plantillas de mensaje**. Ahí puedes:
 - **La cuenta de WhatsApp Business.** Las plantillas pertenecen a la cuenta, no
   al número. Ganju le pregunta a Meta cuál administra tu token, así que
   normalmente no hay nada que hacer; cuando Meta no lo sabe, la pestaña pide el
-  **WhatsApp Business Account ID** (WhatsApp Manager → Account tools →
-  Business account settings, o la página **WhatsApp → API Setup** de la app).
+  **WhatsApp Business Account ID** (en la app, **WhatsApp → Configuración de
+  producción → Registra tu número de teléfono de WhatsApp**, como "Messaging
+  Account ID", o en WhatsApp Manager → Account tools → Business account
+  settings). Ganju lo verifica con Meta antes de guardarlo: una cuenta que no
+  tiene el número del canal se rechaza, así que no puedes guardar por error la
+  cuenta del número de prueba para un número real.
 - **El permiso `whatsapp_business_management`** en el token, además de
   `whatsapp_business_messaging`. Un token creado solo para enviar mensajes no
   lo tiene; la pestaña lo dice y explica cómo generar uno nuevo en **Business

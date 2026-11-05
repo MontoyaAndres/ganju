@@ -64,7 +64,7 @@ const en = {
   newTokenHelp: 'Stored encrypted, never shown again.',
   businessAccountId: 'WhatsApp Business account ID',
   businessAccountIdHelp:
-    "WhatsApp Manager → Account tools → Business account settings, or the app's WhatsApp → API Setup page (WhatsApp Business Account ID).",
+    "The app's WhatsApp → Production setup → Register your phone number (Messaging Account ID), or WhatsApp Manager → Account tools → Business account settings. Not the API Setup page: it shows the test number's account.",
   save: 'Save',
   saving: 'Saving…',
   accountSaveFailed: "Couldn't save",
@@ -205,7 +205,7 @@ export const WHATSAPP_TEMPLATES: Catalog<WhatsappTemplatesCopy> = {
     newTokenHelp: 'Se guarda cifrado y no se vuelve a mostrar.',
     businessAccountId: 'ID de la cuenta de WhatsApp Business',
     businessAccountIdHelp:
-      'WhatsApp Manager → Account tools → Business account settings, o la página WhatsApp → API Setup de la app (WhatsApp Business Account ID).',
+      'En la app, WhatsApp → Configuración de producción → Registra tu número (Messaging Account ID), o WhatsApp Manager → Account tools → Business account settings. No la página API Setup: muestra la cuenta del número de prueba.',
     save: 'Guardar',
     saving: 'Guardando…',
     accountSaveFailed: 'No pudimos guardar',

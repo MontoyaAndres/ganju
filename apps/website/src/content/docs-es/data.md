@@ -241,7 +241,9 @@ se usa nunca se elimina.
 
 **Ajustes → Plan y facturación** muestra un bloque **Datos** del periodo
 actual: almacenamiento (medido cada hora) y el pico del periodo, filas leídas y
-escritas, solicitudes y ejecuciones de disparadores.
+escritas, solicitudes y ejecuciones de disparadores. Este consumo se mide pero
+todavía no se cobra; el precio se fijará cuando haya cifras reales de uso, y se
+anunciará antes de aplicarse.
 
 ## Siguiente
 

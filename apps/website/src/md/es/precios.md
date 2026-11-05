@@ -27,6 +27,7 @@ solo por lo que uses por encima de ella.
 - Pasado eso: $2 por cada 1.000 mensajes con tu propia llave de IA, $15 por cada 1.000 con la nuestra · $2 por GB adicional
 - Las llamadas a herramientas desde clientes MCP (Claude, Cursor, ChatGPT) están incluidas — no se cobran como mensajes
 - Incluye 1.000.000 de llamadas al mes a las funciones que escribes en código; después, 5 USD por millón
+- Una base de datos por proyecto (Datos): hasta 9 GB y 50 tablas, restaurable a cualquier momento de los últimos 30 días · el consumo se mide, todavía no se cobra
 - Complemento de dominio propio ($15/mes) · crea tus propias herramientas
 - Soporte 24/7
 
@@ -36,6 +37,11 @@ LLM), el contenido consultable con embeddings (almacenado como vectores en Postg
 y las llamadas a las funciones que escribiste en código (que corren en nuestro
 cómputo). El almacenamiento de archivos en bruto es gratis, y las llamadas a las
 integraciones que incluimos también.
+
+Datos (la base de datos del proyecto) también se mide: almacenamiento, filas
+leídas y escritas y ejecuciones de disparadores, todo visible en la página de
+facturación. Todavía no se cobra; el precio se fijará cuando haya cifras reales
+de uso. En Gratis, una base de datos que ya exista se puede leer pero no editar.
 
 ## Empresarial — A la medida
 

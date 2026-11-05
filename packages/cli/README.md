@@ -52,6 +52,7 @@ long import halfway.
 | --- | --- |
 | `ganju data create [--name <name>]` | Make the database. `--replace --yes` starts over while a deleted one is still restorable, giving that one up |
 | `ganju data info` | Status, size, tables, and a table copy in progress |
+| `ganju data index add\|dismiss <id>` | Act on an index suggestion. `info` lists them, with their ids: Ganju suggests indexing a column that queries often filter on while reading many more rows than they return. It also flags an index no query used in 30 days on a table written to a lot; nothing is removed |
 | `ganju data drop --yes --confirm <name>` | Delete it, restorable for 7 days |
 | `ganju data restore` | Undo a delete |
 | `ganju data restore --at <ISO time> --yes` | Put everything back as it was then (within 30 days). The time needs its offset: `2026-10-30T09:15:00-05:00` or `…Z` |

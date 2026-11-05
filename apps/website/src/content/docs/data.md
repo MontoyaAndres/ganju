@@ -231,7 +231,8 @@ deleted.
 
 **Settings → Billing & plan** shows a **Data** block for the current period: storage
 (checked every hour) and the period's peak, rows read and written, requests and
-trigger runs.
+trigger runs. This usage is measured but not billed yet; a price will be set
+once there are real usage numbers, and announced before it applies.
 
 ## Next
 

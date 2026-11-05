@@ -27,6 +27,10 @@ const faqs = [
     a: 'Calls to the integrations we ship, and to remote MCP servers, are bundled into the plan — clients like Claude, Cursor, and ChatGPT use them freely. Tools you write yourself run your code on our infrastructure, so Pro includes 1,000,000 of those calls a month and $5 per million after that.'
   },
   {
+    q: 'Is there a database, and what does it cost?',
+    a: 'Pro and Enterprise include Data: each project gets its own database, up to 9 GB and 50 tables, that your assistant, your functions, the CLI and the API all use, with restore to any moment in the last 30 days. Storage, rows read and written, and trigger runs are measured and shown on your billing page, but not billed yet. On Free, an existing database stays readable but not editable.'
+  },
+  {
     q: 'Can I use my own AI model?',
     a: 'Yes. On Pro you can bring your own key for Anthropic Claude, OpenAI, or Google Gemini and run messages on your own model instead of ours.'
   },
@@ -84,6 +88,7 @@ const jsonLd = [
             <li>Includes 3,000 messages/mo — up to 1,000 on our AI model — &amp; 1&nbsp;GB searchable content</li>
             <li>Past that: $2 / 1k messages on your own AI key, $15 / 1k on ours · $2 / GB</li>
             <li>MCP tool calls bundled (Claude, Cursor, ChatGPT) · 1M calls/mo to tools you write, then $5/M</li>
+            <li>A database per project (Data): up to 9&nbsp;GB, restore to any moment in the last 30 days · usage measured, not billed yet</li>
             <li>Custom domain add-on · build your own tools</li>
             <li>24/7 support</li>
           </ul>

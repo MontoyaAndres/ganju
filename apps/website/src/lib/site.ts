@@ -132,11 +132,11 @@ export const PRICING_SCHEMA = {
     {
       '@type': 'Offer',
       name: 'Pro',
-      price: '20',
+      price: '29',
       priceCurrency: 'USD',
       url: `${SITE.url}/pricing/`,
       description:
-        'Unlimited projects, teammates, tools and prompts. Includes 3,000 messages a month and 1 GB of searchable content, then usage-based pricing.'
+        'Unlimited projects, teammates, tools and prompts. Includes 3,000 messages a month, 1 GB of searchable content and a database per project, then usage-based pricing.'
     }
   ]
 } as const;
@@ -160,11 +160,11 @@ export const PRICING_SCHEMA_ES = {
     {
       '@type': 'Offer',
       name: 'Pro',
-      price: '20',
+      price: '29',
       priceCurrency: 'USD',
       url: `${SITE.url}/es/precios/`,
       description:
-        'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes y 1 GB de contenido consultable; de ahí en adelante, precio por consumo.'
+        'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes, 1 GB de contenido consultable y una base de datos por proyecto; de ahí en adelante, precio por consumo.'
     }
   ]
 } as const;

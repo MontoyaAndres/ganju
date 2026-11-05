@@ -95,7 +95,7 @@ const metaText = (error: GraphError | undefined) => {
 };
 
 const WRONG_ACCOUNT =
-  "That ID isn't the WhatsApp Business account of this channel's number. Copy the WhatsApp Business Account ID from the app's WhatsApp → API Setup page (not the phone number ID or the app ID).";
+  "That ID isn't the WhatsApp Business account of this channel's number. Copy the Messaging Account ID from the app's WhatsApp → Production setup → Register your phone number (not the phone number ID or the app ID).";
 
 // Meta's answer when the id is some other object (a phone number, an app):
 // it has no message_templates or phone_numbers field.
@@ -191,7 +191,7 @@ export const checkBusinessAccount = async (
     // for a typo and for an account the token can't see.
     if (numbers.error?.code === 100 && numbers.error?.error_subcode === 33) {
       throw new WhatsappTemplateError(
-        "Meta can't find a WhatsApp Business account with that ID that this token can see. Check the ID (the WhatsApp Business Account ID on the app's WhatsApp → API Setup page, not the phone number ID), or paste a token with whatsapp_business_management for that account.",
+        "Meta can't find a WhatsApp Business account with that ID that this token can see. Check the ID (the Messaging Account ID under the app's WhatsApp → Production setup, not the phone number ID), or paste a token with whatsapp_business_management for that account.",
         'account'
       );
     }
@@ -200,7 +200,7 @@ export const checkBusinessAccount = async (
   const list = (numbers.body.data as { id?: string }[] | undefined) ?? [];
   if (!list.some(n => n.id === phoneNumberId)) {
     throw new WhatsappTemplateError(
-      "This WhatsApp Business account doesn't have the channel's phone number. Check that you copied the account the number is in.",
+      "This WhatsApp Business account doesn't have the channel's phone number. Check that you copied the account the number is in: for a real number, the Messaging Account ID under WhatsApp → Production setup, not the test number's on API Setup.",
       'account'
     );
   }
