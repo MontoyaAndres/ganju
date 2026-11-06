@@ -59,6 +59,11 @@ name = "DATA_API_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1005"
 simple = { limit = 120, period = 60 }
+[[env.development.unsafe.bindings]]
+name = "TRIGGER_TEST_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1006"
+simple = { limit = 5, period = 60 }
 [[env.development.services]]
 binding = "MCP"
 service = "ganju-mcp-development"
@@ -236,6 +241,11 @@ name = "DATA_API_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1005"
 simple = { limit = 120, period = 60 }
+[[env.production.unsafe.bindings]]
+name = "TRIGGER_TEST_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1006"
+simple = { limit = 5, period = 60 }
 [[env.production.services]]
 binding = "MCP"
 service = "ganju-mcp-production"

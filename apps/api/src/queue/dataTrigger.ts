@@ -6,7 +6,11 @@ import type {
 import { and, desc, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
-import { DataError, renderTriggerText } from '@ganju/utils/data';
+import {
+  DataError,
+  renderCustomerMessage,
+  renderTriggerText
+} from '@ganju/utils/data';
 
 import { invokeCustomCodeScript } from '../utils/customCodeDeploy';
 import {
@@ -88,18 +92,14 @@ const rowFor = async (
 ): Promise<Record<string, unknown> | null> => {
   if (job.row || job.previous) return job.row ?? job.previous;
   if (!job.truncated) return null;
-  const result = (await db.data.callDataMetered(
+  // Read back as the event would have carried it.
+  return db.data.callDataMetered(
     executor,
     database,
-    'query',
-    () =>
-      stub.query(
-        { actor: ACTOR },
-        { table: job.table, where: { id: job.rowId }, limit: 1 }
-      )
-  )) as { rows: Record<string, unknown>[] };
-  // As in every other event: a file column is its uri.
-  return db.data.flattenFileValues(result).rows[0] ?? null;
+    'eventRow',
+    () => stub.eventRow({ actor: ACTOR }, { table: job.table, id: job.rowId }),
+    { retryRead: true }
+  );
 };
 
 const runAction = async (
@@ -264,27 +264,27 @@ const runAction = async (
     }
     case 'customer': {
       const row = await rowFor(executor, database, stub, job);
-      const participantId = row?.participant_id;
+      // The event keeps the customer even when it left out a large row.
+      const participantId = row?.participant_id ?? job.participantId;
       if (typeof participantId !== 'string' || !participantId) {
         throw new FinalError(
           "This row has no customer: it wasn't written by a channel bot."
         );
       }
+      // A large row deleted before this run leaves nothing to fill in.
+      if (!row) {
+        throw new FinalError(
+          'The row was too large to travel with the event and is no longer in the table, so there is nothing to build the message from.'
+        );
+      }
+      const message = renderCustomerMessage(action, row);
       await sendOrExplain(() =>
         db.channels.sendToParticipant(executor, {
           artifactId: job.artifactId,
           encryptionKey: encryptionKey(env),
           participantId,
-          text: renderTriggerText(action.text, row),
-          template: action.template
-            ? {
-                name: action.template.name,
-                language: action.template.language,
-                params: (action.template.params ?? []).map(p =>
-                  renderTriggerText(p, row)
-                )
-              }
-            : null,
+          text: message.text,
+          template: message.template,
           source: { kind: 'trigger', name: trigger.name }
         })
       );

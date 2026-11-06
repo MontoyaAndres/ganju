@@ -554,6 +554,26 @@ const en = {
   triggerTemplateFromColumn: 'Column {column}',
   triggerTemplateFixed: 'Fixed text',
   triggerTemplateFixedValue: 'Text',
+  triggerTestTitle: 'Test this message',
+  triggerTestHelp:
+    "Sends this message as it is now, saved or not, to your own chat with the bot, with the values of a row of {table}. It isn't a run and doesn't count toward the daily limit per customer.",
+  triggerTestRow: 'Row',
+  triggerTestRowNewest: 'Newest row',
+  triggerTestRecipient: 'Send to',
+  triggerTestAsTemplate: 'Send as the template',
+  triggerTestAsTemplateHelp:
+    'Off: plain text if you wrote to the bot in the last 24 hours, the template otherwise, as a real run decides.',
+  triggerTestSend: 'Send a test',
+  triggerTestSending: 'Sending…',
+  triggerTestNoLink:
+    "Link your own chat with the bot to get tests: from your phone, write to this project's bot, send /link, and open the link it answers with while signed in to Ganju.",
+  triggerTestSentText: 'Sent to {who} as text, with row #{row}:',
+  triggerTestSentTemplate:
+    'Sent to {who} as the template {name} ({language}), with row #{row}:',
+  triggerTestNoValues: 'No values.',
+  triggerTestRateLimited:
+    'Five test sends a minute at most. Wait a minute and try again.',
+  triggerTestFailed: "The test couldn't be sent.",
   triggerRateLimit: 'Runs a minute',
   triggerRateLimitHelp:
     '{default} by default, up to {max}. Past it, events wait and go out later.',
@@ -1157,6 +1177,26 @@ export const DATA: Catalog<DataCopy> = {
     triggerTemplateFromColumn: 'Columna {column}',
     triggerTemplateFixed: 'Texto fijo',
     triggerTemplateFixedValue: 'Texto',
+    triggerTestTitle: 'Probar este mensaje',
+    triggerTestHelp:
+      'Envía este mensaje tal como está, guardado o no, a tu propio chat con el bot, con los valores de una fila de {table}. No es una ejecución y no cuenta para el límite diario por cliente.',
+    triggerTestRow: 'Fila',
+    triggerTestRowNewest: 'Fila más reciente',
+    triggerTestRecipient: 'Enviar a',
+    triggerTestAsTemplate: 'Enviar como la plantilla',
+    triggerTestAsTemplateHelp:
+      'Apagado: texto si le escribiste al bot en las últimas 24 horas y, si no, la plantilla, como decide una ejecución real.',
+    triggerTestSend: 'Enviar prueba',
+    triggerTestSending: 'Enviando…',
+    triggerTestNoLink:
+      'Vincula tu propio chat con el bot para recibir pruebas: desde tu teléfono, escríbele al bot de este proyecto, envía /link y abre el enlace que te responde con tu sesión de Ganju iniciada.',
+    triggerTestSentText: 'Enviado a {who} como texto, con la fila #{row}:',
+    triggerTestSentTemplate:
+      'Enviado a {who} como la plantilla {name} ({language}), con la fila #{row}:',
+    triggerTestNoValues: 'Sin valores.',
+    triggerTestRateLimited:
+      'Como máximo cinco pruebas por minuto. Espera un minuto e inténtalo de nuevo.',
+    triggerTestFailed: 'No se pudo enviar la prueba.',
     triggerRateLimit: 'Ejecuciones por minuto',
     triggerRateLimitHelp:
       '{default} por defecto, hasta {max}. Pasado ese límite, los eventos esperan y salen después.',

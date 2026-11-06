@@ -110,6 +110,12 @@ export interface ProjectDatabaseRpc {
   dismissCopy(caller: DataCaller): R<{ copy: null }>;
   describe(caller: DataCaller, args?: unknown): R<unknown>;
   query(caller: DataCaller, args: unknown): R<unknown>;
+  // A row as a trigger event carries it (`id`, or the newest): for a test
+  // send and for a run whose event was too large to carry its row.
+  eventRow(
+    caller: DataCaller,
+    args: { table: string; id?: number }
+  ): R<Record<string, unknown> | null>;
   write(
     caller: DataCaller,
     args: unknown

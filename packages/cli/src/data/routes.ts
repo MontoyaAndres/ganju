@@ -54,6 +54,8 @@ const ROUTES = {
   updateTrigger: { method: 'patch', path: '/trigger/:name' },
   dropTrigger: { method: 'delete', path: '/trigger/:name' },
   deployTriggers: { method: 'post', path: '/trigger/deploy' },
+  listTestRecipients: { method: 'get', path: '/trigger/test-send' },
+  testSend: { method: 'post', path: '/trigger/test-send' },
   listTriggerRuns: { method: 'get', path: '/trigger/:name/run' },
   retryTriggerRun: { method: 'post', path: '/trigger/:name/run/:runId/retry' },
   startExport: { method: 'post', path: '/export' },

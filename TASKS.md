@@ -504,6 +504,10 @@ Phase 1 doesn't depend on the rest.
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
+Status: phases 0–7 (with 5b and 5c) done 2026-11-06, on dev and production.
+Data is measured, not billed yet (see `docs/PRICING.md` "Still open"). Next:
+7b, 7c and 7d below; phase 8 only when asked for.
+
 Knowledge (resources) answers "what does the document say". It is the wrong
 shape for data that has rows, types and relationships: a menu with prices
 and stock, orders and their lines, customers, bookings, a product catalog. Today
@@ -2710,9 +2714,8 @@ and use templates from the WhatsApp channel's settings.
   - a token without `whatsapp_business_management` gets the explanation,
     not an error.
 
-**Phase 5c status (2026-11-05): built and live on dev and prod (migration
-0087, `channel_whatsapp_template`); two checks by hand left before it is
-done.**
+**Phase 5c status (2026-11-06): done on dev and prod (migration 0087,
+`channel_whatsapp_template`).**
 
 - **Business account ID check (2026-11-05, deployed on dev and prod):** the
   account ID is checked with Meta before it's saved (its phone numbers must
@@ -2733,6 +2736,11 @@ done.**
       Still PENDING at 20:28 UTC: the hourly re-read at 20:00 UTC reached
       Meta (`whatsappTemplatesRead.ok: true`), so it's Meta's review, not a
       stale cache.
+    - **Passed (2026-11-06):** Meta approved it overnight. In dev it turned
+      APPROVED at 12:57:32 UTC, the same second as a successful templates
+      read with a fresh token: a re-read moved it, not the status webhook
+      (the hourly reads before that failed on the expired dev token, and no
+      webhook update arrived first).
       Check `channel_whatsapp_template.status` again; once APPROVED, note
       whether the webhook or a re-read got it there and close 5c. The dev
       token lasts about an hour, so a re-read may need a fresh one pasted.
@@ -2867,8 +2875,7 @@ done.**
 (34/34). Prod probes: 57/57, 48/48 and 40/40. After the deploy: `probe-data.mjs` 56/57, `probe-data-tools.mjs`
 47/48 and `probe-data-triggers.mjs` 39/40; the one failure in each was the
 OpenAPI route count (now 40 with the two advice routes), fixed in the
-probes. Pending on dev and prod: the index-advice check below (after the 2026-11-06
-13:00 UTC run).**
+probes. The index-advice check passed on dev and prod on 2026-11-06.**
 
 - **Reconcile on dev (2026-11-05), done:** org "test"'s period started before
   the deploy, so its totals are still off (-22% read, -21% written). Checked
@@ -2885,10 +2892,34 @@ probes. Pending on dev and prod: the index-advice check below (after the 2026-11
   `ganju data info` in nemo should list an "add" suggestion for
   `qa_advice_orders.city`; then check the Schema tab notice, "Add index"
   (change log, column filterable), and drop the table.
+  - **Passed on dev (2026-11-06):** the 13:00 UTC run saved the "add"
+    suggestion for `city` (70 queries, ~55,001 rows read to return 10). The
+    Schema tab notice and Tool health ("Sugerencias de índices") showed it
+    with those numbers. "Agregar índice" made `city` filterable, removed the
+    suggestion, and `ganju data changes` recorded `column.update
+    {"filterable":true,"indexAdvice":…}`. `city` queries then read ~4,468
+    rows each (the `total` count over the index) instead of 55,001.
+    "Descartar", tried on a suggestion row added by hand for `customer`
+    (the job runs once a day), stored it as dismissed with the numbers and
+    who dismissed it, and showed "Descartada. Vuelve si los números se
+    duplican." The test row was deleted and `qa_advice_orders` dropped.
+  - **Found:** the published `@ganju/cli` 0.0.18 has no index suggestions
+    in `ganju data info` and no `ganju data index`; the repo's CLI (also
+    0.0.18) has both. Publish a new CLI version.
+  - **Seen, not fixed:** Tool health's "Errores más comunes" shows errors
+    that carry details with the raw `<untrusted_content id=…>` wrapper.
 - **The same check on prod (set up 2026-11-05):** org "Girardot - demos",
   project "test" has `qa_advice_orders` (50,000 rows, `city` not
   filterable) and 64 queries on `city` that day. Same checks after the
-  2026-11-06 13:00 UTC run, then drop the table. Prod's abandoned job has
+  2026-11-06 13:00 UTC run, then drop the table.
+  - **Passed on prod (2026-11-06):** the 13:00 UTC run saved the "add"
+    suggestion for `city` (64 queries, ~55,001 rows read to return 10) and
+    the Schema tab showed it; "Agregar índice" made `city` filterable,
+    removed the suggestion and was logged as `column.update
+    {"filterable":true,"indexAdvice":…}`; `city` queries kept working.
+    Dismiss was checked on dev only, and prod's query stats weren't read
+    after the index. `qa_advice_orders` dropped; the project has no tables
+    left. Prod's abandoned job has
   nothing to do yet: its one READY database is on Enterprise (read-only
   check, 2026-11-05).
 - **Fixed, deployed on dev and prod (2026-11-05): CLI and MCP bearer tokens refused with
@@ -3142,6 +3173,87 @@ owner's own phone first.
   values of a sample `qa_` row, and as plain text inside the window when
   "send as the template" is off; a project with no linked identity shows
   the `/link` steps.
+- **Decided (2026-11-06):** "send as the template" starts on when the action
+  has a template.
+- **Built and deployed to dev (2026-11-06); not on production yet:**
+  - `GET` and `POST …/artifact/data/trigger/test-send` (`listTestRecipients`,
+    `testSend`), in `DATA_API_ROUTES` and the CLI's route copy. Body
+    `{ table, customer, rowId?, participantId?, asTemplate? }`
+    (`DATA_TRIGGER_TEST_SEND_BODY`). The action is checked like a saved one
+    (`normaliseCustomerAction`); the row is the one given or the newest
+    (`sort: ["-id"]`), with file columns as uris, as a run reads it.
+  - Recipients come from `external_identity` joined to the participant on
+    the same channel, not `linked_user_id`, which only catches up on the
+    owner's next message after `/link`.
+  - `renderCustomerMessage` builds the message for both the test and the
+    real run (the queue uses it now). `sendToParticipant` takes
+    `prefer: 'template'`; messages with `source: 'trigger-test'` are left
+    out of the daily-limit count in `sendToParticipant` and in the bot's
+    own reply limit (`readParticipantUsage`); the bot's history labels them
+    as an owner's test.
+  - Five a minute per user via a new `TRIGGER_TEST_RATE_LIMITER` binding
+    (namespace 1006, dev and production in `apps/api/wrangler.toml`); a 429
+    answers `code: "rate_limited"`, which the dashboard shows in its own
+    words.
+  - The channel's refusals come back as `DataError`s in the reader's
+    language: `localizeDataError` has Spanish for every `ChannelSendError`
+    message, and its test now scans `packages/db/src/lib/channels.ts` too.
+  - Dashboard: "Probar este mensaje" in the customer action (row picker
+    with the newest row first, channel picker when there are several,
+    "Enviar como la plantilla", "Enviar prueba"), with what was sent or the
+    refusal under it; the `/link` steps when nothing is linked.
+  - Checked: utils tests 248 pass (3 new), typecheck of api, web, db, utils
+    and cli, i18n 0 errors / 65 warnings.
+- **Checked on dev (2026-11-06, nemo, throwaway `qa_test_send`, dropped
+  after):** with nothing linked, the dialog shows the `/link` steps and the
+  API refuses in Spanish; an unsaved action using a missing column is
+  refused in Spanish; Telegram (`@test123532botbot`) got the text with row
+  #1's values; WhatsApp got `qa_pedido_listo_1105` (approved by then) with
+  "Enviar como la plantilla" on, and plain text with it off inside the
+  window; every test is recorded with `source: trigger-test` and no trigger
+  run; the sixth call in a minute answers 429 `rate_limited`.
+- **Fixed along the way:**
+  - The WhatsApp webhook handled every message the Meta app sent it, so
+    production's Viva La Marquesita channel (same Meta app as the test
+    number) answered the test number's messages from +57 310 2129584. It
+    now handles only changes addressed to the channel's own
+    `phone_number_id`, and template events from its own business account.
+    Deployed to dev; production still answers until it is deployed there.
+  - The trigger dialog never listed WhatsApp templates: the templates
+    answer carries `error: null`, which the dashboard's `dataRequest` read
+    as a failure. Only a non-null `error` counts now.
+- **After review (2026-11-06, not deployed yet):**
+  - The test built its message from a query row, where a relation is
+    `{ id, label }`, a datetime is zoned with an offset, and `created_by`,
+    `updated_by` and `participant_id` are missing, while a run uses the
+    event's row. The object's new `eventRow` (`readEventRow`) reads the
+    stored row in the event's shape, `id` or the newest; the test send and
+    `rowFor`'s read-back of a row too large for its event both use it, with
+    tests that it equals the event's row.
+  - A real customer message failed with "This row has no customer" when
+    its row was too large for the event (older than 7b): events now carry
+    `participantId` even when the row is left out, and the customer action
+    falls back to it; a large row deleted before the run is refused in
+    words instead of sending blank values.
+  - A platform failure (`ChannelSendError` 502) answers `internal` (500),
+    not `conflict`; the test box's two loads are cancelled when the dialog
+    closes or reopens; Meta's template statuses read in Spanish ("pausada",
+    "desactivada", …).
+- **Second review (2026-11-06):** the five-a-minute limit is counted just
+  before the send, so a refused action doesn't use up a test (the limiter
+  is shared with the middleware as `consumeRateLimit` / `rateLimited`, and
+  the middleware can answer a `code`); "Enviar como la plantilla" shows
+  only for a WhatsApp chat; the webhook filters are pure functions in
+  `packages/utils/src/whatsappWebhook.ts` with tests (another number's
+  message ignored, own message found anywhere in the batch, another
+  account's template events dropped); `eventRow` refuses restricted callers
+  (its reads are metered like any other call). Checked, not changed:
+  template events can't cross channels, since `applyTemplateChanges`
+  matches on `channelId` and `templateId`, and the resync an unknown id
+  starts reads the channel's own account only.
+- **Left:** deploy data, then api, then web, to dev for a recheck, then to
+  production (the webhook fix above is the urgent part). The api calls the
+  object's new `eventRow`, so data goes first.
 
 **7c. Time-based triggers — M (1–2 weeks)**
 

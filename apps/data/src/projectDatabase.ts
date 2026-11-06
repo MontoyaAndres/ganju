@@ -44,6 +44,7 @@ import {
   getTrigger,
   listTriggers,
   outboxSize,
+  readEventRow,
   readOutbox,
   replaceManagedTriggers,
   saveTrigger,
@@ -666,6 +667,18 @@ export class ProjectDatabase
     return this.call({}, runner =>
       query(runner, this.schema(runner), this.caller(caller, runner), args)
     );
+  }
+
+  // Every field of the row, past the access and customer checks a query
+  // applies: for the owner and Ganju's own calls only, never a restricted
+  // caller such as a channel bot.
+  async eventRow(caller: DataCaller, args: { table: string; id?: number }) {
+    return this.call({}, runner => {
+      if (caller.restricted) {
+        throw new DataError('Reading a row as its trigger event is for the project owner.', 'forbidden');
+      }
+      return readEventRow(runner, this.schema(runner), args.table, args.id);
+    });
   }
 
   async write(caller: DataCaller, args: unknown) {

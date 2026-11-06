@@ -21,7 +21,10 @@ import {
   conditionMatches,
   dropTrigger,
   listTriggers,
+  normaliseCustomerAction,
+  readEventRow,
   readOutbox,
+  renderCustomerMessage,
   renderTriggerText,
   replaceManagedTriggers,
   saveTrigger,
@@ -523,6 +526,101 @@ test('templates insert field values as plain text', () => {
   );
 });
 
+test('a customer message fills its text and each template value from the row', () => {
+  const row = { id: 7, status: 'ready', address: null };
+  assert.deepEqual(
+    renderCustomerMessage(
+      {
+        text: 'Order #{{id}} is {{status}}',
+        template: { name: 'pedido_listo', language: 'es', params: ['{{id}}', 'Calle {{address}}', 'fixed'] }
+      },
+      row
+    ),
+    {
+      text: 'Order #7 is ready',
+      template: { name: 'pedido_listo', language: 'es', params: ['7', 'Calle ', 'fixed'] }
+    }
+  );
+  // No template, or one without params.
+  assert.deepEqual(renderCustomerMessage({ text: 'Hi {{id}}' }, row), {
+    text: 'Hi 7',
+    template: null
+  });
+  assert.deepEqual(
+    renderCustomerMessage({ text: 'Hi', template: { name: 'hello', language: 'en' } }, null).template,
+    { name: 'hello', language: 'en', params: [] }
+  );
+});
+
+test('a row read back is the row its event carries, system fields included', () => {
+  const { runner, s } = shop();
+  createTable(runner, s(), OWNER, {
+    name: 'bookings',
+    access: 'full',
+    customerScoped: true,
+    columns: [
+      { name: 'dish', type: 'relation', table: 'menu' },
+      { name: 'at', type: 'datetime' },
+      { name: 'paid', type: 'boolean' },
+      { name: 'extra', type: 'json' },
+      { name: 'note', type: 'text' }
+    ]
+  });
+  saveTrigger(runner, s(), OWNER, { table: 'bookings', on: 'insert', webhook: 'https://example.com/b' });
+  write(runner, s(), BOT, {
+    operations: [
+      {
+        op: 'insert',
+        table: 'bookings',
+        values: { dish: 1, at: '2026-11-06T08:00:00-05:00', paid: true, extra: { seats: 2 }, note: 'ventana' }
+      }
+    ]
+  });
+  write(runner, s(), BOT, {
+    operations: [{ op: 'insert', table: 'bookings', values: { note: 'later' } }]
+  });
+  const [first, second] = events(runner);
+  assert.deepEqual(readEventRow(runner, s(), 'bookings', first.rowId), first.row);
+  // No id: the newest row.
+  assert.deepEqual(readEventRow(runner, s(), 'bookings'), second.row);
+  assert.equal(
+    renderTriggerText('{{dish}} at {{at}} for {{participant_id}}, by {{created_by}}', first.row),
+    '1 at 2026-11-06T13:00:00Z for ana, by channel:ana'
+  );
+  assert.equal(readEventRow(runner, s(), 'bookings', 999), null);
+  assert.throws(
+    () => readEventRow(runner, s(), 'nope'),
+    (error: unknown) => error instanceof DataError && error.code === 'not_found'
+  );
+});
+
+test("a test send's unsaved customer action is checked like a saved one", () => {
+  const { s } = shop();
+  assert.deepEqual(
+    normaliseCustomerAction(s(), 'orders', {
+      text: ' #{{id}} ',
+      template: { name: 'pedido_listo', language: 'es', params: ['{{status}}'] }
+    }),
+    {
+      type: 'customer',
+      text: '#{{id}}',
+      template: { name: 'pedido_listo', language: 'es', params: ['{{status}}'] }
+    }
+  );
+  assert.throws(
+    () => normaliseCustomerAction(s(), 'orders', { text: 'Hi {{total}}' }),
+    /"customer.text" uses \{\{total\}\}, which isn't a column of orders\./
+  );
+  assert.throws(
+    () => normaliseCustomerAction(s(), 'menu', { text: 'Hi' }),
+    /menu must be customer-scoped/
+  );
+  assert.throws(
+    () => normaliseCustomerAction(s(), 'nope', { text: 'Hi' }),
+    (error: unknown) => error instanceof DataError && error.code === 'not_found'
+  );
+});
+
 test('unnamed triggers are numbered; replace: false refuses a taken name', () => {
   const { runner, s } = shop();
   const hook = { table: 'orders', on: 'insert', webhook: 'https://example.com/a' } as const;
@@ -614,6 +712,11 @@ test('row size is measured in bytes; a restore clears only events from before it
   const [event] = events(runner);
   assert.equal(event.truncated, true);
   assert.equal(event.row, null);
+  // The customer stays on the event, and the row reads back whole.
+  assert.equal(event.participantId, 'ana');
+  const readBack = readEventRow(runner, s(), 'orders', event.rowId);
+  assert.equal(readBack?.participant_id, 'ana');
+  assert.equal(readBack?.address, address);
 
   runner.all("UPDATE _ganju_outbox SET created_at = '2026-01-01T00:00:00Z'");
   write(runner, s(), BOT, {

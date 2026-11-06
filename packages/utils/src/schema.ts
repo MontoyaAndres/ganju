@@ -851,6 +851,17 @@ const DATA_TRIGGER_PATCH = z.strictObject({ enabled: z.boolean() });
 const DATA_TRIGGER_DEPLOY_BODY = z.strictObject({
   triggers: z.array(DATA_TRIGGER_INPUT).max(50)
 });
+// A test of a "customer" action as the dialog has it, sent to the signed-in
+// owner's own chat with the bot, built from one row (the newest by default).
+const DATA_TRIGGER_TEST_SEND_BODY = z.strictObject({
+  table: DATA_IDENTIFIER,
+  customer: DATA_TRIGGER_INPUT.shape.customer.unwrap(),
+  rowId: z.number().int().min(1).optional(),
+  // Which of the owner's linked chats, when there is more than one.
+  participantId: z.string().min(1).max(64).optional(),
+  // Send the template even inside WhatsApp's 24-hour window.
+  asTemplate: z.boolean().optional()
+});
 const DATA_TRIGGER_RUN_LIST_QUERY = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional()
 });
@@ -2217,6 +2228,7 @@ export const Schema = {
   DATA_TRIGGER_INPUT,
   DATA_TRIGGER_PATCH,
   DATA_TRIGGER_DEPLOY_BODY,
+  DATA_TRIGGER_TEST_SEND_BODY,
   DATA_TRIGGER_RUN_LIST_QUERY,
   DATA_TRIGGER_PATH_PARAMS,
   DATA_TRIGGER_RUN_PARAMS,

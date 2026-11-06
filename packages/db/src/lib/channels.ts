@@ -25,9 +25,9 @@ export class ChannelSendError extends Error {
 }
 
 export interface ChannelMessageSource {
-  // A function's own ctx.channels call, or a trigger's chat / customer
-  // message.
-  kind: 'function' | 'trigger';
+  // A function's own ctx.channels call, a trigger's chat / customer message,
+  // or the owner's test of a customer message, sent to themselves.
+  kind: 'function' | 'trigger' | 'trigger-test';
   name: string;
 }
 
@@ -46,7 +46,8 @@ export interface ChannelSendResult {
   sent: 'text' | 'template';
 }
 
-// Where a message's metadata says it came from: 'function' or 'trigger'.
+// Where a message's metadata says it came from: 'function', 'trigger' or
+// 'trigger-test'.
 export const CHANNEL_MESSAGE_SOURCE_KEY = 'source';
 
 // WhatsApp takes free-form messages only within 24 hours of the customer's
@@ -500,13 +501,16 @@ export const listApprovedTemplates = async (
 };
 
 const notLimitNotice = sql`(${schema.channelMessage.metadata}->>${utils.PARTICIPANT_LIMIT_METADATA_KEY}) is null`;
+// An owner's test sends go to their own chat and don't use up the limit.
+const notTriggerTest = sql`(${schema.channelMessage.metadata}->>${CHANNEL_MESSAGE_SOURCE_KEY}) is distinct from 'trigger-test'`;
 
 /**
  * Messages a customer the bot has spoken with, in their private chat. On
  * WhatsApp, outside the 24 hours after their last message only an approved
  * template may go out: `template` is sent then, and without one the send
- * fails saying so. With both, Ganju picks per customer. The channel's daily
- * limit per customer applies.
+ * fails saying so. With both, Ganju picks per customer, unless `prefer` is
+ * 'template': then the template goes out inside the window too. The
+ * channel's daily limit per customer applies.
  */
 export const sendToParticipant = async (
   executor: DbExecutor,
@@ -516,6 +520,7 @@ export const sendToParticipant = async (
     participantId: string;
     text?: string | null;
     template?: ChannelTemplate | null;
+    prefer?: 'template';
     source: ChannelMessageSource;
     now?: Date;
   }
@@ -594,6 +599,7 @@ export const sendToParticipant = async (
           eq(schema.channelMessage.participantId, participant.id),
           eq(schema.channelMessage.role, constants.ROLE_MESSAGE_ASSISTANT),
           notLimitNotice,
+          notTriggerTest,
           gt(
             schema.channelMessage.createdAt,
             new Date(now.getTime() - utils.PARTICIPANT_DAILY_LIMIT_WINDOW_MS)
@@ -632,7 +638,7 @@ export const sendToParticipant = async (
         );
       }
       useTemplate = true;
-    } else if (!text) {
+    } else if (!text || (input.prefer === 'template' && input.template)) {
       useTemplate = true;
     }
   } else if (!text) {

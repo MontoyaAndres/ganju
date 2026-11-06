@@ -200,6 +200,8 @@ export const Wrapper = styled.div`
         display: flex;
         flex-direction: column;
         gap: 2px;
+        flex: 1;
+        min-width: 0;
       }
 
       .data-banner-actions {
@@ -207,6 +209,11 @@ export const Wrapper = styled.div`
         flex-wrap: wrap;
         align-items: center;
         gap: 8px;
+
+        @media (min-width: ${theme.screens.md}) {
+          flex-wrap: nowrap;
+          flex-shrink: 0;
+        }
       }
     }
 
@@ -1169,6 +1176,27 @@ export const DialogContent = styled.div`
       padding: 12px;
       border-radius: 8px;
       background: ${theme.colors.earlyDawn};
+    }
+
+    .trigger-test {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid ${theme.colors.alto};
+      border-radius: 8px;
+
+      & > .dialog-row,
+      & > .MuiFormControl-root {
+        align-self: stretch;
+      }
+    }
+
+    .trigger-test-sent {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
     .dialog-list {

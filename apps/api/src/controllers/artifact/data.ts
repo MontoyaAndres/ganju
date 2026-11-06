@@ -2,7 +2,11 @@ import { Context } from 'hono';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
-import { DataError } from '@ganju/utils/data';
+import {
+  DataError,
+  normaliseCustomerAction,
+  renderCustomerMessage
+} from '@ganju/utils/data';
 
 import {
   callData,
@@ -25,10 +29,12 @@ import {
   checkTriggerTargets,
   requestEmailConfirmations
 } from '../../utils/dataTriggers';
+import { consumeRateLimit, rateLimited } from '../../middleware/rateLimit';
 
 // types
 import type { Handler } from 'hono';
 import type {
+  ChannelSendResult,
   DbExecutor,
   IndexAdviceRow,
   OpenedDatabase,
@@ -1197,6 +1203,188 @@ const retryTriggerRun = async (c: Context<AppEnv>) => {
   });
 };
 
+// Test sends
+
+// The bot's name as the channel list shows it: the WhatsApp business name or
+// number, the Discord or Slack name, or the Telegram @username.
+const botLabel = (channel: typeof db.schema.channel.$inferSelect) => {
+  const meta = (channel.metadata ?? {}) as Record<
+    string,
+    { bot?: Record<string, unknown> } | undefined
+  >;
+  const bot = meta[channel.platform]?.bot ?? {};
+  const pick = (...keys: string[]) =>
+    keys.map(k => bot[k]).find(v => typeof v === 'string' && v) as
+      | string
+      | undefined;
+  const username = pick('username');
+  return (
+    pick('verifiedName', 'displayPhoneNumber', 'globalName', 'teamName') ??
+    (username ? `@${username}` : null)
+  );
+};
+
+// The caller's own chats with the project's bots: the identities they linked
+// with /link, read directly so a chat counts as soon as it is linked.
+const testRecipients = async (request: DataRequest, userId: string) => {
+  const rows = await request.dbInstance
+    .select({
+      participant: db.schema.channelParticipant,
+      channel: db.schema.channel
+    })
+    .from(db.schema.externalIdentity)
+    .innerJoin(
+      db.schema.channel,
+      and(
+        eq(db.schema.channel.id, db.schema.externalIdentity.channelId),
+        eq(db.schema.channel.platform, db.schema.externalIdentity.provider)
+      )
+    )
+    .innerJoin(
+      db.schema.channelParticipant,
+      and(
+        eq(db.schema.channelParticipant.channelId, db.schema.channel.id),
+        eq(
+          db.schema.channelParticipant.externalUserId,
+          db.schema.externalIdentity.externalId
+        )
+      )
+    )
+    .where(
+      and(
+        eq(db.schema.channel.artifactId, request.artifactId),
+        eq(db.schema.externalIdentity.userId, userId)
+      )
+    )
+    .orderBy(desc(db.schema.channelParticipant.updatedAt));
+  return rows.map(({ participant, channel }) => ({
+    participantId: participant.id,
+    channelId: channel.id,
+    platform: channel.platform,
+    name: participant.displayName,
+    bot: botLabel(channel)
+  }));
+};
+
+const listTestRecipients = async (c: Context<AppEnv>) =>
+  withDatabase(c, {}, async request =>
+    c.json({ recipients: await testRecipients(request, c.get('user').id) })
+  );
+
+// Sends the dialog's customer message to the owner's own chat, built from a
+// sample row the way a real run builds it. Not a run: nothing is recorded
+// with the trigger, and the daily limit per customer doesn't count it.
+const testSend = async (c: Context<AppEnv>) => {
+  const body = await bodyOf(c, Schema.DATA_TRIGGER_TEST_SEND_BODY);
+  const userId = c.get('user').id;
+  return withDatabase(c, {}, async request => {
+    const schema = await callData(
+      'schemaRead',
+      () => request.opened.stub.schemaRead(),
+      request.tally,
+      { retryRead: true }
+    );
+    const action = normaliseCustomerAction(schema, body.table, body.customer);
+
+    const recipients = await testRecipients(request, userId);
+    if (recipients.length === 0) {
+      throw new DataError(
+        "You haven't linked a chat with this project's bots: write to the bot from your own phone and send /link.",
+        'conflict'
+      );
+    }
+    let recipient = recipients[0];
+    if (body.participantId) {
+      const picked = recipients.find(
+        r => r.participantId === body.participantId
+      );
+      if (!picked) {
+        throw new DataError(
+          `${body.participantId} isn't one of your linked chats with this project's bots.`,
+          'not_found'
+        );
+      }
+      recipient = picked;
+    } else if (recipients.length > 1) {
+      throw new DataError(
+        'Several of your chats are linked to this project\'s bots; pick one with "participantId".'
+      );
+    }
+
+    // The row as a run's event carries it, so each {{field}} reads as it
+    // will for the customer.
+    const row = await callData(
+      'eventRow',
+      () =>
+        request.opened.stub.eventRow(request.caller, {
+          table: body.table,
+          ...(body.rowId ? { id: body.rowId } : {})
+        }),
+      request.tally,
+      { retryRead: true }
+    );
+    if (!row) {
+      throw body.rowId
+        ? new DataError(
+            `There is no row ${body.rowId} in ${body.table}.`,
+            'not_found'
+          )
+        : new DataError(
+            `${body.table} has no rows yet; add one to build the test from.`,
+            'not_found'
+          );
+    }
+
+    const message = renderCustomerMessage(action, row);
+    // Counted only once there is something to send, so a refused action
+    // doesn't use up the owner's tests.
+    if (!(await consumeRateLimit(c, 'TRIGGER_TEST_RATE_LIMITER', userId))) {
+      return rateLimited(
+        c,
+        'Five test sends a minute at most. Please wait a minute.',
+        'rate_limited'
+      );
+    }
+    const key = utils.getEnv(c, 'CRYPTO_SECRET');
+    if (!key) throw new Error('CRYPTO_SECRET is not configured.');
+    let sent: ChannelSendResult;
+    try {
+      sent = await db.channels.sendToParticipant(request.dbInstance, {
+        artifactId: request.artifactId,
+        encryptionKey: key,
+        participantId: recipient.participantId,
+        text: message.text,
+        template: message.template,
+        ...(body.asTemplate ? { prefer: 'template' as const } : {}),
+        source: { kind: 'trigger-test', name: body.table }
+      });
+    } catch (error) {
+      // The channel's refusal, in words, as the answer. The platform itself
+      // failing (502) is ours to retry, not the owner's to change.
+      if (error instanceof db.channels.ChannelSendError) {
+        throw new DataError(
+          error.message,
+          error.status === 404
+            ? 'not_found'
+            : error.status === 400
+              ? 'invalid'
+              : error.status === 502
+                ? 'internal'
+                : 'conflict'
+        );
+      }
+      throw error;
+    }
+    return c.json({
+      sent: sent.sent,
+      text: sent.sent === 'text' ? message.text : null,
+      template: sent.sent === 'template' ? message.template : null,
+      rowId: row.id,
+      recipient
+    });
+  });
+};
+
 // Export
 
 // What a client sees of an export: no storage keys.
@@ -1362,6 +1550,8 @@ export const DataController = {
   updateTrigger,
   dropTrigger,
   deployTriggers,
+  listTestRecipients,
+  testSend,
   listTriggerRuns,
   retryTriggerRun,
   startExport,

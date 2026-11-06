@@ -146,6 +146,9 @@ export interface DataTriggerEventMessage {
   depth: number;
   at: string;
   truncated?: true;
+  // The row's customer on a customer-scoped table, kept when the row is
+  // left out for its size.
+  participantId?: string;
   // Not run: the chain went too deep. Recorded as a failed run.
   error?: string;
 }
@@ -321,6 +324,29 @@ export const renderTriggerText = (
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
   });
 
+export interface DataTriggerCustomerMessage {
+  text: string;
+  template: { name: string; language: string; params: string[] } | null;
+}
+
+// What a "customer" action sends for a row: its text, and the template with
+// each value filled in. A test send builds it the same way as a real run.
+export const renderCustomerMessage = (
+  action: { text: string; template?: DataTriggerTemplate },
+  row: Record<string, unknown> | null
+): DataTriggerCustomerMessage => ({
+  text: renderTriggerText(action.text, row),
+  template: action.template
+    ? {
+        name: action.template.name,
+        language: action.template.language,
+        params: (action.template.params ?? []).map(p =>
+          renderTriggerText(p, row)
+        )
+      }
+    : null
+});
+
 const templateFields = (text: string) =>
   [...text.matchAll(/\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/g)].map(m => m[1]);
 
@@ -463,6 +489,23 @@ const normaliseAction = (
       };
     }
   }
+};
+
+// A "customer" action as the dialog has it, saved or not, checked against
+// its table the way saving it would be.
+export const normaliseCustomerAction = (
+  schema: DataSchema,
+  tableName: string,
+  value: unknown
+): Extract<DataTriggerAction, { type: 'customer' }> => {
+  const table = schema.tables.find(t => t.name === tableName);
+  if (!table) {
+    throw new DataError(`There is no table named ${tableName}.`, 'not_found');
+  }
+  return normaliseAction(table, { customer: value }) as Extract<
+    DataTriggerAction,
+    { type: 'customer' }
+  >;
 };
 
 const defaultName = (table: string, on: string, action: DataTriggerAction) => {
@@ -898,6 +941,29 @@ const shape = (
   return out;
 };
 
+/**
+ * A row as a trigger event carries it, read from the table: `id`, or the
+ * newest row. Null when there is none. A test send and a run whose event
+ * was too large to carry its row build their message from it, so it reads
+ * as it does for the event, system fields and the customer included.
+ */
+export const readEventRow = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  tableName: string,
+  id?: number
+): Record<string, unknown> | null => {
+  const table = schema.tables.find(t => t.name === tableName);
+  if (!table) {
+    throw new DataError(`There is no table named ${tableName}.`, 'not_found');
+  }
+  const [stored] =
+    id === undefined
+      ? runner.all(`SELECT * FROM "${table.name}" ORDER BY id DESC LIMIT 1`)
+      : runner.all(`SELECT * FROM "${table.name}" WHERE id = ?`, [id]);
+  return stored ? shape(table, JSON.stringify(stored)) : null;
+};
+
 const DEPTH_PATTERN = /^trigger:([^\s]+)$/;
 
 /**
@@ -933,6 +999,7 @@ export const collectTriggerEvents = (
     if (listening.length === 0) continue;
     const row = shape(table, change.new);
     const previous = shape(table, change.old);
+    const customer = row?.participant_id ?? previous?.participant_id;
     for (const trigger of listening) {
       if (trigger.id === ownTrigger) continue;
       if (!conditionMatches(trigger.when, row, previous)) continue;
@@ -948,7 +1015,10 @@ export const collectTriggerEvents = (
         previous,
         actor: (change.actor as string | null) ?? null,
         depth,
-        at: new Date().toISOString()
+        at: new Date().toISOString(),
+        ...(typeof customer === 'string' && customer
+          ? { participantId: customer }
+          : {})
       };
       if (depth > DATA_TRIGGER_MAX_DEPTH) {
         message.row = null;

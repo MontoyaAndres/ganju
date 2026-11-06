@@ -201,14 +201,15 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
     return c.json({ ok: true });
   }
 
+  // A Meta app sends every number's events to each of its callbacks, signed
+  // with the same secret: only this channel's number and business account
+  // are handled here, or another channel's bot answers its messages.
   // Template reviews apply whether or not the bot is paused; a message in the
   // same call is still handled below.
-  const templateChanges = (payload.entry ?? []).flatMap(entry =>
-    (entry.changes ?? []).filter(
-      change =>
-        change.field === TEMPLATE_STATUS_FIELD ||
-        change.field === TEMPLATE_CATEGORY_FIELD
-    )
+  const templateChanges = utils.whatsappAccountChanges(
+    payload,
+    credentials.businessAccountId,
+    [TEMPLATE_STATUS_FIELD, TEMPLATE_CATEGORY_FIELD]
   );
   if (templateChanges.length > 0) {
     c.executionCtx.waitUntil(
@@ -233,10 +234,8 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
     return c.json({ ok: true, skipped: 'disabled' });
   }
 
-  // The change carrying a message, wherever Meta put it in the batch.
-  const value = (payload.entry ?? [])
-    .flatMap(entry => entry.changes ?? [])
-    .find(change => change.value?.messages?.length)?.value;
+  // The change carrying a message for this number, wherever Meta put it.
+  const value = utils.whatsappMessageChange(payload, credentials.phoneNumberId);
 
   const message = value?.messages?.[0];
   // Only react to inbound text, voice notes and confirmation-button taps —

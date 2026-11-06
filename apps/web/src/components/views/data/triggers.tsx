@@ -15,6 +15,7 @@ import {
   EditOutlined,
   HistoryOutlined,
   ReplayOutlined,
+  SendOutlined,
   TerminalOutlined
 } from '@mui/icons-material';
 
@@ -1220,6 +1221,19 @@ const TriggerDialog = ({
           </>
         )}
 
+        {actionType === 'customer' && (
+          <CustomerTestSend
+            open={open}
+            base={base}
+            table={table}
+            customer={actionBody().customer}
+            ready={actionReady}
+            hasTemplate={useTemplate && !!templateName.trim()}
+            templateBody={pickedTemplate?.body ?? null}
+            disabled={saving}
+          />
+        )}
+
         <UI.Input
           size="small"
           label={t('triggerRateLimit')}
@@ -1240,6 +1254,264 @@ const TriggerDialog = ({
         )}
       </DialogContent>
     </UI.Modal>
+  );
+};
+
+interface TestRecipient {
+  participantId: string;
+  channelId: string;
+  platform: string;
+  name: string | null;
+  bot: string | null;
+}
+
+interface TestSent {
+  sent: 'text' | 'template';
+  text: string | null;
+  template: { name: string; language: string; params: string[] } | null;
+  rowId: number;
+  recipient: TestRecipient;
+}
+
+const PLATFORM_NAMES: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  ...CHAT_PLATFORMS
+};
+
+const recipientLabel = (recipient: TestRecipient) =>
+  [
+    PLATFORM_NAMES[recipient.platform] ?? recipient.platform,
+    recipient.bot,
+    recipient.name
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+// A row in the picker: its id and display column, or its first text.
+const rowLabel = (table: DataTable, row: Record<string, unknown>) => {
+  const column =
+    table.displayColumn ?? table.columns.find(col => col.type === 'text')?.name;
+  const value = column ? row[column] : null;
+  const shown =
+    value && typeof value === 'object' && 'label' in value
+      ? String((value as { label: unknown }).label ?? '')
+      : value === null || value === undefined || typeof value === 'object'
+        ? ''
+        : String(value);
+  return shown ? `#${row.id} · ${shown.slice(0, 60)}` : `#${row.id}`;
+};
+
+const NEWEST = '-';
+
+interface CustomerTestSendProps {
+  open: boolean;
+  base: string;
+  table: DataTable;
+  customer: unknown;
+  ready: boolean;
+  hasTemplate: boolean;
+  templateBody: string | null;
+  disabled: boolean;
+}
+
+// Sends the customer message as the dialog has it to the owner's own chat
+// with the bot, built from a row of the table.
+const CustomerTestSend = ({
+  open,
+  base,
+  table,
+  customer,
+  ready,
+  hasTemplate,
+  templateBody,
+  disabled
+}: CustomerTestSendProps) => {
+  const t = i18n.useT(i18n.copy.DATA);
+  const [recipients, setRecipients] = useState<TestRecipient[] | null>(null);
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [rowId, setRowId] = useState(NEWEST);
+  const [participantId, setParticipantId] = useState('');
+  // Checking the template is what the test is for, so it starts on.
+  const [asTemplate, setAsTemplate] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<TestSent | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setRowId(NEWEST);
+    setAsTemplate(true);
+    setSent(null);
+    setError(null);
+    setRecipients(null);
+    setRows([]);
+    // A close or reopen cancels these, so a late answer can't land on a
+    // newer dialog.
+    const controller = new AbortController();
+    const { signal } = controller;
+    const ignoreAbort = (error: unknown) => {
+      if ((error as Error)?.name !== 'AbortError') throw error;
+    };
+    dataRequest<{ recipients: TestRecipient[] }>(base, '/trigger/test-send', {
+      signal
+    })
+      .then(result => {
+        const list = result.ok ? (result.data.recipients ?? []) : [];
+        if (!result.ok) setError(result.error || t('triggerTestFailed'));
+        setRecipients(list);
+        setParticipantId(list[0]?.participantId ?? '');
+      })
+      .catch(ignoreAbort);
+    dataRequest<{ rows: Record<string, unknown>[] }>(
+      base,
+      `/table/${encodeURIComponent(table.name)}/row`,
+      { query: { sort: '-id', limit: 20 }, signal }
+    )
+      .then(result => setRows(result.ok ? (result.data.rows ?? []) : []))
+      .catch(ignoreAbort);
+    return () => controller.abort();
+  }, [open, base, table.name]);
+
+  // Templates are WhatsApp's: the switch shows only for a WhatsApp chat.
+  const recipient =
+    recipients?.find(r => r.participantId === participantId) ?? recipients?.[0];
+  const templateChoice = hasTemplate && recipient?.platform === 'whatsapp';
+
+  const handleSend = async () => {
+    if (sending) return;
+    setSending(true);
+    setSent(null);
+    setError(null);
+    const result = await dataRequest<TestSent>(base, '/trigger/test-send', {
+      method: 'POST',
+      body: {
+        table: table.name,
+        customer,
+        ...(rowId !== NEWEST ? { rowId: Number(rowId) } : {}),
+        ...(participantId ? { participantId } : {}),
+        ...(templateChoice ? { asTemplate } : {})
+      }
+    });
+    setSending(false);
+    if (!result.ok) {
+      setError(
+        result.code === 'rate_limited'
+          ? t('triggerTestRateLimited')
+          : result.error || t('triggerTestFailed')
+      );
+      return;
+    }
+    setSent(result.data);
+  };
+
+  const sentTemplate = sent?.template;
+  const sentContent = sentTemplate
+    ? templateBody
+      ? templateBody.replace(
+          /\{\{\s*(\d+)\s*\}\}/g,
+          (match, n: string) => sentTemplate.params[Number(n) - 1] ?? match
+        )
+      : sentTemplate.params.length > 0
+        ? sentTemplate.params.map((p, i) => `{{${i + 1}}} = ${p}`).join('\n')
+        : t('triggerTestNoValues')
+    : (sent?.text ?? '');
+
+  return (
+    <div className="trigger-test">
+      <h4 className="dialog-subtitle">{t('triggerTestTitle')}</h4>
+      <p className="dialog-muted">
+        {t('triggerTestHelp', { table: table.label || table.name })}
+      </p>
+      {recipients === null ? (
+        <UI.Skeleton variant="rounded" height={40} width="100%" />
+      ) : recipients.length === 0 ? (
+        !error && <p className="dialog-warning">{t('triggerTestNoLink')}</p>
+      ) : (
+        <>
+          <div className="dialog-row">
+            <UI.Select
+              size="small"
+              label={t('triggerTestRow')}
+              value={rowId}
+              disabled={disabled || sending}
+              onChange={e => setRowId(String(e.target.value))}
+              options={[
+                { label: t('triggerTestRowNewest'), value: NEWEST },
+                ...rows.map(row => ({
+                  label: rowLabel(table, row),
+                  value: String(row.id)
+                }))
+              ]}
+            />
+            {recipients.length > 1 && (
+              <UI.Select
+                size="small"
+                label={t('triggerTestRecipient')}
+                value={participantId}
+                disabled={disabled || sending}
+                onChange={e => setParticipantId(String(e.target.value))}
+                options={recipients.map(recipient => ({
+                  label: recipientLabel(recipient),
+                  value: recipient.participantId
+                }))}
+              />
+            )}
+          </div>
+          {templateChoice && (
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={asTemplate}
+                  disabled={disabled || sending}
+                  onChange={e => setAsTemplate(e.target.checked)}
+                />
+              }
+              label={
+                <span className="query-assistant-label">
+                  {t('triggerTestAsTemplate')}
+                  <small>{t('triggerTestAsTemplateHelp')}</small>
+                </span>
+              }
+            />
+          )}
+          <UI.Button
+            variant="outlined"
+            size="small"
+            disabled={disabled || sending || !ready}
+            onClick={handleSend}
+          >
+            <SendOutlined />
+            <span className="button-text">
+              {sending ? t('triggerTestSending') : t('triggerTestSend')}
+            </span>
+          </UI.Button>
+        </>
+      )}
+      {sent && (
+        <>
+          <p role="status">
+            {sentTemplate
+              ? t('triggerTestSentTemplate', {
+                  who: recipientLabel(sent.recipient),
+                  name: sentTemplate.name,
+                  language: sentTemplate.language,
+                  row: sent.rowId
+                })
+              : t('triggerTestSentText', {
+                  who: recipientLabel(sent.recipient),
+                  row: sent.rowId
+                })}
+          </p>
+          <p className="trigger-test-sent dialog-muted">{sentContent}</p>
+        </>
+      )}
+      {error && (
+        <p className="dialog-danger" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 };
 

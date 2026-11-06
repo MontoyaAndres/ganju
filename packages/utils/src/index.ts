@@ -393,6 +393,10 @@ import {
   cleanWhatsappTemplateParam,
   whatsappSendError
 } from './whatsappTemplates';
+import {
+  whatsappMessageChange,
+  whatsappAccountChanges
+} from './whatsappWebhook';
 import type {
   WhatsappTemplateCategory,
   WhatsappTemplateDraft,
@@ -430,6 +434,8 @@ export const utils = {
   whatsappTemplateSendable,
   cleanWhatsappTemplateParam,
   whatsappSendError,
+  whatsappMessageChange,
+  whatsappAccountChanges,
   getEnv,
   fetcher,
   constants,

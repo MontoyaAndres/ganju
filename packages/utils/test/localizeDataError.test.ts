@@ -21,8 +21,10 @@ const SOURCES = [
   new URL('apps/data/src/projectDatabase.ts', root),
   new URL('apps/api/src/controllers/artifact/data.ts', root),
   new URL('apps/api/src/utils/dataDatabase.ts', root),
-  new URL('apps/api/src/utils/dataTriggers.ts', root)
+  new URL('apps/api/src/utils/dataTriggers.ts', root),
+  new URL('packages/db/src/lib/channels.ts', root)
 ];
+const ERROR_CLASSES = new Set(['DataError', 'ChannelSendError']);
 
 const unwrap = (node: ts.Node): ts.Node =>
   ts.isParenthesizedExpression(node) ? unwrap(node.expression) : node;
@@ -72,7 +74,7 @@ const thrownMessages = () => {
     const visit = (node: ts.Node) => {
       if (
         ts.isNewExpression(node) &&
-        node.expression.getText(source) === 'DataError' &&
+        ERROR_CLASSES.has(node.expression.getText(source)) &&
         node.arguments?.length
       ) {
         for (const parts of templatesOf(node.arguments[0]) ?? []) {
@@ -178,6 +180,51 @@ test('nested messages and English fragments are translated too', () => {
   assert.equal(
     localizeDataError('Parameter from must be a whole number.', 'es'),
     'El parámetro from debe ser un número entero.'
+  );
+});
+
+test("a channel's refusal of a template reads in Spanish", () => {
+  assert.equal(
+    localizeDataError(
+      "The WhatsApp template pedido_listo (es) is still in Meta's review; only approved templates can be sent.",
+      'es'
+    ),
+    'La plantilla de WhatsApp pedido_listo (es) sigue en revisión de Meta; solo se pueden enviar plantillas aprobadas.'
+  );
+  assert.equal(
+    localizeDataError(
+      'The WhatsApp template pedido listo (es_CO) was rejected by Meta (INVALID_FORMAT); only approved templates can be sent.',
+      'es'
+    ),
+    'La plantilla de WhatsApp pedido listo (es_CO) fue rechazada por Meta (INVALID_FORMAT); solo se pueden enviar plantillas aprobadas.'
+  );
+  assert.equal(
+    localizeDataError(
+      'The WhatsApp template promo (en) is paused by Meta; only approved templates can be sent.',
+      'es'
+    ),
+    'La plantilla de WhatsApp promo (en) está pausada por Meta; solo se pueden enviar plantillas aprobadas.'
+  );
+  assert.equal(
+    localizeDataError(
+      'The WhatsApp template promo (en) is disabled by Meta (SPAM); only approved templates can be sent.',
+      'es'
+    ),
+    'La plantilla de WhatsApp promo (en) está desactivada por Meta (SPAM); solo se pueden enviar plantillas aprobadas.'
+  );
+  assert.equal(
+    localizeDataError(
+      'The WhatsApp template promo (en) is archived by Meta; only approved templates can be sent.',
+      'es'
+    ),
+    'La plantilla de WhatsApp promo (en) está en el estado archived por Meta; solo se pueden enviar plantillas aprobadas.'
+  );
+  assert.equal(
+    localizeDataError(
+      "This customer already got the channel's 20 messages for the last 24 hours.",
+      'es'
+    ),
+    'Este cliente ya recibió los 20 mensajes del canal de las últimas 24 horas.'
   );
 });
 

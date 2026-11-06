@@ -59,6 +59,7 @@ const {
   DATA_TRIGGER_INPUT,
   DATA_TRIGGER_PATCH,
   DATA_TRIGGER_DEPLOY_BODY,
+  DATA_TRIGGER_TEST_SEND_BODY,
   DATA_TRIGGER_RUN_LIST_QUERY
 } = Schema;
 
@@ -377,6 +378,25 @@ export const DATA_API_ROUTES = {
       "What `ganju deploy` sends: every trigger listed is saved as managed by the CLI, and the CLI's earlier ones not listed are deleted. Triggers made in the dashboard are left alone. All or nothing. New webhooks' secrets come back once, by name, and email addresses still to confirm as `confirming`.",
     body: DATA_TRIGGER_DEPLOY_BODY,
     returns: '{ triggers, removed, secrets, confirming? }'
+  },
+  listTestRecipients: {
+    method: 'get',
+    path: '/trigger/test-send',
+    tag: 'Triggers',
+    summary: 'Where a test send can go',
+    description:
+      "The caller's own chats with this project's bots: the ones they linked to their Ganju account by sending `/link` to the bot. Empty when there are none.",
+    returns: '{ recipients }'
+  },
+  testSend: {
+    method: 'post',
+    path: '/trigger/test-send',
+    tag: 'Triggers',
+    summary: 'Send a test of a customer message',
+    description:
+      "Sends a `customer` action, saved or not, to the caller's own chat with the bot instead of the row's customer: built from the row `rowId` (the table's newest row by default), the same as a real run. `participantId` picks one of `GET /trigger/test-send`'s recipients when there are several. With `asTemplate`, a WhatsApp template goes out even inside the 24-hour window. Not a run: it isn't listed with any trigger's runs and doesn't count toward the daily limit per customer. Five a minute per user. A channel's refusal (the template not approved, outside the window with no template, the daily limit) comes back as the error.",
+    body: DATA_TRIGGER_TEST_SEND_BODY,
+    returns: '{ sent, text, template, rowId, recipient }'
   },
   listTriggerRuns: {
     method: 'get',

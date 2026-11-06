@@ -51,7 +51,13 @@ export const dataRequest = async <T>(
           : {})
       }
     });
-    if (data && (data.error !== undefined || Array.isArray(data.errors))) {
+    // `error: null` is an answer that says nothing went wrong (the WhatsApp
+    // templates list carries one).
+    if (
+      data &&
+      ((data.error !== undefined && data.error !== null) ||
+        Array.isArray(data.errors))
+    ) {
       const fields = Array.isArray(data.errors)
         ? (data.errors as { path?: string; message?: string }[])
             .map(e => (e.path ? `${e.path}: ${e.message}` : e.message))

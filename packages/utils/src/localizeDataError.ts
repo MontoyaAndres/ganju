@@ -39,6 +39,21 @@ const guardSuffix = (suffix: string): string => {
   return suffix;
 };
 
+// Meta's other template statuses, as the refusal writes them.
+const TEMPLATE_STATUS_ES: Record<string, string> = {
+  paused: 'pausada',
+  disabled: 'desactivada',
+  flagged: 'marcada',
+  'in appeal': 'en apelación',
+  'pending deletion': 'pendiente de eliminación',
+  deleted: 'eliminada',
+  'limit exceeded': 'por encima del límite'
+};
+
+// "The WhatsApp template x (es)", as a channel's refusal names it.
+const templateLabel = (label: string): string =>
+  label.replace(/^The WhatsApp template /, 'La plantilla de WhatsApp ');
+
 export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   'Unknown column "{0}" in {1}. Columns: {2}.':
     'Columna desconocida "{0}" en {1}. Columnas: {2}.',
@@ -533,7 +548,73 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   '"{0}" is reserved by SQLite; pick another column name (e.g. "{1}_ref").':
     '"{0}" está reservado por SQLite; elige otro nombre de columna (p. ej. "{1}_ref").',
   '"{0}" is a column every table already has.':
-    '"{0}" es una columna que ya tienen todas las tablas.'
+    '"{0}" es una columna que ya tienen todas las tablas.',
+  // A test send of a trigger's customer message.
+  "You haven't linked a chat with this project's bots: write to the bot from your own phone and send /link.":
+    'No has vinculado un chat con los bots de este proyecto: escríbele al bot desde tu propio teléfono y envía /link.',
+  "{0} isn't one of your linked chats with this project's bots.":
+    '{0} no es uno de tus chats vinculados con los bots de este proyecto.',
+  'Several of your chats are linked to this project\'s bots; pick one with "participantId".':
+    'Varios de tus chats están vinculados con los bots de este proyecto; elige uno con "participantId".',
+  '{0} has no rows yet; add one to build the test from.':
+    '{0} aún no tiene filas; agrega una para armar la prueba.',
+  'Reading a row as its trigger event is for the project owner.':
+    'Leer una fila como su evento de disparador es solo para el dueño del proyecto.',
+  // The channel's refusals, which a test send answers with.
+  "This channel's credentials can't be read; connect it again.":
+    'No se pueden leer las credenciales de este canal; conéctalo de nuevo.',
+  'A message needs "text".': 'Un mensaje necesita "text".',
+  'A message is at most {0} characters.':
+    'Un mensaje tiene como máximo {0} caracteres.',
+  '{0} refused the message: {1}': '{0} rechazó el mensaje: {1}',
+  '{0} refused the message.': '{0} rechazó el mensaje.',
+  "Ganju can't send messages on {0} channels.":
+    'Ganju no puede enviar mensajes en canales de {0}.',
+  'WhatsApp: {0}': 'WhatsApp: {0}',
+  'The {0} channel is paused.': 'El canal de {0} está en pausa.',
+  "{0} isn't on this channel's WhatsApp Business account. Create it in the channel's Message templates, or check its name and language.":
+    a =>
+      `${templateLabel(a[0])} no está en la cuenta de WhatsApp Business de este canal. Créala en Plantillas de mensajes del canal, o revisa su nombre e idioma.`,
+  '{0} {1}; only approved templates can be sent.': a => {
+    const whole = `${a[0]} ${a[1]}`;
+    const m =
+      /^(The WhatsApp template [\s\S]+? \([^)]*\)) (is still in Meta's review|was rejected by Meta|is ([\s\S]+?) by Meta)( \([\s\S]*\))?$/.exec(
+        whole
+      );
+    if (!m) return `${whole}; solo se pueden enviar plantillas aprobadas.`;
+    const why = m[2].startsWith('is still')
+      ? 'sigue en revisión de Meta'
+      : m[2].startsWith('was rejected')
+        ? 'fue rechazada por Meta'
+        : `está ${TEMPLATE_STATUS_ES[m[3]] ?? `en el estado ${m[3]}`} por Meta`;
+    return `${templateLabel(m[1])} ${why}${m[4] ?? ''}; solo se pueden enviar plantillas aprobadas.`;
+  },
+  "{0} has a media header, a header variable or a button that takes a value; Ganju only fills the message's variables. Make a version without them.":
+    a =>
+      `${templateLabel(a[0])} tiene un encabezado con archivo, una variable en el encabezado o un botón que recibe un valor; Ganju solo llena las variables del mensaje. Haz una versión sin ellos.`,
+  "There is no customer {0} on this project's channels.":
+    'No hay ningún cliente {0} en los canales de este proyecto.',
+  'A message needs "text", a "template", or both.':
+    'Un mensaje necesita "text", una "template", o ambos.',
+  'This customer has never written to the bot privately, so there is no chat to message them in.':
+    'Este cliente nunca le ha escrito al bot en privado, así que no hay un chat donde escribirle.',
+  "This customer already got the channel's {0} messages for the last 24 hours.":
+    'Este cliente ya recibió los {0} mensajes del canal de las últimas 24 horas.',
+  "Outside WhatsApp's 24-hour window (this customer last wrote more than 24 hours ago); use an approved template.":
+    'Fuera de la ventana de 24 horas de WhatsApp (este cliente escribió por última vez hace más de 24 horas); usa una plantilla aprobada.',
+  'Templates are for WhatsApp; {0} takes "text".':
+    'Las plantillas son para WhatsApp; {0} recibe "text".',
+  'The WhatsApp template {0} has {1} variable; {2} value was given.':
+    'La plantilla de WhatsApp {0} tiene {1} variable; se dio {2} valor.',
+  'The WhatsApp template {0} has {1} variable; {2} values were given.':
+    'La plantilla de WhatsApp {0} tiene {1} variable; se dieron {2} valores.',
+  'The WhatsApp template {0} has {1} variables; {2} value was given.':
+    'La plantilla de WhatsApp {0} tiene {1} variables; se dio {2} valor.',
+  'The WhatsApp template {0} has {1} variables; {2} values were given.':
+    'La plantilla de WhatsApp {0} tiene {1} variables; se dieron {2} valores.',
+  'A post needs "chatId".': 'Una publicación necesita "chatId".',
+  'WhatsApp has no group chats for bots; message a customer with send().':
+    'WhatsApp no tiene chats de grupo para bots; escríbele a un cliente con send().'
 };
 
 interface Compiled {
