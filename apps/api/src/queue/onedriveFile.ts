@@ -18,12 +18,17 @@ import {
 } from './shared';
 import { hasFileChanged } from './onedriveDiscover';
 
+import { queueSheetSyncsFor } from '../utils/dataSheetSync';
+
 import type { FileLinkCleanup } from '@ganju/db';
 import type { Bindings } from '../types';
 
 export interface OnedriveFileJob {
   resourceId: string;
   onlyIfChanged?: boolean;
+  // A table's "Sync now": its sheet is read again even when the file didn't
+  // change, and a changed one's tables sync as the owner's, once indexed.
+  sheetSync?: boolean;
 }
 
 const removeMissingFile = async (
@@ -80,7 +85,7 @@ const removeMissingFile = async (
 
 const syncOne = async (
   env: Bindings,
-  { resourceId, onlyIfChanged }: OnedriveFileJob,
+  { resourceId, onlyIfChanged, sheetSync }: OnedriveFileJob,
   cleanup: FileLinkCleanup
 ): Promise<void> => {
   const source = { env };
@@ -146,6 +151,7 @@ const syncOne = async (
       .update(db.schema.artifactResource)
       .set({ metadata: { ...meta, lastSyncedAt: new Date().toISOString() } })
       .where(eq(db.schema.artifactResource.id, resource.id));
+    if (sheetSync) await queueSheetSyncsFor(env, resource, { manual: true });
     return;
   }
 
@@ -226,7 +232,7 @@ const syncOne = async (
     })
     .where(eq(db.schema.artifactResource.id, resource.id));
 
-  await enqueueIndex(env, resource.id);
+  await enqueueIndex(env, resource.id, { manualSync: sheetSync === true });
 };
 
 export const handleOnedriveFileBatch = async (

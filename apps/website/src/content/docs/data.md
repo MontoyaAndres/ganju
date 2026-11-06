@@ -2,7 +2,7 @@
 title: Data
 description: Give a project its own database — tables with typed columns, relations and search — that the assistant, your functions, the CLI and the API all read and write, with restore to any moment in the last 30 days.
 order: 7
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 Every project on **Pro** or **Enterprise** can have its own **database**: tables
@@ -239,5 +239,7 @@ once there are real usage numbers, and announced before it applies.
 - [Data from functions](/docs/data/functions/): `ctx.data` and `ctx.channels`
   in your own code.
 - [Triggers and webhooks](/docs/data/triggers/): run something when rows change.
+- [Sync a table from a spreadsheet](/docs/data/sheet-sync/): keep a menu, prices
+  or stock in step with a Google Sheet, an Excel file or a CSV.
 - [Data API](/docs/data-api/): the same database over HTTP, and the `ganju data`
   commands.

@@ -548,3 +548,54 @@ test('a time trigger saves with its schedule and indexes its column in the objec
   const dropped = await call('dropTrigger', owner, 'still-pending');
   assert.equal(dropped.ok, true, JSON.stringify(dropped));
 });
+
+test('a synced table takes its rows from syncRows alone, and a refused sync stays on the table', async () => {
+  const call = callOn('sheet-sync');
+  await restaurant(call);
+  const sync = { actor: 'system:sheet-sync', timeZone: 'America/Bogota' };
+  const set = await call('updateTable', owner, 'menu', {
+    source: { uri: 'gdrive://files/menu', key: 'name', title: 'Menú.xlsx' }
+  });
+  assert.equal(set.ok, true, JSON.stringify(set));
+  const refused = await call('write', owner, {
+    operations: [{ op: 'update', table: 'menu', id: 1, set: { price: 1 } }]
+  });
+  assert.equal(refused.error.code, 'read_only');
+  const synced = await call('syncRows', sync, {
+    table: 'menu',
+    columns: ['name', 'price'],
+    rows: [
+      { name: 'Margherita', price: 29000 },
+      { name: 'Calzone', price: 33000 }
+    ]
+  });
+  assert.equal(synced.ok, true, JSON.stringify(synced));
+  assert.deepEqual(
+    [synced.value.inserted, synced.value.updated, synced.value.deleted],
+    [1, 1, 1]
+  );
+  const rows = await call('query', owner, { table: 'menu', sort: ['name'] });
+  assert.deepEqual(
+    rows.value.rows.map(r => [r.name, r.price, r.stock]),
+    [
+      ['Calzone', 33000, 0],
+      ['Margherita', 29000, 5]
+    ]
+  );
+  const duplicate = await call('syncRows', sync, {
+    table: 'menu',
+    columns: ['name', 'price'],
+    rows: [
+      { name: 'Margherita', price: 1 },
+      { name: 'Margherita', price: 2 }
+    ]
+  });
+  assert.equal(duplicate.ok, false);
+  assert.match(duplicate.error.message, /already on line 2/);
+  const schema = await call('schemaRead');
+  const menu = schema.value.tables.find(t => t.name === 'menu');
+  assert.equal(menu.sync.status, 'failed');
+  assert.match(menu.sync.error, /already on line 2/);
+  const after = await call('query', owner, { table: 'menu', sort: ['name'] });
+  assert.deepEqual(after.value.rows.map(r => r.price), [33000, 29000]);
+});

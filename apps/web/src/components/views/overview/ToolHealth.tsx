@@ -82,10 +82,21 @@ interface IndexAdviceRow {
   rowsWritten: number;
 }
 
+// A table synced from a spreadsheet, with how its last sync went.
+interface SheetSyncRow {
+  table: string;
+  title: string | null;
+  uri: string;
+  status: 'ok' | 'failed' | null;
+  at: string | null;
+  error: string | null;
+}
+
 interface Health {
   since: string;
   days: number;
   indexAdvice?: IndexAdviceRow[];
+  sheetSyncs?: SheetSyncRow[];
   tools: ToolRow[];
   errors: ErrorRow[];
   triggers: TriggerRow[];
@@ -573,6 +584,50 @@ export const ToolHealth = ({ days }: { days: number }) => {
                             read: t.n(row.avgRowsRead),
                             returned: t.n(row.avgRowsReturned)
                           })}
+                    </td>
+                    <td className="health-chevron">
+                      <ChevronRight />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!!health?.sheetSyncs?.length && (
+        <div className="health-section">
+          <p className="health-section-title">{t('sheetSyncsTitle')}</p>
+          <div className="health-table-scroll">
+            <table className="health-table">
+              <tbody>
+                {health.sheetSyncs.map(row => (
+                  <tr
+                    key={row.table}
+                    tabIndex={0}
+                    onClick={() => openSchema(row.table)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') openSchema(row.table);
+                    }}
+                  >
+                    <td>
+                      {t('sheetSyncLine', {
+                        table: row.table,
+                        file: row.title || row.uri
+                      })}
+                      {row.status === 'failed' && row.error && (
+                        <span className="health-sync-error">
+                          {utils.localizeDataError(row.error, t.lang)}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {row.status === 'failed'
+                        ? t('sheetSyncFailed', { ago: t.relative(row.at) })
+                        : row.status === 'ok'
+                          ? t('sheetSyncOk', { ago: t.relative(row.at) })
+                          : t('sheetSyncNever')}
                     </td>
                     <td className="health-chevron">
                       <ChevronRight />

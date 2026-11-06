@@ -505,8 +505,9 @@ Phase 1 doesn't depend on the rest.
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
 Status: phases 0–7 (with 5b, 5c, 7b and 7c) done 2026-11-06, on dev and
-production. Data is measured, not billed yet (see `docs/PRICING.md` "Still
-open"). Next: 7d below; phase 8 only when asked for.
+production; 7d (sync a table from a spreadsheet) done 2026-11-06 on dev, not
+yet on production. Data is measured, not billed yet (see `docs/PRICING.md`
+"Still open"). Next: 7d to production; phase 8 only when asked for.
 
 Knowledge (resources) answers "what does the document say". It is the wrong
 shape for data that has rows, types and relationships: a menu with prices
@@ -3414,6 +3415,35 @@ change can't start, because nothing changes.
   or a plan change).
 
 **7d. Sync a table from a spreadsheet — M (about a week)**
+
+**Status (2026-11-06): done, on dev; not deployed to production.** Built as
+planned, with the open decisions as written (synced changes fire triggers;
+the whole table is read-only while synced) and the sync state in its own
+object migration (version 6). Beyond the plan: each sync carries the file's
+stored time and one older than the rows already are is skipped, so two
+overlapping syncs can't leave the older sheet; only syncs the owner asked for
+(Sync now, a new source) count as database activity; a synced table can't be
+customer-scoped; a delete elsewhere that would cascade into a synced table is
+refused; JSON values are compared by content; "Sync now" has its own rate
+limiter (`SHEET_SYNC_RATE_LIMITER`, namespace 1007). Found while checking on
+dev and fixed for every table: tables have no AUTOINCREMENT, so a new row
+took a deleted row's id and showed its history; now every insert takes an id
+above the table's highest and its history's (a table with history off, or ids
+pruned after 90 days, can still repeat one). Checked on dev in nemo
+(`qa_menu`): a Google Sheet `qa_menu` imported from Drive as the source;
+changing P1's price in Google and pressing "Sincronizar ahora" on the item
+changed that one row (history `system:sheet-sync`, 28000 → 29500, the other
+rows unchanged); with an uploaded CSV source, a removed line deleted its row, a
+repeated key left the rows as they were and said why in Spanish (banner,
+source card, Tool health), a new line took a fresh id; row writes refused from
+the API and the dashboard (row form read-only), a cascade into the table
+refused. Near the limits, on dev (`qa_big`, an uploaded `.xlsx` of 4.84 MB
+and 20,000 lines of 8 columns): the first sync inserted 20,000 rows about 17
+seconds after the upload, queue included; the same file again left 20,000
+unchanged; a file with every line changed updated 20,000 in one transaction;
+a 5.39 MB file was refused before it was read, the rows kept. Left: not
+checked on production. `qa_menu`, `qa_cats`, `qa_big`, `qa_menu.csv`,
+`qa_big.xlsx` and the Drive sheet were left on dev on purpose.
 
 Owners keep the menu, the prices or the stock in a sheet. A table whose source
 is that sheet keeps them in step without retyping.

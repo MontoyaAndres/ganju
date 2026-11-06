@@ -482,6 +482,9 @@ export interface ImportedRow {
   errors: string[];
   // Values read with a guess; the row is still imported.
   warnings: NumberGuess[];
+  // The unique columns whose value an earlier line already has (each also
+  // one of `errors`): a sheet sync lets the database say so instead.
+  repeated: string[];
 }
 
 // Every row of the file as the values it will insert, with each problem
@@ -512,6 +515,7 @@ export const importRows = (
     const values: Record<string, unknown> = {};
     const errors = missing.map(c => `${c.name} is required.`);
     const warnings: NumberGuess[] = [];
+    const repeated: string[] = [];
     mapping.forEach((name, i) => {
       if (name === null) return;
       const column = columns.get(name);
@@ -534,13 +538,14 @@ export const importRows = (
         const first = lines.get(key);
         if (first === undefined) lines.set(key, line);
         else {
+          repeated.push(column.name);
           errors.push(
             `${column.name}: "${text(row[i])}" is already on line ${first}, and this column takes each value once.`
           );
         }
       }
     });
-    return { index, line, values, errors, warnings };
+    return { index, line, values, errors, warnings, repeated };
   });
 };
 
@@ -555,3 +560,13 @@ export const csvLine = (cells: ImportCell[]) =>
 
 export { detectSeparator, parseCsv } from './dataCsv';
 export type { ParsedCsv } from './dataCsv';
+export {
+  DATA_CSV_MIME,
+  DATA_SPREADSHEET_MIME,
+  cellFromSheet,
+  isTabularMimeType,
+  readCsvText,
+  readSheet,
+  readTabularFile
+} from './dataSheet';
+export type { SheetJs, TabularFile } from './dataSheet';

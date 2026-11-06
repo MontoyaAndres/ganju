@@ -31,6 +31,7 @@ const ROUTES = {
   listTables: { method: 'get', path: '/table' },
   createTable: { method: 'post', path: '/table' },
   updateTable: { method: 'patch', path: '/table/:table' },
+  syncTable: { method: 'post', path: '/table/:table/sync' },
   dropTable: { method: 'delete', path: '/table/:table' },
   addColumn: { method: 'post', path: '/table/:table/column' },
   updateColumn: { method: 'patch', path: '/table/:table/column/:column' },

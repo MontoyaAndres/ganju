@@ -631,6 +631,68 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
     'La plantilla de WhatsApp {0} tiene {1} variables; se dio {2} valor.',
   'The WhatsApp template {0} has {1} variables; {2} values were given.':
     'La plantilla de WhatsApp {0} tiene {1} variables; se dieron {2} valores.',
+  // Tables synced from a sheet
+  '{0} is synced from "{1}"; change the sheet, or stop syncing it.':
+    '{0} se sincroniza desde "{1}"; cambia la hoja, o deja de sincronizarla.',
+  '"source" is { "uri", "sheet"?, "key" }, or null to stop syncing.':
+    '"source" es { "uri", "sheet"?, "key" }, o null para dejar de sincronizar.',
+  '"source" takes uri, sheet and key, not "{0}".':
+    '"source" recibe uri, sheet y key, no "{0}".',
+  '"source.uri" is the uri of a spreadsheet or CSV in the project\'s knowledge.':
+    '"source.uri" es el uri de una hoja de cálculo o un CSV en el conocimiento del proyecto.',
+  '"source.sheet" is the name of a sheet in the file, up to 100 characters.':
+    '"source.sheet" es el nombre de una hoja del archivo, de hasta 100 caracteres.',
+  '"source.key" is the column that names a row in both the sheet and {0}. Columns: {1}.':
+    '"source.key" es la columna que identifica una fila tanto en la hoja como en {0}. Columnas: {1}.',
+  '{0}.{1} must be unique to be the sync key.':
+    '{0}.{1} debe ser única para ser la clave de la sincronización.',
+  '{0}.{1} is the key the sheet sync matches rows by, so it stays unique.':
+    '{0}.{1} es la clave con la que la sincronización empareja las filas, así que sigue siendo única.',
+  "{0}.{1} is the sheet sync's key: rename it on its own, then make the other changes.":
+    '{0}.{1} es la clave de la sincronización: cámbiale el nombre por separado, y luego haz los demás cambios.',
+  '{0}.{1} is the key the sheet sync matches rows by; stop syncing the table, or pick another key, first.':
+    '{0}.{1} es la clave con la que la sincronización empareja las filas; primero deja de sincronizar la tabla, o elige otra clave.',
+  "{0} isn't synced from a sheet.": '{0} no se sincroniza desde una hoja.',
+  'A sync takes "columns" and "rows".':
+    'Una sincronización recibe "columns" y "rows".',
+  "The sheet has no column for {0}'s key, {1}.":
+    'La hoja no tiene una columna para la clave de {0}, {1}.',
+  'The sheet has no column for {0}, which is required.':
+    'La hoja no tiene una columna para {0}, que es obligatoria.',
+  'The sheet has no column for {0}, which are required.':
+    'La hoja no tiene columnas para {0}, que son obligatorias.',
+  'The sheet has {0} rows; a synced table takes up to {1}.':
+    'La hoja tiene {0} filas; una tabla sincronizada recibe hasta {1}.',
+  'Line {0}: {1}': (a, t) => `Línea ${a[0]}: ${t(a[1])}`,
+  'A row is an object of column: value.':
+    'Una fila es un objeto de columna: valor.',
+  'The key, {0}, is empty.': 'La clave, {0}, está vacía.',
+  '{0} {1} is already on line {2}; each line of the sheet needs its own key.':
+    '{0} {1} ya está en la línea {2}; cada línea de la hoja necesita su propia clave.',
+  'Rows in {0} still point at a row the sheet no longer has ({1}.{2}); put them back in the sheet, or change those rows first.':
+    'Filas de {0} todavía apuntan a una fila que la hoja ya no tiene ({1}.{2}); vuelve a ponerla en la hoja, o cambia esas filas primero.',
+  'Rows in {0} still point at {1} rows the sheet no longer has ({2}.{3}); put them back in the sheet, or change those rows first.':
+    'Filas de {0} todavía apuntan a {1} filas que la hoja ya no tiene ({2}.{3}); vuelve a ponerlas en la hoja, o cambia esas filas primero.',
+  "There is no file {0} in the project's knowledge.":
+    'No hay ningún archivo {0} en el conocimiento del proyecto.',
+  '{0} is {1}; a table syncs from a spreadsheet or CSV.':
+    '{0} es {1}; una tabla se sincroniza desde una hoja de cálculo o un CSV.',
+  "{0} is no longer in the project's knowledge; pick the file again, or stop syncing {1}.":
+    '{0} ya no está en el conocimiento del proyecto; vuelve a elegir el archivo, o deja de sincronizar {1}.',
+  '{0} is over {1} MB; a synced table reads files up to that size.':
+    '{0} pesa más de {1} MB; una tabla sincronizada lee archivos de hasta ese tamaño.',
+  'The sheet could not be read; try "Sync now" again in a few minutes.':
+    'No se pudo leer la hoja; vuelve a intentar "Sincronizar ahora" en unos minutos.',
+  "{0} can't be both customer-scoped and synced from a sheet: synced rows have no customer, so the bots wouldn't see them.":
+    '{0} no puede estar limitada al cliente y a la vez sincronizarse desde una hoja: las filas sincronizadas no tienen cliente, así que los bots no las verían.',
+  'Can\'t delete: it would change a row of {0} ({1}.{2}), which is synced from "{3}"; change the sheet first, or stop syncing it.':
+    'No se puede eliminar: cambiaría una fila de {0} ({1}.{2}), que se sincroniza desde "{3}"; primero cambia la hoja, o deja de sincronizarla.',
+  'Can\'t delete: it would change {0} rows of {1} ({2}.{3}), which is synced from "{4}"; change the sheet first, or stop syncing it.':
+    'No se puede eliminar: cambiaría {0} filas de {1} ({2}.{3}), que se sincroniza desde "{4}"; primero cambia la hoja, o deja de sincronizarla.',
+  '{0} has no sheet "{1}". Sheets: {2}.': '{0} no tiene una hoja "{1}". Hojas: {2}.',
+  '{0} is over {1} MB.': '{0} pesa más de {1} MB.',
+  '{0} is {1}; a table reads CSV and Excel files.':
+    '{0} es {1}; una tabla lee archivos CSV y de Excel.',
   'A post needs "chatId".': 'Una publicación necesita "chatId".',
   'WhatsApp has no group chats for bots; message a customer with send().':
     'WhatsApp no tiene chats de grupo para bots; escríbele a un cliente con send().'

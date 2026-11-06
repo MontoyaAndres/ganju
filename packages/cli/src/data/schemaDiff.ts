@@ -77,7 +77,8 @@ const TABLE_KEYS = [
   'displayColumn',
   'access',
   'customerScoped',
-  'history'
+  'history',
+  'source'
 ] as const;
 
 /**
@@ -116,7 +117,15 @@ export const normaliseTable = (table: DataTableInput) => ({
         : table.displayColumn,
   access: table.access ?? 'read',
   customerScoped: !!table.customerScoped,
-  history: table.history ?? true
+  history: table.history ?? true,
+  // The spreadsheet the rows come from, without the title the API keeps.
+  source: table.source
+    ? {
+        uri: table.source.uri,
+        sheet: table.source.sheet ?? null,
+        key: table.source.key
+      }
+    : null
 });
 
 const same = (a: unknown, b: unknown) =>

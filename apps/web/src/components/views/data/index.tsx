@@ -17,6 +17,7 @@ import {
 
 import { Wrapper } from './styles';
 import { SchemaTab } from './schema';
+import { SyncBanner } from './source';
 import { NewTableDialog } from './new-table';
 import { ImportDialog } from './import';
 import { SettingsDialog, ExportControl } from './settings';
@@ -87,9 +88,10 @@ export const Data = ({ plan }: DataProps) => {
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState(false);
   // The bookmark a drop answered with: restoring to it undoes the drop.
-  const [undo, setUndo] = useState<{ message: string; bookmark: string } | null>(
-    null
-  );
+  const [undo, setUndo] = useState<{
+    message: string;
+    bookmark: string;
+  } | null>(null);
   const [undoConfirm, setUndoConfirm] = useState(false);
   // Until the first list of tables arrives, the page can't tell "no tables"
   // from "not loaded yet".
@@ -114,8 +116,8 @@ export const Data = ({ plan }: DataProps) => {
     );
     setRowCounts(
       Object.fromEntries(
-        entries.filter((entry): entry is readonly [string, number] =>
-          entry[1] !== undefined
+        entries.filter(
+          (entry): entry is readonly [string, number] => entry[1] !== undefined
         )
       )
     );
@@ -295,7 +297,10 @@ export const Data = ({ plan }: DataProps) => {
   // The answer already has the table: show it now, and read the list again
   // behind it rather than make the owner wait for the round trip.
   const handleTableCreated = (table: DataTable) => {
-    setTables(prev => [...prev.filter(other => other.name !== table.name), table]);
+    setTables(prev => [
+      ...prev.filter(other => other.name !== table.name),
+      table
+    ]);
     setRowCounts(prev => ({ ...prev, [table.name]: 0 }));
     setSelected(table.name);
     setTab('rows');
@@ -518,7 +523,11 @@ export const Data = ({ plan }: DataProps) => {
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="data-table-item">
               <UI.Skeleton variant="rounded" width={18} height={18} />
-              <UI.Skeleton variant="text" width={`${70 - i * 10}%`} height={18} />
+              <UI.Skeleton
+                variant="text"
+                width={`${70 - i * 10}%`}
+                height={18}
+              />
             </div>
           ))}
         </div>
@@ -700,13 +709,24 @@ export const Data = ({ plan }: DataProps) => {
                 {selectedTable.description}
               </p>
             )}
+            {tab === 'rows' && selectedTable.source && (
+              <SyncBanner
+                base={base}
+                table={selectedTable}
+                readOnly={readOnly}
+                onSynced={async () => {
+                  await loadTables();
+                  setRowsVersion(n => n + 1);
+                }}
+              />
+            )}
             {tab === 'rows' ? (
               <RowsTab
                 key={`${selectedTable.name}:${rowsVersion}`}
                 base={base}
                 table={selectedTable}
                 tables={tables}
-                readOnly={readOnly}
+                readOnly={readOnly || !!selectedTable.source}
                 onCount={count =>
                   setRowCounts(prev => ({
                     ...prev,
@@ -740,7 +760,9 @@ export const Data = ({ plan }: DataProps) => {
                 onAdviceChanged={async added => {
                   // Only the suggestions change; an added index also marks
                   // its column, which the table list shows.
-                  const result = await dataRequest<{ database: Database | null }>(base, '');
+                  const result = await dataRequest<{
+                    database: Database | null;
+                  }>(base, '');
                   if (result.ok) setDatabase(result.data.database);
                   if (added) await loadTables();
                 }}

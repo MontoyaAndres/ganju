@@ -65,9 +65,12 @@ export {
   writeReachesCopy,
   assertActor,
   assertWritable,
+  assertNotSynced,
+  syncRows,
+  recordSyncFailure,
   exportRows
 } from './dataEngine';
-export type { SqlRow, SqlRunner } from './dataEngine';
+export type { SqlRow, SqlRunner, SheetSyncArgs } from './dataEngine';
 export { adviseIndexes, adviceDoubled } from './dataIndexAdvice';
 export type {
   IndexAdviceCandidate,

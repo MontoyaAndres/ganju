@@ -70,8 +70,46 @@ export const tables = async (options: DataOptions): Promise<void> => {
         `  display ${t.displayColumn ?? 'id'} · assistant ${t.access}${t.customerScoped ? ' · per customer' : ''}`
       )}`
     );
+    if (t.source) {
+      const last = t.sync
+        ? t.sync.status === 'ok'
+          ? `last synced ${t.sync.at}`
+          : color.red(`last sync refused (${t.sync.at}): ${t.sync.error}`)
+        : 'not synced yet';
+      say(
+        color.gray(
+          `  synced from ${t.source.title ?? t.source.uri}${t.source.sheet ? `, sheet ${t.source.sheet}` : ''} by ${t.source.key} · rows read-only · `
+        ) + (t.sync?.status === 'failed' ? last : color.gray(last))
+      );
+    }
     table(t.columns.map(c => ['  ' + c.name, ...describeColumn(c).slice(1)]));
   }
+};
+
+// Reads the table's sheet again now; the sync itself runs in the background.
+const syncTable = async (name: string | undefined, options: DataOptions) => {
+  if (!name)
+    throw new CliError('Which table?', {
+      hint: 'ganju data table sync <name>'
+    });
+  const { data } = await dataContext();
+  const found = findTable(await listTables(data), name);
+  if (!found.source) {
+    throw new CliError(`${name} isn't synced from a sheet`, {
+      hint: 'Give it a "source": { "uri", "key" } in ganju.data.json, or set one in its settings on the Data page.'
+    });
+  }
+  const result = await data.request<{ queued: true }>('syncTable', {
+    params: { table: name }
+  });
+  if (options.json) {
+    printJson(result);
+    return;
+  }
+  success(
+    `queued a sync of ${color.bold(name)} from ${found.source.title ?? found.source.uri}`
+  );
+  note(color.gray('  `ganju data tables` shows how it went'));
 };
 
 /**
@@ -196,11 +234,13 @@ export const tableCommand = async (
       return removeTable(rest[0], options);
     case 'rename':
       return renameTable(rest[0], rest[1], options);
+    case 'sync':
+      return syncTable(rest[0], options);
     default:
       throw new CliError(
         action ? `Unknown action "table ${action}"` : 'Which table action?',
         {
-          hint: 'ganju data table create|rm|rename … — `ganju data` lists them'
+          hint: 'ganju data table create|rm|rename|sync … — `ganju data` lists them'
         }
       );
   }

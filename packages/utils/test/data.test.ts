@@ -1191,7 +1191,7 @@ test('display column: tables made before the default get their first text column
   assert.equal(tables.find(t => t.name === 'dishes')!.displayColumn, 'name');
   assert.equal(tables.find(t => t.name === 'numbers')!.displayColumn, null, 'no text column: the id');
   assert.equal(tables.find(t => t.name === 'by_id')!.displayColumn, null, 'made since, asking for the id');
-  assert.equal(getMeta(runner, 'schema_version'), '5');
+  assert.equal(getMeta(runner, 'schema_version'), '6');
 });
 
 test('delete preview: cascades counted to the end, set null and restrict beside them', () => {
@@ -1540,4 +1540,20 @@ test('file columns: a uri in, { uri } out, links counted, moved and cleared', ()
   updateColumn(runner, s(), OWNER, 'dishes', 'picture', { type: 'file' });
   const converted = query(runner, s(), OWNER, { table: 'dishes', where: { id: 2 } }) as { rows: Record<string, unknown>[] };
   assert.deepEqual(converted.rows[0].picture, { uri: 'resource://hawaiana' });
+});
+
+test("a new row never takes the id of a deleted one, so its history isn't another row's", () => {
+  const { runner, s } = restaurant();
+  const insert = (name: string) =>
+    write(runner, s(), OWNER, { operations: [{ op: 'insert', table: 'menu', values: { name, price: 1 } }] }).results[0];
+  // The highest id goes, and the next insert would get it back from SQLite.
+  write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'menu', id: 4 }] });
+  assert.deepEqual(insert('Calzone'), { op: 'insert', table: 'menu', id: 5 });
+  assert.equal(rowHistory(runner, s(), OWNER, { table: 'menu', id: 5 }).entries.length, 1);
+  // A batch, and one whose rows leave different columns out, count on from there.
+  write(runner, s(), OWNER, { operations: [{ op: 'delete', table: 'menu', id: 5 }] });
+  const batch = write(runner, s(), OWNER, {
+    operations: [{ op: 'insert', table: 'menu', rows: [{ name: 'A', price: 1 }, { name: 'B', price: 2, stock: 3 }] }]
+  }).results[0] as { ids: number[] };
+  assert.deepEqual(batch.ids, [6, 7]);
 });

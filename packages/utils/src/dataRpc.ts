@@ -10,8 +10,10 @@ import type {
   DataResult,
   DataSchema,
   DataTable,
-  DataTableCopy
+  DataTableCopy,
+  DataTableSync
 } from './dataTypes';
+import type { SheetSyncArgs } from './dataEngine';
 import type { DataQuery } from './dataQueries';
 import type { DataTrigger, DataTriggerWithSecret, SavedTrigger } from './dataTriggers';
 
@@ -130,6 +132,13 @@ export interface ProjectDatabaseRpc {
     caller: DataCaller,
     args: { changes: DataFileLinkChange[] }
   ): R<DataFileLinksReplaced>;
+  // A synced table's rows made what its sheet says, all or nothing; and why
+  // a sync that never reached the rows was refused.
+  syncRows(caller: DataCaller, args: SheetSyncArgs): R<DataTableSync>;
+  recordSyncFailure(
+    caller: DataCaller,
+    args: { table: string; error: string; title?: string | null; version?: string | null }
+  ): R<DataTableSync | null>;
   history(
     caller: DataCaller,
     args: { table: string; id: number; limit?: number; cursor?: number }

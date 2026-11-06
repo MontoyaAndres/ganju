@@ -641,3 +641,34 @@ test('named queries: saved after the tables, dropped before them and only with -
       error instanceof SchemaFileError && /listed twice/.test(error.message)
   );
 });
+
+test('a sheet source is a table setting, compared without the title the API keeps', () => {
+  const synced = pulled({
+    ...menu,
+    columns: [
+      {
+        name: 'name',
+        type: 'text',
+        required: true,
+        unique: true,
+        searchable: true
+      },
+      ...menu.columns.slice(1)
+    ]
+  });
+  const source = { uri: 'gdrive://files/abc', key: 'name' };
+  const plan = diffSchema([synced], [{ ...synced, source }]);
+  assert.deepEqual(kinds(plan.steps), ['updateTable menu']);
+  assert.deepEqual((plan.steps[0] as { patch: unknown }).patch, {
+    source: { uri: 'gdrive://files/abc', sheet: null, key: 'name' }
+  });
+  assert.deepEqual(plan.destructive, []);
+  // As the API answers: the same source, with its title.
+  const current = { ...synced, source: { ...source, title: 'Menú.xlsx' } };
+  assert.deepEqual(diffSchema([current], [{ ...synced, source }]).steps, []);
+  // Taken out of the file, the table stops syncing.
+  assert.deepEqual(
+    (diffSchema([current], [synced]).steps[0] as { patch: unknown }).patch,
+    { source: null }
+  );
+});

@@ -65,8 +65,42 @@ export interface DataTableInput {
   access?: DataAccess;
   customerScoped?: boolean;
   history?: boolean;
+  source?: DataTableSource | null;
   columns: DataColumnInput[];
 }
+
+// A table kept in step with a spreadsheet or CSV in the project's knowledge:
+// `key` is the unique column that names a row in both, and the sheet wins.
+// `title` is the file's name when the source was saved, for messages.
+export interface DataTableSource {
+  uri: string;
+  sheet?: string | null;
+  key: string;
+  title?: string | null;
+}
+
+// How the last sync went. A refused one changed nothing.
+export interface DataTableSync {
+  at: string;
+  status: 'ok' | 'failed';
+  inserted: number;
+  updated: number;
+  deleted: number;
+  unchanged: number;
+  error: string | null;
+  // The version of the file (its stored time) the rows were last made from.
+  // A sync of an older one is skipped, so two that overlap can't leave the
+  // older sheet's rows.
+  version?: string | null;
+  // Only in a sync's answer: skipped, an older file than the rows already are.
+  stale?: boolean;
+}
+
+// Who a sync's changes are made by, in row history and trigger events.
+export const DATA_SHEET_SYNC_ACTOR = 'system:sheet-sync';
+// A source file is read whole, so it stays small.
+export const DATA_SHEET_MAX_BYTES = 5 * 1024 * 1024;
+export const DATA_SHEET_MAX_ROWS = 20_000;
 
 // A column as the database object stores it: the input plus its stable id,
 // which names its indexes and constraints so a rename never orphans them.
@@ -100,6 +134,9 @@ export interface DataTable {
   history: boolean;
   position: number;
   columns: DataColumn[];
+  // Set while the table is synced from a sheet: its rows are then read-only.
+  source?: DataTableSource | null;
+  sync?: DataTableSync | null;
 }
 
 export interface DataSchema {
@@ -364,6 +401,15 @@ export const toTableInput = (table: DataTable): DataTableInput => ({
   access: table.access,
   customerScoped: table.customerScoped,
   history: table.history,
+  ...(table.source
+    ? {
+        source: {
+          uri: table.source.uri,
+          ...(table.source.sheet ? { sheet: table.source.sheet } : {}),
+          key: table.source.key
+        }
+      }
+    : {}),
   columns: table.columns.map(column => {
     const out: DataColumnInput = { name: column.name, type: column.type };
     if (column.label) out.label = column.label;

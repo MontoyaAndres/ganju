@@ -22,7 +22,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-auth": "^1.6.25",
     "hono": "^4.12.25",
-    "openai": "^7.17.0"
+    "openai": "^7.17.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260611.1",

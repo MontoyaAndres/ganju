@@ -30,6 +30,23 @@ export const Wrapper = styled.div<IProps>`
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+
+        /* The action keeps one line; the text beside it wraps instead.
+           UI.Button wraps the button in a div of its own. */
+        > div + div {
+          flex-shrink: 0;
+
+          .MuiButtonBase-root {
+            white-space: nowrap;
+          }
+        }
+
+        /* The switch's own padding leaves its thumb short of the edge the
+           button and the select line up on. */
+        > .MuiSwitch-root {
+          flex-shrink: 0;
+          margin-right: -4px;
+        }
       }
 
       .sync-card-label {

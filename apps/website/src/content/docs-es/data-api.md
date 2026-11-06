@@ -2,7 +2,7 @@
 title: API de Datos
 description: Administra las tablas y filas de un proyecto por HTTP — crea tablas, inserta y busca filas, registra pedidos sin errores y exporta — con un token de acceso personal.
 order: 7
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 Cada proyecto en **Pro** o **Enterprise** puede tener su propia **base de
@@ -153,11 +153,17 @@ pasos.
 | `GET /table` | Tablas, columnas y relaciones |
 | `POST /table` | Crea una tabla |
 | `PATCH /table/:table` | Le cambia el nombre, la etiqueta, la descripción o la configuración |
+| `POST /table/:table/sync` | Sincroniza ahora, desde su hoja de cálculo, una tabla que tiene `source` |
 | `DELETE /table/:table` | La elimina. Envía `{ "confirmName": "<tabla>" }` |
 | `POST /table/:table/column` | Agrega una columna |
 | `PATCH /table/:table/column/:column` | Le cambia el nombre o la configuración a una columna, incluido su tipo |
 | `DELETE /table/:table/column/:column` | Elimina una columna |
 | `GET /change` | El registro de estos cambios: quién, qué y cuándo |
+
+El `source` de una tabla (`{ "uri", "sheet", "key" }`) mantiene sus filas al
+día con una hoja de cálculo o un CSV de Recursos, y las deja de solo lectura
+para cualquier otro que escriba; `{ "source": null }` lo detiene. Consulta
+[Sincronizar una tabla desde una hoja de cálculo](/es/docs/data/sheet-sync/).
 
 Antes de cambiar el tipo de una columna se revisan todos sus valores. Si alguno
 no cabe en el tipo nuevo, el cambio se rechaza y la respuesta lista las

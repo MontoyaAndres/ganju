@@ -144,6 +144,41 @@ interface TopErrorRow {
  * tool — counted on the tool that failed, since that's the one the model gave
  * up on.
  */
+const sheetSyncHealth = async (
+  c: Context<AppEnv>,
+  dbInstance: ReturnType<typeof db.create>,
+  artifactId: string
+) => {
+  try {
+    const opened = await db.data.openArtifactDatabase(
+      dbInstance,
+      c.env.PROJECT_DATABASE,
+      artifactId
+    );
+    if (!opened) return [];
+    const schema = await db.data.callDataMetered(
+      dbInstance,
+      opened.row,
+      'schemaRead',
+      () => opened.stub.schemaRead(),
+      { retryRead: true, ganju: true }
+    );
+    return schema.tables
+      .filter(t => t.source)
+      .map(t => ({
+        table: t.name,
+        title: t.source?.title ?? null,
+        uri: t.source!.uri,
+        status: t.sync?.status ?? null,
+        at: t.sync?.at ?? null,
+        error: t.sync?.error ?? null
+      }));
+  } catch (error) {
+    console.error('tool-health-sheet-syncs-failed', error);
+    return [];
+  }
+};
+
 // Answers access tokens on purpose, unlike the call and session routes below:
 // a token gets the per-tool counts, with the error summaries withheld.
 const getToolHealth = async (c: Context<AppEnv>) => {
@@ -363,6 +398,9 @@ const getToolHealth = async (c: Context<AppEnv>) => {
         .listIndexAdvice(dbInstance, dataRow.id)
         .catch(() => [])
     : [];
+  // Tables synced from a sheet, with how their last sync went, read from the
+  // database itself. Best-effort: health never fails for it.
+  const sheetSyncs = await sheetSyncHealth(c, dbInstance, artifactId);
 
   const installById = new Map(installs.map(row => [row.id, row]));
   // What each enabled install puts in front of a model: an MCP server is every
@@ -444,6 +482,11 @@ const getToolHealth = async (c: Context<AppEnv>) => {
       p95Ms: row.p95_ms,
       lastRunAt: row.last_run_at,
       lastError: c.get('apiToken') ? null : row.last_error
+    })),
+    // Like the errors above, a sync's error text is only for a signed-in admin.
+    sheetSyncs: sheetSyncs.map(sync => ({
+      ...sync,
+      error: c.get('apiToken') ? null : sync.error
     })),
     indexAdvice: indexAdvice.map(row => ({
       table: row.tableName,

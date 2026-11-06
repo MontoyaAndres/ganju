@@ -656,7 +656,7 @@ try {
     (n, methods) => n + Object.keys(methods).length,
     0
   );
-  check('the OpenAPI file has every route', operations === 42, `${operations}`);
+  check('the OpenAPI file has every route', operations === 43, `${operations}`);
 
   section('a time trigger, saved and checked');
   const timed = await call(

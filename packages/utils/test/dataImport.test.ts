@@ -204,7 +204,8 @@ test('rows carry their file line and every problem found', () => {
     line: 2,
     values: { name: 'Margherita', price: 28000 },
     errors: ['stock is required.'],
-    warnings: []
+    warnings: [],
+    repeated: []
   });
   assert.equal(rows[1].line, 3);
   assert.equal(rows[1].errors.length, 3);
@@ -300,6 +301,7 @@ test('a value repeated in a unique column is flagged on its second line', () => 
   );
   assert.deepEqual(rows.map(r => r.errors.length), [0, 0, 1, 0]);
   assert.match(rows[2].errors[0], /^name: "Margherita" is already on line 2/);
+  assert.deepEqual(rows.map(r => r.repeated), [[], [], ['name'], []]);
 });
 
 test('refused rows are written back as CSV', () => {

@@ -29,6 +29,12 @@ import {
   checkTriggerTargets,
   requestEmailConfirmations
 } from '../../utils/dataTriggers';
+import {
+  enqueueSheetSyncs,
+  sheetSourceItem,
+  sheetSourceProvider
+} from '../../utils/dataSheetSync';
+import { enqueueGdriveFile, enqueueOnedriveFile } from '../../utils/queue';
 import { consumeRateLimit, rateLimited } from '../../middleware/rateLimit';
 
 // types
@@ -569,14 +575,28 @@ const listTables = (c: Context<AppEnv>) =>
     return c.json({ tables: schema.tables });
   });
 
+// A sheet source names a spreadsheet or CSV the project has; its title goes
+// with it, for the message a refused write shows.
+const withSourceTitle = async <T extends { source?: { uri: string } | null }>(
+  request: DataRequest,
+  input: T
+): Promise<T> => {
+  if (!input.source) return input;
+  const item = await sheetSourceItem(request.dbInstance, request.artifactId, input.source.uri);
+  return { ...input, source: { ...input.source, title: item.title } };
+};
+
 const createTable = async (c: Context<AppEnv>) => {
-  const input = await bodyOf(c, Schema.DATA_TABLE_INPUT);
+  const body = await bodyOf(c, Schema.DATA_TABLE_INPUT);
   return withDatabase(c, {}, async request => {
+    const input = await withSourceTitle(request, body);
     const table = await callData(
       'createTable',
       () => request.opened.stub.createTable(request.caller, input),
       request.tally
     );
+    // The first sync reads the file as it is stored now.
+    if (table.source) await enqueueSheetSyncs(c.env, request.artifactId, [table.name], { manual: true });
     await recordChange(request.dbInstance, request.opened.row.id, {
       actor: request.caller.actor,
       kind: 'table.create',
@@ -589,13 +609,19 @@ const createTable = async (c: Context<AppEnv>) => {
 
 const updateTable = async (c: Context<AppEnv>) => {
   const { table: name } = await pathOf(c, Schema.DATA_TABLE_PARAMS);
-  const patch = await bodyOf(c, Schema.DATA_TABLE_PATCH);
+  const body = await bodyOf(c, Schema.DATA_TABLE_PATCH);
   return withDatabase(c, {}, async request => {
+    const patch = await withSourceTitle(request, body);
     const table = await callData(
       'updateTable',
       () => request.opened.stub.updateTable(request.caller, name, patch),
       request.tally
     );
+    // A new source (or file, sheet or key) syncs right away; sync is reset
+    // only then.
+    if (table.source && patch.source && !table.sync) {
+      await enqueueSheetSyncs(c.env, request.artifactId, [table.name], { manual: true });
+    }
     await recordChange(request.dbInstance, request.opened.row.id, {
       actor: request.caller.actor,
       kind: 'table.update',
@@ -603,6 +629,57 @@ const updateTable = async (c: Context<AppEnv>) => {
       detail: patch
     });
     return c.json({ table });
+  });
+};
+
+// "Sync now": a Drive or OneDrive file is fetched again if it changed, then
+// the table reads it; any other file is read as stored.
+const syncTable = async (c: Context<AppEnv>) => {
+  const { table: name } = await pathOf(c, Schema.DATA_TABLE_PARAMS);
+  return withDatabase(c, {}, async request => {
+    const schema = await callData(
+      'schemaRead',
+      () => request.opened.stub.schemaRead(),
+      request.tally,
+      { retryRead: true }
+    );
+    const table = schema.tables.find(t => t.name === name);
+    if (!table) {
+      throw new DataError(
+        `Unknown table "${name}". Tables: ${schema.tables.map(t => t.name).join(', ') || '(none)'}.`,
+        'not_found'
+      );
+    }
+    if (!table.source) {
+      throw new DataError(`${name} isn't synced from a sheet.`, 'conflict');
+    }
+    if (!(await consumeRateLimit(c, 'SHEET_SYNC_RATE_LIMITER', c.get('user').id))) {
+      return rateLimited(
+        c,
+        'Five syncs a minute at most. Please wait a minute.',
+        'rate_limited'
+      );
+    }
+    const [resource] = await request.dbInstance
+      .select({ id: db.schema.artifactResource.id })
+      .from(db.schema.artifactResource)
+      .where(
+        and(
+          eq(db.schema.artifactResource.artifactId, request.artifactId),
+          eq(db.schema.artifactResource.uri, table.source.uri)
+        )
+      )
+      .limit(1);
+    const provider = resource ? sheetSourceProvider(table.source.uri) : null;
+    if (resource && provider === 'gdrive') {
+      await enqueueGdriveFile(c.env, resource.id, { onlyIfChanged: true, sheetSync: true });
+    } else if (resource && provider === 'onedrive') {
+      await enqueueOnedriveFile(c.env, resource.id, { onlyIfChanged: true, sheetSync: true });
+    } else {
+      // A missing file is the sync's to report, on the table.
+      await enqueueSheetSyncs(c.env, request.artifactId, [table.name], { manual: true });
+    }
+    return c.json({ queued: true }, 202);
   });
 };
 
@@ -1537,6 +1614,7 @@ export const DataController = {
   listTables,
   createTable,
   updateTable,
+  syncTable,
   dropTable,
   addColumn,
   updateColumn,

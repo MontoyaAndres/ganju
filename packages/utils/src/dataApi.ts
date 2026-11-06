@@ -27,7 +27,7 @@ export interface DataApiRoute {
   query?: z.ZodObject;
   // What a 200/201 answers with, in a sentence.
   returns: string;
-  status?: 200 | 201;
+  status?: 200 | 201 | 202;
   // Answers with a file instead of JSON.
   file?: boolean;
 }
@@ -179,8 +179,20 @@ export const DATA_API_ROUTES = {
     path: '/table/:table',
     tag: 'Tables',
     summary: 'Rename a table or change its settings',
+    description:
+      "`source` (`{ uri, sheet?, key }`) keeps the table's rows in step with a spreadsheet or CSV in the project's knowledge, matched by `key`, a unique column: the sheet wins, and row writes to the table are refused until `source` is set back to null. It syncs when the file changes and from `POST …/sync`; `sync` on the table says how the last one went.",
     body: DATA_TABLE_PATCH,
     returns: '{ table }'
+  },
+  syncTable: {
+    method: 'post',
+    path: '/table/:table/sync',
+    tag: 'Tables',
+    summary: 'Sync a table from its sheet now',
+    description:
+      "Queues a sync of a table that has a `source`: a Google Drive or OneDrive file is fetched again first if it changed. New keys are inserted, rows that differ updated (actor `system:sheet-sync`, so triggers fire), rows whose key is gone deleted. A sheet that doesn't fit (a missing key column, a repeated key, a value a column won't take) changes nothing; the table's `sync` says why.",
+    returns: '{ queued: true }',
+    status: 202
   },
   dropTable: {
     method: 'delete',

@@ -543,7 +543,12 @@ const ARTIFACT_PICK_RESOURCE = z.object({
   userId: z.uuid(),
   organizationId: z.uuid(),
   q: z.string().trim().max(200).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20)
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  // Only spreadsheets and CSV, for a table's sheet source.
+  tabular: z
+    .enum(['1', 'true'])
+    .optional()
+    .transform(v => v !== undefined)
 });
 
 const ARTIFACT_REMOVE_RESOURCE = z.object({
@@ -602,6 +607,14 @@ const DATA_COLUMN_INPUT = z.strictObject({
 });
 
 // The CLI's schema file holds a list of these.
+// A spreadsheet or CSV in the project's knowledge the table's rows come
+// from, matched by `key`. Null stops syncing.
+const DATA_TABLE_SOURCE = z.strictObject({
+  uri: z.string().min(1).max(2048),
+  sheet: z.string().trim().min(1).max(100).nullable().optional(),
+  key: DATA_IDENTIFIER
+});
+
 const DATA_TABLE_INPUT = z.strictObject({
   name: DATA_IDENTIFIER,
   label: DATA_TEXT(DATA_MAX_LABEL),
@@ -610,6 +623,7 @@ const DATA_TABLE_INPUT = z.strictObject({
   access: z.enum(DATA_ACCESS_LEVELS).optional(),
   customerScoped: z.boolean().optional(),
   history: z.boolean().optional(),
+  source: DATA_TABLE_SOURCE.nullable().optional(),
   columns: z.array(DATA_COLUMN_INPUT).max(DATA_MAX_COLUMNS)
 });
 
@@ -2210,6 +2224,7 @@ export const Schema = {
   DATA_DATABASE_CREATE,
   DATA_DATABASE_DELETE,
   DATA_COLUMN_INPUT,
+  DATA_TABLE_SOURCE,
   DATA_TABLE_INPUT,
   DATA_TABLE_PATCH,
   DATA_COLUMN_PATCH,

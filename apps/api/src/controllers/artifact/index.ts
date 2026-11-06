@@ -1086,14 +1086,16 @@ const projectArtifact = async (
 };
 
 // The items a Data file column can link: files and pages, not website seeds
-// or drive folders, matched on title or uri.
+// or drive folders, matched on title or uri. `tabular` keeps the spreadsheets
+// and CSV a table can sync from.
 const pickResources = async (c: Context<AppEnv>) => {
   const values = await utils.Schema.ARTIFACT_PICK_RESOURCE.parseAsync({
     projectId: c.req.param('projectId'),
     userId: c.get('user').id,
     organizationId: c.req.param('organizationId'),
     q: c.req.query('q') || undefined,
-    limit: c.req.query('limit') ?? undefined
+    limit: c.req.query('limit') ?? undefined,
+    tabular: c.req.query('tabular') || undefined
   });
   const dbInstance = db.create(c);
   const artifact = await projectArtifact(dbInstance, values.projectId);
@@ -1117,6 +1119,9 @@ const pickResources = async (c: Context<AppEnv>) => {
         sql`${resource.sourceType} not in (${utils.constants.RESOURCE_SOURCE_TYPE_GOOGLE_DRIVE_FOLDER}, ${utils.constants.RESOURCE_SOURCE_TYPE_ONE_DRIVE_FOLDER})`,
         pattern
           ? sql`(${resource.title} ilike ${pattern} or ${resource.uri} ilike ${pattern})`
+          : undefined,
+        values.tabular
+          ? sql`${resource.mimeType} ~* 'spreadsheetml|ms-excel|opendocument\.spreadsheet|csv|tab-separated'`
           : undefined
       )
     )

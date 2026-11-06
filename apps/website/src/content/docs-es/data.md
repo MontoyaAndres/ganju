@@ -2,7 +2,7 @@
 title: Datos
 description: Dale a un proyecto su propia base de datos — tablas con columnas tipadas, relaciones y búsqueda — que el asistente, tus funciones, la CLI y la API leen y escriben, con restauración a cualquier momento de los últimos 30 días.
 order: 7
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 Cada proyecto en **Pro** o **Enterprise** puede tener su propia **base de
@@ -251,5 +251,8 @@ anunciará antes de aplicarse.
   `ctx.channels` en tu propio código.
 - [Disparadores y webhooks](/es/docs/data/triggers/): ejecuta algo cuando
   cambian las filas.
+- [Sincronizar una tabla desde una hoja de cálculo](/es/docs/data/sheet-sync/):
+  mantén el menú, los precios o el inventario al día con una hoja de Google, un
+  archivo de Excel o un CSV.
 - [API de Datos](/es/docs/data-api/): la misma base de datos por HTTP, y los
   comandos `ganju data`.

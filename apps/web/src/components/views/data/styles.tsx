@@ -782,6 +782,35 @@ export const Wrapper = styled.div`
       }
     }
 
+    .data-source-meta {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 16px;
+      margin: 0;
+      font-size: ${theme.fonts.sm};
+
+      dt {
+        color: ${theme.colors.bastille}99;
+      }
+
+      dd {
+        margin: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      code {
+        font-size: ${theme.fonts.xs};
+        color: ${theme.colors.bastille}99;
+      }
+    }
+
+    .data-source-warning {
+      font-size: ${theme.fonts.sm};
+      color: ${theme.colors.romanCoffee};
+      margin: 0;
+    }
+
     .data-columns {
       display: flex;
       flex-direction: column;

@@ -51,6 +51,7 @@ ${color.bold('Tables')}
   ganju data table create <name> --schema <file>
   ganju data table rename <name> <new-name>
   ganju data table rm <name> --yes --confirm <name>
+  ganju data table sync <name>               read a synced table's sheet again now
   ganju data column add <table> <name> <type> [--input '<json>']
   ganju data column rename <table> <name> <new-name>
   ganju data column change <table> <name> --input '{"type":"decimal"}' [--yes]

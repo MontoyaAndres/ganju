@@ -8,6 +8,7 @@ import { Add, DeleteOutlined, EditOutlined } from '@mui/icons-material';
 
 import { DialogContent, FooterActions } from './styles';
 import { ConfirmName } from './confirm-name';
+import { SourceCard } from './source';
 import {
   ColumnFields,
   draftFromColumn,
@@ -511,6 +512,13 @@ export const SchemaTab = ({
           )}
         </div>
       </section>
+
+      <SourceCard
+        base={base}
+        table={table}
+        readOnly={readOnly}
+        onChanged={() => onChanged()}
+      />
 
       <section className="data-card">
         <div className="data-card-header">

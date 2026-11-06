@@ -26,12 +26,15 @@ import {
   type DataToolDefinition
 } from '@ganju/utils/data';
 import {
+  DATA_SPREADSHEET_MIME,
   importRows,
   matchHeaders,
-  parseCsv,
+  readCsvText,
+  readSheet,
   relationKey,
-  type ImportCell,
-  type RelationLookup
+  type RelationLookup,
+  type SheetJs,
+  type TabularFile
 } from '@ganju/utils/dataImport';
 import type { R2Bucket } from '@cloudflare/workers-types';
 
@@ -425,6 +428,7 @@ const runAdmin = async (
     }
     case 'create_table': {
       const input = parseWith(Schema.DATA_TABLE_INPUT, args.input, 'input');
+      assertNoSource(input.source);
       const created = await call('createTable', () =>
         opened.stub.createTable(caller, input)
       );
@@ -434,6 +438,7 @@ const runAdmin = async (
     case 'update_table': {
       const name = table();
       const patch = parseWith(Schema.DATA_TABLE_PATCH, args.input, 'input');
+      assertNoSource(patch.source);
       const updated = await call('updateTable', () =>
         opened.stub.updateTable(caller, name, patch)
       );
@@ -532,74 +537,15 @@ const runAdmin = async (
   }
 };
 
-const SPREADSHEET = /spreadsheetml|ms-excel|opendocument\.spreadsheet/i;
-
-const pad = (n: number) => String(n).padStart(2, '0');
-
-// A spreadsheet's own date as the text the database reads, as the
-// dashboard's import does: a date alone when it has no time, else a
-// wall-clock time.
-const cellFromSheet = (cell: unknown): ImportCell => {
-  if (cell instanceof Date) {
-    const date = `${cell.getFullYear()}-${pad(cell.getMonth() + 1)}-${pad(cell.getDate())}`;
-    if (!cell.getHours() && !cell.getMinutes() && !cell.getSeconds())
-      return date;
-    return `${date}T${pad(cell.getHours())}:${pad(cell.getMinutes())}:${pad(cell.getSeconds())}`;
-  }
-  return typeof cell === 'string' ||
-    typeof cell === 'number' ||
-    typeof cell === 'boolean'
-    ? cell
-    : null;
-};
-
-interface ImportFile {
-  headers: string[];
-  rows: ImportCell[][];
-  // Each row's line in the file or sheet, counting the header.
-  lines: number[];
-}
-
-// One sheet of an Excel file stored for the resource. SheetJS loads only
-// for an import that needs it.
-const readSheet = async (
-  bytes: ArrayBuffer,
-  uri: string,
-  sheetName: string | undefined
-): Promise<ImportFile> => {
-  const XLSX = await import('xlsx');
-  const book = XLSX.read(bytes, { cellDates: true, dense: true });
-  const name = sheetName ?? book.SheetNames[0];
-  const sheet = name ? book.Sheets[name] : undefined;
-  if (!sheet) {
+// A sheet source is set where the file can be checked and the first sync
+// queued: the Data page, the Data API or ganju.data.json. Stopping one
+// (null) is fine from here.
+const assertNoSource = (source: unknown) => {
+  if (source !== undefined && source !== null) {
     throw new DataError(
-      `${uri} has no sheet "${sheetName}". Sheets: ${book.SheetNames.join(', ')}.`,
-      'not_found'
+      "A table's sheet source is set from the Data page (table settings), the Data API or ganju.data.json; data-admin can only stop one (\"source\": null)."
     );
   }
-  const all = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    raw: true,
-    defval: null,
-    blankrows: true
-  });
-  // The sheet's range may start below row 1.
-  const ref = (sheet as { '!ref'?: string })['!ref'];
-  const firstLine = ref ? XLSX.utils.decode_range(ref).s.r + 1 : 1;
-  const [header = [], ...body] = all;
-  const rows: ImportCell[][] = [];
-  const lines: number[] = [];
-  body.forEach((row, i) => {
-    const cells = row.map(cellFromSheet);
-    if (cells.every(c => c === null || c === '')) return;
-    rows.push(cells);
-    lines.push(firstLine + 1 + i);
-  });
-  return {
-    headers: header.map(h => (h === null ? '' : String(h))),
-    rows,
-    lines
-  };
 };
 
 // Adds the rows of a CSV or Excel file in the project's knowledge to a
@@ -633,13 +579,15 @@ const importResource = async (
       'The file is over 5 MB; import it from the Data page or with `ganju data import`.',
       'too_large'
     );
-  let parsed: ImportFile;
-  if (resource.mimeType && SPREADSHEET.test(resource.mimeType)) {
+  let parsed: TabularFile;
+  if (resource.mimeType && DATA_SPREADSHEET_MIME.test(resource.mimeType)) {
     const object = resource.fileKey ? await bucket.get(resource.fileKey) : null;
     if (!object)
       throw new DataError(`${uri} has no stored file to read.`, 'not_found');
     if (object.size > ADMIN_IMPORT_MAX_BYTES) throw tooLarge();
-    parsed = await readSheet(await object.arrayBuffer(), uri, sheetName);
+    // SheetJS loads only for an import that needs it.
+    const XLSX = (await import('xlsx')) as unknown as SheetJs;
+    parsed = readSheet(XLSX, await object.arrayBuffer(), uri, sheetName);
   } else if (
     !resource.mimeType ||
     /csv|text\/plain|tab-separated/i.test(resource.mimeType)
@@ -655,7 +603,7 @@ const importResource = async (
     if (new TextEncoder().encode(raw).byteLength > ADMIN_IMPORT_MAX_BYTES) {
       throw tooLarge();
     }
-    parsed = parseCsv(raw);
+    parsed = readCsvText(raw);
   } else {
     throw new DataError(
       `${uri} is ${resource.mimeType}; import reads CSV and Excel files.`

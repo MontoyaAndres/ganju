@@ -82,6 +82,8 @@ import {
   DATA_IMPACT_MAX_ROWS,
   DATA_FILE_LINKS_MAX_URIS,
   DATA_REBUILD_MAX_ROWS,
+  DATA_FILE_URI_MAX,
+  DATA_SHEET_MAX_ROWS,
   DataError
 } from './dataTypes';
 import type {
@@ -101,6 +103,8 @@ import type {
   DataTable,
   DataTableCopy,
   DataTableInput,
+  DataTableSource,
+  DataTableSync,
   DataUsage,
   DataWriteShape
 } from './dataTypes';
@@ -259,6 +263,12 @@ export const INTERNAL_MIGRATIONS: readonly (readonly string[])[] = [
       PRIMARY KEY (trigger_id, row_id, due_at)
     ) WITHOUT ROWID`,
     'CREATE INDEX IF NOT EXISTS _ganju_trigger_fired_due ON _ganju_trigger_fired(due_at)'
+  ],
+  // Tables synced from a spreadsheet: where from (`source`), and how the
+  // last sync went (`sync_state`).
+  [
+    'ALTER TABLE _ganju_tables ADD COLUMN source TEXT',
+    'ALTER TABLE _ganju_tables ADD COLUMN sync_state TEXT'
   ]
 ];
 
@@ -347,6 +357,8 @@ export const loadSchema = (runner: SqlRunner): DataSchema => {
       customerScoped: row.customer_scoped === 1,
       history: row.history === 1,
       position: Number(row.position),
+      source: parseJson<DataTableSource>(row.source ?? null),
+      sync: parseJson<DataTableSync>(row.sync_state ?? null),
       columns: columns
         .filter(c => c.table_id === row.id)
         .map(c => {
@@ -589,6 +601,59 @@ const normaliseAccess = (value: unknown, fallback: DataAccess): DataAccess => {
   }
   return value as DataAccess;
 };
+
+// A table's sheet source, checked against the columns it will have. Null
+// stops syncing.
+const normaliseSource = (
+  value: unknown,
+  tableName: string,
+  columns: readonly Pick<DataColumn, 'name' | 'unique'>[],
+  customerScoped: boolean
+): DataTableSource | null => {
+  if (value === undefined || value === null) return null;
+  // A sheet's rows have no customer, so a bot would never see them.
+  if (customerScoped) throw syncedScopedError(tableName);
+  if (!isPlainObject(value)) {
+    throw new DataError('"source" is { "uri", "sheet"?, "key" }, or null to stop syncing.');
+  }
+  for (const key of Object.keys(value)) {
+    if (!['uri', 'sheet', 'key', 'title'].includes(key)) {
+      throw new DataError(`"source" takes uri, sheet and key, not "${key}".`);
+    }
+  }
+  const { uri, sheet, key, title } = value;
+  if (typeof uri !== 'string' || !/^[a-z][\w+.-]*:\/\/\S+$/i.test(uri) || uri.length > DATA_FILE_URI_MAX) {
+    throw new DataError('"source.uri" is the uri of a spreadsheet or CSV in the project\'s knowledge.');
+  }
+  if (sheet !== undefined && sheet !== null && (typeof sheet !== 'string' || !sheet.trim() || sheet.length > 100)) {
+    throw new DataError('"source.sheet" is the name of a sheet in the file, up to 100 characters.');
+  }
+  const column = columns.find(c => c.name === key);
+  if (typeof key !== 'string' || !column) {
+    throw new DataError(
+      `"source.key" is the column that names a row in both the sheet and ${tableName}. Columns: ${columns.map(c => c.name).join(', ')}.`
+    );
+  }
+  if (!column.unique) {
+    throw new DataError(`${tableName}.${key} must be unique to be the sync key.`);
+  }
+  return {
+    uri,
+    ...(typeof sheet === 'string' ? { sheet: sheet.trim() } : {}),
+    key,
+    ...(typeof title === 'string' && title.trim() ? { title: title.trim().slice(0, 200) } : {})
+  };
+};
+
+const syncedScopedError = (tableName: string) =>
+  new DataError(
+    `${tableName} can't be both customer-scoped and synced from a sheet: synced rows have no customer, so the bots wouldn't see them.`
+  );
+
+const sameSource = (a: DataTableSource | null | undefined, b: DataTableSource | null) =>
+  (a?.uri ?? null) === (b?.uri ?? null) &&
+  (a?.sheet ?? null) === (b?.sheet ?? null) &&
+  (a?.key ?? null) === (b?.key ?? null);
 
 // Keeping indexes, triggers and the search table in line with the metadata
 
@@ -1434,6 +1499,18 @@ export const assertWritable = (
   }
 };
 
+// A table synced from a sheet takes its rows from the sheet alone, whoever
+// writes: the dashboard, the API, the CLI, functions and the assistant.
+export const assertNotSynced = (table: DataTable) => {
+  if (!table.source) return;
+  const from = table.source.title || table.source.uri;
+  throw new DataError(
+    `${table.name} is synced from "${from}"; change the sheet, or stop syncing it.`,
+    'read_only',
+    { source: table.source }
+  );
+};
+
 // Every write names its actor here first, so row history (kept by triggers)
 // records who made each change, cascades included.
 const setContextActor = (runner: SqlRunner, actor: string) => {
@@ -1668,6 +1745,7 @@ const runOperation = (
     op = { ...rawOp, id };
   }
   const table = tableFor(schema, caller, op.table, kind === 'insert' ? 'add' : 'full');
+  assertNotSynced(table);
   const actor = caller.actor;
   const scoped = isScoped(caller, table);
 
@@ -1695,19 +1773,21 @@ const runOperation = (
     // One column list for the whole batch, so rows that leave a column out
     // get NULL there rather than its default only when another row sets it.
     const names = [...new Set(prepared.flatMap(values => [...values.keys()]))];
-    const columns = [...names, 'created_by', 'updated_by', ...(scoped ? ['participant_id'] : [])];
+    const columns = ['id', ...names, 'created_by', 'updated_by', ...(scoped ? ['participant_id'] : [])];
     const ids: number[] = [];
+    let nextId = nextRowId(runner, table);
     try {
       for (const chunk of chunkRows(prepared, columns.length)) {
         const usesDefaults = chunk.some(values => names.some(n => !values.has(n)));
         if (usesDefaults && chunk.length > 1) {
           // Rows with different columns go one by one, so each missing
           // column takes its default.
-          for (const values of chunk) ids.push(insertOne(runner, table, values, actor, scoped, caller));
+          for (const values of chunk) ids.push(insertOne(runner, table, values, actor, scoped, caller, nextId++));
           continue;
         }
         const params: SqlValue[] = [];
         for (const values of chunk) {
+          params.push(nextId++);
           for (const name of names) params.push(values.get(name) ?? null);
           params.push(actor, actor);
           if (scoped) params.push(participantOf(caller));
@@ -1824,6 +1904,33 @@ const runOperation = (
             .all(`SELECT t.id FROM ${q(table.name)} t WHERE ${where}`, ctx.params)
             .map(r => Number(r.id))
         : assertBoundedTarget();
+    // A delete here mustn't change a synced table's rows behind its sheet,
+    // through a cascade or a set null.
+    for (const other of schema.tables) {
+      if (!other.source || other.name === table.name || ids.length === 0) continue;
+      for (const c of other.columns) {
+        if (c.type !== 'relation' || c.table !== table.name) continue;
+        if ((c.onDelete ?? 'restrict') === 'restrict') continue;
+        let n = 0;
+        for (let i = 0; i < ids.length; i += DATA_MAX_PARAMS) {
+          const slice = ids.slice(i, i + DATA_MAX_PARAMS);
+          n += Number(
+            first(
+              runner,
+              `SELECT count(*) AS n FROM ${q(other.name)} WHERE ${q(c.name)} IN (${slice.map(() => '?').join(', ')})`,
+              slice
+            )?.n ?? 0
+          );
+        }
+        if (n > 0) {
+          throw new DataError(
+            `Can't delete: it would change ${n === 1 ? 'a row' : `${n} rows`} of ${other.name} (${other.name}.${c.name}), which is synced from "${other.source.title || other.source.uri}"; change the sheet first, or stop syncing it.`,
+            'read_only',
+            { table: other.name, column: c.name, count: n }
+          );
+        }
+      }
+    }
     // A readable "3 rows in order_lines still point at this order" before
     // SQLite's bare foreign key error. A row of the same table counts even
     // when this delete removes it too: SQLite checks a restrict as each row
@@ -1886,16 +1993,32 @@ const runOperation = (
   return { op: kind, table: table.name, changed };
 };
 
+// The id the table's next row gets. Tables have no AUTOINCREMENT, so SQLite
+// would hand out the highest id again once that row is deleted, and the
+// deleted row's history would read as the new one's. Above both, instead.
+const nextRowId = (runner: SqlRunner, table: DataTable): number =>
+  Number(
+    first(
+      runner,
+      `SELECT max(
+         coalesce((SELECT max(id) FROM ${q(table.name)}), 0),
+         coalesce((SELECT max(row_id) FROM _ganju_row_log WHERE table_id = ?), 0)
+       ) + 1 AS id`,
+      [table.id]
+    )?.id ?? 1
+  );
+
 const insertOne = (
   runner: SqlRunner,
   table: DataTable,
   values: Map<string, SqlValue>,
   actor: string,
   scoped: boolean,
-  caller: DataCaller
+  caller: DataCaller,
+  id: number
 ): number => {
-  const names = [...values.keys(), 'created_by', 'updated_by', ...(scoped ? ['participant_id'] : [])];
-  const params = [...values.values(), actor, actor, ...(scoped ? [participantOf(caller)] : [])];
+  const names = ['id', ...values.keys(), 'created_by', 'updated_by', ...(scoped ? ['participant_id'] : [])];
+  const params = [id, ...values.values(), actor, actor, ...(scoped ? [participantOf(caller)] : [])];
   return Number(
     runner.all(
       `INSERT INTO ${q(table.name)} (${names.map(q).join(', ')}) VALUES (${names.map(() => '?').join(', ')}) RETURNING id`,
@@ -1954,6 +2077,279 @@ export const write = (
     collectTriggerEvents(runner, schema, caller);
     return { ok: true as const, results };
   });
+};
+
+// Sheet sync
+
+export interface SheetSyncArgs {
+  table: string;
+  // The table's columns the sheet has, matched from its headers.
+  columns: string[];
+  // Each line of the sheet as column: value, read the way an import reads
+  // it; a column left out is empty in that line.
+  rows: Record<string, unknown>[];
+  // Each row's line in the sheet, for messages.
+  lines?: number[];
+  // The file's name now, for the read-only message.
+  title?: string | null;
+  // The file's version (when it was stored). One older than the rows were
+  // last made from is skipped.
+  version?: string | null;
+}
+
+// Whether `version` is older than what the table's rows were last made from.
+const staleVersion = (table: DataTable, version: string | null | undefined) =>
+  typeof version === 'string' && !!table.sync?.version && version < table.sync.version;
+
+// The same JSON with its keys in order, so a sheet that writes it another
+// way round isn't a change.
+const canonicalJson = (value: unknown): unknown =>
+  Array.isArray(value)
+    ? value.map(canonicalJson)
+    : isPlainObject(value)
+      ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonicalJson(value[k])]))
+      : value;
+const sameStored = (column: DataColumn, a: SqlValue, b: SqlValue) => {
+  if (a === b) return true;
+  if (column.type !== 'json' || typeof a !== 'string' || typeof b !== 'string') return false;
+  try {
+    return JSON.stringify(canonicalJson(JSON.parse(a))) === JSON.stringify(canonicalJson(JSON.parse(b)));
+  } catch {
+    return false;
+  }
+};
+
+const nowStamp = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+// A refusal about one line of the sheet.
+const atLine = (line: number, error: DataError) =>
+  new DataError(`Line ${line}: ${error.message}`, error.code, error.details);
+
+const saveSyncState = (
+  runner: SqlRunner,
+  table: DataTable,
+  state: DataTableSync,
+  title?: string | null
+) => {
+  const source =
+    table.source && typeof title === 'string' && title.trim()
+      ? { ...table.source, title: title.trim().slice(0, 200) }
+      : table.source;
+  runner.all('UPDATE _ganju_tables SET sync_state = ?, source = ? WHERE id = ?', [
+    JSON.stringify(state),
+    source ? JSON.stringify(source) : null,
+    table.id
+  ]);
+};
+
+// Makes a synced table's rows what the sheet says, in one transaction: new
+// keys are inserted, rows whose values differ updated, rows whose key is
+// gone deleted. Unchanged rows aren't written. Anything that doesn't fit
+// refuses the whole sync, and the table keeps its rows.
+export const syncRows = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  args: SheetSyncArgs
+): DataTableSync => {
+  assertWritable(runner, caller, true);
+  const table = tableNamed(schema, args?.table);
+  const source = table.source;
+  if (!source) {
+    throw new DataError(`${table.name} isn't synced from a sheet.`, 'conflict');
+  }
+  const keyColumn = columnNamed(table, source.key);
+  if (!Array.isArray(args.columns) || !Array.isArray(args.rows)) {
+    throw new DataError('A sync takes "columns" and "rows".');
+  }
+  const columns = [...new Set(args.columns)].map(name => columnNamed(table, name));
+  if (!columns.includes(keyColumn)) {
+    throw new DataError(
+      `The sheet has no column for ${table.name}'s key, ${keyColumn.name}.`
+    );
+  }
+  const unfilled = table.columns.filter(
+    c => c.required && (c.default === undefined || c.default === null) && !columns.includes(c)
+  );
+  if (unfilled.length) {
+    throw new DataError(
+      `The sheet has no column for ${unfilled.map(c => `${table.name}.${c.name}`).join(', ')}, which ${unfilled.length === 1 ? 'is' : 'are'} required.`
+    );
+  }
+  if (args.rows.length > DATA_SHEET_MAX_ROWS) {
+    throw new DataError(
+      `The sheet has ${args.rows.length.toLocaleString('en-US')} rows; a synced table takes up to ${DATA_SHEET_MAX_ROWS.toLocaleString('en-US')}.`,
+      'too_large'
+    );
+  }
+
+  // Every line as it will be stored, checked before anything is written.
+  const keyOf = (value: SqlValue) => JSON.stringify(value);
+  const wanted = new Map<string, { line: number; values: Map<string, SqlValue> }>();
+  args.rows.forEach((row, i) => {
+    const line = args.lines?.[i] ?? i + 2;
+    if (!isPlainObject(row)) throw atLine(line, new DataError('A row is an object of column: value.'));
+    const values = new Map<string, SqlValue>();
+    for (const column of columns) {
+      const raw = row[column.name];
+      let stored: SqlValue;
+      try {
+        stored = raw === undefined || raw === null ? null : toStored(table, column, raw, caller.timeZone);
+      } catch (error) {
+        if (error instanceof DataError) throw atLine(line, error);
+        throw error;
+      }
+      if (stored === null && column.required) {
+        throw atLine(line, new DataError(`${table.name}.${column.name} is required.`));
+      }
+      if (column.min !== null && typeof stored === 'number' && stored < column.min) {
+        throw atLine(line, new DataError(`${table.name}.${column.name} can't go below ${column.min}.`));
+      }
+      values.set(column.name, stored);
+    }
+    const key = values.get(keyColumn.name) ?? null;
+    if (key === null) {
+      throw atLine(line, new DataError(`The key, ${keyColumn.name}, is empty.`));
+    }
+    const seen = wanted.get(keyOf(key));
+    if (seen) {
+      throw atLine(
+        line,
+        new DataError(
+          `${keyColumn.name} ${JSON.stringify(key)} is already on line ${seen.line}; each line of the sheet needs its own key.`,
+          'constraint',
+          { key, lines: [seen.line, line] }
+        )
+      );
+    }
+    wanted.set(keyOf(key), { line, values });
+  });
+
+  // Two syncs that overlap: the one that read the older file changes nothing.
+  if (staleVersion(table, args.version)) {
+    return { ...table.sync!, inserted: 0, updated: 0, deleted: 0, unchanged: 0, stale: true };
+  }
+
+  return runner.transaction(() => {
+    setContextActor(runner, caller.actor);
+    runner.all('DELETE FROM _ganju_changes');
+    const before = runner.usageSoFar?.().rowsWritten ?? 0;
+    const names = columns.map(c => c.name);
+    const existing = new Map<string, SqlRow>();
+    const stale: number[] = [];
+    let nextId = nextRowId(runner, table);
+    for (const row of runner.all(
+      `SELECT id, ${names.map(n => q(n)).join(', ')} FROM ${q(table.name)}`
+    )) {
+      const key = row[keyColumn.name] ?? null;
+      if (key !== null && wanted.has(keyOf(key))) existing.set(keyOf(key), row);
+      else stale.push(Number(row.id));
+    }
+    const counts = { inserted: 0, updated: 0, deleted: 0, unchanged: 0 };
+
+    // Rows the sheet no longer has go first, so a key that moved to a new
+    // line isn't taken twice. A row another table still points at with
+    // restrict stops the sync.
+    for (const other of schema.tables) {
+      for (const c of other.columns) {
+        if (c.type !== 'relation' || c.table !== table.name) continue;
+        if ((c.onDelete ?? 'restrict') !== 'restrict' || stale.length === 0) continue;
+        let n = 0;
+        for (let i = 0; i < stale.length; i += DATA_MAX_PARAMS) {
+          const slice = stale.slice(i, i + DATA_MAX_PARAMS);
+          n += Number(
+            first(
+              runner,
+              `SELECT count(*) AS n FROM ${q(other.name)} WHERE ${q(c.name)} IN (${slice.map(() => '?').join(', ')})`,
+              slice
+            )?.n ?? 0
+          );
+        }
+        if (n > 0) {
+          throw new DataError(
+            `Rows in ${other.name} still point at ${n === 1 ? 'a row' : `${n} rows`} the sheet no longer has (${other.name}.${c.name}); put them back in the sheet, or change those rows first.`,
+            'constraint',
+            { table: other.name, column: c.name, count: n }
+          );
+        }
+      }
+    }
+    try {
+      for (let i = 0; i < stale.length; i += DATA_MAX_PARAMS) {
+        const slice = stale.slice(i, i + DATA_MAX_PARAMS);
+        counts.deleted += runner.all(
+          `DELETE FROM ${q(table.name)} WHERE id IN (${slice.map(() => '?').join(', ')}) RETURNING id`,
+          slice
+        ).length;
+      }
+      for (const [key, { line, values }] of wanted) {
+        const current = existing.get(key);
+        try {
+          if (!current) {
+            insertOne(runner, table, values, caller.actor, false, caller, nextId++);
+            counts.inserted++;
+            continue;
+          }
+          const changed = columns
+            .filter(c => !sameStored(c, current[c.name] ?? null, values.get(c.name) ?? null))
+            .map(c => c.name);
+          if (changed.length === 0) {
+            counts.unchanged++;
+            continue;
+          }
+          runner.all(
+            `UPDATE ${q(table.name)} SET ${changed.map(n => `${q(n)} = ?`).join(', ')}, version = version + 1, updated_at = ${DATA_NOW_SQL}, updated_by = ? WHERE id = ?`,
+            [...changed.map(n => values.get(n) ?? null), caller.actor, Number(current.id)]
+          );
+          counts.updated++;
+        } catch (error) {
+          throw atLine(line, translateSqliteError(schema, table, error));
+        }
+      }
+    } catch (error) {
+      throw translateSqliteError(schema, table, error);
+    }
+    runner.noteWrite?.({
+      table: table.name,
+      rowsWritten: (runner.usageSoFar?.().rowsWritten ?? 0) - before
+    });
+    collectTriggerEvents(runner, schema, caller);
+    const state: DataTableSync = {
+      at: nowStamp(),
+      status: 'ok',
+      ...counts,
+      error: null,
+      version: typeof args.version === 'string' ? args.version : (table.sync?.version ?? null)
+    };
+    saveSyncState(runner, table, state, args.title);
+    return state;
+  });
+};
+
+// Keeps why a sync was refused on the table, where the owner sees it. The
+// rows are as they were.
+export const recordSyncFailure = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  args: { table: string; error: string; title?: string | null; version?: string | null }
+): DataTableSync | null => {
+  const table = schema.tables.find(t => t.name === args?.table);
+  if (!table?.source) return null;
+  // An older file's problem says nothing about the rows now.
+  if (staleVersion(table, args.version)) return table.sync ?? null;
+  const state: DataTableSync = {
+    at: nowStamp(),
+    status: 'failed',
+    inserted: 0,
+    updated: 0,
+    deleted: 0,
+    unchanged: 0,
+    error: String(args.error ?? '').slice(0, 1000) || 'The sync failed.',
+    // The rows are still from the last file applied.
+    version: table.sync?.version ?? null
+  };
+  saveSyncState(runner, table, state, args.title);
+  return state;
 };
 
 // Delete preview
@@ -2411,6 +2807,7 @@ export const createTable = (
   const access = normaliseAccess(input.access, 'read');
   const customerScoped = flag(input.customerScoped, 'customerScoped');
   const history = input.history === undefined ? true : flag(input.history, 'history');
+  const source = normaliseSource(input.source, name, columns, customerScoped);
 
   return runner.transaction(() => {
     const position = Number(
@@ -2430,7 +2827,7 @@ export const createTable = (
     );
     const tableId = Number(
       runner.all(
-        'INSERT INTO _ganju_tables (id, name, label, description, access, customer_scoped, history, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+        'INSERT INTO _ganju_tables (id, name, label, description, access, customer_scoped, history, position, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
         [
           nextId,
           name,
@@ -2439,7 +2836,8 @@ export const createTable = (
           access,
           customerScoped ? 1 : 0,
           history ? 1 : 0,
-          position
+          position,
+          source ? JSON.stringify(source) : null
         ]
       )[0].id
     );
@@ -2466,7 +2864,7 @@ export const updateTable = (
   assertDdlAllowed(caller);
   const table = tableNamed(schema, name);
   if (!isPlainObject(patch)) throw new DataError('The change is an object.');
-  const allowed = ['name', 'label', 'description', 'displayColumn', 'access', 'customerScoped', 'history'];
+  const allowed = ['name', 'label', 'description', 'displayColumn', 'access', 'customerScoped', 'history', 'source'];
   for (const key of Object.keys(patch)) {
     if (!allowed.includes(key)) {
       throw new DataError(`"${key}" can't be changed here; tables take ${allowed.join(', ')}.`);
@@ -2501,12 +2899,22 @@ export const updateTable = (
       params.push(normaliseAccess(patch.access, table.access));
     }
     if ('customerScoped' in patch) {
+      const keepsSource = 'source' in patch ? patch.source !== null && patch.source !== undefined : !!table.source;
+      if (patch.customerScoped === true && keepsSource) throw syncedScopedError(table.name);
       sets.push('customer_scoped = ?');
       params.push(flag(patch.customerScoped, 'customerScoped') ? 1 : 0);
     }
     if ('history' in patch) {
       sets.push('history = ?');
       params.push(flag(patch.history, 'history') ? 1 : 0);
+    }
+    if ('source' in patch) {
+      const scoped = 'customerScoped' in patch ? patch.customerScoped === true : table.customerScoped;
+      const source = normaliseSource(patch.source, current, table.columns, scoped);
+      sets.push('source = ?');
+      params.push(source ? JSON.stringify(source) : null);
+      // A new file, sheet or key starts over: the last sync was of another.
+      if (!sameSource(table.source, source)) sets.push('sync_state = NULL');
     }
     if (sets.length) {
       runner.all(`UPDATE _ganju_tables SET ${sets.join(', ')} WHERE id = ?`, [...params, table.id]);
@@ -2978,8 +3386,21 @@ export const updateColumn = (
       );
     }
   }
+  const isSyncKey = table.source?.key === column.name;
+  if (isSyncKey && !draft.unique) {
+    throw new DataError(
+      `${table.name}.${column.name} is the key the sheet sync matches rows by, so it stays unique.`,
+      'constraint'
+    );
+  }
 
   if (columnChangeNeedsRebuild(schema, table.name, column.name, patch)) {
+    if (isSyncKey && draft.name !== column.name) {
+      throw new DataError(
+        `${table.name}.${column.name} is the sheet sync's key: rename it on its own, then make the other changes.`,
+        'constraint'
+      );
+    }
     // A rename renames the column in its triggers too; a copy can't, so the
     // two go one after the other.
     const triggers = draft.name !== column.name ? triggersUsingColumn(runner, table.id, column.name) : [];
@@ -3008,6 +3429,12 @@ export const updateColumn = (
         `ALTER TABLE ${q(table.name)} RENAME COLUMN ${q(column.name)} TO ${q(draft.name)}`
       );
       renameColumnInTriggers(runner, table.id, column.name, draft.name);
+      if (isSyncKey && table.source) {
+        runner.all('UPDATE _ganju_tables SET source = ? WHERE id = ?', [
+          JSON.stringify({ ...table.source, key: draft.name }),
+          table.id
+        ]);
+      }
     }
     updateColumnMeta(runner, schema, table, column.id, draft);
     touchTable(runner, table.id);
@@ -3031,6 +3458,12 @@ export const dropColumn = (
     throw new DataError(`${table.name} needs at least one column; drop the table instead.`);
   }
   assertNoTriggerUses(runner, table, column.name);
+  if (table.source?.key === column.name) {
+    throw new DataError(
+      `${table.name}.${column.name} is the key the sheet sync matches rows by; stop syncing the table, or pick another key, first.`,
+      'constraint'
+    );
+  }
   if (dropColumnNeedsRebuild(schema, table.name, column.name)) {
     return rebuildTable(
       runner,

@@ -30,6 +30,8 @@ import {
   readTableCopy,
   rowHistory,
   writeReachesCopy,
+  syncRows,
+  recordSyncFailure,
   setMeta,
   toTableInput,
   updateColumn,
@@ -67,7 +69,8 @@ import type {
   ProjectDatabaseRpc,
   SqlRow,
   SqlRunner,
-  SqlValue
+  SqlValue,
+  SheetSyncArgs
 } from '@ganju/utils/data';
 
 import type { Env } from './types';
@@ -694,6 +697,45 @@ export class ProjectDatabase
       this.recordFirstWrite(runner);
       // Events the write stored go to the queue right after it.
       if (outboxSize(runner) > 0) await this.scheduleAlarm(Date.now());
+      return result;
+    });
+  }
+
+  // A sync waits for a table copy like a change to the tables: it may write
+  // every row.
+  async syncRows(caller: DataCaller, args: SheetSyncArgs) {
+    return this.call({ writes: 'tables' }, async runner => {
+      let result;
+      try {
+        result = syncRows(runner, this.schema(runner), this.caller(caller, runner), args);
+      } catch (error) {
+        // Refused whole: the rows stay, and the table says why.
+        if (error instanceof DataError) {
+          recordSyncFailure(runner, this.schema(runner), {
+            table: args?.table,
+            error: error.message,
+            title: args?.title,
+            version: args?.version
+          });
+        }
+        throw error;
+      } finally {
+        this.schemaCache = null;
+      }
+      this.recordFirstWrite(runner);
+      if (outboxSize(runner) > 0) await this.scheduleAlarm(Date.now());
+      return result;
+    });
+  }
+
+  async recordSyncFailure(
+    caller: DataCaller,
+    args: { table: string; error: string; title?: string | null; version?: string | null }
+  ) {
+    return this.call({}, runner => {
+      assertActor(caller);
+      const result = recordSyncFailure(runner, this.schema(runner), args);
+      this.schemaCache = null;
       return result;
     });
   }

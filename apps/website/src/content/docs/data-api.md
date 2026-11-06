@@ -2,7 +2,7 @@
 title: Data API
 description: Manage a project's tables and rows over HTTP — create tables, insert and search rows, write orders safely, and export — with a personal access token.
 order: 7
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 Every project on **Pro** or **Enterprise** can have its own **database**: tables
@@ -150,11 +150,17 @@ written.
 | `GET /table` | Tables, columns and relations |
 | `POST /table` | Create a table |
 | `PATCH /table/:table` | Rename it, change its label, description or settings |
+| `POST /table/:table/sync` | Sync a table that has a `source` from its spreadsheet now |
 | `DELETE /table/:table` | Drop it. Send `{ "confirmName": "<table>" }` |
 | `POST /table/:table/column` | Add a column |
 | `PATCH /table/:table/column/:column` | Rename or change a column, including its type |
 | `DELETE /table/:table/column/:column` | Drop a column |
 | `GET /change` | The log of these changes: who, what, when |
+
+A table's `source` (`{ "uri", "sheet", "key" }`) keeps its rows in step with a
+spreadsheet or CSV in Resources, and makes them read-only to every other
+writer; `{ "source": null }` stops it. See
+[Sync a table from a spreadsheet](/docs/data/sheet-sync/).
 
 Changing a column's type checks every value first. If any value doesn't fit, the
 change is refused and the answer lists the first 10 rows that don't. Dropping a

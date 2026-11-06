@@ -22,6 +22,7 @@ const SOURCES = [
   new URL('apps/api/src/controllers/artifact/data.ts', root),
   new URL('apps/api/src/utils/dataDatabase.ts', root),
   new URL('apps/api/src/utils/dataTriggers.ts', root),
+  new URL('apps/api/src/utils/dataSheetSync.ts', root),
   new URL('packages/db/src/lib/channels.ts', root)
 ];
 const ERROR_CLASSES = new Set(['DataError', 'ChannelSendError']);
@@ -253,5 +254,26 @@ test('unknown messages and other languages stay as they are', () => {
   assert.equal(
     localizeDataError('"webhook" must use https.', 'en'),
     '"webhook" must use https.'
+  );
+});
+
+test("a sheet sync's refusals read in Spanish, line by line", () => {
+  assert.equal(
+    localizeDataError(
+      'Line 3: sku "P1" is already on line 2; each line of the sheet needs its own key.',
+      'es'
+    ),
+    'Línea 3: sku "P1" ya está en la línea 2; cada línea de la hoja necesita su propia clave.'
+  );
+  assert.equal(
+    localizeDataError('Line 4: menu.price is required.', 'es'),
+    'Línea 4: menu.price es obligatorio.'
+  );
+  assert.equal(
+    localizeDataError(
+      'menu is synced from "Menú.xlsx"; change the sheet, or stop syncing it.',
+      'es'
+    ),
+    'menu se sincroniza desde "Menú.xlsx"; cambia la hoja, o deja de sincronizarla.'
   );
 });

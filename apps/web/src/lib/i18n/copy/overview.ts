@@ -108,6 +108,13 @@ const en = {
   /** How many times the same error happened. */
   errorTimes: '{count}×',
 
+  sheetSyncsTitle: 'Tables synced from a spreadsheet',
+  /** `{file}` is the spreadsheet's name. */
+  sheetSyncLine: '{table}, from {file}',
+  /** `{ago}` is how long ago, e.g. "5 minutes ago". */
+  sheetSyncOk: 'Synced {ago}',
+  sheetSyncFailed: 'Refused {ago}',
+  sheetSyncNever: 'Not synced yet',
   triggersTitle: 'Database triggers',
   triggersHelp:
     "Runs of this project's database triggers over the last {days} days. Click one to see its runs.",
@@ -275,6 +282,11 @@ export const OVERVIEW: Catalog<OverviewCopy> = {
     errorsEmpty: 'Sin errores en los últimos {days} días.',
     errorTimes: '{count}×',
 
+    sheetSyncsTitle: 'Tablas sincronizadas desde una hoja de cálculo',
+    sheetSyncLine: '{table}, desde {file}',
+    sheetSyncOk: 'Sincronizada {ago}',
+    sheetSyncFailed: 'Rechazada {ago}',
+    sheetSyncNever: 'Aún no se ha sincronizado',
     triggersTitle: 'Disparadores de la base de datos',
     triggersHelp:
       'Ejecuciones de los disparadores de la base de datos del proyecto en los últimos {days} días. Haz clic en uno para ver sus ejecuciones.',

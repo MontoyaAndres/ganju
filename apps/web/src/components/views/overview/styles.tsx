@@ -616,6 +616,12 @@ export const HealthCard = styled.div`
       padding: 0 18px;
     }
 
+    .health-sync-error {
+      display: block;
+      margin-top: 2px;
+      color: ${theme.colors.thunderbird};
+    }
+
     .health-table {
       width: 100%;
       min-width: 640px;

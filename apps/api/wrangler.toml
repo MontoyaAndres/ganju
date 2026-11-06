@@ -64,6 +64,11 @@ name = "TRIGGER_TEST_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1006"
 simple = { limit = 5, period = 60 }
+[[env.development.unsafe.bindings]]
+name = "SHEET_SYNC_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 5, period = 60 }
 [[env.development.services]]
 binding = "MCP"
 service = "ganju-mcp-development"
@@ -245,6 +250,11 @@ simple = { limit = 120, period = 60 }
 name = "TRIGGER_TEST_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1006"
+simple = { limit = 5, period = 60 }
+[[env.production.unsafe.bindings]]
+name = "SHEET_SYNC_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1007"
 simple = { limit = 5, period = 60 }
 [[env.production.services]]
 binding = "MCP"

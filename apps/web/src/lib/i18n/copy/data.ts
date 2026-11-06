@@ -242,6 +242,50 @@ const en = {
   toastTableSaved: 'Table saved',
   toastSaveTableFailed: 'The table could not be saved',
 
+  // A table synced from a spreadsheet or CSV in Resources.
+  sourceTitle: 'Source: spreadsheet',
+  sourceHelp:
+    'Keep this table in step with a spreadsheet or CSV in Resources, such as a Google Sheet imported from Drive. The sheet wins: rows are matched by a key column, new lines are added, changed ones updated and missing ones deleted. While it syncs, rows change only in the sheet; columns can still be changed here.',
+  sourceNone: 'Not synced from a spreadsheet.',
+  sourceSet: 'Sync from a spreadsheet',
+  sourceFile: 'File',
+  sourceFileHelp: 'A spreadsheet or CSV in Resources.',
+  sourcePickEmpty: 'No spreadsheet or CSV in Resources matches.',
+  sourceSheet: 'Sheet',
+  sourceSheetHelp: 'Leave it empty for the first sheet.',
+  sourceFirstSheet: 'The first sheet',
+  sourceKey: 'Key column',
+  sourceKeyHelp:
+    'A unique column that names the same row in the sheet and here, such as a SKU or a name.',
+  sourceNoKey: 'Make a column unique first: the sync matches rows by it.',
+  sourceWarning:
+    "The first sync makes the rows what the sheet says: rows whose key isn't in the sheet are deleted. Changes in the sheet can fire this table's triggers.",
+  sourceSave: 'Start syncing',
+  sourceChange: 'Change',
+  sourceStop: 'Stop syncing',
+  /** `{table}` is the table's name. */
+  sourceStopTitle: 'Stop syncing {table}?',
+  sourceStopText:
+    'The rows stay as they are and can be edited again. The sheet is no longer read.',
+  sourceLastSync: 'Last sync',
+  /** `{ago}` is how long ago, e.g. "5 minutes ago". */
+  sourceLastSyncOk:
+    '{ago} · added: {inserted}, updated: {updated}, deleted: {deleted}',
+  /** `{file}` is the spreadsheet's name. */
+  syncedFrom: 'Synced from {file}',
+  syncedAgo: 'synced {ago}',
+  syncRefusedAgo: 'last sync refused {ago}',
+  syncNever: 'not synced yet',
+  syncRunning: 'Syncing…',
+  syncRowsReadOnly:
+    "Rows change only in the sheet; edit it there, or stop syncing in the table's schema.",
+  syncNow: 'Sync now',
+  toastSyncQueued: 'Sync started',
+  toastSyncFailed: 'The sync could not be started',
+  toastSourceSaved: 'Syncing from the spreadsheet',
+  toastSourceStopped: 'No longer synced',
+  toastSourceFailed: 'The source could not be saved',
+
   relationsTitle: 'Relations',
   noRelations: 'No relations to or from this table.',
   relationOut: '{column} points at {table}',
@@ -893,6 +937,47 @@ export const DATA: Catalog<DataCopy> = {
     historyHelp: 'Quién cambió cada fila y cuándo, durante 90 días.',
     toastTableSaved: 'Tabla guardada',
     toastSaveTableFailed: 'No pudimos guardar la tabla',
+
+    sourceTitle: 'Origen: hoja de cálculo',
+    sourceHelp:
+      'Mantén esta tabla al día con una hoja de cálculo o un CSV de Recursos, como una hoja de Google importada desde Drive. Manda la hoja: las filas se emparejan por una columna clave, las líneas nuevas se agregan, las que cambian se actualizan y las que faltan se eliminan. Mientras se sincroniza, las filas solo cambian en la hoja; las columnas se pueden seguir cambiando aquí.',
+    sourceNone: 'No se sincroniza desde una hoja de cálculo.',
+    sourceSet: 'Sincronizar desde una hoja de cálculo',
+    sourceFile: 'Archivo',
+    sourceFileHelp: 'Una hoja de cálculo o un CSV de Recursos.',
+    sourcePickEmpty: 'Ninguna hoja de cálculo ni CSV de Recursos coincide.',
+    sourceSheet: 'Hoja',
+    sourceSheetHelp: 'Déjalo vacío para usar la primera hoja.',
+    sourceFirstSheet: 'La primera hoja',
+    sourceKey: 'Columna clave',
+    sourceKeyHelp:
+      'Una columna única que identifica la misma fila en la hoja y aquí, como un SKU o un nombre.',
+    sourceNoKey:
+      'Primero haz única una columna: la sincronización empareja las filas por ella.',
+    sourceWarning:
+      'La primera sincronización deja las filas como dice la hoja: se eliminan las filas cuya clave no está en la hoja. Los cambios en la hoja pueden disparar los disparadores de esta tabla.',
+    sourceSave: 'Empezar a sincronizar',
+    sourceChange: 'Cambiar',
+    sourceStop: 'Dejar de sincronizar',
+    sourceStopTitle: '¿Dejar de sincronizar {table}?',
+    sourceStopText:
+      'Las filas quedan como están y se pueden volver a editar. La hoja ya no se lee.',
+    sourceLastSync: 'Última sincronización',
+    sourceLastSyncOk:
+      '{ago} · agregadas: {inserted}, actualizadas: {updated}, eliminadas: {deleted}',
+    syncedFrom: 'Sincronizada desde {file}',
+    syncedAgo: 'sincronizada {ago}',
+    syncRefusedAgo: 'la última sincronización se rechazó {ago}',
+    syncNever: 'aún no se ha sincronizado',
+    syncRunning: 'Sincronizando…',
+    syncRowsReadOnly:
+      'Las filas solo cambian en la hoja; edítala allí, o deja de sincronizar desde el esquema de la tabla.',
+    syncNow: 'Sincronizar ahora',
+    toastSyncQueued: 'Sincronización iniciada',
+    toastSyncFailed: 'No pudimos iniciar la sincronización',
+    toastSourceSaved: 'Sincronizando desde la hoja de cálculo',
+    toastSourceStopped: 'Ya no se sincroniza',
+    toastSourceFailed: 'No pudimos guardar el origen',
 
     relationsTitle: 'Relaciones',
     noRelations: 'Ninguna relación desde ni hacia esta tabla.',
