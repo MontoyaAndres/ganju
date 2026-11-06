@@ -1,21 +1,27 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 
 import type { DataTable } from '@ganju/utils/data';
 import {
   DATA_IMPORT_BATCH,
+  DATA_IMPORT_ROW_LEVEL_CODES as ROW_LEVEL_CODES,
   csvLine,
   detectDecimalMark,
   importRows,
   matchHeaders,
   relationKey,
+  replaceOperations,
+  replaceTestWrite,
+  singleOutReplaceRows,
+  withoutWriteStep as withoutStep,
   type DecimalMark,
   type ImportRow,
+  type ImportWriteResult,
   type ImportedRow,
   type RelationLookup
 } from '@ganju/utils/dataImport';
 
-import { parseCsv } from '../../data/csv.js';
+import { readImportFile, type ReadFile } from '../../data/importFile.js';
 import { applyHeaderMap } from '../../data/headerMap.js';
 import type { DataApi } from '../../data/routes.js';
 import { CliError, isApiError } from '../../errors.js';
@@ -34,7 +40,6 @@ import {
   findTable,
   listTables,
   noteUndo,
-  parseJsonOrLines,
   type DataOptions
 } from './shared.js';
 
@@ -50,79 +55,11 @@ import {
  * itself and not its 499 neighbours.
  */
 
-// Refusals caused by a row in the batch, which splitting finds. Anything
-// else, or no answer at all, stops the import: splitting would only repeat
-// it, and a batch whose answer was lost may already be saved.
-const ROW_LEVEL_CODES = new Set([
-  'invalid',
-  'constraint',
-  'guard',
-  'conflict',
-  'too_large'
-]);
 // Up to this many rows, in the table and in the file, a replace is one write:
 // the old rows go only if the new ones all land.
 const ATOMIC_REPLACE_ROWS = 5000;
 // Up to this many rows, a related table is read whole to match names.
 const RELATION_READ_ALL = 2000;
-
-// "Operation 2 (insert menu): Row 4: " in front of an error from one step.
-const withoutStep = (error: string) =>
-  error.replace(/^Operation \d+ \([^)]*\): (Row \d+: )?/, '');
-
-interface ReadFile {
-  headers: string[];
-  rows: ImportRow[];
-  lines: number[];
-}
-
-const cellOf = (value: unknown): ImportRow[number] => {
-  if (value === null || value === undefined) return null;
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  )
-    return value;
-  return JSON.stringify(value);
-};
-
-const readImportFile = async (path: string): Promise<ReadFile> => {
-  const extension = extname(path).toLowerCase();
-  if (extension === '.xlsx' || extension === '.xls') {
-    throw new CliError(`${basename(path)} is a spreadsheet`, {
-      hint: 'Save it as CSV first (File → Save as → CSV), or import it from the dashboard, which reads .xlsx.'
-    });
-  }
-  const text = await readFile(path, 'utf8').catch(() => {
-    throw new CliError(`Cannot read ${path}`);
-  });
-  if (
-    extension === '.jsonl' ||
-    extension === '.ndjson' ||
-    extension === '.json'
-  ) {
-    const parsed = parseJsonOrLines(text, path);
-    const list = Array.isArray(parsed) ? parsed : [parsed];
-    const headers: string[] = [];
-    for (const item of list) {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) {
-        throw new CliError(`${basename(path)}: every line is an object`);
-      }
-      for (const key of Object.keys(item))
-        if (!headers.includes(key)) headers.push(key);
-    }
-    return {
-      headers,
-      rows: list.map(item =>
-        headers.map(h => cellOf((item as Record<string, unknown>)[h]))
-      ),
-      lines: list.map((_, i) => i + 1)
-    };
-  }
-  const csv = parseCsv(text, extension === '.tsv' ? '\t' : undefined);
-  return { headers: csv.headers, rows: csv.rows, lines: csv.lines };
-};
 
 /**
  * For each relation column the file fills, the referenced rows by their
@@ -259,7 +196,7 @@ export const importFile = async (
   options: DataOptions
 ) => {
   const usage =
-    'ganju data import <table> <file.csv|.jsonl> [--replace --yes --confirm <table>]';
+    'ganju data import <table> <file.csv|.xlsx|.jsonl> [--sheet <name>] [--replace --yes --confirm <table>]';
   if (!name || !file)
     throw new CliError(name ? 'Which file?' : 'Which table?', { hint: usage });
   let decimalMark: DecimalMark | undefined;
@@ -272,7 +209,7 @@ export const importFile = async (
     decimalMark = options.decimalMark;
   }
 
-  const parsed = await readImportFile(file);
+  const parsed = await readImportFile(file, options.sheet);
   if (!parsed.rows.length) throw new CliError(`${basename(file)} has no rows`);
   const { data } = await dataContext();
   const tables = await listTables(data);
@@ -369,26 +306,36 @@ export const importFile = async (
       try {
         await data.request('write', {
           json: {
-            operations: [
-              ...(existing > 0
-                ? [{ op: 'delete', table: name, where: { id: { gte: 1 } } }]
-                : []),
-              ...chunk(ready, DATA_IMPORT_BATCH).map(part => ({
-                op: 'insert',
-                table: name,
-                rows: part.map(r => r.values)
-              }))
-            ]
+            operations: replaceOperations(
+              name,
+              existing,
+              ready.map(r => r.values)
+            )
           }
         });
         inserted = ready.length;
       } catch (error) {
         if (isApiError(error) && error.code) {
+          // Refused as a whole: the old rows are all still there. Unless the
+          // delete of the old rows is what failed, find the rows to blame.
+          const blocking =
+            ROW_LEVEL_CODES.has(error.code) &&
+            !(existing > 0 && error.details?.operation === 0)
+              ? await singleOut(data, target, existing, ready)
+              : null;
+          if (blocking?.length) {
+            return reportWholeFile(
+              name,
+              file,
+              parsed,
+              [...refused, ...blocking.map(b => refusedOf(b.row, b.error))],
+              blocking.length,
+              options
+            );
+          }
           throw new CliError(
             `Refused as a whole, so ${name} is unchanged: ${withoutStep(error.message)}`,
-            {
-              hint: 'Fix that row and import again; the dashboard can single out every row to blame.'
-            }
+            { hint: 'Fix that row and import again.' }
           );
         }
         noteUndo(undo, 'it');
@@ -480,6 +427,94 @@ export const importFile = async (
     parsed.headers,
     options
   );
+};
+
+// A write's answer in the shape the shared test-write reading expects.
+const writeResult = async (
+  data: DataApi,
+  operations: Record<string, unknown>[]
+): Promise<ImportWriteResult> => {
+  try {
+    await data.request('write', { json: { operations } });
+    return { ok: true };
+  } catch (error) {
+    if (!isApiError(error)) return { ok: false };
+    return {
+      ok: false,
+      code: error.code,
+      error: error.message,
+      details: error.details
+    };
+  }
+};
+
+// The rows a refused replace stumbles on, found with writes that can't
+// commit. Null when the delete of the old rows started failing: then no row
+// can be blamed.
+const singleOut = async (
+  data: DataApi,
+  target: DataTable,
+  existing: number,
+  ready: ImportedRow[]
+) => {
+  if (!ready.length) return null;
+  step('the replace was refused; finding the rows behind it');
+  return singleOutReplaceRows(ready, async part => {
+    const test = replaceTestWrite(
+      target,
+      existing,
+      part.map(row => row.values)
+    );
+    return test.answer(await writeResult(data, test.operations));
+  });
+};
+
+// A replace that rows of the file stop: nothing changed, and the whole file
+// is written back with each problem beside its row, to fix and import again.
+const reportWholeFile = async (
+  name: string,
+  file: string,
+  parsed: ReadFile,
+  refused: Refused[],
+  blocking: number,
+  options: DataOptions
+) => {
+  refused.sort((a, b) => a.line - b.line);
+  const errorOf = new Map(refused.map(r => [r.line, r.error]));
+  const stem = basename(file, extname(file));
+  const markedPath = resolve(
+    options.out ?? join(dirname(file), `${stem}.marked.csv`)
+  );
+  const lines = [
+    csvLine([...parsed.headers, 'error']),
+    ...parsed.rows.map((cells, i) =>
+      csvLine([...cells, errorOf.get(parsed.lines[i]) ?? ''])
+    )
+  ];
+  await writeFile(markedPath, `${lines.join('\r\n')}\r\n`);
+  if (options.json) {
+    printJson({
+      table: name,
+      inserted: 0,
+      refused: refused.map(r => ({ line: r.line, error: r.error })),
+      markedFile: markedPath,
+      stopped: null,
+      undoBookmark: null
+    });
+  } else {
+    warn(
+      `nothing was changed: ${blocking} row${blocking === 1 ? '' : 's'} ${blocking === 1 ? 'stops' : 'stop'} the replace`
+    );
+    for (const r of refused.slice(0, 10)) note(`  line ${r.line}: ${r.error}`);
+    if (refused.length > 10)
+      note(color.gray(`  …and ${refused.length - 10} more`));
+    note(
+      color.gray(
+        `  the whole file, with each problem beside its row, is in ${markedPath} — fix it and import it again`
+      )
+    );
+  }
+  process.exitCode = 1;
 };
 
 const report = async (

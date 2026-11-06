@@ -248,8 +248,9 @@ ganju data insert menu --input-file menu.jsonl
 ganju data update menu 12 --input '{"stock":{"decrement":2}}' --version 3
 ganju data delete orders 7 --yes
 
-# Un archivo CSV o JSONL, emparejado con las columnas igual que en el panel
+# Un archivo CSV, Excel o JSONL, emparejado con las columnas igual que en el panel
 ganju data import menu menu.csv
+ganju data import menu menu.xlsx --sheet Menu
 ganju data import menu menu.csv --map 'Precio (COP)=price'
 ganju data import menu menu.csv --replace --yes --confirm menu
 ```
@@ -266,6 +267,8 @@ directamente el JSON de `where`.
 una relación `restrict` lo impide. `import` lee números como "28.000", reconoce
 las relaciones por el nombre que muestra la otra tabla y deja las filas
 rechazadas, con el motivo, en un CSV que puedes corregir e importar de nuevo.
+Un `--replace` rechazado completo no cambia nada y devuelve el archivo entero
+con cada fila culpable marcada.
 
 ### El esquema como código
 

@@ -71,8 +71,8 @@ ${color.bold('Rows')}
   ganju data delete <table> <id>... [--yes]
   ganju data history <table> <id>
   ganju data write --input-file ops.json     several writes, all or nothing
-  ganju data import <table> <file.csv|.jsonl> [--map 'Header=column']
-                          [--replace --yes --confirm <table>]
+  ganju data import <table> <file.csv|.xlsx|.jsonl> [--map 'Header=column']
+                          [--sheet <name>] [--replace --yes --confirm <table>]
 
 ${color.bold('Named queries')} (a SELECT saved once, run by name)
   ganju data queries                         the saved queries and what they read

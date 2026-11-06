@@ -1,6 +1,6 @@
 {
   "name": "@ganju/cli",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "Write, deploy and debug Ganju custom tools from the terminal",
   "license": "Apache-2.0",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
@@ -48,6 +48,7 @@
     "@ganju/tsconfig": "*",
     "@types/node": "^22.10.2",
     "typescript": "^6.0.3",
-    "@ganju/utils": "*"
+    "@ganju/utils": "*",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

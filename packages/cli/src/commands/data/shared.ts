@@ -3,10 +3,13 @@ import { readFile } from 'node:fs/promises';
 import type { DataTable, DataTableCopy } from '@ganju/utils/data';
 
 import { commandContext, type CommandContext } from '../../context.js';
+import { parseJson, parseJsonOrLines } from '../../data/json.js';
 import { DataApi } from '../../data/routes.js';
 import { CliError } from '../../errors.js';
 import { color, note, step, success, warn } from '../../output.js';
 import { ask, confirm } from '../../prompt.js';
+
+export { parseJsonOrLines };
 
 /** Every flag a `ganju data` command reads. */
 export interface DataOptions {
@@ -33,6 +36,7 @@ export interface DataOptions {
   wait?: boolean;
   decimalMark?: string;
   map?: string[];
+  sheet?: string;
   clear?: boolean;
 }
 
@@ -216,16 +220,6 @@ export const formatCell = (value: unknown, max = 60): string => {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 };
 
-const parseJson = (text: string, source: string): unknown => {
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new CliError(`${source} is not valid JSON`, {
-      hint: error instanceof Error ? error.message : undefined
-    });
-  }
-};
-
 /**
  * `--input '<json>'` or `--input-file <path>`. A `.jsonl` file (or any file
  * whose lines are each an object) is a list, one line per item.
@@ -242,21 +236,6 @@ export const readInput = async (
     return parseJsonOrLines(text, options.inputFile);
   }
   throw new CliError('Nothing to send', { hint: example });
-};
-
-export const parseJsonOrLines = (text: string, source: string): unknown => {
-  const trimmed = text.trim();
-  if (
-    /\.(jsonl|ndjson)$/i.test(source) ||
-    (trimmed.startsWith('{') && /\}\s*\n\s*\{/.test(trimmed))
-  ) {
-    return trimmed
-      .split(/\r?\n/)
-      .map((line, index) => ({ line: line.trim(), index }))
-      .filter(({ line }) => line)
-      .map(({ line, index }) => parseJson(line, `${source} line ${index + 1}`));
-  }
-  return parseJson(trimmed, source);
 };
 
 export const parseRowId = (

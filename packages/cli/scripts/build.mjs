@@ -14,10 +14,15 @@
 // module that imports nothing — and `@ganju/utils/toolLint`, which imports
 // nothing either. Importing the main constants module instead would inline the
 // whole object literal here, since a bundler cannot tree-shake one.
+//
+// SheetJS (`xlsx`, for importing spreadsheets) is bundled too, but into its own
+// chunk beside index.js: it is loaded only when a spreadsheet is imported, so
+// every other command starts without parsing it.
 import { build } from 'esbuild';
 import { chmod, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
+const outdir = fileURLToPath(new URL('../dist', import.meta.url));
 const out = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 
 // The version `ganju --version` prints, read from the manifest rather than
@@ -30,7 +35,10 @@ const { version } = JSON.parse(
 
 const result = await build({
   entryPoints: [fileURLToPath(new URL('../src/index.ts', import.meta.url))],
-  outfile: out,
+  outdir,
+  entryNames: '[name]',
+  chunkNames: 'chunks/[name]-[hash]',
+  splitting: true,
   bundle: true,
   format: 'esm',
   platform: 'node',
@@ -54,6 +62,13 @@ const carried = Object.keys(result.metafile.inputs).filter(
 );
 
 console.log(`  dist/index.js  ${(bytes / 1024).toFixed(1)}KB`);
+for (const [file, output] of Object.entries(result.metafile.outputs)) {
+  if (file.includes('/chunks/')) {
+    console.log(
+      `  ${file.slice(file.indexOf('dist/'))}  ${(output.bytes / 1024).toFixed(1)}KB`
+    );
+  }
+}
 console.log(
   `  carried in:    ${carried.length ? carried.join(', ') : 'nothing beyond src/'}`
 );

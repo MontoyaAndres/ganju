@@ -12,6 +12,11 @@ import {
   matchHeaders,
   parseNumber,
   relationKey,
+  replaceOperations,
+  replaceTestWrite,
+  singleOutReplaceRows,
+  withoutWriteStep,
+  DATA_IMPORT_ROW_LEVEL_CODES as ROW_LEVEL_CODES,
   type DecimalMark,
   type ImportCell,
   type ImportRow,
@@ -57,19 +62,10 @@ import type {
 const PREVIEW_ROWS = 20;
 // Up to this many rows, a related table is read whole to match names.
 const RELATION_READ_ALL = 2000;
-// Refusals caused by a row in the batch: splitting the batch finds it. Any
-// other answer, or none (a dropped connection, a 5xx), stops the import;
-// splitting would only repeat it, and a batch whose answer was lost may
-// already be saved.
-const ROW_LEVEL_CODES = new Set(['invalid', 'constraint', 'guard', 'conflict', 'too_large']);
 // Up to this many rows, both in the table and in the file, "Replace all
 // rows" is one write: the old rows go only if the new ones all land.
 const ATOMIC_REPLACE_ROWS = DATA_MAX_ROWS_PER_WRITE;
 
-// An error from one step of a write, without the engine's "Operation 2
-// (insert menu): Row 4: " in front.
-const withoutStep = (error: string) =>
-  error.replace(/^Operation \d+ \([^)]*\): (Row \d+: )?/, '');
 
 const chunk = <T,>(list: T[], size: number) => {
   const out: T[][] = [];
@@ -136,10 +132,6 @@ interface Refused {
   error: string;
 }
 
-// When a replace is refused as a whole, the rows behind it are found with
-// writes that can't commit; this many at most, in this many requests.
-const MAX_SINGLED_OUT = 20;
-const MAX_DRY_RUNS = 60;
 // Values with no match listed for the owner to pick a row for; past this,
 // fixing the file is quicker.
 const UNMATCHED_SHOWN = 30;
@@ -624,107 +616,23 @@ export const ImportDialog = ({
     onDone(name);
   };
 
-  // Every old row out and the file's rows in, as one write.
-  const replaceOperations = (
-    name: string,
-    existing: number,
-    batch: ImportedRow[]
-  ) => [
-    ...(existing > 0
-      ? [{ op: 'delete', table: name, where: { id: { gte: 1 } } }]
-      : []),
-    ...chunk(batch, DATA_IMPORT_BATCH).map(part => ({
-      op: 'insert',
-      table: name,
-      rows: part.map(row => row.values)
-    }))
-  ];
-
-  // A refusal at the replace's first step, deleting the old rows (rows
-  // elsewhere still point at them): no row of the file is to blame.
-  const failedDeleting = (
-    result: { details?: Record<string, unknown> },
-    existing: number
-  ) => existing > 0 && result.details?.operation === 0;
-
-  // The old rows only matter to the new ones through a unique column (a
-  // file value an old row already holds) or a relation to the table itself
-  // (a file row pointing at an old one). Without either, a test write skips
-  // the delete, so it doesn't delete and re-insert the whole table each time.
-  const oldRowsMatter = !!table?.columns.some(
-    column =>
-      column.unique ||
-      (column.type === 'relation' && column.table === table.name)
-  );
-
-  // The replace with only `batch`, followed by a step that matches no row
-  // but expects one: the write always rolls back. 'ok' when the refusal is
-  // that last step's, so everything before it would have been taken;
-  // 'delete' when it is the delete's, which no half of the file changes.
-  const dryRun = async (
-    name: string,
-    existing: number,
-    batch: ImportedRow[]
-  ): Promise<'ok' | 'stop' | 'delete' | { error: string }> => {
-    const deleting = oldRowsMatter ? existing : 0;
-    const operations = [
-      ...replaceOperations(name, deleting, batch),
-      { op: 'delete', table: name, where: { id: { lt: 0 } }, expect: 1 }
-    ];
-    const result = await dataRequest(base, '/write', {
-      method: 'POST',
-      body: { operations }
-    });
-    if (result.ok) return 'stop';
-    if (failedDeleting(result, deleting)) return 'delete';
-    if (
-      result.code === 'guard' &&
-      result.details?.operation === operations.length - 1
-    ) {
-      return 'ok';
-    }
-    if (!result.code || !ROW_LEVEL_CODES.has(result.code)) return 'stop';
-    return { error: withoutStep(result.error) };
-  };
-
-  // The rows a refused replace stumbles on, halving the file until each is
-  // alone. Two rows that only fail together are not found. Null when the
-  // delete step started failing meanwhile: then no row can be blamed.
+  // The rows a refused replace stumbles on, found with writes that can't
+  // commit (see singleOutReplaceRows). Null when the delete of the old rows
+  // is what fails: then no row can be blamed.
   const singleOut = async (
-    name: string,
+    target: DataTable,
     existing: number,
     list: ImportedRow[]
   ): Promise<Refused[] | null> => {
-    const found: Refused[] = [];
-    let requests = 0;
-    let deleteFailed = false;
-    const search = async (part: ImportedRow[]): Promise<void> => {
-      if (
-        deleteFailed ||
-        found.length >= MAX_SINGLED_OUT ||
-        requests >= MAX_DRY_RUNS
-      ) {
-        return;
-      }
-      requests++;
-      const answer = await dryRun(name, existing, part);
-      if (answer === 'delete') {
-        deleteFailed = true;
-        return;
-      }
-      if (answer === 'ok' || answer === 'stop') return;
-      if (part.length === 1) {
-        found.push(refusedOf(part[0], answer.error));
-        return;
-      }
-      const middle = Math.ceil(part.length / 2);
-      await search(part.slice(0, middle));
-      await search(part.slice(middle));
-    };
-    const middle = Math.ceil(list.length / 2);
-    await search(list.slice(0, middle));
-    await search(list.slice(middle));
-    return deleteFailed ? null : found;
+    const found = await singleOutReplaceRows(list, async part => {
+      const test = replaceTestWrite(target, existing, part.map(row => row.values));
+      const result = await dataRequest(base, '/write', {
+        method: 'POST',
+        body: { operations: test.operations }
+      });
+      return test.answer(result);
+    });
+    return found && found.map(({ row, error }) => refusedOf(row, error));
   };
 
   const handleImport = async () => {
@@ -793,7 +701,9 @@ export const ImportDialog = ({
       ) {
         const result = await dataRequest(base, '/write', {
           method: 'POST',
-          body: { operations: replaceOperations(name, existing, ready) }
+          body: {
+            operations: replaceOperations(name, existing, ready.map(row => row.values))
+          }
         });
         if (result.ok) {
           setProgress({ done: ready.length, total: ready.length });
@@ -805,11 +715,13 @@ export const ImportDialog = ({
           // Refused as a whole: the old rows are all still there.
           let blocking: Refused[] | null = [];
           if (
+            table &&
             ROW_LEVEL_CODES.has(result.code) &&
-            !failedDeleting(result, existing)
+            // Refused deleting the old rows: no row of the file is to blame.
+            !(existing > 0 && result.details?.operation === 0)
           ) {
             setSinglingOut(true);
-            blocking = await singleOut(name, existing, ready);
+            blocking = await singleOut(table, existing, ready);
             setSinglingOut(false);
           }
           if (blocking?.length) {
@@ -824,7 +736,7 @@ export const ImportDialog = ({
           }
           setError(
             t('importReplaceUnchanged', {
-              error: withoutStep(result.error) || t('importFailed')
+              error: withoutWriteStep(result.error) || t('importFailed')
             })
           );
           setPhase('setup');

@@ -506,7 +506,8 @@ Phase 1 doesn't depend on the rest.
 
 Status: phases 0–7 (with 5b, 5c, 7b, 7c and 7d) done 2026-11-06, on dev and
 production. Data is measured, not billed yet (see `docs/PRICING.md` "Still
-open"). Next: phase 8 only when asked for.
+open"; measured until real clients use it). Phase 8 waits until the next
+tasks are chosen.
 
 Knowledge (resources) answers "what does the document say". It is the wrong
 shape for data that has rows, types and relationships: a menu with prices
@@ -2043,11 +2044,25 @@ command-line section, deployed.
     - the Free plan's 402, and the read-only 403 after a downgrade;
     - point-in-time restore;
     - the prompts, through a pseudo-terminal.
-- **Left:**
+- **Left (both done 2026-11-06, in code, for the next CLI version):**
   - A replace refused as a whole doesn't single out every row to blame, as
     the dashboard does; it reports the error and that nothing changed.
+    **Done:** the halving search with writes that can't commit moved into
+    `@ganju/utils/dataImport` (`replaceTestWrite`, `singleOutReplaceRows`)
+    and both the dashboard and the CLI use it; the CLI writes the whole file
+    to `<file>.marked.csv` with each problem beside its row.
   - `.xlsx` is refused with a hint to save as CSV, since a parser would be
-    the CLI's first dependency for it.
+    the CLI's first dependency for it. **Done:** `.xlsx`, `.xlsm`, `.xls` and
+    `.ods` are read with the shared `readSheet`, `--sheet <name>` picks a
+    sheet. SheetJS 0.20.3 is a devDependency bundled into its own chunk
+    (`dist/chunks/xlsx-*.js`, about 970 KB) that loads only for a
+    spreadsheet, so the CLI still has no runtime dependency for it; NOTICE
+    names it. Checked on dev with the built CLI (qa-timecap, `qa_import` and
+    `qa_import_cats` left in place): an `.xlsx` import matched relations by
+    name; a replace from the second sheet with two missing relation ids and
+    one row without a sku changed nothing, found both server-refused rows
+    (lines 3 and 5) beside the CLI's own (line 4), wrote the marked file and
+    exited 1. utils 280 (3 new), cli 46 (3 new).
   - The drop-cycle fix, the text-column `--where` and the 401 message naming
     its API are after 0.0.11, so they go out with the next CLI version.
     **Done:** in 0.0.19. 7c's schedule in `deploy` and 7d's `source`,
@@ -2729,8 +2744,9 @@ and use templates from the WhatsApp channel's settings.
   976522698377111, and the templates tab loaded. The account ID is on the
   app's WhatsApp → Step 2: Production setup → Register your phone number
   ("Messaging Account ID"), not on Step 1, which shows the test number's.
-- **Left to close 5c, on dev, each with a fresh token pasted in the channel's
-  Message templates tab:**
+- **5c closed (2026-11-06, the owner): it worked.** The checks below were
+  the ones left to close it, on dev, each with a fresh token pasted in the
+  channel's Message templates tab:
   - create a Utility template from the dashboard form and see it go from
     pending to approved (by webhook or Refresh);
     - `qa_pedido_listo_1105` (Utility, es) was created from the form on
@@ -2912,7 +2928,7 @@ probes. The index-advice check passed on dev and prod on 2026-11-06.**
     (2026-11-06).
   - **Seen, not fixed:** Tool health's "Errores más comunes" shows errors
     that carry details with the raw `<untrusted_content id=…>` wrapper.
-    **Fixed in code (2026-11-06), not deployed:** the marks are dropped
+    **Fixed (2026-11-06, on dev and production):** the marks are dropped
     before grouping (`UNTRUSTED_CONTENT_MARK_PATTERN` in the SQL) and in the
     calls lists and call detail (`stripUntrustedMarks`); two wrapped errors
     checked to fold into one row on Postgres 17.
@@ -3416,9 +3432,16 @@ change can't start, because nothing changes.
   values shifted by the machine's offset; the stored values are UTC.
 - **Deployed to production (2026-11-06):** the API's description there has
   time triggers and the shared daily cap, 42 routes. Not checked by hand on
-  production (that needs writes to it). Nowhere checked by hand: the daily
+  production then (that needs writes to it; done since, below). Nowhere checked by hand then: the daily
   cap's turn-off and email, and the pause turn-off (they need 2,000 events
   or a plan change).
+- **Checked on production (2026-11-06, Girardot - demos / test,
+  `qa_time_orders` and its trigger `qa-still-pending` left in place):** row #1
+  (pending) created at 21:52:25, the trigger (5 minutes after `created_at`,
+  `status equals pending`, email to the owner) saved at 21:58:29; rows #2
+  and #3 at 21:58:31, #3 set to ready at once. #2 fired once at 22:08:35
+  (`time`, ok); #1 (already due when saved) and #3 never; the 22:13 scan
+  added nothing.
 - **Turn-offs checked on dev (2026-11-06, throwaway org `qa-timecap`
   `01a1b287-8e90-731f-b600-aadf64c28832`, left in place):** a function
   `qa-noop` that only returns ok; plans moved with `set-org-plan.mjs`.
@@ -3430,14 +3453,23 @@ change can't start, because nothing changes.
     and 600 rows at 20:35. At the 21:01 scan `qa-cap-5` turned off with the
     cap's reason and a failed "Not run: …" run; at 21:04 the other four did
     the same. The cards read the reason in Spanish; its number now goes
-    through the reader's number format ("2.000", was "2,000"). The five
+    through the reader's number format ("2.000", was "2,000"; seen on dev
+    after the deploy). The five
     emails to the admins arrived.
-  - **Found and fixed in code, not deployed:** the scan that reached the cap
+  - **Found and fixed (deployed to dev and production 2026-11-06):** the scan
+    that reached the cap
     stored `qa-cap-5`'s last events (up to 98) and turned it off in the same
     transaction, so the queue skipped every one ("The trigger is off.") —
     counted and marked fired, never run. Now a trigger that fires some
     events before the cap stays on, resumes after them, and the next scan
     turns it off; utils 277 pass (the cap test changed), data 14.
+  - **The fix checked on dev (2026-11-06, project `qa-timecap-2` in the same
+    org, left in place):** three events from `qa-odd` first so the cap
+    lands mid-batch, then five 5-minute triggers on 600 rows (21:51). The
+    scan that reached 2,000 (about 22:16) stored `qa-cap-5`'s rows past 300
+    and kept it on; they ran ok at 22:19, none skipped. The next scan
+    (22:21) turned all five off, each with its "Not run: …" notice.
+- **Triggers tab help text** now names time triggers too (en / es), in code.
 
 **7d. Sync a table from a spreadsheet — M (about a week)**
 

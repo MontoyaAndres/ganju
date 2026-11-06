@@ -13,7 +13,11 @@ import {
   importRows,
   matchHeaders,
   parseNumber,
-  relationKey
+  relationKey,
+  replaceOperations,
+  replaceTestWrite,
+  singleOutReplaceRows,
+  DATA_REPLACE_MAX_DRY_RUNS
 } from '../src/dataImport.ts';
 import type { DataColumn, DataTable } from '../src/dataTypes.ts';
 
@@ -306,4 +310,50 @@ test('a value repeated in a unique column is flagged on its second line', () => 
 
 test('refused rows are written back as CSV', () => {
   assert.equal(csvLine(['a', 'b,c', 'say "hi"', null, 3]), 'a,"b,c","say ""hi""",,3');
+});
+
+test('a replace is the delete, then the rows 500 to an insert', () => {
+  const rows = Array.from({ length: 501 }, (_, i) => ({ n: i }));
+  const ops = replaceOperations('menu', 3, rows);
+  assert.deepEqual(ops[0], { op: 'delete', table: 'menu', where: { id: { gte: 1 } } });
+  assert.deepEqual(ops.slice(1).map(op => (op.rows as unknown[]).length), [500, 1]);
+  // Nothing to delete in an empty table.
+  assert.equal(replaceOperations('menu', 0, rows)[0].op, 'insert');
+});
+
+test('a test write always rolls back, and its answer says who refused', () => {
+  const plain = table([column('name', 'text')]);
+  const test = replaceTestWrite(plain, 10, [{ name: 'a' }]);
+  // No unique column: the old rows don't matter, so the delete is left out.
+  assert.equal(test.operations[0].op, 'insert');
+  const last = test.operations.length - 1;
+  assert.deepEqual(test.operations[last], { op: 'delete', table: 'menu', where: { id: { lt: 0 } }, expect: 1 });
+  assert.equal(test.answer({ ok: false, code: 'guard', details: { operation: last } }), 'ok');
+  assert.deepEqual(
+    test.answer({ ok: false, code: 'invalid', error: 'Operation 1 (insert menu): Row 1: name is required.', details: { operation: 0 } }),
+    { error: 'name is required.' }
+  );
+  assert.equal(test.answer({ ok: false, code: 'internal' }), 'stop');
+  assert.equal(test.answer({ ok: true }), 'stop');
+
+  const unique = table([column('sku', 'text', { unique: true })]);
+  const withDelete = replaceTestWrite(unique, 10, [{ sku: 'a' }]);
+  assert.equal(withDelete.operations[0].op, 'delete');
+  assert.equal(withDelete.answer({ ok: false, code: 'constraint', details: { operation: 0 } }), 'delete');
+});
+
+test('the rows that stop a replace are found by halving', async () => {
+  const rows = Array.from({ length: 40 }, (_, i) => i);
+  const bad = new Set([3, 17, 38]);
+  let calls = 0;
+  const found = await singleOutReplaceRows(rows, async part => {
+    calls++;
+    const hit = part.find(n => bad.has(n));
+    return hit === undefined ? 'ok' : { error: `row ${hit} is bad` };
+  });
+  assert.deepEqual(found?.map(f => f.row), [3, 17, 38]);
+  assert.deepEqual(found?.map(f => f.error), ['row 3 is bad', 'row 17 is bad', 'row 38 is bad']);
+  assert.ok(calls <= DATA_REPLACE_MAX_DRY_RUNS);
+  // The delete failing means no row can be blamed.
+  assert.equal(await singleOutReplaceRows(rows, async () => 'delete'), null);
 });

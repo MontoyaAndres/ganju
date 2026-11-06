@@ -243,8 +243,9 @@ ganju data insert menu --input-file menu.jsonl
 ganju data update menu 12 --input '{"stock":{"decrement":2}}' --version 3
 ganju data delete orders 7 --yes
 
-# A CSV or JSONL file, matched to the columns the way the dashboard does
+# A CSV, Excel or JSONL file, matched to the columns the way the dashboard does
 ganju data import menu menu.csv
+ganju data import menu menu.xlsx --sheet Menu
 ganju data import menu menu.csv --map 'Price (COP)=price'
 ganju data import menu menu.csv --replace --yes --confirm menu
 ```
@@ -259,7 +260,8 @@ conditions, or pass the JSON `where` itself.
 `delete` shows what a cascade would also remove, and refuses when a restrict
 blocks it. `import` reads numbers like "28.000", matches relations by the name
 the other table shows, and puts the rows it refused, with why, in a CSV you
-can fix and import again.
+can fix and import again. A `--replace` refused as a whole changes nothing and
+writes the whole file back with each row to blame marked.
 
 ### Schema as code
 

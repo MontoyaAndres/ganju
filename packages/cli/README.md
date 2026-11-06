@@ -144,10 +144,14 @@ fix and import again.
 `--confirm <table>`, shows what rows elsewhere point at the old ones (and stops
 if a restrict would block it), and takes a checkpoint first, printing the
 bookmark that undoes it. Up to 5,000 rows on both sides it is one write: the
-old rows go only if every new one lands.
+old rows go only if every new one lands. When that write is refused, the rows
+behind it are found with test writes that never commit (up to 20 of them), and
+the whole file is written to `<file>.marked.csv` with each problem beside its
+row; nothing in the table changed.
 
-A spreadsheet (`.xlsx`) has to be saved as CSV first, or imported from the
-dashboard.
+A spreadsheet (`.xlsx`, `.xls`, `.ods`) is read directly: its first sheet, or
+the one `--sheet <name>` names. Blank lines are skipped and dates come in as
+dates.
 
 ### Schema as code: `ganju.data.json`
 

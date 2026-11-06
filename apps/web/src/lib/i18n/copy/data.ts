@@ -511,7 +511,7 @@ const en = {
   tabTriggers: 'Triggers',
   triggersTitle: 'Triggers',
   triggersHelp:
-    'Run something when this table\'s rows change: a function, a webhook, a chat message, an email or a message to the customer. Each event is delivered at least once and carries an eventId, so a receiver can skip one it already handled. A function\'s own writes never fire the same trigger again, and a chain of triggers stops at {depth}.',
+    'Run something when this table\'s rows change, or once a set time has passed for a row: a function, a webhook, a chat message, an email or a message to the customer. Each event is delivered at least once and carries an eventId, so a receiver can skip one it already handled. A function\'s own writes never fire the same trigger again, and a chain of triggers stops at {depth}.',
   triggersPending_one: '{count} event waiting to be sent',
   triggersPending_other: '{count} events waiting to be sent',
   triggersEmpty: 'No triggers on this table yet.',
@@ -1207,7 +1207,7 @@ export const DATA: Catalog<DataCopy> = {
     tabTriggers: 'Disparadores',
     triggersTitle: 'Disparadores',
     triggersHelp:
-      'Ejecuta algo cuando cambian las filas de esta tabla: una función, un webhook, un mensaje de chat, un correo o un mensaje al cliente. Cada evento se entrega al menos una vez y lleva un eventId, para que quien lo recibe pueda saltarse uno que ya procesó. Lo que escribe una función nunca vuelve a activar el mismo disparador, y una cadena de disparadores se detiene en {depth}.',
+      'Ejecuta algo cuando cambian las filas de esta tabla, o cuando pasa un tiempo para una fila: una función, un webhook, un mensaje de chat, un correo o un mensaje al cliente. Cada evento se entrega al menos una vez y lleva un eventId, para que quien lo recibe pueda saltarse uno que ya procesó. Lo que escribe una función nunca vuelve a activar el mismo disparador, y una cadena de disparadores se detiene en {depth}.',
     triggersPending_one: '{count} evento esperando a enviarse',
     triggersPending_other: '{count} eventos esperando a enviarse',
     triggersEmpty: 'Aún no hay disparadores en esta tabla.',

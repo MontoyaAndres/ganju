@@ -549,6 +549,134 @@ export const importRows = (
   });
 };
 
+// Refusals caused by a row in what was sent, which splitting finds. Anything
+// else, or no answer at all, stops an import: splitting would only repeat it,
+// and a batch whose answer was lost may already be saved.
+export const DATA_IMPORT_ROW_LEVEL_CODES: ReadonlySet<string> = new Set([
+  'invalid',
+  'constraint',
+  'guard',
+  'conflict',
+  'too_large'
+]);
+
+// When a replace is refused as a whole, the rows behind it are found with
+// writes that can't commit: this many at most, in this many requests.
+export const DATA_REPLACE_MAX_SINGLED_OUT = 20;
+export const DATA_REPLACE_MAX_DRY_RUNS = 60;
+
+// Every old row out and the file's rows in, as one write.
+export const replaceOperations = (
+  table: string,
+  existing: number,
+  rows: Record<string, unknown>[]
+) => {
+  const operations: Record<string, unknown>[] = existing > 0
+    ? [{ op: 'delete', table, where: { id: { gte: 1 } } }]
+    : [];
+  for (let i = 0; i < rows.length; i += DATA_IMPORT_BATCH) {
+    operations.push({ op: 'insert', table, rows: rows.slice(i, i + DATA_IMPORT_BATCH) });
+  }
+  return operations;
+};
+
+// The old rows only matter to the new ones through a unique column (a file
+// value an old row already holds) or a relation to the table itself (a file
+// row pointing at an old one). Without either, a test write skips the
+// delete, so it doesn't delete and re-insert the whole table each time.
+export const replaceOldRowsMatter = (table: DataTable) =>
+  table.columns.some(
+    column => column.unique || (column.type === 'relation' && column.table === table.name)
+  );
+
+// What a write answered, as each caller's request helper reports it.
+export interface ImportWriteResult {
+  ok: boolean;
+  code?: string;
+  error?: string;
+  details?: Record<string, unknown>;
+}
+
+// 'ok': everything before the last step would have been taken. 'stop': no
+// row can be blamed (it committed, or the refusal isn't a row's). 'delete':
+// the delete of the old rows is what was refused, which no part of the file
+// changes. Otherwise the refusal, without the engine's step prefix.
+export type ReplaceTestAnswer = 'ok' | 'stop' | 'delete' | { error: string };
+
+// "Operation 2 (insert menu): Row 4: " in front of an error from one step.
+export const withoutWriteStep = (error: string) =>
+  error.replace(/^Operation \d+ \([^)]*\): (Row \d+: )?/, '');
+
+/**
+ * The replace with only `rows`, followed by a step that matches no row but
+ * expects one, so the write always rolls back; and how to read its answer.
+ */
+export const replaceTestWrite = (
+  table: DataTable,
+  existing: number,
+  rows: Record<string, unknown>[]
+) => {
+  const deleting = replaceOldRowsMatter(table) ? existing : 0;
+  const operations = [
+    ...replaceOperations(table.name, deleting, rows),
+    { op: 'delete', table: table.name, where: { id: { lt: 0 } }, expect: 1 }
+  ];
+  const answer = (result: ImportWriteResult): ReplaceTestAnswer => {
+    if (result.ok) return 'stop';
+    if (deleting > 0 && result.details?.operation === 0) return 'delete';
+    if (result.code === 'guard' && result.details?.operation === operations.length - 1) {
+      return 'ok';
+    }
+    if (!result.code || !DATA_IMPORT_ROW_LEVEL_CODES.has(result.code)) return 'stop';
+    return { error: withoutWriteStep(result.error ?? '') };
+  };
+  return { operations, answer };
+};
+
+/**
+ * The rows a refused replace stumbles on, halving the list until each is
+ * alone, at most DATA_REPLACE_MAX_SINGLED_OUT rows in
+ * DATA_REPLACE_MAX_DRY_RUNS test writes. Two rows that only fail together
+ * are not found. Null when the delete of the old rows is what fails: then no
+ * row can be blamed.
+ */
+export const singleOutReplaceRows = async <T>(
+  list: T[],
+  test: (part: T[]) => Promise<ReplaceTestAnswer>
+): Promise<{ row: T; error: string }[] | null> => {
+  const found: { row: T; error: string }[] = [];
+  let requests = 0;
+  let deleteFailed = false;
+  const search = async (part: T[]): Promise<void> => {
+    if (
+      !part.length ||
+      deleteFailed ||
+      found.length >= DATA_REPLACE_MAX_SINGLED_OUT ||
+      requests >= DATA_REPLACE_MAX_DRY_RUNS
+    ) {
+      return;
+    }
+    requests++;
+    const answer = await test(part);
+    if (answer === 'delete') {
+      deleteFailed = true;
+      return;
+    }
+    if (answer === 'ok' || answer === 'stop') return;
+    if (part.length === 1) {
+      found.push({ row: part[0], error: answer.error });
+      return;
+    }
+    const middle = Math.ceil(part.length / 2);
+    await search(part.slice(0, middle));
+    await search(part.slice(middle));
+  };
+  const middle = Math.ceil(list.length / 2);
+  await search(list.slice(0, middle));
+  await search(list.slice(middle));
+  return deleteFailed ? null : found;
+};
+
 // A CSV line, quoted where it needs to be: for the file of refused rows.
 export const csvLine = (cells: ImportCell[]) =>
   cells

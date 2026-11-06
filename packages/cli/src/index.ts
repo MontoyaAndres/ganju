@@ -67,6 +67,7 @@ const FLAGS = {
   'no-wait': { type: 'boolean' },
   'decimal-mark': { type: 'string' },
   map: { type: 'string', multiple: true },
+  sheet: { type: 'string' },
   clear: { type: 'boolean' }
 } as const;
 
@@ -143,6 +144,8 @@ ${color.bold('Flags')}
   --no-wait                     column change/rm: don't wait for a table copy
   --decimal-mark . | ,          import: how the file writes decimals
   --map 'Header=column'         import: a header to a column, repeatable
+  --sheet <name>                import: which sheet of a spreadsheet (the first
+                                if left out)
 
 ${color.bold('Environment')}
   GANJU_API_URL                 which deployment to talk to
@@ -307,6 +310,7 @@ const main = async (argv: string[]): Promise<void> => {
         wait: !flag<boolean>('no-wait'),
         decimalMark: flag('decimal-mark'),
         map: flag('map'),
+        sheet: flag('sheet'),
         clear: flag('clear')
       });
     default:
