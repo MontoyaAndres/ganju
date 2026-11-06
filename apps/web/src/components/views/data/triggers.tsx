@@ -9,6 +9,7 @@ import {
 } from '@ganju/utils/data';
 
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import {
@@ -328,45 +329,61 @@ export const TriggersTab = ({ base, table, readOnly }: TriggersTabProps) => {
                       <span className="query-badge">{t('triggerOff')}</span>
                     )}
                     <div className="query-item-actions">
-                      <Switch
-                        size="small"
-                        checked={trigger.enabled}
-                        disabled={readOnly || toggling !== null}
-                        slotProps={{
-                          input: { 'aria-label': t('triggerToggle') }
-                        }}
-                        onChange={(_, checked) =>
-                          handleToggle(trigger, checked)
-                        }
-                      />
-                      <IconButton
-                        size="small"
-                        title={t('triggerRuns')}
-                        aria-label={t('triggerRuns')}
-                        onClick={() => setRunsOf(trigger)}
+                      {/* A disabled control fires no hover: the span does. */}
+                      <Tooltip
+                        title={t(
+                          trigger.enabled ? 'triggerHint_on' : 'triggerHint_off'
+                        )}
                       >
-                        <HistoryOutlined />
-                      </IconButton>
+                        <span>
+                          <Switch
+                            size="small"
+                            checked={trigger.enabled}
+                            disabled={readOnly || toggling !== null}
+                            slotProps={{
+                              input: { 'aria-label': t('triggerToggle') }
+                            }}
+                            onChange={(_, checked) =>
+                              handleToggle(trigger, checked)
+                            }
+                          />
+                        </span>
+                      </Tooltip>
+                      <Tooltip title={t('triggerHint_runs')}>
+                        <IconButton
+                          size="small"
+                          aria-label={t('triggerRuns')}
+                          onClick={() => setRunsOf(trigger)}
+                        >
+                          <HistoryOutlined />
+                        </IconButton>
+                      </Tooltip>
                       {!managed && (
                         <>
-                          <IconButton
-                            size="small"
-                            title={t('editTrigger')}
-                            aria-label={t('editTrigger')}
-                            disabled={readOnly}
-                            onClick={() => setEditing(trigger)}
-                          >
-                            <EditOutlined />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            title={t('deleteTrigger')}
-                            aria-label={t('deleteTrigger')}
-                            disabled={readOnly}
-                            onClick={() => setDropping(trigger)}
-                          >
-                            <DeleteOutlined />
-                          </IconButton>
+                          <Tooltip title={t('triggerHint_edit')}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                aria-label={t('editTrigger')}
+                                disabled={readOnly}
+                                onClick={() => setEditing(trigger)}
+                              >
+                                <EditOutlined />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title={t('triggerHint_delete')}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                aria-label={t('deleteTrigger')}
+                                disabled={readOnly}
+                                onClick={() => setDropping(trigger)}
+                              >
+                                <DeleteOutlined />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                         </>
                       )}
                     </div>
@@ -1026,7 +1043,7 @@ const TriggerDialog = ({
         {timed && (
           <>
             <h4 className="dialog-subtitle">{t('triggerAfterTitle')}</h4>
-            <div className="query-param-row">
+            <div className="query-param-row trigger-fields-row">
               <UI.Input
                 size="small"
                 type="number"
@@ -1096,7 +1113,7 @@ const TriggerDialog = ({
             onChange={e => setJson(e.target.value)}
           />
         ) : (
-          <div className="query-param-row">
+          <div className="query-param-row trigger-fields-row">
             <UI.Select
               size="small"
               label={t('triggerConditionColumn')}
@@ -1151,6 +1168,7 @@ const TriggerDialog = ({
           </div>
         )}
         <FormControlLabel
+          className="dialog-switch"
           control={
             <Switch
               size="small"
@@ -1282,6 +1300,7 @@ const TriggerDialog = ({
         {actionType === 'customer' && (
           <>
             <FormControlLabel
+              className="dialog-switch"
               control={
                 <Switch
                   size="small"
@@ -1612,6 +1631,7 @@ const CustomerTestSend = ({
           </div>
           {templateChoice && (
             <FormControlLabel
+              className="dialog-switch"
               control={
                 <Switch
                   size="small"

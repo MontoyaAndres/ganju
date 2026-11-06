@@ -526,7 +526,13 @@ export const Wrapper = styled.div`
         .query-item-actions {
           margin-left: auto;
           display: flex;
+          align-items: center;
           gap: 2px;
+
+          // Tooltip wrappers around controls that can be disabled.
+          & > span {
+            display: inline-flex;
+          }
         }
 
         .query-item-description {
@@ -1176,6 +1182,20 @@ export const DialogContent = styled.div`
       padding: 12px;
       border-radius: 8px;
       background: ${theme.colors.earlyDawn};
+    }
+
+    // A small switch's knob sits 4px inside its box; MUI's -11px label
+    // margin is for the full-size one and pushes it past the fields' edge.
+    .MuiFormControlLabel-root.dialog-switch {
+      margin-left: -4px;
+    }
+
+    // A field with help text under it is taller: the row lines up the
+    // fields' tops, not their middles.
+    @media (min-width: ${theme.screens.md}) {
+      .query-param-row.trigger-fields-row {
+        align-items: flex-start;
+      }
     }
 
     .trigger-test {

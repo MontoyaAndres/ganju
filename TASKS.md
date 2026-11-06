@@ -504,9 +504,9 @@ Phase 1 doesn't depend on the rest.
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
-Status: phases 0–7 (with 5b and 5c) done 2026-11-06, on dev and production.
-Data is measured, not billed yet (see `docs/PRICING.md` "Still open"). Next:
-7b, 7c and 7d below; phase 8 only when asked for.
+Status: phases 0–7 (with 5b, 5c, 7b and 7c) done 2026-11-06, on dev and
+production. Data is measured, not billed yet (see `docs/PRICING.md` "Still
+open"). Next: 7d below; phase 8 only when asked for.
 
 Knowledge (resources) answers "what does the document say". It is the wrong
 shape for data that has rows, types and relationships: a menu with prices
@@ -2905,7 +2905,8 @@ probes. The index-advice check passed on dev and prod on 2026-11-06.**
     duplican." The test row was deleted and `qa_advice_orders` dropped.
   - **Found:** the published `@ganju/cli` 0.0.18 has no index suggestions
     in `ganju data info` and no `ganju data index`; the repo's CLI (also
-    0.0.18) has both. Publish a new CLI version.
+    0.0.18) has both. Publish a new CLI version. **Done:** 0.0.19 is on npm
+    (2026-11-06).
   - **Seen, not fixed:** Tool health's "Errores más comunes" shows errors
     that carry details with the raw `<untrusted_content id=…>` wrapper.
 - **The same check on prod (set up 2026-11-05):** org "Girardot - demos",
@@ -3267,6 +3268,8 @@ owner's own phone first.
 
 **7c. Time-based triggers — M (1–2 weeks)**
 
+**Status (2026-11-06): done, on dev and production.**
+
 "An order still `pending` 30 minutes after it was created", "a booking for
 tomorrow nobody confirmed": the flows a restaurant or clinic wants that a
 change can't start, because nothing changes.
@@ -3394,9 +3397,21 @@ change can't start, because nothing changes.
   from a reloaded object; a forced restart wasn't tried. The card read "Pasa
   un tiempo · 5 minutos después de created_at" and the run "Se cumplió el
   plazo de la fila 2".
-- **Left:** production (deploy data, then api, then web), and the same check
-  there if wanted. Not checked by hand: the daily cap's turn-off and email,
-  and the pause turn-off (both need 2,000 events or a plan change).
+- **Forced restart checked on dev (2026-11-06, same setup again, dropped
+  after):** #1 (16:04:25) already due when the trigger was saved
+  (16:11:18), not fired; #3 marked ready, not fired; #2 fired once at
+  16:21:23. Then `data` was redeployed (the object restarted): two scans
+  later #2 still had one run, and a row #4 added after the restart
+  (16:35:25) fired once at 16:41:23, so scans resumed and the fired marks
+  held. Seen: the Triggers tab's help text still says triggers run "cuando
+  cambian las filas", without time triggers. Reading the dev DB with
+  `postgres` from a machine outside UTC shows `timestamp without time zone`
+  values shifted by the machine's offset; the stored values are UTC.
+- **Deployed to production (2026-11-06):** the API's description there has
+  time triggers and the shared daily cap, 42 routes. Not checked by hand on
+  production (that needs writes to it). Nowhere checked by hand: the daily
+  cap's turn-off and email, and the pause turn-off (they need 2,000 events
+  or a plan change).
 
 **7d. Sync a table from a spreadsheet — M (about a week)**
 

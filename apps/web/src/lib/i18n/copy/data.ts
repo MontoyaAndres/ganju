@@ -479,6 +479,12 @@ const en = {
   deleteTriggerTitle: 'Delete {name}?',
   deleteTriggerText: 'Changes to this table stop running it.',
   triggerToggle: 'Turn the trigger on or off',
+  triggerHint_on: 'On: it runs when its event happens. Click to turn it off.',
+  triggerHint_off: "Off: it doesn't run. Click to turn it on.",
+  triggerHint_runs:
+    'Recent runs: each event it handled, with its status and error, and Retry for a failed one.',
+  triggerHint_edit: 'Edit when it runs, its condition and its action.',
+  triggerHint_delete: 'Delete this trigger: it stops running.',
   triggerOff: 'Off',
   triggerManagedBadge: 'Managed by the CLI (ganju.json)',
   triggerManagedHelp:
@@ -1128,6 +1134,13 @@ export const DATA: Catalog<DataCopy> = {
     deleteTriggerTitle: '¿Eliminar {name}?',
     deleteTriggerText: 'Los cambios en esta tabla dejan de ejecutarlo.',
     triggerToggle: 'Encender o apagar el disparador',
+    triggerHint_on:
+      'Encendido: se ejecuta cuando ocurre su evento. Haz clic para apagarlo.',
+    triggerHint_off: 'Apagado: no se ejecuta. Haz clic para encenderlo.',
+    triggerHint_runs:
+      'Ejecuciones recientes: cada evento que manejó, con su estado y error, y Reintentar para uno que falló.',
+    triggerHint_edit: 'Edita cuándo se ejecuta, su condición y su acción.',
+    triggerHint_delete: 'Elimina este disparador: deja de ejecutarse.',
     triggerOff: 'Apagado',
     triggerManagedBadge: 'Administrado por la CLI (ganju.json)',
     triggerManagedHelp:
