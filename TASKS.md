@@ -504,10 +504,9 @@ Phase 1 doesn't depend on the rest.
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
-Status: phases 0–7 (with 5b, 5c, 7b and 7c) done 2026-11-06, on dev and
-production; 7d (sync a table from a spreadsheet) done 2026-11-06 on dev, not
-yet on production. Data is measured, not billed yet (see `docs/PRICING.md`
-"Still open"). Next: 7d to production; phase 8 only when asked for.
+Status: phases 0–7 (with 5b, 5c, 7b, 7c and 7d) done 2026-11-06, on dev and
+production. Data is measured, not billed yet (see `docs/PRICING.md` "Still
+open"). Next: phase 8 only when asked for.
 
 Knowledge (resources) answers "what does the document say". It is the wrong
 shape for data that has rows, types and relationships: a menu with prices
@@ -3416,7 +3415,7 @@ change can't start, because nothing changes.
 
 **7d. Sync a table from a spreadsheet — M (about a week)**
 
-**Status (2026-11-06): done, on dev; not deployed to production.** Built as
+**Status (2026-11-06): done, on dev and production.** Built as
 planned, with the open decisions as written (synced changes fire triggers;
 the whole table is read-only while synced) and the sync state in its own
 object migration (version 6). Beyond the plan: each sync carries the file's
@@ -3441,8 +3440,15 @@ refused. Near the limits, on dev (`qa_big`, an uploaded `.xlsx` of 4.84 MB
 and 20,000 lines of 8 columns): the first sync inserted 20,000 rows about 17
 seconds after the upload, queue included; the same file again left 20,000
 unchanged; a file with every line changed updated 20,000 in one transaction;
-a 5.39 MB file was refused before it was read, the rows kept. Left: not
-checked on production. `qa_menu`, `qa_cats`, `qa_big`, `qa_menu.csv`,
+a 5.39 MB file was refused before it was read, the rows kept. Deployed to
+production the same day and checked there in Girardot - demos / test: the
+OpenAPI file has 43 routes; `qa_menu` given an uploaded `qa_menu.csv` as its
+source from the dashboard's card, the first sync inserted 3 rows, a changed
+price in the file updated that one row (history `system:sheet-sync`), a write
+refused in Spanish. Found there: right after a source was saved, the banner and
+the card showed "not synced yet" until the next 30-second check; they now
+look as soon as they appear, and every few seconds until the first sync.
+`qa_menu` and `qa_menu.csv` were left on production on purpose. `qa_menu`, `qa_cats`, `qa_big`, `qa_menu.csv`,
 `qa_big.xlsx` and the Drive sheet were left on dev on purpose.
 
 Owners keep the menu, the prices or the stock in a sheet. A table whose source

@@ -89,6 +89,43 @@ const useSyncNow = (base: string, table: DataTable, onSynced: () => void) => {
   return { syncing, syncNow };
 };
 
+// Picks up a sync that finished without this page asking: the file changed,
+// or the first sync after the source was saved. Looks once on mount, then
+// every few seconds while the table has never synced (one is due), every
+// SYNC_WATCH_MS after, and whenever the window comes back into focus.
+const useSyncWatch = (
+  base: string,
+  table: DataTable,
+  onSynced: () => void,
+  paused: boolean
+) => {
+  const shownAt = table.sync?.at ?? null;
+  const watching = !!table.source && !paused;
+  // The latest callback, so a parent's re-render doesn't restart the watch.
+  const synced = useRef(onSynced);
+  synced.current = onSynced;
+
+  useEffect(() => {
+    if (!watching) return;
+    let cancelled = false;
+    const check = async () => {
+      if (document.visibilityState === 'hidden') return;
+      const tables = await dataRequest<{ tables: DataTable[] }>(base, '/table');
+      if (cancelled || !tables.ok) return;
+      const now = tables.data.tables.find(x => x.name === table.name);
+      if (now?.sync && now.sync.at !== shownAt) synced.current();
+    };
+    check();
+    const timer = setInterval(check, shownAt ? SYNC_WATCH_MS : SYNC_POLL_MS);
+    window.addEventListener('focus', check);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener('focus', check);
+    };
+  }, [base, table.name, shownAt, watching]);
+};
+
 interface SyncBannerProps {
   base: string;
   table: DataTable;
@@ -108,29 +145,7 @@ export const SyncBanner = ({
   const { syncing, syncNow } = useSyncNow(base, table, onSynced);
   const sync = table.sync;
   const failed = sync?.status === 'failed';
-  const shownAt = sync?.at ?? null;
-  // The latest callback, so a parent's re-render doesn't restart the watch.
-  const synced = useRef(onSynced);
-  synced.current = onSynced;
-
-  useEffect(() => {
-    if (syncing) return;
-    let cancelled = false;
-    const check = async () => {
-      if (document.visibilityState === 'hidden') return;
-      const tables = await dataRequest<{ tables: DataTable[] }>(base, '/table');
-      if (cancelled || !tables.ok) return;
-      const now = tables.data.tables.find(x => x.name === table.name);
-      if (now?.sync && now.sync.at !== shownAt) synced.current();
-    };
-    const timer = setInterval(check, SYNC_WATCH_MS);
-    window.addEventListener('focus', check);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-      window.removeEventListener('focus', check);
-    };
-  }, [base, table.name, shownAt, syncing]);
+  useSyncWatch(base, table, onSynced, syncing);
 
   return (
     <div
@@ -203,6 +218,7 @@ export const SourceCard = ({
   const resources = resourceBase(base);
   const keys = table.columns.filter(column => column.unique);
   const { syncing, syncNow } = useSyncNow(base, table, () => onChanged());
+  useSyncWatch(base, table, () => onChanged(), syncing || draft !== null);
 
   useEffect(() => {
     if (!draft) return;
