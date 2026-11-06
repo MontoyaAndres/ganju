@@ -68,12 +68,16 @@ export interface ProjectTool {
  * `{ "table": "orders", "on": "insert", "function": "notify-kitchen" }`.
  * `when` narrows it (`{ "status": { "changedTo": "READY" } }`), and instead of
  * `function` it can post a `webhook`, a `chat` message, an `email` or a
- * message to the row's `customer`. The API checks the rest.
+ * message to the row's `customer`. `"on": "time"` fires a set time after a
+ * row's date instead, with `after`: `{ "column": "created_at", "minutes": 30 }`
+ * (negative minutes on a date or datetime column: before it), and `when`
+ * tests `equals` only. The API checks the rest.
  */
 export interface ProjectTrigger {
   name?: string;
   table: string;
-  on: 'insert' | 'update' | 'delete';
+  on: 'insert' | 'update' | 'delete' | 'time';
+  after?: { column: string; minutes: number };
   when?: Record<string, unknown>;
   [action: string]: unknown;
 }

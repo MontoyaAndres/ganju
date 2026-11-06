@@ -132,13 +132,24 @@ export const deploy = async (flags: {
     `deploying ${triggers.length} ${triggers.length === 1 ? 'trigger' : 'triggers'}`
   );
   const result = await new DataApi(api, `${artifactPath}/data`).request<{
-    triggers: { name: string; table: string; on: string }[];
+    triggers: {
+      name: string;
+      table: string;
+      on: string;
+      after?: { column: string; minutes: number } | null;
+    }[];
     removed: string[];
     secrets: Record<string, string>;
     confirming?: string[];
   }>('deployTriggers', { json: { triggers } });
   for (const trigger of result.triggers) {
-    note(color.gray(`  ${trigger.name}: ${trigger.table} ${trigger.on}`));
+    // A time trigger: "30 min after created_at", or before a date.
+    const after = trigger.after
+      ? ` (${Math.abs(trigger.after.minutes)} min ${trigger.after.minutes < 0 ? 'before' : 'after'} ${trigger.after.column})`
+      : '';
+    note(
+      color.gray(`  ${trigger.name}: ${trigger.table} ${trigger.on}${after}`)
+    );
   }
   for (const name of result.removed) note(color.gray(`  removed ${name}`));
   for (const [name, secret] of Object.entries(result.secrets)) {

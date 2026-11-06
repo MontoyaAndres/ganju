@@ -42,6 +42,7 @@ import {
 import {
   ChannelSendError,
   CHANNEL_MESSAGE_SOURCE_KEY,
+  CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST,
   WHATSAPP_WINDOW_MS,
   sendToParticipant,
   postToChat,
@@ -158,6 +159,7 @@ export const dataAdvice = {
 export const channels = {
   ChannelSendError,
   CHANNEL_MESSAGE_SOURCE_KEY,
+  CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST,
   WHATSAPP_WINDOW_MS,
   sendToParticipant,
   postToChat,

@@ -11,14 +11,45 @@
 //   runs the action.
 // Conditions are data, never code, evaluated here against the old and new
 // row.
+// A time trigger ("on": "time") fires a set time after a row's date, with
+// nothing written: the object's alarm scans for rows that came due since
+// its last scan and stores their events in the same outbox.
 import { DATA_IDENTIFIER_PATTERN } from './dataIdentifiers';
-import { fromStored } from './dataCompiler';
+import { fromStored, isoSeconds, localDatetime } from './dataCompiler';
+import type { SqlValue } from './dataCompiler';
 import { DATA_MAX_DESCRIPTION, DataError } from './dataTypes';
 import type { DataCaller, DataSchema, DataTable } from './dataTypes';
 import type { SqlRow, SqlRunner } from './dataEngine';
 
-export const DATA_TRIGGER_EVENTS = ['insert', 'update', 'delete'] as const;
+export const DATA_TRIGGER_EVENTS = [
+  'insert',
+  'update',
+  'delete',
+  'time'
+] as const;
 export type DataTriggerEvent = (typeof DATA_TRIGGER_EVENTS)[number];
+// The events a write fires; "time" fires from the alarm's scan instead.
+export const DATA_CHANGE_EVENTS = ['insert', 'update', 'delete'] as const;
+
+// Time triggers: the alarm scans this often, a trigger waits at least this
+// long (before or after its column's time) and at most 30 days, and a
+// database holds this many of them.
+export const DATA_TIME_SCAN_MS = 300_000;
+export const DATA_TIME_MIN_MINUTES = 5;
+export const DATA_TIME_MAX_MINUTES = 43_200;
+export const DATA_MAX_TIME_TRIGGERS = 10;
+// Events one time trigger fires per scan (more wait for the next), rows one
+// scan looks at per trigger, and events a database's time triggers fire a
+// day (UTC) before the one that goes past it is turned off.
+export const DATA_TIME_EVENTS_PER_SCAN = 100;
+export const DATA_TIME_ROWS_PER_SCAN = 1_000;
+export const DATA_TIME_EVENTS_PER_DAY = 2_000;
+// A scan looks back at most this far: a due time missed for longer (the
+// object down for a day) is skipped rather than sent late.
+const TIME_LOOKBACK_MS = 86_400_000;
+// Fired marks are kept this long past their due time; a scan never looks
+// that far back, so older ones can't stop anything.
+const FIRED_KEEP_MS = 2 * TIME_LOOKBACK_MS;
 
 export const DATA_TRIGGER_ACTIONS = [
   'function',
@@ -84,6 +115,13 @@ export type DataTriggerAction =
   | { type: 'email'; to: string[]; subject: string; text: string }
   | { type: 'customer'; text: string; template?: DataTriggerTemplate };
 
+// When a time trigger fires: `minutes` after the row's `column` (before it
+// when negative). A date column counts from midnight in the database's zone.
+export interface DataTriggerSchedule {
+  column: string;
+  minutes: number;
+}
+
 // A trigger as the owner writes it: the dashboard, the API and ganju.json's
 // "triggers" use this shape, with exactly one action key.
 export interface DataTriggerInput {
@@ -91,6 +129,8 @@ export interface DataTriggerInput {
   description?: string | null;
   table: string;
   on: DataTriggerEvent;
+  // With "time" only.
+  after?: DataTriggerSchedule | null;
   when?: DataTriggerCondition | null;
   enabled?: boolean;
   // false: refuse to save over a trigger that already has this name.
@@ -109,6 +149,7 @@ export interface DataTrigger {
   description: string | null;
   table: string;
   on: DataTriggerEvent;
+  after: DataTriggerSchedule | null;
   when: DataTriggerCondition | null;
   action: DataTriggerAction;
   enabled: boolean;
@@ -129,7 +170,8 @@ export interface DataTriggerWithSecret extends DataTrigger {
 
 // One event, as the queue carries it. `row` and `previous` are the row after
 // and before the change (null on insert / delete); both are left out, with
-// `truncated`, when the row is too large for a message.
+// `truncated`, when the row is too large for a message. A time event carries
+// the row as it was when it came due, no `previous`, and `dueAt`.
 export interface DataTriggerEventMessage {
   eventId: string;
   artifactId: string;
@@ -145,12 +187,16 @@ export interface DataTriggerEventMessage {
   // function's writes fire at its depth + 1.
   depth: number;
   at: string;
+  dueAt?: string;
   truncated?: true;
   // The row's customer on a customer-scoped table, kept when the row is
   // left out for its size.
   participantId?: string;
   // Not run: the chain went too deep. Recorded as a failed run.
   error?: string;
+  // Ganju turned the trigger off here (a time trigger past the daily cap):
+  // recorded as a failed run, and the organization's admins are told.
+  turnedOff?: true;
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -177,11 +223,14 @@ const isScalar = (value: unknown): value is Scalar =>
 
 const TEST_KEYS = ['changedTo', 'changedFrom', 'changed', 'equals'] as const;
 
+// A time trigger reads the row as it is, with nothing changing, so only
+// `equals` means anything there.
 const normaliseCondition = (
   table: DataTable,
   raw: unknown,
   depth = 0,
-  count = { tests: 0 }
+  count = { tests: 0 },
+  equalsOnly = false
 ): DataTriggerCondition => {
   if (!isPlainObject(raw) || Object.keys(raw).length === 0) {
     throw new DataError(
@@ -205,7 +254,7 @@ const normaliseCondition = (
       );
     }
     const list = (raw[key] as unknown[]).map(item =>
-      normaliseCondition(table, item, depth + 1, count)
+      normaliseCondition(table, item, depth + 1, count, equalsOnly)
     );
     return key === 'all' ? { all: list } : { any: list };
   }
@@ -229,6 +278,11 @@ const normaliseCondition = (
       if (!(TEST_KEYS as readonly string[]).includes(key)) {
         throw new DataError(
           `"when".${column}.${key}: a test is changedTo, changedFrom, changed or equals.`
+        );
+      }
+      if (equalsOnly && key !== 'equals') {
+        throw new DataError(
+          `"when".${column}.${key}: a time trigger reads the row as it is when it comes due, so its tests are "equals" only.`
         );
       }
       if (key === 'changed') {
@@ -508,6 +562,55 @@ export const normaliseCustomerAction = (
   >;
 };
 
+// The columns a time trigger can count from, and whether `minutes` may be
+// negative: "before" a row was created or changed has already passed.
+const scheduleColumn = (
+  table: DataTable,
+  name: string
+): { kind: 'datetime' | 'date'; system: boolean } | null => {
+  if (name === 'created_at' || name === 'updated_at')
+    return { kind: 'datetime', system: true };
+  const column = table.columns.find(c => c.name === name);
+  if (column?.type === 'datetime') return { kind: 'datetime', system: false };
+  if (column?.type === 'date') return { kind: 'date', system: false };
+  return null;
+};
+
+const normaliseSchedule = (
+  table: DataTable,
+  raw: unknown
+): DataTriggerSchedule => {
+  if (!isPlainObject(raw)) {
+    throw new DataError(
+      'A time trigger needs "after": { "column", "minutes" }, such as { "column": "created_at", "minutes": 30 }.'
+    );
+  }
+  const name = raw.column;
+  const column = typeof name === 'string' ? scheduleColumn(table, name) : null;
+  if (typeof name !== 'string' || !column) {
+    throw new DataError(
+      `"after.column" is created_at, updated_at or a date or datetime column of ${table.name}.`
+    );
+  }
+  const minutes = raw.minutes;
+  if (
+    typeof minutes !== 'number' ||
+    !Number.isInteger(minutes) ||
+    Math.abs(minutes) < DATA_TIME_MIN_MINUTES ||
+    Math.abs(minutes) > DATA_TIME_MAX_MINUTES
+  ) {
+    throw new DataError(
+      `"after.minutes" is a whole number of minutes from ${DATA_TIME_MIN_MINUTES} to ${DATA_TIME_MAX_MINUTES} (30 days), negative for before the column's time.`
+    );
+  }
+  if (minutes < 0 && column.system) {
+    throw new DataError(
+      `"after.minutes" can't be negative on ${name}: that time has already passed when the row is written. Use a date or datetime column for a reminder before.`
+    );
+  }
+  return { column: name, minutes };
+};
+
 const defaultName = (table: string, on: string, action: DataTriggerAction) => {
   const target =
     action.type === 'function'
@@ -523,6 +626,7 @@ interface NormalisedTrigger {
   description: string | null;
   table: DataTable;
   on: DataTriggerEvent;
+  after: DataTriggerSchedule | null;
   when: DataTriggerCondition | null;
   action: DataTriggerAction;
   // null: not given, so a saved trigger stays on or off as it was.
@@ -547,7 +651,12 @@ export const normaliseTrigger = (
   }
   const on = input.on;
   if (!(DATA_TRIGGER_EVENTS as readonly unknown[]).includes(on)) {
-    throw new DataError('"on" is insert, update or delete.');
+    throw new DataError('"on" is insert, update, delete or time.');
+  }
+  const timed = on === 'time';
+  const hasAfter = input.after !== undefined && input.after !== null;
+  if (!timed && hasAfter) {
+    throw new DataError('"after" is for "on": "time" only.');
   }
   const action = normaliseAction(table, input);
   const unnamed = input.name === undefined || input.name === null;
@@ -585,10 +694,11 @@ export const normaliseTrigger = (
         : null,
     table,
     on: on as DataTriggerEvent,
+    after: timed ? normaliseSchedule(table, input.after) : null,
     when:
       input.when === undefined || input.when === null
         ? null
-        : normaliseCondition(table, input.when),
+        : normaliseCondition(table, input.when, 0, { tests: 0 }, timed),
     action,
     enabled: typeof input.enabled === 'boolean' ? input.enabled : null,
     replace: input.replace !== false,
@@ -625,6 +735,7 @@ const toTrigger = (schema: DataSchema, row: SqlRow): DataTrigger => ({
   description: (row.description as string | null) ?? null,
   table: schema.tables.find(t => t.id === Number(row.table_id))?.name ?? '',
   on: row.event as DataTriggerEvent,
+  after: parse<DataTriggerSchedule>(row.schedule),
   when: parse<DataTriggerCondition>(row.condition),
   action: parse<DataTriggerAction>(row.action) as DataTriggerAction,
   enabled: row.enabled === 1,
@@ -715,6 +826,19 @@ const upsert = (
       );
     }
   }
+  const wasTimed = existing?.event === 'time';
+  if (trigger.on === 'time' && !wasTimed) {
+    const timed = Number(
+      runner.all(
+        "SELECT count(*) AS n FROM _ganju_triggers WHERE event = 'time'"
+      )[0]?.n ?? 0
+    );
+    if (timed >= DATA_MAX_TIME_TRIGGERS) {
+      throw new DataError(
+        `A database holds up to ${DATA_MAX_TIME_TRIGGERS} time triggers.`
+      );
+    }
+  }
   // A webhook keeps its secret while it stays a webhook.
   const keep =
     existing?.secret && trigger.action.type === 'webhook'
@@ -731,11 +855,25 @@ const upsert = (
   const reason = enabled
     ? null
     : ((existing?.disabled_reason as string | null | undefined) ?? null);
+  // A time trigger counts due times from now: when it is new, when it
+  // counts from another column or delay, and when it is turned back on.
+  const schedule = trigger.after ? JSON.stringify(trigger.after) : null;
+  const restart =
+    trigger.on === 'time' &&
+    (!wasTimed ||
+      existing?.schedule !== schedule ||
+      (enabled && existing?.enabled !== 1));
+  const scanState = restart
+    ? freshScan()
+    : trigger.on === 'time'
+      ? ((existing?.scan_state as string | null | undefined) ?? freshScan())
+      : null;
   runner.all(
-    `INSERT INTO _ganju_triggers (id, name, description, table_id, event, condition, action, enabled, disabled_reason, managed, rate_limit, secret, updated_at, updated_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?)
+    `INSERT INTO _ganju_triggers (id, name, description, table_id, event, schedule, scan_state, condition, action, enabled, disabled_reason, managed, rate_limit, secret, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
-       table_id = excluded.table_id, event = excluded.event, condition = excluded.condition,
+       table_id = excluded.table_id, event = excluded.event, schedule = excluded.schedule,
+       scan_state = excluded.scan_state, condition = excluded.condition,
        action = excluded.action, enabled = excluded.enabled, disabled_reason = excluded.disabled_reason,
        managed = excluded.managed, rate_limit = excluded.rate_limit, secret = excluded.secret,
        updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
@@ -745,6 +883,8 @@ const upsert = (
       trigger.description,
       trigger.table.id,
       trigger.on,
+      schedule,
+      scanState,
       trigger.when ? JSON.stringify(trigger.when) : null,
       JSON.stringify(trigger.action),
       enabled ? 1 : 0,
@@ -755,7 +895,8 @@ const upsert = (
       caller.actor
     ]
   );
-  ensureChangeCapture(runner, trigger.table);
+  if (trigger.on === 'time' || wasTimed) syncTimeIndexes(runner);
+  else ensureChangeCapture(runner, trigger.table);
   const saved = toTrigger(schema, findRow(runner, id));
   return secret && secret !== keep
     ? { trigger: saved, secret }
@@ -780,6 +921,12 @@ export const dropTrigger = (
 ): { dropped: string } => {
   const row = findRow(runner, nameOrId);
   runner.all('DELETE FROM _ganju_triggers WHERE id = ?', [row.id]);
+  if (row.event === 'time') {
+    runner.all('DELETE FROM _ganju_trigger_fired WHERE trigger_id = ?', [
+      row.id
+    ]);
+    syncTimeIndexes(runner);
+  }
   return { dropped: String(row.name) };
 };
 
@@ -797,7 +944,15 @@ export const setTriggerEnabled = (
     `UPDATE _ganju_triggers SET enabled = ?, disabled_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_by = ? WHERE id = ?`,
     [enabled ? 1 : 0, enabled ? null : reason, caller.actor, row.id]
   );
-  if (enabled) {
+  // Back on, a time trigger counts from now: what came due while it was off
+  // doesn't all go out at once.
+  if (enabled && row.event === 'time' && row.enabled !== 1) {
+    runner.all('UPDATE _ganju_triggers SET scan_state = ? WHERE id = ?', [
+      freshScan(),
+      row.id
+    ]);
+  }
+  if (enabled && row.event !== 'time') {
     const table = schema.tables.find(t => t.id === Number(row.table_id));
     if (table) ensureChangeCapture(runner, table);
   }
@@ -854,6 +1009,9 @@ export const replaceManagedTriggers = (
     )) {
       if (names.has(String(row.name))) continue;
       runner.all('DELETE FROM _ganju_triggers WHERE id = ?', [row.id]);
+      runner.all('DELETE FROM _ganju_trigger_fired WHERE trigger_id = ?', [
+        row.id
+      ]);
       removed.push(String(row.name));
     }
     const secrets: Record<string, string> = {};
@@ -862,6 +1020,7 @@ export const replaceManagedTriggers = (
       if (saved.secret) secrets[saved.trigger.name] = saved.secret;
       return saved.trigger;
     });
+    syncTimeIndexes(runner);
     return { triggers, removed, secrets };
   });
 };
@@ -1060,7 +1219,8 @@ export const outboxSize = (runner: SqlRunner): number =>
 
 // After a restore: events pending at the restored moment were sent then.
 // Those stored before `before` came back with the restore; later ones are
-// writes made since, and stay.
+// writes made since, and stay. Time triggers count from now again, since
+// what came due after the restored moment was sent then too.
 export const clearOutbox = (runner: SqlRunner, before: string): number => {
   const n = Number(
     runner.all('SELECT count(*) AS n FROM _ganju_outbox WHERE created_at < ?', [
@@ -1069,6 +1229,9 @@ export const clearOutbox = (runner: SqlRunner, before: string): number => {
   );
   runner.all('DELETE FROM _ganju_outbox WHERE created_at < ?', [before]);
   runner.all('DELETE FROM _ganju_changes');
+  runner.all("UPDATE _ganju_triggers SET scan_state = ? WHERE event = 'time'", [
+    freshScan()
+  ]);
   return n;
 };
 
@@ -1095,9 +1258,9 @@ const actionTexts = (action: DataTriggerAction | null): string[] => {
 };
 
 /**
- * The triggers whose condition or {{field}} texts name a column. Dropping it
- * is refused while any does, since they are only checked when saved and
- * would quietly stop matching.
+ * The triggers whose condition, {{field}} texts or time column name a
+ * column. Dropping it is refused while any does, since they are only checked
+ * when saved and would quietly stop matching.
  */
 export const triggersUsingColumn = (
   runner: SqlRunner,
@@ -1106,11 +1269,12 @@ export const triggersUsingColumn = (
 ): string[] =>
   runner
     .all(
-      'SELECT name, condition, action FROM _ganju_triggers WHERE table_id = ? ORDER BY name',
+      'SELECT name, schedule, condition, action FROM _ganju_triggers WHERE table_id = ? ORDER BY name',
       [tableId]
     )
     .filter(
       row =>
+        parse<DataTriggerSchedule>(row.schedule)?.column === column ||
         conditionColumns(parse(row.condition)).includes(column) ||
         actionTexts(parse<DataTriggerAction>(row.action)).some(text =>
           templateFields(text).includes(column)
@@ -1184,14 +1348,20 @@ export const renameColumnInTriggers = (
   const names = triggersUsingColumn(runner, tableId, from);
   for (const name of names) {
     const row = runner.all(
-      'SELECT id, condition, action FROM _ganju_triggers WHERE name = ?',
+      'SELECT id, schedule, condition, action FROM _ganju_triggers WHERE name = ?',
       [name]
     )[0];
+    const schedule = parse<DataTriggerSchedule>(row.schedule);
     const condition = parse(row.condition);
     const action = parse<DataTriggerAction>(row.action);
     runner.all(
-      `UPDATE _ganju_triggers SET condition = ?, action = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
+      `UPDATE _ganju_triggers SET schedule = ?, condition = ?, action = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
       [
+        schedule
+          ? JSON.stringify(
+              schedule.column === from ? { ...schedule, column: to } : schedule
+            )
+          : null,
         condition === null
           ? null
           : JSON.stringify(renameInCondition(condition, from, to)),
@@ -1202,3 +1372,328 @@ export const renameColumnInTriggers = (
   }
   return names;
 };
+
+// Time triggers
+
+// The time triggers counting from a column: it must stay a date or datetime.
+export const timeTriggersCountingFrom = (
+  runner: SqlRunner,
+  tableId: number,
+  column: string
+): string[] =>
+  runner
+    .all(
+      "SELECT name, schedule FROM _ganju_triggers WHERE table_id = ? AND event = 'time' ORDER BY name",
+      [tableId]
+    )
+    .filter(row => parse<DataTriggerSchedule>(row.schedule)?.column === column)
+    .map(row => String(row.name));
+
+// How far a time trigger has looked: due times up to `through` are done.
+// `resume` is the last row looked at when a scan stopped early, so the next
+// one carries on from it instead of reading the same rows again.
+interface TimeScanState {
+  through: string;
+  resume?: { value: string; id: number };
+}
+
+const freshScan = () => JSON.stringify({ through: isoSeconds(new Date()) });
+
+const shiftIso = (iso: string, minutes: number) =>
+  isoSeconds(new Date(Date.parse(iso) + minutes * 60_000));
+
+/**
+ * The dates of a date column whose due time falls in (from, to]: midnight
+ * in the database's zone plus `minutes`. Each date maps to its due time.
+ */
+const dueDates = (
+  from: string,
+  to: string,
+  minutes: number,
+  timeZone: string | undefined
+): Map<string, string> => {
+  const out = new Map<string, string>();
+  const day = 86_400_000;
+  // A day either side covers any zone's offset.
+  const start =
+    Math.floor((Date.parse(from) - minutes * 60_000) / day) * day - day;
+  const end = Date.parse(to) - minutes * 60_000 + day;
+  for (let at = start; at <= end; at += day) {
+    const date = new Date(at).toISOString().slice(0, 10);
+    const midnight = localDatetime(`${date}T00:00:00`, timeZone);
+    if (!midnight || Number.isNaN(midnight.getTime())) continue;
+    const due = isoSeconds(new Date(midnight.getTime() + minutes * 60_000));
+    if (due > from && due <= to) out.set(date, due);
+  }
+  return out;
+};
+
+// A time trigger's own index on its column, named apart from the table's
+// (ix_ / ux_), which the table's own changes remake from its columns.
+const timeIndexName = (tableId: number, column: string | number) =>
+  `it_${tableId}_${column}`;
+
+/**
+ * Indexes the columns time triggers count from, and drops the ones no time
+ * trigger uses any more. A column the table already indexes (filterable or
+ * unique) needs nothing more. Cheap, so every scan runs it too: a table
+ * rebuilt for a column change loses the index and gets it back.
+ */
+export const syncTimeIndexes = (runner: SqlRunner): void => {
+  const wanted = new Map<string, string>();
+  for (const row of runner.all(
+    "SELECT tr.schedule, t.id AS table_id, t.name AS table_name FROM _ganju_triggers tr JOIN _ganju_tables t ON t.id = tr.table_id WHERE tr.event = 'time'"
+  )) {
+    const after = parse<DataTriggerSchedule>(row.schedule);
+    if (!after) continue;
+    const tableId = Number(row.table_id);
+    let name: string;
+    if (after.column === 'created_at' || after.column === 'updated_at') {
+      name = timeIndexName(tableId, after.column);
+    } else {
+      const column = runner.all(
+        'SELECT id, filterable, is_unique FROM _ganju_columns WHERE table_id = ? AND name = ?',
+        [tableId, after.column]
+      )[0];
+      if (!column || column.filterable === 1 || column.is_unique === 1)
+        continue;
+      name = timeIndexName(tableId, Number(column.id));
+    }
+    wanted.set(
+      name,
+      `CREATE INDEX IF NOT EXISTS "${name}" ON "${String(row.table_name)}"("${after.column}")`
+    );
+  }
+  const existing = runner
+    .all(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'it\\_%' ESCAPE '\\'"
+    )
+    .map(row => String(row.name));
+  for (const name of existing) {
+    if (!wanted.has(name)) runner.all(`DROP INDEX IF EXISTS "${name}"`);
+  }
+  for (const [name, sql] of wanted) {
+    if (!existing.includes(name)) runner.all(sql);
+  }
+};
+
+export const hasTimeTriggers = (runner: SqlRunner): boolean =>
+  runner.all(
+    "SELECT 1 AS found FROM _ganju_triggers WHERE event = 'time' AND enabled = 1 LIMIT 1"
+  ).length > 0;
+
+export interface TimeScanResult {
+  // Events stored in the outbox.
+  events: number;
+  // Triggers turned off, with why.
+  disabled: { name: string; reason: string }[];
+}
+
+const DAY_COUNT_KEY = 'time_events_day';
+
+/**
+ * One scan: for each enabled time trigger, the rows that came due since its
+ * last scan, matching its `when`, not fired for that due time before, become
+ * events in the outbox. One transaction, so a crash fires nothing twice.
+ */
+export const scanTimeTriggers = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  now = new Date()
+): TimeScanResult =>
+  runner.transaction(() => {
+    const result: TimeScanResult = { events: 0, disabled: [] };
+    const rows = runner.all(
+      "SELECT * FROM _ganju_triggers WHERE event = 'time' AND enabled = 1 ORDER BY created_at, id"
+    );
+    if (rows.length === 0) return result;
+    syncTimeIndexes(runner);
+    const to = isoSeconds(now);
+    const floor = isoSeconds(new Date(now.getTime() - TIME_LOOKBACK_MS));
+    runner.all('DELETE FROM _ganju_trigger_fired WHERE due_at < ?', [
+      isoSeconds(new Date(now.getTime() - FIRED_KEEP_MS))
+    ]);
+    const today = to.slice(0, 10);
+    const counted = parse<{ day: string; count: number }>(
+      runner.all('SELECT value FROM _ganju_meta WHERE key = ?', [
+        DAY_COUNT_KEY
+      ])[0]?.value
+    );
+    let firedToday = counted?.day === today ? counted.count : 0;
+    const artifactId =
+      (runner.all("SELECT value FROM _ganju_meta WHERE key = 'artifact_id'")[0]
+        ?.value as string | undefined) ?? '';
+    const timeZone = schema.timeZone ?? undefined;
+
+    const turnOff = (row: SqlRow, reason: string) => {
+      runner.all(
+        `UPDATE _ganju_triggers SET enabled = 0, disabled_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_by = 'system:time' WHERE id = ?`,
+        [reason, row.id]
+      );
+      result.disabled.push({ name: String(row.name), reason });
+    };
+
+    for (const row of rows) {
+      const trigger = toTrigger(schema, row);
+      const table = schema.tables.find(t => t.id === Number(row.table_id));
+      const after = trigger.after;
+      if (!table || !after) continue;
+      const kind = scheduleColumn(table, after.column)?.kind;
+      if (!kind) {
+        turnOff(
+          row,
+          `${table.name}.${after.column} is no longer a date or datetime column.`
+        );
+        continue;
+      }
+      const state = parse<TimeScanState>(row.scan_state) ?? {
+        through: isoSeconds(new Date(trigger.createdAt))
+      };
+      const from = state.through > floor ? state.through : floor;
+      if (from >= to) continue;
+
+      const column = `t."${after.column}"`;
+      const params: SqlValue[] = [];
+      let range: string;
+      let due: string;
+      if (kind === 'date') {
+        const dates = dueDates(from, to, after.minutes, timeZone);
+        if (dates.size === 0) {
+          runner.all('UPDATE _ganju_triggers SET scan_state = ? WHERE id = ?', [
+            JSON.stringify({ through: to }),
+            row.id
+          ]);
+          continue;
+        }
+        due = `CASE ${column} ${[...dates].map(() => 'WHEN ? THEN ?').join(' ')} END`;
+        for (const [date, at] of dates) params.push(date, at);
+        range = `${column} IN (${[...dates.keys()].map(() => '?').join(', ')})`;
+        params.push(...dates.keys());
+      } else {
+        const sign = after.minutes >= 0 ? '+' : '';
+        due = `strftime('%Y-%m-%dT%H:%M:%SZ', ${column}, '${sign}${after.minutes} minutes')`;
+        range = `${column} > ? AND ${column} <= ?`;
+        params.push(
+          shiftIso(from, -after.minutes),
+          shiftIso(to, -after.minutes)
+        );
+      }
+      if (state.resume) {
+        range += ` AND (${column} > ? OR (${column} = ? AND t.id > ?))`;
+        params.push(state.resume.value, state.resume.value, state.resume.id);
+      }
+      params.push(trigger.id);
+
+      // Read first, written after: nothing else runs while the read is open.
+      let looked = 0;
+      let more = false;
+      let stoppedAt: { value: string; id: number } | null = null;
+      let capped = false;
+      const firing: DataTriggerEventMessage[] = [];
+      for (const stored of runner.iterate(
+        `SELECT x.* FROM (SELECT t.*, ${due} AS _ganju_due FROM "${table.name}" t WHERE ${range}) x
+         WHERE NOT EXISTS (SELECT 1 FROM _ganju_trigger_fired f WHERE f.trigger_id = ? AND f.row_id = x.id AND f.due_at = x._ganju_due)
+         ORDER BY x."${after.column}", x.id`,
+        params
+      )) {
+        if (
+          looked >= DATA_TIME_ROWS_PER_SCAN ||
+          firing.length >= DATA_TIME_EVENTS_PER_SCAN
+        ) {
+          more = true;
+          break;
+        }
+        looked++;
+        const at = {
+          value: String(stored[after.column]),
+          id: Number(stored.id)
+        };
+        const current = shape(table, JSON.stringify(stored));
+        stoppedAt = at;
+        if (!conditionMatches(trigger.when, current, null)) continue;
+        if (firedToday + firing.length >= DATA_TIME_EVENTS_PER_DAY) {
+          capped = true;
+          break;
+        }
+        const customer = current?.participant_id;
+        const message: DataTriggerEventMessage = {
+          eventId: `evt_${crypto.randomUUID().replace(/-/g, '')}`,
+          artifactId,
+          triggerId: trigger.id,
+          triggerName: trigger.name,
+          table: table.name,
+          event: 'time',
+          rowId: at.id,
+          row: current,
+          previous: null,
+          actor: null,
+          depth: 1,
+          at: now.toISOString(),
+          dueAt: String(stored._ganju_due),
+          ...(typeof customer === 'string' && customer
+            ? { participantId: customer }
+            : {})
+        };
+        if (utf8Bytes(current) > DATA_TRIGGER_MAX_ROW_BYTES) {
+          message.row = null;
+          message.truncated = true;
+        }
+        firing.push(message);
+      }
+      for (const message of firing) {
+        runner.all(
+          'INSERT INTO _ganju_outbox (id, trigger_id, message) VALUES (?, ?, ?)',
+          [message.eventId, trigger.id, JSON.stringify(message)]
+        );
+        runner.all(
+          'INSERT OR IGNORE INTO _ganju_trigger_fired (trigger_id, row_id, due_at) VALUES (?, ?, ?)',
+          [trigger.id, message.rowId, message.dueAt ?? '']
+        );
+      }
+      firedToday += firing.length;
+      result.events += firing.length;
+      if (capped) {
+        const reason = `This database's time triggers fired ${DATA_TIME_EVENTS_PER_DAY.toLocaleString('en-US')} events today (UTC), the most a day, so each one with more due today is turned off. Turn it back on to continue; due times from while it was off are skipped.`;
+        turnOff(row, reason);
+        // The queue records it on the runs list and tells the admins.
+        const notice: DataTriggerEventMessage = {
+          eventId: `evt_${crypto.randomUUID().replace(/-/g, '')}`,
+          artifactId,
+          triggerId: trigger.id,
+          triggerName: trigger.name,
+          table: table.name,
+          event: 'time',
+          rowId: stoppedAt?.id ?? 0,
+          row: null,
+          previous: null,
+          actor: null,
+          depth: 1,
+          at: now.toISOString(),
+          error: `Not run: ${reason}`,
+          turnedOff: true
+        };
+        runner.all(
+          'INSERT INTO _ganju_outbox (id, trigger_id, message) VALUES (?, ?, ?)',
+          [notice.eventId, trigger.id, JSON.stringify(notice)]
+        );
+        continue;
+      }
+      // Stopped early: the next scan carries on after the last row looked at,
+      // within the same window. Otherwise the window is done.
+      const next: TimeScanState =
+        more && stoppedAt
+          ? { through: from, resume: stoppedAt }
+          : { through: to };
+      runner.all('UPDATE _ganju_triggers SET scan_state = ? WHERE id = ?', [
+        JSON.stringify(next),
+        row.id
+      ]);
+    }
+    if (result.events > 0) {
+      runner.all(
+        'INSERT INTO _ganju_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [DAY_COUNT_KEY, JSON.stringify({ day: today, count: firedToday })]
+      );
+    }
+    return result;
+  });

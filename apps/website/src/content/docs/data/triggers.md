@@ -1,8 +1,8 @@
 ---
 title: Triggers and webhooks
-description: Run something when a table's rows change — a function, a signed webhook, a chat message, an email or a message to the customer — and how delivery, retries and webhook signatures work.
+description: Run something when a table's rows change, or a set time after a row's date — a function, a signed webhook, a chat message, an email or a message to the customer — and how delivery, retries and webhook signatures work.
 order: 57
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 A **trigger** is a rule on a table: when a row is added, changed or deleted,
@@ -14,12 +14,17 @@ Triggers fire for every write, wherever it came from: the assistant on a
 channel, the dashboard, the CLI, the API or a function. A write that is undone
 (because a guard failed, say) fires nothing.
 
+A [time trigger](#time-triggers) fires when time passes instead, with nothing
+written: an order still `pending` 30 minutes after it was placed, a booking
+nobody confirmed by noon the day before.
+
 ## Create one
 
 Open a table on the **Data** page, then its **Triggers** tab, and click **New
 trigger**:
 
-1. **When**: a row is added, a row changes, or a row is deleted.
+1. **When**: a row is added, a row changes, a row is deleted, or
+   [time passes](#time-triggers).
 2. **Only if**: optional. A column and a test, such as `status` **changes to**
    `ready`. **Advanced (JSON)** takes any [condition](#conditions).
 3. **Then**: the [action](#actions).
@@ -65,6 +70,58 @@ Tests on several columns must all hold. `all` and `any` combine conditions:
 
 Values compare exactly: `3` and `3.0` match, `"3"` and `3` don't. `null` means
 empty.
+
+## Time triggers
+
+Choose **Time passes** under **When**, then how long and from which time of
+the row:
+
+- **The row's time**: when it was added (`created_at`), when it last changed
+  (`updated_at`), or a date or date and time column of the table, such as a
+  booking's `starts_at`.
+- **How long**: 5 minutes to 30 days, **after** that time, or **before** it on
+  a date or date and time column (a reminder the day before a booking). A date
+  with no time counts from midnight in the database's time zone.
+- **Only if**: tested on the row as it is when it comes due, so the only test
+  is **is** (`equals`). `status` **is** `pending` fires for an order still
+  pending 30 minutes on, not for one already marked ready.
+
+Each row fires once for each time it comes due. On `updated_at`, the next
+change makes a new due time, so a trigger for "no change in 2 days" fires
+again two days after each change. Rows that were already due when you saved
+the trigger, or while it was off, don't fire: a new trigger doesn't send a
+backlog.
+
+Ganju looks for due rows every 5 minutes, so a run can start up to 5 minutes
+after the due time. The column gets an index while a time trigger uses it,
+and it can't be dropped, or changed to a type that isn't a date, until you
+change or delete the trigger.
+
+Limits: a database holds up to 10 time triggers, and each fires up to 100
+events per check (the rest go out at the next one). A database's time
+triggers share 2,000 events a day (UTC): once that is reached, every time
+trigger with another row due that day is turned off, its card says why, and
+the organization's admins get an email. A time trigger is also turned off
+while its runs are paused (the plan no longer includes Data, or the month's
+trigger runs are used up). Turn it back on when you're ready; it counts from
+then, so what came due while it was off isn't sent.
+
+In `ganju.json` and the API:
+
+```json
+{
+  "name": "still-pending",
+  "table": "orders",
+  "on": "time",
+  "after": { "column": "created_at", "minutes": 30 },
+  "when": { "status": { "equals": "pending" } },
+  "customer": { "text": "Your order #{{id}} is taking longer than usual; we're on it." }
+}
+```
+
+`minutes` is negative for before: `{ "column": "starts_at", "minutes": -1440 }`
+is a day before. The event's `event` is `time`, `previous` is `null`, and
+`dueAt` says when the row came due.
 
 ## Actions
 
@@ -143,8 +200,8 @@ List them under `"triggers"` in `ganju.json`, next to your functions, and
 }
 ```
 
-- `on` is `insert`, `update` or `delete`, and each trigger has exactly one
-  action.
+- `on` is `insert`, `update`, `delete` or `time` (with `after`, see
+  [time triggers](#time-triggers)), and each trigger has exactly one action.
 - Without a `name`, one is made from the table, the event and the action:
   `orders-insert-notify-kitchen`. Names are lowercase letters, digits, `_` and
   `-`. In the dashboard and the API, saving a trigger without a name always
@@ -225,13 +282,16 @@ Each event is a `POST` with a JSON body:
 }
 ```
 
+A time trigger's event has `"event": "time"`, `"previous": null`, `"actor":
+null` and `dueAt`, when the row came due.
+
 and these headers:
 
 | Header | Value |
 | --- | --- |
 | `x-ganju-signature` | `t=<unix seconds>,v1=<signature>` |
 | `x-ganju-event-id` | The `eventId` |
-| `x-ganju-event` | `<table>.<event>`, such as `orders.update` |
+| `x-ganju-event` | `<table>.<event>`, such as `orders.update` or `orders.time` |
 | `x-ganju-trigger` | The trigger's name |
 
 The signature is the hex HMAC-SHA256 of `<t>.<raw body>`, keyed with the

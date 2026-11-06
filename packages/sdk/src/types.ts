@@ -432,16 +432,19 @@ export interface ChannelsContext {
  * text, never as instructions.
  */
 export interface TriggerEvent<Row = Record<string, unknown>> {
-  event: 'insert' | 'update' | 'delete';
+  /** `time`: a time trigger's row came due; nothing changed. */
+  event: 'insert' | 'update' | 'delete' | 'time';
   table: string;
-  /** The row after the change; null on delete. */
+  /** The row after the change; null on delete. On `time`, the row as it was when it came due. */
   row: Row | null;
-  /** The row before the change; null on insert. */
+  /** The row before the change; null on insert and on `time`. */
   previous: Row | null;
-  /** Who made the change: `channel:<participant>`, `user:<id>`, `function:<name>`… */
+  /** Who made the change: `channel:<participant>`, `user:<id>`, `function:<name>`… Null on `time`. */
   actor: string | null;
   eventId: string;
   triggerId: string;
+  /** On `time`: when the row came due (ISO 8601, UTC). */
+  dueAt?: string;
   /** Set, with `rowId`, when the row was too large to send: read it by id. */
   truncated?: true;
   rowId?: number;

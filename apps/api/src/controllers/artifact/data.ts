@@ -1278,6 +1278,13 @@ const testSend = async (c: Context<AppEnv>) => {
   const body = await bodyOf(c, Schema.DATA_TRIGGER_TEST_SEND_BODY);
   const userId = c.get('user').id;
   return withDatabase(c, {}, async request => {
+    // Real runs are paused without Data, so a test of one is too.
+    if (request.caller.limits?.readOnly) {
+      throw new DataError(
+        "This organization's plan no longer includes Data, so its triggers are paused and can't be tested. Upgrade to Pro to send a test.",
+        'read_only'
+      );
+    }
     const schema = await callData(
       'schemaRead',
       () => request.opened.stub.schemaRead(),
@@ -1356,7 +1363,10 @@ const testSend = async (c: Context<AppEnv>) => {
         text: message.text,
         template: message.template,
         ...(body.asTemplate ? { prefer: 'template' as const } : {}),
-        source: { kind: 'trigger-test', name: body.table }
+        source: {
+          kind: db.channels.CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST,
+          name: body.table
+        }
       });
     } catch (error) {
       // The channel's refusal, in words, as the answer. The platform itself

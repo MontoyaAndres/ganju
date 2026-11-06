@@ -24,10 +24,14 @@ export class ChannelSendError extends Error {
   }
 }
 
+// The owner's test of a customer message, sent to themselves: left out of
+// the daily limits and labelled in the bot's history.
+export const CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST = 'trigger-test' as const;
+
 export interface ChannelMessageSource {
   // A function's own ctx.channels call, a trigger's chat / customer message,
   // or the owner's test of a customer message, sent to themselves.
-  kind: 'function' | 'trigger' | 'trigger-test';
+  kind: 'function' | 'trigger' | typeof CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST;
   name: string;
 }
 
@@ -502,7 +506,7 @@ export const listApprovedTemplates = async (
 
 const notLimitNotice = sql`(${schema.channelMessage.metadata}->>${utils.PARTICIPANT_LIMIT_METADATA_KEY}) is null`;
 // An owner's test sends go to their own chat and don't use up the limit.
-const notTriggerTest = sql`(${schema.channelMessage.metadata}->>${CHANNEL_MESSAGE_SOURCE_KEY}) is distinct from 'trigger-test'`;
+const notTriggerTest = sql`(${schema.channelMessage.metadata}->>${CHANNEL_MESSAGE_SOURCE_KEY}) is distinct from ${CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST}`;
 
 /**
  * Messages a customer the bot has spoken with, in their private chat. On

@@ -815,9 +815,18 @@ const DATA_TRIGGER_INPUT = z.strictObject({
   name: DATA_TRIGGER_NAME.optional(),
   description: z.string().max(300).nullish(),
   table: DATA_IDENTIFIER,
-  on: z.enum(['insert', 'update', 'delete']),
+  on: z.enum(['insert', 'update', 'delete', 'time']),
+  // With "time": fires this many minutes after the column's time (negative:
+  // before it). The column is created_at, updated_at or a date / datetime.
+  after: z
+    .strictObject({
+      column: DATA_IDENTIFIER,
+      minutes: z.number().int().min(-43_200).max(43_200)
+    })
+    .nullish(),
   // { column: { changedTo | changedFrom | equals: value, changed: true } },
-  // combined with { all: [...] } or { any: [...] }.
+  // combined with { all: [...] } or { any: [...] }. A time trigger takes
+  // equals only.
   when: z.record(z.string(), z.unknown()).nullish(),
   enabled: z.boolean().optional(),
   // false: refuse to save over an existing trigger of this name.

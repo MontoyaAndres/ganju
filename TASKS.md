@@ -3251,9 +3251,19 @@ owner's own phone first.
   template events can't cross channels, since `applyTemplateChanges`
   matches on `channelId` and `templateId`, and the resync an unknown id
   starts reads the channel's own account only.
-- **Left:** deploy data, then api, then web, to dev for a recheck, then to
-  production (the webhook fix above is the urgent part). The api calls the
-  object's new `eventRow`, so data goes first.
+- **Deployed** to dev and production (2026-11-06, commit `66b3cdc`; data,
+  then api, then web). Not checked by hand after the two reviews: the
+  switch hidden for a Telegram chat, a refused action not using up a test,
+  and that production's Viva La Marquesita bot no longer answers messages
+  sent to the dev test number.
+
+- **Rechecked after the reviews (2026-11-06, dev, nemo, throwaway
+  `qa_send_check`, dropped after):** six test sends refused for a missing
+  column, then a real one went out (200, to Telegram): refusals don't use up
+  the five a minute. In the dialog, "Enviar como la plantilla" shows with
+  the WhatsApp chat picked and is gone with the Telegram chat. Production's
+  Viva La Marquesita bot no longer answers messages to the dev test number
+  (checked by the owner).
 
 **7c. Time-based triggers — M (1–2 weeks)**
 
@@ -3296,6 +3306,97 @@ change can't start, because nothing changes.
   row left pending, not for one marked ready first, not again after the
   object restarts, and not for rows that were already older than 5 minutes
   when the trigger was saved.
+- **Decided (2026-11-06):** a 5-minute scan and a 5-minute minimum delay;
+  10 time triggers per database; 2,000 time events a day (UTC) per database,
+  past which each trigger with another due event turns off with the reason.
+- **Built (2026-11-06), not deployed yet:**
+  - Shape: `on: "time"` with `after: { column, minutes }` (`DATA_TRIGGER_INPUT`;
+    `after` refused on the other events). `column` is `created_at`,
+    `updated_at` or a date / datetime column; `minutes` 5 to 43,200, negative
+    only on a date / datetime (refused on `created_at` / `updated_at`, whose
+    "before" has already passed). `when` takes `equals` only, also inside
+    `all` / `any`. A `date` counts from midnight in the database's time zone.
+  - Object migration 5: `schedule` and `scan_state` on `_ganju_triggers`,
+    `_ganju_trigger_fired (trigger_id, row_id, due_at)` with an index on
+    `due_at`. `migrateInternal` now skips an `ADD COLUMN` whose column
+    exists, so every version can run again (the display-column test winds
+    the version back).
+  - `scanTimeTriggers` (one transaction): per enabled time trigger, rows
+    whose due time is in (its `scan_state.through`, now], at most a day back,
+    not in the fired table, ordered by the column and id; `when` is checked
+    on the row in the event's shape. Up to 100 events and 1,000 rows looked
+    at per trigger per scan; a scan cut short keeps a resume point (column
+    value, id) in the same window. Events are `event: "time"`, `previous:
+    null`, `actor: null`, `depth: 1`, with `dueAt` and `participantId`; large
+    rows go `truncated` as before. The day count is `_ganju_meta`
+    `time_events_day`. Fired marks older than two days are deleted.
+  - Counting starts from now when a time trigger is new, its schedule
+    changes, it is turned back on, and after a restore (`clearOutbox`), so a
+    backlog never goes out at once.
+  - Index: `it_<table>_<column id | created_at | updated_at>`, apart from
+    the table's `ix_` / `ux_` that `syncTableObjects` remakes; synced on
+    save, drop, deploy and every scan (a table copy loses it, the next scan
+    puts it back); none when the column is already filterable or unique.
+    A column a time trigger counts from can't be dropped or changed to a
+    non-date type; a rename follows into `schedule`.
+  - Alarm: `timeScan` before `drainOutbox`, skipped while a table copy runs
+    or the database is deleted; a failed scan is logged and doesn't hold the
+    outbox. The next alarm is the earlier of the prune and the next scan
+    (`time_scanned_at` + 5 min) while an enabled time trigger exists;
+    saving, turning on or deploying one books it. Scan usage goes through
+    the alarm's usage as the outbox's does.
+  - Queue: `dueAt` added to the function's args and the webhook body.
+  - Dashboard: "Pasa un tiempo" under "Cuando", with amount, unit (minutos,
+    horas, días), después / antes (antes only on a date / datetime) and the
+    row's time; conditions offer "es" only; the card reads "Pasa un tiempo ·
+    30 minutos después de created_at"; runs read "Se cumplió el plazo de la
+    fila N". Ganju's turned-off reasons (failures in a row, the daily cap, a
+    column no longer a date) show in Spanish.
+  - Also: CLI deploy prints the schedule; SDK `TriggerEvent` (`time`,
+    `dueAt`); `ProjectTrigger` type and docs; the Data API description; the
+    trigger docs pages (en / es, "Time triggers"); `examples/data-orders`
+    gets `still-pending`; `probe-data-triggers.mjs` checks the shape rules
+    (firing takes 5–10 minutes, so by hand). `data-admin` doesn't describe
+    triggers, so nothing changed there.
+  - Fixed along the way: `probe-data-triggers.mjs` and `probe-data-tools.mjs`
+    still expected 40 OpenAPI routes; 7b's two test-send routes make 42.
+  - Checked: utils tests 263 pass (10 new), apps/data 13 (1 new, in
+    workerd: migration 5 and its `PRAGMA table_info`), cli 42; typecheck of
+    api, web, data, db, utils, cli, sdk and mcp; i18n 0 errors / 65
+    warnings.
+- **After review (2026-11-06, not deployed yet):**
+  - A time event whose runs are paused (the plan no longer includes Data,
+    or the month's trigger runs reached the cap) turns its trigger off with
+    the reason, instead of adding a skipped run every scan and keeping the
+    scan's reads going. Turned back on, it counts from then.
+  - The daily cap now leaves a notice in the outbox (`turnedOff: true`,
+    `error`): the queue records a failed run and emails the admins, as after
+    failures in a row. The cap stays shared per database (as decided); the
+    reason, the API description and the docs now say every time trigger
+    with more due that day is turned off.
+  - Dashboard: the two pause reasons read in Spanish too.
+  - 7b: a test send is refused when the plan no longer includes Data
+    (`read_only`, in Spanish), and `'trigger-test'` is one exported constant
+    (`CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST`) used by `sendToParticipant`, the
+    bot's reply limit, its history label and the test send.
+  - Checked: utils 263 pass, data 13, typecheck of api, web, data, db, cli,
+    i18n 0 errors / 65 warnings.
+- **Checked on dev (2026-11-06, nemo, throwaway `qa_time_orders`, dropped
+  after; deployed with the review fixes):** row #1 was created at 15:22:38
+  and the trigger (5 minutes after `created_at`, `status equals pending`,
+  chat to the owner's Telegram DM) saved at 15:28:54, so #1 was already due
+  and never fired. Rows #2 (left pending) and #3 (marked ready right away)
+  were added at 15:28:56. #2 fired once, at 15:38:59: the scan at 15:33:55
+  came one second before its due time, so it went at the next one, within
+  the 5 minutes late the design allows. The run was ok, `event: time`. #3
+  never fired, and two more scans (about 15:44 and 15:49) added nothing for
+  #2. The object is evicted between 5-minute alarms, so those scans started
+  from a reloaded object; a forced restart wasn't tried. The card read "Pasa
+  un tiempo · 5 minutos después de created_at" and the run "Se cumplió el
+  plazo de la fila 2".
+- **Left:** production (deploy data, then api, then web), and the same check
+  there if wanted. Not checked by hand: the daily cap's turn-off and email,
+  and the pause turn-off (both need 2,000 events or a plan change).
 
 **7d. Sync a table from a spreadsheet — M (about a week)**
 

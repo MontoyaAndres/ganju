@@ -40,6 +40,10 @@ deploy` deploys them with the functions:
   editing the address of an order that is already ready doesn't message them
   again. The message is recorded on their conversation, so the bot's next
   turn knows they were told.
+- **An order still `pending` 30 minutes after it was placed** messages the
+  customer that it's running late. It's a time trigger (`"on": "time"`), so
+  nothing has to change for it to fire, and it fires once per order. An order
+  marked ready before then isn't messaged.
 
 Both have `"expose": false`: deployed for triggers, never offered to the
 assistant, and not counted toward its tools. A trigger runs a function at

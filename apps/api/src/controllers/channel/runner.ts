@@ -1922,7 +1922,7 @@ const readParticipantUsage = async (
           utils.constants.ROLE_MESSAGE_ASSISTANT
         ),
         sql`(${db.schema.channelMessage.metadata}->>${utils.PARTICIPANT_LIMIT_METADATA_KEY}) is null`,
-        sql`(${db.schema.channelMessage.metadata}->>${db.channels.CHANNEL_MESSAGE_SOURCE_KEY}) is distinct from 'trigger-test'`,
+        sql`(${db.schema.channelMessage.metadata}->>${db.channels.CHANNEL_MESSAGE_SOURCE_KEY}) is distinct from ${db.channels.CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST}`,
         gt(
           db.schema.channelMessage.createdAt,
           new Date(Date.now() - utils.PARTICIPANT_DAILY_LIMIT_WINDOW_MS)
@@ -2097,7 +2097,7 @@ const loadRecentHistory = async (
 const sentBy = (metadata: unknown, content: string): string => {
   const meta = metadata as Record<string, unknown> | null;
   const source = meta?.[db.channels.CHANNEL_MESSAGE_SOURCE_KEY];
-  if (source === 'trigger-test') {
+  if (source === db.channels.CHANNEL_MESSAGE_SOURCE_TRIGGER_TEST) {
     return `(A test the owner sent to themselves of a trigger message on ${String(meta?.[source] ?? '')}:) ${content}`;
   }
   if (source !== 'function' && source !== 'trigger') return content;

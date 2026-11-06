@@ -30,7 +30,9 @@
 //   - ctx.channels.send to a WhatsApp customer outside the 24-hour window
 //     without a template fails with the readable error;
 //   - runs and their errors in the runs list, "Retry", and
-//     data_trigger_run_count matching the runs, as the billing page shows it.
+//     data_trigger_run_count matching the runs, as the billing page shows it;
+//   - a time trigger saves with its schedule, and its shape rules are refused
+//     in words (firing takes 5 to 10 minutes: checked by hand).
 // Messages that reach a real Telegram group or customer need a real bot: see
 // the manual steps printed at the end.
 import fs from 'node:fs';
@@ -654,7 +656,54 @@ try {
     (n, methods) => n + Object.keys(methods).length,
     0
   );
-  check('the OpenAPI file has every route', operations === 40, `${operations}`);
+  check('the OpenAPI file has every route', operations === 42, `${operations}`);
+
+  section('a time trigger, saved and checked');
+  const timed = await call(
+    `${data}/trigger`,
+    json('POST', {
+      name: 'qa-still-pending',
+      table: 'qa_orders',
+      on: 'time',
+      after: { column: 'created_at', minutes: 30 },
+      when: { status: { equals: 'pending' } },
+      enabled: false,
+      function: 't-kitchen'
+    })
+  );
+  check(
+    'a time trigger saves with its schedule',
+    timed.status === 201 &&
+      timed.body?.trigger?.on === 'time' &&
+      timed.body.trigger.after?.minutes === 30,
+    `${timed.status} ${timed.body?.error ?? ''}`
+  );
+  const timedRefused = await Promise.all(
+    [
+      { when: { status: { changedTo: 'ready' } } },
+      { after: { column: 'created_at', minutes: 4 } },
+      { after: { column: 'created_at', minutes: -60 } },
+      { after: { column: 'address', minutes: 30 } }
+    ].map(change =>
+      call(
+        `${data}/trigger`,
+        json('POST', {
+          name: 'qa-bad-time',
+          table: 'qa_orders',
+          on: 'time',
+          after: { column: 'created_at', minutes: 30 },
+          function: 't-kitchen',
+          ...change
+        })
+      )
+    )
+  );
+  check(
+    '  ...and changedTo, under 5 minutes, before created_at and a text column are refused',
+    timedRefused.every(r => r.status === 400),
+    timedRefused.map(r => `${r.status} ${r.body?.error ?? ''}`).join(' | ')
+  );
+  await call(`${data}/trigger/qa-still-pending`, { method: 'DELETE' });
 
   section('a new order, from the bot');
   const order = await rpc(ana, anaSession, 'tools/call', {

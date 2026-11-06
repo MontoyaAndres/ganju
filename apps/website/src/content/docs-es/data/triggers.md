@@ -1,8 +1,8 @@
 ---
 title: Disparadores y webhooks
-description: Ejecuta algo cuando cambian las filas de una tabla — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan la entrega, los reintentos y las firmas de los webhooks.
+description: Ejecuta algo cuando cambian las filas de una tabla, o un tiempo después de la fecha de una fila — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan la entrega, los reintentos y las firmas de los webhooks.
 order: 57
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 Un **disparador** es una regla sobre una tabla: cuando se agrega, cambia o
@@ -15,12 +15,17 @@ Los disparadores se activan con cada escritura, venga de donde venga: el
 asistente en un canal, el panel, la CLI, la API o una función. Una escritura
 que se deshace (porque falló una condición, por ejemplo) no activa nada.
 
+Un [disparador por tiempo](#disparadores-por-tiempo) se activa cuando pasa un
+tiempo, sin que nada se escriba: un pedido que sigue `pending` 30 minutos
+después de hecho, una reserva que nadie confirmó al mediodía del día anterior.
+
 ## Crear uno
 
 Abre una tabla en la página de **Datos**, luego su pestaña **Disparadores**, y
 haz clic en **Nuevo disparador**:
 
-1. **Cuando**: se agrega una fila, cambia una fila o se elimina una fila.
+1. **Cuando**: se agrega una fila, cambia una fila, se elimina una fila o
+   [pasa un tiempo](#disparadores-por-tiempo).
 2. **Solo si**: opcional. Una columna y una prueba, como `status` **cambia a**
    `ready`. **Avanzado (JSON)** acepta cualquier [condición](#condiciones).
 3. **Entonces**: la [acción](#acciones).
@@ -68,6 +73,61 @@ condiciones:
 
 Los valores se comparan exactos: `3` y `3.0` coinciden, `"3"` y `3` no. `null`
 significa vacío.
+
+## Disparadores por tiempo
+
+Elige **Pasa un tiempo** en **Cuando**, y luego cuánto tiempo y desde qué hora
+de la fila:
+
+- **La hora de la fila**: cuando se agregó (`created_at`), cuando cambió por
+  última vez (`updated_at`), o una columna de fecha o de fecha y hora de la
+  tabla, como el `starts_at` de una reserva.
+- **Cuánto tiempo**: de 5 minutos a 30 días, **después** de esa hora, o
+  **antes** en una columna de fecha o de fecha y hora (un recordatorio el día
+  antes de una reserva). Una fecha sin hora cuenta desde la medianoche en la
+  zona horaria de la base de datos.
+- **Solo si**: se revisa en la fila tal como está cuando se cumple el plazo,
+  así que la única prueba es **es** (`equals`). `status` **es** `pending` se
+  activa para un pedido que sigue pendiente 30 minutos después, no para uno
+  que ya se marcó listo.
+
+Cada fila se activa una vez por cada plazo que se le cumple. En `updated_at`,
+el siguiente cambio crea un plazo nuevo, así que un disparador de "sin cambios
+en 2 días" se activa otra vez dos días después de cada cambio. Las filas cuyo
+plazo ya se había cumplido cuando guardaste el disparador, o mientras estaba
+apagado, no se activan: un disparador nuevo no envía lo acumulado.
+
+Ganju busca filas con el plazo cumplido cada 5 minutos, así que una ejecución
+puede empezar hasta 5 minutos después del plazo. La columna recibe un índice
+mientras un disparador por tiempo la usa, y no se puede eliminar, ni cambiar a
+un tipo que no sea fecha, hasta que cambies o elimines el disparador.
+
+Límites: una base de datos guarda hasta 10 disparadores por tiempo, y cada uno
+activa hasta 100 eventos por revisión (el resto sale en la siguiente). Los
+disparadores por tiempo de una base de datos comparten 2.000 eventos al día
+(UTC): al llegar ahí, cada disparador por tiempo con otra fila pendiente ese
+día se apaga, su tarjeta dice por qué y los administradores de la organización
+reciben un correo. Un disparador por tiempo también se apaga mientras sus
+ejecuciones están en pausa (el plan ya no incluye Datos, o se agotaron las
+ejecuciones del mes). Vuelve a encenderlo cuando quieras; cuenta desde ese
+momento, así que lo que se cumplió mientras estaba apagado no se envía.
+
+En `ganju.json` y en la API:
+
+```json
+{
+  "name": "still-pending",
+  "table": "orders",
+  "on": "time",
+  "after": { "column": "created_at", "minutes": 30 },
+  "when": { "status": { "equals": "pending" } },
+  "customer": { "text": "Tu pedido #{{id}} está tardando más de lo normal; ya lo estamos revisando." }
+}
+```
+
+`minutes` es negativo para antes: `{ "column": "starts_at", "minutes": -1440 }`
+es un día antes. El `event` del evento es `time`, `previous` es `null`, y
+`dueAt` dice cuándo se cumplió el plazo de la fila.
 
 ## Acciones
 
@@ -150,8 +210,9 @@ Ponlos en `"triggers"` dentro de `ganju.json`, junto a tus funciones, y
 }
 ```
 
-- `on` es `insert`, `update` o `delete`, y cada disparador tiene exactamente
-  una acción.
+- `on` es `insert`, `update`, `delete` o `time` (con `after`, ver
+  [disparadores por tiempo](#disparadores-por-tiempo)), y cada disparador
+  tiene exactamente una acción.
 - Sin `name`, se arma uno con la tabla, el evento y la acción:
   `orders-insert-notify-kitchen`. Los nombres son letras minúsculas, dígitos,
   `_` y `-`. En el panel y la API, guardar un disparador sin nombre siempre
@@ -238,13 +299,16 @@ Cada evento es un `POST` con un cuerpo JSON:
 }
 ```
 
+El evento de un disparador por tiempo trae `"event": "time"`, `"previous":
+null`, `"actor": null` y `dueAt`, cuándo se cumplió el plazo de la fila.
+
 y estos encabezados:
 
 | Encabezado | Valor |
 | --- | --- |
 | `x-ganju-signature` | `t=<segundos unix>,v1=<firma>` |
 | `x-ganju-event-id` | El `eventId` |
-| `x-ganju-event` | `<tabla>.<evento>`, como `orders.update` |
+| `x-ganju-event` | `<tabla>.<evento>`, como `orders.update` u `orders.time` |
 | `x-ganju-trigger` | El nombre del disparador |
 
 La firma es el HMAC-SHA256 en hexadecimal de `<t>.<cuerpo crudo>`, con el

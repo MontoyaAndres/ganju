@@ -194,7 +194,10 @@ const LOCAL_DATETIME =
 // "2026-10-21T15:00:00" with no offset, read as a wall-clock time in
 // `timeZone` (UTC without one). `new Date()` would read it in the server's
 // zone: UTC on Workers, the developer's own zone on a laptop.
-const localDatetime = (value: string, timeZone?: string): Date | null => {
+export const localDatetime = (
+  value: string,
+  timeZone?: string
+): Date | null => {
   const m = LOCAL_DATETIME.exec(value.trim());
   if (!m) return null;
   const [year, month, day, hour, minute, second] = m

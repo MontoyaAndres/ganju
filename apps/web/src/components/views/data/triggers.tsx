@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { UI } from '@ganju/ui';
 import {
+  DATA_TIME_MAX_MINUTES,
+  DATA_TIME_MIN_MINUTES,
   DATA_TRIGGER_DEFAULT_RATE,
   DATA_TRIGGER_MAX_DEPTH,
   DATA_TRIGGER_MAX_RATE
@@ -35,7 +37,7 @@ import type {
   DataTriggerRun
 } from './types';
 
-const EVENTS: DataTriggerEvent[] = ['insert', 'update', 'delete'];
+const EVENTS: DataTriggerEvent[] = ['insert', 'update', 'delete', 'time'];
 const ACTIONS: DataTriggerActionType[] = [
   'function',
   'webhook',
@@ -45,6 +47,23 @@ const ACTIONS: DataTriggerActionType[] = [
 ];
 type TestKey = 'changedTo' | 'changedFrom' | 'equals' | 'changed';
 const TESTS: TestKey[] = ['changedTo', 'changedFrom', 'equals', 'changed'];
+
+// A time trigger's delay, shown in the largest whole unit.
+type TimeUnit = 'minutes' | 'hours' | 'days';
+const UNITS: TimeUnit[] = ['minutes', 'hours', 'days'];
+const UNIT_MINUTES: Record<TimeUnit, number> = {
+  minutes: 1,
+  hours: 60,
+  days: 1440
+};
+const SYSTEM_TIMES = ['created_at', 'updated_at'];
+
+const splitMinutes = (minutes: number) => {
+  const abs = Math.abs(minutes);
+  const unit: TimeUnit =
+    abs % 1440 === 0 ? 'days' : abs % 60 === 0 ? 'hours' : 'minutes';
+  return { amount: abs / UNIT_MINUTES[unit], unit, before: minutes < 0 };
+};
 
 // The platforms a trigger can post to a group or channel on.
 const CHAT_PLATFORMS: Record<string, string> = {
@@ -360,13 +379,17 @@ export const TriggersTab = ({ base, table, readOnly }: TriggersTabProps) => {
                   {trigger.disabledReason && (
                     <p className="trigger-disabled-reason">
                       {t('triggerDisabledReason', {
-                        reason: trigger.disabledReason
+                        reason: disabledReason(trigger.disabledReason, t)
                       })}
                     </p>
                   )}
                   <dl className="query-item-meta">
                     <dt>{t('triggerWhen')}</dt>
-                    <dd>{t(`triggerOn_${trigger.on}`)}</dd>
+                    <dd>
+                      {t(`triggerOn_${trigger.on}`)}
+                      {trigger.after &&
+                        ` · ${describeSchedule(trigger.after, t)}`}
+                    </dd>
                     <dt>{t('triggerCondition')}</dt>
                     <dd>
                       {trigger.when ? (
@@ -458,6 +481,40 @@ export const TriggersTab = ({ base, table, readOnly }: TriggersTabProps) => {
 
 type DataT = Translate<(typeof i18n.copy.DATA)['en']>;
 
+// "30 minutes after created_at".
+const describeSchedule = (
+  after: { column: string; minutes: number },
+  t: DataT
+) => {
+  const { amount, unit, before } = splitMinutes(after.minutes);
+  return t(before ? 'schedule_before' : 'schedule_after', {
+    amount: t.n(amount),
+    unit: t(`triggerUnit_${unit}`),
+    column: after.column
+  });
+};
+
+// Why Ganju turned a trigger off, in the reader's words when it is one of
+// the reasons Ganju writes; anything else as it was written.
+const disabledReason = (reason: string, t: DataT) => {
+  const failures =
+    /^Turned off by Ganju after (\d+) failed runs in a row\.$/.exec(reason);
+  if (failures) return t('triggerReason_failures', { n: failures[1] });
+  const cap = /^This database's time triggers fired ([\d,]+) events today/.exec(
+    reason
+  );
+  if (cap) return t('triggerReason_dailyCap', { n: cap[1] });
+  const column = /^(\S+) is no longer a date or datetime column\.$/.exec(
+    reason
+  );
+  if (column) return t('triggerReason_column', { column: column[1] });
+  if (reason === "The organization's plan no longer includes Data.")
+    return t('triggerReason_noData');
+  if (reason === "This month's trigger runs reached the plan's limit.")
+    return t('triggerReason_monthCap');
+  return reason;
+};
+
 // "status changes to READY" for a one-column test; JSON for anything else.
 const describeCondition = (when: DataTriggerCondition, t: DataT) => {
   const simple = simpleCondition(when);
@@ -532,6 +589,10 @@ const TriggerDialog = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [on, setOn] = useState<DataTriggerEvent>('insert');
+  const [afterColumn, setAfterColumn] = useState('created_at');
+  const [afterAmount, setAfterAmount] = useState('30');
+  const [afterUnit, setAfterUnit] = useState<TimeUnit>('minutes');
+  const [afterBefore, setAfterBefore] = useState(false);
   const [column, setColumn] = useState('');
   const [test, setTest] = useState<TestKey>('changedTo');
   const [value, setValue] = useState('');
@@ -563,6 +624,11 @@ const TriggerDialog = ({
     setName(trigger?.name ?? '');
     setDescription(trigger?.description ?? '');
     setOn(trigger?.on ?? 'insert');
+    const split = trigger?.after ? splitMinutes(trigger.after.minutes) : null;
+    setAfterColumn(trigger?.after?.column ?? 'created_at');
+    setAfterAmount(String(split?.amount ?? 30));
+    setAfterUnit(split?.unit ?? 'minutes');
+    setAfterBefore(split?.before ?? false);
     setColumn(simple?.column ?? '');
     setTest(simple?.test ?? 'changedTo');
     setValue(
@@ -618,6 +684,25 @@ const TriggerDialog = ({
     }))
   ];
   const picked = columns.find(col => col.name === column);
+  const timed = on === 'time';
+  // The columns a time trigger can count from; only a date or datetime can
+  // be counted back from.
+  const timeColumns = [
+    ...SYSTEM_TIMES,
+    ...table.columns
+      .filter(col => col.type === 'date' || col.type === 'datetime')
+      .map(col => col.name)
+  ];
+  const canBefore = !SYSTEM_TIMES.includes(afterColumn);
+  const tests = timed ? (['equals'] as TestKey[]) : TESTS;
+  const pickEvent = (next: DataTriggerEvent) => {
+    setOn(next);
+    if (next === 'time' && test !== 'equals') setTest('equals');
+  };
+  const pickAfterColumn = (next: string) => {
+    setAfterColumn(next);
+    if (SYSTEM_TIMES.includes(next)) setAfterBefore(false);
+  };
 
   const actions = ACTIONS.filter(
     type =>
@@ -812,6 +897,17 @@ const TriggerDialog = ({
       setError(t('triggerRateLimitInvalid', { max: DATA_TRIGGER_MAX_RATE }));
       return;
     }
+    const minutes =
+      Number(afterAmount) * UNIT_MINUTES[afterUnit] * (afterBefore ? -1 : 1);
+    if (
+      timed &&
+      (!Number.isInteger(minutes) ||
+        Math.abs(minutes) < DATA_TIME_MIN_MINUTES ||
+        Math.abs(minutes) > DATA_TIME_MAX_MINUTES)
+    ) {
+      setError(t('triggerAfterInvalid', { min: DATA_TIME_MIN_MINUTES }));
+      return;
+    }
     let when: unknown = null;
     if (advanced) {
       if (json.trim()) {
@@ -845,6 +941,7 @@ const TriggerDialog = ({
         description: description.trim() || null,
         table: table.name,
         on,
+        ...(timed ? { after: { column: afterColumn, minutes } } : {}),
         when,
         // Saving replaces the trigger: keep it on or off as it was. A new
         // one never replaces another of the same name.
@@ -919,14 +1016,70 @@ const TriggerDialog = ({
           label={t('triggerWhen')}
           value={on}
           disabled={saving}
-          onChange={e => setOn(e.target.value as DataTriggerEvent)}
+          onChange={e => pickEvent(e.target.value as DataTriggerEvent)}
           options={EVENTS.map(event => ({
             label: t(`triggerOn_${event}`),
             value: event
           }))}
         />
 
+        {timed && (
+          <>
+            <h4 className="dialog-subtitle">{t('triggerAfterTitle')}</h4>
+            <div className="query-param-row">
+              <UI.Input
+                size="small"
+                type="number"
+                label={t('triggerAfterAmount')}
+                value={afterAmount}
+                disabled={saving}
+                onChange={e => setAfterAmount(e.target.value)}
+              />
+              <UI.Select
+                size="small"
+                label={t('triggerAfterUnit')}
+                value={afterUnit}
+                disabled={saving}
+                onChange={e => setAfterUnit(e.target.value as TimeUnit)}
+                options={UNITS.map(unit => ({
+                  label: t(`triggerUnit_${unit}`),
+                  value: unit
+                }))}
+              />
+              <UI.Select
+                size="small"
+                label={t('triggerAfterDirection')}
+                value={afterBefore ? 'before' : 'after'}
+                disabled={saving || !canBefore}
+                onChange={e => setAfterBefore(e.target.value === 'before')}
+                options={(['after', 'before'] as const).map(direction => ({
+                  label: t(`triggerDirection_${direction}`),
+                  value: direction
+                }))}
+              />
+              <UI.Select
+                size="small"
+                label={t('triggerAfterColumn')}
+                value={afterColumn}
+                disabled={saving}
+                onChange={e => pickAfterColumn(String(e.target.value))}
+                options={timeColumns.map(name => ({
+                  label:
+                    name === 'created_at' || name === 'updated_at'
+                      ? t(`triggerAfterColumn_${name}`)
+                      : name,
+                  value: name
+                }))}
+              />
+            </div>
+            <p className="dialog-muted">{t('triggerAfterHelp')}</p>
+          </>
+        )}
+
         <h4 className="dialog-subtitle">{t('triggerCondition')}</h4>
+        {timed && (
+          <p className="dialog-muted">{t('triggerTimeConditionHelp')}</p>
+        )}
         {advanced ? (
           <UI.Input
             size="small"
@@ -964,7 +1117,7 @@ const TriggerDialog = ({
                 value={test}
                 disabled={saving}
                 onChange={e => setTest(e.target.value as TestKey)}
-                options={TESTS.map(key => ({
+                options={tests.map(key => ({
                   label: t(`triggerTest_${key}`),
                   value: key
                 }))}

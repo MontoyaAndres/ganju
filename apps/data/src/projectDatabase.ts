@@ -50,6 +50,9 @@ import {
   saveTrigger,
   setTriggerEnabled,
   utf8Bytes,
+  hasTimeTriggers,
+  scanTimeTriggers,
+  DATA_TIME_SCAN_MS,
   DATA_MAX_USAGE_SHAPES
 } from '@ganju/utils/data';
 import type {
@@ -72,6 +75,10 @@ import type { Env } from './types';
 // History pruning runs once a day per database, a batch at a time.
 const PRUNE_INTERVAL_MS = 86_400_000;
 const PRUNE_BATCH = 5_000;
+// When time triggers were last scanned (ms), and the slack an alarm that
+// fires a little early still counts as on time.
+const TIME_SCANNED_KEY = 'time_scanned_at';
+const ALARM_SLACK_MS = 30_000;
 // A table's first export step reads about this much, so a small table is one
 // plain object. R2 parts other than the last must be at least 5 MiB and all
 // the same size, so a larger table is cut at exactly EXPORT_PART_BYTES: each
@@ -762,9 +769,11 @@ export class ProjectDatabase
   }
 
   async saveTrigger(caller: DataCaller, input: unknown) {
-    return this.call({}, runner => {
+    return this.call({}, async runner => {
       assertWritable(runner, caller, false);
-      return saveTrigger(runner, this.schema(runner), caller, input);
+      const saved = saveTrigger(runner, this.schema(runner), caller, input);
+      await this.scheduleTimeScan(runner);
+      return saved;
     });
   }
 
@@ -779,9 +788,9 @@ export class ProjectDatabase
     caller: DataCaller,
     args: { name: string; enabled: boolean; reason?: string | null }
   ) {
-    return this.call({}, runner => {
+    return this.call({}, async runner => {
       assertActor(caller);
-      return setTriggerEnabled(
+      const trigger = setTriggerEnabled(
         runner,
         this.schema(runner),
         caller,
@@ -789,13 +798,17 @@ export class ProjectDatabase
         args.enabled === true,
         args.reason ?? null
       );
+      await this.scheduleTimeScan(runner);
+      return trigger;
     });
   }
 
   async replaceManagedTriggers(caller: DataCaller, inputs: unknown) {
-    return this.call({}, runner => {
+    return this.call({}, async runner => {
       assertWritable(runner, caller, false);
-      return replaceManagedTriggers(runner, this.schema(runner), caller, inputs);
+      const result = replaceManagedTriggers(runner, this.schema(runner), caller, inputs);
+      await this.scheduleTimeScan(runner);
+      return result;
     });
   }
 
@@ -1087,6 +1100,35 @@ export class ProjectDatabase
     if (current === null || current > at) await this.ctx.storage.setAlarm(at);
   }
 
+  // When the next time-trigger scan is due, while an enabled one exists.
+  private nextTimeScan(runner: SqlRunner): number | null {
+    if (!hasTimeTriggers(runner)) return null;
+    return Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS;
+  }
+
+  private async scheduleTimeScan(runner: SqlRunner) {
+    const at = this.nextTimeScan(runner);
+    if (at !== null) await this.scheduleAlarm(Math.max(at, Date.now() + 1_000));
+  }
+
+  // Rows that came due since the last scan become events in the outbox, so
+  // they go out with this alarm. A failed scan is logged and tried at the
+  // next one: it mustn't hold up the outbox.
+  private timeScan(runner: SqlRunner) {
+    if (getMeta(runner, 'deleted_at')) return;
+    const at = this.nextTimeScan(runner);
+    if (at === null || Date.now() < at - ALARM_SLACK_MS) return;
+    try {
+      const result = scanTimeTriggers(runner, this.schema(runner));
+      for (const off of result.disabled) {
+        console.warn('project-database-time-trigger-off', off.name, off.reason);
+      }
+    } catch (error) {
+      console.error('project-database-time-scan-failed', errorText(error));
+    }
+    setMeta(runner, TIME_SCANNED_KEY, String(Date.now()));
+  }
+
   async alarm() {
     const usage: DataUsage = { rowsRead: 0, rowsWritten: 0 };
     const runner = this.runner(usage);
@@ -1097,6 +1139,8 @@ export class ProjectDatabase
     runner.all(`PRAGMA foreign_keys = ${copying ? 'OFF' : 'ON'}`);
     try {
       // Trigger events go first: a long copy or export mustn't hold them up.
+      // A table copy changes a table under the scan, so it waits for the end.
+      if (!copying) this.timeScan(runner);
       const more = await this.drainOutbox(runner);
       if (copying) await this.copyStep(runner);
       else await this.alarmStep(runner);
@@ -1134,6 +1178,9 @@ export class ProjectDatabase
       }
       setMeta(runner, 'history_pruned_at', String(Date.now()));
     }
-    await this.ctx.storage.setAlarm(Date.now() + PRUNE_INTERVAL_MS);
+    // The next prune, or the next time-trigger scan when that comes first.
+    const pruneAt = Number(getMeta(runner, 'history_pruned_at') ?? Date.now()) + PRUNE_INTERVAL_MS;
+    const scanAt = this.nextTimeScan(runner) ?? Infinity;
+    await this.ctx.storage.setAlarm(Math.max(Math.min(pruneAt, scanAt), Date.now() + 1_000));
   }
 }

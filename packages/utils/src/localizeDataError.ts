@@ -424,7 +424,24 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   'A trigger is an object.': 'Un disparador es un objeto.',
   'There is no table named {0}.': 'No hay ninguna tabla llamada {0}.',
   'A trigger needs "table".': 'Un disparador necesita "table".',
-  '"on" is insert, update or delete.': '"on" es insert, update o delete.',
+  '"on" is insert, update, delete or time.':
+    '"on" es insert, update, delete o time.',
+  // Time triggers.
+  '"after" is for "on": "time" only.': '"after" es solo para "on": "time".',
+  'A time trigger needs "after": { "column", "minutes" }, such as { "column": "created_at", "minutes": 30 }.':
+    'Un disparador por tiempo necesita "after": { "column", "minutes" }, por ejemplo { "column": "created_at", "minutes": 30 }.',
+  '"after.column" is created_at, updated_at or a date or datetime column of {0}.':
+    '"after.column" es created_at, updated_at o una columna de fecha o de fecha y hora de {0}.',
+  '"after.minutes" is a whole number of minutes from {0} to {1} (30 days), negative for before the column\'s time.':
+    '"after.minutes" es un número entero de minutos de {0} a {1} (30 días), negativo para antes de la hora de la columna.',
+  '"after.minutes" can\'t be negative on {0}: that time has already passed when the row is written. Use a date or datetime column for a reminder before.':
+    '"after.minutes" no puede ser negativo en {0}: esa hora ya pasó cuando se escribe la fila. Usa una columna de fecha o de fecha y hora para un recordatorio antes.',
+  '"when".{0}.{1}: a time trigger reads the row as it is when it comes due, so its tests are "equals" only.':
+    '"when".{0}.{1}: un disparador por tiempo lee la fila tal como está cuando se cumple el plazo, así que sus pruebas son solo "equals".',
+  'A database holds up to {0} time triggers.':
+    'Una base de datos tiene hasta {0} disparadores por tiempo.',
+  '{0}.{1} stays a date or datetime while time triggers count from it ({2}); change or delete them first.':
+    '{0}.{1} debe seguir siendo de fecha o de fecha y hora mientras haya disparadores por tiempo que cuenten desde ella ({2}); cámbialos o elimínalos primero.',
   "A trigger's name is lowercase letters, digits, _ and -, starting with a letter.":
     'El nombre de un disparador usa minúsculas, dígitos, _ y -, empezando por una letra.',
   '"rateLimit" is 1 to {0} runs a minute.':
@@ -556,6 +573,8 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
     '{0} no es uno de tus chats vinculados con los bots de este proyecto.',
   'Several of your chats are linked to this project\'s bots; pick one with "participantId".':
     'Varios de tus chats están vinculados con los bots de este proyecto; elige uno con "participantId".',
+  "This organization's plan no longer includes Data, so its triggers are paused and can't be tested. Upgrade to Pro to send a test.":
+    'El plan de esta organización ya no incluye Datos, así que sus disparadores están en pausa y no se pueden probar. Pasa a Pro para enviar una prueba.',
   '{0} has no rows yet; add one to build the test from.':
     '{0} aún no tiene filas; agrega una para armar la prueba.',
   'Reading a row as its trigger event is for the project owner.':

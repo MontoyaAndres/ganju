@@ -520,3 +520,31 @@ test('triggers: a write\'s events reach the queue from the alarm; a rolled-back 
   const withSecret = await call('getTrigger', 'ready');
   assert.equal(withSecret.value.secret, ready.value.secret);
 });
+
+test('a time trigger saves with its schedule and indexes its column in the object', async () => {
+  const call = callOn('time-triggers');
+  await restaurant(call);
+  const saved = await call('saveTrigger', owner, {
+    name: 'still-pending',
+    table: 'orders',
+    on: 'time',
+    after: { column: 'created_at', minutes: 30 },
+    when: { status: { equals: 'pending' } },
+    webhook: 'https://example.com/late'
+  });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.deepEqual(saved.value.trigger.after, { column: 'created_at', minutes: 30 });
+  const refused = await call('saveTrigger', owner, {
+    table: 'orders',
+    on: 'time',
+    after: { column: 'created_at', minutes: 30 },
+    when: { status: { changedTo: 'ready' } },
+    webhook: 'https://example.com/late'
+  });
+  assert.equal(refused.ok, false);
+  assert.match(refused.error.message, /"equals" only/);
+  const listed = await call('listTriggers', owner);
+  assert.equal(listed.value.triggers[0].on, 'time');
+  const dropped = await call('dropTrigger', owner, 'still-pending');
+  assert.equal(dropped.ok, true, JSON.stringify(dropped));
+});

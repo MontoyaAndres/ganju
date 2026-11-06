@@ -118,6 +118,7 @@ export {
 export type { DataToolDefinition, DataAdminAction } from './dataTools';
 export {
   DATA_TRIGGER_EVENTS,
+  DATA_CHANGE_EVENTS,
   DATA_TRIGGER_ACTIONS,
   DATA_MAX_TRIGGERS,
   DATA_TRIGGER_MAX_DEPTH,
@@ -125,6 +126,12 @@ export {
   DATA_TRIGGER_MAX_RATE,
   DATA_OUTBOX_BATCH,
   DATA_TRIGGER_MAX_MESSAGE_BYTES,
+  DATA_TIME_SCAN_MS,
+  DATA_TIME_MIN_MINUTES,
+  DATA_TIME_MAX_MINUTES,
+  DATA_MAX_TIME_TRIGGERS,
+  DATA_TIME_EVENTS_PER_SCAN,
+  DATA_TIME_EVENTS_PER_DAY,
   utf8Bytes,
   conditionMatches,
   renderTriggerText,
@@ -144,7 +151,11 @@ export {
   outboxSize,
   clearOutbox,
   triggersUsingColumn,
-  renameColumnInTriggers
+  renameColumnInTriggers,
+  timeTriggersCountingFrom,
+  syncTimeIndexes,
+  hasTimeTriggers,
+  scanTimeTriggers
 } from './dataTriggers';
 export type {
   DataTrigger,
@@ -155,8 +166,10 @@ export type {
   DataTriggerEvent,
   DataTriggerEventMessage,
   DataTriggerInput,
+  DataTriggerSchedule,
   DataTriggerTemplate,
   DataTriggerTest,
   DataTriggerWithSecret,
-  SavedTrigger
+  SavedTrigger,
+  TimeScanResult
 } from './dataTriggers';

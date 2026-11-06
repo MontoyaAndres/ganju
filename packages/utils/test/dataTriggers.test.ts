@@ -28,8 +28,10 @@ import {
   renderTriggerText,
   replaceManagedTriggers,
   saveTrigger,
+  scanTimeTriggers,
   setTriggerEnabled,
-  utf8Bytes
+  utf8Bytes,
+  DATA_TIME_EVENTS_PER_DAY
 } from '../src/dataTriggers.ts';
 import type { DataTriggerEventMessage } from '../src/dataTriggers.ts';
 import { DataError } from '../src/dataTypes.ts';
@@ -340,7 +342,7 @@ test('a trigger is checked when saved', () => {
   );
   refuses(
     { table: 'orders', on: 'upsert', function: 'x' },
-    /insert, update or delete/
+    /insert, update, delete or time/
   );
   refuses({ table: 'orders', on: 'insert' }, /runs one thing/);
   refuses(
@@ -724,4 +726,236 @@ test('row size is measured in bytes; a restore clears only events from before it
   });
   assert.equal(clearOutbox(runner, '2026-06-01T00:00:00Z'), 1);
   assert.equal(events(runner)[0].row?.address, 'b');
+});
+
+// Time triggers
+
+const minutesFromNow = (minutes: number) =>
+  new Date(Date.now() + minutes * 60_000);
+
+const PENDING_30 = {
+  table: 'orders',
+  on: 'time',
+  after: { column: 'created_at', minutes: 5 },
+  when: { status: { equals: 'pending' } },
+  chat: { channelId: 'ch_1', chatId: '42', text: 'Order #{{id}} still {{status}}' }
+} as const;
+
+test('a time trigger takes equals only, 5 to 43,200 minutes, and a date or datetime column', () => {
+  const { runner, s } = shop();
+  const refused = (input: Record<string, unknown>, pattern: RegExp) =>
+    assert.throws(() => saveTrigger(runner, s(), OWNER, { ...PENDING_30, ...input }), pattern);
+  refused({ when: { status: { changedTo: 'pending' } } }, /time trigger reads the row as it is when it comes due, so its tests are "equals" only/);
+  refused({ when: { any: [{ status: { changed: true } }] } }, /"equals" only/);
+  refused({ after: { column: 'created_at', minutes: 4 } }, /from 5 to 43200/);
+  refused({ after: { column: 'created_at', minutes: 43_201 } }, /from 5 to 43200/);
+  refused({ after: { column: 'created_at', minutes: 2.5 } }, /whole number/);
+  refused({ after: { column: 'created_at', minutes: -30 } }, /can't be negative on created_at/);
+  refused({ after: { column: 'address', minutes: 30 } }, /created_at, updated_at or a date or datetime column of orders/);
+  refused({ after: null }, /A time trigger needs "after"/);
+  assert.throws(
+    () => saveTrigger(runner, s(), OWNER, { table: 'orders', on: 'insert', after: { column: 'created_at', minutes: 5 }, webhook: 'https://example.com/a' }),
+    /"after" is for "on": "time" only/
+  );
+  const { trigger } = saveTrigger(runner, s(), OWNER, PENDING_30);
+  assert.equal(trigger.on, 'time');
+  assert.deepEqual(trigger.after, { column: 'created_at', minutes: 5 });
+  assert.equal(trigger.name, 'orders-time-chat');
+});
+
+test('a time trigger fires once per row and due time, only for rows that still match', () => {
+  const { runner, s } = shop();
+  saveTrigger(runner, s(), OWNER, PENDING_30);
+  write(runner, s(), BOT, {
+    operations: [
+      { op: 'insert', table: 'orders', values: { address: 'left pending' } },
+      { op: 'insert', table: 'orders', values: { address: 'made ready' } }
+    ]
+  });
+  write(runner, s(), OWNER, {
+    operations: [{ op: 'update', table: 'orders', id: 2, set: { status: 'ready' } }]
+  });
+  // Not due yet.
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(1)).events, 0);
+  const later = minutesFromNow(6);
+  assert.equal(scanTimeTriggers(runner, s(), later).events, 1);
+  const [event] = events(runner);
+  assert.equal(event.event, 'time');
+  assert.equal(event.rowId, 1);
+  assert.equal(event.row?.address, 'left pending');
+  assert.equal(event.row?.participant_id, 'ana');
+  assert.equal(event.participantId, 'ana');
+  assert.equal(event.previous, null);
+  assert.equal(event.depth, 1);
+  assert.equal(event.dueAt, new Date(Date.parse(String(event.row?.created_at)) + 5 * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z'));
+  // The same scan again, or a later one, fires nothing more.
+  assert.equal(scanTimeTriggers(runner, s(), later).events, 0);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(20)).events, 0);
+  // Even if the scan's position went back (a restore, a crash before it was
+  // kept), the fired table stops a second event for the same due time.
+  runner.all("UPDATE _ganju_triggers SET scan_state = ?", [JSON.stringify({ through: '2000-01-01T00:00:00Z' })]);
+  assert.equal(scanTimeTriggers(runner, s(), later).events, 0);
+  assert.equal(events(runner).length, 1);
+});
+
+test('rows already due when a time trigger is saved never fire', () => {
+  const { runner, s } = shop();
+  write(runner, s(), BOT, {
+    operations: [{ op: 'insert', table: 'orders', values: { address: 'old' } }]
+  });
+  runner.all('UPDATE orders SET created_at = ? WHERE id = 1', [
+    minutesFromNow(-10).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  ]);
+  saveTrigger(runner, s(), OWNER, PENDING_30);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(1)).events, 0);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(30)).events, 0);
+});
+
+test('an updated_at trigger fires again after the next change, not twice for one', () => {
+  const { runner, s } = shop();
+  saveTrigger(runner, s(), OWNER, {
+    ...PENDING_30,
+    name: 'idle',
+    after: { column: 'updated_at', minutes: 60 },
+    when: null
+  });
+  write(runner, s(), BOT, {
+    operations: [{ op: 'insert', table: 'orders', values: { address: 'a' } }]
+  });
+  const at = (minutes: number) => minutesFromNow(minutes).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  runner.all('UPDATE orders SET updated_at = ? WHERE id = 1', [at(1)]);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(62)).events, 1);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(63)).events, 0);
+  runner.all('UPDATE orders SET updated_at = ? WHERE id = 1', [at(64)]);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(100)).events, 0);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(125)).events, 1);
+  assert.deepEqual(events(runner).map(e => e.dueAt), [
+    new Date(Date.parse(at(1)) + 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    new Date(Date.parse(at(64)) + 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  ]);
+});
+
+test("a reminder before a date counts from midnight in the database's zone", () => {
+  const { runner, s } = shop();
+  setMeta(runner, 'time_zone', 'America/Bogota');
+  createTable(runner, s(), OWNER, {
+    name: 'bookings',
+    access: 'full',
+    columns: [
+      { name: 'day', type: 'date' },
+      { name: 'starts', type: 'datetime' },
+      { name: 'confirmed', type: 'boolean', default: false }
+    ]
+  });
+  // Noon the day before, Bogotá time; and two hours before a datetime.
+  saveTrigger(runner, s(), OWNER, {
+    name: 'day-before',
+    table: 'bookings',
+    on: 'time',
+    after: { column: 'day', minutes: -720 },
+    when: { confirmed: { equals: false } },
+    webhook: 'https://example.com/remind'
+  });
+  saveTrigger(runner, s(), OWNER, {
+    name: 'two-hours',
+    table: 'bookings',
+    on: 'time',
+    after: { column: 'starts', minutes: -120 },
+    webhook: 'https://example.com/soon'
+  });
+  write(runner, s(), OWNER, {
+    operations: [
+      { op: 'insert', table: 'bookings', values: { day: '2099-03-10', starts: '2099-03-10T15:00:00Z' } },
+      { op: 'insert', table: 'bookings', values: { day: '2099-03-10', confirmed: true } },
+      { op: 'insert', table: 'bookings', values: { day: '2099-03-11' } }
+    ]
+  });
+  assert.equal(scanTimeTriggers(runner, s(), new Date('2099-03-09T16:59:00Z')).events, 0);
+  assert.equal(scanTimeTriggers(runner, s(), new Date('2099-03-09T17:01:00Z')).events, 1);
+  assert.equal(scanTimeTriggers(runner, s(), new Date('2099-03-10T13:00:00Z')).events, 1);
+  assert.deepEqual(
+    events(runner).map(e => [e.triggerName, e.rowId, e.dueAt]),
+    [
+      ['day-before', 1, '2099-03-09T17:00:00Z'],
+      ['two-hours', 1, '2099-03-10T13:00:00Z']
+    ]
+  );
+});
+
+test('a scan fires up to 100 events per trigger and carries on from there', () => {
+  const { runner, s } = shop();
+  saveTrigger(runner, s(), OWNER, PENDING_30);
+  write(runner, s(), BOT, {
+    operations: [{ op: 'insert', table: 'orders', rows: Array.from({ length: 150 }, (_, i) => ({ address: `#${i}` })) }]
+  });
+  const later = minutesFromNow(6);
+  assert.equal(scanTimeTriggers(runner, s(), later).events, 100);
+  assert.equal(scanTimeTriggers(runner, s(), later).events, 50);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(7)).events, 0);
+  const ids = events(runner).map(e => e.rowId);
+  assert.equal(new Set(ids).size, 150);
+});
+
+test('past the daily cap, a time trigger turns off with why', () => {
+  const { runner, s } = shop();
+  saveTrigger(runner, s(), OWNER, PENDING_30);
+  write(runner, s(), BOT, {
+    operations: [{ op: 'insert', table: 'orders', rows: [{ address: 'a' }, { address: 'b' }] }]
+  });
+  const later = minutesFromNow(6);
+  setMeta(runner, 'time_events_day', JSON.stringify({ day: later.toISOString().slice(0, 10), count: DATA_TIME_EVENTS_PER_DAY - 1 }));
+  const result = scanTimeTriggers(runner, s(), later);
+  assert.equal(result.events, 1);
+  assert.equal(result.disabled.length, 1);
+  const [trigger] = listTriggers(runner, s());
+  assert.equal(trigger.enabled, false);
+  assert.match(String(trigger.disabledReason), /fired 2,000 events today \(UTC\), the most a day/);
+  // The queue gets a notice to record it and tell the admins.
+  const notice = events(runner).find(e => e.turnedOff);
+  assert.equal(notice?.triggerName, trigger.name);
+  assert.match(String(notice?.error), /^Not run: This database's time triggers fired 2,000 events today/);
+  // Back on, it counts from then: what came due while it was off is skipped.
+  setTriggerEnabled(runner, s(), OWNER, trigger.name, true);
+  assert.equal(scanTimeTriggers(runner, s(), minutesFromNow(8)).events, 0);
+});
+
+test('a database holds up to 10 time triggers; each indexes its column while it exists', () => {
+  const { runner, s } = shop();
+  const indexes = () =>
+    runner.all("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'it\\_%' ESCAPE '\\' ORDER BY name").map(r => r.name);
+  for (let i = 0; i < 10; i++) {
+    saveTrigger(runner, s(), OWNER, { ...PENDING_30, name: `late-${i}`, after: { column: i % 2 ? 'updated_at' : 'created_at', minutes: 5 + i } });
+  }
+  assert.throws(() => saveTrigger(runner, s(), OWNER, { ...PENDING_30, name: 'late-10' }), /up to 10 time triggers/);
+  // Editing one of the ten is fine.
+  saveTrigger(runner, s(), OWNER, { ...PENDING_30, name: 'late-0', after: { column: 'created_at', minutes: 15 } });
+  const orders = s().tables.find(t => t.name === 'orders')!;
+  assert.deepEqual(indexes(), [`it_${orders.id}_created_at`, `it_${orders.id}_updated_at`]);
+  for (let i = 0; i < 10; i++) if (i % 2) dropTrigger(runner, `late-${i}`);
+  assert.deepEqual(indexes(), [`it_${orders.id}_created_at`]);
+  for (let i = 0; i < 10; i += 2) dropTrigger(runner, `late-${i}`);
+  assert.deepEqual(indexes(), []);
+});
+
+test("a time trigger's column stays a date or datetime and can't be dropped; a rename follows", () => {
+  const { runner, s } = shop();
+  addColumn(runner, s(), OWNER, 'orders', { name: 'pickup', type: 'datetime' });
+  saveTrigger(runner, s(), OWNER, { ...PENDING_30, name: 'pickup-soon', after: { column: 'pickup', minutes: -30 } });
+  assert.throws(() => updateColumn(runner, s(), OWNER, 'orders', 'pickup', { type: 'text' }), /stays a date or datetime while time triggers count from it \(pickup-soon\)/);
+  assert.throws(() => dropColumn(runner, s(), OWNER, 'orders', 'pickup'), /can't be dropped while the trigger pickup-soon uses it/);
+  updateColumn(runner, s(), OWNER, 'orders', 'pickup', { name: 'pickup_at' });
+  assert.deepEqual(listTriggers(runner, s())[0].after, { column: 'pickup_at', minutes: -30 });
+});
+
+test('after a restore, time triggers count from now again', () => {
+  const { runner, s } = shop();
+  saveTrigger(runner, s(), OWNER, PENDING_30);
+  write(runner, s(), BOT, {
+    operations: [{ op: 'insert', table: 'orders', values: { address: 'a' } }]
+  });
+  // As the restored copy looks: a scan position from before the row was due.
+  runner.all('UPDATE _ganju_triggers SET scan_state = ?', [JSON.stringify({ through: '2000-01-01T00:00:00Z' })]);
+  clearOutbox(runner, '2000-01-01T00:00:00Z');
+  const [{ scan_state }] = runner.all('SELECT scan_state FROM _ganju_triggers');
+  assert.ok(JSON.parse(String(scan_state)).through > '2026-01-01');
 });

@@ -79,6 +79,16 @@
       "on": "update",
       "when": { "status": { "changedTo": "ready" } },
       "function": "tell-customer"
+    },
+    {
+      "name": "still-pending",
+      "table": "orders",
+      "on": "time",
+      "after": { "column": "created_at", "minutes": 30 },
+      "when": { "status": { "equals": "pending" } },
+      "customer": {
+        "text": "Your order #{{id}} is taking longer than usual; we're on it."
+      }
     }
   ]
 }

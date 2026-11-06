@@ -150,6 +150,7 @@ const runAction = async (
           actor: job.actor,
           eventId: job.eventId,
           triggerId: job.triggerId,
+          ...(job.dueAt ? { dueAt: job.dueAt } : {}),
           ...(job.truncated ? { rowId: job.rowId, truncated: true } : {})
         },
         allowedHosts: functions.allowedHosts,
@@ -180,6 +181,7 @@ const runAction = async (
         previous: job.previous,
         actor: job.actor,
         at: job.at,
+        ...(job.dueAt ? { dueAt: job.dueAt } : {}),
         ...(job.truncated ? { truncated: true } : {})
       });
       const timestamp = Math.floor(Date.now() / 1000);
@@ -409,6 +411,54 @@ const disableIfFailing = async (
   });
 };
 
+// The scan turned a time trigger off for the database's daily cap: the
+// admins hear about it as they do after failures in a row.
+const tellTurnedOff = async (
+  env: Bindings,
+  executor: DbExecutor,
+  organizationId: string,
+  job: DataTriggerJob
+) => {
+  const to = await organizationAdminEmails(executor, organizationId);
+  const web = utils.getEnv({ env }, 'NEXT_PUBLIC_WEB_URL') ?? '';
+  await emailEach({ env }, to, {
+    subject: `Ganju: the trigger ${job.triggerName} was turned off`,
+    text: `The time trigger ${job.triggerName} on the table ${job.table} was turned off: ${(job.error ?? '').replace(/^Not run: /, '')} It's in the table's Triggers tab on the project's Data page${web ? ` (${web})` : ''}.`
+  });
+};
+
+// A time trigger keeps coming due while its runs are paused, so each check
+// would add another skipped run: it is turned off instead, saying why, and
+// turned back on by the owner (counting from then).
+const pauseTimeTrigger = async (
+  executor: DbExecutor,
+  context: {
+    databaseId: string;
+    organizationId: string;
+    stub: ReturnType<typeof db.data.databaseStub>;
+  },
+  job: DataTriggerJob,
+  reason: string
+) => {
+  if (job.event !== 'time') return;
+  const database = {
+    id: context.databaseId,
+    organizationId: context.organizationId
+  };
+  const trigger = await db.data
+    .callDataMetered(executor, database, 'getTrigger', () =>
+      context.stub.getTrigger(job.triggerId)
+    )
+    .catch(() => null);
+  if (!trigger?.enabled) return;
+  await db.data.callDataMetered(executor, database, 'setTriggerEnabled', () =>
+    context.stub.setTriggerEnabled(
+      { actor: ACTOR },
+      { name: job.triggerId, enabled: false, reason }
+    )
+  );
+};
+
 const processEvent = async (
   env: Bindings,
   job: DataTriggerJob,
@@ -461,7 +511,11 @@ const processEvent = async (
 
   if (job.error) {
     await finish(executor, current.id, 'failed', job.error);
-    await disableIfFailing(env, executor, context, job);
+    if (job.turnedOff) {
+      await tellTurnedOff(env, executor, database.organizationId, job);
+    } else {
+      await disableIfFailing(env, executor, context, job);
+    }
     return 'done';
   }
 
@@ -475,6 +529,12 @@ const processEvent = async (
       current.id,
       'skipped',
       "Paused: the organization's plan no longer includes Data."
+    );
+    await pauseTimeTrigger(
+      executor,
+      context,
+      job,
+      "The organization's plan no longer includes Data."
     );
     return 'done';
   }
@@ -491,6 +551,12 @@ const processEvent = async (
         current.id,
         'skipped',
         "Paused: this month's trigger runs reached the plan's limit."
+      );
+      await pauseTimeTrigger(
+        executor,
+        context,
+        job,
+        "This month's trigger runs reached the plan's limit."
       );
       return 'done';
     }

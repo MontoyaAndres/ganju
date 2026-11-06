@@ -3,7 +3,12 @@
 // the tests and the tool-design eval. The runner executes; everything about
 // which SQL is allowed and how results look is decided here.
 import { identifierIssue, quoteIdentifier as q } from './dataIdentifiers';
-import { collectTriggerEvents, renameColumnInTriggers, triggersUsingColumn } from './dataTriggers';
+import {
+  collectTriggerEvents,
+  renameColumnInTriggers,
+  timeTriggersCountingFrom,
+  triggersUsingColumn
+} from './dataTriggers';
 import {
   DATA_NOW_SQL,
   NUMERIC_TYPES,
@@ -240,6 +245,20 @@ export const INTERNAL_MIGRATIONS: readonly (readonly string[])[] = [
       message TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (${DATA_NOW_SQL})
     )`
+  ],
+  // Time triggers: when each fires (`schedule`), how far its scans have got
+  // (`scan_state`), and the rows already fired for a due time, so none fires
+  // twice for the same one.
+  [
+    'ALTER TABLE _ganju_triggers ADD COLUMN schedule TEXT',
+    'ALTER TABLE _ganju_triggers ADD COLUMN scan_state TEXT',
+    `CREATE TABLE IF NOT EXISTS _ganju_trigger_fired (
+      trigger_id TEXT NOT NULL,
+      row_id INTEGER NOT NULL,
+      due_at TEXT NOT NULL,
+      PRIMARY KEY (trigger_id, row_id, due_at)
+    ) WITHOUT ROWID`,
+    'CREATE INDEX IF NOT EXISTS _ganju_trigger_fired_due ON _ganju_trigger_fired(due_at)'
   ]
 ];
 
@@ -272,6 +291,18 @@ export const setMeta = (
   );
 };
 
+// SQLite has no ADD COLUMN IF NOT EXISTS: a column already there is
+// skipped, so every version can run again like the CREATE ... IF NOT EXISTS
+// ones.
+const ADD_COLUMN = /^ALTER TABLE (\w+) ADD COLUMN (\w+) /;
+const runMigration = (runner: SqlRunner, statement: string) => {
+  const add = ADD_COLUMN.exec(statement);
+  if (add && runner.all(`PRAGMA table_info(${q(add[1])})`).some(c => c.name === add[2])) {
+    return;
+  }
+  runner.all(statement);
+};
+
 // Brings our own tables up to date. Returns the version now in force.
 export const migrateInternal = (runner: SqlRunner): number =>
   runner.transaction(() => {
@@ -279,7 +310,7 @@ export const migrateInternal = (runner: SqlRunner): number =>
       ? Number(getMeta(runner, 'schema_version') ?? 0)
       : 0;
     for (let v = current; v < INTERNAL_MIGRATIONS.length; v++) {
-      for (const statement of INTERNAL_MIGRATIONS[v]) runner.all(statement);
+      for (const statement of INTERNAL_MIGRATIONS[v]) runMigration(runner, statement);
     }
     if (current < INTERNAL_MIGRATIONS.length) {
       setMeta(runner, 'schema_version', String(INTERNAL_MIGRATIONS.length));
@@ -2935,6 +2966,17 @@ export const updateColumn = (
   const draft = normaliseColumn(merged, schema, table.name);
   if (draft.name !== column.name && table.columns.some(c => c.name === draft.name)) {
     throw new DataError(`${table.name} already has a column "${draft.name}".`, 'conflict');
+  }
+  // A time trigger counts from a date or datetime; anything else has no time.
+  if (draft.type !== 'date' && draft.type !== 'datetime') {
+    const timed = timeTriggersCountingFrom(runner, table.id, column.name);
+    if (timed.length) {
+      throw new DataError(
+        `${table.name}.${column.name} stays a date or datetime while time triggers count from it (${timed.join(', ')}); change or delete them first.`,
+        'constraint',
+        { triggers: timed }
+      );
+    }
   }
 
   if (columnChangeNeedsRebuild(schema, table.name, column.name, patch)) {
