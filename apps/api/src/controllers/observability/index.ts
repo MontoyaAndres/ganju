@@ -292,7 +292,8 @@ const getToolHealth = async (c: Context<AppEnv>) => {
     // ids and long numbers are masked, so "No Pokémon named "mew"" and
     // "… "ditto"" are one error. Short numbers stay — "answered 403" and
     // "answered 500" are different failures. Opened, an error shows its most
-    // recent call whole.
+    // recent call whole. The marks around quoted outside text are dropped
+    // first: they are for the model, and their ids differ on every call.
     dbInstance.execute(sql`
       WITH failed AS (
         SELECT
@@ -300,7 +301,18 @@ const getToolHealth = async (c: Context<AppEnv>) => {
           r.tool_name,
           r.created_at,
           regexp_replace(
-            left(r.error_message, 300),
+            left(
+              btrim(
+                regexp_replace(
+                  r.error_message,
+                  ${utils.UNTRUSTED_CONTENT_MARK_PATTERN},
+                  chr(10),
+                  'g'
+                ),
+                chr(10)
+              ),
+              300
+            ),
             '"[^"]*"|''[^'']*''|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}|[0-9]{5,}',
             '…',
             'g'

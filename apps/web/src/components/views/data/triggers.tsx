@@ -516,11 +516,16 @@ const describeSchedule = (
 const disabledReason = (reason: string, t: DataT) => {
   const failures =
     /^Turned off by Ganju after (\d+) failed runs in a row\.$/.exec(reason);
-  if (failures) return t('triggerReason_failures', { n: failures[1] });
+  if (failures)
+    return t('triggerReason_failures', { n: t.n(Number(failures[1])) });
   const cap = /^This database's time triggers fired ([\d,]+) events today/.exec(
     reason
   );
-  if (cap) return t('triggerReason_dailyCap', { n: cap[1] });
+  // Written with English separators ("2,000"); shown in the reader's.
+  if (cap)
+    return t('triggerReason_dailyCap', {
+      n: t.n(Number(cap[1].replace(/,/g, '')))
+    });
   const column = /^(\S+) is no longer a date or datetime column\.$/.exec(
     reason
   );

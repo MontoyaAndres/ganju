@@ -1588,6 +1588,8 @@ export const scanTimeTriggers = (
       let looked = 0;
       let more = false;
       let stoppedAt: { value: string; id: number } | null = null;
+      // The last row this scan is done with: fired, or not matching.
+      let done: { value: string; id: number } | null = null;
       let capped = false;
       const firing: DataTriggerEventMessage[] = [];
       for (const stored of runner.iterate(
@@ -1610,11 +1612,15 @@ export const scanTimeTriggers = (
         };
         const current = shape(table, JSON.stringify(stored));
         stoppedAt = at;
-        if (!conditionMatches(trigger.when, current, null)) continue;
+        if (!conditionMatches(trigger.when, current, null)) {
+          done = at;
+          continue;
+        }
         if (firedToday + firing.length >= DATA_TIME_EVENTS_PER_DAY) {
           capped = true;
           break;
         }
+        done = at;
         const customer = current?.participant_id;
         const message: DataTriggerEventMessage = {
           eventId: `evt_${crypto.randomUUID().replace(/-/g, '')}`,
@@ -1652,6 +1658,14 @@ export const scanTimeTriggers = (
       }
       firedToday += firing.length;
       result.events += firing.length;
+      // Events stored in this scan still run: the queue skips those of a
+      // trigger that is off. So a trigger that fired some before the cap stays
+      // on, carries on after them, and is turned off by the next scan.
+      if (capped && firing.length > 0) {
+        capped = false;
+        more = true;
+        stoppedAt = done;
+      }
       if (capped) {
         const reason = `This database's time triggers fired ${DATA_TIME_EVENTS_PER_DAY.toLocaleString('en-US')} events today (UTC), the most a day, so each one with more due today is turned off. Turn it back on to continue; due times from while it was off are skipped.`;
         turnOff(row, reason);

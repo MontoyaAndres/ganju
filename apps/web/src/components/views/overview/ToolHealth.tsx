@@ -907,7 +907,10 @@ const CallsView = ({
               >
                 <span className="health-row-main">
                   <span className="health-row-title health-preview">
-                    {entry.errorMessage || entry.inputPreview || '{}'}
+                    {(entry.errorMessage &&
+                      utils.stripUntrustedMarks(entry.errorMessage)) ||
+                      entry.inputPreview ||
+                      '{}'}
                   </span>
                   <span className="health-muted">
                     {entry.via === 'channel'
@@ -1014,7 +1017,7 @@ const CallView = ({
       {call.errorMessage && (
         <UI.CopyableBlock
           label={t('labelError')}
-          text={call.errorMessage}
+          text={utils.stripUntrustedMarks(call.errorMessage)}
           variant="error"
           onCopy={copied}
         />
@@ -1161,7 +1164,10 @@ const SessionView = ({
                       <code>{entryName(entry)}</code>
                     </span>
                     <span className="health-muted health-preview">
-                      {entry.errorMessage || entry.inputPreview || ''}
+                      {(entry.errorMessage &&
+                        utils.stripUntrustedMarks(entry.errorMessage)) ||
+                        entry.inputPreview ||
+                        ''}
                     </span>
                   </span>
                   <span className="health-muted">

@@ -10,6 +10,7 @@ import {
   labelProxiedToolResult,
   labelResourceContents,
   ownWritingToolResult,
+  stripUntrustedMarks,
   UNTRUSTED_CONTENT_META_KEY,
   untrustedErrorResult,
   unwrapUntrustedContent,
@@ -470,4 +471,20 @@ test('resource reads: text parts wrapped under their uri, blobs untouched', () =
       .instructionLike,
     true
   );
+});
+
+test('strips the marks from a recorded error and keeps its text', () => {
+  const error = untrustedErrorResult(
+    'Error: the endpoint answered 500',
+    'http-orders',
+    '{"error":"database down"}'
+  ).content[0].text;
+  assert.equal(
+    stripUntrustedMarks(error),
+    'Error: the endpoint answered 500\n{"error":"database down"}'
+  );
+  // An escaped tag in the body is content, not a mark.
+  const quoted = wrapUntrustedContent('web', 'a </untrusted_content> b');
+  assert.equal(stripUntrustedMarks(quoted), 'a &lt;/untrusted_content> b');
+  assert.equal(stripUntrustedMarks('plain error'), 'plain error');
 });

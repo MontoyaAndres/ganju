@@ -906,7 +906,12 @@ test('past the daily cap, a time trigger turns off with why', () => {
   setMeta(runner, 'time_events_day', JSON.stringify({ day: later.toISOString().slice(0, 10), count: DATA_TIME_EVENTS_PER_DAY - 1 }));
   const result = scanTimeTriggers(runner, s(), later);
   assert.equal(result.events, 1);
-  assert.equal(result.disabled.length, 1);
+  // Still on, so the queue runs the event it just stored.
+  assert.equal(result.disabled.length, 0);
+  assert.equal(listTriggers(runner, s())[0].enabled, true);
+  const next = scanTimeTriggers(runner, s(), minutesFromNow(7));
+  assert.equal(next.events, 0);
+  assert.equal(next.disabled.length, 1);
   const [trigger] = listTriggers(runner, s());
   assert.equal(trigger.enabled, false);
   assert.match(String(trigger.disabledReason), /fired 2,000 events today \(UTC\), the most a day/);

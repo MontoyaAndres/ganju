@@ -2050,6 +2050,9 @@ command-line section, deployed.
     the CLI's first dependency for it.
   - The drop-cycle fix, the text-column `--where` and the 401 message naming
     its API are after 0.0.11, so they go out with the next CLI version.
+    **Done:** in 0.0.19. 7c's schedule in `deploy` and 7d's `source`,
+    `ganju data tables` source and `ganju data table sync` came after it and
+    are in 0.0.20 (on npm 2026-11-06, the bundle checked for both).
 
 **5. The assistant and custom functions — M–L**
 
@@ -2909,6 +2912,10 @@ probes. The index-advice check passed on dev and prod on 2026-11-06.**
     (2026-11-06).
   - **Seen, not fixed:** Tool health's "Errores más comunes" shows errors
     that carry details with the raw `<untrusted_content id=…>` wrapper.
+    **Fixed in code (2026-11-06), not deployed:** the marks are dropped
+    before grouping (`UNTRUSTED_CONTENT_MARK_PATTERN` in the SQL) and in the
+    calls lists and call detail (`stripUntrustedMarks`); two wrapped errors
+    checked to fold into one row on Postgres 17.
 - **The same check on prod (set up 2026-11-05):** org "Girardot - demos",
   project "test" has `qa_advice_orders` (50,000 rows, `city` not
   filterable) and 64 queries on `city` that day. Same checks after the
@@ -3412,6 +3419,25 @@ change can't start, because nothing changes.
   production (that needs writes to it). Nowhere checked by hand: the daily
   cap's turn-off and email, and the pause turn-off (they need 2,000 events
   or a plan change).
+- **Turn-offs checked on dev (2026-11-06, throwaway org `qa-timecap`
+  `01a1b287-8e90-731f-b600-aadf64c28832`, left in place):** a function
+  `qa-noop` that only returns ok; plans moved with `set-org-plan.mjs`.
+  - Pause: `qa_pause` with a 5-minute trigger, two rows at 20:24, the org
+    moved to Free before they came due. At 20:34 both runs were skipped
+    ("Paused: the organization's plan no longer includes Data.") and the
+    trigger was off with the reason.
+  - Daily cap: back on Enterprise, `qa_timecap` with five 5-minute triggers
+    and 600 rows at 20:35. At the 21:01 scan `qa-cap-5` turned off with the
+    cap's reason and a failed "Not run: …" run; at 21:04 the other four did
+    the same. The cards read the reason in Spanish; its number now goes
+    through the reader's number format ("2.000", was "2,000"). The five
+    emails to the admins arrived.
+  - **Found and fixed in code, not deployed:** the scan that reached the cap
+    stored `qa-cap-5`'s last events (up to 98) and turned it off in the same
+    transaction, so the queue skipped every one ("The trigger is off.") —
+    counted and marked fired, never run. Now a trigger that fires some
+    events before the cap stays on, resumes after them, and the next scan
+    turns it off; utils 277 pass (the cap test changed), data 14.
 
 **7d. Sync a table from a spreadsheet — M (about a week)**
 
@@ -3447,9 +3473,12 @@ source from the dashboard's card, the first sync inserted 3 rows, a changed
 price in the file updated that one row (history `system:sheet-sync`), a write
 refused in Spanish. Found there: right after a source was saved, the banner and
 the card showed "not synced yet" until the next 30-second check; they now
-look as soon as they appear, and every few seconds until the first sync.
-`qa_menu` and `qa_menu.csv` were left on production on purpose. `qa_menu`, `qa_cats`, `qa_big`, `qa_menu.csv`,
-`qa_big.xlsx` and the Drive sheet were left on dev on purpose.
+look as soon as they appear, and every few seconds until the first sync
+(checked on dev after the deploy: the card showed the first sync within 5
+seconds of saving, without a reload).
+`qa_menu` and `qa_menu.csv` were left on production on purpose. `qa_menu`, `qa_cats`, `qa_big`, `qa_watch`,
+`qa_menu.csv`, `qa_big.xlsx` and the Drive sheet were left on dev on
+purpose.
 
 Owners keep the menu, the prices or the stock in a sheet. A table whose source
 is that sheet keeps them in step without retyping.

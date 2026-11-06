@@ -121,6 +121,21 @@ export const unwrapUntrustedContent = (text: string): string => {
   return match ? match[2] : text;
 };
 
+// Either line wrapUntrustedContent adds around a block, with the newline that
+// joins it to the body. A `<` of ours inside a body was escaped, so every
+// match is a real mark. A source string so SQL can strip the same marks.
+export const UNTRUSTED_CONTENT_MARK_PATTERN =
+  `\\n?<${UNTRUSTED_CONTENT_TAG} id="[0-9a-f]+" source="[^"]*">\\n?` +
+  `|\\n?</${UNTRUSTED_CONTENT_TAG} id="[0-9a-f]+">`;
+
+/**
+ * Text with the marks around every wrapped block removed and the bodies kept,
+ * for showing a recorded result to a person: an error that quotes an
+ * endpoint's answer reads as the message and the answer.
+ */
+export const stripUntrustedMarks = (text: string): string =>
+  text.replace(new RegExp(UNTRUSTED_CONTENT_MARK_PATTERN, 'g'), '\n').trim();
+
 /** Whether a tool result carries the flag set by the server that ran it. */
 export const isUntrustedToolResult = (result: unknown): boolean => {
   if (!result || typeof result !== 'object') return false;
