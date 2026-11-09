@@ -240,8 +240,8 @@ const en = {
   /** Split around an inline button, so the sentence can be reordered freely. */
   readOnlyBannerBefore:
     'This version was uploaded from the CLI, so its code is a compiled bundle and can’t be edited here.',
-  readOnlySnapshotBefore:
-    'This version was uploaded from the CLI. This is its project’s source, read-only: change it there and run ganju deploy.',
+  readOnlySnapshot:
+    'This version was uploaded from the CLI. Its code is shown read-only; it changes in the project, with ganju deploy.',
   readOnlyBannerAction: 'Start a new script',
   readOnlyBannerAfter: 'to edit in the dashboard.',
   // The tool linter — how a function reads to a model. Warnings, never errors.
@@ -888,8 +888,8 @@ export const TOOLS: Catalog<ToolsCopy> = {
 
     readOnlyBannerBefore:
       'Esta versión se subió desde el CLI, así que su código es un bundle compilado y no se puede editar aquí.',
-    readOnlySnapshotBefore:
-      'Esta versión se subió desde el CLI. Este es el código de su proyecto, solo para leer: cámbialo allí y ejecuta ganju deploy.',
+    readOnlySnapshot:
+      'Esta versión se subió desde el CLI. Su código se muestra solo para leer; se cambia en el proyecto, con ganju deploy.',
     readOnlyBannerAction: 'Empieza un script nuevo',
     readOnlyBannerAfter: 'para editarlo en el panel.',
     lintHeading: 'Cómo la lee un modelo',

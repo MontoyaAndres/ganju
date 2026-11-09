@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { alwaysSkipped, collectSource, parseGitignore } from '../src/source.ts';
-import { dashboardLive } from '../src/guard.ts';
+import { appLive } from '../src/guard.ts';
 
 const project = async (files: Record<string, string | Buffer>) => {
   const root = await mkdtemp(join(tmpdir(), 'ganju-source-'));
@@ -151,7 +151,7 @@ test('a project over the cap sends nothing rather than part of it', async () => 
   }
 });
 
-test('the guard warns only when the live version came from the dashboard', () => {
+test('the guard warns only when the live version was made in the app', () => {
   const versions = [
     {
       id: 'v3',
@@ -161,16 +161,10 @@ test('the guard warns only when the live version came from the dashboard', () =>
     },
     { id: 'v2', version: 2, sourceKind: 'bundle', tools: [{ name: 'lookup' }] }
   ];
-  assert.deepEqual(
-    dashboardLive({ activeVersionId: 'v3', versions }, ['lookup']),
-    { version: 3, lost: ['refund'] }
-  );
-  assert.equal(
-    dashboardLive({ activeVersionId: 'v2', versions }, ['lookup']),
-    null
-  );
-  assert.equal(
-    dashboardLive({ activeVersionId: null, versions: [] }, []),
-    null
-  );
+  assert.deepEqual(appLive({ activeVersionId: 'v3', versions }, ['lookup']), {
+    version: 3,
+    lost: ['refund']
+  });
+  assert.equal(appLive({ activeVersionId: 'v2', versions }, ['lookup']), null);
+  assert.equal(appLive({ activeVersionId: null, versions: [] }, []), null);
 });

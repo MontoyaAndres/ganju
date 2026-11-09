@@ -27,7 +27,7 @@ with `GANJU_API_URL`.
 | `ganju login` / `logout` / `whoami` | Sign in on this machine, and out |
 | `ganju link` | Point `ganju.json` at an organization and project, creating the file if there is none (`--status` to just read it) |
 | `ganju build` | Lint the tools, compile and minify, write `.ganju/bundle.js`, report the size. `--strict` fails on lint warnings |
-| `ganju deploy` | Build, upload and publish (`--draft` to stop before publishing, `--force` to replace a live version made in the dashboard) |
+| `ganju deploy` | Build, upload and publish (`--draft` to stop before publishing, `--force` to replace a live version made in the app) |
 | `ganju test <tool>` | Run one tool against a sample input without publishing it |
 | `ganju logs` | Recent calls, with their `ctx.log` output (`--follow` to keep watching) |
 | `ganju versions` / `ganju rollback <n>` | What exists, which one is live, and going back |
@@ -319,10 +319,10 @@ shown; the bundle is what runs.
   500 files) uploads no source at all, says so, and deploys anyway.
 - **Turning it off:** set `"uploadSource": false` in `ganju.json`.
 
-### Replacing code made in the dashboard
+### Replacing code made in the app
 
 A deploy publishes this folder as the whole project. If the live version was
-made in the dashboard's editor, `ganju deploy` says so first and lists the
+made in the app (by the assistant or the dashboard's editor), `ganju deploy` says so first and lists the
 functions that would stop working. In a terminal it asks before going on; in a
 script it stops unless you pass `--force`. A `--draft` deploy replaces nothing,
 so it isn't checked.

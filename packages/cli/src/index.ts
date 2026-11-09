@@ -111,7 +111,7 @@ ${color.bold('Other')}
 ${color.bold('Flags')}
   -h, --help                    this message, from any command
   --draft                      deploy: save the version without publishing it
-  --force                       deploy: replace a live version made in the dashboard
+  --force                       deploy: replace a live version made in the app
   --no-minify                   build/deploy: keep the bundle readable
   --strict                      build: fail when the tool linter has warnings
   --input '<json>'              test: the arguments to call the tool with

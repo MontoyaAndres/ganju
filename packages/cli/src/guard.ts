@@ -11,11 +11,11 @@ export interface DashboardLive {
 }
 
 /**
- * Whether a deploy would replace code made in the dashboard. A CLI deploy
- * publishes this folder's code as the whole project, so anything changed in
- * the dashboard since is gone unless the author copied it back first.
+ * Whether a deploy would replace code made in the app, by the assistant. A
+ * CLI deploy publishes this folder's code as the whole project, so anything
+ * built in the app since is gone unless the author copied it back first.
  */
-export const dashboardLive = (
+export const appLive = (
   list: { activeVersionId: string | null; versions: GuardVersion[] },
   nextTools: string[]
 ): DashboardLive | null => {

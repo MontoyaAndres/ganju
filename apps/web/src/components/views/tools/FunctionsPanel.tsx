@@ -1059,17 +1059,21 @@ export const FunctionsPanel = ({
       {!editable && (
         <div className="tools-banner tools-banner-warning">
           <Warning />
-          <span>
-            {t(snapshot ? 'readOnlySnapshotBefore' : 'readOnlyBannerBefore')}{' '}
-            <button
-              type="button"
-              className="tools-inline-link"
-              onClick={startFresh}
-            >
-              {t('readOnlyBannerAction')}
-            </button>{' '}
-            {t('readOnlyBannerAfter')}
-          </span>
+          {snapshot ? (
+            <span>{t('readOnlySnapshot')}</span>
+          ) : (
+            <span>
+              {t('readOnlyBannerBefore')}{' '}
+              <button
+                type="button"
+                className="tools-inline-link"
+                onClick={startFresh}
+              >
+                {t('readOnlyBannerAction')}
+              </button>{' '}
+              {t('readOnlyBannerAfter')}
+            </span>
+          )}
         </div>
       )}
 

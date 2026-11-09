@@ -255,6 +255,11 @@ Size: **S** = days, **M** = a week or two, **L** = more. Total: **L** (about
       summary. The prompt cache has expired by then anyway.
     - The owner can delete a conversation at any time. Deleting the project
       or the organization deletes them all.
+11. **Nobody edits code in the app (2026-11-09).** The assistant writes it;
+    owners only see it. Developers edit in their own editor and deploy with
+    the CLI, and see that code in the app too. The Functions tab becomes
+    view-only when the assistant ships (phase 3); until then its editor
+    stays, so owners without a developer can still change their functions.
 
 ### How it works for the owner
 
@@ -598,6 +603,8 @@ the owner:
 - The chat, the plan card, the change-set card with the "what will be
   possible" list, Apply and Undo.
 - The patch view, and the account, secret and upload cards.
+- The Functions tab becomes view-only: no new function, save, deploy, or
+  file create, rename or delete. Monaco stays, as the viewer.
 - **Try it as a customer**: a route that runs the channel runner against the
   project's MCP server with no platform, on the channel's model or the
   shared one. Its turns count as messages like any other.

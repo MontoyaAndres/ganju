@@ -2,7 +2,7 @@ import { bundleProject } from '../bundle.js';
 import { commandContext, describeTarget } from '../context.js';
 import { printLintFindings } from '../lint.js';
 import { CliError } from '../errors.js';
-import { dashboardLive } from '../guard.js';
+import { appLive } from '../guard.js';
 import type { GuardVersion } from '../guard.js';
 import { color, formatBytes, note, step, success, warn } from '../output.js';
 import { confirm } from '../prompt.js';
@@ -54,7 +54,7 @@ export const deploy = async (flags: {
 
   // A draft replaces nothing, so only a publish is checked.
   if (!flags.draft && !flags.force) {
-    await guardDashboardChanges(
+    await guardAppChanges(
       api,
       artifactPath,
       tools.map(tool => tool.name)
@@ -186,10 +186,10 @@ export const deploy = async (flags: {
 };
 
 /**
- * Stop before replacing code made in the dashboard, unless the author says to
+ * Stop before replacing code made in the app, unless the author says to
  * go ahead. In a script (no terminal to ask in) it takes --force.
  */
-const guardDashboardChanges = async (
+const guardAppChanges = async (
   api: ApiClient,
   artifactPath: string,
   nextTools: string[]
@@ -198,11 +198,11 @@ const guardDashboardChanges = async (
     activeVersionId: string | null;
     versions: GuardVersion[];
   }>(`${artifactPath}/custom-code/versions`);
-  const live = dashboardLive(list, nextTools);
+  const live = appLive(list, nextTools);
   if (!live) return;
 
   warn(
-    `The live version, v${live.version}, was made in the dashboard. Deploying replaces it with this folder's code.`
+    `The live version, v${live.version}, was made in the app. Deploying replaces it with this folder's code.`
   );
   if (live.lost.length) {
     note(
@@ -211,7 +211,7 @@ const guardDashboardChanges = async (
   }
   note(
     color.gray(
-      '  Copy any dashboard changes you want to keep into this project first.'
+      '  Copy any changes made in the app that you want to keep into this project first.'
     )
   );
 
