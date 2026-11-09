@@ -1332,6 +1332,10 @@ export const artifactToolVersion = pgTable(
     sourceKind: text('source_kind')
       .notNull()
       .default(utils.constants.CUSTOM_CODE_SOURCE_KIND_BUNDLE),
+    // R2 key of the readable source the CLI uploaded beside a bundle, stored
+    // as a project envelope. Shown read-only in place of the bundle. Null for
+    // editor versions and for CLI deploys that sent none.
+    sourceSnapshotKey: text('source_snapshot_key'),
     // Last publish/validation failure, surfaced in the dashboard rather than
     // only in logs — a version that failed to deploy is the thing a user most
     // needs to see.

@@ -1625,6 +1625,14 @@ const ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE = z.object({
   organizationId: z.uuid()
 });
 
+// The readable source `ganju deploy` uploads beside a draft's bundle.
+const ARTIFACT_CUSTOM_CODE_UPLOAD_SNAPSHOT = z.object({
+  versionId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
 // Runs ONE tool of ONE version against a sample input, without publishing it.
 //
 // The version is named rather than assumed to be the draft: a test that could
@@ -2311,6 +2319,7 @@ export const Schema = {
   CUSTOM_CODE_MANIFEST,
   ARTIFACT_CUSTOM_CODE_CREATE_VERSION,
   ARTIFACT_CUSTOM_CODE_UPLOAD_BUNDLE,
+  ARTIFACT_CUSTOM_CODE_UPLOAD_SNAPSHOT,
   ARTIFACT_CUSTOM_CODE_GET_SOURCE,
   ARTIFACT_CUSTOM_CODE_TEST_VERSION,
   ARTIFACT_CUSTOM_CODE_PUBLISH,

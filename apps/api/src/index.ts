@@ -609,6 +609,11 @@ app
     UserMiddleware.verify,
     ArtifactController.uploadCustomCodeBundle
   )
+  .put(
+    '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/source-snapshot',
+    UserMiddleware.verify,
+    ArtifactController.uploadCustomCodeSnapshot
+  )
   .post(
     '/organization/:organizationId/project/:projectId/artifact/custom-code/version/:versionId/publish',
     UserMiddleware.verify,

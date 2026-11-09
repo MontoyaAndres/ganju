@@ -240,6 +240,8 @@ const en = {
   /** Split around an inline button, so the sentence can be reordered freely. */
   readOnlyBannerBefore:
     'This version was uploaded from the CLI, so its code is a compiled bundle and can’t be edited here.',
+  readOnlySnapshot:
+    'This version was uploaded from the CLI. Its code is shown read-only; it changes in the project, with ganju deploy.',
   readOnlyBannerAction: 'Start a new script',
   readOnlyBannerAfter: 'to edit in the dashboard.',
   // The tool linter — how a function reads to a model. Warnings, never errors.
@@ -271,6 +273,8 @@ const en = {
   metaPublished: 'Published',
   sourceEditor: 'Dashboard editor',
   sourceCli: 'CLI bundle',
+  sourceCliSource: 'CLI (source)',
+  idePlainText: 'Plain text',
 
   fnEmptyTitle: 'No functions yet',
   fnEmptyText:
@@ -884,6 +888,8 @@ export const TOOLS: Catalog<ToolsCopy> = {
 
     readOnlyBannerBefore:
       'Esta versión se subió desde el CLI, así que su código es un bundle compilado y no se puede editar aquí.',
+    readOnlySnapshot:
+      'Esta versión se subió desde el CLI. Su código se muestra solo para leer; se cambia en el proyecto, con ganju deploy.',
     readOnlyBannerAction: 'Empieza un script nuevo',
     readOnlyBannerAfter: 'para editarlo en el panel.',
     lintHeading: 'Cómo la lee un modelo',
@@ -915,6 +921,8 @@ export const TOOLS: Catalog<ToolsCopy> = {
     metaPublished: 'Publicada',
     sourceEditor: 'Editor del panel',
     sourceCli: 'Bundle del CLI',
+    sourceCliSource: 'CLI (código fuente)',
+    idePlainText: 'Texto plano',
 
     fnEmptyTitle: 'Aún no hay funciones',
     fnEmptyText:

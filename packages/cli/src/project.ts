@@ -100,6 +100,11 @@ export interface ProjectFile {
    * leaves the database's triggers alone; `[]` removes the ones it deployed.
    */
   triggers?: ProjectTrigger[];
+  /**
+   * Whether `ganju deploy` uploads the project's readable source beside the
+   * bundle, for the dashboard to show. On unless set to false.
+   */
+  uploadSource?: boolean;
 }
 
 export interface LoadedProject {

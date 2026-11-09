@@ -5,6 +5,7 @@ import { utils } from '@ganju/utils';
 import { TerminalOutlined } from '@mui/icons-material';
 
 import { FileExplorer } from './FileExplorer';
+import { LANGUAGE_NAMES, languageFor } from './editorLanguage';
 import { i18n } from '../../../lib';
 
 /**
@@ -119,7 +120,9 @@ export const CodeEditor = ({
       <div className="tools-ide-status">
         <span>{t('ideCaret', { line: caret.line, column: caret.column })}</span>
         <span>{t('ideSpaces')}</span>
-        <span>JavaScript</span>
+        <span>
+          {LANGUAGE_NAMES[languageFor(activePath)] ?? t('idePlainText')}
+        </span>
         {onSave && !readOnly && (
           <span className="tools-ide-status-right">{t('ideSaveHint')}</span>
         )}

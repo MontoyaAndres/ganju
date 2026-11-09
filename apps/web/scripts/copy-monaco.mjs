@@ -24,16 +24,10 @@ const web = path.dirname(new URL('.', import.meta.url).pathname);
 const source = path.join(web, '../../node_modules/monaco-editor/min/vs');
 const target = path.join(web, 'public/monaco/vs');
 
-// Workers for languages this editor never opens, and translations it never asks
-// for. Nothing references them unless the corresponding language is used, and
-// together they are most of the weight.
-//
-// `json.worker` is NOT among them, and that is the whole point of this comment:
-// the JSON language service is what validates the schema and sample-input
-// fields, and without its worker they fall back to plain highlighting with no
-// diagnostics — a failure that looks like nothing at all, since the editor still
-// renders.
-const SKIP = /^(css|html)\.worker-|^nls\.messages\.(?!loader)[a-z-]+\.js$/;
+// Translations the editor never asks for. Every language worker is copied:
+// since 0.57 the editor loads them all when it starts, and a missing one stops
+// it from loading at all.
+const SKIP = /^nls\.messages\.(?!loader)[a-z-]+\.js$/;
 
 let copied = 0;
 let bytes = 0;

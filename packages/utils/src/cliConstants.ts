@@ -58,6 +58,14 @@ export const CUSTOM_CODE_SDK_SPECIFIER = './ganju-sdk.js';
 // with a legible error rather than at deploy time.
 export const CUSTOM_CODE_MAX_BUNDLE_BYTES = 3 * 1024 * 1024;
 
+// The readable source `ganju deploy` uploads beside the bundle. A project over
+// the total sends none rather than part of one, and a file over the per-file
+// cap is left out on its own.
+export const CUSTOM_CODE_MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+export const CUSTOM_CODE_MAX_SNAPSHOT_FILE_BYTES = 256 * 1024;
+export const CUSTOM_CODE_MAX_SNAPSHOT_FILES = 500;
+export const CUSTOM_CODE_MAX_SNAPSHOT_PATH = 300;
+
 // The provider `ganju secret` writes under. custom-code secrets are the
 // `ctx.secret(name)` values a user script reads at runtime, addressed by the
 // label in each row's metadata.

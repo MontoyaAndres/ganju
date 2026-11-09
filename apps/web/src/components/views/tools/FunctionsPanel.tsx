@@ -439,6 +439,8 @@ export const FunctionsPanel = ({
   const [lintWarnings, setLintWarnings] = useState<ToolLintFinding[]>([]);
   const [editable, setEditable] = useState(true);
   const [sourceKind, setSourceKind] = useState<string | null>(null);
+  // A CLI version showing the project's real source rather than the bundle.
+  const [snapshot, setSnapshot] = useState(false);
   // Pulling one version's stored source.
   const [sourceLoading, setSourceLoading] = useState(false);
   // One flag rather than several booleans: every one of these disables the same
@@ -498,6 +500,7 @@ export const FunctionsPanel = ({
         if (cancelled || !data) return;
         setEditable(data.editable !== false);
         setSourceKind(data.sourceKind ?? null);
+        setSnapshot(data.snapshot === true);
         setManifest(Array.isArray(data.tools) ? data.tools : []);
         // `files` is what a project stores; `source` is what a single-file
         // version and every CLI bundle still are.
@@ -1056,17 +1059,21 @@ export const FunctionsPanel = ({
       {!editable && (
         <div className="tools-banner tools-banner-warning">
           <Warning />
-          <span>
-            {t('readOnlyBannerBefore')}{' '}
-            <button
-              type="button"
-              className="tools-inline-link"
-              onClick={startFresh}
-            >
-              {t('readOnlyBannerAction')}
-            </button>{' '}
-            {t('readOnlyBannerAfter')}
-          </span>
+          {snapshot ? (
+            <span>{t('readOnlySnapshot')}</span>
+          ) : (
+            <span>
+              {t('readOnlyBannerBefore')}{' '}
+              <button
+                type="button"
+                className="tools-inline-link"
+                onClick={startFresh}
+              >
+                {t('readOnlyBannerAction')}
+              </button>{' '}
+              {t('readOnlyBannerAfter')}
+            </span>
+          )}
         </div>
       )}
 
@@ -1101,7 +1108,9 @@ export const FunctionsPanel = ({
             <dd>
               {sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR
                 ? t('sourceEditor')
-                : t('sourceCli')}
+                : snapshot
+                  ? t('sourceCliSource')
+                  : t('sourceCli')}
             </dd>
           </div>
           <div>
@@ -1422,6 +1431,8 @@ export const FunctionsPanel = ({
           emptyFolders={emptyFolders}
           onSelect={setActivePath}
           onChange={next => {
+            // Opening a file also reports its text; only a real edit counts.
+            if (!editable || next === files[activePath]) return;
             setFiles(prev => ({ ...prev, [activePath]: next }));
             setDirty(true);
           }}

@@ -1,0 +1,1 @@
+ALTER TABLE "artifact_tool_version" ADD COLUMN "source_snapshot_key" text;

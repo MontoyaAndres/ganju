@@ -6,6 +6,7 @@ import { SDK_EDITOR_TYPES } from '@ganju/sdk/editorTypes';
 import { i18n } from '../../../lib';
 
 import './monacoLoader';
+import { languageFor } from './editorLanguage';
 
 /**
  * The editor VS Code is built on, in its own module so it can be loaded through
@@ -85,11 +86,20 @@ const MARKER_OWNER = 'ganju-runtime';
 const MODEL_ROOT = 'file:///';
 const modelUri = (path: string) => `${MODEL_ROOT}${path}`;
 
+// The models this editor made, so tidying up never touches the JSON fields'
+// models, which live under the same root.
+const codeModels = new Set<string>();
+
 const markRuntimeLimits = (
   monaco: Monaco,
   model: MonacoEditor.ITextModel,
   describe: (key: MarkerKey) => string
 ) => {
+  // The runtime's limits are about the JavaScript that runs as written.
+  if (model.getLanguageId() !== 'javascript') {
+    monaco.editor.setModelMarkers(model, MARKER_OWNER, []);
+    return;
+  }
   const text = model.getValue();
   const markers: MonacoEditor.IMarkerData[] = [];
 
@@ -148,6 +158,13 @@ const configure = (monaco: Monaco) => {
     noSyntaxValidation: false
   });
 
+  // TypeScript only ever appears as a CLI project's source, read-only and
+  // without its packages, so its imports would all read as errors.
+  ts.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: false
+  });
+
   // The SDK, resolved from the import the script actually writes. Registered at
   // both paths Node-style resolution tries for `./ganju-sdk.js` — the extension
   // substitution and the literal append — so completion works regardless of
@@ -184,18 +201,23 @@ const MonacoSurface = ({
   // Keep a model per file. The <Editor> below owns the one it is showing; these
   // are the others, created so they can be imported and disposed when their file
   // is deleted, since a model left behind keeps resolving a path that no longer
-  // exists.
-  useEffect(() => {
-    const monaco = monacoRef.current;
-    if (!monaco) return;
+  // exists. Run on mount too: another version's files are still there when the
+  // editor comes back.
+  const syncModels = (monaco: Monaco) => {
     const wanted = new Set(Object.keys(files).map(name => modelUri(name)));
+    for (const uri of wanted) codeModels.add(uri);
 
     for (const [name, content] of Object.entries(files)) {
       const uri = monaco.Uri.parse(modelUri(name));
       const existing = monaco.editor.getModel(uri);
       if (!existing) {
-        monaco.editor.createModel(content, 'javascript', uri);
-      } else if (name !== path && existing.getValue() !== content) {
+        monaco.editor.createModel(content, languageFor(name), uri);
+        continue;
+      }
+      if (existing.getLanguageId() !== languageFor(name)) {
+        monaco.editor.setModelLanguage(existing, languageFor(name));
+      }
+      if (name !== path && existing.getValue() !== content) {
         // Not the open file, so nobody is typing into it — the state is the
         // truth and the model follows.
         existing.setValue(content);
@@ -204,8 +226,15 @@ const MonacoSurface = ({
 
     for (const model of monaco.editor.getModels()) {
       const uri = model.uri.toString();
-      if (uri.startsWith(MODEL_ROOT) && !wanted.has(uri)) model.dispose();
+      if (codeModels.has(uri) && !wanted.has(uri)) {
+        model.dispose();
+        codeModels.delete(uri);
+      }
     }
+  };
+
+  useEffect(() => {
+    if (monacoRef.current) syncModels(monacoRef.current);
   }, [files, path]);
 
   const handleMount = (
@@ -213,12 +242,7 @@ const MonacoSurface = ({
     monaco: Monaco
   ) => {
     monacoRef.current = monaco;
-    for (const [name, content] of Object.entries(files)) {
-      const uri = monaco.Uri.parse(modelUri(name));
-      if (!monaco.editor.getModel(uri)) {
-        monaco.editor.createModel(content, 'javascript', uri);
-      }
-    }
+    syncModels(monaco);
 
     // Where the caret is and how long the file is. Reported on mount and on
     // every change, not only when the cursor moves — a file that has just been
@@ -270,7 +294,7 @@ const MonacoSurface = ({
   return (
     <Editor
       height={height}
-      language="javascript"
+      language={languageFor(path)}
       // Named so relative imports resolve against it: './ganju-sdk.js' and
       // './lib/orders.js' are both looked up next to this file.
       path={modelUri(path)}

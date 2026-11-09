@@ -255,6 +255,11 @@ Size: **S** = days, **M** = a week or two, **L** = more. Total: **L** (about
       summary. The prompt cache has expired by then anyway.
     - The owner can delete a conversation at any time. Deleting the project
       or the organization deletes them all.
+11. **Nobody edits code in the app (2026-11-09).** The assistant writes it;
+    owners only see it. Developers edit in their own editor and deploy with
+    the CLI, and see that code in the app too. The Functions tab becomes
+    view-only when the assistant ships (phase 3); until then its editor
+    stays, so owners without a developer can still change their functions.
 
 ### How it works for the owner
 
@@ -570,6 +575,20 @@ Phase 1 doesn't depend on the rest.
 - The editor-version warning with `--force`.
 - Tests and the CLI README.
 
+**Phase 1 status (2026-11-09): built, not yet deployed.** Choices agreed with
+the owner:
+- Files are what git would commit (`git ls-files`), or the `.gitignore` files
+  read directly outside a repo.
+- Always left out: `node_modules`, `.ganju`, `.git`, `.env*`, lockfiles and
+  binary files. A file over 256 KB is skipped on its own; a project over 2 MB
+  or 500 files uploads no source and deploys anyway.
+- The guard warns whenever the live version came from the dashboard, whatever
+  its number; it asks in a terminal and stops in a script unless `--force`.
+- Stored as the editor's project envelope; the dashboard shows it read-only,
+  with Monaco's language picked per file.
+- Migration `0090_cli_source_snapshot` must run before the API deploys. CLI
+  0.0.23, utils 0.0.24.
+
 **2. Builder core and functions — L**
 
 - Extract the custom-code handlers into shared functions.
@@ -584,6 +603,8 @@ Phase 1 doesn't depend on the rest.
 - The chat, the plan card, the change-set card with the "what will be
   possible" list, Apply and Undo.
 - The patch view, and the account, secret and upload cards.
+- The Functions tab becomes view-only: no new function, save, deploy, or
+  file create, rename or delete. Monaco stays, as the viewer.
 - **Try it as a customer**: a route that runs the channel runner against the
   project's MCP server with no platform, on the channel's model or the
   shared one. Its turns count as messages like any other.

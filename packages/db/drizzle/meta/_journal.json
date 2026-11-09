@@ -631,6 +631,13 @@
       "when": 1794242439131,
       "tag": "0089_oauth_provider_1_7",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1794254210226,
+      "tag": "0090_cli_source_snapshot",
+      "breakpoints": true
     }
   ]
 }
