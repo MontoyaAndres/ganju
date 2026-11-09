@@ -180,3 +180,61 @@ export const validateProjectFiles = (files: Record<string, string>): void => {
     seen.add(path.toLowerCase());
   }
 };
+
+/**
+ * Check the readable source the CLI uploads beside a bundle. Looser than the
+ * editor's rules, because these are the author's own files (TypeScript,
+ * package.json, a README) and are only ever shown, never deployed: a path just
+ * has to be relative and stay inside the project.
+ */
+export const validateSnapshotFiles = (files: Record<string, string>): void => {
+  const paths = Object.keys(files);
+
+  if (paths.length === 0) {
+    throw new Error('At least one file is required in the source snapshot');
+  }
+  if (paths.length > constants.CUSTOM_CODE_MAX_SNAPSHOT_FILES) {
+    throw new Error(
+      `The source snapshot exceeds the ${constants.CUSTOM_CODE_MAX_SNAPSHOT_FILES}-file limit`
+    );
+  }
+
+  const encoder = new TextEncoder();
+  const seen = new Set<string>();
+  let total = 0;
+  for (const path of paths) {
+    if (
+      !path ||
+      path.length > constants.CUSTOM_CODE_MAX_SNAPSHOT_PATH ||
+      // Control characters and backslashes never belong in a stored path.
+      // eslint-disable-next-line no-control-regex
+      /[\u0000-\u001f\u007f\\]/.test(path) ||
+      path
+        .split('/')
+        .some(segment => segment === '' || segment === '.' || segment === '..')
+    ) {
+      throw new Error(`Invalid file path "${path}" in the source snapshot`);
+    }
+    const lower = path.toLowerCase();
+    if (seen.has(lower)) {
+      throw new Error(
+        `Invalid file path "${path}" — another file has the same name`
+      );
+    }
+    seen.add(lower);
+
+    const bytes = encoder.encode(files[path]).byteLength;
+    if (bytes > constants.CUSTOM_CODE_MAX_SNAPSHOT_FILE_BYTES) {
+      throw new Error(
+        `The file "${path}" exceeds the ${constants.CUSTOM_CODE_MAX_SNAPSHOT_FILE_BYTES / 1024}KB limit for one source file`
+      );
+    }
+    total += bytes;
+  }
+
+  if (total > constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES) {
+    throw new Error(
+      `The source snapshot exceeds the ${constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES / (1024 * 1024)}MB limit`
+    );
+  }
+};

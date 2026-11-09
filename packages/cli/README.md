@@ -27,7 +27,7 @@ with `GANJU_API_URL`.
 | `ganju login` / `logout` / `whoami` | Sign in on this machine, and out |
 | `ganju link` | Point `ganju.json` at an organization and project, creating the file if there is none (`--status` to just read it) |
 | `ganju build` | Lint the tools, compile and minify, write `.ganju/bundle.js`, report the size. `--strict` fails on lint warnings |
-| `ganju deploy` | Build, upload and publish (`--draft` to stop before publishing) |
+| `ganju deploy` | Build, upload and publish (`--draft` to stop before publishing, `--force` to replace a live version made in the dashboard) |
 | `ganju test <tool>` | Run one tool against a sample input without publishing it |
 | `ganju logs` | Recent calls, with their `ctx.log` output (`--follow` to keep watching) |
 | `ganju versions` / `ganju rollback <n>` | What exists, which one is live, and going back |
@@ -223,6 +223,9 @@ pipe — the command refuses and changes nothing, rather than wait on a prompt.
   "timeoutMs": 10000,
   "resourceAccess": "own",
 
+  // Upload this folder's readable source beside the bundle (default true).
+  "uploadSource": true,
+
   "tools": [
     {
       "name": "lookup-order",
@@ -299,6 +302,30 @@ broker it talks to.
 The upload is a `bundle`, which means the dashboard's editor shows it read-only
 rather than inviting someone to overwrite a real build with the contents of a
 text box. Use the dashboard for code you want to edit there.
+
+### The source, beside the bundle
+
+`ganju deploy` also uploads the project's readable source, so the dashboard
+shows your real files (read-only) instead of the minified bundle. It is only
+shown; the bundle is what runs.
+
+- **Which files:** what git would commit, meaning tracked files plus untracked
+  ones your `.gitignore` doesn't exclude. Outside a git repository, the
+  `.gitignore` files in the project are read directly.
+- **Never uploaded:** `node_modules`, `.ganju`, `.git`, `.env*`, lockfiles
+  (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock[b]`) and binary
+  files.
+- **Size:** a file over 256 KB is left out on its own. A project over 2 MB (or
+  500 files) uploads no source at all, says so, and deploys anyway.
+- **Turning it off:** set `"uploadSource": false` in `ganju.json`.
+
+### Replacing code made in the dashboard
+
+A deploy publishes this folder as the whole project. If the live version was
+made in the dashboard's editor, `ganju deploy` says so first and lists the
+functions that would stop working. In a terminal it asks before going on; in a
+script it stops unless you pass `--force`. A `--draft` deploy replaces nothing,
+so it isn't checked.
 
 ## The tool linter
 

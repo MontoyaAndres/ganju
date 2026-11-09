@@ -439,6 +439,8 @@ export const FunctionsPanel = ({
   const [lintWarnings, setLintWarnings] = useState<ToolLintFinding[]>([]);
   const [editable, setEditable] = useState(true);
   const [sourceKind, setSourceKind] = useState<string | null>(null);
+  // A CLI version showing the project's real source rather than the bundle.
+  const [snapshot, setSnapshot] = useState(false);
   // Pulling one version's stored source.
   const [sourceLoading, setSourceLoading] = useState(false);
   // One flag rather than several booleans: every one of these disables the same
@@ -498,6 +500,7 @@ export const FunctionsPanel = ({
         if (cancelled || !data) return;
         setEditable(data.editable !== false);
         setSourceKind(data.sourceKind ?? null);
+        setSnapshot(data.snapshot === true);
         setManifest(Array.isArray(data.tools) ? data.tools : []);
         // `files` is what a project stores; `source` is what a single-file
         // version and every CLI bundle still are.
@@ -1057,7 +1060,7 @@ export const FunctionsPanel = ({
         <div className="tools-banner tools-banner-warning">
           <Warning />
           <span>
-            {t('readOnlyBannerBefore')}{' '}
+            {t(snapshot ? 'readOnlySnapshotBefore' : 'readOnlyBannerBefore')}{' '}
             <button
               type="button"
               className="tools-inline-link"
@@ -1101,7 +1104,9 @@ export const FunctionsPanel = ({
             <dd>
               {sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR
                 ? t('sourceEditor')
-                : t('sourceCli')}
+                : snapshot
+                  ? t('sourceCliSource')
+                  : t('sourceCli')}
             </dd>
           </div>
           <div>

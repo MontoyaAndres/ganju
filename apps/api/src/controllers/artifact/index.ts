@@ -15,6 +15,7 @@ import {
   nextVersionNumber,
   loadVersionForTool,
   bundleSourceKey,
+  snapshotSourceKey,
   hashBundle,
   activateVersionWithinQuota,
   assertVersionWithinQuota,
@@ -2091,6 +2092,137 @@ const uploadCustomCodeBundle = async (c: Context<AppEnv>) => {
 };
 
 /**
+ * Store the readable source `ganju deploy` sends beside a draft's bundle, so
+ * the dashboard can show the author's real files instead of the minified
+ * bundle. Only shown, never deployed, so a failure here never costs a deploy:
+ * the CLI warns and publishes anyway.
+ */
+const uploadCustomCodeSnapshot = async (c: Context<AppEnv>) => {
+  const currentValues =
+    await utils.Schema.ARTIFACT_CUSTOM_CODE_UPLOAD_SNAPSHOT.parseAsync({
+      versionId: c.req.param('versionId'),
+      projectId: c.req.param('projectId'),
+      userId: c.get('user').id,
+      organizationId: c.req.param('organizationId')
+    });
+
+  // JSON escaping can grow the files' own bytes, so the body gets room for
+  // that; the files themselves are held to the real cap below.
+  const bodyLimit = utils.constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES * 2;
+  const declaredSize = Number.parseInt(
+    c.req.header('content-length') ?? '',
+    10
+  );
+  if (!Number.isFinite(declaredSize) || declaredSize <= 0) {
+    throw new Error('content-length header is required');
+  }
+  const tooBig = `The source snapshot exceeds the ${
+    utils.constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES / (1024 * 1024)
+  }MB limit`;
+  if (declaredSize > bodyLimit) {
+    throw new Error(tooBig);
+  }
+  const body = await c.req.arrayBuffer();
+  if (body.byteLength > bodyLimit) {
+    throw new Error(tooBig);
+  }
+
+  const files = utils.decodeProject(new TextDecoder().decode(body));
+  if (!files) {
+    throw new Error('The source snapshot must be a project of files');
+  }
+  utils.validateSnapshotFiles(files);
+
+  const dbInstance = db.create(c);
+  const bucket = c.env.STORAGE_BUCKET;
+
+  const { artifact, version } = await dbInstance.transaction(async tx => {
+    const resolved = await resolveCustomCodeTool(
+      tx,
+      currentValues.organizationId,
+      currentValues.projectId
+    );
+    return {
+      artifact: resolved.artifact,
+      version: await loadVersionForTool(
+        tx,
+        resolved.tool.id,
+        currentValues.versionId
+      )
+    };
+  });
+
+  const draftOnly =
+    'A source snapshot must be uploaded to a draft; this version is already published.';
+  if (version.status !== utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT) {
+    throw new Error(draftOnly);
+  }
+  // An editor version already stores its own readable files.
+  if (version.sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR) {
+    throw new Error(
+      'A source snapshot must be uploaded to a CLI version, not one made in the editor.'
+    );
+  }
+
+  const stored = utils.encodeProject(files);
+  const key = snapshotSourceKey(
+    currentValues.organizationId,
+    currentValues.projectId,
+    artifact.id,
+    version.version,
+    await utils.sha256Hex(stored)
+  );
+
+  if (bucket) {
+    await bucket.put(key, stored, {
+      httpMetadata: { contentType: 'application/json' }
+    });
+  }
+
+  const [updated] = await dbInstance
+    .update(db.schema.artifactToolVersion)
+    .set({ sourceSnapshotKey: key })
+    .where(
+      and(
+        eq(db.schema.artifactToolVersion.id, version.id),
+        eq(
+          db.schema.artifactToolVersion.status,
+          utils.constants.CUSTOM_CODE_VERSION_STATUS_DRAFT
+        )
+      )
+    )
+    .returning();
+  if (!updated) {
+    // Published meanwhile, so nothing points at what was just stored, unless
+    // the same files were stored under the same key before it was.
+    if (bucket) {
+      const [current] = await dbInstance
+        .select({
+          sourceSnapshotKey: db.schema.artifactToolVersion.sourceSnapshotKey
+        })
+        .from(db.schema.artifactToolVersion)
+        .where(eq(db.schema.artifactToolVersion.id, version.id))
+        .limit(1);
+      if (current?.sourceSnapshotKey !== key) {
+        await bucket.delete(key).catch(() => undefined);
+      }
+    }
+    throw new Error(draftOnly);
+  }
+
+  // The draft's previous snapshot, replaced by this one. Best-effort.
+  if (
+    bucket &&
+    version.sourceSnapshotKey &&
+    version.sourceSnapshotKey !== key
+  ) {
+    await bucket.delete(version.sourceSnapshotKey).catch(() => undefined);
+  }
+
+  return c.json(updated);
+};
+
+/**
  * Read one version's stored source back, for the editor.
  *
  * Returns `editable: false` rather than refusing when the version holds a CLI
@@ -2129,6 +2261,30 @@ const getCustomCodeVersionSource = async (c: Context<AppEnv>) => {
     version.sourceKind === utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR;
 
   const bucket = c.env.STORAGE_BUCKET;
+
+  // A CLI version with its readable source shows that, read-only, instead of
+  // the bundle. The bundle is still what runs.
+  const snapshotObject =
+    version.sourceSnapshotKey && bucket
+      ? await bucket.get(version.sourceSnapshotKey)
+      : null;
+  const snapshot = snapshotObject
+    ? utils.decodeProject(await snapshotObject.text())
+    : null;
+  if (snapshot) {
+    return c.json({
+      versionId: version.id,
+      version: version.version,
+      status: version.status,
+      sourceKind: version.sourceKind,
+      editable: false,
+      snapshot: true,
+      files: snapshot,
+      source: snapshot[utils.constants.CUSTOM_CODE_MAIN_MODULE] ?? null,
+      tools: version.tools
+    });
+  }
+
   const object =
     version.sourceKey && bucket ? await bucket.get(version.sourceKey) : null;
   const stored = object ? await object.text() : null;
@@ -2145,6 +2301,7 @@ const getCustomCodeVersionSource = async (c: Context<AppEnv>) => {
     status: version.status,
     sourceKind: version.sourceKind,
     editable,
+    snapshot: false,
     files: files ?? (stored === null ? null : { [main]: stored }),
     source: files ? (files[main] ?? null) : stored,
     tools: version.tools
@@ -3751,6 +3908,7 @@ export const ArtifactController = {
   startMcpProxyOauth,
   createCustomCodeVersion,
   uploadCustomCodeBundle,
+  uploadCustomCodeSnapshot,
   publishCustomCodeVersion,
   rollbackCustomCodeVersion,
   listCustomCodeVersions,

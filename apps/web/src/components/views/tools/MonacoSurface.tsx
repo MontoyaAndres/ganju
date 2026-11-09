@@ -85,11 +85,27 @@ const MARKER_OWNER = 'ganju-runtime';
 const MODEL_ROOT = 'file:///';
 const modelUri = (path: string) => `${MODEL_ROOT}${path}`;
 
+// A CLI project's source, shown read-only, can hold any of these. What the
+// editor itself writes is always JavaScript.
+const languageFor = (path: string) => {
+  const lower = path.toLowerCase();
+  if (/\.[mc]?jsx?$/.test(lower)) return 'javascript';
+  if (/\.[mc]?tsx?$/.test(lower)) return 'typescript';
+  if (lower.endsWith('.json')) return 'json';
+  if (lower.endsWith('.md')) return 'markdown';
+  return 'plaintext';
+};
+
 const markRuntimeLimits = (
   monaco: Monaco,
   model: MonacoEditor.ITextModel,
   describe: (key: MarkerKey) => string
 ) => {
+  // The runtime's limits are about the JavaScript that runs as written.
+  if (model.getLanguageId() !== 'javascript') {
+    monaco.editor.setModelMarkers(model, MARKER_OWNER, []);
+    return;
+  }
   const text = model.getValue();
   const markers: MonacoEditor.IMarkerData[] = [];
 
@@ -148,6 +164,13 @@ const configure = (monaco: Monaco) => {
     noSyntaxValidation: false
   });
 
+  // TypeScript only ever appears as a CLI project's source, read-only and
+  // without its packages, so its imports would all read as errors.
+  ts.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: false
+  });
+
   // The SDK, resolved from the import the script actually writes. Registered at
   // both paths Node-style resolution tries for `./ganju-sdk.js` — the extension
   // substitution and the literal append — so completion works regardless of
@@ -194,7 +217,7 @@ const MonacoSurface = ({
       const uri = monaco.Uri.parse(modelUri(name));
       const existing = monaco.editor.getModel(uri);
       if (!existing) {
-        monaco.editor.createModel(content, 'javascript', uri);
+        monaco.editor.createModel(content, languageFor(name), uri);
       } else if (name !== path && existing.getValue() !== content) {
         // Not the open file, so nobody is typing into it — the state is the
         // truth and the model follows.
@@ -270,7 +293,7 @@ const MonacoSurface = ({
   return (
     <Editor
       height={height}
-      language="javascript"
+      language={languageFor(path)}
       // Named so relative imports resolve against it: './ganju-sdk.js' and
       // './lib/orders.js' are both looked up next to this file.
       path={modelUri(path)}

@@ -1,8 +1,13 @@
 import { bundleProject } from '../bundle.js';
 import { commandContext, describeTarget } from '../context.js';
 import { printLintFindings } from '../lint.js';
-import { color, formatBytes, note, step, success } from '../output.js';
+import { CliError } from '../errors.js';
+import { dashboardLive } from '../guard.js';
+import type { GuardVersion } from '../guard.js';
+import { color, formatBytes, note, step, success, warn } from '../output.js';
+import { confirm } from '../prompt.js';
 import { DataApi } from '../data/routes.js';
+import { collectSource, encodeSnapshot } from '../source.js';
 import {
   buildConfig,
   buildManifest,
@@ -10,6 +15,9 @@ import {
   readTriggers
 } from '../project.js';
 
+import type { ApiClient } from '../api.js';
+import type { LoadedProject } from '../project.js';
+import * as constants from '@ganju/utils/cliConstants';
 import type { ToolLintFinding } from '@ganju/utils/toolLint';
 
 interface VersionRow {
@@ -39,9 +47,19 @@ interface VersionRow {
 export const deploy = async (flags: {
   draft?: boolean;
   minify?: boolean;
+  force?: boolean;
 }): Promise<void> => {
   const { project, target, api, artifactPath } = await commandContext();
   const tools = readTools(project);
+
+  // A draft replaces nothing, so only a publish is checked.
+  if (!flags.draft && !flags.force) {
+    await guardDashboardChanges(
+      api,
+      artifactPath,
+      tools.map(tool => tool.name)
+    );
+  }
 
   step(`bundling ${tools.length} ${tools.length === 1 ? 'tool' : 'tools'}`);
   const bundle = await bundleProject(project, tools, {
@@ -91,6 +109,10 @@ export const deploy = async (flags: {
       body: bundle.code
     }
   );
+
+  if (project.file.uploadSource !== false) {
+    await uploadSource(project, api, artifactPath, version.id);
+  }
 
   if (flags.draft) {
     success(`saved v${version.version} as a draft — nothing is live yet`);
@@ -159,6 +181,102 @@ export const deploy = async (flags: {
   if (result.confirming?.length) {
     note(
       `${result.confirming.join(', ')} must confirm before email triggers write to them; Ganju sends each a link once.`
+    );
+  }
+};
+
+/**
+ * Stop before replacing code made in the dashboard, unless the author says to
+ * go ahead. In a script (no terminal to ask in) it takes --force.
+ */
+const guardDashboardChanges = async (
+  api: ApiClient,
+  artifactPath: string,
+  nextTools: string[]
+): Promise<void> => {
+  const list = await api.request<{
+    activeVersionId: string | null;
+    versions: GuardVersion[];
+  }>(`${artifactPath}/custom-code/versions`);
+  const live = dashboardLive(list, nextTools);
+  if (!live) return;
+
+  warn(
+    `The live version, v${live.version}, was made in the dashboard. Deploying replaces it with this folder's code.`
+  );
+  if (live.lost.length) {
+    note(
+      `  These functions would stop working: ${live.lost.map(name => color.bold(name)).join(', ')}`
+    );
+  }
+  note(
+    color.gray(
+      '  Copy any dashboard changes you want to keep into this project first.'
+    )
+  );
+
+  if (!process.stdin.isTTY || !process.stderr.isTTY) {
+    throw new CliError('Stopped — nothing was deployed', {
+      hint: 'Run `ganju deploy --force` to replace it anyway.'
+    });
+  }
+  if (!(await confirm('Replace it?'))) {
+    throw new CliError('Stopped — nothing was deployed', { exitCode: 1 });
+  }
+};
+
+/**
+ * Upload the project's readable source beside the bundle. Never fails the
+ * deploy: the bundle is what runs, the source is only shown.
+ */
+const uploadSource = async (
+  project: LoadedProject,
+  api: ApiClient,
+  artifactPath: string,
+  versionId: string
+): Promise<void> => {
+  try {
+    const source = await collectSource(project.root);
+    if (source.tooBig) {
+      warn(
+        `Not uploading the source: ${source.tooBig.files} files, ${formatBytes(source.tooBig.bytes)} (the limit is ${formatBytes(constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES)}).`
+      );
+      note(
+        color.gray(
+          '  Ignore build output in .gitignore, or set "uploadSource": false in ganju.json.'
+        )
+      );
+      return;
+    }
+    const count = Object.keys(source.files).length;
+    if (count === 0) return;
+
+    step(
+      `uploading the source (${count} ${count === 1 ? 'file' : 'files'}, ${formatBytes(source.bytes)})`
+    );
+    const large = source.skipped.filter(entry => entry.reason === 'large');
+    if (large.length) {
+      note(
+        color.gray(
+          `  left out, over ${formatBytes(constants.CUSTOM_CODE_MAX_SNAPSHOT_FILE_BYTES)} each: ${large.map(entry => entry.path).join(', ')}`
+        )
+      );
+    }
+    const body = encodeSnapshot(source.files);
+    await api.request(
+      `${artifactPath}/custom-code/version/${versionId}/source-snapshot`,
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(body, 'utf8'))
+        },
+        body
+      }
+    );
+  } catch (error) {
+    warn(
+      `The source wasn't uploaded (${error instanceof Error ? error.message : String(error)}); the deploy goes on without it.`
     );
   }
 };

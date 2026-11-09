@@ -570,6 +570,20 @@ Phase 1 doesn't depend on the rest.
 - The editor-version warning with `--force`.
 - Tests and the CLI README.
 
+**Phase 1 status (2026-11-09): built, not yet deployed.** Choices agreed with
+the owner:
+- Files are what git would commit (`git ls-files`), or the `.gitignore` files
+  read directly outside a repo.
+- Always left out: `node_modules`, `.ganju`, `.git`, `.env*`, lockfiles and
+  binary files. A file over 256 KB is skipped on its own; a project over 2 MB
+  or 500 files uploads no source and deploys anyway.
+- The guard warns whenever the live version came from the dashboard, whatever
+  its number; it asks in a terminal and stops in a script unless `--force`.
+- Stored as the editor's project envelope; the dashboard shows it read-only,
+  with Monaco's language picked per file.
+- Migration `0090_cli_source_snapshot` must run before the API deploys. CLI
+  0.0.23, utils 0.0.24.
+
 **2. Builder core and functions — L**
 
 - Extract the custom-code handlers into shared functions.

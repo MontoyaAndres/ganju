@@ -441,6 +441,17 @@ export const bundleSourceKey = (
 ): string =>
   `${utils.constants.CUSTOM_CODE_SOURCE_KEY_PREFIX}/${organizationId}/${projectId}/${artifactId}/v${version}-${sourceHash}.js`;
 
+// R2 key for the readable source the CLI uploads beside a version's bundle.
+// Hashed for the same reason as the bundle's: an object is never rewritten.
+export const snapshotSourceKey = (
+  organizationId: string,
+  projectId: string,
+  artifactId: string,
+  version: number,
+  snapshotHash: string
+): string =>
+  `${utils.constants.CUSTOM_CODE_SOURCE_KEY_PREFIX}/${organizationId}/${projectId}/${artifactId}/v${version}-src-${snapshotHash}.json`;
+
 // SHA-256 of the uploaded bytes, hex-encoded. Stored as sourceHash for dedupe
 // and to prove the object in R2 is the source a version claims to have.
 //

@@ -148,6 +148,7 @@ import {
   encodeProject,
   decodeProject,
   validateProjectFiles,
+  validateSnapshotFiles,
   validateProjectPath,
   projectPathIssue
 } from './customCodeProject';
@@ -507,6 +508,7 @@ export const utils = {
   encodeProject,
   decodeProject,
   validateProjectFiles,
+  validateSnapshotFiles,
   validateProjectPath,
   projectPathIssue,
   ipv4InPrivateRange,

@@ -32,6 +32,7 @@ import { rollback, versions } from './commands/versions.js';
 const FLAGS = {
   help: { type: 'boolean', short: 'h' },
   draft: { type: 'boolean' },
+  force: { type: 'boolean' },
   // parseArgs has no negation of its own, so the off switch is its own
   // option. Spelled the way people type it.
   'no-minify': { type: 'boolean' },
@@ -110,6 +111,7 @@ ${color.bold('Other')}
 ${color.bold('Flags')}
   -h, --help                    this message, from any command
   --draft                      deploy: save the version without publishing it
+  --force                       deploy: replace a live version made in the dashboard
   --no-minify                   build/deploy: keep the bundle readable
   --strict                      build: fail when the tool linter has warnings
   --input '<json>'              test: the arguments to call the tool with
@@ -257,7 +259,11 @@ const main = async (argv: string[]): Promise<void> => {
     case 'build':
       return build({ minify, strict: flag<boolean>('strict') });
     case 'deploy':
-      return deploy({ draft: flag<boolean>('draft'), minify });
+      return deploy({
+        draft: flag<boolean>('draft'),
+        force: flag<boolean>('force'),
+        minify
+      });
     case 'test':
       return test(positionals[0], {
         input: flag('input'),

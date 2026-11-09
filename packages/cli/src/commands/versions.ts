@@ -14,6 +14,8 @@ interface VersionRow {
   version: number;
   status: string;
   sourceKind: string | null;
+  // Set when `ganju deploy` uploaded the readable source beside the bundle.
+  sourceSnapshotKey?: string | null;
   tools: Array<{ name: string }> | null;
   error: string | null;
   publishedAt: string | null;
@@ -66,7 +68,7 @@ export const versions = async (flags: { json?: boolean }): Promise<void> => {
         `v${row.version}`,
         live ? color.green('live') : row.status,
         String(row.tools?.length ?? 0),
-        row.sourceKind ?? '',
+        `${row.sourceKind ?? ''}${row.sourceSnapshotKey ? ' + source' : ''}`,
         formatWhen(row.createdAt)
       ];
     })
