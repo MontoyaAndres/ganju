@@ -7,7 +7,6 @@ export interface GuardVersion {
 
 export interface DashboardLive {
   version: number;
-  /** Live functions the new deploy doesn't have, which would stop working. */
   lost: string[];
 }
 

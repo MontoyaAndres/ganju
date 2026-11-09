@@ -14,7 +14,6 @@ interface VersionRow {
   version: number;
   status: string;
   sourceKind: string | null;
-  // Set when `ganju deploy` uploaded the readable source beside the bundle.
   sourceSnapshotKey?: string | null;
   tools: Array<{ name: string }> | null;
   error: string | null;
