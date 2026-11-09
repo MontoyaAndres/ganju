@@ -42,7 +42,6 @@ export interface BuilderToolContext {
 export interface BuilderToolResult {
   content: string;
   isError: boolean;
-  // A card the owner has to complete: the reply stops there.
   endsTurn?: boolean;
 }
 
@@ -255,7 +254,6 @@ const versionsSummary = async (ctx: BuilderToolContext) => {
   const live = listed.versions.find(v => v.id === listed.activeVersionId);
   return {
     liveVersionId: listed.activeVersionId,
-    // Uploaded by a developer with the CLI: changes come back as a patch.
     developerUploaded: Boolean(
       live && live.sourceKind !== utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR
     ),

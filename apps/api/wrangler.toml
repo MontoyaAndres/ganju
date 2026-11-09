@@ -34,7 +34,6 @@ NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
 CUSTOM_CODE_DISPATCH_NAMESPACE = "ganju-tools-development"
 CUSTOM_CODE_BROKER_SERVICE = "ganju-tool-broker-development"
 POLAR_SERVER = "sandbox"
-# Organizations that reach the assistant until its tab ships.
 BUILDER_ORGANIZATIONS = "01a1b287-8e90-731f-b600-aadf64c28832"
 [[env.development.unsafe.bindings]]
 name = "CONTACT_RATE_LIMITER"
@@ -234,7 +233,6 @@ NEXT_PUBLIC_DOMAIN = "ganju.ai"
 CUSTOM_CODE_DISPATCH_NAMESPACE = "ganju-tools-production"
 CUSTOM_CODE_BROKER_SERVICE = "ganju-tool-broker-production"
 POLAR_SERVER = "production"
-# Organizations that reach the assistant until its tab ships.
 BUILDER_ORGANIZATIONS = ""
 [[env.production.unsafe.bindings]]
 name = "CONTACT_RATE_LIMITER"
