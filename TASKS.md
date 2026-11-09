@@ -620,7 +620,8 @@ Choices agreed with the owner (2026-11-09):
 - The API needs a platform `ANTHROPIC_API_KEY` secret, since channels use the
   organization's key or the shared Gemini model.
 
-**Phase 2 status (2026-11-09): built, not yet on dev.**
+**Phase 2 status (2026-11-09): done on dev.** Migration 0091 ran before the
+API deploy.
 - The custom-code routes call shared functions
   (`controllers/artifact/customCodeActions.ts`); the deploy helpers take only
   the environment, so the assistant calls the same code from its object.
@@ -649,9 +650,22 @@ Choices agreed with the owner (2026-11-09):
 - Eval: `node scripts/eval-builder.mjs --server --case
   open-now,broken-weather,refund-cap,calendar-booking,shorter-replies
   --repeat 2 --baseline scripts/golden/builder-baseline-opus-5-5.json`.
-- To try it on dev: run migration 0091, set the `ANTHROPIC_API_KEY` secret on
-  `ganju-api-development`, deploy the API. The allowlist holds qa-timecap
-  only.
+- Eval on dev (`--server`, the five functions cases twice): 10/10 work, as
+  in phase 0, at 23.4 credits a run (74 at most) with 8.9 model calls and
+  2.1 owner messages. Per case, phase 0 → phase 2: open-now 38 → 35,
+  calendar-booking 30 → 51, refund-cap 47 → 18, shorter-replies 5 → 4,
+  broken-weather 7 → 9. refund-cap no longer drifts into Data writes;
+  calendar-booking's 74-credit run kept testing against the account the eval
+  can't connect (8 test runs, two change sets). Results in
+  `scripts/golden/builder-phase2-server.json`.
+- Checked on dev by hand: a second Apply is refused (409) and Undo puts the
+  previous version back; a second message while one is answering is refused
+  (409); a dropped stream resumes from its last event; on the CLI project the
+  assistant answers with a patch against the developer's own `src/greet.ts`
+  and creates no version (2 credits); an organization off the allowlist gets
+  404.
+- Fixed after that: undoing a change set twice answered 500; the refusals now
+  read as 409 or 400.
 
 **3. Dashboard tab and the test chat — M/L**
 

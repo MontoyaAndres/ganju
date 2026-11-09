@@ -161,16 +161,19 @@ export const undoChangeSet = async (
 ) => {
   const row = await loadChangeSet(caller, scope, changeSetId);
   if (row.status !== APPLIED && row.status !== FAILED) {
-    throw new Error('Only an applied change set can be undone');
+    throw new Error('This change set was already undone, or was never applied');
   }
   const before = (row.before as Before[] | null) ?? [];
-  if (!before.length) throw new Error('Nothing in this change set was applied');
+  if (!before.length)
+    throw new Error(
+      'Nothing in this change set was applied, so undo is invalid'
+    );
 
   const live = await liveVersionId(caller, scope);
   const last = before[before.length - 1];
   if (live !== last.appliedVersionId) {
     throw new Error(
-      'The actions changed after this was applied, so undoing it would replace newer work. Ask the assistant to change them instead.'
+      'The actions were already changed after this was applied, so undoing it would replace newer work. Ask the assistant to change them instead.'
     );
   }
 
