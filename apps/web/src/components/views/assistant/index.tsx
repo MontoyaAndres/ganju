@@ -196,7 +196,6 @@ export const Assistant = () => {
             case 'tool':
               return {
                 ...prev,
-                // A new step starts after the tools: its words are new ones.
                 text: '',
                 tool: toolLabel(t, event.name, event.action)
               };
