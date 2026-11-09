@@ -68,6 +68,15 @@ const anyObject = (description: string) => ({
   additionalProperties: true
 });
 
+// Accounts a project connects with one click (the Tools page's sign-ins).
+const ACCOUNT_PROVIDERS: string[] = [
+  utils.constants.OAUTH_PROVIDER_GOOGLE_GMAIL,
+  utils.constants.OAUTH_PROVIDER_GOOGLE_CALENDAR,
+  utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE,
+  utils.constants.OAUTH_PROVIDER_MICROSOFT_OUTLOOK,
+  utils.constants.OAUTH_PROVIDER_ONE_DRIVE
+];
+
 export const BUILDER_TOOLS = [
   {
     name: 'project',
@@ -203,7 +212,7 @@ export const BUILDER_TOOLS = [
     input_schema: obj(
       {
         kind: { type: 'string', enum: ['connect_account', 'secret', 'upload'] },
-        provider: { type: 'string' },
+        provider: { type: 'string', enum: ACCOUNT_PROVIDERS },
         label: { type: 'string' },
         message: { type: 'string' }
       },
@@ -565,8 +574,13 @@ const askOwner = (
   ) {
     throw new Error('ask_owner needs kind connect_account, secret or upload');
   }
-  if (input.kind === 'connect_account' && !input.provider) {
-    throw new Error('connect_account needs provider');
+  if (
+    input.kind === 'connect_account' &&
+    !ACCOUNT_PROVIDERS.includes(input.provider ?? '')
+  ) {
+    throw new Error(
+      `connect_account needs provider, one of: ${ACCOUNT_PROVIDERS.join(', ')}`
+    );
   }
   if (input.kind === 'secret' && !input.label) {
     throw new Error('secret needs label');

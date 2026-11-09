@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 import { DataError } from '@ganju/utils/data';
@@ -105,6 +105,7 @@ export const checkTriggerTargets = async (
       .where(
         and(
           eq(db.schema.channel.artifactId, artifactId),
+          ne(db.schema.channel.platform, utils.constants.CHANNEL_PLATFORM_TEST),
           inArray(db.schema.channel.id, [...new Set(channels)])
         )
       );

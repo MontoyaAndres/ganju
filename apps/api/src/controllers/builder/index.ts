@@ -7,6 +7,7 @@ import type { Database } from '@ganju/db';
 import { assertBuilderAllowed } from './access';
 import { applyChangeSet, changeSetNotes, undoChangeSet } from './changeSets';
 import { creditsOf } from './llm';
+import { BuilderTryController } from './tryIt';
 import { RateLimitMiddleware } from '../../middleware/rateLimit';
 
 import type { AppEnv } from '../../types';
@@ -97,7 +98,30 @@ const listConversations = async (c: Context<AppEnv>) => {
     )
     .orderBy(desc(db.schema.builderConversation.lastMessageAt))
     .limit(50);
-  return c.json({ conversations: rows });
+  // The organization's spend since the start of this month (UTC), across its
+  // projects.
+  const [month] = await database
+    .select({
+      costMicros: sql<number>`coalesce(sum(${db.schema.builderMessage.costMicros}), 0)::bigint`
+    })
+    .from(db.schema.builderMessage)
+    .innerJoin(
+      db.schema.builderConversation,
+      eq(
+        db.schema.builderConversation.id,
+        db.schema.builderMessage.conversationId
+      )
+    )
+    .where(
+      and(
+        eq(db.schema.builderConversation.organizationId, scope.organizationId),
+        sql`${db.schema.builderMessage.createdAt} >= date_trunc('month', now() at time zone 'utc')`
+      )
+    );
+  return c.json({
+    conversations: rows,
+    monthCredits: creditsOf(Number(month?.costMicros ?? 0))
+  });
 };
 
 const getConversation = async (c: Context<AppEnv>) => {
@@ -259,5 +283,7 @@ export const BuilderController = {
   sendMessage,
   streamTurn,
   applyChangeSet: changeSetRoute(applyChangeSet),
-  undoChangeSet: changeSetRoute(undoChangeSet)
+  undoChangeSet: changeSetRoute(undoChangeSet),
+  tryHistory: BuilderTryController.history,
+  trySend: BuilderTryController.send
 };

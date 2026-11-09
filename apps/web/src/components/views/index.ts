@@ -11,6 +11,7 @@ import { Link } from './link';
 import { Invitation } from './invitation';
 import { ToolApproval } from './toolApproval';
 import { Error } from './error';
+import { Assistant } from './assistant';
 
 export const Views = {
   Auth,
@@ -25,5 +26,6 @@ export const Views = {
   Link,
   Invitation,
   ToolApproval,
-  Error
+  Error,
+  Assistant
 };

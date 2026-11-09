@@ -686,6 +686,19 @@ then.
 - Credits shown per reply and per month, past conversations, and en / es
   copy.
 
+Choices agreed with the owner (2026-11-09):
+- The test chat works for any project, with or without a channel: the runner
+  takes the project directly and uses a channel's model when the project has
+  one, otherwise the shared model. Test turns count as messages but are
+  tagged, so they stay out of the channel's conversations, its counters and
+  the per-customer daily limit.
+- The Functions tab is view-only only for organizations that can use the
+  assistant; everyone else keeps the editor until it opens to them.
+- Production keeps the allowlist after phase 3; it opens to all Pro and
+  Enterprise after phase 6 bills credits.
+- The tab sits in the project navigation after Home. Account connections
+  come back to the tab, not to Tools.
+
 **4. Data, knowledge, prompts and tools — M/L**
 
 - The `data`, `knowledge`, `prompts` and `tools` tools on the shared code.

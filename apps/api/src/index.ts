@@ -621,6 +621,16 @@ app
     BuilderController.undoChangeSet
   )
   .get(
+    '/organization/:organizationId/project/:projectId/builder/try',
+    UserMiddleware.verify,
+    BuilderController.tryHistory
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/builder/try',
+    UserMiddleware.verify,
+    BuilderController.trySend
+  )
+  .get(
     '/organization/:organizationId/project/:projectId/artifact/custom-code/logs',
     UserMiddleware.verify,
     ArtifactController.listCustomCodeLogs

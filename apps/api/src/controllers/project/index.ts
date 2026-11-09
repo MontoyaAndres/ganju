@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import { v7 as uuid } from 'uuid';
@@ -198,7 +198,12 @@ const getOverview = async (c: Context<AppEnv>) => {
           status: db.schema.channel.status
         })
         .from(db.schema.channel)
-        .where(eq(db.schema.channel.artifactId, base.artifactId)),
+        .where(
+          and(
+            eq(db.schema.channel.artifactId, base.artifactId),
+            ne(db.schema.channel.platform, utils.constants.CHANNEL_PLATFORM_TEST)
+          )
+        ),
 
       // One line per channel platform: count the messages exchanged per day —
       // both the user's turns and the assistant's replies (tool/system rows are
@@ -224,6 +229,7 @@ const getOverview = async (c: Context<AppEnv>) => {
         .where(
           and(
             eq(db.schema.channel.artifactId, base.artifactId),
+            ne(db.schema.channel.platform, utils.constants.CHANNEL_PLATFORM_TEST),
             inArray(db.schema.channelMessage.role, [
               utils.constants.ROLE_MESSAGE_USER,
               utils.constants.ROLE_MESSAGE_ASSISTANT

@@ -1730,6 +1730,15 @@ const BUILDER_CHANGE_SET = BUILDER_SCOPE.extend({
   changeSetId: z.uuid()
 });
 
+// The owner's test chat with the bot. A new session starts a new chat.
+const BUILDER_TRY = BUILDER_SCOPE.extend({
+  session: z.string().regex(/^[A-Za-z0-9-]{8,64}$/)
+});
+
+const BUILDER_TRY_MESSAGE = BUILDER_TRY.extend({
+  text: z.string().trim().min(1).max(4000)
+});
+
 // Tool observability on the project home: per-tool health over a window.
 const PROJECT_TOOL_HEALTH = z.object({
   days: z.coerce
@@ -2355,6 +2364,8 @@ export const Schema = {
   BUILDER_SEND_MESSAGE,
   BUILDER_STREAM,
   BUILDER_CHANGE_SET,
+  BUILDER_TRY,
+  BUILDER_TRY_MESSAGE,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,
   PROJECT_TOOL_HEALTH,
   PROJECT_TOOL_CALLS,

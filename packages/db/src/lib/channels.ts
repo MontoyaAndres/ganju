@@ -132,6 +132,8 @@ const sendText = async (
   text: string
 ): Promise<string> => {
   let lastId = '';
+  // The owner's test chat has no platform: the recorded row is the message.
+  if (channel.platform === constants.CHANNEL_PLATFORM_TEST) return lastId;
   if (channel.platform === constants.CHANNEL_PLATFORM_TELEGRAM) {
     for (const piece of pieces(text, constants.TELEGRAM_MESSAGE_LIMIT)) {
       const response = await fetch(

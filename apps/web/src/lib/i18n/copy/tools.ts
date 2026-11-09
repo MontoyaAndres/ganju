@@ -244,6 +244,11 @@ const en = {
     'This version was uploaded from the CLI. Its code is shown read-only; it changes in the project, with ganju deploy.',
   readOnlyBannerAction: 'Start a new script',
   readOnlyBannerAfter: 'to edit in the dashboard.',
+  assistantBannerBefore:
+    'Your actions are written by the assistant. You can read them here; to add or change one, ask it.',
+  openAssistant: 'Open the assistant',
+  fnEmptyAssistant:
+    'Ask the assistant for what your bot should do, and it writes the action for you.',
   // The tool linter — how a function reads to a model. Warnings, never errors.
   lintHeading: 'How this reads to a model',
   lintBannerTitle: 'Saved, with notes on how these functions read to a model:',
@@ -892,6 +897,11 @@ export const TOOLS: Catalog<ToolsCopy> = {
       'Esta versión se subió desde el CLI. Su código se muestra solo para leer; se cambia en el proyecto, con ganju deploy.',
     readOnlyBannerAction: 'Empieza un script nuevo',
     readOnlyBannerAfter: 'para editarlo en el panel.',
+    assistantBannerBefore:
+      'Tus acciones las escribe el asistente. Aquí puedes leerlas; para agregar o cambiar una, pídeselo.',
+    openAssistant: 'Abrir el asistente',
+    fnEmptyAssistant:
+      'Pídele al asistente lo que debe hacer tu bot y él escribe la acción por ti.',
     lintHeading: 'Cómo la lee un modelo',
     lintBannerTitle:
       'Guardado, con notas sobre cómo un modelo lee estas funciones:',

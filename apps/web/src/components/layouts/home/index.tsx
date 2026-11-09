@@ -36,7 +36,9 @@ import {
   Forum,
   ForumOutlined,
   Storage,
-  StorageOutlined
+  StorageOutlined,
+  AutoAwesome,
+  AutoAwesomeOutlined
 } from '@mui/icons-material';
 
 import {
@@ -47,6 +49,7 @@ import {
   Wrapper
 } from './styles';
 import { NoAccess } from './no-access';
+import { useAssistantAccess } from '../../views/assistant/access';
 import { authClient } from '../../../utils';
 import { i18n } from '../../../lib';
 
@@ -79,6 +82,8 @@ interface SwitcherOrganization {
   organizationUserCount?: string | number;
   projects?: SwitcherProject[];
 }
+
+const ASSISTANT_PATH = '/organization/[id]/project/[projectId]/assistant';
 
 type HomePage = ReactElement<unknown, string | JSXElementConstructor<any>>;
 
@@ -139,6 +144,10 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
     lastProjectIdRef.current ||
     organizations?.find(o => o.id === currentOrgId)?.projects?.[0]?.id ||
     null;
+
+  const assistantAccess = useAssistantAccess(currentOrgId, fallbackProjectId);
+  const showAssistant =
+    assistantAccess === 'open' || assistantAccess === 'locked';
 
   const projectBase = fallbackProjectId
     ? `/organization/${currentOrgId}/project/${fallbackProjectId}`
@@ -587,6 +596,20 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   )}
                   <span className="button-text">{t('home')}</span>
                 </UI.Button>
+                {showAssistant && (
+                  <UI.Button
+                    fullWidth
+                    className={pathname === ASSISTANT_PATH ? 'active' : ''}
+                    onClick={() => goToProjectSection('assistant')}
+                  >
+                    {pathname === ASSISTANT_PATH ? (
+                      <AutoAwesome />
+                    ) : (
+                      <AutoAwesomeOutlined />
+                    )}
+                    <span className="button-text">{t('assistant')}</span>
+                  </UI.Button>
+                )}
                 <UI.Button
                   fullWidth
                   className={
@@ -735,6 +758,20 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               )}
               <span className="button-text">{t('home')}</span>
             </UI.Button>
+            {showAssistant && (
+              <UI.Button
+                fullWidth
+                className={pathname === ASSISTANT_PATH ? 'active' : ''}
+                onClick={() => goToProjectSection('assistant')}
+              >
+                {pathname === ASSISTANT_PATH ? (
+                  <AutoAwesome />
+                ) : (
+                  <AutoAwesomeOutlined />
+                )}
+                <span className="button-text">{t('assistant')}</span>
+              </UI.Button>
+            )}
             <UI.Button
               fullWidth
               className={
