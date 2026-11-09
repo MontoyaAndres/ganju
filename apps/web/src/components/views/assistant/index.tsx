@@ -374,6 +374,25 @@ export const Assistant = () => {
     if (chatId) await loadDetail(chatId);
   };
 
+  // A turn picked up after a reload replays from its start, so what it has
+  // already saved is shown once, from the saved messages.
+  const liveTurnMessages =
+    live && detail
+      ? detail.messages.filter(message => message.turnId === live.turnId)
+      : [];
+  const savedLiveCards = new Set(
+    liveTurnMessages.flatMap(message =>
+      (message.cards ?? []).map(card => JSON.stringify(card))
+    )
+  );
+  const liveCards =
+    live?.cards.filter(card => !savedLiveCards.has(JSON.stringify(card))) ?? [];
+  const chatCredits = detail
+    ? detail.credits -
+      liveTurnMessages.reduce((sum, message) => sum + message.credits, 0) +
+      (live?.credits ?? 0)
+    : 0;
+
   const entries = useMemo(
     () => (detail ? entriesOf(detail.messages) : []),
     [detail]
@@ -496,7 +515,7 @@ export const Assistant = () => {
               {detail && (
                 <span className="assistant-credits">
                   {t('chatCredits', {
-                    credits: t.n(detail.credits + (live?.credits ?? 0))
+                    credits: t.n(Math.round(chatCredits * 10) / 10)
                   })}
                 </span>
               )}
@@ -561,7 +580,7 @@ export const Assistant = () => {
                     <UI.Markdown content={live.text} />
                   </div>
                 )}
-                {live.cards.map((card, index) =>
+                {liveCards.map((card, index) =>
                   renderCard(card, entries.length + index, `live-${index}`)
                 )}
                 <div className="assistant-progress">
@@ -612,7 +631,11 @@ export const Assistant = () => {
         </section>
 
         <aside className="assistant-try">
-          <TryIt base={base} projectId={projectId} />
+          <TryIt
+            base={base}
+            projectId={projectId}
+            onClose={() => setTryOpen(false)}
+          />
         </aside>
       </div>
     </Wrapper>

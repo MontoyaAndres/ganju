@@ -479,8 +479,8 @@ export const Wrapper = styled.div`
 
     .try-header {
       display: flex;
+      flex-direction: column;
       align-items: flex-start;
-      justify-content: space-between;
       gap: 8px;
       padding: 14px;
       border-bottom: 1px solid ${theme.colors.bastille}14;
@@ -492,10 +492,24 @@ export const Wrapper = styled.div`
       }
 
       p {
-        margin: 4px 0 0;
+        margin: 0;
         font-size: ${theme.fonts.xs};
         color: ${theme.colors.bastille}99;
         line-height: 1.45;
+      }
+    }
+
+    .try-title {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+
+      @media (min-width: ${theme.screens['2xl']}) {
+        .try-close {
+          display: none;
+        }
       }
     }
 

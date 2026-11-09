@@ -99,7 +99,9 @@ export const ChangeSetCardView = ({
     <div className="assistant-card">
       <div className="assistant-card-title">
         <CheckCircleOutlined fontSize="small" />
-        <span>{t('changeTitle')}</span>
+        <span>
+          {status === 'proposed' ? t('changeTitle') : t('changeTitleDone')}
+        </span>
       </div>
       {card.summary && <p className="assistant-card-text">{card.summary}</p>}
       <ul className="assistant-card-list">

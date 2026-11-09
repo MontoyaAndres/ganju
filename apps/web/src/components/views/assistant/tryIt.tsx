@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { UI } from '@ganju/ui';
-import { RefreshOutlined, SendOutlined } from '@mui/icons-material';
+import IconButton from '@mui/material/IconButton';
+import {
+  CloseOutlined,
+  RefreshOutlined,
+  SendOutlined
+} from '@mui/icons-material';
 
 import { request } from './api';
 import { i18n } from '../../../lib';
@@ -40,10 +45,12 @@ const storeSession = (projectId: string, session: string) => {
 
 export const TryIt = ({
   base,
-  projectId
+  projectId,
+  onClose
 }: {
   base: string;
   projectId: string;
+  onClose: () => void;
 }) => {
   const t = i18n.useT(i18n.copy.ASSISTANT);
   const [session, setSession] = useState<string | null>(null);
@@ -137,10 +144,18 @@ export const TryIt = ({
   return (
     <div className="try-panel">
       <div className="try-header">
-        <div>
+        <div className="try-title">
           <h3>{t('tryTitle')}</h3>
-          <p>{t('tryText')}</p>
+          <IconButton
+            size="small"
+            className="try-close"
+            aria-label={t('tryClose')}
+            onClick={onClose}
+          >
+            <CloseOutlined fontSize="small" />
+          </IconButton>
         </div>
+        <p>{t('tryText')}</p>
         <UI.Button size="small" onClick={restart} disabled={sending}>
           <RefreshOutlined fontSize="small" />
           <span className="button-text">{t('tryRestart')}</span>

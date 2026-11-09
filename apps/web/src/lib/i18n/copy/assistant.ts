@@ -52,6 +52,7 @@ const en = {
   upgrade: 'Upgrade',
 
   changeTitle: 'Ready to apply',
+  changeTitleDone: 'Changes',
   changePossible: 'Once applied, your bot can:',
   changeReads: 'Only reads information',
   changeWrites: 'Changes or sends things (it asks your customer first)',
@@ -163,6 +164,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     upgrade: 'Mejorar plan',
 
     changeTitle: 'Listo para aplicar',
+    changeTitleDone: 'Cambios',
     changePossible: 'Una vez aplicado, tu bot podrá:',
     changeReads: 'Solo leer información',
     changeWrites: 'Cambiar o enviar cosas (primero le pregunta a tu cliente)',
