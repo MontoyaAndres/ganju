@@ -48,10 +48,12 @@ const storeSession = (projectId: string, session: string) => {
 export const TryIt = ({
   base,
   projectId,
+  resetKey,
   onClose
 }: {
   base: string;
   projectId: string;
+  resetKey: number;
   onClose: () => void;
 }) => {
   const t = i18n.useT(i18n.copy.ASSISTANT);
@@ -142,6 +144,13 @@ export const TryIt = ({
     setLines([]);
     setButtons(null);
   };
+
+  // After a change is applied or undone, test the bot as it is now: the
+  // earlier answers would steer the new ones.
+  const firstReset = useRef(resetKey);
+  useEffect(() => {
+    if (resetKey !== firstReset.current) restart();
+  }, [resetKey]);
 
   return (
     <div className="try-panel">

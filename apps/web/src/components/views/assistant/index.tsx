@@ -157,6 +157,7 @@ export const Assistant = () => {
   const [sending, setSending] = useState(false);
   const [tryOpen, setTryOpen] = useState(false);
   const [chatsOpen, setChatsOpen] = useState(false);
+  const [tryReset, setTryReset] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [stoppedEarly, setStoppedEarly] = useState(false);
   const streamRef = useRef<AbortController | null>(null);
@@ -389,8 +390,10 @@ export const Assistant = () => {
       snackbar.error(result.error || t('errorSend'));
     } else if (result.data.changeSet.status === 'applied') {
       snackbar.success(t('toastApplied'));
+      setTryReset(count => count + 1);
     } else if (result.data.changeSet.status === 'undone') {
       snackbar.success(t('toastUndone'));
+      setTryReset(count => count + 1);
     }
     if (chatId) await loadDetail(chatId);
   };
@@ -520,6 +523,16 @@ export const Assistant = () => {
           />
         )}
         <aside className="assistant-chats">
+          <div className="assistant-chats-bar">
+            <h3>{t('chats')}</h3>
+            <IconButton
+              size="small"
+              aria-label={t('tryClose')}
+              onClick={() => setChatsOpen(false)}
+            >
+              <CloseOutlined fontSize="small" />
+            </IconButton>
+          </div>
           <div className="assistant-chats-top">
             <UI.Button
               fullWidth
@@ -530,14 +543,6 @@ export const Assistant = () => {
               <AddOutlined fontSize="small" />
               <span className="button-text">{t('newChat')}</span>
             </UI.Button>
-            <IconButton
-              size="small"
-              className="assistant-chats-close"
-              aria-label={t('tryClose')}
-              onClick={() => setChatsOpen(false)}
-            >
-              <CloseOutlined fontSize="small" />
-            </IconButton>
           </div>
           <p className="assistant-chats-heading">{t('pastChats')}</p>
           {conversations.length === 0 && (
@@ -755,6 +760,7 @@ export const Assistant = () => {
           <TryIt
             base={base}
             projectId={projectId}
+            resetKey={tryReset}
             onClose={() => setTryOpen(false)}
           />
         </aside>

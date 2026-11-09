@@ -136,8 +136,7 @@ export const Wrapper = styled.div`
         }
 
         &.is-active {
-          background: ${theme.colors.white};
-          box-shadow: 0 1px 3px ${theme.colors.bastille}14;
+          background: ${ACCENT}14;
 
           svg {
             color: ${ACCENT};
@@ -175,9 +174,26 @@ export const Wrapper = styled.div`
       display: flex;
       align-items: center;
       gap: 6px;
+
+      .MuiButton-root {
+        flex: 1;
+        justify-content: center;
+      }
     }
 
-    .assistant-chats-close {
+    .assistant-chats-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: -2px -4px 8px 4px;
+
+      h3 {
+        margin: 0;
+        font-size: ${theme.fonts.base};
+        font-weight: 700;
+        color: ${theme.colors.bastille};
+      }
+
       @media (min-width: ${theme.screens.lg}) {
         display: none;
       }
@@ -338,11 +354,6 @@ export const Wrapper = styled.div`
       min-height: 0;
       overflow-y: auto;
       padding: 24px 16px 8px;
-      background: linear-gradient(
-        180deg,
-        ${theme.colors.white} 0%,
-        ${theme.colors.bastille}04 100%
-      );
     }
 
     .assistant-column {
