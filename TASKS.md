@@ -664,6 +664,10 @@ API deploy.
   assistant answers with a patch against the developer's own `src/greet.ts`
   and creates no version (2 credits); an organization off the allowlist gets
   404.
+- The shared custom-code functions, checked on dev with the CLI too: that
+  patch applied by hand and `ganju deploy` made v5 (draft, upload, source,
+  publish); v5 answers "Hola, María", a rollback to v4 answers "hola María",
+  and rolling forward puts v5 back.
 - Fixed after that: undoing a change set twice answered 500; the refusals now
   read as 409 or 400.
 
