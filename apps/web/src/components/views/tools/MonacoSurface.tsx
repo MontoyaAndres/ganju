@@ -86,6 +86,10 @@ const MARKER_OWNER = 'ganju-runtime';
 const MODEL_ROOT = 'file:///';
 const modelUri = (path: string) => `${MODEL_ROOT}${path}`;
 
+// The models this editor made, so tidying up never touches the JSON fields'
+// models, which live under the same root.
+const codeModels = new Set<string>();
+
 const markRuntimeLimits = (
   monaco: Monaco,
   model: MonacoEditor.ITextModel,
@@ -197,18 +201,23 @@ const MonacoSurface = ({
   // Keep a model per file. The <Editor> below owns the one it is showing; these
   // are the others, created so they can be imported and disposed when their file
   // is deleted, since a model left behind keeps resolving a path that no longer
-  // exists.
-  useEffect(() => {
-    const monaco = monacoRef.current;
-    if (!monaco) return;
+  // exists. Run on mount too: another version's files are still there when the
+  // editor comes back.
+  const syncModels = (monaco: Monaco) => {
     const wanted = new Set(Object.keys(files).map(name => modelUri(name)));
+    for (const uri of wanted) codeModels.add(uri);
 
     for (const [name, content] of Object.entries(files)) {
       const uri = monaco.Uri.parse(modelUri(name));
       const existing = monaco.editor.getModel(uri);
       if (!existing) {
         monaco.editor.createModel(content, languageFor(name), uri);
-      } else if (name !== path && existing.getValue() !== content) {
+        continue;
+      }
+      if (existing.getLanguageId() !== languageFor(name)) {
+        monaco.editor.setModelLanguage(existing, languageFor(name));
+      }
+      if (name !== path && existing.getValue() !== content) {
         // Not the open file, so nobody is typing into it — the state is the
         // truth and the model follows.
         existing.setValue(content);
@@ -217,8 +226,15 @@ const MonacoSurface = ({
 
     for (const model of monaco.editor.getModels()) {
       const uri = model.uri.toString();
-      if (uri.startsWith(MODEL_ROOT) && !wanted.has(uri)) model.dispose();
+      if (codeModels.has(uri) && !wanted.has(uri)) {
+        model.dispose();
+        codeModels.delete(uri);
+      }
     }
+  };
+
+  useEffect(() => {
+    if (monacoRef.current) syncModels(monacoRef.current);
   }, [files, path]);
 
   const handleMount = (
@@ -226,12 +242,7 @@ const MonacoSurface = ({
     monaco: Monaco
   ) => {
     monacoRef.current = monaco;
-    for (const [name, content] of Object.entries(files)) {
-      const uri = monaco.Uri.parse(modelUri(name));
-      if (!monaco.editor.getModel(uri)) {
-        monaco.editor.createModel(content, 'javascript', uri);
-      }
-    }
+    syncModels(monaco);
 
     // Where the caret is and how long the file is. Reported on mount and on
     // every change, not only when the cursor moves — a file that has just been

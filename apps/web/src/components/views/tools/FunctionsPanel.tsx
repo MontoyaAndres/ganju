@@ -1431,6 +1431,8 @@ export const FunctionsPanel = ({
           emptyFolders={emptyFolders}
           onSelect={setActivePath}
           onChange={next => {
+            // Opening a file also reports its text; only a real edit counts.
+            if (!editable || next === files[activePath]) return;
             setFiles(prev => ({ ...prev, [activePath]: next }));
             setDirty(true);
           }}
