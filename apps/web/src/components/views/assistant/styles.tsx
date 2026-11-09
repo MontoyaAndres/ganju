@@ -175,8 +175,12 @@ export const Wrapper = styled.div`
       align-items: center;
       gap: 6px;
 
-      .MuiButton-root {
+      & > * {
         flex: 1;
+      }
+
+      .MuiButtonBase-root.MuiButton-root {
+        width: 100%;
         justify-content: center;
       }
     }
