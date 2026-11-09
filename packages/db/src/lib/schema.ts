@@ -114,10 +114,12 @@ export const jwks = pgTable('jwks', {
   publicKey: text('public_key').notNull(),
   privateKey: text('private_key').notNull(),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-  expiresAt: timestamp('expires_at', { mode: 'date' })
+  expiresAt: timestamp('expires_at', { mode: 'date' }),
+  alg: text('alg'),
+  crv: text('crv')
 });
 
-// The four tables below back `@better-auth/oauth-provider`. Their shape is the
+// The tables below back `@better-auth/oauth-provider`. Their shape is the
 // plugin's, not ours — `npx @better-auth/cli generate` is the source of truth,
 // so keep field names and array types in step with it when the plugin moves.
 // `organizationId` is the one local addition.
@@ -130,11 +132,13 @@ export const oauthClient = pgTable(
     clientId: text('client_id').notNull().unique(),
     // Stored hashed (SHA-256, base64url) — never the plaintext the client holds.
     clientSecret: text('client_secret'),
+    clientDiscoveryId: text('client_discovery_id'),
     disabled: boolean('disabled').notNull().default(false),
     skipConsent: boolean('skip_consent'),
     enableEndSession: boolean('enable_end_session'),
     subjectType: text('subject_type'),
     scopes: text('scopes').array(),
+    clientCredentialsScopes: text('client_credentials_scopes').array(),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade'
@@ -150,12 +154,20 @@ export const oauthClient = pgTable(
     softwareStatement: text('software_statement'),
     redirectUris: text('redirect_uris').array().notNull(),
     postLogoutRedirectUris: text('post_logout_redirect_uris').array(),
+    backchannelLogoutUri: text('backchannel_logout_uri'),
+    backchannelLogoutSessionRequired: boolean(
+      'backchannel_logout_session_required'
+    ),
     tokenEndpointAuthMethod: text('token_endpoint_auth_method'),
+    applicationType: text('application_type'),
+    jwks: text('jwks'),
+    jwksUri: text('jwks_uri'),
     grantTypes: text('grant_types').array(),
     responseTypes: text('response_types').array(),
     public: boolean('public'),
     type: text('type'),
     requirePKCE: boolean('require_pkce'),
+    dpopBoundAccessTokens: boolean('dpop_bound_access_tokens').default(false),
     referenceId: text('reference_id'),
     metadata: json('metadata'),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
@@ -187,16 +199,28 @@ export const oauthRefreshToken = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     referenceId: text('reference_id'),
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
     expiresAt: timestamp('expires_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     revoked: timestamp('revoked', { mode: 'date' }),
+    rotatedAt: timestamp('rotated_at', { mode: 'date' }),
+    rotationReplayResponse: text('rotation_replay_response'),
+    rotationReplayExpiresAt: timestamp('rotation_replay_expires_at', {
+      mode: 'date'
+    }),
     authTime: timestamp('auth_time', { mode: 'date' }),
+    confirmation: json('confirmation'),
     scopes: text('scopes').array().notNull()
   },
   table => [
     index('oauth_refresh_token_clientId_idx').on(table.clientId),
     index('oauth_refresh_token_sessionId_idx').on(table.sessionId),
-    index('oauth_refresh_token_userId_idx').on(table.userId)
+    index('oauth_refresh_token_userId_idx').on(table.userId),
+    index('oauth_refresh_token_authorizationCodeId_idx').on(
+      table.authorizationCodeId
+    )
   ]
 );
 
@@ -215,20 +239,85 @@ export const oauthAccessToken = pgTable(
     }),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     referenceId: text('reference_id'),
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
     refreshId: text('refresh_id').references(() => oauthRefreshToken.id, {
       onDelete: 'cascade'
     }),
     expiresAt: timestamp('expires_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    revoked: timestamp('revoked', { mode: 'date' }),
+    confirmation: json('confirmation'),
     scopes: text('scopes').array().notNull()
   },
   table => [
     index('oauth_access_token_clientId_idx').on(table.clientId),
     index('oauth_access_token_sessionId_idx').on(table.sessionId),
     index('oauth_access_token_userId_idx').on(table.userId),
-    index('oauth_access_token_refreshId_idx').on(table.refreshId)
+    index('oauth_access_token_refreshId_idx').on(table.refreshId),
+    index('oauth_access_token_authorizationCodeId_idx').on(
+      table.authorizationCodeId
+    )
   ]
 );
+
+// A protected resource tokens are issued for, with its own token policy.
+export const oauthResource = pgTable('oauth_resource', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => uuid()),
+  identifier: text('identifier').notNull().unique(),
+  name: text('name').notNull(),
+  accessTokenTtl: integer('access_token_ttl'),
+  refreshTokenTtl: integer('refresh_token_ttl'),
+  signingAlgorithm: text('signing_algorithm'),
+  signingKeyId: text('signing_key_id'),
+  allowedScopes: text('allowed_scopes').array(),
+  customClaims: json('custom_claims'),
+  dpopBoundAccessTokensRequired: boolean(
+    'dpop_bound_access_tokens_required'
+  ).default(false),
+  disabled: boolean('disabled').default(false),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  policyVersion: integer('policy_version').default(1),
+  metadata: json('metadata')
+});
+
+// Which clients may ask for which resources.
+export const oauthClientResource = pgTable(
+  'oauth_client_resource',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: 'cascade' }),
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => oauthResource.identifier, { onDelete: 'cascade' }),
+    metadata: json('metadata'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow()
+  },
+  table => [
+    index('oauth_client_resource_clientId_idx').on(table.clientId),
+    index('oauth_client_resource_resourceId_idx').on(table.resourceId),
+    uniqueIndex('oauth_client_resource_client_resource_idx').on(
+      table.clientId,
+      table.resourceId
+    )
+  ]
+);
+
+// One row per used client-assertion id, so a replayed assertion is refused.
+export const oauthClientAssertion = pgTable('oauth_client_assertion', {
+  id: text('id').primaryKey(),
+  expiresAt: timestamp('expires_at', { mode: 'date' }).notNull()
+});
 
 export const externalIdentity = pgTable(
   'external_identity',
@@ -275,6 +364,8 @@ export const oauthConsent = pgTable(
       .references(() => oauthClient.clientId, { onDelete: 'cascade' }),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     referenceId: text('reference_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
     scopes: text('scopes').array().notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })

@@ -1,6 +1,6 @@
 {
   "name": "@ganju/sdk",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "The typed `ctx` a Ganju custom tool is written against",
   "license": "Apache-2.0",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
@@ -54,11 +54,11 @@
   },
   "dependencies": {
     "@ganju/utils": "*",
-    "@cloudflare/workers-types": "^4.20260611.1"
+    "@cloudflare/workers-types": "^5.20261109.1"
   },
   "devDependencies": {
     "@ganju/tsconfig": "*",
-    "typescript": "^6.0.3",
-    "esbuild": "^0.25.0"
+    "typescript": "^7.0.2",
+    "esbuild": "^0.28.2"
   }
 }

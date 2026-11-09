@@ -151,15 +151,13 @@ export default defineConfig({
   markdown: {
     shikiConfig: { theme: 'github-light', wrap: true }
   },
-  experimental: {
-    fonts: [
-      {
-        provider: fontProviders.google(),
-        name: 'Fustat',
-        cssVariable: '--font-fustat',
-        weights: [400, 500, 600, 700, 800],
-        display: 'swap'
-      }
-    ]
-  }
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: 'Fustat',
+      cssVariable: '--font-fustat',
+      weights: [400, 500, 600, 700, 800],
+      display: 'swap'
+    }
+  ]
 });

@@ -11,19 +11,19 @@
   "dependencies": {
     "@ganju/db": "*",
     "@ganju/utils": "*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "cheerio": "^1.2.0",
     "fflate": "^0.8.3",
-    "mammoth": "^1.12.0",
-    "playwright": "^1.60.0",
-    "undici": "^7.19.0",
-    "unpdf": "^1.6.2",
+    "mammoth": "^1.13.0",
+    "playwright": "^1.65.0",
+    "undici": "^8.12.4",
+    "unpdf": "^2.1.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@ganju/tsconfig": "*",
-    "@types/node": "^25.9.3",
-    "esbuild": "^0.28.0",
-    "typescript": "^6.0.3"
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   }
 }

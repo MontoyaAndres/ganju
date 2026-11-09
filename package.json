@@ -4,7 +4,7 @@
   "main": "index.js",
   "repository": "git@github.com:MontoyaAndres/ganju.git",
   "author": "MontoyaAndres <andresmontoyafcb@gmail.com>",
-  "packageManager": "npm@11.17.0",
+  "packageManager": "npm@12.2.2",
   "license": "Apache-2.0",
   "workspaces": [
     "apps/*",
@@ -24,11 +24,12 @@
     "deploy-prod": "turbo run deploy-prod --ui=stream < /dev/null"
   },
   "dependencies": {
-    "turbo": "^2.9.18"
+    "turbo": "^2.11.10"
   },
   "devDependencies": {
-    "dotenv-cli": "^11.0.0",
-    "prettier": "3.6.2",
-    "wrangler": "^4.100.0"
+    "dotenv-cli": "^11.1.0",
+    "esbuild": "^0.28.2",
+    "prettier": "3.9.10",
+    "wrangler": "^4.159.0"
   }
 }

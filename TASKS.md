@@ -171,8 +171,9 @@ Size: **S** = days, **M** = a week or two, **L** = more. Total: **L** (about
    manifest and versions still exist; the assistant fills them in. The CLI
    patch path (decision 6) is the exception, because only technical owners
    use the CLI.
-2. **Model: Claude Opus 5.5** (`claude-opus-5-5`), with effort `high` while
-   building and `medium` for questions. It costs $4 / $20 per million tokens,
+2. **Model: Claude Opus 5.5** (`claude-opus-5-5`), and only it (the Kimi
+   comparison was dropped on 2026-11-09), with effort `high` while building
+   and `medium` for questions. It costs $4 / $20 per million tokens,
    and cache reads cost $0.20. Estimated cost: about **$0.90 per new action**
    and **$0.25 per edit**. The plan-first step and owners' back-and-forth
    probably raise this, so phase 0 measures it with requests written the way
@@ -402,7 +403,8 @@ server already has the implementation (`data-describe`, `data-query`,
   hay pizza", "send me the day's orders every night", "answer from my menu
   PDF". Run them through Opus 5.5 with the tool set above, on dev.
   - Record turns, credits, and whether the result works.
-  - Run the same set on Kimi K3.1 Pro once for comparison.
+  - Only Opus 5.5. The Kimi K3.1 Pro comparison was dropped (owner,
+    2026-11-09).
   - This confirms or corrects the 1,000-credit allowance.
 - **Owners.** Sessions with 3–5 real non-technical owners (restaurant, shop,
   clinic) on a rough prototype.
@@ -417,6 +419,147 @@ server already has the implementation (`data-describe`, `data-query`,
 - **Schema as code.** Can the server tell that a project's Data schema is
   managed from `ganju.data.json`? If it can, the assistant warns that its
   changes will show as drift on the next `ganju data` apply.
+
+#### Phase 0 results (2026-11-09)
+
+Done: cost, runtime, SDK bump, schema as code. Still open: the owner
+sessions (they need a prototype, and the owner arranges them).
+
+**How it was measured.** `scripts/eval-builder.mjs` runs
+`scripts/golden/builder-requests.json` (10 requests: 6 Spanish, 4 English)
+against the dev API. The baseline it wrote is
+`scripts/golden/builder-baseline-opus-5-5.json`.
+- **Model and loop.** Opus 5.5 at effort `high`, with the planned 10 tools as
+  spike versions over the real endpoints (`scripts/builder-eval/`). The loop
+  is capped at 25 model calls per owner message.
+- **System prompt.** About 6k tokens plus the SDK's `types.ts`, cached for an
+  hour.
+- **Projects.** Each run gets a fresh project in the throwaway dev org
+  qa-timecap (Enterprise). Nothing is deleted; there are about 50
+  `builder-eval …` projects there now.
+- **The owner** is Opus 5.5 at low effort, answering only from the case's
+  brief and clicking Apply on every change set.
+- **Customer probes** run the channel's way: the shared Gemini model over the
+  project's MCP server with the owner's token. That gives the owner's view of
+  tables, because a customer's view needs the internal secret.
+- **The judge** is Opus 5.5. It reads the conversation, the cards, what was
+  built, the assistant's own test runs and the probe answers.
+- **Command:**
+  `node scripts/eval-builder.mjs --repeat 2 --baseline scripts/golden/builder-baseline-opus-5-5.json`
+  (about 20 minutes and $6).
+
+**Results.** The final run (20 runs, each case twice):
+
+| Request | Kind | Works | Credits |
+| --- | --- | --- | --- |
+| pizza-stock | new table + action | 2/2 | 25, 26 |
+| nightly-orders | trigger | 0/2 | 42, 47 |
+| menu-pdf | knowledge (upload) | 2/2 | 13, 10 |
+| delivery-orders | new table + writing action | 2/2 | 30, 35 |
+| open-now | new action (hours, holidays) | 2/2 | 33, 42 |
+| calendar-booking | connected account | 2/2 | 29, 31 |
+| import-clients | spreadsheet import + lookup | 2/2 | 23, 24 |
+| refund-cap | edit an action | 2/2 | 52, 42 |
+| shorter-replies | out of scope | 2/2 | 5, 5 |
+| broken-weather | fix from the logs | 2/2 | 7, 7 |
+
+- **18 of 20 runs work with no hand edits**, and 9 of 10 cases pass both runs.
+  That meets the bar of at least 8 of 10.
+- **Per request:** 26.3 credits on average ($0.26) and 52 at most, with 12.2
+  model calls and 2.1 owner messages.
+- **Caching:** 95% of input tokens were cache reads. One hourly write of the
+  system prompt costs about 19 credits wherever it lands.
+- **Against the plan's estimates** ($0.90 per new action, $0.25 per edit):
+  - a new action costs about 25–42 credits;
+  - an edit or fix costs 7–52 (refund-cap spends most of it on repeated
+    tests);
+  - knowledge costs about 10–13;
+  - a "can't do that here" answer costs about 5.
+- **The 1,000-credit allowance holds:** it buys about 35–40 requests a month
+  at this rate.
+- **What could raise the cost:** the simulated owner is cooperative and
+  answers in one or two messages, while real owners will chat more. Owner
+  sessions should confirm before billing (phase 6) fixes the numbers.
+
+**What the first two runs changed** (6/10, then 15/20, then 18/20). Two of
+these were harness bugs:
+- The overview read the database summary's column count as a list.
+- The judge didn't see the assistant's own test runs.
+
+Three prompt rules were added. Phase 2 should keep them:
+- The owner's own account email is in the project overview, for "send it to
+  me". Without it the assistant stalled asking for it.
+- How the bot talks comes from its instructions. On the free shared model
+  they are fixed. With the owner's own model they are written in Settings →
+  Models and picked as the channel's Language model. Without this rule the
+  assistant invented an instructions field for the shared bot.
+- For Gmail, Outlook, Calendar and Slack, work through the owner's connected
+  account: catalog tools, or an action with `ctx.connection` when the catalog
+  tools would show the bot more than it needs, saying why. In calendar-booking
+  it chose an action on privacy grounds, because the catalog's list-events
+  would let the bot read other patients' appointments. That choice is right,
+  and it matches "accounts before keys".
+- Also: never say something is live before its change set was applied.
+
+**Findings for the design**
+- **There is no daily or weekly schedule.** Time triggers fire per row,
+  relative to a date column. That is why nightly-orders fails both runs.
+  - The assistant says up front that there is no daily schedule, then builds
+    a self-rescheduling row chain plus Gmail. That is fragile, and it never
+    sent an email in the test.
+  - A daily or weekly time trigger in Data would make "every night" requests
+    simple. Owners will ask for them often (digests, reminders).
+  - Until then, the prompt should prefer a trigger's email action, which
+    reaches org members directly, over Gmail through an action.
+- **Bot instructions are out of reach on the shared model.** "Answer shorter /
+  in Spanish" is likely a top request. The assistant can only point to
+  Settings → Models. A project-level instructions field that the shared model
+  also reads would put it in scope. That needs an owner decision.
+- **Account connections can't be completed by a script.** The eval can't test
+  booking or Gmail end to end. The test-chat phase should test those with a
+  real connection on dev.
+- **No test send for email triggers.** Test sends only exist for the
+  `customer` action, so the assistant can't show the owner an email before
+  the night it is due.
+- **Leaked internal names.** Cards sometimes show internal names
+  (`check-if-open`, version numbers). The card copy in phase 3 should come
+  from labels, not names.
+
+**Runtime.**
+- **Long streams work.** A throwaway Worker (`ganju-sse-probe` on the dev
+  account, still deployed) streamed SSE for 6 min 45 s with no problem.
+- **A disconnect kills the turn.** When the client hung up at 30 s, the next
+  write failed at once. `request.signal`'s abort never fired. The work kept
+  going for about 26 s (the `waitUntil` grace period) and was then killed.
+  So a turn dies about 30 s after the browser drops: closing the laptop
+  mid-build loses the turn.
+- **Decision: a Durable Object per conversation.** It runs the loop and keeps
+  each step as it happens; the browser streams from it and can reconnect. A
+  plain request isn't enough.
+
+**SDK bump.** It came with the 2026-11-09 package update:
+`@anthropic-ai/sdk` 1.6, which sends API version 2026-10-21.
+- The channel adapter works. A two-step tool loop passed on Opus 5.5, Haiku
+  5.5, Gemini and OpenAI.
+- Opus 5.5 accepts the replayed tool turns without their thinking blocks.
+- The adapter now drops `temperature`, `top_p` and `top_k` from an org's
+  saved model config, because the new API version rejects them on every
+  model.
+- The builder's own client uses `messages.stream` with:
+  - adaptive thinking;
+  - `output_config.effort`;
+  - a 1-hour cache on the system prompt;
+  - `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`).
+
+**Schema as code.**
+- **Triggers:** yes. `ganju deploy` saves them with `managed = 'cli'`.
+- **Tables, columns and saved queries:** no. `ganju data schema push` sends
+  ordinary API calls, and the schema tables keep no actor.
+- **What it would take:** the push sets a marker in `_ganju_meta` (for
+  example `schema_source = cli` plus the time) through a header on its calls.
+  Then the assistant can warn about drift. That needs a new
+  `INTERNAL_MIGRATIONS` entry only if a column is added; a meta key needs
+  none. It fits phase 4.
 
 **1. CLI source snapshot and the deploy guard — M**
 

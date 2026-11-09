@@ -83,7 +83,13 @@ export const anthropicAdapter: LlmAdapter = {
       typeof config.max_tokens === 'number'
         ? config.max_tokens
         : utils.constants.DEFAULT_MAX_TOKENS;
-    const { max_tokens: _max, ...restConfig } = config;
+    const {
+      max_tokens: _max,
+      temperature: _temperature,
+      top_p: _topP,
+      top_k: _topK,
+      ...restConfig
+    } = config;
 
     const tools: Anthropic.ToolUnion[] | undefined =
       input.tools.length > 0

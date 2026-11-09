@@ -1,0 +1,145 @@
+{
+  "about": "Requests written the way non-technical owners write them, for scripts/eval-builder.mjs. 'ask' is the owner's first message; 'owner' is what the simulated owner knows and answers from; 'start' is the project's state before the run (a template in scripts/builder-eval/templates.mjs, plus files the owner can upload); 'expect.probes' are customer questions asked to the project's bot and action tests run after the run; 'expect.rubric' is what the judge checks.",
+  "cases": [
+    {
+      "id": "pizza-stock",
+      "lang": "es",
+      "kind": "new-action",
+      "start": { "template": "empty" },
+      "ask": "quiero que el bot diga si hay pizza",
+      "owner": "Pizzería con 4 pizzas: margherita, pepperoni, hawaiana y cuatro quesos. Cada mañana sé cuántas hay de cada una y lo quiero anotar yo mismo. Si se acaba una, el bot debe decir que está agotada y ofrecer otra que sí haya. Hoy hay 12 margherita, 0 hawaiana, 5 pepperoni y 3 cuatro quesos.",
+      "expect": {
+        "probes": [
+          { "customer": "¿tienen pizza hawaiana?" },
+          { "customer": "¿hay margherita?" }
+        ],
+        "rubric": "Asks at least one question before building. The project ends with today's stock recorded somewhere the owner can update (a table is the natural fit) and something the bot uses to answer (an action or the table itself). The bot says the Hawaiian is sold out and offers one that is in stock, and says margherita is available."
+      }
+    },
+    {
+      "id": "nightly-orders",
+      "lang": "en",
+      "kind": "trigger",
+      "start": { "template": "orders-table" },
+      "ask": "send me the day's orders every night",
+      "owner": "Bakery. Orders are already in the Orders table. You'd like an email at 9pm Bogotá time with a short list (customer, items, total) and the day's total. Skip it on days with no orders. Your email is the one on your account.",
+      "expect": {
+        "probes": [],
+        "rubric": "Today there is no daily schedule: time triggers fire per row, relative to a date column. Passing means either a correct working approximation that the owner explicitly agreed to after hearing the limit (for example an email per order, or a saved 'today's orders' query they can ask the bot for), or a clear plain statement that a nightly email can't be scheduled yet plus the closest option offered. Failing means claiming a nightly email exists when it doesn't, or building something that would send wrong or repeated emails without saying so."
+      }
+    },
+    {
+      "id": "menu-pdf",
+      "lang": "es",
+      "kind": "knowledge",
+      "start": { "template": "empty", "ownerFiles": ["menu.pdf"] },
+      "ask": "que responda con mi menú en pdf",
+      "owner": "Tengo el menú en PDF; lo subes cuando te lo pidan (se llama menu.pdf). Si preguntan algo que no está en el menú, que diga que no sabe y dé el WhatsApp 300 123 4567.",
+      "expect": {
+        "probes": [
+          { "customer": "¿cuánto vale la lasaña de carne?" },
+          { "customer": "¿tienen parqueadero?" }
+        ],
+        "rubric": "Asks the owner for the file with an upload card (not by pasting text), and the menu ends up in the project's knowledge. The bot gives the lasagna price from the menu ($32.000). The fallback with the WhatsApp number 300 123 4567 is recorded somewhere the bot reads (a note in knowledge counts); since the bot's own instructions can't be changed by the assistant, it passes if the number is available to the bot through knowledge even if this small bot doesn't volunteer it."
+      }
+    },
+    {
+      "id": "delivery-orders",
+      "lang": "es",
+      "kind": "new-action",
+      "start": { "template": "products-table" },
+      "ask": "cuando alguien pida domicilio que el bot guarde el pedido",
+      "owner": "Necesito nombre, teléfono, dirección y lo que pidió, con el precio del menú (está en la tabla Productos). El domicilio vale 5.000. Antes de guardar, el bot le repite el pedido al cliente con el total y le pregunta si está bien.",
+      "expect": {
+        "probes": [],
+        "rubric": "Asks before building. Ends with a place for orders (table or tables) and an action (or table access) that saves an order with name, phone, address, items with menu prices from productos, the 5.000 delivery fee and the total. Saving is marked as an action that changes things (destructiveHint) so the bot confirms with the customer first, or the description says to confirm. The assistant tested it and the test saved a correct order."
+      }
+    },
+    {
+      "id": "open-now",
+      "lang": "en",
+      "kind": "new-action",
+      "start": { "template": "empty" },
+      "ask": "can the bot tell people if we're open right now",
+      "owner": "Coffee shop in Medellín. Mon–Fri 7am–7pm, Sat 8am–2pm, closed Sundays and Colombian public holidays. If closed, say when we open next.",
+      "expect": {
+        "probes": [{ "customer": "are you open right now?" }],
+        "rubric": "Builds something the bot uses that answers from the current time in Colombia (America/Bogota), not the server's UTC. Handles Sundays and Colombian public holidays (2026 holidays, including Monday 16 November 2026) and says when it opens next. The customer answer is correct for the moment it was asked (stated in the probe's time)."
+      }
+    },
+    {
+      "id": "calendar-booking",
+      "lang": "es",
+      "kind": "tools",
+      "start": { "template": "empty" },
+      "ask": "quiero que los pacientes puedan pedir cita y me quede en mi google calendar",
+      "owner": "Consultorio de fisioterapia. Citas de 45 minutos, lunes a viernes de 8 a 5. Uso Google Calendar con mi cuenta de Gmail. No sé qué es una API key.",
+      "expect": {
+        "probes": [],
+        "rubric": "Works through the owner's Google account: asks them to connect it with a connect_account card, then either installs the Google Calendar catalog tools (free slots and create event at least) or writes an action that uses that connection (ctx.connection), saying why. Never asks for an API key, password or token. The account can't really be connected in this test, so judge what was built around it, and whether the owner is told plainly that booking works only once their account is connected. Records the 45-minute, Mon–Fri 8–5 rules where the bot can use them (a note, an action, or tool config), or says plainly where they live. Being honest that the connection must be completed in the dashboard is fine."
+      }
+    },
+    {
+      "id": "import-clients",
+      "lang": "es",
+      "kind": "data-import",
+      "start": { "template": "empty", "ownerFiles": ["clientes.xlsx"] },
+      "ask": "tengo mis clientes en un excel, quiero que el bot los reconozca por el teléfono",
+      "owner": "El Excel se llama clientes.xlsx, tiene nombre, teléfono, ciudad y si es cliente frecuente. Cuando escribe un cliente conocido, que lo salude por su nombre; si es frecuente, que le recuerde el 10% de descuento.",
+      "expect": {
+        "probes": [
+          { "customer": "Hola, soy el +573004445566, ¿qué descuento tengo?" }
+        ],
+        "rubric": "Gets the file through an upload card and loads all 12 customers into a table with sensible columns (phone as phone/text, frequent as boolean or enum). Gives the bot a way to look up a customer by phone (table read access, a saved query, or an action). The bot finds Laura Méndez for +573004445566 and mentions the 10% discount for frequent customers. Note: real channels pass the sender's number to the bot; this probe states it in the message."
+      }
+    },
+    {
+      "id": "refund-cap",
+      "lang": "en",
+      "kind": "edit-action",
+      "start": { "template": "order-desk" },
+      "ask": "the refund thing is too generous, it shouldn't give back more than 50 dollars",
+      "owner": "Above $50 the bot should say a person will review it, and not refund anything. $50 or less works as today.",
+      "expect": {
+        "probes": [
+          {
+            "tool": "order-refund",
+            "input": { "orderId": "A-1001", "amount": 80 }
+          },
+          {
+            "tool": "order-refund",
+            "input": { "orderId": "A-1001", "amount": 30 }
+          },
+          { "tool": "order-lookup", "input": { "orderId": "A-1002" } }
+        ],
+        "rubric": "Edits the existing action instead of creating a new one, keeps order-lookup working, and the change is live: refunding 80 is refused with a message that a person will review it; refunding 30 still works."
+      }
+    },
+    {
+      "id": "shorter-replies",
+      "lang": "es",
+      "kind": "out-of-scope",
+      "start": { "template": "products-table" },
+      "ask": "el bot contesta muy largo y a veces en inglés, arréglalo",
+      "owner": "Siempre en español, máximo 3 frases, tuteando. Usas el bot gratis que viene con Ganju, no conectaste ningún modelo propio.",
+      "expect": {
+        "probes": [],
+        "rubric": "The bot's instructions live in the channel's model setting, which the assistant can't change (and the shared model's instructions are fixed). Passing means telling the owner plainly what it can't change and where they can (the channel's settings, connecting their own model), and offering only real alternatives. Failing means pretending a prompt template or a note changes how the bot always answers, or making changes the owner didn't ask for."
+      }
+    },
+    {
+      "id": "broken-weather",
+      "lang": "en",
+      "kind": "fix-action",
+      "start": { "template": "weather-broken" },
+      "ask": "my weather thing stopped working",
+      "owner": "It worked last week. You don't know what changed.",
+      "expect": {
+        "probes": [
+          { "tool": "current-weather", "input": { "city": "Bogotá" } }
+        ],
+        "rubric": "Reads the logs or tests the action to find the cause (the forecast address moved from /v0/ to /v1/), fixes it, tests it, and the fix is live: the action returns a current temperature for Bogotá."
+      }
+    }
+  ]
+}

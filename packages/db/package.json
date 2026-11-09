@@ -20,13 +20,13 @@
   },
   "dependencies": {
     "@ganju/utils": "*",
-    "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9",
-    "uuid": "^14.0.0"
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^4.1.0",
+    "uuid": "^14.0.3"
   },
   "devDependencies": {
     "@ganju/tsconfig": "*",
-    "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.3"
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^7.0.2"
   }
 }

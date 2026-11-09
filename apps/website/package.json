@@ -13,15 +13,15 @@
     "deploy-prod": "npm run build && wrangler pages deploy dist --project-name=ganju-website-production  --branch=main --commit-dirty=true"
   },
   "dependencies": {
-    "@astrojs/react": "^4.4.1",
-    "@astrojs/sitemap": "^3.7.0",
-    "astro": "^5.17.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "@astrojs/react": "^7.1.5",
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.4.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "typescript": "^6.0.3"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
   }
 }

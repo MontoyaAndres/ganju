@@ -92,9 +92,9 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
   const [profileImage, setProfileImage] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [linkedProviders, setLinkedProviders] = useState<Set<SocialProvider>>(
-    new Set()
-  );
+  const [linkedProviders, setLinkedProviders] = useState<
+    Map<SocialProvider, string>
+  >(new Map());
   const [linkBusy, setLinkBusy] = useState<SocialProvider | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [organizations, setOrganizations] = useState<
@@ -213,22 +213,22 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
   const handleLogoutClicked = async () => {
     setAccountClicked(false);
     setMobileMenuClicked(false);
-    await authClient.signOut().then(() => {
+    await authClient.signOut({}).then(() => {
       window.location.reload();
     });
   };
 
   const loadLinkedAccounts = async () => {
     try {
-      const { data } = await authClient.listAccounts();
+      const { data } = await authClient.listAccounts({ query: {} });
       if (!data) return;
-      const next = new Set<SocialProvider>();
+      const next = new Map<SocialProvider, string>();
       for (const account of data) {
         if (
           account.providerId === utils.constants.SOCIAL_PROVIDER_GOOGLE ||
           account.providerId === utils.constants.SOCIAL_PROVIDER_GITHUB
         ) {
-          next.add(account.providerId);
+          next.set(account.providerId, account.id);
         }
       }
       setLinkedProviders(next);
@@ -320,11 +320,11 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
       snackbar.error(t('profileKeepOneAccount'));
       return;
     }
+    const accountId = linkedProviders.get(provider);
+    if (!accountId) return;
     setLinkBusy(provider);
     try {
-      const { error } = await authClient.unlinkAccount({
-        providerId: provider
-      });
+      const { error } = await authClient.unlinkAccount({ accountId });
       if (error) {
         snackbar.error(error.message || t('toastUnlinkFailed', { provider }));
         return;
@@ -632,7 +632,8 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   }
                   onClick={() => goToProjectSection('data')}
                 >
-                  {pathname === '/organization/[id]/project/[projectId]/data' ? (
+                  {pathname ===
+                  '/organization/[id]/project/[projectId]/data' ? (
                     <Storage />
                   ) : (
                     <StorageOutlined />

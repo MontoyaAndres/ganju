@@ -486,7 +486,7 @@ export const Settings = (props: SettingsProps) => {
       });
 
       if (data?.deleted) {
-        await authClient.signOut();
+        await authClient.signOut({});
         window.location.href = '/';
         return;
       }

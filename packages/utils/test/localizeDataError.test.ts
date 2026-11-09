@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import ts from 'typescript';
+import ts from 'typescript-6';
 
 import {
   DATA_ERROR_MESSAGES_ES,

@@ -10,23 +10,23 @@
     "deploy-prod": "wrangler deploy --env production"
   },
   "dependencies": {
-    "@cfworker/json-schema": "^4.1.1",
+    "@cfworker/json-schema": "^4.1.6",
     "@ganju/containers": "*",
     "@ganju/db": "*",
     "@ganju/utils": "*",
-    "@google/genai": "^2.23.0",
-    "@hono/mcp": "^0.3.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "hono": "^4.12.25",
-    "jose": "^6.2.3",
+    "@google/genai": "^3.0.0",
+    "@hono/mcp": "^0.3.5",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "hono": "^4.13.17",
+    "jose": "^6.2.16",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260611.1",
+    "@cloudflare/workers-types": "^5.20261109.1",
     "@ganju/tsconfig": "*",
-    "@types/node": "^25.9.3",
-    "esbuild": "^0.28.0",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
     "fast-glob": "^3.3.3",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
