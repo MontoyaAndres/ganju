@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { UI } from '@ganju/ui';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import {
+  ArrowUpwardRounded,
   CloseOutlined,
   RefreshOutlined,
-  SendOutlined
+  SmartToyOutlined
 } from '@mui/icons-material';
 
 import { request } from './api';
@@ -145,7 +147,25 @@ export const TryIt = ({
     <div className="try-panel">
       <div className="try-header">
         <div className="try-title">
-          <h3>{t('tryTitle')}</h3>
+          <span className="try-bot" aria-hidden>
+            <SmartToyOutlined fontSize="small" />
+          </span>
+          <div className="try-title-text">
+            <h3>{t('tryTitle')}</h3>
+            <p>{t('tryText')}</p>
+          </div>
+          <Tooltip title={t('tryRestart')}>
+            <span>
+              <IconButton
+                size="small"
+                aria-label={t('tryRestart')}
+                onClick={restart}
+                disabled={sending}
+              >
+                <RefreshOutlined fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
           <IconButton
             size="small"
             className="try-close"
@@ -155,15 +175,15 @@ export const TryIt = ({
             <CloseOutlined fontSize="small" />
           </IconButton>
         </div>
-        <p>{t('tryText')}</p>
-        <UI.Button size="small" onClick={restart} disabled={sending}>
-          <RefreshOutlined fontSize="small" />
-          <span className="button-text">{t('tryRestart')}</span>
-        </UI.Button>
       </div>
       <div className="try-messages">
         {lines.length === 0 && !sending && (
-          <p className="try-empty">{t('tryEmpty')}</p>
+          <div className="try-empty">
+            <span className="try-bot" aria-hidden>
+              <SmartToyOutlined fontSize="small" />
+            </span>
+            <p>{t('tryEmpty')}</p>
+          </div>
         )}
         {lines.map(line => (
           <div key={line.key} className={`try-line try-${line.role}`}>
@@ -191,12 +211,12 @@ export const TryIt = ({
       </div>
       {buttons && (
         <div className="try-buttons">
-          <UI.Button size="small" onClick={() => send(buttons.yes)}>
-            <span className="button-text">{buttons.yes}</span>
-          </UI.Button>
-          <UI.Button size="small" onClick={() => send(buttons.no)}>
-            <span className="button-text">{buttons.no}</span>
-          </UI.Button>
+          <button type="button" onClick={() => send(buttons.yes)}>
+            {buttons.yes}
+          </button>
+          <button type="button" onClick={() => send(buttons.no)}>
+            {buttons.no}
+          </button>
         </div>
       )}
       <form
@@ -206,22 +226,20 @@ export const TryIt = ({
           send(text);
         }}
       >
-        <UI.Input
-          size="small"
+        <input
           placeholder={t('tryPlaceholder')}
           value={text}
           disabled={sending}
           onChange={event => setText(event.target.value)}
         />
-        <UI.Button
+        <button
           type="submit"
-          variant="contained"
-          size="small"
+          className="assistant-send"
           disabled={sending || !text.trim()}
           aria-label={t('send')}
         >
-          <SendOutlined fontSize="small" />
-        </UI.Button>
+          <ArrowUpwardRounded />
+        </button>
       </form>
     </div>
   );

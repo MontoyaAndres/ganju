@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import IconButton from '@mui/material/IconButton';
 import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import {
   AddOutlined,
+  ArrowUpwardRounded,
   AutoAwesomeOutlined,
   ChatBubbleOutlineOutlined,
+  CheckRounded,
   CloseOutlined,
-  LockOutlined,
-  SendOutlined
+  ForumOutlined,
+  LockOutlined
 } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
@@ -41,6 +44,7 @@ interface LiveTurn {
   turnId: string;
   text: string;
   tool: string | null;
+  steps: string[];
   cards: Card[];
   credits: number;
 }
@@ -152,6 +156,8 @@ export const Assistant = () => {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [tryOpen, setTryOpen] = useState(false);
+  const [chatsOpen, setChatsOpen] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [stoppedEarly, setStoppedEarly] = useState(false);
   const streamRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -186,19 +192,32 @@ export const Assistant = () => {
       streamRef.current?.abort();
       const controller = new AbortController();
       streamRef.current = controller;
-      setLive({ turnId, text: '', tool: null, cards: [], credits: 0 });
+      setLive({
+        turnId,
+        text: '',
+        tool: null,
+        steps: [],
+        cards: [],
+        credits: 0
+      });
       const onEvent = (event: StreamEvent) => {
         setLive(prev => {
           if (!prev) return prev;
           switch (event.type) {
             case 'text':
               return { ...prev, text: prev.text + event.text, tool: null };
-            case 'tool':
+            case 'tool': {
+              const label = toolLabel(t, event.name, event.action);
               return {
                 ...prev,
                 text: '',
-                tool: toolLabel(t, event.name, event.action)
+                tool: label,
+                steps:
+                  prev.steps[prev.steps.length - 1] === label
+                    ? prev.steps
+                    : [...prev.steps, label]
               };
+            }
             case 'card':
               return { ...prev, cards: [...prev.cards, event.card] };
             case 'usage':
@@ -255,6 +274,7 @@ export const Assistant = () => {
   }, [detail, live?.text, live?.tool, live?.cards.length]);
 
   const openChat = (conversationId: string | null) => {
+    setChatsOpen(false);
     const query: Record<string, string> = { id: organizationId, projectId };
     if (conversationId) query.chat = conversationId;
     router.push({ pathname: router.pathname, query }, undefined, {
@@ -295,6 +315,7 @@ export const Assistant = () => {
         return;
       }
       setText('');
+      if (inputRef.current) inputRef.current.style.height = 'auto';
       if (target !== chatId) {
         // The new chat's page picks the running turn up as it loads.
         openChat(target);
@@ -464,19 +485,60 @@ export const Assistant = () => {
 
   const busy = sending || !!live;
 
+  const suggestions = [
+    t('suggestion1'),
+    t('suggestion2'),
+    t('suggestion3'),
+    t('suggestion4')
+  ];
+
+  const pickSuggestion = (value: string) => {
+    setText(value);
+    inputRef.current?.focus();
+  };
+
+  const avatar = (
+    <span className="assistant-avatar" aria-hidden>
+      <AutoAwesomeOutlined />
+    </span>
+  );
+
   return (
     <Wrapper>
-      <div className={`assistant-layout ${tryOpen ? 'is-try-open' : ''}`}>
+      <div
+        className={`assistant-layout ${tryOpen ? 'is-try-open' : ''} ${chatsOpen ? 'is-chats-open' : ''}`}
+      >
+        {(tryOpen || chatsOpen) && (
+          <button
+            type="button"
+            className="assistant-scrim"
+            aria-label={t('tryClose')}
+            onClick={() => {
+              setTryOpen(false);
+              setChatsOpen(false);
+            }}
+          />
+        )}
         <aside className="assistant-chats">
-          <UI.Button
-            fullWidth
-            variant="contained"
-            size="small"
-            onClick={() => openChat(null)}
-          >
-            <AddOutlined fontSize="small" />
-            <span className="button-text">{t('newChat')}</span>
-          </UI.Button>
+          <div className="assistant-chats-top">
+            <UI.Button
+              fullWidth
+              variant="contained"
+              size="small"
+              onClick={() => openChat(null)}
+            >
+              <AddOutlined fontSize="small" />
+              <span className="button-text">{t('newChat')}</span>
+            </UI.Button>
+            <IconButton
+              size="small"
+              className="assistant-chats-close"
+              aria-label={t('tryClose')}
+              onClick={() => setChatsOpen(false)}
+            >
+              <CloseOutlined fontSize="small" />
+            </IconButton>
+          </div>
           <p className="assistant-chats-heading">{t('pastChats')}</p>
           {conversations.length === 0 && (
             <p className="assistant-chats-empty">{t('noChats')}</p>
@@ -500,16 +562,28 @@ export const Assistant = () => {
               </li>
             ))}
           </ul>
-          <p className="assistant-month">
-            {t('monthCredits', { credits: t.n(monthCredits) })}
-          </p>
+          <div className="assistant-month">
+            <AutoAwesomeOutlined fontSize="small" />
+            <span>{t('monthCredits', { credits: t.n(monthCredits) })}</span>
+          </div>
         </aside>
 
         <section className="assistant-chat">
           <header className="assistant-header">
-            <div>
-              <h2>{t('title')}</h2>
-              <p>{t('subtitle')}</p>
+            <div className="assistant-header-title">
+              <IconButton
+                size="small"
+                className="assistant-chats-toggle"
+                aria-label={t('chats')}
+                onClick={() => setChatsOpen(true)}
+              >
+                <ForumOutlined fontSize="small" />
+              </IconButton>
+              {avatar}
+              <div>
+                <h2>{t('title')}</h2>
+                <p>{t('subtitle')}</p>
+              </div>
             </div>
             <div className="assistant-header-actions">
               {detail && (
@@ -521,78 +595,121 @@ export const Assistant = () => {
               )}
               <UI.Button
                 size="small"
+                variant="outlined"
                 className="assistant-try-toggle"
                 onClick={() => setTryOpen(open => !open)}
               >
-                {tryOpen ? (
-                  <CloseOutlined fontSize="small" />
-                ) : (
-                  <AutoAwesomeOutlined fontSize="small" />
-                )}
-                <span className="button-text">
-                  {tryOpen ? t('tryClose') : t('tryOpen')}
-                </span>
+                <ChatBubbleOutlineOutlined fontSize="small" />
+                <span className="button-text">{t('tryOpen')}</span>
               </UI.Button>
             </div>
           </header>
 
           <div className="assistant-messages">
-            {!chatId && !busy && (
-              <div className="assistant-empty">
-                <AutoAwesomeOutlined />
-                <h3>{t('emptyTitle')}</h3>
-                <p>{t('emptyText')}</p>
-              </div>
-            )}
-            {entries.map((entry, index) => {
-              if (entry.kind === 'owner') {
+            <div className="assistant-column">
+              {!chatId && !busy && (
+                <div className="assistant-empty">
+                  <span className="assistant-empty-icon">
+                    <AutoAwesomeOutlined />
+                  </span>
+                  <h3>{t('emptyTitle')}</h3>
+                  <p>{t('emptyText')}</p>
+                  <p className="assistant-suggestions-label">
+                    {t('suggestionsLabel')}
+                  </p>
+                  <div className="assistant-suggestions">
+                    {suggestions.map(suggestion => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => pickSuggestion(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {entries.map((entry, index) => {
+                if (entry.kind === 'owner') {
+                  return (
+                    <div key={entry.key} className="assistant-owner">
+                      {entry.text}
+                    </div>
+                  );
+                }
+                if (entry.kind === 'note') {
+                  return (
+                    <p key={entry.key} className="assistant-note">
+                      {t('noteLine', { text: entry.text })}
+                    </p>
+                  );
+                }
+                if (entry.kind === 'reply') {
+                  return (
+                    <div key={entry.key} className="assistant-reply">
+                      {avatar}
+                      <div className="assistant-reply-body">
+                        <UI.Markdown content={entry.text} />
+                        {entry.credits > 0 && (
+                          <span className="assistant-reply-credits">
+                            {t('replyCredits', { credits: t.n(entry.credits) })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
                 return (
-                  <div key={entry.key} className="assistant-owner">
-                    {entry.text}
+                  <div key={entry.key} className="assistant-card-row">
+                    {renderCard(entry.card, index, entry.key)}
                   </div>
                 );
-              }
-              if (entry.kind === 'note') {
-                return (
-                  <p key={entry.key} className="assistant-note">
-                    {t('noteLine', { text: entry.text })}
-                  </p>
-                );
-              }
-              if (entry.kind === 'reply') {
-                return (
-                  <div key={entry.key} className="assistant-reply">
-                    <UI.Markdown content={entry.text} />
-                    {entry.credits > 0 && (
-                      <span className="assistant-reply-credits">
-                        {t('replyCredits', { credits: t.n(entry.credits) })}
-                      </span>
+              })}
+              {live && (
+                <div className="assistant-reply">
+                  {avatar}
+                  <div className="assistant-reply-body">
+                    {live.steps.length > 0 && (
+                      <ul className="assistant-steps">
+                        {live.steps.map((step, index) => {
+                          const current =
+                            index === live.steps.length - 1 && !!live.tool;
+                          return (
+                            <li
+                              key={`${step}-${index}`}
+                              className={current ? 'is-current' : ''}
+                            >
+                              {current ? (
+                                <span className="assistant-dot" />
+                              ) : (
+                                <CheckRounded fontSize="small" />
+                              )}
+                              <span>{step}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {live.text && <UI.Markdown content={live.text} />}
+                    {liveCards.map((card, index) =>
+                      renderCard(card, entries.length + index, `live-${index}`)
+                    )}
+                    {!live.tool && !live.text && (
+                      <div className="assistant-typing">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
                     )}
                   </div>
-                );
-              }
-              return renderCard(entry.card, index, entry.key);
-            })}
-            {live && (
-              <>
-                {live.text && (
-                  <div className="assistant-reply">
-                    <UI.Markdown content={live.text} />
-                  </div>
-                )}
-                {liveCards.map((card, index) =>
-                  renderCard(card, entries.length + index, `live-${index}`)
-                )}
-                <div className="assistant-progress">
-                  <span className="assistant-dot" />
-                  <span>{live.tool ?? t('working')}</span>
                 </div>
-              </>
-            )}
-            {stoppedEarly && !live && (
-              <p className="assistant-note">{t('stoppedSteps')}</p>
-            )}
-            <div ref={endRef} />
+              )}
+              {stoppedEarly && !live && (
+                <p className="assistant-note">{t('stoppedSteps')}</p>
+              )}
+              <div ref={endRef} />
+            </div>
           </div>
 
           <form
@@ -602,31 +719,35 @@ export const Assistant = () => {
               send(text);
             }}
           >
-            <UI.Input
-              multiline
-              maxRows={6}
-              size="small"
-              placeholder={t('placeholder')}
-              value={text}
-              disabled={busy}
-              onChange={event => setText(event.target.value)}
-              onKeyDown={event => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  send(text);
-                }
-              }}
-            />
-            <UI.Button
-              type="submit"
-              variant="contained"
-              disabled={busy || !text.trim()}
-            >
-              <SendOutlined fontSize="small" />
-              <span className="button-text">
-                {busy ? t('working') : t('send')}
-              </span>
-            </UI.Button>
+            <div className="assistant-compose-box">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                placeholder={busy ? t('working') : t('placeholder')}
+                value={text}
+                disabled={busy}
+                onChange={event => {
+                  setText(event.target.value);
+                  event.target.style.height = 'auto';
+                  event.target.style.height = `${Math.min(event.target.scrollHeight, 180)}px`;
+                }}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    send(text);
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                className="assistant-send"
+                aria-label={t('send')}
+                disabled={busy || !text.trim()}
+              >
+                <ArrowUpwardRounded />
+              </button>
+            </div>
+            <p className="assistant-compose-hint">{t('composeHint')}</p>
           </form>
         </section>
 

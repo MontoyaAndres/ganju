@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import {
+  AutoFixHighOutlined,
   CheckCircleOutlined,
+  CheckRounded,
+  CodeOutlined,
   ContentCopyOutlined,
   DownloadOutlined,
   KeyOutlined,
@@ -96,12 +99,25 @@ export const ChangeSetCardView = ({
   };
 
   return (
-    <div className="assistant-card">
+    <div className={`assistant-card is-change is-${status}`}>
       <div className="assistant-card-title">
-        <CheckCircleOutlined fontSize="small" />
+        <span className="assistant-card-icon">
+          <AutoFixHighOutlined fontSize="small" />
+        </span>
         <span>
           {status === 'proposed' ? t('changeTitle') : t('changeTitleDone')}
         </span>
+        {status !== 'proposed' && (
+          <span className={`assistant-chip is-${status}`}>
+            {status === 'failed'
+              ? t('failedShort')
+              : status === 'applied'
+                ? t('applied')
+                : status === 'undone'
+                  ? t('undone')
+                  : t('discarded')}
+          </span>
+        )}
       </div>
       {card.summary && <p className="assistant-card-text">{card.summary}</p>}
       <ul className="assistant-card-list">
@@ -114,7 +130,10 @@ export const ChangeSetCardView = ({
           <p className="assistant-card-label">{t('changePossible')}</p>
           <ul className="assistant-card-list assistant-card-possible">
             {lines.map(line => (
-              <li key={line}>{line}</li>
+              <li key={line}>
+                <CheckCircleOutlined fontSize="small" />
+                <span>{line}</span>
+              </li>
             ))}
           </ul>
         </>
@@ -129,10 +148,11 @@ export const ChangeSetCardView = ({
         {status === 'proposed' && (
           <UI.Button
             variant="contained"
-            size="small"
+            className="assistant-apply"
             disabled={!!busy}
             onClick={() => run('apply')}
           >
+            <CheckRounded fontSize="small" />
             <span className="button-text">
               {busy === 'apply' ? t('applying') : t('apply')}
             </span>
@@ -140,13 +160,11 @@ export const ChangeSetCardView = ({
         )}
         {(status === 'applied' || status === 'failed') && (
           <>
-            <span
-              className={`assistant-card-status ${status === 'failed' ? 'is-error' : ''}`}
-            >
-              {status === 'failed'
-                ? t('failed', { error: changeSet?.error ?? '' })
-                : t('applied')}
-            </span>
+            {status === 'failed' && (
+              <span className="assistant-card-status is-error">
+                {t('failed', { error: changeSet?.error ?? '' })}
+              </span>
+            )}
             {!cantUndo && (
               <UI.Button
                 size="small"
@@ -160,12 +178,6 @@ export const ChangeSetCardView = ({
               </UI.Button>
             )}
           </>
-        )}
-        {status === 'undone' && (
-          <span className="assistant-card-status">{t('undone')}</span>
-        )}
-        {status === 'discarded' && (
-          <span className="assistant-card-status">{t('discarded')}</span>
         )}
       </div>
     </div>
@@ -197,8 +209,11 @@ export const PatchCardView = ({ card }: { card: PatchCard }) => {
   };
 
   return (
-    <div className="assistant-card">
+    <div className="assistant-card is-patch">
       <div className="assistant-card-title">
+        <span className="assistant-card-icon">
+          <CodeOutlined fontSize="small" />
+        </span>
         <span>{t('patchTitle')}</span>
       </div>
       <p className="assistant-card-text">{t('patchText')}</p>
@@ -295,9 +310,11 @@ export const OwnerCardView = ({
         : t('uploadTitle');
 
   return (
-    <div className="assistant-card">
+    <div className="assistant-card is-request">
       <div className="assistant-card-title">
-        <Icon fontSize="small" />
+        <span className="assistant-card-icon">
+          <Icon fontSize="small" />
+        </span>
         <span>{title}</span>
       </div>
       {card.message && (
