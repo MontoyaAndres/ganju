@@ -186,13 +186,13 @@ export const BUILDER_TOOLS = [
   {
     name: 'propose_changes',
     description:
-      'Show the owner everything staged so far as one change set card with an Apply button. summary: one or two plain sentences of what the change does for them. Nothing changes until they click Apply; you hear how it went in their next message.',
+      'Show the owner everything staged so far as one change set card with an Apply button. summary: one or two plain sentences of what the change does for them, in the language the owner writes in. Nothing changes until they click Apply; you hear how it went in their next message.',
     input_schema: obj({ summary: { type: 'string' } }, ['summary'])
   },
   {
     name: 'propose_patch',
     description:
-      'When a developer uploads the live actions: the changed files of their project (path -> full new content, or null to delete), shown to the owner as a patch to pass on. note: one or two plain sentences of what it changes. Nothing is saved here.',
+      'When a developer uploads the live actions: the changed files of their project (path -> full new content, or null to delete), shown to the owner as a patch to pass on. note: one or two plain sentences of what it changes, in the language the owner writes in. Nothing is saved here.',
     input_schema: obj(
       {
         files: {
