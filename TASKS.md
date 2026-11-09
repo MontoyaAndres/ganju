@@ -575,8 +575,8 @@ Phase 1 doesn't depend on the rest.
 - The editor-version warning with `--force`.
 - Tests and the CLI README.
 
-**Phase 1 status (2026-11-09): built, not yet deployed.** Choices agreed with
-the owner:
+**Phase 1 status (2026-11-09): done, on dev and production.** Choices agreed
+with the owner:
 - Files are what git would commit (`git ls-files`), or the `.gitignore` files
   read directly outside a repo.
 - Always left out: `node_modules`, `.ganju`, `.git`, `.env*`, lockfiles and
@@ -586,8 +586,15 @@ the owner:
   its number; it asks in a terminal and stops in a script unless `--force`.
 - Stored as the editor's project envelope; the dashboard shows it read-only,
   with Monaco's language picked per file.
-- Migration `0090_cli_source_snapshot` must run before the API deploys. CLI
+- Migration `0090_cli_source_snapshot` ran before the API deploy. CLI
   0.0.23, utils 0.0.24.
+- Checked on dev: the guard stops a script and `--force` goes ahead; the
+  source upload honours git and the always-skipped files; the route refuses
+  paths outside the project, files over 256 KB, editor drafts, and published
+  versions (409, worded like the bundle upload's); the viewer opens each file
+  in its own language.
+- Also fixed: Monaco 0.57 loads the CSS and HTML workers at start, so the copy
+  now includes every worker (the function editor didn't load at all).
 
 **2. Builder core and functions — L**
 
