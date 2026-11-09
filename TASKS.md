@@ -620,8 +620,10 @@ Choices agreed with the owner (2026-11-09):
 - The API needs a platform `ANTHROPIC_API_KEY` secret, since channels use the
   organization's key or the shared Gemini model.
 
-**Phase 2 status (2026-11-09): done on dev.** Migration 0091 ran before the
-API deploy.
+**Phase 2 status (2026-11-09): done, on dev and production.** Migration 0091
+ran before the API deploy in both. Production's allowlist is empty, so the
+assistant stays closed there until phase 3; its `ANTHROPIC_API_KEY` is set
+then.
 - The custom-code routes call shared functions
   (`controllers/artifact/customCodeActions.ts`); the deploy helpers take only
   the environment, so the assistant calls the same code from its object.
