@@ -6,6 +6,7 @@ import { SDK_EDITOR_TYPES } from '@ganju/sdk/editorTypes';
 import { i18n } from '../../../lib';
 
 import './monacoLoader';
+import { languageFor } from './editorLanguage';
 
 /**
  * The editor VS Code is built on, in its own module so it can be loaded through
@@ -84,17 +85,6 @@ const MARKER_OWNER = 'ganju-runtime';
 // resolve the same way here and in the runtime.
 const MODEL_ROOT = 'file:///';
 const modelUri = (path: string) => `${MODEL_ROOT}${path}`;
-
-// A CLI project's source, shown read-only, can hold any of these. What the
-// editor itself writes is always JavaScript.
-const languageFor = (path: string) => {
-  const lower = path.toLowerCase();
-  if (/\.[mc]?jsx?$/.test(lower)) return 'javascript';
-  if (/\.[mc]?tsx?$/.test(lower)) return 'typescript';
-  if (lower.endsWith('.json')) return 'json';
-  if (lower.endsWith('.md')) return 'markdown';
-  return 'plaintext';
-};
 
 const markRuntimeLimits = (
   monaco: Monaco,

@@ -274,6 +274,7 @@ const en = {
   sourceEditor: 'Dashboard editor',
   sourceCli: 'CLI bundle',
   sourceCliSource: 'CLI (source)',
+  idePlainText: 'Plain text',
 
   fnEmptyTitle: 'No functions yet',
   fnEmptyText:
@@ -921,6 +922,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
     sourceEditor: 'Editor del panel',
     sourceCli: 'Bundle del CLI',
     sourceCliSource: 'CLI (código fuente)',
+    idePlainText: 'Texto plano',
 
     fnEmptyTitle: 'Aún no hay funciones',
     fnEmptyText:
