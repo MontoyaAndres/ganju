@@ -538,6 +538,11 @@ export const Wrapper = styled.div`
           color: ${theme.colors.bastille};
           font-weight: 600;
         }
+
+        .assistant-step-time {
+          font-weight: 400;
+          color: ${theme.colors.bastille}73;
+        }
       }
     }
 

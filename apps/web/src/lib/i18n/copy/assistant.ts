@@ -24,6 +24,7 @@ const en = {
   suggestion3: 'Take orders and email them to me',
   suggestion4: 'Book appointments in my Google Calendar',
   stepsTitle: 'What it did',
+  stepSeconds: '· {seconds} s',
   emptyTitle: 'What should your bot do?',
   emptyText:
     'Describe it in your own words. For example: "tell customers if a pizza is sold out", or "book appointments in my calendar".',
@@ -144,6 +145,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     suggestion3: 'Que tome pedidos y me los envíe por correo',
     suggestion4: 'Que agende citas en mi Google Calendar',
     stepsTitle: 'Lo que hizo',
+    stepSeconds: '· {seconds} s',
     emptyTitle: '¿Qué debe hacer tu bot?',
     emptyText:
       'Descríbelo con tus palabras. Por ejemplo: "que diga a los clientes si una pizza se agotó" o "que agende citas en mi calendario".',

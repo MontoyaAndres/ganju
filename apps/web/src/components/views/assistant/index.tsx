@@ -45,6 +45,7 @@ interface LiveTurn {
   text: string;
   tool: string | null;
   steps: string[];
+  stepAt: number;
   cards: Card[];
   credits: number;
 }
@@ -158,6 +159,7 @@ export const Assistant = () => {
   const [tryOpen, setTryOpen] = useState(false);
   const [chatsOpen, setChatsOpen] = useState(false);
   const [tryReset, setTryReset] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [stoppedEarly, setStoppedEarly] = useState(false);
   const streamRef = useRef<AbortController | null>(null);
@@ -198,6 +200,7 @@ export const Assistant = () => {
         text: '',
         tool: null,
         steps: [],
+        stepAt: Date.now(),
         cards: [],
         credits: 0
       });
@@ -206,13 +209,19 @@ export const Assistant = () => {
           if (!prev) return prev;
           switch (event.type) {
             case 'text':
-              return { ...prev, text: prev.text + event.text, tool: null };
+              return {
+                ...prev,
+                text: prev.text + event.text,
+                tool: null,
+                stepAt: Date.now()
+              };
             case 'tool': {
               const label = toolLabel(t, event.name, event.action);
               return {
                 ...prev,
                 text: '',
                 tool: label,
+                stepAt: Date.now(),
                 steps:
                   prev.steps[prev.steps.length - 1] === label
                     ? prev.steps
@@ -269,6 +278,15 @@ export const Assistant = () => {
   }, [access, chatId, loadDetail]);
 
   useEffect(() => () => streamRef.current?.abort(), []);
+
+  // Writing an action's code sends nothing for a while; the seconds show the
+  // step is still going.
+  const isLive = !!live;
+  useEffect(() => {
+    if (!isLive) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [isLive]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
@@ -691,6 +709,15 @@ export const Assistant = () => {
                                 <CheckRounded fontSize="small" />
                               )}
                               <span>{step}</span>
+                              {current && now - live.stepAt > 8000 && (
+                                <span className="assistant-step-time">
+                                  {t('stepSeconds', {
+                                    seconds: Math.round(
+                                      (now - live.stepAt) / 1000
+                                    )
+                                  })}
+                                </span>
+                              )}
                             </li>
                           );
                         })}
