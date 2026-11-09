@@ -11,6 +11,7 @@ import type { ResourceHandler } from '@ganju/containers';
 import type { Auth } from './utils';
 import type { DiscordGatewayDO } from './durable-objects/discordGateway';
 import type { MessageBufferDO } from './durable-objects/messageBuffer';
+import type { BuilderConversationDO } from './durable-objects/builderConversation';
 import type { VoiceNoteTranscripts } from './controllers/channel/debounce';
 import type {
   IndexJob,
@@ -48,6 +49,7 @@ export type Bindings = {
   DATA_API_RATE_LIMITER?: RateLimiter;
   TRIGGER_TEST_RATE_LIMITER?: RateLimiter;
   SHEET_SYNC_RATE_LIMITER?: RateLimiter;
+  BUILDER_RATE_LIMITER?: RateLimiter;
   STORAGE_BUCKET: R2Bucket;
   INDEX_QUEUE: Queue<IndexJob>;
   CRAWL_DISCOVER_QUEUE: Queue<CrawlDiscoverJob>;
@@ -61,6 +63,7 @@ export type Bindings = {
   RESOURCE_HANDLER_PORT: string;
   DISCORD_GATEWAY: DurableObjectNamespace<DiscordGatewayDO>;
   MESSAGE_BUFFER: DurableObjectNamespace<MessageBufferDO>;
+  BUILDER_CONVERSATION: DurableObjectNamespace<BuilderConversationDO>;
   PROJECT_DATABASE: DurableObjectNamespace;
   API: Fetcher;
   SEND_EMAIL?: SendEmail;
@@ -78,6 +81,8 @@ export type Bindings = {
   POLAR_SERVER?: string;
   EMAIL_FROM?: string;
   ALERT_EMAIL?: string;
+  ANTHROPIC_API_KEY?: string;
+  BUILDER_ORGANIZATIONS?: string;
 };
 
 export type AppEnv = {

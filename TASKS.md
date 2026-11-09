@@ -605,6 +605,54 @@ with the owner:
 - Change sets with apply and undo for functions.
 - Untrusted-content wrapping, limits and the containment check.
 
+Choices agreed with the owner (2026-11-09):
+- The loop runs in a Durable Object per conversation; each step is saved to
+  Postgres as it happens, and the browser streams from the object over SSE.
+- Checked on dev by pointing `scripts/eval-builder.mjs` at the new routes and
+  comparing with the phase 0 baseline on the cases phase 2 covers. No chat
+  screen until phase 3.
+- Until phase 3, only organizations on an allowlist (an env var) reach the
+  routes. Production stays closed.
+- Data, knowledge, prompts and tools are readable now; staging changes to
+  them waits for phase 4, and eval cases that need it are skipped.
+- A card (account, secret, upload) ends the turn. When the owner completes
+  it, the app sends a short message and the assistant carries on.
+- The API needs a platform `ANTHROPIC_API_KEY` secret, since channels use the
+  organization's key or the shared Gemini model.
+
+**Phase 2 status (2026-11-09): built, not yet on dev.**
+- The custom-code routes call shared functions
+  (`controllers/artifact/customCodeActions.ts`); the deploy helpers take only
+  the environment, so the assistant calls the same code from its object.
+- `controllers/builder/` (prompt, model client, tools, change sets, routes)
+  and `BuilderConversationDO`. The answer runs from the object's alarm; each
+  model step and its tool results are saved to `builder_message` with tokens
+  and cost, and the cards shown with them.
+- Routes under `…/project/:projectId/builder`: create and list
+  conversations, read one, send a message (one answer at a time per project;
+  10 a minute per user), stream a turn (SSE, resumable with `after`), apply
+  and undo a change set.
+- Tools: `project`, `functions` (read, save_draft, logs, turn_on), `run_test`,
+  read-only `data`, `knowledge`, `prompts` and `tools`, `propose_changes`,
+  `propose_patch` (a diff against the CLI source; never a version) and
+  `ask_owner` (ends the turn).
+- The change set card lists, per action, whether it changes things or only
+  reads, its tables, hosts and accounts, from its settings.
+- Undo puts back the version that was live before, and refuses when the
+  actions changed since. With nothing live before, it turns actions off; a
+  later change set then needs them turned back on in Tools.
+- Effort is always `high`; `medium` for questions is left for the prompt
+  tuning in phase 7.
+- `canUseBuilder` plan limit (Pro and Enterprise), the `builder` plan
+  feature, migration `0091_builder_conversations` (three new tables only),
+  DO migration `v4`, `BUILDER_RATE_LIMITER` (namespace 1008).
+- Eval: `node scripts/eval-builder.mjs --server --case
+  open-now,broken-weather,refund-cap,calendar-booking,shorter-replies
+  --repeat 2 --baseline scripts/golden/builder-baseline-opus-5-5.json`.
+- To try it on dev: run migration 0091, set the `ANTHROPIC_API_KEY` secret on
+  `ganju-api-development`, deploy the API. The allowlist holds qa-timecap
+  only.
+
 **3. Dashboard tab and the test chat — M/L**
 
 - The chat, the plan card, the change-set card with the "what will be

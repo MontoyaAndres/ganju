@@ -1,0 +1,263 @@
+import { Context } from 'hono';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { utils } from '@ganju/utils';
+import { db } from '@ganju/db';
+import type { Database } from '@ganju/db';
+
+import { assertBuilderAllowed } from './access';
+import { applyChangeSet, changeSetNotes, undoChangeSet } from './changeSets';
+import { creditsOf } from './llm';
+import { RateLimitMiddleware } from '../../middleware/rateLimit';
+
+import type { AppEnv } from '../../types';
+
+const {
+  BUILDER_CONVERSATION_STATUS_IDLE: IDLE,
+  BUILDER_CONVERSATION_STATUS_RUNNING: RUNNING
+} = utils.constants;
+
+// A turn that has been "running" this long died without saying so; it no
+// longer blocks the next one.
+const STALE_TURN_MINUTES = 20;
+
+const scopeOf = (c: Context<AppEnv>) => ({
+  projectId: c.req.param('projectId'),
+  userId: c.get('user').id,
+  organizationId: c.req.param('organizationId')
+});
+
+const allowed = async (c: Context<AppEnv>, organizationId: string) => {
+  const database = db.create(c);
+  await assertBuilderAllowed(c.env, database, organizationId);
+  return database;
+};
+
+const loadConversation = async (
+  database: Database,
+  scope: { projectId: string; organizationId: string },
+  conversationId: string
+) => {
+  const [row] = await database
+    .select()
+    .from(db.schema.builderConversation)
+    .where(
+      and(
+        eq(db.schema.builderConversation.id, conversationId),
+        eq(db.schema.builderConversation.projectId, scope.projectId),
+        eq(db.schema.builderConversation.organizationId, scope.organizationId)
+      )
+    )
+    .limit(1);
+  if (!row) throw new Error('Conversation not found');
+  return row;
+};
+
+const stubFor = (c: Context<AppEnv>, conversationId: string) =>
+  c.env.BUILDER_CONVERSATION.get(
+    c.env.BUILDER_CONVERSATION.idFromName(conversationId)
+  );
+
+const createConversation = async (c: Context<AppEnv>) => {
+  const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
+  const database = await allowed(c, scope.organizationId);
+  const [artifact] = await database
+    .select({ id: db.schema.artifact.id })
+    .from(db.schema.artifact)
+    .where(eq(db.schema.artifact.projectId, scope.projectId))
+    .limit(1);
+  if (!artifact) throw new Error('Artifact not found for the project');
+  const [row] = await database
+    .insert(db.schema.builderConversation)
+    .values({
+      organizationId: scope.organizationId,
+      projectId: scope.projectId,
+      artifactId: artifact.id,
+      userId: scope.userId
+    })
+    .returning();
+  return c.json(row);
+};
+
+const listConversations = async (c: Context<AppEnv>) => {
+  const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
+  const database = await allowed(c, scope.organizationId);
+  const rows = await database
+    .select({
+      id: db.schema.builderConversation.id,
+      title: db.schema.builderConversation.title,
+      status: db.schema.builderConversation.status,
+      lastMessageAt: db.schema.builderConversation.lastMessageAt
+    })
+    .from(db.schema.builderConversation)
+    .where(
+      and(
+        eq(db.schema.builderConversation.projectId, scope.projectId),
+        eq(db.schema.builderConversation.organizationId, scope.organizationId)
+      )
+    )
+    .orderBy(desc(db.schema.builderConversation.lastMessageAt))
+    .limit(50);
+  return c.json({ conversations: rows });
+};
+
+const getConversation = async (c: Context<AppEnv>) => {
+  const values = await utils.Schema.BUILDER_CONVERSATION.parseAsync({
+    ...scopeOf(c),
+    conversationId: c.req.param('conversationId')
+  });
+  const database = await allowed(c, values.organizationId);
+  const conversation = await loadConversation(
+    database,
+    values,
+    values.conversationId
+  );
+  const [messages, changeSets] = await Promise.all([
+    database
+      .select()
+      .from(db.schema.builderMessage)
+      .where(eq(db.schema.builderMessage.conversationId, conversation.id))
+      .orderBy(asc(db.schema.builderMessage.seq)),
+    database
+      .select()
+      .from(db.schema.builderChangeSet)
+      .where(eq(db.schema.builderChangeSet.conversationId, conversation.id))
+      .orderBy(asc(db.schema.builderChangeSet.createdAt))
+  ]);
+  return c.json({
+    conversation,
+    credits: creditsOf(messages.reduce((sum, m) => sum + m.costMicros, 0)),
+    messages: messages.map(({ costMicros, ...message }) => ({
+      ...message,
+      credits: creditsOf(costMicros)
+    })),
+    changeSets
+  });
+};
+
+/**
+ * Save the owner's message and start the assistant's answer. Returns at once
+ * with the turn's id; progress is read from the stream route, and the saved
+ * conversation once it is done.
+ */
+const sendMessage = async (c: Context<AppEnv>) => {
+  const body = await c.req.json().catch(() => ({}));
+  const values = await utils.Schema.BUILDER_SEND_MESSAGE.parseAsync({
+    ...scopeOf(c),
+    conversationId: c.req.param('conversationId'),
+    text: body?.text
+  });
+  const database = await allowed(c, values.organizationId);
+
+  if (
+    !(await RateLimitMiddleware.consumeRateLimit(
+      c,
+      'BUILDER_RATE_LIMITER',
+      values.userId
+    ))
+  ) {
+    return RateLimitMiddleware.rateLimited(c);
+  }
+
+  const conversation = await loadConversation(
+    database,
+    values,
+    values.conversationId
+  );
+  const table = db.schema.builderConversation;
+  const stale = sql`now() - make_interval(mins => ${STALE_TURN_MINUTES})`;
+
+  // One answer at a time per project: two would build over each other.
+  const [claimed] = await database
+    .update(table)
+    .set({
+      status: RUNNING,
+      ...(conversation.title ? {} : { title: values.text.slice(0, 80) })
+    })
+    .where(
+      and(
+        eq(table.id, conversation.id),
+        sql`(${table.status} = ${IDLE} or ${table.updatedAt} < ${stale})`,
+        sql`not exists (select 1 from ${table} other where other.artifact_id = ${conversation.artifactId} and other.id <> ${conversation.id} and other.status = ${RUNNING} and other.updated_at >= ${stale})`
+      )
+    )
+    .returning();
+  if (!claimed) {
+    throw new Error(
+      'The assistant is already answering in this project. Wait for it to finish.'
+    );
+  }
+
+  try {
+    const notes = await changeSetNotes(
+      { env: c.env, db: database },
+      conversation.id,
+      conversation.lastMessageAt
+    );
+    const turnId = crypto.randomUUID();
+    await database.insert(db.schema.builderMessage).values({
+      conversationId: conversation.id,
+      turnId,
+      seq: sql`(select coalesce(max(${db.schema.builderMessage.seq}), -1) + 1 from ${db.schema.builderMessage} where ${db.schema.builderMessage.conversationId} = ${conversation.id})`,
+      role: 'user',
+      content: [
+        ...(notes.length ? [{ type: 'text', text: notes.join('\n') }] : []),
+        { type: 'text', text: values.text }
+      ]
+    });
+
+    await stubFor(c, conversation.id).start({
+      turnId,
+      conversationId: conversation.id,
+      organizationId: values.organizationId,
+      projectId: values.projectId,
+      artifactId: conversation.artifactId,
+      userId: values.userId
+    });
+
+    return c.json({ turnId });
+  } catch (error) {
+    await database
+      .update(table)
+      .set({ status: IDLE })
+      .where(eq(table.id, conversation.id));
+    throw error;
+  }
+};
+
+const streamTurn = async (c: Context<AppEnv>) => {
+  const values = await utils.Schema.BUILDER_STREAM.parseAsync({
+    ...scopeOf(c),
+    conversationId: c.req.param('conversationId'),
+    turnId: c.req.query('turn'),
+    after: c.req.query('after')
+  });
+  const database = await allowed(c, values.organizationId);
+  await loadConversation(database, values, values.conversationId);
+  const url = `https://builder/stream?turn=${values.turnId}&after=${values.after}`;
+  return stubFor(c, values.conversationId).fetch(
+    new Request(url, { signal: c.req.raw.signal })
+  );
+};
+
+const changeSetRoute =
+  (run: typeof applyChangeSet | typeof undoChangeSet) =>
+  async (c: Context<AppEnv>) => {
+    const values = await utils.Schema.BUILDER_CHANGE_SET.parseAsync({
+      ...scopeOf(c),
+      changeSetId: c.req.param('changeSetId')
+    });
+    const database = await allowed(c, values.organizationId);
+    return c.json(
+      await run({ env: c.env, db: database }, values, values.changeSetId)
+    );
+  };
+
+export const BuilderController = {
+  createConversation,
+  listConversations,
+  getConversation,
+  sendMessage,
+  streamTurn,
+  applyChangeSet: changeSetRoute(applyChangeSet),
+  undoChangeSet: changeSetRoute(undoChangeSet)
+};

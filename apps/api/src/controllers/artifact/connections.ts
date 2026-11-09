@@ -1,4 +1,3 @@
-import { Context } from 'hono';
 import { utils } from '@ganju/utils';
 
 // types
@@ -49,7 +48,7 @@ export interface ArtifactConnection {
  * connections and never appear here.
  */
 export const buildArtifactConnections = (
-  c: Context<AppEnv>,
+  c: { env: AppEnv['Bindings'] },
   credentials: ArtifactCredentialRow[]
 ): ArtifactConnection[] => {
   const byProvider = new Map(credentials.map(row => [row.provider, row]));

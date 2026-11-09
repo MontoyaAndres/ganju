@@ -1359,6 +1359,133 @@ export const artifactToolVersion = pgTable(
   ]
 );
 
+export const builderConversation = pgTable(
+  'builder_conversation',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    artifactId: text('artifact_id')
+      .notNull()
+      .references(() => artifact.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, {
+      onDelete: 'set null'
+    }),
+    title: text('title'),
+    status: text('status')
+      .notNull()
+      .default(utils.constants.BUILDER_CONVERSATION_STATUS_IDLE),
+    // Written when a conversation is reopened after its tool results were
+    // stripped, so it can start again from here.
+    summary: text('summary'),
+    lastMessageAt: timestamp('last_message_at', { mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    index('builder_conversation_artifact_idx').on(
+      table.artifactId,
+      table.lastMessageAt
+    )
+  ]
+);
+
+export const builderMessage = pgTable(
+  'builder_message',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    conversationId: text('conversation_id')
+      .notNull()
+      .references(() => builderConversation.id, { onDelete: 'cascade' }),
+    seq: integer('seq').notNull(),
+    // One owner message and every step the assistant took to answer it.
+    turnId: text('turn_id').notNull(),
+    // 'user' or 'assistant', with the model's content blocks as sent. Tool
+    // results are 'user' blocks, as the API expects them.
+    role: text('role').notNull(),
+    content: json('content').notNull(),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    // Model cost at list price in millionths of a dollar; a credit is 10,000.
+    costMicros: bigint('cost_micros', { mode: 'number' }).notNull().default(0),
+    // What the owner was shown with this step: change sets, patches, and
+    // account, secret and file requests.
+    cards: json('cards'),
+    toolResultsStrippedAt: timestamp('tool_results_stripped_at', {
+      mode: 'date'
+    }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
+  },
+  table => [
+    uniqueIndex('builder_message_conversation_seq_idx').on(
+      table.conversationId,
+      table.seq
+    )
+  ]
+);
+
+export const builderChangeSet = pgTable(
+  'builder_change_set',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => uuid()),
+    // Kept when the conversation is deleted, so "why does this exist" outlives
+    // the chat.
+    conversationId: text('conversation_id').references(
+      () => builderConversation.id,
+      { onDelete: 'set null' }
+    ),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    artifactId: text('artifact_id')
+      .notNull()
+      .references(() => artifact.id, { onDelete: 'cascade' }),
+    // [{ area, op, target, payload, label, undoable }]
+    items: json('items').notNull(),
+    // What each applied item replaced, for undo.
+    before: json('before'),
+    status: text('status')
+      .notNull()
+      .default(utils.constants.BUILDER_CHANGE_SET_STATUS_PROPOSED),
+    summary: text('summary'),
+    error: text('error'),
+    appliedByUserId: text('applied_by_user_id').references(() => user.id, {
+      onDelete: 'set null'
+    }),
+    appliedAt: timestamp('applied_at', { mode: 'date' }),
+    undoneAt: timestamp('undone_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+  },
+  table => [
+    index('builder_change_set_conversation_idx').on(table.conversationId),
+    index('builder_change_set_artifact_idx').on(table.artifactId)
+  ]
+);
+
 export const artifactCredential = pgTable(
   'artifact_credential',
   {

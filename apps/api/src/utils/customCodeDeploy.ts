@@ -1,4 +1,3 @@
-import { Context } from 'hono';
 import { utils } from '@ganju/utils';
 import { SDK_WORKER_MODULE } from '@ganju/sdk/workerModule';
 
@@ -137,7 +136,7 @@ export const hashBundle = async (bundle: ArrayBuffer): Promise<string> => {
  * script can be raised for one customer without raising it for every customer.
  */
 export const deployCustomCodeScript = async (
-  c: Context<AppEnv>,
+  c: { env: AppEnv['Bindings'] },
   input: {
     artifactId: string;
     versionId: string;
@@ -304,7 +303,7 @@ export const deployCustomCodeScript = async (
  * live and untouched.
  */
 export const smokeTestCustomCodeScript = async (
-  c: Context<AppEnv>,
+  c: { env: AppEnv['Bindings'] },
   input: {
     artifactId: string;
     // The name `deployCustomCodeScript` uploaded to. Passed rather than derived
