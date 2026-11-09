@@ -46,6 +46,8 @@ const { toolDefinitions, createSession } =
   await import('./builder-eval/tools.mjs');
 const { builderSystemPrompt } = await import('./builder-eval/prompt.mjs');
 const { TEMPLATES } = await import('./builder-eval/templates.mjs');
+const { streamTurn, textOfBlocks, usageOfConversation, toolCallsOf } =
+  await import('./builder-eval/server.mjs');
 
 // Arguments
 
@@ -70,6 +72,8 @@ const effort = flag('--effort') ?? 'high';
 const outPath = flag('--out');
 const baselinePath = flag('--baseline');
 const verbose = args.includes('--verbose');
+// Run the conversation through the API's builder routes instead of locally.
+const serverMode = args.includes('--server');
 const ORG = process.env.EVAL_ORG ?? '01a1b287-8e90-731f-b600-aadf64c28832';
 
 const MAX_TOOL_STEPS = 25; // model calls per owner message
@@ -282,77 +286,193 @@ const runCase = async (c, runIndex) => {
   });
   await TEMPLATES[c.start.template]({ p, slug, session });
 
-  const messages = [{ role: 'user', content: c.ask }];
   let modelCalls = 0;
   let toolCalls = 0;
   let ownerTurns = 1;
   let firstTurnChanged = false;
   let stoppedBy = 'owner-done';
 
-  for (;;) {
-    // One owner message: the tool loop until the assistant ends its turn.
-    const turnStartApplied = session.applied.length;
-    let ended = false;
-    for (let i = 0; i < MAX_TOOL_STEPS; i++) {
-      const { message } = await step({
-        system: SYSTEM,
-        tools: toolDefinitions,
-        messages,
-        effort,
-        usage: builderUsage
-      });
-      modelCalls++;
-      messages.push({ role: 'assistant', content: message.content });
-      if (message.stop_reason === 'refusal') {
-        stoppedBy = 'refusal';
-        ended = true;
-        break;
-      }
-      const uses = message.content.filter(b => b.type === 'tool_use');
-      if (!uses.length) {
-        ended = true;
-        break;
-      }
-      const results = await Promise.all(
-        uses.map(async u => {
-          toolCalls++;
-          log(`  → ${u.name} ${JSON.stringify(u.input).slice(0, 140)}`);
-          const r = await session.call(u.name, u.input);
-          if (r.isError) log(`    ✗ ${r.content.slice(0, 200)}`);
-          return {
-            type: 'tool_result',
-            tool_use_id: u.id,
-            content: r.content,
-            is_error: r.isError
-          };
-        })
+  if (serverMode) {
+    // The same conversation through the API's routes: the loop runs there.
+    const conversation = await p.post('/builder/conversation', {});
+    result.conversationId = conversation.id;
+    let text = c.ask;
+    for (;;) {
+      const { turnId } = await p.post(
+        `/builder/conversation/${conversation.id}/message`,
+        { text }
       );
-      messages.push({ role: 'user', content: results });
+      const events = await streamTurn(p, conversation.id, turnId, event => {
+        if (event.type === 'tool')
+          log(`  → ${event.name} ${event.action ?? ''}`);
+        if (event.type === 'error' || event.type === 'reconnect')
+          log(`  ! ${event.message}`);
+      });
+      const done = events.find(e => e.type === 'done') ?? {
+        stoppedBy: 'stream-lost'
+      };
+      const full = await p.get(`/builder/conversation/${conversation.id}`);
+      const turnMessages = full.messages.filter(m => m.turnId === turnId);
+      const calls = toolCallsOf(turnMessages);
+      modelCalls += turnMessages.filter(m => m.role === 'assistant').length;
+      toolCalls += calls.length;
+      for (const call of calls) {
+        session.counts[call.name] = (session.counts[call.name] ?? 0) + 1;
+        if (call.isError)
+          log(`    ✗ ${call.name}: ${String(call.result).slice(0, 200)}`);
+        if (call.name === 'run_test')
+          session.tests.push({
+            tool: call.input.tool,
+            input: call.input.input ?? {},
+            result: String(call.result).slice(0, 1500)
+          });
+      }
+      const cards = events.filter(e => e.type === 'card').map(e => e.card);
+      const said = textOfBlocks(
+        turnMessages.filter(m => m.role === 'assistant').at(-1)?.content
+      );
+      const shown = cards
+        .map(card =>
+          card.kind === 'change_set'
+            ? `[Card: ${card.summary ?? 'changes'} — ${card.items.map(i => i.label).join('; ')} — Apply]`
+            : card.kind === 'patch'
+              ? `[Card: a patch for your developer — ${card.note ?? ''}]`
+              : `[Card (${card.kind}${card.provider ? ` ${card.provider}` : ''}${card.label ? ` ${card.label}` : ''}): ${card.message}]`
+        )
+        .join('\n');
+      turns.push({
+        role: 'assistant',
+        text: [said || '(no message)', shown].filter(Boolean).join('\n')
+      });
+      log(`assistant: ${said.slice(0, 600)}`);
+
+      let appliedNow = false;
+      for (const card of cards.filter(k => k.kind === 'change_set')) {
+        session.cards.push({
+          kind: 'change_set',
+          summary: card.summary,
+          items: card.items.map(i => i.label)
+        });
+        const applied = await p
+          .post(`/builder/change-set/${card.changeSetId}/apply`, {})
+          .catch(error => ({ error: error.message }));
+        log(`  [apply] ${JSON.stringify(applied.results ?? applied.error)}`);
+        for (const item of applied.changeSet?.items ?? []) {
+          if (applied.results?.find(r => r.label === item.label)?.ok) {
+            session.applied.push(item);
+            appliedNow = true;
+          }
+        }
+      }
+      for (const card of cards.filter(k => k.kind === 'patch'))
+        session.cards.push({
+          kind: 'patch',
+          note: card.note,
+          patch: card.patch
+        });
+      if (ownerTurns === 1 && appliedNow) firstTurnChanged = true;
+
+      if (
+        ['step-cap', 'refusal', 'error', 'stream-lost'].includes(done.stoppedBy)
+      ) {
+        stoppedBy = done.stoppedBy;
+        break;
+      }
+      if (ownerTurns >= MAX_OWNER_TURNS) {
+        stoppedBy = 'owner-turn-cap';
+        break;
+      }
+      // A request card: what the owner did with it is their next message.
+      const asks = cards.filter(k =>
+        ['connect_account', 'secret', 'upload'].includes(k.kind)
+      );
+      if (asks.length) {
+        const outcomes = [];
+        for (const card of asks)
+          outcomes.push((await session.call('ask_owner', card)).content);
+        text = outcomes.join('\n');
+      } else {
+        const reply = await ownerReply(c, transcriptText(turns), sideUsage);
+        log(`owner: ${reply.reply}${reply.done ? ' [done]' : ''}`);
+        if (reply.done) break;
+        text = reply.reply;
+      }
+      turns.push({ role: 'owner', text });
+      ownerTurns++;
     }
-    const said = textOf(
-      messages.at(-1).role === 'assistant'
-        ? { content: messages.at(-1).content }
-        : { content: [] }
+    Object.assign(
+      builderUsage,
+      usageOfConversation(
+        (await p.get(`/builder/conversation/${conversation.id}`)).messages
+      )
     );
-    turns.push({ role: 'assistant', text: said || '(no message)' });
-    log(`assistant: ${said.slice(0, 600)}`);
-    if (ownerTurns === 1 && session.applied.length > turnStartApplied)
-      firstTurnChanged = true;
-    if (!ended) {
-      stoppedBy = 'step-cap';
-      break;
+  } else {
+    const messages = [{ role: 'user', content: c.ask }];
+    for (;;) {
+      // One owner message: the tool loop until the assistant ends its turn.
+      const turnStartApplied = session.applied.length;
+      let ended = false;
+      for (let i = 0; i < MAX_TOOL_STEPS; i++) {
+        const { message } = await step({
+          system: SYSTEM,
+          tools: toolDefinitions,
+          messages,
+          effort,
+          usage: builderUsage
+        });
+        modelCalls++;
+        messages.push({ role: 'assistant', content: message.content });
+        if (message.stop_reason === 'refusal') {
+          stoppedBy = 'refusal';
+          ended = true;
+          break;
+        }
+        const uses = message.content.filter(b => b.type === 'tool_use');
+        if (!uses.length) {
+          ended = true;
+          break;
+        }
+        const results = await Promise.all(
+          uses.map(async u => {
+            toolCalls++;
+            log(`  → ${u.name} ${JSON.stringify(u.input).slice(0, 140)}`);
+            const r = await session.call(u.name, u.input);
+            if (r.isError) log(`    ✗ ${r.content.slice(0, 200)}`);
+            return {
+              type: 'tool_result',
+              tool_use_id: u.id,
+              content: r.content,
+              is_error: r.isError
+            };
+          })
+        );
+        messages.push({ role: 'user', content: results });
+      }
+      const said = textOf(
+        messages.at(-1).role === 'assistant'
+          ? { content: messages.at(-1).content }
+          : { content: [] }
+      );
+      turns.push({ role: 'assistant', text: said || '(no message)' });
+      log(`assistant: ${said.slice(0, 600)}`);
+      if (ownerTurns === 1 && session.applied.length > turnStartApplied)
+        firstTurnChanged = true;
+      if (!ended) {
+        stoppedBy = 'step-cap';
+        break;
+      }
+      if (stoppedBy === 'refusal') break;
+      if (ownerTurns >= MAX_OWNER_TURNS) {
+        stoppedBy = 'owner-turn-cap';
+        break;
+      }
+      const reply = await ownerReply(c, transcriptText(turns), sideUsage);
+      log(`owner: ${reply.reply}${reply.done ? ' [done]' : ''}`);
+      if (reply.done) break;
+      turns.push({ role: 'owner', text: reply.reply });
+      messages.push({ role: 'user', content: reply.reply });
+      ownerTurns++;
     }
-    if (stoppedBy === 'refusal') break;
-    if (ownerTurns >= MAX_OWNER_TURNS) {
-      stoppedBy = 'owner-turn-cap';
-      break;
-    }
-    const reply = await ownerReply(c, transcriptText(turns), sideUsage);
-    log(`owner: ${reply.reply}${reply.done ? ' [done]' : ''}`);
-    if (reply.done) break;
-    turns.push({ role: 'owner', text: reply.reply });
-    messages.push({ role: 'user', content: reply.reply });
-    ownerTurns++;
   }
 
   // What was built, and the probes

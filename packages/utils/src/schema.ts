@@ -1705,6 +1705,31 @@ const ARTIFACT_CUSTOM_CODE_LIST_LOGS = z.object({
   organizationId: z.uuid()
 });
 
+// The project's assistant. Every route is scoped to a project the caller
+// administers; the ids below are checked against it.
+const BUILDER_SCOPE = z.object({
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid()
+});
+
+const BUILDER_CONVERSATION = BUILDER_SCOPE.extend({
+  conversationId: z.uuid()
+});
+
+const BUILDER_SEND_MESSAGE = BUILDER_CONVERSATION.extend({
+  text: z.string().trim().min(1).max(8000)
+});
+
+const BUILDER_STREAM = BUILDER_CONVERSATION.extend({
+  turnId: z.uuid(),
+  after: z.coerce.number().int().min(-1).default(-1)
+});
+
+const BUILDER_CHANGE_SET = BUILDER_SCOPE.extend({
+  changeSetId: z.uuid()
+});
+
 // Tool observability on the project home: per-tool health over a window.
 const PROJECT_TOOL_HEALTH = z.object({
   days: z.coerce
@@ -2325,6 +2350,11 @@ export const Schema = {
   ARTIFACT_CUSTOM_CODE_PUBLISH,
   ARTIFACT_CUSTOM_CODE_ROLLBACK,
   ARTIFACT_CUSTOM_CODE_LIST_LOGS,
+  BUILDER_SCOPE,
+  BUILDER_CONVERSATION,
+  BUILDER_SEND_MESSAGE,
+  BUILDER_STREAM,
+  BUILDER_CHANGE_SET,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,
   PROJECT_TOOL_HEALTH,
   PROJECT_TOOL_CALLS,

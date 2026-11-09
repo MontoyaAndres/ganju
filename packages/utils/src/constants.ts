@@ -1406,6 +1406,18 @@ const MCP_PROXY_TOOL_NAME_MAX = 64;
 // dispatcher — a slow or broken script must never break tools/list.
 const TOOL_DEFINITION_KEY_CUSTOM_CODE = 'custom-code';
 
+const BUILDER_CONVERSATION_STATUS_IDLE = 'idle' as 'idle';
+const BUILDER_CONVERSATION_STATUS_RUNNING = 'running' as 'running';
+
+// A change set is proposed by the assistant, then applied by the owner's
+// click, and may later be undone. One that fails part-way stays 'failed' with
+// what did apply recorded, so it can still be undone.
+const BUILDER_CHANGE_SET_STATUS_PROPOSED = 'proposed' as 'proposed';
+const BUILDER_CHANGE_SET_STATUS_APPLIED = 'applied' as 'applied';
+const BUILDER_CHANGE_SET_STATUS_FAILED = 'failed' as 'failed';
+const BUILDER_CHANGE_SET_STATUS_UNDONE = 'undone' as 'undone';
+const BUILDER_CHANGE_SET_STATUS_DISCARDED = 'discarded' as 'discarded';
+
 // A version is uploaded as `draft`, becomes `published` when it is made active,
 // and is `archived` when a later version replaces it. Exactly one version per
 // tool is ever `published` — the one config.activeVersionId points at.
@@ -2300,6 +2312,9 @@ interface PlanLimits {
   // rows live in a Durable Object we pay storage and rows for. An org that
   // downgrades keeps its databases, read-only.
   canUseData: boolean;
+  // Whether the project's assistant (the builder) is available. Paid-only, the
+  // same as Data.
+  canUseBuilder: boolean;
   // Writes that add data stop here, under Cloudflare's 10 GB per database, so
   // the owner meets a readable "database full" rather than SQLITE_FULL.
   maxDataBytes: number | null;
@@ -2351,6 +2366,7 @@ const PLAN_LIMITS: Record<
     includedEmbeddedBytes: 5 * MB,
     autoSyncIntervals: [],
     canUseData: false,
+    canUseBuilder: false,
     maxDataBytes: null,
     maxDataTablesPerDatabase: null,
     triggerRunHardCap: 0,
@@ -2383,6 +2399,7 @@ const PLAN_LIMITS: Record<
       RESOURCE_SYNC_INTERVAL_WEEKLY
     ],
     canUseData: true,
+    canUseBuilder: true,
     maxDataBytes: DATA_MAX_DATABASE_BYTES,
     maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
     triggerRunHardCap: DATA_TRIGGER_RUN_HARD_CAP,
@@ -2415,6 +2432,7 @@ const PLAN_LIMITS: Record<
       RESOURCE_SYNC_INTERVAL_WEEKLY
     ],
     canUseData: true,
+    canUseBuilder: true,
     maxDataBytes: DATA_MAX_DATABASE_BYTES,
     maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
     triggerRunHardCap: null,
@@ -2439,6 +2457,7 @@ const PLAN_FEATURE_MESSAGE = 'message' as 'message';
 const PLAN_FEATURE_TOOL_CALL = 'toolCall' as 'toolCall';
 const PLAN_FEATURE_RESOURCE_SYNC = 'resourceSync' as 'resourceSync';
 const PLAN_FEATURE_DATA = 'data' as 'data';
+const PLAN_FEATURE_BUILDER = 'builder' as 'builder';
 
 // Stable code returned on a quota block so clients can branch on it (402).
 const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
@@ -2661,6 +2680,7 @@ export const constants = {
   PLAN_FEATURE_TOOL_CALL,
   PLAN_FEATURE_RESOURCE_SYNC,
   PLAN_FEATURE_DATA,
+  PLAN_FEATURE_BUILDER,
   PLAN_LIMIT_ERROR_CODE,
   BILLING_METER_MESSAGES,
   BILLING_METER_SHARED_MESSAGES,
@@ -3120,6 +3140,13 @@ export const constants = {
   MCP_PROXY_TOOL_NAME_SEP,
   MCP_PROXY_TOOL_NAME_MAX,
   TOOL_DEFINITION_KEY_CUSTOM_CODE,
+  BUILDER_CONVERSATION_STATUS_IDLE,
+  BUILDER_CONVERSATION_STATUS_RUNNING,
+  BUILDER_CHANGE_SET_STATUS_PROPOSED,
+  BUILDER_CHANGE_SET_STATUS_APPLIED,
+  BUILDER_CHANGE_SET_STATUS_FAILED,
+  BUILDER_CHANGE_SET_STATUS_UNDONE,
+  BUILDER_CHANGE_SET_STATUS_DISCARDED,
   CUSTOM_CODE_VERSION_STATUS_DRAFT,
   CUSTOM_CODE_VERSION_STATUS_PUBLISHED,
   CUSTOM_CODE_VERSION_STATUS_ARCHIVED,

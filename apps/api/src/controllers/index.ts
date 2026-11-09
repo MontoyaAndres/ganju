@@ -21,6 +21,7 @@ import { ContainmentController } from './containment';
 import { ObservabilityController } from './observability';
 import { ToolApprovalController } from './toolApproval';
 import { DataController } from './artifact/data';
+import { BuilderController } from './builder';
 import { DataEmailController } from './dataEmail';
 import {
   DataAbandonedController,
@@ -29,6 +30,7 @@ import {
 
 export {
   BillingController,
+  BuilderController,
   DataController,
   DataEmailController,
   DataAbandonedController,

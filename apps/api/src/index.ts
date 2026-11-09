@@ -4,6 +4,7 @@ import { utils } from '@ganju/utils';
 import { utils as dbUtils } from '@ganju/db';
 
 import {
+  BuilderController,
   UserController,
   ArtifactController,
   InvitationController,
@@ -584,6 +585,41 @@ app
     UserMiddleware.verify,
     ArtifactController.listCustomCodeVersions
   )
+  .post(
+    '/organization/:organizationId/project/:projectId/builder/conversation',
+    UserMiddleware.verify,
+    BuilderController.createConversation
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/builder/conversation',
+    UserMiddleware.verify,
+    BuilderController.listConversations
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/builder/conversation/:conversationId',
+    UserMiddleware.verify,
+    BuilderController.getConversation
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/builder/conversation/:conversationId/message',
+    UserMiddleware.verify,
+    BuilderController.sendMessage
+  )
+  .get(
+    '/organization/:organizationId/project/:projectId/builder/conversation/:conversationId/stream',
+    UserMiddleware.verify,
+    BuilderController.streamTurn
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/builder/change-set/:changeSetId/apply',
+    UserMiddleware.verify,
+    BuilderController.applyChangeSet
+  )
+  .post(
+    '/organization/:organizationId/project/:projectId/builder/change-set/:changeSetId/undo',
+    UserMiddleware.verify,
+    BuilderController.undoChangeSet
+  )
   .get(
     '/organization/:organizationId/project/:projectId/artifact/custom-code/logs',
     UserMiddleware.verify,
@@ -834,6 +870,7 @@ for (const [id, route] of Object.entries(DATA_API_ROUTES) as [
 export { ResourceHandler } from '@ganju/containers';
 export { DiscordGatewayDO } from './durable-objects/discordGateway';
 export { MessageBufferDO } from './durable-objects/messageBuffer';
+export { BuilderConversationDO } from './durable-objects/builderConversation';
 
 export default {
   fetch: app.fetch,

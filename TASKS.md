@@ -605,6 +605,72 @@ with the owner:
 - Change sets with apply and undo for functions.
 - Untrusted-content wrapping, limits and the containment check.
 
+Choices agreed with the owner (2026-11-09):
+- The loop runs in a Durable Object per conversation; each step is saved to
+  Postgres as it happens, and the browser streams from the object over SSE.
+- Checked on dev by pointing `scripts/eval-builder.mjs` at the new routes and
+  comparing with the phase 0 baseline on the cases phase 2 covers. No chat
+  screen until phase 3.
+- Until phase 3, only organizations on an allowlist (an env var) reach the
+  routes. Production stays closed.
+- Data, knowledge, prompts and tools are readable now; staging changes to
+  them waits for phase 4, and eval cases that need it are skipped.
+- A card (account, secret, upload) ends the turn. When the owner completes
+  it, the app sends a short message and the assistant carries on.
+- The API needs a platform `ANTHROPIC_API_KEY` secret, since channels use the
+  organization's key or the shared Gemini model.
+
+**Phase 2 status (2026-11-09): done on dev.** Migration 0091 ran before the
+API deploy.
+- The custom-code routes call shared functions
+  (`controllers/artifact/customCodeActions.ts`); the deploy helpers take only
+  the environment, so the assistant calls the same code from its object.
+- `controllers/builder/` (prompt, model client, tools, change sets, routes)
+  and `BuilderConversationDO`. The answer runs from the object's alarm; each
+  model step and its tool results are saved to `builder_message` with tokens
+  and cost, and the cards shown with them.
+- Routes under `…/project/:projectId/builder`: create and list
+  conversations, read one, send a message (one answer at a time per project;
+  10 a minute per user), stream a turn (SSE, resumable with `after`), apply
+  and undo a change set.
+- Tools: `project`, `functions` (read, save_draft, logs, turn_on), `run_test`,
+  read-only `data`, `knowledge`, `prompts` and `tools`, `propose_changes`,
+  `propose_patch` (a diff against the CLI source; never a version) and
+  `ask_owner` (ends the turn).
+- The change set card lists, per action, whether it changes things or only
+  reads, its tables, hosts and accounts, from its settings.
+- Undo puts back the version that was live before, and refuses when the
+  actions changed since. With nothing live before, it turns actions off; a
+  later change set then needs them turned back on in Tools.
+- Effort is always `high`; `medium` for questions is left for the prompt
+  tuning in phase 7.
+- `canUseBuilder` plan limit (Pro and Enterprise), the `builder` plan
+  feature, migration `0091_builder_conversations` (three new tables only),
+  DO migration `v4`, `BUILDER_RATE_LIMITER` (namespace 1008).
+- Eval: `node scripts/eval-builder.mjs --server --case
+  open-now,broken-weather,refund-cap,calendar-booking,shorter-replies
+  --repeat 2 --baseline scripts/golden/builder-baseline-opus-5-5.json`.
+- Eval on dev (`--server`, the five functions cases twice): 10/10 work, as
+  in phase 0, at 23.4 credits a run (74 at most) with 8.9 model calls and
+  2.1 owner messages. Per case, phase 0 → phase 2: open-now 38 → 35,
+  calendar-booking 30 → 51, refund-cap 47 → 18, shorter-replies 5 → 4,
+  broken-weather 7 → 9. refund-cap no longer drifts into Data writes;
+  calendar-booking's 74-credit run kept testing against the account the eval
+  can't connect (8 test runs, two change sets). Results in
+  `scripts/golden/builder-phase2-server.json`.
+- Checked on dev by hand: a second Apply is refused (409) and Undo puts the
+  previous version back; a second message while one is answering is refused
+  (409); a dropped stream resumes from its last event; on the CLI project the
+  assistant answers with a patch against the developer's own `src/greet.ts`
+  and creates no version (2 credits); an organization off the allowlist gets
+  404.
+- The shared custom-code functions, checked on dev with the CLI too: that
+  patch applied by hand and `ganju deploy` made v5 (draft, upload, source,
+  publish); v5 answers "Hola, María", a rollback to v4 answers "hola María",
+  and rolling forward puts v5 back.
+- Fixed after that: undoing a change set twice answered 500; the refusals now
+  read as 409 or 400.
+
 **3. Dashboard tab and the test chat — M/L**
 
 - The chat, the plan card, the change-set card with the "what will be

@@ -34,6 +34,7 @@ NEXT_PUBLIC_DOMAIN = "vocesqueabrazan.com"
 CUSTOM_CODE_DISPATCH_NAMESPACE = "ganju-tools-development"
 CUSTOM_CODE_BROKER_SERVICE = "ganju-tool-broker-development"
 POLAR_SERVER = "sandbox"
+BUILDER_ORGANIZATIONS = "01a1b287-8e90-731f-b600-aadf64c28832"
 [[env.development.unsafe.bindings]]
 name = "CONTACT_RATE_LIMITER"
 type = "ratelimit"
@@ -69,6 +70,11 @@ name = "SHEET_SYNC_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1007"
 simple = { limit = 5, period = 60 }
+[[env.development.unsafe.bindings]]
+name = "BUILDER_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1008"
+simple = { limit = 10, period = 60 }
 [[env.development.services]]
 binding = "MCP"
 service = "ganju-mcp-development"
@@ -184,6 +190,9 @@ class_name = "DiscordGatewayDO"
 name = "MESSAGE_BUFFER"
 class_name = "MessageBufferDO"
 [[env.development.durable_objects.bindings]]
+name = "BUILDER_CONVERSATION"
+class_name = "BuilderConversationDO"
+[[env.development.durable_objects.bindings]]
 name = "PROJECT_DATABASE"
 class_name = "ProjectDatabase"
 script_name = "ganju-data-development"
@@ -196,6 +205,9 @@ new_sqlite_classes = ["DiscordGatewayDO"]
 [[env.development.migrations]]
 tag = "v3"
 new_sqlite_classes = ["MessageBufferDO"]
+[[env.development.migrations]]
+tag = "v4"
+new_sqlite_classes = ["BuilderConversationDO"]
 
 [env.production]
 name = "ganju-api-production"
@@ -221,6 +233,7 @@ NEXT_PUBLIC_DOMAIN = "ganju.ai"
 CUSTOM_CODE_DISPATCH_NAMESPACE = "ganju-tools-production"
 CUSTOM_CODE_BROKER_SERVICE = "ganju-tool-broker-production"
 POLAR_SERVER = "production"
+BUILDER_ORGANIZATIONS = ""
 [[env.production.unsafe.bindings]]
 name = "CONTACT_RATE_LIMITER"
 type = "ratelimit"
@@ -256,6 +269,11 @@ name = "SHEET_SYNC_RATE_LIMITER"
 type = "ratelimit"
 namespace_id = "1007"
 simple = { limit = 5, period = 60 }
+[[env.production.unsafe.bindings]]
+name = "BUILDER_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1008"
+simple = { limit = 10, period = 60 }
 [[env.production.services]]
 binding = "MCP"
 service = "ganju-mcp-production"
@@ -370,6 +388,9 @@ class_name = "DiscordGatewayDO"
 name = "MESSAGE_BUFFER"
 class_name = "MessageBufferDO"
 [[env.production.durable_objects.bindings]]
+name = "BUILDER_CONVERSATION"
+class_name = "BuilderConversationDO"
+[[env.production.durable_objects.bindings]]
 name = "PROJECT_DATABASE"
 class_name = "ProjectDatabase"
 script_name = "ganju-data-production"
@@ -382,3 +403,6 @@ new_sqlite_classes = ["DiscordGatewayDO"]
 [[env.production.migrations]]
 tag = "v3"
 new_sqlite_classes = ["MessageBufferDO"]
+[[env.production.migrations]]
+tag = "v4"
+new_sqlite_classes = ["BuilderConversationDO"]
