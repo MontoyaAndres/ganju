@@ -740,8 +740,9 @@ Choices agreed with the owner (2026-11-09):
   - file card: opens Resources, and "I'd rather not";
   - reload in the middle of a turn;
   - desktop and phone widths, in English and Spanish.
-- Not checked: coming back from a real account sign-in (the link carries
-  the return marker; the owner connects a test account once).
+- Account sign-in checked by the owner on 2026-11-10: Google Calendar card,
+  sign-in, back on the Assistant tab in the same chat, "Ya conecté Google
+  Calendar." sent for them, and the assistant carried on (9 credits).
 - Production (2026-11-10): deployed, `ANTHROPIC_API_KEY` set. The owner keeps
   `BUILDER_ORGANIZATIONS` empty, so the assistant stays closed there; adding
   an organization id opens it to that organization.
