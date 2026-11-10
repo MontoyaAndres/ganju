@@ -929,7 +929,7 @@ Still to do:
   - Subscriptions keep the prices they started with, so the price only
     applies to checkouts after this. Production had no active subscriptions.
     The sandbox test subscriptions lack it, and the Data prices too.
-- ~~Deploy to dev and check by hand.~~ Redeploy dev with the three fixes.
+- ~~Deploy to dev and check by hand.~~ ~~Redeploy dev with the three fixes.~~ Checked on dev: an unknown connection now answers 404, starting a chat at the cap answers 402 and creates nothing, and the own-key line reads cleanly.
 - Then production: migration 0092, then deploy (the Polar meter is ready).
   This opens the assistant to every Pro org.
 
