@@ -651,6 +651,9 @@ const en = {
   triggerTestRateLimited:
     'Five test sends a minute at most. Wait a minute and try again.',
   triggerTestFailed: "The test couldn't be sent.",
+  triggerTestEmailHelp:
+    "Sends this email as it is now, saved or not, only to your own account's address, with the values of a row of {table}. It isn't a run.",
+  triggerTestSentEmail: 'Sent to {who}, with row #{row}:',
   triggerRateLimit: 'Runs a minute',
   triggerRateLimitHelp:
     '{default} by default, up to {max}. Past it, events wait and go out later.',
@@ -1350,6 +1353,9 @@ export const DATA: Catalog<DataCopy> = {
     triggerTestRateLimited:
       'Como máximo cinco pruebas por minuto. Espera un minuto e inténtalo de nuevo.',
     triggerTestFailed: 'No se pudo enviar la prueba.',
+    triggerTestEmailHelp:
+      'Envía este correo tal como está, guardado o no, solo a la dirección de tu propia cuenta, con los valores de una fila de {table}. No es una ejecución.',
+    triggerTestSentEmail: 'Enviado a {who}, con la fila #{row}:',
     triggerRateLimit: 'Ejecuciones por minuto',
     triggerRateLimitHelp:
       '{default} por defecto, hasta {max}. Pasado ese límite, los eventos esperan y salen después.',

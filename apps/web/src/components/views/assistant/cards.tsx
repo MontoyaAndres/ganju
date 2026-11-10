@@ -74,6 +74,12 @@ const possibleLines = (
   return [...new Set(lines)];
 };
 
+const LOST_KEYS = {
+  file: 'itemLostFile',
+  credentials: 'itemLostCredentials',
+  secret: 'itemLostSecret'
+} as const;
+
 export const ChangeSetCardView = ({
   card,
   changeSet,
@@ -82,21 +88,31 @@ export const ChangeSetCardView = ({
 }: {
   card: ChangeSetCard;
   changeSet: ChangeSet | null;
-  onApply: () => Promise<void>;
+  onApply: (confirm: Record<string, string>) => Promise<void>;
   onUndo: () => Promise<void>;
 }) => {
   const t = i18n.useT(i18n.copy.ASSISTANT);
   const [busy, setBusy] = useState<'apply' | 'undo' | null>(null);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [confirmUndo, setConfirmUndo] = useState(false);
   const status = changeSet?.status ?? 'proposed';
   const lines = possibleLines(card, t);
-  const cantUndo = card.items.some(item => !item.undoable);
+  const undoable = card.items.filter(item => item.undoable);
+  const cantUndo = undoable.length === 0;
+  const someCantUndo = !cantUndo && undoable.length < card.items.length;
+  const restores = card.items.some(item => item.undo === 'restore');
+  const named = card.items.every(
+    (item, index) =>
+      !item.deletes || (typed[String(index)] ?? '').trim() === item.deletes
+  );
 
   const run = async (kind: 'apply' | 'undo') => {
     setBusy(kind);
     try {
-      await (kind === 'apply' ? onApply() : onUndo());
+      await (kind === 'apply' ? onApply(typed) : onUndo());
     } finally {
       setBusy(null);
+      setConfirmUndo(false);
     }
   };
 
@@ -123,9 +139,44 @@ export const ChangeSetCardView = ({
       </div>
       {card.summary && <p className="assistant-card-text">{card.summary}</p>}
       <ul className="assistant-card-list">
-        {card.items.map((item, index) => (
-          <li key={index}>{item.label}</li>
-        ))}
+        {card.items.map((item, index) => {
+          const notes = [
+            item.undo === 'restore' ? t('itemRestore') : null,
+            item.lost ? t(LOST_KEYS[item.lost]) : null,
+            item.managedByCode ? t('itemFromCode') : null
+          ].filter((note): note is string => !!note);
+          return (
+            <li key={index} className={item.deletes ? 'is-delete' : undefined}>
+              {item.deletes && (
+                <strong className="assistant-delete-tag">
+                  {t('itemDeletes')}
+                </strong>
+              )}
+              <span>{item.label}</span>
+              {notes.map(note => (
+                <span key={note} className="assistant-item-note">
+                  {note}
+                </span>
+              ))}
+              {item.deletes && status === 'proposed' && (
+                <input
+                  className="assistant-delete-input"
+                  aria-label={t('itemTypeName', { name: item.deletes })}
+                  placeholder={t('itemTypeName', { name: item.deletes })}
+                  value={typed[String(index)] ?? ''}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={event =>
+                    setTyped(prev => ({
+                      ...prev,
+                      [String(index)]: event.target.value
+                    }))
+                  }
+                />
+              )}
+            </li>
+          );
+        })}
       </ul>
       {lines.length > 0 && (
         <>
@@ -140,25 +191,30 @@ export const ChangeSetCardView = ({
           </ul>
         </>
       )}
-      {cantUndo && (
+      {(cantUndo || someCantUndo) && (
         <p className="assistant-card-warning">
           <WarningAmberOutlined fontSize="small" />
-          {t('changeCantUndo')}
+          {t(cantUndo ? 'changeCantUndo' : 'changeSomeCantUndo')}
         </p>
       )}
       <div className="assistant-card-actions">
         {status === 'proposed' && (
-          <UI.Button
-            variant="contained"
-            className="assistant-apply"
-            disabled={!!busy}
-            onClick={() => run('apply')}
-          >
-            <CheckRounded fontSize="small" />
-            <span className="button-text">
-              {busy === 'apply' ? t('applying') : t('apply')}
-            </span>
-          </UI.Button>
+          <>
+            <UI.Button
+              variant="contained"
+              className="assistant-apply"
+              disabled={!!busy || !named}
+              onClick={() => run('apply')}
+            >
+              <CheckRounded fontSize="small" />
+              <span className="button-text">
+                {busy === 'apply' ? t('applying') : t('apply')}
+              </span>
+            </UI.Button>
+            {!named && (
+              <span className="assistant-card-status">{t('typeToApply')}</span>
+            )}
+          </>
         )}
         {(status === 'applied' || status === 'failed') && (
           <>
@@ -167,11 +223,41 @@ export const ChangeSetCardView = ({
                 {t('failed', { error: changeSet?.error ?? '' })}
               </span>
             )}
-            {!cantUndo && (
+            {status === 'applied' && changeSet?.error && (
+              <span className="assistant-card-status is-error">
+                {changeSet.error}
+              </span>
+            )}
+            {!cantUndo && confirmUndo && (
+              <div className="assistant-undo-confirm">
+                <p>{t('undoRestoreConfirm')}</p>
+                <div>
+                  <UI.Button
+                    size="small"
+                    color="error"
+                    disabled={!!busy}
+                    onClick={() => run('undo')}
+                  >
+                    <UndoOutlined fontSize="small" />
+                    <span className="button-text">
+                      {busy === 'undo' ? t('undoing') : t('undoAnyway')}
+                    </span>
+                  </UI.Button>
+                  <UI.Button
+                    size="small"
+                    disabled={!!busy}
+                    onClick={() => setConfirmUndo(false)}
+                  >
+                    <span className="button-text">{t('cancel')}</span>
+                  </UI.Button>
+                </div>
+              </div>
+            )}
+            {!cantUndo && !confirmUndo && (
               <UI.Button
                 size="small"
                 disabled={!!busy}
-                onClick={() => run('undo')}
+                onClick={() => (restores ? setConfirmUndo(true) : run('undo'))}
               >
                 <UndoOutlined fontSize="small" />
                 <span className="button-text">

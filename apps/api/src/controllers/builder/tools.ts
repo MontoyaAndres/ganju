@@ -13,14 +13,13 @@ import { buildArtifactConnections } from '../artifact/connections';
 import { DATA_TOOL_MAX_LIMIT } from '@ganju/utils/data';
 import { generateEmbedding } from '../../utils/embedding';
 
-import type { Bindings } from '../../types';
+import { lastSchemaPush, stageData, testEmail } from './dataItems';
+import { stageProject } from './projectItems';
 
-export interface StagedItem {
-  area: 'functions';
-  op: 'turn_on';
-  payload: Record<string, unknown>;
-  label: string;
-}
+import type { Bindings } from '../../types';
+import type { StagedItem } from './items';
+
+export type { StagedItem } from './items';
 
 export interface BuilderCard {
   kind: 'change_set' | 'patch' | 'connect_account' | 'secret' | 'upload';
@@ -128,51 +127,137 @@ export const BUILDER_TOOLS = [
   },
   {
     name: 'data',
-    description:
-      "The project's database, read only: describe (tables, columns, saved queries, triggers, time zone), rows (table, where, limit), run_query (name, params).",
+    description: `The project's database.
+Read now: describe (tables, columns, saved queries, triggers, time zone, and whether a developer pushes the tables from code), rows {table, where?, limit?}, run_query {name, params?}.
+Send now: test_email {table, email: {to, subject?, text}, rowId?}: an email trigger's message built from a row (the newest by default), sent only to the owner's own address whatever "to" says. Use it so the owner sees an email before it is due.
+Stage for the change set (each needs label, the plain line the owner reads):
+- create_database {name?}, delete_database
+- create_table {table: {name, label?, description?, displayColumn?, access?, customerScoped?, history?, source?, columns: [...]}} (source {uri, sheet?, key}: rows synced from a spreadsheet in knowledge, the way to import one), change_table {table, patch}, drop_table {table}
+- add_column {table, column: {name, type, ...}}, change_column {table, column, patch}, drop_column {table, column}
+- add_rows {table, rows: [{...}]}, change_rows {table, updates: [{id, set}]}, delete_rows {table, ids}
+- save_query {query: {name, description?, sql, params?, assistant?}}, drop_query {name}
+- save_trigger {trigger: {name, table, on, after?, when?, and one action: function | webhook | chat | email | customer}}, turn_trigger {name, enabled}, drop_trigger {name}
+Deletes (drop_*, delete_*) make the owner type the name of what goes. Stage in the order they must happen (a table before the trigger on it).`,
     input_schema: obj(
       {
         action: {
           type: 'string',
-          enum: ['describe', 'rows', 'run_query']
+          enum: [
+            'describe',
+            'rows',
+            'run_query',
+            'test_email',
+            'create_database',
+            'delete_database',
+            'create_table',
+            'change_table',
+            'drop_table',
+            'add_column',
+            'change_column',
+            'drop_column',
+            'add_rows',
+            'change_rows',
+            'delete_rows',
+            'save_query',
+            'drop_query',
+            'save_trigger',
+            'turn_trigger',
+            'drop_trigger'
+          ]
         },
-        table: { type: 'string' },
+        label: { type: 'string' },
+        table: {
+          description: 'a table name, or for create_table the table',
+          type: ['string', 'object']
+        },
+        column: {
+          description: 'a column name, or for add_column the column',
+          type: ['string', 'object']
+        },
+        patch: anyObject('change_table / change_column: only what changes'),
         where: anyObject('rows: filter like {"status":"open"}'),
         limit: { type: 'integer' },
-        name: { type: 'string', description: 'run_query: saved query name' },
-        params: anyObject('run_query params')
+        name: { type: 'string', description: 'a query or trigger name' },
+        params: anyObject('run_query params'),
+        rows: { type: 'array', items: { type: 'object' } },
+        updates: { type: 'array', items: { type: 'object' } },
+        ids: { type: 'array', items: { type: 'integer' } },
+        query: anyObject('save_query'),
+        trigger: anyObject('save_trigger'),
+        enabled: { type: 'boolean' },
+        email: anyObject('test_email: {to, subject?, text}'),
+        rowId: { type: 'integer' }
       },
       ['action']
     )
   },
   {
     name: 'knowledge',
-    description:
-      'What the bot knows, read only: list (notes, files, websites and their status), search (query: the excerpts the bot would find).',
+    description: `What the bot knows.
+Read now: list (notes, files and websites with their id and status), search {query} (the excerpts the bot would find).
+Stage (each needs label): add_note {title, text, description?}, edit_note {id, text?, title?}, add_website {title, url, maxPages?, maxDepth?}, remove {id} (the owner types its title; a removed file's contents can't come back). Files are uploaded by the owner through ask_owner.`,
     input_schema: obj(
       {
-        action: { type: 'string', enum: ['list', 'search'] },
-        query: { type: 'string' }
+        action: {
+          type: 'string',
+          enum: [
+            'list',
+            'search',
+            'add_note',
+            'edit_note',
+            'add_website',
+            'remove'
+          ]
+        },
+        label: { type: 'string' },
+        query: { type: 'string' },
+        id: { type: 'string' },
+        title: { type: 'string' },
+        text: { type: 'string' },
+        description: { type: 'string' },
+        url: { type: 'string' },
+        maxPages: { type: 'integer' },
+        maxDepth: { type: 'integer' }
       },
       ['action']
     )
   },
   {
     name: 'prompts',
-    description:
-      "Slash-command prompt templates the bot's users can pick, read only: list.",
-    input_schema: obj({ action: { type: 'string', enum: ['list'] } }, [
-      'action'
-    ])
+    description: `Slash-command prompt templates the bot's users can pick.
+Read now: list (with ids).
+Stage (each needs label): create {title, description?, messages: [{role, content}], schema?}, edit {id, ...only what changes}, remove {id} (the owner types its title). {{name}} in a message is filled from schema's properties.`,
+    input_schema: obj(
+      {
+        action: { type: 'string', enum: ['list', 'create', 'edit', 'remove'] },
+        label: { type: 'string' },
+        id: { type: 'string' },
+        title: { type: 'string' },
+        description: { type: 'string' },
+        messages: { type: 'array', items: { type: 'object' } },
+        schema: anyObject('JSON schema of the arguments')
+      },
+      ['action']
+    )
   },
   {
     name: 'tools',
-    description:
-      'Ready-made tools, read only: catalog {query?} (what can be added, and which account each needs), list (what the project has, with on/off).',
+    description: `Ready-made tools.
+Read now: catalog {query?} (what can be added, and which account each needs), list (what the project has, with id and on/off).
+Stage (each needs label): add {toolKey, config?} (a catalog tool; "http-endpoint" with its config; "mcp-proxy" for a catalog MCP server without sign-in), change {id, config}, turn {id, enabled}, remove {id} (the owner types its name; its own key or sign-in goes with it). A catalog tool that needs an account works only once the owner connects it (ask_owner).`,
     input_schema: obj(
       {
-        action: { type: 'string', enum: ['catalog', 'list'] },
-        query: { type: 'string' }
+        action: {
+          type: 'string',
+          enum: ['catalog', 'list', 'add', 'change', 'turn', 'remove']
+        },
+        label: { type: 'string' },
+        query: { type: 'string' },
+        id: { type: 'string' },
+        toolKey: { type: 'string' },
+        config: anyObject('the tool settings'),
+        metadata: anyObject('optional tool metadata'),
+        enabled: { type: 'boolean' }
       },
       ['action']
     )
@@ -244,12 +329,34 @@ const describeData = async (ctx: BuilderToolContext) => {
   const opened = await openDatabase(ctx);
   if (!opened) return null;
   const who = dataCallerFor(ctx, opened);
-  const [schema, queries, triggers] = await Promise.all([
+  const [described, stored, queries, triggers] = await Promise.all([
     db.data.callData('describe', () => opened.stub.describe(who)),
+    db.data.callData('schemaRead', () => opened.stub.schemaRead()),
     db.data.callData('listQueries', () => opened.stub.listQueries(who)),
     db.data.callData('listTriggers', () => opened.stub.listTriggers(who))
   ]);
-  return { schema, queries, triggers };
+  // describe answers with the caller's access, which for the owner is always
+  // full; what the bot may do is the table's own setting.
+  const botAccess = new Map(stored.tables.map(t => [t.name, t.access]));
+  const shown = described as { tables: { name: string; access: string }[] };
+  const schema = {
+    ...shown,
+    tables: shown.tables.map(table => ({
+      ...table,
+      access: botAccess.get(table.name) ?? table.access
+    }))
+  };
+  const pushed = await lastSchemaPush(caller(ctx), ctx.artifactId, opened.row);
+  return {
+    schema,
+    queries,
+    triggers,
+    ...(pushed
+      ? {
+          tablesFromCode: `A developer pushes these tables from a schema file (last on ${pushed.toISOString()}). Table and column changes made here are put back by their next push.`
+        }
+      : {})
+  };
 };
 
 const versionsSummary = async (ctx: BuilderToolContext) => {
@@ -317,6 +424,7 @@ const overview = async (ctx: BuilderToolContext) => {
         .where(eq(db.schema.artifactPrompt.artifactId, ctx.artifactId)),
       ctx.db
         .select({
+          id: db.schema.artifactResource.id,
           title: db.schema.artifactResource.title,
           uri: db.schema.artifactResource.uri,
           status: db.schema.artifactResource.status,
@@ -336,6 +444,7 @@ const overview = async (ctx: BuilderToolContext) => {
   return {
     owner: owner ?? null,
     tools: tools.map(t => ({
+      id: t.id,
       toolKey: t.toolKey,
       enabled: t.enabled,
       name: (t.config as { name?: string } | null)?.name ?? null
@@ -498,7 +607,7 @@ const proposeChanges = async (
       organizationId: ctx.organizationId,
       projectId: ctx.projectId,
       artifactId: ctx.artifactId,
-      items: items.map(item => ({ ...item, undoable: true })),
+      items: items.map(item => ({ ...item, undoable: item.undo !== 'none' })),
       summary: input.summary ?? null
     })
     .returning();
@@ -509,7 +618,11 @@ const proposeChanges = async (
     items: items.map(item => ({
       label: item.label,
       effects: item.payload.effects ?? null,
-      undoable: true
+      undoable: item.undo !== 'none',
+      undo: item.undo ?? 'reverse',
+      deletes: item.deletes ?? null,
+      lost: item.lost ?? null,
+      managedByCode: Boolean(item.managedByCode)
     }))
   });
   return 'The owner sees the change set card. Nothing changes until they click Apply; their next message says how it went. End your reply now.';
@@ -681,6 +794,10 @@ const run = async (
           (await describeData(ctx)) ?? 'The project has no database yet.'
         );
       }
+      if (action !== 'rows' && action !== 'run_query') {
+        if (action === 'test_email') return json(await testEmail(ctx, input));
+        return stageData(ctx, action, input);
+      }
       const opened = await openDatabase(ctx);
       if (!opened) return 'The project has no database yet.';
       const who = dataCallerFor(ctx, opened);
@@ -711,10 +828,12 @@ const run = async (
         return json(
           await ctx.db
             .select({
+              id: db.schema.artifactResource.id,
               title: db.schema.artifactResource.title,
               uri: db.schema.artifactResource.uri,
               status: db.schema.artifactResource.status,
-              sourceType: db.schema.artifactResource.sourceType
+              sourceType: db.schema.artifactResource.sourceType,
+              fromWebsite: db.schema.artifactResource.parentResourceId
             })
             .from(db.schema.artifactResource)
             .where(eq(db.schema.artifactResource.artifactId, ctx.artifactId))
@@ -722,12 +841,13 @@ const run = async (
         );
       }
       if (action === 'search') return knowledgeSearch(ctx, input.query);
-      break;
+      return stageProject(ctx, 'knowledge', action, input);
     case 'prompts':
       if (action === 'list') {
         return json(
           await ctx.db
             .select({
+              id: db.schema.artifactPrompt.id,
               title: db.schema.artifactPrompt.title,
               description: db.schema.artifactPrompt.description,
               messages: db.schema.artifactPrompt.messages,
@@ -737,7 +857,7 @@ const run = async (
             .where(eq(db.schema.artifactPrompt.artifactId, ctx.artifactId))
         );
       }
-      break;
+      return stageProject(ctx, 'prompts', action, input);
     case 'tools':
       if (action === 'catalog') return catalog(input.query);
       if (action === 'list') {
@@ -747,13 +867,14 @@ const run = async (
           .where(eq(db.schema.artifactTool.artifactId, ctx.artifactId));
         return json(
           tools.map(t => ({
+            id: t.id,
             toolKey: t.toolKey,
             enabled: t.enabled,
             name: (t.config as { name?: string } | null)?.name ?? null
           }))
         );
       }
-      break;
+      return stageProject(ctx, 'tools', action, input);
     case 'propose_changes':
       return proposeChanges(ctx, input);
     case 'propose_patch':

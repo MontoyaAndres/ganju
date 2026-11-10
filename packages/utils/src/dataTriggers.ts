@@ -562,6 +562,21 @@ export const normaliseCustomerAction = (
   >;
 };
 
+export const normaliseEmailAction = (
+  schema: DataSchema,
+  tableName: string,
+  value: unknown
+): Extract<DataTriggerAction, { type: 'email' }> => {
+  const table = schema.tables.find(t => t.name === tableName);
+  if (!table) {
+    throw new DataError(`There is no table named ${tableName}.`, 'not_found');
+  }
+  return normaliseAction(table, { email: value }) as Extract<
+    DataTriggerAction,
+    { type: 'email' }
+  >;
+};
+
 // The columns a time trigger can count from, and whether `minutes` may be
 // negative: "before" a row was created or changed has already passed.
 const scheduleColumn = (

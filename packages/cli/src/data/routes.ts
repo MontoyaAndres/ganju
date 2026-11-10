@@ -62,7 +62,8 @@ const ROUTES = {
   startExport: { method: 'post', path: '/export' },
   exportStatus: { method: 'get', path: '/export' },
   exportFile: { method: 'get', path: '/export/file' },
-  listChanges: { method: 'get', path: '/change' }
+  listChanges: { method: 'get', path: '/change' },
+  markSchemaPush: { method: 'post', path: '/change/schema-push' }
 } as const satisfies {
   [K in DataRouteId]: Pick<Routes[K], 'method' | 'path'>;
 };

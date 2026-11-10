@@ -14,6 +14,7 @@ import type { AuthorizationServerMetadata } from '@modelcontextprotocol/sdk/shar
 
 // types
 import type { AppEnv } from '../types';
+import type { EnvSource } from '@ganju/utils';
 
 // Notion (and most modern remote MCP servers) are their OWN OAuth authorization
 // server — a token must be issued by the MCP server itself via dynamic client
@@ -61,7 +62,7 @@ const callbackUrl = (c: Context<AppEnv>): string =>
   `${utils.getEnv(c, 'NEXT_PUBLIC_API_URL')}/oauth/mcp-proxy/callback`;
 
 const clientInformationFrom = (
-  c: Context<AppEnv>,
+  c: EnvSource,
   stored: StoredMcpOauth
 ): { client_id: string; client_secret?: string } => {
   const key = utils.getCredentialEncryptionKey(c);
@@ -313,7 +314,7 @@ interface ResolvableCredential {
  * paths; the MCP worker has a parallel resolver for the runtime.
  */
 export const resolveMcpProxyOauthSecret = async (input: {
-  c: Context<AppEnv>;
+  c: EnvSource;
   dbInstance: ReturnType<typeof db.create>;
   credential: ResolvableCredential;
 }): Promise<{ secret: string; needsReauth: boolean }> => {

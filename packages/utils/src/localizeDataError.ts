@@ -571,6 +571,8 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
     'No has vinculado un chat con los bots de este proyecto: escríbele al bot desde tu propio teléfono y envía /link.',
   "{0} isn't one of your linked chats with this project's bots.":
     '{0} no es uno de tus chats vinculados con los bots de este proyecto.',
+  "The test email couldn't be sent. Try again in a minute.":
+    'No se pudo enviar el correo de prueba. Inténtalo de nuevo en un minuto.',
   'Several of your chats are linked to this project\'s bots; pick one with "participantId".':
     'Varios de tus chats están vinculados con los bots de este proyecto; elige uno con "participantId".',
   "This organization's plan no longer includes Data, so its triggers are paused and can't be tested. Upgrade to Pro to send a test.":

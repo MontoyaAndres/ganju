@@ -70,6 +70,22 @@ const en = {
   changeHosts: 'Reach {hosts}',
   changeAccounts: 'Use your accounts: {accounts}',
   changeCantUndo: "This can't be undone",
+  changeSomeCantUndo: "Some of this can't be undone",
+  itemDeletes: 'Deletes',
+  itemTypeName: 'Type "{name}" to confirm',
+  itemRestore:
+    'Undo puts your whole database back to just before this. Anything saved after it is lost.',
+  itemLostFile: "The file's contents can't come back",
+  itemLostCredentials:
+    'Undo adds it back, but its key or sign-in has to be added again',
+  itemLostSecret: 'Its webhook gets a new secret',
+  itemFromCode:
+    'Your developer manages these tables from code: their next upload will put this back',
+  typeToApply: 'Type the names above to apply',
+  undoRestoreConfirm:
+    'This puts your whole database back to how it was before. Anything saved since is lost.',
+  undoAnyway: 'Undo anyway',
+  cancel: 'Cancel',
   apply: 'Apply',
   applying: 'Applying...',
   applied: 'Applied',
@@ -194,6 +210,22 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     changeHosts: 'Conectarse a {hosts}',
     changeAccounts: 'Usar tus cuentas: {accounts}',
     changeCantUndo: 'Esto no se puede deshacer',
+    changeSomeCantUndo: 'Parte de esto no se puede deshacer',
+    itemDeletes: 'Borra',
+    itemTypeName: 'Escribe "{name}" para confirmar',
+    itemRestore:
+      'Deshacer devuelve toda tu base de datos a como estaba justo antes. Lo que se guarde después se pierde.',
+    itemLostFile: 'El contenido del archivo no se puede recuperar',
+    itemLostCredentials:
+      'Deshacer la vuelve a agregar, pero su clave o inicio de sesión hay que agregarlo de nuevo',
+    itemLostSecret: 'Su webhook recibe un secreto nuevo',
+    itemFromCode:
+      'Tu desarrollador maneja estas tablas desde código: su próxima subida revertirá esto',
+    typeToApply: 'Escribe los nombres de arriba para aplicar',
+    undoRestoreConfirm:
+      'Esto devuelve toda tu base de datos a como estaba antes. Lo que se haya guardado desde entonces se pierde.',
+    undoAnyway: 'Deshacer de todos modos',
+    cancel: 'Cancelar',
     apply: 'Aplicar',
     applying: 'Aplicando...',
     applied: 'Aplicado',

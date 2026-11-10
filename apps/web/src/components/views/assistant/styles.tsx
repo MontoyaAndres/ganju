@@ -708,6 +708,67 @@ export const Wrapper = styled.div`
       }
     }
 
+    .assistant-card-list > li.is-delete {
+      margin: 6px 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      list-style: none;
+      margin-left: -18px;
+      background: ${theme.colors.thunderbird}0d;
+      border: 1px solid ${theme.colors.thunderbird}40;
+      color: ${theme.colors.thunderbird};
+    }
+
+    .assistant-delete-tag {
+      margin-right: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .assistant-item-note {
+      display: block;
+      margin-top: 2px;
+      font-size: ${theme.fonts.xs};
+      color: ${theme.colors.bastille}99;
+    }
+
+    .assistant-delete-input {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid ${theme.colors.thunderbird}66;
+      background: ${theme.colors.white};
+      color: ${theme.colors.bastille};
+      font: inherit;
+      font-size: ${theme.fonts.sm};
+
+      &:focus {
+        outline: 2px solid ${theme.colors.thunderbird}55;
+        outline-offset: 1px;
+      }
+    }
+
+    .assistant-undo-confirm {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: ${theme.colors.thunderbird}0d;
+      color: ${theme.colors.thunderbird};
+      font-size: ${theme.fonts.xs};
+
+      p {
+        margin: 0 0 8px;
+      }
+
+      div {
+        display: flex;
+        gap: 8px;
+      }
+    }
+
     .assistant-card-warning {
       display: flex;
       align-items: center;

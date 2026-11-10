@@ -166,6 +166,10 @@ to create it — the same shape as an export's `schema.json`, so either works
 with `--schema <file>`. `pull` after `push` gives back the same file, so its
 diff in a pull request is a change to the schema and nothing else.
 
+`push` also notes in the database's change log that its tables come from a
+file. The dashboard's assistant then warns that a table or column change made
+there will be put back by your next `push`.
+
 `diff` matches tables and columns **by name**:
 
 ```

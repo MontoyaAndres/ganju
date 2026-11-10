@@ -699,7 +699,7 @@ Choices agreed with the owner (2026-11-09):
 - The tab sits in the project navigation after Home. Account connections
   come back to the tab, not to Tools.
 
-**Phase 3 status (2026-11-09): done on dev; production not yet.** No migration.
+**Phase 3 status (2026-11-10): done on dev and production (closed there by the allowlist).** No migration.
 - The Assistant tab (`apps/web/src/components/views/assistant/`):
   - past chats, with a drawer on small screens;
   - replies streamed with a list of steps and seconds on a long step;
@@ -753,6 +753,77 @@ Choices agreed with the owner (2026-11-09):
 - Their change-set items, the before-state for undo, and the "can't be
   undone" marks.
 - Data undo through point-in-time restore.
+
+Choices agreed with the owner (2026-11-10):
+- Undo reverses each step: it removes the table, column or rows the change
+  added and puts a query, trigger, prompt, note or tool back as it was. The
+  whole-database restore is used only for drops and type changes, and the
+  card warns that anything saved after Apply is lost then.
+- The assistant can delete (tables, columns, rows, the database, files,
+  websites, prompts, tools), each on its own red line of the card. Apply
+  stays off until the owner types the exact name of each thing deleted, and
+  the server checks the names too.
+- Data managed from code: `ganju data schema push` leaves a marker in the
+  database; the assistant warns that its table changes will be overwritten
+  by the developer's next push, and never edits triggers `ganju deploy`
+  made.
+- An email trigger gets a test send to the owner, like the customer one.
+- Daily/weekly schedules and a project-level bot instructions field are
+  their own tasks after phase 4.
+
+**Phase 4 status (2026-11-10): done on dev (checked by hand, eval 18/20 after the prompt fix); production not yet.** No migration.
+- Shared code: `controllers/artifact/dataActions.ts` (tables, columns, rows,
+  queries, triggers, restore points, the email test send) and
+  `projectActions.ts` (prompts, notes and websites, tools). The routes and
+  the assistant both call them.
+- The assistant stages Data (database, tables, columns, rows, saved queries,
+  triggers), knowledge (notes, websites, removal), prompts and tools (add from
+  the catalog, HTTP endpoints, catalog MCP servers without sign-in, change,
+  on/off, removal). Each step records what Undo needs when it applies; Undo
+  runs newest first, refuses before anything moves when newer work would be
+  lost, and a step that fails stops it, so trying again carries on.
+- Deletes: a red line per delete with a field for its name; Apply stays off
+  until each matches, and the apply route checks them (400 otherwise). The
+  prompt makes the assistant ask in chat and wait for a yes before staging a
+  delete.
+- `ganju data schema push` records a `schema.push` entry in the change log
+  (`POST …/data/change/schema-push`); the assistant's describe says so and
+  table/column lines warn on the card. Triggers from `ganju deploy` are
+  refused.
+- `POST …/data/trigger/test-send` takes an `email` action and sends it to the
+  caller's own address only; the trigger dialog and the assistant
+  (`data test_email`) use it.
+- Checked on dev by hand (2026-11-10):
+  - one change set made the database, a table, a note and a prompt; Undo
+    removed them all, and two Undo requests at once ran once (409 for the
+    other);
+  - deletes: the assistant asked first and staged only after a yes; Apply
+    with no name or a wrong one was refused (400); dropping a table and
+    deleting a row were undone by a restore that brought the rows back, after
+    the card's "undo anyway" step;
+  - a column minimum and table access applied and undone step by step, with a
+    row added after Apply still there;
+  - a note edited and put back; a note and a tool removed and put back (the
+    tool still off, as it was);
+  - web search turned off; an email trigger with the assistant's test email
+    and the Data page's (only to the owner's address);
+  - the schema-push marker flagged a column change on the card, and a
+    trigger deployed from code was refused.
+- Fixed after that: describe showed the owner's own access (always full)
+  instead of the bot's setting; a tool's name to type is its catalog title,
+  not its key.
+- Eval on dev (`--server`, all ten cases twice, in
+  `scripts/golden/builder-phase4-server.json`): 16/20 work, at 28.4 credits a
+  run (99.6 at most). nightly-orders fails as in phase 0 (no daily schedule).
+  delivery-orders went 2/2 → 0/2: what it built was right, but it never ran
+  the action that saves an order (the table exists only after Apply), didn't
+  mark that action as changing things, and named actions by their internal
+  names. The prompt now says to test every action after the owner applies,
+  saving ones with fake values, and to name actions by what they do. Rerun
+  on dev after that: delivery-orders 2/2 (24 and 36 credits), pizza-stock 2/2;
+  with nightly-orders still waiting for the daily schedule, that makes 18/20.
+- describe now gives the bot's own access: checked on dev (a table set to
+  read answers "read", and the assistant says the bot can only look).
 
 **5. Keeping it working — S/M**
 

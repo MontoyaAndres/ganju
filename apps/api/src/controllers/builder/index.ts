@@ -5,7 +5,13 @@ import { db } from '@ganju/db';
 import type { Database } from '@ganju/db';
 
 import { assertBuilderAllowed } from './access';
-import { applyChangeSet, changeSetNotes, undoChangeSet } from './changeSets';
+import {
+  ConfirmationError,
+  UndoStoppedError,
+  applyChangeSet,
+  changeSetNotes,
+  undoChangeSet
+} from './changeSets';
 import { creditsOf } from './llm';
 import { BuilderTryController } from './tryIt';
 import { RateLimitMiddleware } from '../../middleware/rateLimit';
@@ -272,16 +278,32 @@ const streamTurn = async (c: Context<AppEnv>) => {
 };
 
 const changeSetRoute =
-  (run: typeof applyChangeSet | typeof undoChangeSet) =>
-  async (c: Context<AppEnv>) => {
+  (run: 'apply' | 'undo') => async (c: Context<AppEnv>) => {
     const values = await utils.Schema.BUILDER_CHANGE_SET.parseAsync({
       ...scopeOf(c),
       changeSetId: c.req.param('changeSetId')
     });
     const database = await allowed(c, values.organizationId);
-    return c.json(
-      await run({ env: c.env, db: database }, values, values.changeSetId)
-    );
+    const caller = { env: c.env, db: database };
+    try {
+      if (run === 'undo') {
+        return c.json(await undoChangeSet(caller, values, values.changeSetId));
+      }
+      const body = await utils.Schema.BUILDER_CHANGE_SET_APPLY.parseAsync(
+        await c.req.json().catch(() => ({}))
+      );
+      return c.json(
+        await applyChangeSet(caller, values, values.changeSetId, body.confirm)
+      );
+    } catch (error) {
+      if (error instanceof ConfirmationError) {
+        return c.json({ error: error.message, needsConfirmation: true }, 400);
+      }
+      if (error instanceof UndoStoppedError) {
+        return c.json({ error: error.message }, 409);
+      }
+      throw error;
+    }
   };
 
 export const BuilderController = {
@@ -291,8 +313,8 @@ export const BuilderController = {
   getConversation,
   sendMessage,
   streamTurn,
-  applyChangeSet: changeSetRoute(applyChangeSet),
-  undoChangeSet: changeSetRoute(undoChangeSet),
+  applyChangeSet: changeSetRoute('apply'),
+  undoChangeSet: changeSetRoute('undo'),
   tryHistory: BuilderTryController.history,
   trySend: BuilderTryController.send
 };

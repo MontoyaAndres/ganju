@@ -20,6 +20,7 @@ const SOURCES = [
     .map(f => new URL(f, utilsSrc)),
   new URL('apps/data/src/projectDatabase.ts', root),
   new URL('apps/api/src/controllers/artifact/data.ts', root),
+  new URL('apps/api/src/controllers/artifact/dataActions.ts', root),
   new URL('apps/api/src/utils/dataDatabase.ts', root),
   new URL('apps/api/src/utils/dataTriggers.ts', root),
   new URL('apps/api/src/utils/dataSheetSync.ts', root),

@@ -404,11 +404,12 @@ export const DATA_API_ROUTES = {
     method: 'post',
     path: '/trigger/test-send',
     tag: 'Triggers',
-    summary: 'Send a test of a customer message',
+    summary: 'Send a test of a customer message or an email',
     description:
-      "Sends a `customer` action, saved or not, to the caller's own chat with the bot instead of the row's customer: built from the row `rowId` (the table's newest row by default), the same as a real run. `participantId` picks one of `GET /trigger/test-send`'s recipients when there are several. With `asTemplate`, a WhatsApp template goes out even inside the 24-hour window. Not a run: it isn't listed with any trigger's runs and doesn't count toward the daily limit per customer. Five a minute per user. A channel's refusal (the template not approved, outside the window with no template, the daily limit) comes back as the error.",
+      "Sends a `customer` action, saved or not, to the caller's own chat with the bot instead of the row's customer: built from the row `rowId` (the table's newest row by default), the same as a real run. `participantId` picks one of `GET /trigger/test-send`'s recipients when there are several. With `asTemplate`, a WhatsApp template goes out even inside the 24-hour window. An `email` action instead goes to the caller's own account email only, whatever its `to` says, with \"[Test]\" before the subject. Not a run: it isn't listed with any trigger's runs and doesn't count toward the daily limit per customer. Five a minute per user. A channel's refusal (the template not approved, outside the window with no template, the daily limit) comes back as the error.",
     body: DATA_TRIGGER_TEST_SEND_BODY,
-    returns: '{ sent, text, template, rowId, recipient }'
+    returns:
+      '{ sent, text, template, rowId, recipient } (an email: { sent, to, subject, text, rowId })'
   },
   listTriggerRuns: {
     method: 'get',
@@ -466,6 +467,15 @@ export const DATA_API_ROUTES = {
       'Newest first: tables and columns changed, restores, exports, deletes.',
     query: DATA_CHANGE_LIST_QUERY,
     returns: '{ changes, nextCursor? }'
+  },
+  markSchemaPush: {
+    method: 'post',
+    path: '/change/schema-push',
+    tag: 'History and export',
+    summary: 'Say the tables come from a schema file',
+    description:
+      "Adds a `schema.push` entry to the change log. `ganju data schema push` sends it after each run, so the dashboard's assistant can warn that a change made there will be put back by the developer's next push.",
+    returns: '{ marked: true }'
   }
 } as const satisfies Record<string, DataApiRoute>;
 
