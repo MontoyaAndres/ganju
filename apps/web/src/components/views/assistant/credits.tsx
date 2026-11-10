@@ -58,7 +58,7 @@ export const AssistantCredits = ({
         <AutoAwesomeOutlined fontSize="small" />
         <span>
           {ownKey
-            ? t('creditsOwnKey', { name: ownKey.name })
+            ? t('creditsOwnKey')
             : t('creditsUsed', {
                 used: t.n(Math.min(credits.used, credits.included)),
                 included: t.n(credits.included)

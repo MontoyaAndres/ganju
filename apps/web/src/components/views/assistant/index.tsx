@@ -322,7 +322,11 @@ export const Assistant = () => {
           { method: 'POST', body: {} }
         );
         if (!created.ok) {
-          snackbar.error(created.error || t('errorSend'));
+          snackbar.error(
+            created.status === 402
+              ? t('creditsUsedUp')
+              : created.error || t('errorSend')
+          );
           return;
         }
         target = created.data.id;

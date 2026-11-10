@@ -85,6 +85,12 @@ const stubFor = (c: Context<AppEnv>, conversationId: string) =>
 const createConversation = async (c: Context<AppEnv>) => {
   const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
   const database = await allowed(c, scope.organizationId);
+  // A chat whose first message would be refused is left empty in the list.
+  const credits = await Plan.checkBuilderCredits(
+    database,
+    scope.organizationId
+  );
+  if (!credits.llmId && !credits.allowed) throw creditsUsedUp(credits);
   const [artifact] = await database
     .select({ id: db.schema.artifact.id })
     .from(db.schema.artifact)
@@ -380,7 +386,7 @@ const updateSettings = async (c: Context<AppEnv>) => {
       )
       .limit(1);
     if (!row) {
-      throw new Error("Choose one of the organization's Anthropic models");
+      throw new Error('Anthropic model not found in this organization');
     }
   }
   await Plan.ensureSubscription(database, values.organizationId);

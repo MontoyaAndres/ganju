@@ -851,7 +851,7 @@ Choices agreed with the owner (2026-11-10):
   messages and are billed as overage beyond them, with no limit (owner,
   2026-11-10: no limit; possibly a higher price instead).
 
-**Phase 6 status (2026-11-10): built, not yet on dev.** Migration 0092
+**Phase 6 status (2026-11-10): on dev and checked; production next.** Migration 0092
 (must run before the api deploys: the new `subscription` columns are read on
 every request that loads it).
 
@@ -887,8 +887,38 @@ How it works:
   billing page. The prompt now gives an estimate before something new.
 - **Website.** Pricing pages and markdown in en and es.
 
+Checked on dev (2026-11-10, test org qa-timecap):
+- **Counting.** One turn showed 12.7 credits and the counter grew by 127,064
+  micro-dollars.
+- **Own key.** On the org's Anthropic key the turn used 0 credits, and the
+  cost went to the own-key counter. A fake key stopped the turn as `own-key`,
+  with no switch to our key.
+- **Settings.** Deleting the chosen connection cleared the setting. A cap
+  over 100,000 or an empty body is refused with 400. An unknown connection
+  answered 500; it is now a 404, fixed after the dev deploy.
+- **Cap.** The counter was raised in the database to 1,000 credits with cap
+  0. Then the tab showed "credits used up", a new message and the test chat
+  both got 402, and the chat wasn't left running. Raising the cap let both
+  through again.
+- **Test chat.** It added 0.1 credit and didn't change the channel message
+  count.
+- **Billing page.** It showed the row, and saving the cap from the page
+  worked.
+- **Hourly report.** The real `meterOrganization` ran in a rolled-back
+  transaction with a recording stub:
+  - 1,234.5 credits used with cap 0 → 234 billed;
+  - a second run sent nothing;
+  - 100 more credits → one event of 100.
+- **Another organization's id in the URL.** Every project route answers 404
+  "Project not found".
+- Both orgs' test changes were put back afterwards.
+- **Fixed after the dev deploy:**
+  - A refused first message left an empty chat in the list; creating a chat
+    now checks credits too.
+  - The own-key line printed the connection name in double parentheses.
+
 Still to do:
-- Run migration 0092 on dev.
+- ~~Run migration 0092 on dev.~~
 - ~~Create the meter and price in Polar~~ (done 2026-11-10 in sandbox and
   production, from the owner's dashboard session):
   - The meter is "Assistant credits" (`ganju_builder_credits`, sum of
@@ -899,10 +929,9 @@ Still to do:
   - Subscriptions keep the prices they started with, so the price only
     applies to checkouts after this. Production had no active subscriptions.
     The sandbox test subscriptions lack it, and the Data prices too.
-- Deploy to dev and check by hand: credits counted, the cap stops a turn,
-  the own key used and refused, the test chat counted, the billing row and
-  cap setting, the hourly meter report.
-- Then production: migration, Polar meter, deploy.
+- ~~Deploy to dev and check by hand.~~ Redeploy dev with the three fixes.
+- Then production: migration 0092, then deploy (the Polar meter is ready).
+  This opens the assistant to every Pro org.
 
 **7. Retention and evals — S**
 
