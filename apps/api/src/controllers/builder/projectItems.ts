@@ -713,11 +713,18 @@ const tools: Record<string, ItemHandler> = {
     },
     undo: async (caller, scope, _item, before) => {
       const { toolKey, config, metadata, enabled } = before as Payload;
-      // Its own key or sign-in went with it: put back without them.
-      const { auth: _auth, ...rest } = (config ?? {}) as Payload;
+      // Its own key or sign-in went with it: put back without one, for the
+      // owner to add again.
+      const auth = (config as Payload | null)?.auth;
       const values = await Schema.ARTIFACT_CREATE_TOOL.parseAsync({
         toolKey,
-        ...(config ? { config: _auth?.credentialId ? rest : config } : {}),
+        ...(config
+          ? {
+              config: auth?.credentialId
+                ? { ...(config as Payload), auth: { kind: 'none' } }
+                : config
+            }
+          : {}),
         ...(metadata ? { metadata } : {}),
         ...ids(scope)
       });

@@ -14,7 +14,6 @@ export interface StagedItem {
   op: string;
   payload: Record<string, unknown>;
   label: string;
-  // A delete: the exact name the owner types before Apply.
   deletes?: string;
   // How Undo puts it back: step by step, by restoring the whole database to
   // just before it (anything saved since is lost), or not at all.

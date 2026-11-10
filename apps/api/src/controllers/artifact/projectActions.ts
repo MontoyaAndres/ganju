@@ -30,8 +30,6 @@ import type { Bindings } from '../../types';
 export interface ProjectCaller {
   env: Bindings;
   db: Database;
-  // Unused for now: every follow-up step is awaited, as the routes always did.
-  waitUntil?: (p: Promise<unknown>) => void;
 }
 
 type Parsed<S extends { parseAsync: (...args: never[]) => Promise<unknown> }> =

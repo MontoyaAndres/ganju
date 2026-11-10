@@ -1191,8 +1191,6 @@ const exportFile = async (c: Context<AppEnv>) => {
   });
 };
 
-// The schema change log, newest first. Ids are time-ordered, so the last one
-// of a page is the cursor for the next.
 const markSchemaPush = (c: Context<AppEnv>) =>
   withDatabase(c, {}, async request => {
     await recordChange(request.dbInstance, request.opened.row.id, {
@@ -1202,6 +1200,8 @@ const markSchemaPush = (c: Context<AppEnv>) =>
     return c.json({ marked: true });
   });
 
+// The schema change log, newest first. Ids are time-ordered, so the last one
+// of a page is the cursor for the next.
 const listChanges = async (c: Context<AppEnv>) => {
   const query = await queryOf(c, Schema.DATA_CHANGE_LIST_QUERY);
   return withDatabase(c, {}, async request => {

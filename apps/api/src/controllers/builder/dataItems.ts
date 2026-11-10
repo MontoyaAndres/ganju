@@ -48,9 +48,10 @@ const tableIn = (tables: DataTable[], name: string) => {
 // The last time `ganju data schema push` ran against this database, if ever.
 export const lastSchemaPush = async (
   caller: ItemCaller,
-  artifactId: string
+  artifactId: string,
+  known?: { id: string } | null
 ): Promise<Date | null> => {
-  const row = await findArtifactDatabase(caller.db, artifactId);
+  const row = known ?? (await findArtifactDatabase(caller.db, artifactId));
   if (!row) return null;
   const [push] = await caller.db
     .select({ at: db.schema.artifactDatabaseChange.createdAt })
@@ -221,7 +222,7 @@ export const stageData = async (
     ? await withData(caller, scope, request => dataActions.readSchema(request))
     : { tables: [] as DataTable[] };
   const fromCode = ready
-    ? Boolean(await lastSchemaPush(caller, ctx.artifactId))
+    ? Boolean(await lastSchemaPush(caller, ctx.artifactId, row))
     : false;
   const tableNamed = (name: unknown) => {
     const text = String(name ?? '');
@@ -401,6 +402,9 @@ export const stageData = async (
       });
     }
     case 'turn_trigger': {
+      if (typeof input.enabled !== 'boolean') {
+        throw new Error('turn_trigger needs enabled: true or false');
+      }
       const name = String(input.name ?? '');
       const existing = ready
         ? await withData(caller, scope, request => findTrigger(request, name))
@@ -409,7 +413,7 @@ export const stageData = async (
       assertNotFromCode(existing);
       return push({
         op: action,
-        payload: { name, enabled: Boolean(input.enabled) },
+        payload: { name, enabled: input.enabled },
         undo: 'reverse'
       });
     }
@@ -445,6 +449,18 @@ export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
     .where(eq(db.schema.user.id, ctx.userId))
     .limit(1);
   if (!owner?.email) throw new Error("The owner's account has no email.");
+  // The same budget as the Data page's test sends.
+  const limiter = ctx.env.TRIGGER_TEST_RATE_LIMITER;
+  if (limiter) {
+    const { success } = await limiter.limit({
+      key: `TRIGGER_TEST_RATE_LIMITER:${ctx.userId}`
+    });
+    if (!success) {
+      throw new Error(
+        'Five test sends a minute at most: wait a minute before the next one.'
+      );
+    }
+  }
   return withData(
     { env: ctx.env, db: ctx.db },
     { artifactId: ctx.artifactId, userId: ctx.userId },
@@ -596,14 +612,16 @@ const handlers: Record<string, ItemHandler> = {
         };
       });
     },
-    undo: async (caller, scope, _item, before) => {
+    undo: async (caller, scope, item, before) => {
       const { table, column, previous, bookmark } = before as {
         table: string;
         column: string;
         previous: Payload;
         bookmark: string | null;
       };
-      if (bookmark) return restore(caller, scope, { bookmark });
+      // Only a type change loses what it rewrote; any other rebuild is put
+      // back by the old settings, keeping what was saved since.
+      if (item.undo === 'restore') return restore(caller, scope, { bookmark });
       await withData(caller, scope, request =>
         dataActions.updateColumn(request, table, column, previous)
       );

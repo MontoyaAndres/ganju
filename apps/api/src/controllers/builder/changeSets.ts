@@ -237,24 +237,47 @@ export const undoChangeSet = async (
   scope: Scope,
   changeSetId: string
 ) => {
-  const row = await loadChangeSet(caller, scope, changeSetId);
-  if (row.status !== APPLIED && row.status !== FAILED) {
+  const loaded = await loadChangeSet(caller, scope, changeSetId);
+  if (loaded.status !== APPLIED && loaded.status !== FAILED) {
     throw new Error('This change set was already undone, or was never applied');
   }
-  const before = (row.before as Before[] | null) ?? [];
-  if (!before.length)
+  if (!((loaded.before as Before[] | null) ?? []).length)
     throw new Error(
       'Nothing in this change set was applied, so undo is invalid'
     );
+  // Claimed first, like Apply, so a double click undoes once; put back as it
+  // was if anything stops it.
+  const [row] = await caller.db
+    .update(db.schema.builderChangeSet)
+    .set({ status: UNDONE })
+    .where(
+      and(
+        eq(db.schema.builderChangeSet.id, changeSetId),
+        eq(db.schema.builderChangeSet.status, loaded.status)
+      )
+    )
+    .returning();
+  if (!row) throw new Error('This change set is already being undone');
+  const before = (row.before as Before[] | null) ?? [];
+  const release = (values: { before?: Before[]; error?: string | null }) =>
+    caller.db
+      .update(db.schema.builderChangeSet)
+      .set({ status: loaded.status, ...values })
+      .where(eq(db.schema.builderChangeSet.id, changeSetId));
 
   const itemScope: ItemScope = { ...scope, artifactId: row.artifactId };
   const items = row.items as StoredItem[];
   const remaining = [...before].reverse().filter(entry => !entry.undone);
 
-  for (const entry of remaining) {
-    const item = items[entry.index];
-    if (item.undo === 'none') continue;
-    await handlerFor(item).check?.(caller, itemScope, item, stateOf(entry));
+  try {
+    for (const entry of remaining) {
+      const item = items[entry.index];
+      if (item.undo === 'none') continue;
+      await handlerFor(item).check?.(caller, itemScope, item, stateOf(entry));
+    }
+  } catch (error) {
+    await release({});
+    throw error;
   }
 
   let failure: string | null = null;
@@ -271,10 +294,12 @@ export const undoChangeSet = async (
   }
 
   if (failure) {
-    await caller.db
-      .update(db.schema.builderChangeSet)
-      .set({ before, error: failure })
-      .where(eq(db.schema.builderChangeSet.id, changeSetId));
+    // A failed Apply keeps its own error; the owner sees this one in the
+    // answer.
+    await release({
+      before,
+      ...(loaded.status === APPLIED ? { error: failure } : {})
+    });
     throw new UndoStoppedError(failure);
   }
 
