@@ -851,7 +851,7 @@ Choices agreed with the owner (2026-11-10):
   messages and are billed as overage beyond them, with no limit (owner,
   2026-11-10: no limit; possibly a higher price instead).
 
-**Phase 6 status (2026-11-10): on dev and checked; production next.** Migration 0092
+**Phase 6 status (2026-11-10): done on dev and production (open to every Pro and Enterprise org).** Migration 0092
 (must run before the api deploys: the new `subscription` columns are read on
 every request that loads it).
 
@@ -930,8 +930,35 @@ Still to do:
     applies to checkouts after this. Production had no active subscriptions.
     The sandbox test subscriptions lack it, and the Data prices too.
 - ~~Deploy to dev and check by hand.~~ ~~Redeploy dev with the three fixes.~~ Checked on dev: an unknown connection now answers 404, starting a chat at the cap answers 402 and creates nothing, and the own-key line reads cleanly.
-- Then production: migration 0092, then deploy (the Polar meter is ready).
-  This opens the assistant to every Pro org.
+- ~~Then production: migration 0092, then deploy.~~ Checked in production
+  (2026-11-10, "Girardot - demos" / project "test"):
+  - The migration columns are there, and every org's counters started at 0.
+  - The assistant is open: 0 of 1,000 credits, cap 2,000, Ganju credits.
+    The billing route has the assistant row at $2 per 100.
+  - Another org's id in the URL gets 404.
+  - One assistant turn cost 0.7 credits, matching the counter (6,629
+    micro-dollars).
+  - One test chat message added 788 micro-dollars and didn't change the
+    message counts.
+  - A cap save worked, and the cap was set back to the default.
+  - Kept: that real usage (0.74 credits) and the one chat it made.
+- The second review's fixes went out without a separate dev check:
+  - a connection edited away from Anthropic goes back to credits;
+  - "credits used up" shows only for the credits limit;
+  - the credit lines stay visible on an own key.
+
+  Checked on dev after redeploying (2026-11-10):
+  - switching the chosen connection to Google cleared the setting;
+  - on an own key with credits used up, the sidebar showed the credit line,
+    the own-key note and the used-up message;
+  - the test chat said "credits used up" from the error's `feature`;
+  - a normal test chat message still charged credits (+354 micro-dollars).
+
+  The test chat panel still said each message counts like a customer
+  message; its copy now says it uses assistant credits.
+- Test chat turns that fail after calling the shared model are now charged:
+  the runner reports each model call through `onUsage`, and the test chat
+  adds it up and charges it in a `finally`.
 
 **7. Retention and evals — S**
 

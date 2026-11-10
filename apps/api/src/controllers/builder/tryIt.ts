@@ -196,11 +196,21 @@ const send = async (c: Context<AppEnv>) => {
   const user = c.get('user');
   const locale = c.req.header('accept-language')?.split(',')[0] ?? null;
 
+  // On the shared model the tokens are charged as credits, also when the turn
+  // fails after calling the model.
+  let costMicros = 0;
+  const price = utils.constants.SHARED_MODEL_PRICE;
   let result: Awaited<ReturnType<typeof runChannelTurn>>;
   try {
     result = await runChannelTurn(c, {
       channelId: channel.id,
       countAsMessage: false,
+      onUsage: usage => {
+        if (usage.onSharedKey) {
+          costMicros +=
+            usage.tokensIn * price.input + usage.tokensOut * price.output;
+        }
+      },
       externalConversationId: conversationKey(values.userId, values.session),
       conversationScope: utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE,
       externalParticipantId: `owner:${values.userId}`,
@@ -213,15 +223,11 @@ const send = async (c: Context<AppEnv>) => {
     // longer exists); the dashboard says so in the owner's words.
     console.error('[builder] test chat turn failed', error);
     return c.json({ error: 'The bot could not answer', botFailed: true }, 502);
-  }
-
-  if (result.usage?.onSharedKey) {
-    const price = utils.constants.SHARED_MODEL_PRICE;
+  } finally {
     await Plan.incrementBuilderUsage(
       database,
       values.organizationId,
-      result.usage.tokensIn * price.input +
-        result.usage.tokensOut * price.output,
+      costMicros,
       false
     ).catch(error =>
       console.error('[builder] could not count test chat usage', error)

@@ -135,7 +135,7 @@ const en = {
 
   tryTitle: 'Try it as a customer',
   tryText:
-    'Talk to your real bot, with everything that is turned on. Each message counts like a customer message.',
+    'Talk to your real bot, with everything that is turned on. On our AI model, each message uses a little of the assistant credits.',
   tryPlaceholder: 'Write as a customer...',
   tryRestart: 'Start over',
   tryEmpty: 'Say hi, or ask what a customer would ask.',
@@ -284,7 +284,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
 
     tryTitle: 'Pruébalo como cliente',
     tryText:
-      'Habla con tu bot real, con todo lo que está activado. Cada mensaje cuenta como un mensaje de cliente.',
+      'Habla con tu bot real, con todo lo que está activado. Con nuestro modelo de IA, cada mensaje usa un poco de los créditos del asistente.',
     tryPlaceholder: 'Escribe como cliente...',
     tryRestart: 'Empezar de nuevo',
     tryEmpty: 'Saluda o pregunta lo que preguntaría un cliente.',

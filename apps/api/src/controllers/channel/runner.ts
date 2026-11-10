@@ -178,6 +178,13 @@ interface RunOptions {
   // False for the owner's test chat, which is billed as assistant credits
   // from the tokens it used rather than as a channel message.
   countAsMessage?: boolean;
+  // Called after each model call, so a turn that fails partway still says
+  // what it used.
+  onUsage?: (usage: {
+    tokensIn: number;
+    tokensOut: number;
+    onSharedKey: boolean;
+  }) => void;
 }
 
 interface RunResult {
@@ -199,7 +206,6 @@ interface RunResult {
   // been told. Answering every message of someone flooding the bot would
   // cost what the limit is there to save.
   silent?: boolean;
-  usage?: { tokensIn: number; tokensOut: number; onSharedKey: boolean };
 }
 
 interface BotTokenApi {
@@ -1302,6 +1308,11 @@ const runTurn = async (
       totalLatency += Date.now() - start;
       totalTokensIn += completion.usage.tokensIn || 0;
       totalTokensOut += completion.usage.tokensOut || 0;
+      options.onUsage?.({
+        tokensIn: completion.usage.tokensIn || 0,
+        tokensOut: completion.usage.tokensOut || 0,
+        onSharedKey
+      });
 
       if (completion.assistant.content) {
         assistantText += completion.assistant.content;
@@ -1681,8 +1692,7 @@ const runTurn = async (
     sources,
     sourcesFooter,
     sourceButtons,
-    confirmation: heldCalls.length > 0 ? 'asked' : answered ? 'answered' : null,
-    usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, onSharedKey }
+    confirmation: heldCalls.length > 0 ? 'asked' : answered ? 'answered' : null
   };
 };
 
