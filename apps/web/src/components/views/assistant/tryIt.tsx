@@ -63,24 +63,33 @@ export const TryIt = ({
   const [sending, setSending] = useState(false);
   const [buttons, setButtons] = useState<TryReply['buttons']>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  // The chat a reply belongs to; one that comes back after a restart is
+  // dropped.
+  const sessionRef = useRef<string | null>(null);
+
+  const startSession = (next: string) => {
+    sessionRef.current = next;
+    setSession(next);
+    setLines([]);
+    setButtons(null);
+    setSending(false);
+  };
 
   useEffect(() => {
     const current = storedSession(projectId);
-    setSession(current);
-    setLines([]);
-    setButtons(null);
+    startSession(current);
     (async () => {
       const result = await request<{ messages: TryMessage[] }>(
         `${base}/builder/try?session=${current}`
       );
-      if (!result.ok) return;
-      setLines(
-        result.data.messages.map(message => ({
-          key: message.id,
-          role: message.role,
-          text: message.content ?? ''
-        }))
-      );
+      if (!result.ok || sessionRef.current !== current) return;
+      const saved = result.data.messages.map((message): Line => ({
+        key: message.id,
+        role: message.role,
+        text: message.content ?? ''
+      }));
+      // Anything sent before the history arrived is already in it.
+      setLines(prev => (prev.length > saved.length ? prev : saved));
     })();
   }, [base, projectId]);
 
@@ -102,6 +111,7 @@ export const TryIt = ({
       method: 'POST',
       body: { session, text: message }
     });
+    if (sessionRef.current !== session) return;
     setSending(false);
     if (!result.ok) {
       setLines(prev => [
@@ -140,9 +150,7 @@ export const TryIt = ({
   const restart = () => {
     const created = newSession();
     storeSession(projectId, created);
-    setSession(created);
-    setLines([]);
-    setButtons(null);
+    startSession(created);
   };
 
   // After a change is applied or undone, test the bot as it is now: the

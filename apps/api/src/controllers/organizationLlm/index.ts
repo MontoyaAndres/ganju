@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
@@ -180,12 +180,29 @@ const remove = async (c: Context<AppEnv>) => {
     const inUse = await tx
       .select({ id: db.schema.channel.id })
       .from(db.schema.channel)
-      .where(eq(db.schema.channel.llmId, existing.id))
+      .where(
+        and(
+          eq(db.schema.channel.llmId, existing.id),
+          ne(db.schema.channel.platform, utils.constants.CHANNEL_PLATFORM_TEST)
+        )
+      )
       .limit(1);
 
     if (inUse.length > 0) {
       throw new Error('LLM is in use by one or more channels');
     }
+
+    // The owner's test chat follows the real channels; it falls back to the
+    // shared model rather than being deleted with this one.
+    await tx
+      .update(db.schema.channel)
+      .set({ llmId: null })
+      .where(
+        and(
+          eq(db.schema.channel.llmId, existing.id),
+          eq(db.schema.channel.platform, utils.constants.CHANNEL_PLATFORM_TEST)
+        )
+      );
 
     await tx
       .delete(db.schema.organizationLlm)

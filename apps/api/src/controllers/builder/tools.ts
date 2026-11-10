@@ -69,13 +69,7 @@ const anyObject = (description: string) => ({
 });
 
 // Accounts a project connects with one click (the Tools page's sign-ins).
-const ACCOUNT_PROVIDERS: string[] = [
-  utils.constants.OAUTH_PROVIDER_GOOGLE_GMAIL,
-  utils.constants.OAUTH_PROVIDER_GOOGLE_CALENDAR,
-  utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE,
-  utils.constants.OAUTH_PROVIDER_MICROSOFT_OUTLOOK,
-  utils.constants.OAUTH_PROVIDER_ONE_DRIVE
-];
+const ACCOUNT_PROVIDERS = Object.keys(utils.oauthProviders);
 
 export const BUILDER_TOOLS = [
   {

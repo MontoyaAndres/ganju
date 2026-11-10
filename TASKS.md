@@ -766,6 +766,10 @@ Choices agreed with the owner (2026-11-09):
 - The allowance and default cap in `PLAN_LIMITS`, and the cap setting.
 - A line on the billing page.
 - The own-key bypass.
+- Decide how "Try it as a customer" messages are charged. Today they count
+  as ordinary channel messages: they use the plan's included shared-model
+  messages and are billed as overage beyond them, with no limit (owner,
+  2026-11-10: no limit; possibly a higher price instead).
 
 **7. Retention and evals — S**
 

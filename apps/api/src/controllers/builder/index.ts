@@ -79,6 +79,14 @@ const createConversation = async (c: Context<AppEnv>) => {
   return c.json(row);
 };
 
+// Whether this project's assistant is open to the caller: 404 when the
+// organization isn't allowed, 402 on a plan without it.
+const access = async (c: Context<AppEnv>) => {
+  const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
+  await allowed(c, scope.organizationId);
+  return c.json({ open: true });
+};
+
 const listConversations = async (c: Context<AppEnv>) => {
   const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
   const database = await allowed(c, scope.organizationId);
@@ -277,6 +285,7 @@ const changeSetRoute =
   };
 
 export const BuilderController = {
+  access,
   createConversation,
   listConversations,
   getConversation,

@@ -621,6 +621,11 @@ app
     BuilderController.undoChangeSet
   )
   .get(
+    '/organization/:organizationId/project/:projectId/builder/access',
+    UserMiddleware.verify,
+    BuilderController.access
+  )
+  .get(
     '/organization/:organizationId/project/:projectId/builder/try',
     UserMiddleware.verify,
     BuilderController.tryHistory

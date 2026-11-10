@@ -26,7 +26,9 @@ const PROVIDER_NAMES: Record<string, string> = {
   [utils.constants.OAUTH_PROVIDER_GOOGLE_CALENDAR]: 'Google Calendar',
   [utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE]: 'Google Drive',
   [utils.constants.OAUTH_PROVIDER_MICROSOFT_OUTLOOK]: 'Outlook',
-  [utils.constants.OAUTH_PROVIDER_ONE_DRIVE]: 'OneDrive'
+  [utils.constants.OAUTH_PROVIDER_ONE_DRIVE]: 'OneDrive',
+  [utils.constants.OAUTH_PROVIDER_SLACK]: 'Slack',
+  [utils.constants.OAUTH_PROVIDER_SLACK_USER]: 'Slack'
 };
 
 export const providerName = (provider: string | null) =>
@@ -205,7 +207,7 @@ export const PatchCardView = ({ card }: { card: PatchCard }) => {
     link.href = url;
     link.download = 'ganju-change.patch';
     link.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (

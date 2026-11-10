@@ -75,27 +75,42 @@ const testChannel = async (
 
   const existing = channels.find(channel => channel.platform === TEST);
   if (existing) {
-    await database
-      .update(db.schema.channel)
-      .set(settings)
-      .where(eq(db.schema.channel.id, existing.id));
+    const changed =
+      existing.llmId !== settings.llmId ||
+      JSON.stringify(existing.config) !== JSON.stringify(settings.config);
+    if (changed) {
+      await database
+        .update(db.schema.channel)
+        .set(settings)
+        .where(eq(db.schema.channel.id, existing.id));
+    }
     return existing.id;
   }
-  const [created] = await database
-    .insert(db.schema.channel)
-    .values({
-      platform: TEST,
-      status: utils.constants.STATUS_ACTIVE,
-      credentials: utils.encryptString(
-        '{}',
-        utils.getCredentialEncryptionKey(c)
-      ),
-      webhookSecret: crypto.randomUUID(),
-      artifactId,
-      ...settings
-    })
-    .returning({ id: db.schema.channel.id });
-  return created.id;
+  await database.insert(db.schema.channel).values({
+    platform: TEST,
+    status: utils.constants.STATUS_ACTIVE,
+    credentials: utils.encryptString('{}', utils.getCredentialEncryptionKey(c)),
+    webhookSecret: crypto.randomUUID(),
+    artifactId,
+    ...settings
+  });
+  // Two first messages at once can each make one; both then use the oldest.
+  return (await oldestTestChannel(database, artifactId)) as string;
+};
+
+const oldestTestChannel = async (database: Database, artifactId: string) => {
+  const [row] = await database
+    .select({ id: db.schema.channel.id })
+    .from(db.schema.channel)
+    .where(
+      and(
+        eq(db.schema.channel.artifactId, artifactId),
+        eq(db.schema.channel.platform, TEST)
+      )
+    )
+    .orderBy(asc(db.schema.channel.createdAt), asc(db.schema.channel.id))
+    .limit(1);
+  return row?.id ?? null;
 };
 
 const conversationKey = (userId: string, session: string) =>
@@ -109,6 +124,8 @@ const history = async (c: Context<AppEnv>) => {
   const database = db.create(c);
   await assertBuilderAllowed(c.env, database, values.organizationId);
   const artifactId = await artifactOf(database, values);
+  const channelId = await oldestTestChannel(database, artifactId);
+  if (!channelId) return c.json({ messages: [] });
 
   const rows = await database
     .select({
@@ -125,14 +142,9 @@ const history = async (c: Context<AppEnv>) => {
         db.schema.channelMessage.conversationId
       )
     )
-    .innerJoin(
-      db.schema.channel,
-      eq(db.schema.channel.id, db.schema.channelConversation.channelId)
-    )
     .where(
       and(
-        eq(db.schema.channel.artifactId, artifactId),
-        eq(db.schema.channel.platform, TEST),
+        eq(db.schema.channelConversation.channelId, channelId),
         eq(
           db.schema.channelConversation.externalConversationId,
           conversationKey(values.userId, values.session)
