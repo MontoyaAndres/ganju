@@ -742,8 +742,9 @@ Choices agreed with the owner (2026-11-09):
   - desktop and phone widths, in English and Spanish.
 - Not checked: coming back from a real account sign-in (the link carries
   the return marker; the owner connects a test account once).
-- Production: the allowlist is empty, so it stays closed. To open it, set
-  `ANTHROPIC_API_KEY` and add organizations to `BUILDER_ORGANIZATIONS`.
+- Production (2026-11-10): deployed, `ANTHROPIC_API_KEY` set. The owner keeps
+  `BUILDER_ORGANIZATIONS` empty, so the assistant stays closed there; adding
+  an organization id opens it to that organization.
 
 **4. Data, knowledge, prompts and tools — M/L**
 
