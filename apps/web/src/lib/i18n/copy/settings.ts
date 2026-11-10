@@ -85,6 +85,15 @@ const en = {
     "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance.",
   toolCallsHint:
     'Only tools you wrote in code count here — calls to the integrations we ship, and to remote MCP servers, are included in your plan.',
+  usageBuilder: 'Assistant credits',
+  builderHint:
+    'What the project assistant and its customer test chat use. Past the included credits it stops at {cap} extra credits a month.',
+  builderOwnKeyHint:
+    "The assistant runs on your organization's Anthropic key, so it uses no credits. Change it from the Assistant tab.",
+  builderCapLabel: 'Extra credits a month',
+  builderCapHelp: 'Up to ${usd} a month. 0 stops at the included credits.',
+  builderCapSave: 'Save',
+  builderCapSaved: 'Limit saved',
   usageVoiceNotes:
     'Voice notes this period: {count} (about {minutes} min). Transcribing them is included — only the reply counts as a message.',
   usageDataTitle: 'Data',
@@ -384,6 +393,16 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Aquí solo cuentan las respuestas de tu asistente. Los mensajes que te envían son gratis y no consumen tu cupo.',
     toolCallsHint:
       'Aquí solo cuentan las funciones que escribiste en código — las llamadas a las integraciones que incluimos, y a servidores MCP remotos, van incluidas en tu plan.',
+    usageBuilder: 'Créditos del asistente',
+    builderHint:
+      'Lo que usan el asistente del proyecto y su chat de prueba. Pasados los créditos incluidos, se detiene en {cap} créditos extra al mes.',
+    builderOwnKeyHint:
+      'El asistente usa la clave de Anthropic de tu organización, así que no gasta créditos. Cámbialo desde la pestaña Asistente.',
+    builderCapLabel: 'Créditos extra al mes',
+    builderCapHelp:
+      'Hasta ${usd} al mes. Con 0 se detiene en los créditos incluidos.',
+    builderCapSave: 'Guardar',
+    builderCapSaved: 'Límite guardado',
     usageVoiceNotes:
       'Notas de voz este periodo: {count} (unos {minutes} min). Transcribirlas va incluido; solo la respuesta cuenta como mensaje.',
     usageDataTitle: 'Datos',

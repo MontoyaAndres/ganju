@@ -851,6 +851,51 @@ Choices agreed with the owner (2026-11-10):
   messages and are billed as overage beyond them, with no limit (owner,
   2026-11-10: no limit; possibly a higher price instead).
 
+**Phase 6 status (2026-11-10): built, not yet on dev.** Migration 0092
+(must run before the api deploys: the new `subscription` columns are read on
+every request that loads it).
+
+The owner chose (2026-11-10):
+- **Own key.** An org admin picks one of the organization's Anthropic
+  connections in the Assistant tab, or "Ganju credits". Nothing switches
+  automatically. A key that fails is reported, never swapped for ours.
+- **Test chat.** Charged as credits: on the shared model, its tokens at
+  Flash-Lite's list price go into the same counter and cap. It no longer
+  counts as a channel message. On the bot's own model it costs nothing.
+- **Opening.** The `BUILDER_ORGANIZATIONS` allowlist is removed, so every Pro
+  and Enterprise org gets the assistant as soon as this is deployed.
+
+How it works:
+- **Counting.** Every model call adds its list-price cost to
+  `subscription.builder_cost_micros`, or to `builder_own_key_cost_micros` on
+  the org's own key. Both roll with the billing period into `usage_period`.
+  The tab's total reads this counter, so it matches the bill.
+- **Limit.** Each plan includes 1,000 credits (`includedBuilderCredits`).
+  `builder_credit_cap` defaults to 2,000 extra and goes from 0 to 100,000. An
+  org admin sets it on Billing & plan.
+- **When credits run out.** Checked before every model call on our key. Once
+  they're used up, the turn stops with "credits used up" (402 before a turn
+  starts). A turn can go a little past the cap (its last call, or turns in
+  two projects at once).
+- **Meter.** `ganju_builder_credits` reports every whole credit used past the
+  included ones, at $2 per 100 (`unit_amount` 2, ×100), overrun included
+  (owner, 2026-11-10: bill what was used; the cap only stops new turns, so
+  lowering it can't erase usage). Enterprise works the same way, invoiced
+  from `usage_period`.
+- **The owner sees** "X of 1,000 credits used this month", any extra against
+  the cap, the key picker (admins), and an "Assistant credits" row on the
+  billing page. The prompt now gives an estimate before something new.
+- **Website.** Pricing pages and markdown in en and es.
+
+Still to do:
+- Run migration 0092 on dev.
+- Create the meter and price in Polar sandbox, using the owner's dashboard
+  session.
+- Deploy to dev and check by hand: credits counted, the cap stops a turn,
+  the own key used and refused, the test chat counted, the billing row and
+  cap setting, the hourly meter report.
+- Then production: migration, Polar meter, deploy.
+
 **7. Retention and evals — S**
 
 - The 30-day stripping job and the 90-day delete job, keeping change-set

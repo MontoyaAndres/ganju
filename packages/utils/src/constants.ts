@@ -681,6 +681,9 @@ const DEFAULT_LLM_PROVIDER = LLM_PROVIDER_GOOGLE;
 // as a pricing change, not a config tweak — the plan rates have to be redone
 // alongside it.
 const DEFAULT_LLM_MODEL = 'gemini-3.1-flash-lite';
+// Its list price per million tokens, which bills the owner's test chat as
+// assistant credits. Change it with the model.
+const SHARED_MODEL_PRICE = { input: 0.25, output: 1.5 };
 const DEFAULT_LLM_SYSTEM_PROMPT =
   'You are a helpful assistant. Answer the user using the tools and resources provided to you whenever they are relevant, and prefer that information over your prior knowledge. Cite the resources you used when applicable. Be concise and accurate. If you cannot find a clear answer in the available context, say so honestly instead of guessing.';
 
@@ -2181,6 +2184,15 @@ const PRICING_TOOL_CALL_PER_M_USD = 5;
 // million calls a month, so a fixed ceiling there would fight a real customer.
 const PRICING_TOOL_CALL_HARD_CAP = 20_000_000;
 const PRICING_CUSTOM_DOMAIN_USD = 15;
+// The project assistant bills credits: one is $0.01 of model cost at list
+// price. Beyond the included ones it sells at 2x cost, which pays for the
+// failed turns and planning questions that don't produce a change.
+const PRICING_BUILDER_INCLUDED_CREDITS = 1_000;
+const PRICING_BUILDER_PER_100_CREDITS_USD = 2;
+// Extra credits an organization may use in a period unless it sets its own.
+const BUILDER_DEFAULT_CREDIT_CAP = 2_000;
+const BUILDER_MAX_CREDIT_CAP = 100_000;
+const BUILDER_MICROS_PER_CREDIT = 10_000;
 
 // Project data (one SQLite Durable Object per artifact). Cloudflare caps a
 // database at 10 GB; we stop writes that add data at 9 GB so there is room to
@@ -2321,6 +2333,7 @@ interface PlanLimits {
   // Whether the project's assistant (the builder) is available. Paid-only, the
   // same as Data.
   canUseBuilder: boolean;
+  includedBuilderCredits: number;
   // Writes that add data stop here, under Cloudflare's 10 GB per database, so
   // the owner meets a readable "database full" rather than SQLITE_FULL.
   maxDataBytes: number | null;
@@ -2373,6 +2386,7 @@ const PLAN_LIMITS: Record<
     autoSyncIntervals: [],
     canUseData: false,
     canUseBuilder: false,
+    includedBuilderCredits: 0,
     maxDataBytes: null,
     maxDataTablesPerDatabase: null,
     triggerRunHardCap: 0,
@@ -2406,6 +2420,7 @@ const PLAN_LIMITS: Record<
     ],
     canUseData: true,
     canUseBuilder: true,
+    includedBuilderCredits: PRICING_BUILDER_INCLUDED_CREDITS,
     maxDataBytes: DATA_MAX_DATABASE_BYTES,
     maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
     triggerRunHardCap: DATA_TRIGGER_RUN_HARD_CAP,
@@ -2439,6 +2454,7 @@ const PLAN_LIMITS: Record<
     ],
     canUseData: true,
     canUseBuilder: true,
+    includedBuilderCredits: PRICING_BUILDER_INCLUDED_CREDITS,
     maxDataBytes: DATA_MAX_DATABASE_BYTES,
     maxDataTablesPerDatabase: DATA_MAX_TABLES_PER_DATABASE,
     triggerRunHardCap: null,
@@ -2464,6 +2480,7 @@ const PLAN_FEATURE_TOOL_CALL = 'toolCall' as 'toolCall';
 const PLAN_FEATURE_RESOURCE_SYNC = 'resourceSync' as 'resourceSync';
 const PLAN_FEATURE_DATA = 'data' as 'data';
 const PLAN_FEATURE_BUILDER = 'builder' as 'builder';
+const PLAN_FEATURE_BUILDER_CREDITS = 'builderCredits' as 'builderCredits';
 
 // Stable code returned on a quota block so clients can branch on it (402).
 const PLAN_LIMIT_ERROR_CODE = 'PLAN_LIMIT_EXCEEDED';
@@ -2497,6 +2514,8 @@ const BILLING_METER_DATA_STORAGE = 'ganju_data_storage';
 const BILLING_METER_DATA_ROWS_WRITTEN = 'ganju_data_rows_written';
 const BILLING_METER_DATA_ROWS_READ = 'ganju_data_rows_read';
 const BILLING_METER_DATA_TRIGGER_RUNS = 'ganju_data_trigger_runs';
+// Assistant credits used past the included ones.
+const BILLING_METER_BUILDER_CREDITS = 'ganju_builder_credits';
 
 // The metadata property every meter aggregates (`sum` over it). Ingested events
 // carry the increment under this key, so it has to agree with the aggregation
@@ -2641,6 +2660,12 @@ export const constants = {
   PRICING_TOOL_CALL_PER_M_USD,
   PRICING_TOOL_CALL_HARD_CAP,
   PRICING_CUSTOM_DOMAIN_USD,
+  PRICING_BUILDER_INCLUDED_CREDITS,
+  PRICING_BUILDER_PER_100_CREDITS_USD,
+  BUILDER_DEFAULT_CREDIT_CAP,
+  BUILDER_MAX_CREDIT_CAP,
+  BUILDER_MICROS_PER_CREDIT,
+  SHARED_MODEL_PRICE,
   DATA_MAX_DATABASE_BYTES,
   DATA_MAX_TABLES_PER_DATABASE,
   DATA_TRIGGER_RUN_HARD_CAP,
@@ -2688,6 +2713,7 @@ export const constants = {
   PLAN_FEATURE_RESOURCE_SYNC,
   PLAN_FEATURE_DATA,
   PLAN_FEATURE_BUILDER,
+  PLAN_FEATURE_BUILDER_CREDITS,
   PLAN_LIMIT_ERROR_CODE,
   BILLING_METER_MESSAGES,
   BILLING_METER_SHARED_MESSAGES,
@@ -2697,6 +2723,7 @@ export const constants = {
   BILLING_METER_DATA_ROWS_WRITTEN,
   BILLING_METER_DATA_ROWS_READ,
   BILLING_METER_DATA_TRIGGER_RUNS,
+  BILLING_METER_BUILDER_CREDITS,
   BILLING_METER_UNITS_KEY,
   POLAR_API_BASE,
   POLAR_SANDBOX_API_BASE,

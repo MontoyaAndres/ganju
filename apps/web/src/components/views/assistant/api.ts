@@ -12,7 +12,7 @@ export interface ApiResult<T> {
 /** One call to the API. Never throws: a refusal comes back as `ok: false`. */
 export const request = async <T>(
   path: string,
-  options: { method?: 'GET' | 'POST'; body?: unknown } = {}
+  options: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown } = {}
 ): Promise<ApiResult<T>> => {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {

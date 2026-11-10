@@ -31,6 +31,10 @@ const faqs = [
     a: 'Pro and Enterprise include Data: each project gets its own database, up to 9 GB and 50 tables, that your assistant, your functions, the CLI and the API all use, with restore to any moment in the last 30 days. Storage, rows read and written, and trigger runs are measured and shown on your billing page, but not billed yet. On Free, an existing database stays readable but not editable.'
   },
   {
+    q: 'How is the project assistant charged?',
+    a: 'In credits. One credit is one cent of AI cost, and building a new action usually takes 25 to 50. Pro includes 1,000 credits a month; past that it is $2 per 100, and it stops at a monthly limit you set (2,000 extra credits unless you change it). Try-it-as-a-customer chats on our AI model use credits too. On your own Anthropic key, the assistant uses no credits.'
+  },
+  {
     q: 'Can I use my own AI model?',
     a: 'Yes. On Pro you can bring your own key for Anthropic Claude, OpenAI, or Google Gemini and run messages on your own model instead of ours.'
   },
@@ -89,6 +93,7 @@ const jsonLd = [
             <li>Past that: $2 / 1k messages on your own AI key, $15 / 1k on ours · $2 / GB</li>
             <li>MCP tool calls bundled (Claude, Cursor, ChatGPT) · 1M calls/mo to tools you write, then $5/M</li>
             <li>A database per project (Data): up to 9&nbsp;GB, restore to any moment in the last 30 days · usage measured, not billed yet</li>
+            <li>A project assistant that builds your bot with you: 1,000 credits/mo included, then $2 per 100 up to a limit you set, or free on your own Anthropic key</li>
             <li>Custom domain add-on · build your own tools</li>
             <li>24/7 support</li>
           </ul>

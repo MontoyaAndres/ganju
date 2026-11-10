@@ -12,7 +12,15 @@ const en = {
   pastChats: 'Past chats',
   noChats: 'No chats yet',
   untitled: 'New chat',
-  monthCredits: '{credits} credits this month',
+  creditsUsed: '{used} of {included} credits used this month',
+  creditsExtra: '{extra} extra credits, of {cap} allowed',
+  creditsUsedUp:
+    "This month's credits are used up. An admin can raise the limit in Settings → Billing & plan.",
+  creditsOwnKey: 'Runs on your Anthropic key ({name}), no credits used',
+  creditsPayWith: 'Pay with',
+  creditsGanju: 'Ganju credits',
+  errorOwnKey:
+    "Your Anthropic key couldn't be used: it was refused, hit its rate limit, or has no access to the model. An admin can fix it in Settings → Models, or switch back to Ganju credits.",
   chatCredits: '{credits} credits in this chat',
   replyCredits: '{credits} credits',
 
@@ -151,7 +159,15 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     pastChats: 'Chats anteriores',
     noChats: 'Aún no hay chats',
     untitled: 'Nuevo chat',
-    monthCredits: '{credits} créditos este mes',
+    creditsUsed: '{used} de {included} créditos usados este mes',
+    creditsExtra: '{extra} créditos extra, de {cap} permitidos',
+    creditsUsedUp:
+      'Se acabaron los créditos de este mes. Un administrador puede subir el límite en Ajustes → Plan y facturación.',
+    creditsOwnKey: 'Usa tu clave de Anthropic ({name}), sin gastar créditos',
+    creditsPayWith: 'Pagar con',
+    creditsGanju: 'Créditos de Ganju',
+    errorOwnKey:
+      'No se pudo usar tu clave de Anthropic: fue rechazada, llegó a su límite de uso o no tiene acceso al modelo. Un administrador puede arreglarla en Ajustes → Modelos, o volver a los créditos de Ganju.',
     chatCredits: '{credits} créditos en este chat',
     replyCredits: '{credits} créditos',
 

@@ -76,13 +76,18 @@ export interface StepResult {
  */
 export const step = async (input: {
   apiKey: string;
+  baseUrl?: string | null;
   system: string;
   tools: unknown[];
   messages: BuilderMessageParam[];
   effort: 'high' | 'medium';
   onText?: (delta: string) => void;
 }): Promise<StepResult> => {
-  const client = new Anthropic({ apiKey: input.apiKey, maxRetries: 4 });
+  const client = new Anthropic({
+    apiKey: input.apiKey,
+    ...(input.baseUrl ? { baseURL: input.baseUrl } : {}),
+    maxRetries: 4
+  });
   const params = {
     model: BUILDER_MODEL,
     max_tokens: 64000,

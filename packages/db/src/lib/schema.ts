@@ -549,6 +549,27 @@ export const subscription = pgTable(
     dataTriggerRunCount: bigint('data_trigger_run_count', { mode: 'number' })
       .notNull()
       .default(0),
+    // The assistant's model cost this period at list price, in millionths of
+    // a dollar: on our key (billed as credits) and on the organization's own
+    // key (tracked only).
+    builderCostMicros: bigint('builder_cost_micros', { mode: 'number' })
+      .notNull()
+      .default(0),
+    builderOwnKeyCostMicros: bigint('builder_own_key_cost_micros', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
+    reportedBuilderCredits: integer('reported_builder_credits')
+      .notNull()
+      .default(0),
+    // Extra credits allowed past the included ones; null is the default cap.
+    builderCreditCap: integer('builder_credit_cap'),
+    // The organization's Anthropic connection the assistant runs on instead
+    // of credits.
+    builderLlmId: text('builder_llm_id').references(() => organizationLlm.id, {
+      onDelete: 'set null'
+    }),
     // When the effective plan last changed. What tells a Pro org that
     // downgraded and stayed on Free from one that just arrived there.
     planChangedAt: timestamp('plan_changed_at', { mode: 'date' }),
@@ -608,6 +629,14 @@ export const usagePeriod = pgTable(
     dataTriggerRunCount: bigint('data_trigger_run_count', { mode: 'number' })
       .notNull()
       .default(0),
+    builderCostMicros: bigint('builder_cost_micros', { mode: 'number' })
+      .notNull()
+      .default(0),
+    builderOwnKeyCostMicros: bigint('builder_own_key_cost_micros', {
+      mode: 'number'
+    })
+      .notNull()
+      .default(0),
     // What was actually reported to the billing provider for this period. Zero
     // for an org billed outside it, which is how a hand-invoiced period is told
     // apart from one that was charged automatically.
@@ -645,6 +674,9 @@ export const usagePeriod = pgTable(
     reportedDataTriggerRuns: bigint('reported_data_trigger_runs', {
       mode: 'number'
     })
+      .notNull()
+      .default(0),
+    reportedBuilderCredits: integer('reported_builder_credits')
       .notNull()
       .default(0),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow()
@@ -1423,6 +1455,8 @@ export const builderMessage = pgTable(
     cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
     // Model cost at list price in millionths of a dollar; a credit is 10,000.
     costMicros: bigint('cost_micros', { mode: 'number' }).notNull().default(0),
+    // Ran on the organization's own Anthropic key, so it used no credits.
+    ownKey: boolean('own_key').notNull().default(false),
     // What the owner was shown with this step: change sets, patches, and
     // account, secret and file requests.
     cards: json('cards'),

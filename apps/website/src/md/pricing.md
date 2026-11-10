@@ -25,6 +25,7 @@ only for what you use beyond it.
 - MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
 - Includes 1,000,000 calls/mo to tools you write in code, then $5 per million
 - A database per project (Data): up to 9 GB and 50 tables, restore to any moment in the last 30 days · usage measured, not billed yet
+- A project assistant that builds your bot with you: 1,000 credits/mo included, then $2 per 100 credits up to a monthly limit you set (2,000 extra by default), or no credits at all on your own Anthropic key
 - Custom domain add-on ($15/mo) · build your own custom tools
 - 24/7 support
 
@@ -38,6 +39,10 @@ Data (the project database) is measured too: storage, rows read and written,
 and trigger runs, all shown on the billing page. It isn't billed yet; a price
 will be set once there are real usage numbers. On Free, an existing database
 stays readable but not editable.
+
+The project assistant is billed in credits: one credit is $0.01 of AI cost, and
+building a new action usually takes 25 to 50. Its try-it-as-a-customer chats on
+our AI model use credits too, and nothing else does.
 
 ## Enterprise — Custom
 

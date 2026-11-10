@@ -286,6 +286,11 @@ app
     UserMiddleware.verify,
     BillingController.createPortal
   )
+  .put(
+    '/organization/:organizationId/builder/settings',
+    UserMiddleware.verify,
+    BuilderController.updateSettings
+  )
 
   // Organization invitation controller
   .get(

@@ -122,7 +122,9 @@ export const TryIt = ({
           text:
             result.status === 502
               ? t('tryBotFailed')
-              : result.error || t('tryError')
+              : result.status === 402
+                ? t('creditsUsedUp')
+                : result.error || t('tryError')
         }
       ]);
       return;

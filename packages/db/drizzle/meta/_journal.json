@@ -645,6 +645,13 @@
       "when": 1794258760714,
       "tag": "0091_builder_conversations",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1794336187806,
+      "tag": "0092_builder_credits",
+      "breakpoints": true
     }
   ]
 }
