@@ -59,7 +59,8 @@ const getStatus = async (c: Context<AppEnv>) => {
       embeddedPerGbUsd: constants.PRICING_EMBEDDED_PER_GB_USD,
       includedToolCalls: constants.PRICING_INCLUDED_TOOL_CALLS,
       toolCallPerMillionUsd: constants.PRICING_TOOL_CALL_PER_M_USD,
-      customDomainUsd: constants.PRICING_CUSTOM_DOMAIN_USD
+      customDomainUsd: constants.PRICING_CUSTOM_DOMAIN_USD,
+      builderPer100CreditsUsd: constants.PRICING_BUILDER_PER_100_CREDITS_USD
     }
   });
 };

@@ -213,6 +213,9 @@ Sandbox (`sandbox.polar.sh`) and production are **separate accounts** — a sand
    | Shared messages | `ganju_shared_messages` | `1.5` | `messages`, ×1,000 | $15.00 / 1,000 messages |
    | Embedded storage | `ganju_embedded_storage` | `0.1953125` | `MB`, ×1,024 | $2.00 / 1,024 MB |
    | Custom-tool calls | `ganju_custom_tool_calls` | `0.0005` | `calls`, ×1,000,000 | $5.00 / 1,000,000 calls |
+   | Assistant credits | `ganju_builder_credits` | `2` | `credits`, ×100 | $2.00 / 100 credits |
+
+   The assistant meter reports every credit used past the 1,000 included. The organization's own cap is enforced in the app, by stopping new turns, so leave the price without a Polar cap too. Without this meter the assistant still runs and counts, but its overage is silently unbilled.
 
    **Leave `included_units` and `cap_amount` unset** on every metered price. The allowance is subtracted in `meterOrganization` already; an included tier would apply it twice and under-bill every paid org. Label storage `MB`, not `GB` — the label names the raw unit, and `GB` renders "$2.00 / 1,024 GB".
 4. **Enterprise product** — Private, the same four metered prices, **no fixed price** (Polar rejects $0, and the negotiated fee is invoiced outside Polar). It only exists for an enterprise client who pays by card; see below.

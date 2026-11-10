@@ -4,7 +4,7 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import type { Database } from '@ganju/db';
 
-import { assertBuilderAllowed } from './access';
+import { assertBuilderAllowed, creditsUsedUp } from './access';
 import {
   ConfirmationError,
   UndoStoppedError,
@@ -15,6 +15,7 @@ import {
 import { creditsOf } from './llm';
 import { BuilderTryController } from './tryIt';
 import { RateLimitMiddleware } from '../../middleware/rateLimit';
+import { Plan } from '../../utils';
 
 import type { AppEnv } from '../../types';
 
@@ -33,8 +34,25 @@ const scopeOf = (c: Context<AppEnv>) => ({
   organizationId: c.req.param('organizationId')
 });
 
+// The middleware checks the caller administers the project, not that the
+// project is in the organization the URL names: that organization's plan,
+// credits and key are what the assistant uses.
 const allowed = async (c: Context<AppEnv>, organizationId: string) => {
   const database = db.create(c);
+  const projectId = c.req.param('projectId');
+  if (projectId) {
+    const [project] = await database
+      .select({ id: db.schema.project.id })
+      .from(db.schema.project)
+      .where(
+        and(
+          eq(db.schema.project.id, projectId),
+          eq(db.schema.project.organizationId, organizationId)
+        )
+      )
+      .limit(1);
+    if (!project) throw new Error('Project not found');
+  }
   await assertBuilderAllowed(c.env, database, organizationId);
   return database;
 };
@@ -67,6 +85,12 @@ const stubFor = (c: Context<AppEnv>, conversationId: string) =>
 const createConversation = async (c: Context<AppEnv>) => {
   const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
   const database = await allowed(c, scope.organizationId);
+  // A chat whose first message would be refused is left empty in the list.
+  const credits = await Plan.checkBuilderCredits(
+    database,
+    scope.organizationId
+  );
+  if (!credits.llmId && !credits.allowed) throw creditsUsedUp(credits);
   const [artifact] = await database
     .select({ id: db.schema.artifact.id })
     .from(db.schema.artifact)
@@ -112,29 +136,48 @@ const listConversations = async (c: Context<AppEnv>) => {
     )
     .orderBy(desc(db.schema.builderConversation.lastMessageAt))
     .limit(50);
-  // The organization's spend since the start of this month (UTC), across its
-  // projects.
-  const [month] = await database
-    .select({
-      costMicros: sql<number>`coalesce(sum(${db.schema.builderMessage.costMicros}), 0)::bigint`
-    })
-    .from(db.schema.builderMessage)
-    .innerJoin(
-      db.schema.builderConversation,
-      eq(
-        db.schema.builderConversation.id,
-        db.schema.builderMessage.conversationId
+  const [credits, anthropic, [admin]] = await Promise.all([
+    Plan.checkBuilderCredits(database, scope.organizationId),
+    database
+      .select({
+        id: db.schema.organizationLlm.id,
+        name: db.schema.organizationLlm.name
+      })
+      .from(db.schema.organizationLlm)
+      .where(
+        and(
+          eq(db.schema.organizationLlm.organizationId, scope.organizationId),
+          eq(
+            db.schema.organizationLlm.provider,
+            utils.constants.LLM_PROVIDER_ANTHROPIC
+          )
+        )
       )
-    )
-    .where(
-      and(
-        eq(db.schema.builderConversation.organizationId, scope.organizationId),
-        sql`${db.schema.builderMessage.createdAt} >= date_trunc('month', now() at time zone 'utc')`
+      .orderBy(asc(db.schema.organizationLlm.createdAt)),
+    database
+      .select({ role: db.schema.organizationUser.role })
+      .from(db.schema.organizationUser)
+      .where(
+        and(
+          eq(db.schema.organizationUser.organizationId, scope.organizationId),
+          eq(db.schema.organizationUser.userId, scope.userId),
+          eq(db.schema.organizationUser.role, utils.constants.USER_ROLE_ADMIN)
+        )
       )
-    );
+      .limit(1)
+  ]);
+  const llmId = anthropic.some(row => row.id === credits.llmId)
+    ? credits.llmId
+    : null;
   return c.json({
     conversations: rows,
-    monthCredits: creditsOf(Number(month?.costMicros ?? 0))
+    credits: {
+      used: Math.round(credits.used * 10) / 10,
+      included: credits.included,
+      cap: credits.cap,
+      allowed: credits.allowed
+    },
+    key: { llmId, options: anthropic, canManage: !!admin }
   });
 };
 
@@ -163,10 +206,12 @@ const getConversation = async (c: Context<AppEnv>) => {
   ]);
   return c.json({
     conversation,
-    credits: creditsOf(messages.reduce((sum, m) => sum + m.costMicros, 0)),
+    credits: creditsOf(
+      messages.reduce((sum, m) => sum + (m.ownKey ? 0 : m.costMicros), 0)
+    ),
     messages: messages.map(({ costMicros, ...message }) => ({
       ...message,
-      credits: creditsOf(costMicros)
+      credits: message.ownKey ? 0 : creditsOf(costMicros)
     })),
     changeSets
   });
@@ -195,6 +240,12 @@ const sendMessage = async (c: Context<AppEnv>) => {
   ) {
     return RateLimitMiddleware.rateLimited(c);
   }
+
+  const credits = await Plan.checkBuilderCredits(
+    database,
+    values.organizationId
+  );
+  if (!credits.llmId && !credits.allowed) throw creditsUsedUp(credits);
 
   const conversation = await loadConversation(
     database,
@@ -306,7 +357,56 @@ const changeSetRoute =
     }
   };
 
+/**
+ * The organization's assistant billing: an Anthropic connection to run on
+ * instead of credits, and the extra credits a period may use.
+ */
+const updateSettings = async (c: Context<AppEnv>) => {
+  const body = await c.req.json().catch(() => ({}));
+  const values = await utils.Schema.BUILDER_SETTINGS.parseAsync({
+    organizationId: c.req.param('organizationId'),
+    llmId: body?.llmId,
+    creditCap: body?.creditCap
+  });
+  const database = await allowed(c, values.organizationId);
+  if (values.llmId) {
+    const [row] = await database
+      .select({ id: db.schema.organizationLlm.id })
+      .from(db.schema.organizationLlm)
+      .where(
+        and(
+          eq(db.schema.organizationLlm.id, values.llmId),
+          eq(db.schema.organizationLlm.organizationId, values.organizationId),
+          eq(
+            db.schema.organizationLlm.provider,
+            utils.constants.LLM_PROVIDER_ANTHROPIC
+          )
+        )
+      )
+      .limit(1);
+    if (!row) {
+      throw new Error('Anthropic model not found in this organization');
+    }
+  }
+  await Plan.ensureSubscription(database, values.organizationId);
+  await database
+    .update(db.schema.subscription)
+    .set({
+      ...(values.llmId !== undefined ? { builderLlmId: values.llmId } : {}),
+      ...(values.creditCap !== undefined
+        ? { builderCreditCap: values.creditCap }
+        : {})
+    })
+    .where(eq(db.schema.subscription.organizationId, values.organizationId));
+  const credits = await Plan.checkBuilderCredits(
+    database,
+    values.organizationId
+  );
+  return c.json({ llmId: credits.llmId, creditCap: credits.cap });
+};
+
 export const BuilderController = {
+  updateSettings,
   access,
   createConversation,
   listConversations,

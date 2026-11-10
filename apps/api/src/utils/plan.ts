@@ -453,6 +453,67 @@ export const incrementMessageUsage = async (
     .where(eq(db.schema.subscription.organizationId, organizationId));
 };
 
+export type BuilderCredits = {
+  plan: string;
+  // Credits on our key this period, and what the plan includes.
+  used: number;
+  included: number;
+  // Extra credits the organization allows past the included ones.
+  cap: number;
+  allowed: boolean;
+  llmId: string | null;
+};
+
+const creditsOfMicros = (micros: number) =>
+  micros / constants.BUILDER_MICROS_PER_CREDIT;
+
+/**
+ * Where the organization stands on assistant credits this period. Turns on
+ * its own key are always allowed; ours stop once the included credits and the
+ * cap are used.
+ */
+export const checkBuilderCredits = async (
+  executor: DbExecutor,
+  organizationId: string,
+  now: Date = new Date()
+): Promise<BuilderCredits> => {
+  const sub = await loadOrCreateSubscription(executor, organizationId);
+  const { builderCostMicros } = await rollUsagePeriodIfDue(executor, sub, now);
+  const plan = planFromSubscription(sub);
+  const included = limitsFor(plan).includedBuilderCredits;
+  const cap = sub.builderCreditCap ?? constants.BUILDER_DEFAULT_CREDIT_CAP;
+  const used = creditsOfMicros(builderCostMicros);
+  return {
+    plan,
+    used,
+    included,
+    cap,
+    allowed: used < included + cap,
+    llmId: sub.builderLlmId
+  };
+};
+
+// Add one model call's cost to the period. Best-effort, like the other
+// counters: a failure here never breaks the assistant's answer.
+export const incrementBuilderUsage = async (
+  executor: DbExecutor,
+  organizationId: string,
+  costMicros: number,
+  ownKey: boolean
+): Promise<void> => {
+  if (costMicros <= 0) return;
+  const column = ownKey
+    ? db.schema.subscription.builderOwnKeyCostMicros
+    : db.schema.subscription.builderCostMicros;
+  await executor
+    .update(db.schema.subscription)
+    .set({
+      [ownKey ? 'builderOwnKeyCostMicros' : 'builderCostMicros']:
+        sql`(${column}::bigint + ${Math.round(costMicros)})::bigint`
+    })
+    .where(eq(db.schema.subscription.organizationId, organizationId));
+};
+
 /**
  * Count the voice notes a turn transcribed (a model was called for them),
  * their seconds of audio where known, and those on our key. Tracking only:
@@ -535,6 +596,7 @@ export type OrganizationUsage = {
   includedToolCalls: number;
   // Voice notes transcribed this period: tracked, not billed.
   voiceNotes: { count: number; seconds: number; onPlatformKey: number };
+  builder: BuilderCredits;
   // Project databases this period: tracked, not billed yet. Storage is their
   // size as last read; trigger runs count every run of every kind.
   data: {
@@ -597,6 +659,8 @@ export const getOrganizationUsage = async (
         )
       )
   ]);
+  // After the checks above, which roll the period if it is due.
+  const builder = await checkBuilderCredits(executor, organizationId);
 
   return {
     projectCount: Number(projectCount) || 0,
@@ -613,6 +677,7 @@ export const getOrganizationUsage = async (
       seconds: voice?.seconds ?? 0,
       onPlatformKey: voice?.onPlatformKey ?? 0
     },
+    builder,
     data: {
       storageBytes: Number(dataStorage?.bytes ?? 0),
       rowsRead: Number(voice?.dataRowsRead ?? 0),
@@ -645,6 +710,8 @@ export const Plan = {
   checkMessageCap,
   incrementMessageUsage,
   incrementVoiceNoteUsage,
+  checkBuilderCredits,
+  incrementBuilderUsage,
   checkToolCallBudget,
   assertToolCallBudget,
   incrementToolCallUsage,

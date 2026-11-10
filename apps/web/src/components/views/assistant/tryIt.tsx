@@ -9,7 +9,7 @@ import {
   SmartToyOutlined
 } from '@mui/icons-material';
 
-import { request } from './api';
+import { CREDITS_LIMIT, request } from './api';
 import { i18n } from '../../../lib';
 
 import type { TryMessage, TryReply } from './types';
@@ -122,7 +122,9 @@ export const TryIt = ({
           text:
             result.status === 502
               ? t('tryBotFailed')
-              : result.error || t('tryError')
+              : result.feature === CREDITS_LIMIT
+                ? t('creditsUsedUp')
+                : result.error || t('tryError')
         }
       ]);
       return;

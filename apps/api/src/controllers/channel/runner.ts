@@ -175,6 +175,9 @@ interface RunOptions {
   // How this platform fetches a voice note's audio. Without it voice notes
   // are recorded but not transcribed.
   downloadVoiceNote?: VoiceNoteDownload;
+  // False for the owner's test chat, which is billed as assistant credits
+  // from the tokens it used rather than as a channel message.
+  countAsMessage?: boolean;
 }
 
 interface RunResult {
@@ -196,6 +199,7 @@ interface RunResult {
   // been told. Answering every message of someone flooding the bot would
   // cost what the limit is there to save.
   silent?: boolean;
+  usage?: { tokensIn: number; tokensOut: number; onSharedKey: boolean };
 }
 
 interface BotTokenApi {
@@ -1571,11 +1575,13 @@ const runTurn = async (
   // so it must not ride on waitUntil, which can silently drop work if the isolate
   // is evicted (dropping it lets Free bots overrun and under-reports revenue).
   // Best-effort still: a metering failure must never break delivery.
-  await Plan.incrementMessageUsage(
-    dbInstance,
-    projectRow.organizationId,
-    onSharedKey
-  ).catch(() => undefined);
+  if (options.countAsMessage !== false) {
+    await Plan.incrementMessageUsage(
+      dbInstance,
+      projectRow.organizationId,
+      onSharedKey
+    ).catch(() => undefined);
+  }
 
   // Everything below is pure analytics — the usage/audit rows and the
   // denormalized display counters. The reply doesn't depend on any of it, so
@@ -1675,7 +1681,8 @@ const runTurn = async (
     sources,
     sourcesFooter,
     sourceButtons,
-    confirmation: heldCalls.length > 0 ? 'asked' : answered ? 'answered' : null
+    confirmation: heldCalls.length > 0 ? 'asked' : answered ? 'answered' : null,
+    usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, onSharedKey }
   };
 };
 

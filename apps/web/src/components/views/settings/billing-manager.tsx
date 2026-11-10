@@ -40,6 +40,13 @@ interface BillingStatus {
     toolCallsUsed: number;
     includedToolCalls: number;
     voiceNotes?: { count: number; seconds: number; onPlatformKey: number };
+    builder?: {
+      used: number;
+      included: number;
+      cap: number;
+      allowed: boolean;
+      llmId: string | null;
+    };
     data?: {
       storageBytes?: number;
       rowsRead: number;
@@ -67,6 +74,7 @@ interface BillingStatus {
     includedToolCalls: number;
     toolCallPerMillionUsd: number;
     customDomainUsd: number;
+    builderPer100CreditsUsd: number;
   };
 }
 
@@ -154,6 +162,87 @@ const UsageRow = (props: {
       {hint && (
         <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>{hint}</div>
       )}
+    </div>
+  );
+};
+
+// The extra assistant credits a period may use, past the included ones.
+const BuilderCapField = (props: {
+  organizationId: string;
+  cap: number;
+  per100Usd: number;
+  onSaved: () => void;
+}) => {
+  const { organizationId, cap, per100Usd, onSaved } = props;
+  const t = i18n.useT(i18n.copy.SETTINGS);
+  const snackbar = UI.Alert.useSnackbar();
+  const [value, setValue] = useState(String(cap));
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setValue(String(cap)), [cap]);
+
+  const parsed = Number(value);
+  const valid =
+    value.trim() !== '' &&
+    Number.isInteger(parsed) &&
+    parsed >= 0 &&
+    parsed <= utils.constants.BUILDER_MAX_CREDIT_CAP;
+
+  const save = async () => {
+    if (!valid || saving) return;
+    setSaving(true);
+    try {
+      const data = await utils.fetcher({
+        url: `/organization/${organizationId}/builder/settings`,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ creditCap: parsed })
+        }
+      });
+      if (utils.isApiError(data)) {
+        snackbar.error(utils.getApiErrorMessage(data, t('toastBillingFailed')));
+        return;
+      }
+      snackbar.success(t('builderCapSaved'));
+      onSaved();
+    } catch {
+      snackbar.error(t('toastBillingFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 8,
+        alignItems: 'flex-start',
+        marginBottom: 14
+      }}
+    >
+      <UI.Input
+        label={t('builderCapLabel')}
+        name="builderCreditCap"
+        type="number"
+        size="small"
+        value={value}
+        error={!valid}
+        helperText={t('builderCapHelp', {
+          usd: t.n((valid ? parsed : cap) * (per100Usd / 100))
+        })}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setValue(e.target.value)
+        }
+      />
+      <UI.Button
+        variant="outlined"
+        size="small"
+        disabled={!valid || saving || parsed === cap}
+        onClick={save}
+      >
+        {t('builderCapSave')}
+      </UI.Button>
     </div>
   );
 };
@@ -407,6 +496,32 @@ export const BillingManager = (props: BillingManagerProps) => {
             overageRate={`$${status.pricing.toolCallPerMillionUsd}/M`}
             hint={t('toolCallsHint')}
           />
+        )}
+        {!isFree && status.usage.builder && (
+          <>
+            <UsageRow
+              theme={theme}
+              unlimitedText={t('usageUnlimited')}
+              includedText={t('usageIncluded')}
+              overText={(amount, rate) => t('usageOverage', { amount, rate })}
+              label={t('usageBuilder')}
+              used={Math.floor(status.usage.builder.used)}
+              limit={status.usage.builder.included}
+              render={t.n}
+              overageRate={`$${status.pricing.builderPer100CreditsUsd}/100`}
+              hint={
+                status.usage.builder.llmId
+                  ? t('builderOwnKeyHint')
+                  : t('builderHint', { cap: t.n(status.usage.builder.cap) })
+              }
+            />
+            <BuilderCapField
+              organizationId={organizationId}
+              cap={status.usage.builder.cap}
+              per100Usd={status.pricing.builderPer100CreditsUsd}
+              onSaved={() => fetchStatus()}
+            />
+          </>
         )}
         <UsageRow
           theme={theme}

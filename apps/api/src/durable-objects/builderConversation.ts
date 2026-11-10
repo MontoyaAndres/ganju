@@ -1,12 +1,17 @@
 import { DurableObject } from 'cloudflare:workers';
+import Anthropic from '@anthropic-ai/sdk';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import type { Database } from '@ganju/db';
 
 import { BUILDER_SYSTEM_PROMPT } from '../controllers/builder/prompt';
-import { builderApiKey } from '../controllers/builder/access';
+import {
+  creditsUsedUp,
+  resolveBuilderKey
+} from '../controllers/builder/access';
 import { creditsOf, step } from '../controllers/builder/llm';
+import { Plan } from '../utils';
 import { BUILDER_TOOLS, runBuilderTool } from '../controllers/builder/tools';
 
 import type {
@@ -182,7 +187,7 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
     database: Database,
     turn: BuilderTurn,
     message: BuilderMessageParam,
-    extra: { usage?: StepUsage; cards?: BuilderCard[] } = {}
+    extra: { usage?: StepUsage; ownKey?: boolean; cards?: BuilderCard[] } = {}
   ) {
     // The next seq is taken in the insert itself, so two writers can't share
     // one; the unique index refuses the loser.
@@ -193,18 +198,24 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
       role: message.role,
       content: message.content,
       ...(extra.usage ?? {}),
+      ownKey: extra.ownKey ?? false,
       cards: extra.cards?.length ? extra.cards : null
     });
   }
 
   private async runTurn(turn: BuilderTurn) {
     const database = db.create({ env: this.env });
-    const apiKey = builderApiKey(this.env);
     let costMicros = 0;
     let stoppedBy = 'answered';
+    let ownKey = false;
 
     try {
-      if (!apiKey) throw new Error('The assistant is not configured');
+      const key = await resolveBuilderKey(
+        this.env,
+        database,
+        turn.organizationId
+      );
+      ownKey = key.ownKey;
       const staged = (await this.ctx.storage.get<StagedItem[]>('staged')) ?? [];
 
       const rows = await this.loadMessages(database, turn.conversationId);
@@ -226,8 +237,16 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
           stoppedBy = 'step-cap';
           break;
         }
+        if (!ownKey && call > 0) {
+          const credits = await Plan.checkBuilderCredits(
+            database,
+            turn.organizationId
+          );
+          if (!credits.allowed) throw creditsUsedUp(credits);
+        }
         const result = await step({
-          apiKey,
+          apiKey: key.apiKey,
+          baseUrl: key.baseUrl,
           system: BUILDER_SYSTEM_PROMPT,
           tools: BUILDER_TOOLS,
           messages,
@@ -235,10 +254,24 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
           onText: text => this.emit({ type: 'text', text })
         });
         costMicros += result.usage.costMicros;
+        await Plan.incrementBuilderUsage(
+          database,
+          turn.organizationId,
+          result.usage.costMicros,
+          ownKey
+        ).catch(error =>
+          console.error('[builder] could not count usage', error)
+        );
         const reply = { role: 'assistant' as const, content: result.content };
-        await this.save(database, turn, reply, { usage: result.usage });
+        await this.save(database, turn, reply, {
+          usage: result.usage,
+          ownKey
+        });
         messages = [...messages, reply];
-        this.emit({ type: 'usage', credits: creditsOf(costMicros) });
+        this.emit({
+          type: 'usage',
+          credits: ownKey ? 0 : creditsOf(costMicros)
+        });
 
         if (result.stopReason === 'refusal') {
           stoppedBy = 'refusal';
@@ -293,12 +326,30 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
         }
       }
     } catch (error) {
-      stoppedBy = 'error';
-      console.error('[builder] turn failed', turn.conversationId, error);
-      this.emit({
-        type: 'error',
-        message: 'Something went wrong while answering. Try again.'
-      });
+      if (error instanceof utils.PlanLimitError) {
+        stoppedBy = 'credits';
+        this.emit({ type: 'error', message: error.message });
+      } else if (
+        ownKey &&
+        error instanceof Anthropic.APIError &&
+        // Refused, no access to the model, or the key's own rate limit.
+        [401, 402, 403, 404, 429].includes(error.status ?? 0)
+      ) {
+        stoppedBy = 'own-key';
+        console.warn('[builder] own key failed', error.status);
+        this.emit({
+          type: 'error',
+          message:
+            "Your organization's Anthropic key couldn't be used (refused, rate-limited or without access to the model). An admin can fix it in Settings → Models, or switch the assistant back to Ganju credits."
+        });
+      } else {
+        stoppedBy = 'error';
+        console.error('[builder] turn failed', turn.conversationId, error);
+        this.emit({
+          type: 'error',
+          message: 'Something went wrong while answering. Try again.'
+        });
+      }
     } finally {
       await database
         .update(db.schema.builderConversation)
@@ -316,7 +367,11 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
           )
         )
         .catch(error => console.error('[builder] could not mark idle', error));
-      this.emit({ type: 'done', stoppedBy, credits: creditsOf(costMicros) });
+      this.emit({
+        type: 'done',
+        stoppedBy,
+        credits: ownKey ? 0 : creditsOf(costMicros)
+      });
     }
   }
 }

@@ -171,6 +171,8 @@ export type UsageCounters = {
   messageCount: number;
   sharedMessageCount: number;
   toolCallCount: number;
+  builderCostMicros: number;
+  builderOwnKeyCostMicros: number;
 };
 
 /**
@@ -197,7 +199,9 @@ export const rollUsagePeriodIfDue = async (
     return {
       messageCount: sub.messageCount,
       sharedMessageCount: sub.sharedMessageCount,
-      toolCallCount: sub.toolCallCount
+      toolCallCount: sub.toolCallCount,
+      builderCostMicros: sub.builderCostMicros,
+      builderOwnKeyCostMicros: sub.builderOwnKeyCostMicros
     };
   }
 
@@ -240,7 +244,10 @@ export const rollUsagePeriodIfDue = async (
         reportedDataStorageMb: sub.reportedDataStorageMb,
         reportedDataRowsWritten: sub.reportedDataRowsWritten,
         reportedDataRowsRead: sub.reportedDataRowsRead,
-        reportedDataTriggerRuns: sub.reportedDataTriggerRuns
+        reportedDataTriggerRuns: sub.reportedDataTriggerRuns,
+        builderCostMicros: sub.builderCostMicros,
+        builderOwnKeyCostMicros: sub.builderOwnKeyCostMicros,
+        reportedBuilderCredits: sub.reportedBuilderCredits
       })
       .onConflictDoNothing();
   }
@@ -268,11 +275,20 @@ export const rollUsagePeriodIfDue = async (
       dataRowsWrittenCount: 0,
       dataRequestCount: 0,
       peakDataMb: 0,
-      dataTriggerRunCount: 0
+      dataTriggerRunCount: 0,
+      builderCostMicros: 0,
+      builderOwnKeyCostMicros: 0,
+      reportedBuilderCredits: 0
     })
     .where(eq(schema.subscription.id, sub.id));
 
-  return { messageCount: 0, sharedMessageCount: 0, toolCallCount: 0 };
+  return {
+    messageCount: 0,
+    sharedMessageCount: 0,
+    toolCallCount: 0,
+    builderCostMicros: 0,
+    builderOwnKeyCostMicros: 0
+  };
 };
 
 // custom-tool invocations (Workers for Platforms dispatches)

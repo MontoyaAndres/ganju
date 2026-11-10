@@ -263,6 +263,15 @@ export const meterOrganization = async (
   const embeddedOverageMb = Math.max(0, sub.peakEmbeddedMb - includedMb);
   const embeddedDelta = embeddedOverageMb - sub.reportedEmbeddedOverageMb;
 
+  // Assistant credits: every whole credit used past the included ones. The cap
+  // only stops new turns, so lowering it later can't take back what was used.
+  const builderOverage = Math.max(
+    0,
+    Math.floor(sub.builderCostMicros / constants.BUILDER_MICROS_PER_CREDIT) -
+      limits.includedBuilderCredits
+  );
+  const builderDelta = builderOverage - sub.reportedBuilderCredits;
+
   // The event id for one reported increment. The new mark is in it, so a
   // genuinely new increment is a new id while a retry of the same one repeats
   // exactly — which is what lets Polar deduplicate the retry.
@@ -333,6 +342,14 @@ export const meterOrganization = async (
     triggerRunDelta
   );
 
+  const builderReported = await reportMeter(
+    polar,
+    constants.BILLING_METER_BUILDER_CREDITS,
+    organizationId,
+    eventId(constants.BILLING_METER_BUILDER_CREDITS, builderOverage),
+    builderDelta
+  );
+
   // Advance only the marks whose meter event actually went through. A mark that
   // moves without its event loses that usage for good — nothing re-derives it,
   // because the mark IS the memory of what was billed. A mark that stays put
@@ -345,7 +362,8 @@ export const meterOrganization = async (
     dataStorageReported ||
     rowsWrittenReported ||
     rowsReadReported ||
-    triggerRunsReported
+    triggerRunsReported ||
+    builderReported
   ) {
     await executor
       .update(db.schema.subscription)
@@ -373,7 +391,10 @@ export const meterOrganization = async (
           : sub.reportedDataRowsRead,
         reportedDataTriggerRuns: triggerRunsReported
           ? triggerRuns
-          : sub.reportedDataTriggerRuns
+          : sub.reportedDataTriggerRuns,
+        reportedBuilderCredits: builderReported
+          ? builderOverage
+          : sub.reportedBuilderCredits
       })
       .where(eq(db.schema.subscription.id, sub.id));
   }

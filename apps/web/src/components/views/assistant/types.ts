@@ -71,6 +71,19 @@ export interface Conversation {
   lastMessageAt: string | null;
 }
 
+export interface BuilderCredits {
+  used: number;
+  included: number;
+  cap: number;
+  allowed: boolean;
+}
+
+export interface BuilderKey {
+  llmId: string | null;
+  options: Array<{ id: string; name: string }>;
+  canManage: boolean;
+}
+
 export interface ConversationDetail {
   conversation: Conversation;
   credits: number;

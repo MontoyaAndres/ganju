@@ -28,6 +28,7 @@ solo por lo que uses por encima de ella.
 - Las llamadas a herramientas desde clientes MCP (Claude, Cursor, ChatGPT) están incluidas — no se cobran como mensajes
 - Incluye 1.000.000 de llamadas al mes a las funciones que escribes en código; después, 5 USD por millón
 - Una base de datos por proyecto (Datos): hasta 9 GB y 50 tablas, restaurable a cualquier momento de los últimos 30 días · el consumo se mide, todavía no se cobra
+- Un asistente que construye tu bot contigo: 1.000 créditos/mes incluidos, después $2 por cada 100 créditos hasta el límite mensual que elijas (2.000 extra si no lo cambias), o ningún crédito con tu propia clave de Anthropic
 - Complemento de dominio propio ($15/mes) · crea tus propias herramientas
 - Soporte 24/7
 
@@ -42,6 +43,10 @@ Datos (la base de datos del proyecto) también se mide: almacenamiento, filas
 leídas y escritas y ejecuciones de disparadores, todo visible en la página de
 facturación. Todavía no se cobra; el precio se fijará cuando haya cifras reales
 de uso. En Gratis, una base de datos que ya exista se puede leer pero no editar.
+
+El asistente del proyecto se cobra en créditos: un crédito es $0,01 de costo de
+IA, y crear una acción nueva suele tomar entre 25 y 50. Sus chats de prueba como
+cliente con nuestro modelo de IA también usan créditos, y nada más los usa.
 
 ## Empresarial — A la medida
 

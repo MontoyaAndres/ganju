@@ -82,7 +82,6 @@ export type Bindings = {
   EMAIL_FROM?: string;
   ALERT_EMAIL?: string;
   ANTHROPIC_API_KEY?: string;
-  BUILDER_ORGANIZATIONS?: string;
 };
 
 export type AppEnv = {

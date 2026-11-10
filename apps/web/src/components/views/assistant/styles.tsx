@@ -233,20 +233,36 @@ export const Wrapper = styled.div`
 
     .assistant-month {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      gap: 10px;
       padding: 10px 12px;
       border-radius: 12px;
       background: ${theme.colors.white};
       font-size: ${theme.fonts.xs};
-      font-weight: 600;
       color: ${theme.colors.bastille}b3;
 
+      p {
+        margin: 0;
+      }
+    }
+
+    .assistant-month-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+
       svg {
+        flex-shrink: 0;
         width: 16px;
         height: 16px;
         color: ${ACCENT};
       }
+    }
+
+    .assistant-month-out {
+      font-weight: 600;
+      color: ${theme.colors.red};
     }
 
     /* Chat */

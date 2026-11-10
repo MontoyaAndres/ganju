@@ -4,9 +4,10 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import type { Database } from '@ganju/db';
 
-import { assertBuilderAllowed } from './access';
+import { assertBuilderAllowed, creditsUsedUp } from './access';
 import { runChannelTurn } from '../channel/runner';
 import { RateLimitMiddleware } from '../../middleware/rateLimit';
+import { Plan } from '../../utils';
 
 import type { AppEnv } from '../../types';
 
@@ -84,7 +85,7 @@ const testChannel = async (
         .set(settings)
         .where(eq(db.schema.channel.id, existing.id));
     }
-    return existing.id;
+    return { id: existing.id, llmId: settings.llmId };
   }
   await database.insert(db.schema.channel).values({
     platform: TEST,
@@ -95,7 +96,10 @@ const testChannel = async (
     ...settings
   });
   // Two first messages at once can each make one; both then use the oldest.
-  return (await oldestTestChannel(database, artifactId)) as string;
+  return {
+    id: (await oldestTestChannel(database, artifactId)) as string,
+    llmId: settings.llmId
+  };
 };
 
 const oldestTestChannel = async (database: Database, artifactId: string) => {
@@ -179,14 +183,24 @@ const send = async (c: Context<AppEnv>) => {
   }
 
   const artifactId = await artifactOf(database, values);
-  const channelId = await testChannel(c, database, artifactId);
+  const channel = await testChannel(c, database, artifactId);
+  // On the shared model the test chat spends credits; on the bot's own model
+  // it costs us nothing.
+  if (!channel.llmId) {
+    const credits = await Plan.checkBuilderCredits(
+      database,
+      values.organizationId
+    );
+    if (!credits.allowed) throw creditsUsedUp(credits);
+  }
   const user = c.get('user');
   const locale = c.req.header('accept-language')?.split(',')[0] ?? null;
 
   let result: Awaited<ReturnType<typeof runChannelTurn>>;
   try {
     result = await runChannelTurn(c, {
-      channelId,
+      channelId: channel.id,
+      countAsMessage: false,
       externalConversationId: conversationKey(values.userId, values.session),
       conversationScope: utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE,
       externalParticipantId: `owner:${values.userId}`,
@@ -199,6 +213,19 @@ const send = async (c: Context<AppEnv>) => {
     // longer exists); the dashboard says so in the owner's words.
     console.error('[builder] test chat turn failed', error);
     return c.json({ error: 'The bot could not answer', botFailed: true }, 502);
+  }
+
+  if (result.usage?.onSharedKey) {
+    const price = utils.constants.SHARED_MODEL_PRICE;
+    await Plan.incrementBuilderUsage(
+      database,
+      values.organizationId,
+      result.usage.tokensIn * price.input +
+        result.usage.tokensOut * price.output,
+      false
+    ).catch(error =>
+      console.error('[builder] could not count test chat usage', error)
+    );
   }
 
   // The runner's own "unavailable" line answers a customer when the

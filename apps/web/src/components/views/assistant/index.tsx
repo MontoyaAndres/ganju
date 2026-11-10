@@ -14,7 +14,7 @@ import {
 } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
-import { request, streamTurn } from './api';
+import { CREDITS_LIMIT, request, streamTurn } from './api';
 import {
   ChangeSetCardView,
   OwnerCardView,
@@ -22,11 +22,14 @@ import {
   providerName
 } from './cards';
 import { TryIt } from './tryIt';
+import { AssistantCredits } from './credits';
 import { useAssistantAccess } from './access';
 import { i18n } from '../../../lib';
 
 import type { Translate } from '../../../lib';
 import type {
+  BuilderCredits,
+  BuilderKey,
   Card,
   ContentBlock,
   Conversation,
@@ -151,7 +154,8 @@ export const Assistant = () => {
   const access = useAssistantAccess(organizationId, projectId);
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [monthCredits, setMonthCredits] = useState(0);
+  const [credits, setCredits] = useState<BuilderCredits | null>(null);
+  const [builderKey, setBuilderKey] = useState<BuilderKey | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [live, setLive] = useState<LiveTurn | null>(null);
   const [text, setText] = useState('');
@@ -171,11 +175,13 @@ export const Assistant = () => {
   const loadConversations = useCallback(async () => {
     const result = await request<{
       conversations: Conversation[];
-      monthCredits: number;
+      credits: BuilderCredits;
+      key: BuilderKey;
     }>(`${builderBase}/conversation`);
     if (!result.ok) return;
     setConversations(result.data.conversations);
-    setMonthCredits(result.data.monthCredits);
+    setCredits(result.data.credits);
+    setBuilderKey(result.data.key);
   }, [builderBase]);
 
   const loadDetail = useCallback(
@@ -236,9 +242,11 @@ export const Assistant = () => {
               return prev;
           }
         });
-        if (event.type === 'error') snackbar.error(t('errorTurn'));
         if (event.type === 'done') {
           setStoppedEarly(event.stoppedBy === 'step-cap');
+          if (event.stoppedBy === 'error') snackbar.error(t('errorTurn'));
+          if (event.stoppedBy === 'credits') snackbar.error(t('creditsUsedUp'));
+          if (event.stoppedBy === 'own-key') snackbar.error(t('errorOwnKey'));
         }
       };
       await streamTurn(
@@ -314,7 +322,11 @@ export const Assistant = () => {
           { method: 'POST', body: {} }
         );
         if (!created.ok) {
-          snackbar.error(created.error || t('errorSend'));
+          snackbar.error(
+            created.feature === CREDITS_LIMIT
+              ? t('creditsUsedUp')
+              : created.error || t('errorSend')
+          );
           return;
         }
         target = created.data.id;
@@ -327,9 +339,11 @@ export const Assistant = () => {
         snackbar.error(
           sent.status === 429
             ? t('rateLimited')
-            : sent.status === 409
-              ? t('busy')
-              : sent.error || t('errorSend')
+            : sent.feature === CREDITS_LIMIT
+              ? t('creditsUsedUp')
+              : sent.status === 409
+                ? t('busy')
+                : sent.error || t('errorSend')
         );
         return;
       }
@@ -588,10 +602,12 @@ export const Assistant = () => {
               </li>
             ))}
           </ul>
-          <div className="assistant-month">
-            <AutoAwesomeOutlined fontSize="small" />
-            <span>{t('monthCredits', { credits: t.n(monthCredits) })}</span>
-          </div>
+          <AssistantCredits
+            organizationId={organizationId}
+            credits={credits}
+            builderKey={builderKey}
+            onChange={loadConversations}
+          />
         </aside>
 
         <section className="assistant-chat">

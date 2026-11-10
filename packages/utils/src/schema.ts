@@ -1751,6 +1751,24 @@ const BUILDER_TRY_MESSAGE = BUILDER_TRY.extend({
   text: z.string().trim().min(1).max(4000)
 });
 
+// The organization's assistant billing: whose Anthropic key it runs on (null
+// for credits) and how many extra credits a period may use.
+const BUILDER_SETTINGS = z
+  .object({
+    organizationId: z.uuid(),
+    llmId: z.uuid().nullable().optional(),
+    creditCap: z
+      .number()
+      .int()
+      .min(0)
+      .max(constants.BUILDER_MAX_CREDIT_CAP)
+      .optional()
+  })
+  .refine(
+    value => value.llmId !== undefined || value.creditCap !== undefined,
+    { message: 'Nothing to change' }
+  );
+
 // Tool observability on the project home: per-tool health over a window.
 const PROJECT_TOOL_HEALTH = z.object({
   days: z.coerce
@@ -2379,6 +2397,7 @@ export const Schema = {
   BUILDER_CHANGE_SET_APPLY,
   BUILDER_TRY,
   BUILDER_TRY_MESSAGE,
+  BUILDER_SETTINGS,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,
   PROJECT_TOOL_HEALTH,
   PROJECT_TOOL_CALLS,
