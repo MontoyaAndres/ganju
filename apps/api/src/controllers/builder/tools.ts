@@ -329,12 +329,24 @@ const describeData = async (ctx: BuilderToolContext) => {
   const opened = await openDatabase(ctx);
   if (!opened) return null;
   const who = dataCallerFor(ctx, opened);
-  const [schema, queries, triggers] = await Promise.all([
+  const [described, stored, queries, triggers] = await Promise.all([
     db.data.callData('describe', () => opened.stub.describe(who)),
+    db.data.callData('schemaRead', () => opened.stub.schemaRead()),
     db.data.callData('listQueries', () => opened.stub.listQueries(who)),
     db.data.callData('listTriggers', () => opened.stub.listTriggers(who))
   ]);
-  const pushed = await lastSchemaPush(caller(ctx), ctx.artifactId);
+  // describe answers with the caller's access, which for the owner is always
+  // full; what the bot may do is the table's own setting.
+  const botAccess = new Map(stored.tables.map(t => [t.name, t.access]));
+  const shown = described as { tables: { name: string; access: string }[] };
+  const schema = {
+    ...shown,
+    tables: shown.tables.map(table => ({
+      ...table,
+      access: botAccess.get(table.name) ?? table.access
+    }))
+  };
+  const pushed = await lastSchemaPush(caller(ctx), ctx.artifactId, opened.row);
   return {
     schema,
     queries,

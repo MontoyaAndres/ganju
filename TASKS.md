@@ -771,7 +771,7 @@ Choices agreed with the owner (2026-11-10):
 - Daily/weekly schedules and a project-level bot instructions field are
   their own tasks after phase 4.
 
-**Phase 4 status (2026-11-10): built, not yet checked on dev.** No migration.
+**Phase 4 status (2026-11-10): done on dev (checked by hand, eval 18/20 after the prompt fix); production not yet.** No migration.
 - Shared code: `controllers/artifact/dataActions.ts` (tables, columns, rows,
   queries, triggers, restore points, the email test send) and
   `projectActions.ts` (prompts, notes and websites, tools). The routes and
@@ -793,8 +793,37 @@ Choices agreed with the owner (2026-11-10):
 - `POST …/data/trigger/test-send` takes an `email` action and sends it to the
   caller's own address only; the trigger dialog and the assistant
   (`data test_email`) use it.
-- Not checked yet: the ten eval cases with `--server`, and Apply → test chat
-  → Undo by hand for Data, knowledge, prompts and tools on dev.
+- Checked on dev by hand (2026-11-10):
+  - one change set made the database, a table, a note and a prompt; Undo
+    removed them all, and two Undo requests at once ran once (409 for the
+    other);
+  - deletes: the assistant asked first and staged only after a yes; Apply
+    with no name or a wrong one was refused (400); dropping a table and
+    deleting a row were undone by a restore that brought the rows back, after
+    the card's "undo anyway" step;
+  - a column minimum and table access applied and undone step by step, with a
+    row added after Apply still there;
+  - a note edited and put back; a note and a tool removed and put back (the
+    tool still off, as it was);
+  - web search turned off; an email trigger with the assistant's test email
+    and the Data page's (only to the owner's address);
+  - the schema-push marker flagged a column change on the card, and a
+    trigger deployed from code was refused.
+- Fixed after that: describe showed the owner's own access (always full)
+  instead of the bot's setting; a tool's name to type is its catalog title,
+  not its key.
+- Eval on dev (`--server`, all ten cases twice, in
+  `scripts/golden/builder-phase4-server.json`): 16/20 work, at 28.4 credits a
+  run (99.6 at most). nightly-orders fails as in phase 0 (no daily schedule).
+  delivery-orders went 2/2 → 0/2: what it built was right, but it never ran
+  the action that saves an order (the table exists only after Apply), didn't
+  mark that action as changing things, and named actions by their internal
+  names. The prompt now says to test every action after the owner applies,
+  saving ones with fake values, and to name actions by what they do. Rerun
+  on dev after that: delivery-orders 2/2 (24 and 36 credits), pizza-stock 2/2;
+  with nightly-orders still waiting for the daily schedule, that makes 18/20.
+- describe now gives the bot's own access: checked on dev (a table set to
+  read answers "read", and the assistant says the bot can only look).
 
 **5. Keeping it working — S/M**
 

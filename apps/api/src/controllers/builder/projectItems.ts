@@ -81,8 +81,11 @@ const toolRow = async (caller: ItemCaller, artifactId: string, id: string) => {
 type ResourceRow = NonNullable<Awaited<ReturnType<typeof resourceRow>>>;
 type ToolRow = NonNullable<Awaited<ReturnType<typeof toolRow>>>;
 
+// The name the owner types to remove it: its own, or the catalog's title,
+// never the internal key.
 const toolName = (tool: ToolRow) =>
   ((tool.config as { name?: string } | null)?.name as string | undefined) ??
+  utils.describeCatalogTool(tool.toolKey)?.title ??
   tool.toolKey;
 
 // A note typed in the app: its text lives on the row, not in storage.
