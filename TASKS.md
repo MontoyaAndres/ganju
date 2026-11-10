@@ -771,7 +771,7 @@ Choices agreed with the owner (2026-11-10):
 - Daily/weekly schedules and a project-level bot instructions field are
   their own tasks after phase 4.
 
-**Phase 4 status (2026-11-10): done on dev (checked by hand, eval 18/20 after the prompt fix); production not yet.** No migration.
+**Phase 4 status (2026-11-10): done on dev and production (closed there by the allowlist).** No migration. CLI 0.0.24 and utils 0.0.25 published.
 - Shared code: `controllers/artifact/dataActions.ts` (tables, columns, rows,
   queries, triggers, restore points, the email test send) and
   `projectActions.ts` (prompts, notes and websites, tools). The routes and
@@ -824,6 +824,14 @@ Choices agreed with the owner (2026-11-10):
   with nightly-orders still waiting for the daily schedule, that makes 18/20.
 - describe now gives the bot's own access: checked on dev (a table set to
   read answers "read", and the assistant says the bot can only look).
+- Production (2026-11-10): deployed; the assistant answers 404 for the
+  organization (allowlist empty). On the "test" project, the routes now on the
+  shared code: reads (database, tables, queries, triggers, change log,
+  prompts, knowledge, tools), and writes cleaned up afterwards (a table
+  created, relabelled, a column added, changed and dropped, a row inserted
+  and updated, a query saved, run and dropped, a trigger saved, switched and
+  dropped, the table dropped after a wrong typed name was refused; a prompt
+  and a note created, edited and removed; list-prompts turned off and on).
 
 **5. Keeping it working — S/M**
 
