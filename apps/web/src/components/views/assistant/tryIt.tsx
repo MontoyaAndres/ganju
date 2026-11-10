@@ -119,7 +119,10 @@ export const TryIt = ({
         {
           key: `n-${Date.now()}`,
           role: 'notice',
-          text: result.error || t('tryError')
+          text:
+            result.status === 502
+              ? t('tryBotFailed')
+              : result.error || t('tryError')
         }
       ]);
       return;

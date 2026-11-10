@@ -117,6 +117,8 @@ const en = {
   tryCapped:
     'Your organization ran out of messages this month, so your bot answers customers that it is unavailable. See Settings to upgrade.',
   tryError: "Your bot couldn't answer. Try again.",
+  tryBotFailed:
+    "Your bot couldn't answer: its language model returned an error. If you added your own model, check its key in Settings, Models.",
   tryFiles: 'Sends files: {files}',
   tryOpen: 'Try it',
   tryClose: 'Close'
@@ -239,6 +241,8 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     tryCapped:
       'Tu organización se quedó sin mensajes este mes, así que tu bot les responde a los clientes que no está disponible. Ve a Ajustes para mejorar tu plan.',
     tryError: 'Tu bot no pudo responder. Inténtalo de nuevo.',
+    tryBotFailed:
+      'Tu bot no pudo responder: su modelo de lenguaje devolvió un error. Si agregaste tu propio modelo, revisa su clave en Ajustes, Modelos.',
     tryFiles: 'Envía archivos: {files}',
     tryOpen: 'Probarlo',
     tryClose: 'Cerrar'

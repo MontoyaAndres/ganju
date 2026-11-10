@@ -183,15 +183,23 @@ const send = async (c: Context<AppEnv>) => {
   const user = c.get('user');
   const locale = c.req.header('accept-language')?.split(',')[0] ?? null;
 
-  const result = await runChannelTurn(c, {
-    channelId,
-    externalConversationId: conversationKey(values.userId, values.session),
-    conversationScope: utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE,
-    externalParticipantId: `owner:${values.userId}`,
-    participantDisplayName: user.name ?? null,
-    userMessages: [{ text: values.text }],
-    locale
-  });
+  let result: Awaited<ReturnType<typeof runChannelTurn>>;
+  try {
+    result = await runChannelTurn(c, {
+      channelId,
+      externalConversationId: conversationKey(values.userId, values.session),
+      conversationScope: utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE,
+      externalParticipantId: `owner:${values.userId}`,
+      participantDisplayName: user.name ?? null,
+      userMessages: [{ text: values.text }],
+      locale
+    });
+  } catch (error) {
+    // Usually the bot's own model refusing (a wrong key, a model that no
+    // longer exists); the dashboard says so in the owner's words.
+    console.error('[builder] test chat turn failed', error);
+    return c.json({ error: 'The bot could not answer', botFailed: true }, 502);
+  }
 
   // The runner's own "unavailable" line answers a customer when the
   // organization is out of messages; the owner is told why instead.
