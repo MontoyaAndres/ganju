@@ -272,7 +272,11 @@ export const push = async (options: DataOptions): Promise<void> => {
       }
     );
   }
+  // Lets the dashboard's assistant warn that the tables come from this file.
+  // An API without the route doesn't stop the push.
+  const mark = () => data.request('markSchemaPush').catch(() => undefined);
   if (!plan.steps.length) {
+    await mark();
     note('The database already matches the file');
     return;
   }
@@ -280,6 +284,7 @@ export const push = async (options: DataOptions): Promise<void> => {
   const safe = plan.steps.filter(s => !plan.destructive.includes(s));
   const done = { count: 0 };
   await run(data, safe, done);
+  await mark();
 
   if (plan.destructive.length) {
     if (!options.yes) {

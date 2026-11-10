@@ -353,8 +353,14 @@ const runCase = async (c, runIndex) => {
           summary: card.summary,
           items: card.items.map(i => i.label)
         });
+        // The simulated owner types the name of everything a delete takes.
+        const confirm = Object.fromEntries(
+          card.items
+            .map((item, index) => [String(index), item.deletes])
+            .filter(([, name]) => name)
+        );
         const applied = await p
-          .post(`/builder/change-set/${card.changeSetId}/apply`, {})
+          .post(`/builder/change-set/${card.changeSetId}/apply`, { confirm })
           .catch(error => ({ error: error.message }));
         log(`  [apply] ${JSON.stringify(applied.results ?? applied.error)}`);
         for (const item of applied.changeSet?.items ?? []) {

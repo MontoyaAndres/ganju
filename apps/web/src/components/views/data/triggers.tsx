@@ -1398,6 +1398,17 @@ const TriggerDialog = ({
           </>
         )}
 
+        {actionType === 'email' && (
+          <EmailTestSend
+            open={open}
+            base={base}
+            table={table}
+            email={actionBody().email}
+            ready={actionReady}
+            disabled={saving}
+          />
+        )}
+
         {actionType === 'customer' && (
           <CustomerTestSend
             open={open}
@@ -1682,6 +1693,136 @@ const CustomerTestSend = ({
                 })}
           </p>
           <p className="trigger-test-sent dialog-muted">{sentContent}</p>
+        </>
+      )}
+      {error && (
+        <p className="dialog-danger" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+};
+
+// Sends the email as the dialog has it to the signed-in owner's own address
+// only, built from a row of the table.
+const EmailTestSend = ({
+  open,
+  base,
+  table,
+  email,
+  ready,
+  disabled
+}: {
+  open: boolean;
+  base: string;
+  table: DataTable;
+  email: unknown;
+  ready: boolean;
+  disabled: boolean;
+}) => {
+  const t = i18n.useT(i18n.copy.DATA);
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [rowId, setRowId] = useState(NEWEST);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<{
+    to: string;
+    subject: string;
+    text: string;
+    rowId: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setRowId(NEWEST);
+    setSent(null);
+    setError(null);
+    setRows([]);
+    const controller = new AbortController();
+    dataRequest<{ rows: Record<string, unknown>[] }>(
+      base,
+      `/table/${encodeURIComponent(table.name)}/row`,
+      { query: { sort: '-id', limit: 20 }, signal: controller.signal }
+    )
+      .then(result => setRows(result.ok ? (result.data.rows ?? []) : []))
+      .catch(error => {
+        if ((error as Error)?.name !== 'AbortError') throw error;
+      });
+    return () => controller.abort();
+  }, [open, base, table.name]);
+
+  const handleSend = async () => {
+    if (sending) return;
+    setSending(true);
+    setSent(null);
+    setError(null);
+    const result = await dataRequest<{
+      to: string;
+      subject: string;
+      text: string;
+      rowId: number;
+    }>(base, '/trigger/test-send', {
+      method: 'POST',
+      body: {
+        table: table.name,
+        email,
+        ...(rowId !== NEWEST ? { rowId: Number(rowId) } : {})
+      }
+    });
+    setSending(false);
+    if (!result.ok) {
+      setError(
+        result.code === 'rate_limited'
+          ? t('triggerTestRateLimited')
+          : result.error || t('triggerTestFailed')
+      );
+      return;
+    }
+    setSent(result.data);
+  };
+
+  return (
+    <div className="trigger-test">
+      <h4 className="dialog-subtitle">{t('triggerTestTitle')}</h4>
+      <p className="dialog-muted">
+        {t('triggerTestEmailHelp', { table: table.label || table.name })}
+      </p>
+      <div className="dialog-row">
+        <UI.Select
+          size="small"
+          label={t('triggerTestRow')}
+          value={rowId}
+          disabled={disabled || sending}
+          onChange={e => setRowId(String(e.target.value))}
+          options={[
+            { label: t('triggerTestRowNewest'), value: NEWEST },
+            ...rows.map(row => ({
+              label: rowLabel(table, row),
+              value: String(row.id)
+            }))
+          ]}
+        />
+      </div>
+      <UI.Button
+        variant="outlined"
+        size="small"
+        disabled={disabled || sending || !ready}
+        onClick={handleSend}
+      >
+        <SendOutlined />
+        <span className="button-text">
+          {sending ? t('triggerTestSending') : t('triggerTestSend')}
+        </span>
+      </UI.Button>
+      {sent && (
+        <>
+          <p role="status">
+            {t('triggerTestSentEmail', { who: sent.to, row: sent.rowId })}
+          </p>
+          <p className="trigger-test-sent dialog-muted">
+            {`${sent.subject}\n\n${sent.text}`}
+          </p>
         </>
       )}
       {error && (

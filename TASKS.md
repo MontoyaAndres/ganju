@@ -699,7 +699,7 @@ Choices agreed with the owner (2026-11-09):
 - The tab sits in the project navigation after Home. Account connections
   come back to the tab, not to Tools.
 
-**Phase 3 status (2026-11-09): done on dev; production not yet.** No migration.
+**Phase 3 status (2026-11-10): done on dev and production (closed there by the allowlist).** No migration.
 - The Assistant tab (`apps/web/src/components/views/assistant/`):
   - past chats, with a drawer on small screens;
   - replies streamed with a list of steps and seconds on a long step;
@@ -753,6 +753,48 @@ Choices agreed with the owner (2026-11-09):
 - Their change-set items, the before-state for undo, and the "can't be
   undone" marks.
 - Data undo through point-in-time restore.
+
+Choices agreed with the owner (2026-11-10):
+- Undo reverses each step: it removes the table, column or rows the change
+  added and puts a query, trigger, prompt, note or tool back as it was. The
+  whole-database restore is used only for drops and type changes, and the
+  card warns that anything saved after Apply is lost then.
+- The assistant can delete (tables, columns, rows, the database, files,
+  websites, prompts, tools), each on its own red line of the card. Apply
+  stays off until the owner types the exact name of each thing deleted, and
+  the server checks the names too.
+- Data managed from code: `ganju data schema push` leaves a marker in the
+  database; the assistant warns that its table changes will be overwritten
+  by the developer's next push, and never edits triggers `ganju deploy`
+  made.
+- An email trigger gets a test send to the owner, like the customer one.
+- Daily/weekly schedules and a project-level bot instructions field are
+  their own tasks after phase 4.
+
+**Phase 4 status (2026-11-10): built, not yet checked on dev.** No migration.
+- Shared code: `controllers/artifact/dataActions.ts` (tables, columns, rows,
+  queries, triggers, restore points, the email test send) and
+  `projectActions.ts` (prompts, notes and websites, tools). The routes and
+  the assistant both call them.
+- The assistant stages Data (database, tables, columns, rows, saved queries,
+  triggers), knowledge (notes, websites, removal), prompts and tools (add from
+  the catalog, HTTP endpoints, catalog MCP servers without sign-in, change,
+  on/off, removal). Each step records what Undo needs when it applies; Undo
+  runs newest first, refuses before anything moves when newer work would be
+  lost, and a step that fails stops it, so trying again carries on.
+- Deletes: a red line per delete with a field for its name; Apply stays off
+  until each matches, and the apply route checks them (400 otherwise). The
+  prompt makes the assistant ask in chat and wait for a yes before staging a
+  delete.
+- `ganju data schema push` records a `schema.push` entry in the change log
+  (`POST …/data/change/schema-push`); the assistant's describe says so and
+  table/column lines warn on the card. Triggers from `ganju deploy` are
+  refused.
+- `POST …/data/trigger/test-send` takes an `email` action and sends it to the
+  caller's own address only; the trigger dialog and the assistant
+  (`data test_email`) use it.
+- Not checked yet: the ten eval cases with `--server`, and Apply → test chat
+  → Undo by hand for Data, knowledge, prompts and tools on dev.
 
 **5. Keeping it working — S/M**
 

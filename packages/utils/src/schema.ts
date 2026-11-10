@@ -875,16 +875,24 @@ const DATA_TRIGGER_DEPLOY_BODY = z.strictObject({
   triggers: z.array(DATA_TRIGGER_INPUT).max(50)
 });
 // A test of a "customer" action as the dialog has it, sent to the signed-in
-// owner's own chat with the bot, built from one row (the newest by default).
-const DATA_TRIGGER_TEST_SEND_BODY = z.strictObject({
-  table: DATA_IDENTIFIER,
-  customer: DATA_TRIGGER_INPUT.shape.customer.unwrap(),
-  rowId: z.number().int().min(1).optional(),
-  // Which of the owner's linked chats, when there is more than one.
-  participantId: z.string().min(1).max(64).optional(),
-  // Send the template even inside WhatsApp's 24-hour window.
-  asTemplate: z.boolean().optional()
-});
+// owner's own chat with the bot, or of an "email" action, sent to their own
+// address only. Built from one row (the newest by default).
+const DATA_TRIGGER_TEST_SEND_BODY = z.union([
+  z.strictObject({
+    table: DATA_IDENTIFIER,
+    customer: DATA_TRIGGER_INPUT.shape.customer.unwrap(),
+    rowId: z.number().int().min(1).optional(),
+    // Which of the owner's linked chats, when there is more than one.
+    participantId: z.string().min(1).max(64).optional(),
+    // Send the template even inside WhatsApp's 24-hour window.
+    asTemplate: z.boolean().optional()
+  }),
+  z.strictObject({
+    table: DATA_IDENTIFIER,
+    email: DATA_TRIGGER_INPUT.shape.email.unwrap(),
+    rowId: z.number().int().min(1).optional()
+  })
+]);
 const DATA_TRIGGER_RUN_LIST_QUERY = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional()
 });
@@ -1729,6 +1737,10 @@ const BUILDER_STREAM = BUILDER_CONVERSATION.extend({
 const BUILDER_CHANGE_SET = BUILDER_SCOPE.extend({
   changeSetId: z.uuid()
 });
+// Apply's body: for each item that deletes, by its index, the name typed.
+const BUILDER_CHANGE_SET_APPLY = z.object({
+  confirm: z.record(z.string(), z.string().max(300)).optional()
+});
 
 // The owner's test chat with the bot. A new session starts a new chat.
 const BUILDER_TRY = BUILDER_SCOPE.extend({
@@ -2364,6 +2376,7 @@ export const Schema = {
   BUILDER_SEND_MESSAGE,
   BUILDER_STREAM,
   BUILDER_CHANGE_SET,
+  BUILDER_CHANGE_SET_APPLY,
   BUILDER_TRY,
   BUILDER_TRY_MESSAGE,
   ARTIFACT_CUSTOM_CODE_LIST_VERSIONS,

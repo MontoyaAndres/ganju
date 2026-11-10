@@ -398,11 +398,12 @@ export const Assistant = () => {
 
   const changeSetAction = async (
     changeSetId: string,
-    kind: 'apply' | 'undo'
+    kind: 'apply' | 'undo',
+    confirm: Record<string, string> = {}
   ) => {
     const result = await request<{ changeSet: { status: string } }>(
       `${builderBase}/change-set/${changeSetId}/${kind}`,
-      { method: 'POST', body: {} }
+      { method: 'POST', body: kind === 'apply' ? { confirm } : {} }
     );
     if (!result.ok) {
       snackbar.error(result.error || t('errorSend'));
@@ -453,7 +454,9 @@ export const Assistant = () => {
           changeSet={
             detail?.changeSets.find(set => set.id === card.changeSetId) ?? null
           }
-          onApply={() => changeSetAction(card.changeSetId, 'apply')}
+          onApply={confirm =>
+            changeSetAction(card.changeSetId, 'apply', confirm)
+          }
           onUndo={() => changeSetAction(card.changeSetId, 'undo')}
         />
       );

@@ -142,6 +142,7 @@ export {
   readEventRow,
   normaliseTrigger,
   normaliseCustomerAction,
+  normaliseEmailAction,
   listTriggers,
   getTrigger,
   saveTrigger,

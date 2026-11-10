@@ -1,11 +1,10 @@
-import { Context } from 'hono';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import { loadCommandPrompts } from '../controllers/channel/proxiedPrompts';
 
-import type { AppEnv } from '../types';
+import type { EnvSource } from '@ganju/utils';
 
 // Push the bot's slash-command menu (Telegram setMyCommands). Prompt titles are
 // slugified to valid command names; reserved/invalid ones are dropped, and the
@@ -44,7 +43,7 @@ export const registerTelegramBotCommands = async (
 // any change to the artifact's prompt set (artifact prompts OR mcp-proxy
 // installs). Best-effort: a bad/rotated token never fails the caller's write.
 export const syncTelegramCommandsForArtifact = async (
-  c: Context<AppEnv>,
+  c: EnvSource,
   dbInstance: ReturnType<typeof db.create>,
   artifactId: string
 ): Promise<void> => {

@@ -1,11 +1,10 @@
-import { Context } from 'hono';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import { loadProxiedPrompts } from '../controllers/channel/proxiedPrompts';
 
-import type { AppEnv } from '../types';
+import type { EnvSource } from '@ganju/utils';
 
 interface DiscordApplicationCommand {
   name: string;
@@ -91,7 +90,7 @@ export const registerDiscordCommands = async (
 // wouldn't show up until the channel was recreated. Call after any change to the
 // artifact's prompt set. Best-effort: a bad/rotated token never fails the write.
 export const syncDiscordCommandsForArtifact = async (
-  c: Context<AppEnv>,
+  c: EnvSource,
   dbInstance: ReturnType<typeof db.create>,
   artifactId: string
 ): Promise<void> => {

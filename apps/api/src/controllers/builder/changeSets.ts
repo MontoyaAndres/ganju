@@ -4,9 +4,11 @@ import { db } from '@ganju/db';
 
 import * as customCodeActions from '../artifact/customCodeActions';
 import { resolveCustomCodeToolReadOnly } from '../artifact/customCode';
+import { dataHandler } from './dataItems';
+import { projectHandler } from './projectItems';
 
 import type { CustomCodeCaller } from '../artifact/customCodeActions';
-import type { StagedItem } from './tools';
+import type { ItemHandler, ItemScope, StagedItem } from './items';
 
 interface Scope {
   organizationId: string;
@@ -18,11 +20,14 @@ interface StoredItem extends StagedItem {
   undoable: boolean;
 }
 
-// One entry per item that applied, in order: what it replaced.
+// One entry per item that applied, in order: what Undo needs to put it back.
+// Entries saved before other areas existed are the functions' own shape.
 interface Before {
   index: number;
-  activeVersionId: string | null;
-  appliedVersionId: string;
+  state?: unknown;
+  undone?: boolean;
+  activeVersionId?: string | null;
+  appliedVersionId?: string;
 }
 
 const {
@@ -31,6 +36,10 @@ const {
   BUILDER_CHANGE_SET_STATUS_FAILED: FAILED,
   BUILDER_CHANGE_SET_STATUS_UNDONE: UNDONE
 } = utils.constants;
+
+// Refusals the owner can act on: answered as 400 (a name to type) or 409.
+export class ConfirmationError extends Error {}
+export class UndoStoppedError extends Error {}
 
 const loadChangeSet = async (
   caller: CustomCodeCaller,
@@ -70,16 +79,98 @@ const assertActionsOn = async (caller: CustomCodeCaller, scope: Scope) => {
   }
 };
 
+const turnOn: ItemHandler = {
+  apply: async (caller, scope, item) => {
+    await assertActionsOn(caller, scope);
+    const versionId = String(item.payload.versionId);
+    const previous = await liveVersionId(caller, scope);
+    await customCodeActions.switchVersion(
+      caller,
+      { ...scope, versionId },
+      false
+    );
+    return { activeVersionId: previous, appliedVersionId: versionId };
+  },
+  check: async (caller, scope, _item, before) => {
+    const { appliedVersionId } = before as { appliedVersionId: string };
+    if ((await liveVersionId(caller, scope)) !== appliedVersionId) {
+      throw new Error(
+        'The actions were already changed after this was applied, so undoing it would replace newer work. Ask the assistant to change them instead.'
+      );
+    }
+  },
+  undo: async (caller, scope, _item, before) => {
+    const { activeVersionId } = before as { activeVersionId: string | null };
+    if (activeVersionId) {
+      await customCodeActions.switchVersion(
+        caller,
+        { ...scope, versionId: activeVersionId },
+        true
+      );
+      return;
+    }
+    // Nothing was live before: turn the actions off.
+    const { tool } = await resolveCustomCodeToolReadOnly(
+      caller.db,
+      scope.organizationId,
+      scope.projectId
+    );
+    if (tool) {
+      await caller.db
+        .update(db.schema.artifactTool)
+        .set({ enabled: false })
+        .where(eq(db.schema.artifactTool.id, tool.id));
+    }
+  }
+};
+
+const handlerFor = (item: StagedItem): ItemHandler => {
+  if (item.area === 'functions') {
+    if (item.op !== 'turn_on')
+      throw new Error(`Unknown change functions ${item.op}`);
+    return turnOn;
+  }
+  if (item.area === 'data') return dataHandler(item.op);
+  return projectHandler(item.area, item.op);
+};
+
+const stateOf = (entry: Before) =>
+  entry.state !== undefined
+    ? entry.state
+    : {
+        activeVersionId: entry.activeVersionId ?? null,
+        appliedVersionId: entry.appliedVersionId
+      };
+
+const errorText = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 /**
- * Apply a proposed change set as the owner who clicked. Items run in order
- * and stop at the first failure; what did apply is recorded so it can be
- * undone.
+ * Apply a proposed change set as the owner who clicked. Every delete needs
+ * the name of what it deletes typed in `confirm` (by item index). Items run
+ * in order and stop at the first failure; what did apply is recorded so it
+ * can be undone.
  */
 export const applyChangeSet = async (
   caller: CustomCodeCaller,
   scope: Scope,
-  changeSetId: string
+  changeSetId: string,
+  confirm: Record<string, string> = {}
 ) => {
+  const row = await loadChangeSet(caller, scope, changeSetId);
+  const pending = row.items as StoredItem[];
+  const unconfirmed = pending
+    .map((item, index) => ({ item, index }))
+    .filter(
+      ({ item, index }) =>
+        item.deletes && (confirm[String(index)] ?? '').trim() !== item.deletes
+    );
+  if (row.status === PROPOSED && unconfirmed.length) {
+    throw new ConfirmationError(
+      `Type the name of each thing this deletes to apply it: ${unconfirmed.map(({ item }) => `"${item.deletes}"`).join(', ')}.`
+    );
+  }
+
   // Claimed first, so a double click applies once.
   const [claimed] = await caller.db
     .update(db.schema.builderChangeSet)
@@ -98,10 +189,10 @@ export const applyChangeSet = async (
     )
     .returning();
   if (!claimed) {
-    await loadChangeSet(caller, scope, changeSetId);
     throw new Error('This change set was already applied or put aside');
   }
 
+  const itemScope: ItemScope = { ...scope, artifactId: claimed.artifactId };
   const items = claimed.items as StoredItem[];
   const before: Before[] = [];
   const results: { label: string; ok: boolean; error?: string }[] = [];
@@ -113,25 +204,11 @@ export const applyChangeSet = async (
       continue;
     }
     try {
-      if (item.area !== 'functions' || item.op !== 'turn_on') {
-        throw new Error(`Unknown change ${item.area} ${item.op}`);
-      }
-      await assertActionsOn(caller, scope);
-      const versionId = String(item.payload.versionId);
-      const previous = await liveVersionId(caller, scope);
-      await customCodeActions.switchVersion(
-        caller,
-        { ...scope, versionId },
-        false
-      );
-      before.push({
-        index,
-        activeVersionId: previous,
-        appliedVersionId: versionId
-      });
+      const state = await handlerFor(item).apply(caller, itemScope, item);
+      before.push({ index, state: state ?? null });
       results.push({ label: item.label, ok: true });
     } catch (error) {
-      failure = error instanceof Error ? error.message : String(error);
+      failure = errorText(error);
       results.push({ label: item.label, ok: false, error: failure });
     }
   }
@@ -150,9 +227,10 @@ export const applyChangeSet = async (
 };
 
 /**
- * Put back what an applied change set replaced, newest first. Refused when
- * something else has changed the same thing since, so an undo never throws
- * away newer work.
+ * Put back what an applied change set did, newest first. Refused before
+ * anything moves when something else has changed the same thing since, so an
+ * undo never throws away newer work. A step that fails stops it; the steps
+ * already undone are remembered, so trying again carries on from there.
  */
 export const undoChangeSet = async (
   caller: CustomCodeCaller,
@@ -169,40 +247,40 @@ export const undoChangeSet = async (
       'Nothing in this change set was applied, so undo is invalid'
     );
 
-  const live = await liveVersionId(caller, scope);
-  const last = before[before.length - 1];
-  if (live !== last.appliedVersionId) {
-    throw new Error(
-      'The actions were already changed after this was applied, so undoing it would replace newer work. Ask the assistant to change them instead.'
-    );
+  const itemScope: ItemScope = { ...scope, artifactId: row.artifactId };
+  const items = row.items as StoredItem[];
+  const remaining = [...before].reverse().filter(entry => !entry.undone);
+
+  for (const entry of remaining) {
+    const item = items[entry.index];
+    if (item.undo === 'none') continue;
+    await handlerFor(item).check?.(caller, itemScope, item, stateOf(entry));
   }
 
-  for (const entry of [...before].reverse()) {
-    if (entry.activeVersionId) {
-      await customCodeActions.switchVersion(
-        caller,
-        { ...scope, versionId: entry.activeVersionId },
-        true
-      );
-      continue;
+  let failure: string | null = null;
+  for (const entry of remaining) {
+    const item = items[entry.index];
+    if (item.undo === 'none') continue;
+    try {
+      await handlerFor(item).undo(caller, itemScope, item, stateOf(entry));
+      entry.undone = true;
+    } catch (error) {
+      failure = `"${item.label}" couldn't be undone: ${errorText(error)}`;
+      break;
     }
-    // Nothing was live before: turn the actions off.
-    const { tool } = await resolveCustomCodeToolReadOnly(
-      caller.db,
-      scope.organizationId,
-      scope.projectId
-    );
-    if (tool) {
-      await caller.db
-        .update(db.schema.artifactTool)
-        .set({ enabled: false })
-        .where(eq(db.schema.artifactTool.id, tool.id));
-    }
+  }
+
+  if (failure) {
+    await caller.db
+      .update(db.schema.builderChangeSet)
+      .set({ before, error: failure })
+      .where(eq(db.schema.builderChangeSet.id, changeSetId));
+    throw new UndoStoppedError(failure);
   }
 
   const [updated] = await caller.db
     .update(db.schema.builderChangeSet)
-    .set({ status: UNDONE, undoneAt: new Date() })
+    .set({ status: UNDONE, undoneAt: new Date(), before, error: null })
     .where(eq(db.schema.builderChangeSet.id, changeSetId))
     .returning();
   return { changeSet: updated };
@@ -231,6 +309,9 @@ export const changeSetNotes = async (
       if (row.status === UNDONE) return `The owner undid "${what}".`;
       if (row.status === FAILED) {
         return `The owner clicked Apply on "${what}", but it failed: ${row.error}`;
+      }
+      if (row.error) {
+        return `The owner tried to undo "${what}", but it stopped: ${row.error}`;
       }
       return `The owner applied "${what}". It is live now.`;
     });

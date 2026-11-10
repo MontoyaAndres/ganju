@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, desc, eq, lt } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 import {
@@ -11,27 +11,19 @@ import {
 import {
   callData,
   callDataMetered,
-  createDataUsageTally,
   createDatabase,
-  dataCaller,
-  dataLimitsFor,
   databaseStub,
   findArtifactDatabase,
-  openArtifactDatabase,
   recordChange,
-  recordDataUsage,
-  assertFileUrisExist,
   resolveFileValues,
   restoreDeletedDatabase,
   softDeleteDatabase
 } from '../../utils/dataDatabase';
-import {
-  checkTriggerTargets,
-  requestEmailConfirmations
-} from '../../utils/dataTriggers';
+import { checkTriggerTargets } from '../../utils/dataTriggers';
+import * as dataActions from './dataActions';
+import { assertFileUris, withDataRequest } from './dataActions';
 import {
   enqueueSheetSyncs,
-  sheetSourceItem,
   sheetSourceProvider
 } from '../../utils/dataSheetSync';
 import { enqueueGdriveFile, enqueueOnedriveFile } from '../../utils/queue';
@@ -39,15 +31,9 @@ import { consumeRateLimit, rateLimited } from '../../middleware/rateLimit';
 
 // types
 import type { Handler } from 'hono';
+import type { ChannelSendResult, IndexAdviceRow } from '@ganju/db';
+import type { DataRequest, DataSource } from './dataActions';
 import type {
-  ChannelSendResult,
-  DbExecutor,
-  IndexAdviceRow,
-  OpenedDatabase,
-  DataUsageTally
-} from '@ganju/db';
-import type {
-  DataCaller,
   DataTriggerEventMessage,
   ExportState
 } from '@ganju/utils/data';
@@ -134,20 +120,7 @@ const queryOf = <T>(c: Context<AppEnv>, schema: Parser<T>) =>
 const defined = (args: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
 
-interface DataRequest {
-  opened: OpenedDatabase;
-  caller: DataCaller;
-  tally: DataUsageTally;
-  dbInstance: ReturnType<typeof db.create>;
-  artifactId: string;
-}
-
-// Opens the project's database for one request and adds what the request
-// read and wrote to the org's meters once it is answered.
-//
-// `allowDeleted` also opens a database in its grace period, for the calls the
-// object still serves then: "Download a copy" belongs in the banner that
-// offers the restore.
+// Opens the project's database for one request, as the caller.
 const withDatabase = async <T>(
   c: Context<AppEnv>,
   options: { timeZone?: string; allowDeleted?: boolean },
@@ -155,73 +128,19 @@ const withDatabase = async <T>(
 ): Promise<T> => {
   const values = await pathOf(c, Schema.DATA_DATABASE_GET);
   const artifact = await artifactOf(c, values.organizationId, values.projectId);
-  const dbInstance = db.create(c);
-  let opened = await openArtifactDatabase(
-    dbInstance,
-    c.env.PROJECT_DATABASE,
-    artifact.id
+  return withDataRequest(
+    sourceOf(c),
+    { artifactId: artifact.id, actor: actorOf(c) },
+    options,
+    fn
   );
-  if (!opened && options.allowDeleted) {
-    const row = await findArtifactDatabase(dbInstance, artifact.id);
-    if (
-      row?.status === constants.ARTIFACT_DATABASE_STATUS_DELETING &&
-      row.deleteAfter &&
-      row.deleteAfter > new Date()
-    ) {
-      const { plan, limits } = await db.plan.getEffectivePlan(
-        dbInstance,
-        row.organizationId
-      );
-      opened = {
-        row,
-        stub: databaseStub(c.env.PROJECT_DATABASE, row.objectName),
-        plan,
-        limits: dataLimitsFor(limits)
-      };
-    }
-  }
-  if (!opened) {
-    throw new DataError("This project doesn't have a database.", 'not_found');
-  }
-  const tally = createDataUsageTally();
-  const caller = dataCaller(opened, {
-    actor: actorOf(c),
-    timeZone: options.timeZone
-  });
-  try {
-    return await fn({
-      opened,
-      caller,
-      tally,
-      dbInstance,
-      artifactId: artifact.id
-    });
-  } finally {
-    const usage = recordDataUsage(
-      dbInstance,
-      opened.row.organizationId,
-      opened.row.id,
-      tally
-    ).catch(error => console.error('data-usage-record-failed', error));
-    try {
-      c.executionCtx.waitUntil(usage);
-    } catch {
-      await usage;
-    }
-  }
 };
 
-// A file column takes the uri of a resource the project has.
-const assertFileUris = (request: DataRequest, operations: unknown) =>
-  assertFileUrisExist(
-    request.dbInstance,
-    request.artifactId,
-    () =>
-      callData('schemaRead', () => request.opened.stub.schemaRead(), request.tally, {
-        retryRead: true
-      }),
-    operations
-  );
+const sourceOf = (c: Context<AppEnv>): DataSource => ({
+  env: c.env,
+  db: db.create(c),
+  waitUntil: promise => c.executionCtx.waitUntil(promise)
+});
 
 // A route that is one operation reads better without the "Operation 0
 // (update orders):" a list of them needs, and a row that isn't there is a 404,
@@ -439,97 +358,13 @@ const restore = async (c: Context<AppEnv>) => {
   return c.json({ database: present(restored) });
 };
 
-// Point-in-time recovery. A bookmark is accepted only when this database's
-// change log handed it out, so a client can't aim the object at anything
-// else, and only from a change it undoes. A delete's or a purge's bookmark is
-// taken after the object is marked deleted: restoring to it would bring the
-// database back deleted while its row says READY.
-const RESTORABLE_KINDS = [
-  'checkpoint',
-  'table.drop',
-  'column.update',
-  'column.drop',
-  'restore'
-];
-
+// Point-in-time recovery, to a time or to a bookmark this database's change
+// log handed out.
 const restorePoint = async (c: Context<AppEnv>) => {
   const body = await bodyOf(c, Schema.DATA_RESTORE_POINT_BODY);
-  return withDatabase(c, {}, async request => {
-    const { opened, caller, dbInstance } = request;
-    let result;
-    // Outbox events older than this came back with the restore.
-    const requestedAt = Date.now();
-    if ('bookmark' in body) {
-      const [known] = await dbInstance
-        .select({ id: db.schema.artifactDatabaseChange.id })
-        .from(db.schema.artifactDatabaseChange)
-        .where(
-          and(
-            eq(db.schema.artifactDatabaseChange.databaseId, opened.row.id),
-            eq(db.schema.artifactDatabaseChange.bookmark, body.bookmark),
-            inArray(db.schema.artifactDatabaseChange.kind, RESTORABLE_KINDS)
-          )
-        )
-        .limit(1);
-      if (!known) {
-        throw new DataError(
-          'That bookmark is not one to restore to: use the one a checkpoint, a dropped table or column, a type change, or a restore answered with.',
-          'restore'
-        );
-      }
-      if (caller.limits?.readOnly) {
-        throw new DataError(
-          "This organization's plan no longer includes Data, so the database is read-only.",
-          'read_only'
-        );
-      }
-      result = await callData(
-        'restoreToBookmark',
-        () => opened.stub.restoreToBookmark({ bookmark: body.bookmark }),
-        request.tally
-      );
-    } else {
-      const timestamp =
-        typeof body.timestamp === 'number'
-          ? body.timestamp
-          : Date.parse(body.timestamp);
-      result = await callData(
-        'restoreTo',
-        () => opened.stub.restoreTo(caller, { timestamp }),
-        request.tally
-      );
-    }
-    // Events pending at the restored moment were sent then: dropped, not
-    // sent twice. The object is restarting, so this waits for it.
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        await callData(
-          'clearOutbox',
-          () => opened.stub.clearOutbox({ before: requestedAt }),
-          request.tally
-        );
-        break;
-      } catch (error) {
-        if (attempt === 4) console.error('data-clear-outbox-failed', error);
-        else
-          await new Promise(resolve =>
-            setTimeout(resolve, 200 * (attempt + 1))
-          );
-      }
-    }
-    // Kept with the restore's undo bookmark, so "Undo restore" is a restore
-    // to it.
-    await recordChange(dbInstance, opened.row.id, {
-      actor: caller.actor,
-      kind: 'restore',
-      detail:
-        'bookmark' in body
-          ? { bookmark: body.bookmark }
-          : { at: body.timestamp },
-      bookmark: result.undoBookmark
-    });
-    return c.json(result);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.restorePoint(request, body))
+  );
 };
 
 // The database as it is right now, as a bookmark to restore to: the
@@ -537,19 +372,9 @@ const restorePoint = async (c: Context<AppEnv>) => {
 // back to exactly that moment. A time can't: the browser's clock may be
 // off, and point-in-time lookup is coarser than the writes around it.
 const checkpoint = (c: Context<AppEnv>) =>
-  withDatabase(c, {}, async request => {
-    const { bookmark } = await callData(
-      'currentBookmark',
-      () => request.opened.stub.currentBookmark(),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'checkpoint',
-      bookmark
-    });
-    return c.json({ bookmark });
-  });
+  withDatabase(c, {}, async request =>
+    c.json({ bookmark: await dataActions.checkpoint(request) })
+  );
 
 // Tables
 
@@ -575,61 +400,19 @@ const listTables = (c: Context<AppEnv>) =>
     return c.json({ tables: schema.tables });
   });
 
-// A sheet source names a spreadsheet or CSV the project has; its title goes
-// with it, for the message a refused write shows.
-const withSourceTitle = async <T extends { source?: { uri: string } | null }>(
-  request: DataRequest,
-  input: T
-): Promise<T> => {
-  if (!input.source) return input;
-  const item = await sheetSourceItem(request.dbInstance, request.artifactId, input.source.uri);
-  return { ...input, source: { ...input.source, title: item.title } };
-};
-
 const createTable = async (c: Context<AppEnv>) => {
   const body = await bodyOf(c, Schema.DATA_TABLE_INPUT);
-  return withDatabase(c, {}, async request => {
-    const input = await withSourceTitle(request, body);
-    const table = await callData(
-      'createTable',
-      () => request.opened.stub.createTable(request.caller, input),
-      request.tally
-    );
-    // The first sync reads the file as it is stored now.
-    if (table.source) await enqueueSheetSyncs(c.env, request.artifactId, [table.name], { manual: true });
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'table.create',
-      target: table.name,
-      detail: input
-    });
-    return c.json({ table }, 201);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json({ table: await dataActions.createTable(request, body) }, 201)
+  );
 };
 
 const updateTable = async (c: Context<AppEnv>) => {
   const { table: name } = await pathOf(c, Schema.DATA_TABLE_PARAMS);
   const body = await bodyOf(c, Schema.DATA_TABLE_PATCH);
-  return withDatabase(c, {}, async request => {
-    const patch = await withSourceTitle(request, body);
-    const table = await callData(
-      'updateTable',
-      () => request.opened.stub.updateTable(request.caller, name, patch),
-      request.tally
-    );
-    // A new source (or file, sheet or key) syncs right away; sync is reset
-    // only then.
-    if (table.source && patch.source && !table.sync) {
-      await enqueueSheetSyncs(c.env, request.artifactId, [table.name], { manual: true });
-    }
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'table.update',
-      target: name,
-      detail: patch
-    });
-    return c.json({ table });
-  });
+  return withDatabase(c, {}, async request =>
+    c.json({ table: await dataActions.updateTable(request, name, body) })
+  );
 };
 
 // "Sync now": a Drive or OneDrive file is fetched again if it changed, then
@@ -692,60 +475,25 @@ const dropTable = async (c: Context<AppEnv>) => {
       'invalid'
     );
   }
-  return withDatabase(c, {}, async request => {
-    const result = await callData(
-      'dropTable',
-      () => request.opened.stub.dropTable(request.caller, name),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'table.drop',
-      target: name,
-      bookmark: result.bookmark
-    });
-    return c.json(result);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.dropTable(request, name))
+  );
 };
 
 const addColumn = async (c: Context<AppEnv>) => {
   const { table: name } = await pathOf(c, Schema.DATA_TABLE_PARAMS);
   const input = await bodyOf(c, Schema.DATA_COLUMN_INPUT);
-  return withDatabase(c, {}, async request => {
-    const table = await callData(
-      'addColumn',
-      () => request.opened.stub.addColumn(request.caller, name, input),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'column.add',
-      target: `${name}.${input.name}`,
-      detail: input
-    });
-    return c.json({ table }, 201);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json({ table: await dataActions.addColumn(request, name, input) }, 201)
+  );
 };
 
 const updateColumn = async (c: Context<AppEnv>) => {
   const { table: name, column } = await pathOf(c, Schema.DATA_COLUMN_PARAMS);
   const patch = await bodyOf(c, Schema.DATA_COLUMN_PATCH);
-  return withDatabase(c, {}, async request => {
-    const result = await callData(
-      'updateColumn',
-      () =>
-        request.opened.stub.updateColumn(request.caller, name, column, patch),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'column.update',
-      target: `${name}.${column}`,
-      detail: patch,
-      bookmark: result.bookmark
-    });
-    return c.json(result);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.updateColumn(request, name, column, patch))
+  );
 };
 
 // "Add index" on a suggestion: marks the column filterable, which indexes it,
@@ -812,20 +560,9 @@ const dismissIndexAdvice = async (c: Context<AppEnv>) => {
 
 const dropColumn = async (c: Context<AppEnv>) => {
   const { table: name, column } = await pathOf(c, Schema.DATA_COLUMN_PARAMS);
-  return withDatabase(c, {}, async request => {
-    const result = await callData(
-      'dropColumn',
-      () => request.opened.stub.dropColumn(request.caller, name, column),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'column.drop',
-      target: `${name}.${column}`,
-      bookmark: result.bookmark
-    });
-    return c.json(result);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.dropColumn(request, name, column))
+  );
 };
 
 // Rows
@@ -939,64 +676,30 @@ const rowHistory = async (c: Context<AppEnv>) => {
 
 const write = async (c: Context<AppEnv>) => {
   const body = await bodyOf(c, Schema.DATA_WRITE_BODY);
-  return withDatabase(c, {}, async request => {
-    await assertFileUris(request, body.operations);
-    const { results } = await callData(
-      'write',
-      () => request.opened.stub.write(request.caller, body),
-      request.tally
-    );
-    return c.json({ results });
-  });
+  return withDatabase(c, {}, async request =>
+    c.json({ results: await dataActions.write(request, body) })
+  );
 };
 
 // Named queries
 
 const listQueries = (c: Context<AppEnv>) =>
   withDatabase(c, {}, async request =>
-    c.json({
-      queries: await callData(
-        'listQueries',
-        () => request.opened.stub.listQueries(request.caller),
-        request.tally,
-        { retryRead: true }
-      )
-    })
+    c.json({ queries: await dataActions.listQueries(request) })
   );
 
 const saveQuery = async (c: Context<AppEnv>) => {
   const input = await bodyOf(c, Schema.DATA_QUERY_INPUT);
-  return withDatabase(c, {}, async request => {
-    const query = await callData(
-      'saveQuery',
-      () => request.opened.stub.saveQuery(request.caller, input),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'query.save',
-      target: query.name,
-      detail: input
-    });
-    return c.json({ query }, 201);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json({ query: await dataActions.saveQuery(request, input) }, 201)
+  );
 };
 
 const dropQuery = async (c: Context<AppEnv>) => {
   const { name } = await pathOf(c, Schema.DATA_QUERY_PATH_PARAMS);
-  return withDatabase(c, {}, async request => {
-    const result = await callData(
-      'dropQuery',
-      () => request.opened.stub.dropQuery(request.caller, name),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'query.drop',
-      target: name
-    });
-    return c.json(result);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.dropQuery(request, name))
+  );
 };
 
 const runQuery = async (c: Context<AppEnv>) => {
@@ -1024,122 +727,32 @@ const runQuery = async (c: Context<AppEnv>) => {
 
 const listTriggers = (c: Context<AppEnv>) =>
   withDatabase(c, {}, async request =>
-    c.json(
-      await callData(
-        'listTriggers',
-        () => request.opened.stub.listTriggers(request.caller),
-        request.tally,
-        { retryRead: true }
-      )
-    )
+    c.json(await dataActions.listTriggers(request))
   );
-
-// Email triggers' addresses that still have to confirm; each gets a link.
-// A failure here doesn't undo the save: the runs say who is waiting.
-const confirmRecipients = async (
-  c: Context<AppEnv>,
-  request: {
-    dbInstance: DbExecutor;
-    artifactId: string;
-    organizationId: string;
-  },
-  inputs: Record<string, unknown>[]
-): Promise<string[]> => {
-  try {
-    const [project] = await request.dbInstance
-      .select({ name: db.schema.project.name })
-      .from(db.schema.artifact)
-      .innerJoin(
-        db.schema.project,
-        eq(db.schema.project.id, db.schema.artifact.projectId)
-      )
-      .where(eq(db.schema.artifact.id, request.artifactId))
-      .limit(1);
-    return await requestEmailConfirmations(
-      c,
-      request.dbInstance,
-      {
-        organizationId: request.organizationId,
-        projectName: project?.name ?? 'A project'
-      },
-      inputs
-    );
-  } catch (error) {
-    console.error('data-email-confirm-failed', error);
-    return [];
-  }
-};
 
 // Answers with a new webhook's secret, the only time it is shown.
 const saveTrigger = async (c: Context<AppEnv>) => {
   const input = await bodyOf(c, Schema.DATA_TRIGGER_INPUT);
-  return withDatabase(c, {}, async request => {
-    await checkTriggerTargets(request.dbInstance, request.artifactId, [input]);
-    const saved = await callData(
-      'saveTrigger',
-      () => request.opened.stub.saveTrigger(request.caller, input),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'trigger.save',
-      target: saved.trigger.name,
-      detail: input
-    });
-    const confirming = await confirmRecipients(
-      c,
-      {
-        dbInstance: request.dbInstance,
-        artifactId: request.artifactId,
-        organizationId: request.opened.row.organizationId
-      },
-      [input]
-    );
-    return c.json(
-      { ...saved, ...(confirming.length > 0 ? { confirming } : {}) },
-      201
-    );
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.saveTrigger(request, input), 201)
+  );
 };
 
 const updateTrigger = async (c: Context<AppEnv>) => {
   const { name } = await pathOf(c, Schema.DATA_TRIGGER_PATH_PARAMS);
   const { enabled } = await bodyOf(c, Schema.DATA_TRIGGER_PATCH);
-  return withDatabase(c, {}, async request => {
-    const trigger = await callData(
-      'setTriggerEnabled',
-      () =>
-        request.opened.stub.setTriggerEnabled(request.caller, {
-          name,
-          enabled
-        }),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'trigger.update',
-      target: name,
-      detail: { enabled }
-    });
-    return c.json({ trigger });
-  });
+  return withDatabase(c, {}, async request =>
+    c.json({
+      trigger: await dataActions.setTriggerEnabled(request, name, enabled)
+    })
+  );
 };
 
 const dropTrigger = async (c: Context<AppEnv>) => {
   const { name } = await pathOf(c, Schema.DATA_TRIGGER_PATH_PARAMS);
-  return withDatabase(c, {}, async request => {
-    const result = await callData(
-      'dropTrigger',
-      () => request.opened.stub.dropTrigger(request.caller, name),
-      request.tally
-    );
-    await recordChange(request.dbInstance, request.opened.row.id, {
-      actor: request.caller.actor,
-      kind: 'trigger.drop',
-      target: name
-    });
-    return c.json(result);
-  });
+  return withDatabase(c, {}, async request =>
+    c.json(await dataActions.dropTrigger(request, name))
+  );
 };
 
 const deployTriggers = async (c: Context<AppEnv>) => {
@@ -1160,7 +773,7 @@ const deployTriggers = async (c: Context<AppEnv>) => {
         removed: result.removed
       }
     });
-    const confirming = await confirmRecipients(
+    const confirming = await dataActions.confirmRecipients(
       c,
       {
         dbInstance: request.dbInstance,
@@ -1355,6 +968,18 @@ const testSend = async (c: Context<AppEnv>) => {
   const body = await bodyOf(c, Schema.DATA_TRIGGER_TEST_SEND_BODY);
   const userId = c.get('user').id;
   return withDatabase(c, {}, async request => {
+    if ('email' in body) {
+      if (!(await consumeRateLimit(c, 'TRIGGER_TEST_RATE_LIMITER', userId))) {
+        return rateLimited(
+          c,
+          'Five test sends a minute at most. Please wait a minute.',
+          'rate_limited'
+        );
+      }
+      return c.json(
+        await dataActions.testSendEmail(request, body, c.get('user').email)
+      );
+    }
     // Real runs are paused without Data, so a test of one is too.
     if (request.caller.limits?.readOnly) {
       throw new DataError(
@@ -1568,6 +1193,15 @@ const exportFile = async (c: Context<AppEnv>) => {
 
 // The schema change log, newest first. Ids are time-ordered, so the last one
 // of a page is the cursor for the next.
+const markSchemaPush = (c: Context<AppEnv>) =>
+  withDatabase(c, {}, async request => {
+    await recordChange(request.dbInstance, request.opened.row.id, {
+      actor: request.caller.actor,
+      kind: constants.DATA_CHANGE_SCHEMA_PUSH
+    });
+    return c.json({ marked: true });
+  });
+
 const listChanges = async (c: Context<AppEnv>) => {
   const query = await queryOf(c, Schema.DATA_CHANGE_LIST_QUERY);
   return withDatabase(c, {}, async request => {
@@ -1640,6 +1274,7 @@ export const DataController = {
   deployTriggers,
   listTestRecipients,
   testSend,
+  markSchemaPush,
   listTriggerRuns,
   retryTriggerRun,
   startExport,

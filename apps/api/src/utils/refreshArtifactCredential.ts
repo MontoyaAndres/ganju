@@ -1,4 +1,3 @@
-import { Context } from 'hono';
 import { eq } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import { utils } from '@ganju/utils';
@@ -6,7 +5,7 @@ import { utils } from '@ganju/utils';
 import { providers } from './providers';
 
 // types
-import type { AppEnv } from '../types';
+import type { EnvSource } from '@ganju/utils';
 
 interface RefreshableCredential {
   id: string;
@@ -30,7 +29,7 @@ interface RefreshableCredential {
  * surface a clear message instead of failing opaquely at the remote.
  */
 export const refreshArtifactCredential = async (
-  c: Context<AppEnv>,
+  c: EnvSource,
   dbInstance: ReturnType<typeof db.create>,
   credential: RefreshableCredential
 ): Promise<{ secret: string; needsReauth: boolean }> => {

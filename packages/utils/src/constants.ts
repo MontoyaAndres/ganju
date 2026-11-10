@@ -2191,6 +2191,9 @@ const DATA_TRIGGER_RUN_HARD_CAP = 5_000_000;
 // A deleted database can be restored for this long before its storage is
 // freed.
 const DATA_DELETE_GRACE_DAYS = 7;
+// The change log entry `ganju data schema push` leaves: the tables come from
+// a developer's file, and their next push puts it back.
+const DATA_CHANGE_SCHEMA_PUSH = 'schema.push';
 const ARTIFACT_DATABASE_STATUS_CREATING = 'CREATING' as 'CREATING';
 const ARTIFACT_DATABASE_STATUS_READY = 'READY' as 'READY';
 const ARTIFACT_DATABASE_STATUS_FAILED = 'FAILED' as 'FAILED';
@@ -2642,6 +2645,7 @@ export const constants = {
   DATA_MAX_TABLES_PER_DATABASE,
   DATA_TRIGGER_RUN_HARD_CAP,
   DATA_DELETE_GRACE_DAYS,
+  DATA_CHANGE_SCHEMA_PUSH,
   DATA_PURGE_BATCH,
   DATA_ACTIVITY_THROTTLE_MS,
   DATA_INDEX_ADVICE_WINDOW_DAYS,

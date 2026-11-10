@@ -18,6 +18,11 @@ export interface ChangeSetCard {
   items: {
     label: string;
     undoable: boolean;
+    undo?: 'reverse' | 'restore' | 'none';
+    // A delete: the name the owner types before Apply.
+    deletes?: string | null;
+    lost?: 'file' | 'credentials' | 'secret' | null;
+    managedByCode?: boolean;
     effects: {
       actions: ActionEffect[];
       hosts: string[];
