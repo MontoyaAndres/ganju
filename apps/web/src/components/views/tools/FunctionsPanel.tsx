@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 import IconButton from '@mui/material/IconButton';
@@ -24,6 +25,7 @@ import { MetaGridSkeleton, ToolRowsSkeleton } from './Skeletons';
 import { JsonEditor, useSchemaMetaSchema } from './JsonEditor';
 import { FunctionSettingsModal } from './FunctionSettingsModal';
 import { ModalDialog, ModalOverlay } from './styles';
+import { useAssistantAccess } from '../assistant/access';
 import { i18n } from '../../../lib';
 
 // types
@@ -437,7 +439,20 @@ export const FunctionsPanel = ({
   // it against the whole server, so this is where overlap with tools outside
   // the script, and the server-wide count, show up.
   const [lintWarnings, setLintWarnings] = useState<ToolLintFinding[]>([]);
-  const [editable, setEditable] = useState(true);
+  const [versionEditable, setVersionEditable] = useState(true);
+  const router = useRouter();
+  const assistantAccess = useAssistantAccess(
+    router.query.id as string | undefined,
+    router.query.projectId as string | undefined
+  );
+  // Where the assistant is open it writes the actions; owners only read them.
+  const byAssistant = assistantAccess === 'open';
+  const editable =
+    versionEditable && !byAssistant && assistantAccess !== 'loading';
+  const openAssistant = () =>
+    router.push(
+      `/organization/${router.query.id}/project/${router.query.projectId}/assistant`
+    );
   const [sourceKind, setSourceKind] = useState<string | null>(null);
   // A CLI version showing the project's real source rather than the bundle.
   const [snapshot, setSnapshot] = useState(false);
@@ -498,7 +513,7 @@ export const FunctionsPanel = ({
       })
       .then(data => {
         if (cancelled || !data) return;
-        setEditable(data.editable !== false);
+        setVersionEditable(data.editable !== false);
         setSourceKind(data.sourceKind ?? null);
         setSnapshot(data.snapshot === true);
         setManifest(Array.isArray(data.tools) ? data.tools : []);
@@ -537,7 +552,7 @@ export const FunctionsPanel = ({
     setActivePath(MAIN);
     setEmptyFolders([]);
     setManifest([]);
-    setEditable(true);
+    setVersionEditable(true);
     setSourceKind(utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR);
     setDirty(true);
   };
@@ -979,35 +994,39 @@ export const FunctionsPanel = ({
             <TuneOutlined />
             <span className="button-text">{t('settings')}</span>
           </UI.Button>
-          <UI.Button
-            size="small"
-            disabled={!editable}
-            onClick={() => setEditing({ mode: 'create' })}
-          >
-            <Add />
-            <span className="button-text">{t('newFunction')}</span>
-          </UI.Button>
-          <UI.Button
-            size="small"
-            disabled={!!busy || !editable || manifest.length === 0}
-            onClick={saveDraft}
-          >
-            <SaveOutlined />
-            <span className="button-text">
-              {busy === 'draft' ? t('savingDraft') : t('saveDraft')}
-            </span>
-          </UI.Button>
-          <UI.Button
-            variant="contained"
-            size="small"
-            disabled={!!busy || !editable || manifest.length === 0}
-            onClick={deploy}
-          >
-            <RocketLaunchOutlined />
-            <span className="button-text">
-              {busy === 'deploy' ? t('deploying') : t('deploy')}
-            </span>
-          </UI.Button>
+          {!byAssistant && (
+            <>
+            <UI.Button
+              size="small"
+              disabled={!editable}
+              onClick={() => setEditing({ mode: 'create' })}
+            >
+              <Add />
+              <span className="button-text">{t('newFunction')}</span>
+            </UI.Button>
+            <UI.Button
+              size="small"
+              disabled={!!busy || !editable || manifest.length === 0}
+              onClick={saveDraft}
+            >
+              <SaveOutlined />
+              <span className="button-text">
+                {busy === 'draft' ? t('savingDraft') : t('saveDraft')}
+              </span>
+            </UI.Button>
+            <UI.Button
+              variant="contained"
+              size="small"
+              disabled={!!busy || !editable || manifest.length === 0}
+              onClick={deploy}
+            >
+              <RocketLaunchOutlined />
+              <span className="button-text">
+                {busy === 'deploy' ? t('deploying') : t('deploy')}
+              </span>
+            </UI.Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1056,7 +1075,22 @@ export const FunctionsPanel = ({
         </div>
       )}
 
-      {!editable && (
+      {byAssistant && !snapshot && (
+        <div className="tools-banner">
+          <span>
+            {t('assistantBannerBefore')}{' '}
+            <button
+              type="button"
+              className="tools-inline-link"
+              onClick={openAssistant}
+            >
+              {t('openAssistant')}
+            </button>
+          </span>
+        </div>
+      )}
+
+      {!editable && assistantAccess !== 'loading' && (!byAssistant || snapshot) && (
         <div className="tools-banner tools-banner-warning">
           <Warning />
           {snapshot ? (
@@ -1133,16 +1167,22 @@ export const FunctionsPanel = ({
         <div className="tools-empty-state">
           <CodeOutlined />
           <h3>{t('fnEmptyTitle')}</h3>
-          <p>{t('fnEmptyText')}</p>
-          <UI.Button
-            variant="contained"
-            size="small"
-            disabled={!editable}
-            onClick={() => setEditing({ mode: 'create' })}
-          >
-            <Add />
-            <span className="button-text">{t('newFunction')}</span>
-          </UI.Button>
+          <p>{byAssistant ? t('fnEmptyAssistant') : t('fnEmptyText')}</p>
+          {byAssistant ? (
+            <UI.Button variant="contained" size="small" onClick={openAssistant}>
+              <span className="button-text">{t('openAssistant')}</span>
+            </UI.Button>
+          ) : (
+            <UI.Button
+              variant="contained"
+              size="small"
+              disabled={!editable}
+              onClick={() => setEditing({ mode: 'create' })}
+            >
+              <Add />
+              <span className="button-text">{t('newFunction')}</span>
+            </UI.Button>
+          )}
         </div>
       ) : (
         <div className="tools-function-list">

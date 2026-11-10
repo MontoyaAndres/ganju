@@ -686,6 +686,66 @@ then.
 - Credits shown per reply and per month, past conversations, and en / es
   copy.
 
+Choices agreed with the owner (2026-11-09):
+- The test chat works for any project, with or without a channel: the runner
+  takes the project directly and uses a channel's model when the project has
+  one, otherwise the shared model. Test turns count as messages but are
+  tagged, so they stay out of the channel's conversations, its counters and
+  the per-customer daily limit.
+- The Functions tab is view-only only for organizations that can use the
+  assistant; everyone else keeps the editor until it opens to them.
+- Production keeps the allowlist after phase 3; it opens to all Pro and
+  Enterprise after phase 6 bills credits.
+- The tab sits in the project navigation after Home. Account connections
+  come back to the tab, not to Tools.
+
+**Phase 3 status (2026-11-09): done on dev; production not yet.** No migration.
+- The Assistant tab (`apps/web/src/components/views/assistant/`):
+  - past chats, with a drawer on small screens;
+  - replies streamed with a list of steps and seconds on a long step;
+  - picks a running turn back up after a reload, showing each saved card
+    and credit once;
+  - credits per reply, per chat and per month;
+  - example requests to start;
+  - en / es.
+- Cards:
+  - change set: the "what will be possible" list built from the actions'
+    settings, Apply, Undo, and a status chip;
+  - patch: Copy and Download;
+  - account: the sign-in returns to the tab (`returnTo=assistant` in the
+    OAuth state);
+  - key: saved through the credential route, never seen by the assistant;
+  - file: opens Resources;
+  - each request card also has "I'd rather not". Completing a card sends
+    the follow-up message.
+- Try it as a customer (`POST/GET …/builder/try`):
+  - the channel runner on a hidden channel per project (platform `test`,
+    made on first use), with the model and settings of the project's
+    first channel, or the shared model;
+  - no per-customer daily limit, and each turn counts as a message;
+  - kept out of the channel list, the overview and trigger targets;
+  - starts fresh after Apply or Undo.
+- The Functions tab is view-only where the assistant is open (no new
+  function, save, deploy or file changes).
+- `ask_owner` takes only providers the app can connect. The conversation
+  list returns the month's credits.
+- Checked on dev:
+  - qa-timecap gets the tab; `test` gets 404 and keeps its editor;
+  - build → Apply → test chat answers with the change → Undo;
+  - test chat with no channel, and with two Telegram channels (answers
+    from the PDF, with sources and the file);
+  - patch on the CLI project (no version created);
+  - key card: saved, follow-up sent, and the assistant reported the
+    invalid key instead of offering the action;
+  - file card: opens Resources, and "I'd rather not";
+  - reload in the middle of a turn;
+  - desktop and phone widths, in English and Spanish.
+- Not checked: coming back from a real account sign-in (the link carries
+  the return marker; the owner connects a test account once).
+- Production (2026-11-10): deployed, `ANTHROPIC_API_KEY` set. The owner keeps
+  `BUILDER_ORGANIZATIONS` empty, so the assistant stays closed there; adding
+  an organization id opens it to that organization.
+
 **4. Data, knowledge, prompts and tools — M/L**
 
 - The `data`, `knowledge`, `prompts` and `tools` tools on the shared code.

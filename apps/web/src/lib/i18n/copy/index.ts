@@ -13,6 +13,7 @@ import { DATA } from './data';
 import { TOOLS } from './tools';
 import { TOOL_APPROVAL } from './toolApproval';
 import { WHATSAPP_TEMPLATES } from './whatsappTemplates';
+import { ASSISTANT } from './assistant';
 
 export const copy = {
   COMMON,
@@ -29,5 +30,6 @@ export const copy = {
   DATA,
   TOOLS,
   TOOL_APPROVAL,
-  WHATSAPP_TEMPLATES
+  WHATSAPP_TEMPLATES,
+  ASSISTANT
 };

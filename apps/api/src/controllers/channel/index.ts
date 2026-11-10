@@ -70,12 +70,14 @@ const list = async (c: Context<AppEnv>) => {
   if (!artifact) throw new Error('Artifact not found for the project');
 
   return c.json(
-    artifact.channels.map(
-      ({ credentials: _c, webhookSecret: _w, ...rest }) => ({
+    artifact.channels
+      .filter(
+        channel => channel.platform !== utils.constants.CHANNEL_PLATFORM_TEST
+      )
+      .map(({ credentials: _c, webhookSecret: _w, ...rest }) => ({
         ...rest,
         hasCredentials: true
-      })
-    )
+      }))
   );
 };
 

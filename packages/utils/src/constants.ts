@@ -633,6 +633,9 @@ const CHANNEL_PLATFORM_TELEGRAM = 'telegram' as 'telegram';
 const CHANNEL_PLATFORM_SLACK = 'slack' as 'slack';
 const CHANNEL_PLATFORM_WHATSAPP = 'whatsapp' as 'whatsapp';
 const CHANNEL_PLATFORM_DISCORD = 'discord' as 'discord';
+// The project's hidden channel for the owner's "Try it as a customer" chat in
+// the assistant tab. Never listed, never connected to a platform.
+const CHANNEL_PLATFORM_TEST = 'test' as 'test';
 const CHANNEL_PLATFORMS = [
   CHANNEL_PLATFORM_TELEGRAM,
   CHANNEL_PLATFORM_SLACK,
@@ -2923,6 +2926,7 @@ export const constants = {
   CHANNEL_PLATFORM_SLACK,
   CHANNEL_PLATFORM_WHATSAPP,
   CHANNEL_PLATFORM_DISCORD,
+  CHANNEL_PLATFORM_TEST,
   CHANNEL_PLATFORMS,
   CHANNEL_CONVERSATION_SCOPE_PRIVATE,
   CHANNEL_CONVERSATION_SCOPE_GROUP,

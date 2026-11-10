@@ -4,7 +4,7 @@ import type { Database } from '@ganju/db';
 import { Plan } from '../../utils';
 import type { Bindings } from '../../types';
 
-// Until the assistant's tab ships, only the organizations listed in
+// Until credits are billed, only the organizations listed in
 // BUILDER_ORGANIZATIONS (comma-separated ids) reach it.
 const allowlisted = (env: Bindings, organizationId: string) =>
   (utils.getEnv({ env }, 'BUILDER_ORGANIZATIONS') ?? '')

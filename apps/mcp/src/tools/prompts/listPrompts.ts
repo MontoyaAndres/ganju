@@ -1,3 +1,5 @@
+import { utils } from '@ganju/utils';
+
 import { ToolDefinition } from '../types';
 
 // Frame how a prompt is invoked on the surface the request is coming from. Every
@@ -6,7 +8,7 @@ import { ToolDefinition } from '../types';
 // while a direct MCP client uses the prompts/get protocol by `name`.
 const howToInvoke = (channelPlatform: string | null): string =>
   channelPlatform
-    ? `You are connected through ${channelPlatform}. Invoke a prompt by sending its \`command\` (e.g. \`/summarize\`) as a chat message. Any text typed after the command fills the prompt's first argument; a prompt with a null command can't be triggered from chat.`
+    ? `You are connected through ${channelPlatform === utils.constants.CHANNEL_PLATFORM_TEST ? 'the owner\'s test chat' : channelPlatform}. Invoke a prompt by sending its \`command\` (e.g. \`/summarize\`) as a chat message. Any text typed after the command fills the prompt's first argument; a prompt with a null command can't be triggered from chat.`
     : `This is a direct MCP client. Invoke a prompt through the prompts/get protocol using its \`name\` (most clients surface them in a prompt/command picker). The \`command\` field shows how the same prompt is invoked from a chat channel (Telegram/Slack/Discord).`;
 
 export const listPrompts: ToolDefinition = {

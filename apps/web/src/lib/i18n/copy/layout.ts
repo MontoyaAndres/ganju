@@ -12,6 +12,7 @@ const en = {
   // Navigation — the same labels serve the desktop rail and the mobile drawer.
   organizations: 'Organizations',
   home: 'Home',
+  assistant: 'Assistant',
   prompts: 'Prompts',
   resources: 'Resources',
   data: 'Data',
@@ -88,6 +89,7 @@ export const LAYOUT: Catalog<LayoutCopy> = {
   es: {
     organizations: 'Organizaciones',
     home: 'Inicio',
+    assistant: 'Asistente',
     prompts: 'Prompts',
     resources: 'Recursos',
     data: 'Datos',

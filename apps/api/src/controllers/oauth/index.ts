@@ -13,6 +13,9 @@ import {
 // types
 import { AppEnv } from '../../types';
 
+// A connection asked for by the assistant goes back to its tab.
+const RETURN_TO_ASSISTANT = 'assistant';
+
 const authorize = async (c: Context<AppEnv>) => {
   const provider = c.req.param('provider');
   const query = c.req.query();
@@ -45,7 +48,10 @@ const authorize = async (c: Context<AppEnv>) => {
   const state = oauthState.encode({
     organizationId,
     projectId,
-    provider
+    provider,
+    ...(query.returnTo === RETURN_TO_ASSISTANT
+      ? { returnTo: RETURN_TO_ASSISTANT }
+      : {})
   });
 
   const resolvedScopes = scopes
@@ -316,10 +322,12 @@ const callback = async (c: Context<AppEnv>) => {
   }
 
   const targetPage =
-    provider === utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE ||
-    provider === utils.constants.OAUTH_PROVIDER_ONE_DRIVE
-      ? 'resources'
-      : 'tools';
+    state.returnTo === RETURN_TO_ASSISTANT
+      ? RETURN_TO_ASSISTANT
+      : provider === utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE ||
+          provider === utils.constants.OAUTH_PROVIDER_ONE_DRIVE
+        ? 'resources'
+        : 'tools';
   const redirectUrl = `${utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL')}/organization/${organizationId}/project/${projectId}/${targetPage}?connected=${provider}`;
 
   return c.redirect(redirectUrl);
