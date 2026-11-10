@@ -14,7 +14,7 @@ import {
 } from '@mui/icons-material';
 
 import { Wrapper } from './styles';
-import { request, streamTurn } from './api';
+import { CREDITS_LIMIT, request, streamTurn } from './api';
 import {
   ChangeSetCardView,
   OwnerCardView,
@@ -323,7 +323,7 @@ export const Assistant = () => {
         );
         if (!created.ok) {
           snackbar.error(
-            created.status === 402
+            created.feature === CREDITS_LIMIT
               ? t('creditsUsedUp')
               : created.error || t('errorSend')
           );
@@ -339,7 +339,7 @@ export const Assistant = () => {
         snackbar.error(
           sent.status === 429
             ? t('rateLimited')
-            : sent.status === 402
+            : sent.feature === CREDITS_LIMIT
               ? t('creditsUsedUp')
               : sent.status === 409
                 ? t('busy')

@@ -57,20 +57,19 @@ export const AssistantCredits = ({
       <div className="assistant-month-line">
         <AutoAwesomeOutlined fontSize="small" />
         <span>
-          {ownKey
-            ? t('creditsOwnKey')
-            : t('creditsUsed', {
-                used: t.n(Math.min(credits.used, credits.included)),
-                included: t.n(credits.included)
-              })}
+          {t('creditsUsed', {
+            used: t.n(Math.min(credits.used, credits.included)),
+            included: t.n(credits.included)
+          })}
         </span>
       </div>
-      {!ownKey && extra > 0 && (
+      {extra > 0 && (
         <p className="assistant-month-extra">
           {t('creditsExtra', { extra: t.n(extra), cap: t.n(credits.cap) })}
         </p>
       )}
-      {!ownKey && !credits.allowed && (
+      {ownKey && <p>{t('creditsOwnKey')}</p>}
+      {!credits.allowed && (
         <p className="assistant-month-out">{t('creditsUsedUp')}</p>
       )}
       {builderKey.canManage && builderKey.options.length > 0 && (

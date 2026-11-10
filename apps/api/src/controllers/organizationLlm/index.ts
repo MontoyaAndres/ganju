@@ -147,6 +147,15 @@ const update = async (c: Context<AppEnv>) => {
     .where(eq(db.schema.organizationLlm.id, existing.id))
     .returning();
 
+  // The assistant only runs on an Anthropic key: one that stops being one
+  // goes back to credits, as a deleted one does.
+  if (mergedProvider !== utils.constants.LLM_PROVIDER_ANTHROPIC) {
+    await dbInstance
+      .update(db.schema.subscription)
+      .set({ builderLlmId: null })
+      .where(eq(db.schema.subscription.builderLlmId, existing.id));
+  }
+
   const { apiKey: _k, ...safe } = updated;
   return c.json({ ...safe, hasApiKey: true });
 };

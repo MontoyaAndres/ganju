@@ -89,7 +89,7 @@ const en = {
   builderHint:
     'What the project assistant and its customer test chat use. Past the included credits it stops at {cap} extra credits a month.',
   builderOwnKeyHint:
-    "The assistant runs on your organization's Anthropic key, so it uses no credits. Change it from the Assistant tab.",
+    "The assistant runs on your organization's Anthropic key and uses no credits; only the customer test chat does. Change it from the Assistant tab.",
   builderCapLabel: 'Extra credits a month',
   builderCapHelp: 'Up to ${usd} a month. 0 stops at the included credits.',
   builderCapSave: 'Save',
@@ -397,7 +397,7 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     builderHint:
       'Lo que usan el asistente del proyecto y su chat de prueba. Pasados los créditos incluidos, se detiene en {cap} créditos extra al mes.',
     builderOwnKeyHint:
-      'El asistente usa la clave de Anthropic de tu organización, así que no gasta créditos. Cámbialo desde la pestaña Asistente.',
+      'El asistente usa la clave de Anthropic de tu organización y no gasta créditos; solo los usa el chat de prueba como cliente. Cámbialo desde la pestaña Asistente.',
     builderCapLabel: 'Créditos extra al mes',
     builderCapHelp:
       'Hasta ${usd} al mes. Con 0 se detiene en los créditos incluidos.',

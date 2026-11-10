@@ -16,7 +16,8 @@ const en = {
   creditsExtra: '{extra} extra credits, of {cap} allowed',
   creditsUsedUp:
     "This month's credits are used up. An admin can raise the limit in Settings → Billing & plan.",
-  creditsOwnKey: 'Runs on your own Anthropic key, so it uses no credits',
+  creditsOwnKey:
+    'The assistant runs on your own Anthropic key and uses no credits. The customer test chat still does.',
   creditsPayWith: 'Pay with',
   creditsGanju: 'Ganju credits',
   errorOwnKey:
@@ -164,7 +165,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     creditsUsedUp:
       'Se acabaron los créditos de este mes. Un administrador puede subir el límite en Ajustes → Plan y facturación.',
     creditsOwnKey:
-      'Usa tu propia clave de Anthropic, así que no gasta créditos',
+      'El asistente usa tu propia clave de Anthropic y no gasta créditos. El chat de prueba como cliente sí los usa.',
     creditsPayWith: 'Pagar con',
     creditsGanju: 'Créditos de Ganju',
     errorOwnKey:

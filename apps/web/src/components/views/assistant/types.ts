@@ -76,7 +76,6 @@ export interface BuilderCredits {
   included: number;
   cap: number;
   allowed: boolean;
-  ownKeyUsed: number;
 }
 
 export interface BuilderKey {

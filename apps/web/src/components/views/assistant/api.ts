@@ -2,11 +2,16 @@ import { utils } from '@ganju/utils';
 
 import type { StreamEvent } from './types';
 
+// The 402 that means the period's assistant credits are used up.
+export const CREDITS_LIMIT = utils.constants.PLAN_FEATURE_BUILDER_CREDITS;
+
 export interface ApiResult<T> {
   ok: boolean;
   status: number;
   data: T;
   error: string;
+  // Which plan limit refused it (402), e.g. 'builderCredits'.
+  feature?: string;
 }
 
 /** One call to the API. Never throws: a refusal comes back as `ok: false`. */
@@ -30,12 +35,16 @@ export const request = async <T>(
     });
     const data: { error?: unknown } = await response.json().catch(() => ({}));
     if (!response.ok || utils.isApiError(data)) {
-      const error = (data as { error?: unknown } | null)?.error;
+      const { error, feature } = (data ?? {}) as {
+        error?: unknown;
+        feature?: unknown;
+      };
       return {
         ok: false,
         status: response.status,
         data: undefined as T,
-        error: typeof error === 'string' ? error : ''
+        error: typeof error === 'string' ? error : '',
+        ...(typeof feature === 'string' ? { feature } : {})
       };
     }
     return { ok: true, status: response.status, data: data as T, error: '' };

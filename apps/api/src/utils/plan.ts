@@ -461,7 +461,6 @@ export type BuilderCredits = {
   // Extra credits the organization allows past the included ones.
   cap: number;
   allowed: boolean;
-  ownKeyUsed: number;
   llmId: string | null;
 };
 
@@ -479,8 +478,7 @@ export const checkBuilderCredits = async (
   now: Date = new Date()
 ): Promise<BuilderCredits> => {
   const sub = await loadOrCreateSubscription(executor, organizationId);
-  const { builderCostMicros, builderOwnKeyCostMicros } =
-    await rollUsagePeriodIfDue(executor, sub, now);
+  const { builderCostMicros } = await rollUsagePeriodIfDue(executor, sub, now);
   const plan = planFromSubscription(sub);
   const included = limitsFor(plan).includedBuilderCredits;
   const cap = sub.builderCreditCap ?? constants.BUILDER_DEFAULT_CREDIT_CAP;
@@ -491,7 +489,6 @@ export const checkBuilderCredits = async (
     included,
     cap,
     allowed: used < included + cap,
-    ownKeyUsed: creditsOfMicros(builderOwnKeyCostMicros),
     llmId: sub.builderLlmId
   };
 };

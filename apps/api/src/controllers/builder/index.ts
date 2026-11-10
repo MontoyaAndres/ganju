@@ -175,8 +175,7 @@ const listConversations = async (c: Context<AppEnv>) => {
       used: Math.round(credits.used * 10) / 10,
       included: credits.included,
       cap: credits.cap,
-      allowed: credits.allowed,
-      ownKeyUsed: Math.round(credits.ownKeyUsed * 10) / 10
+      allowed: credits.allowed
     },
     key: { llmId, options: anthropic, canManage: !!admin }
   });

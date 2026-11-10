@@ -45,7 +45,6 @@ interface BillingStatus {
       included: number;
       cap: number;
       allowed: boolean;
-      ownKeyUsed: number;
       llmId: string | null;
     };
     data?: {
