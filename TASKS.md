@@ -889,8 +889,16 @@ How it works:
 
 Still to do:
 - Run migration 0092 on dev.
-- Create the meter and price in Polar sandbox, using the owner's dashboard
-  session.
+- ~~Create the meter and price in Polar~~ (done 2026-11-10 in sandbox and
+  production, from the owner's dashboard session):
+  - The meter is "Assistant credits" (`ganju_builder_credits`, sum of
+    `units`, label `credits` ×100). Sandbox id `e941c1cc-…`, production
+    `f53ad8c2-…`.
+  - A metered price with `unit_amount` 2 was added to both Pro and
+    Enterprise.
+  - Subscriptions keep the prices they started with, so the price only
+    applies to checkouts after this. Production had no active subscriptions.
+    The sandbox test subscriptions lack it, and the Data prices too.
 - Deploy to dev and check by hand: credits counted, the cap stops a turn,
   the own key used and refused, the test chat counted, the billing row and
   cap setting, the hourly meter report.
