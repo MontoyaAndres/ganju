@@ -61,6 +61,24 @@ Recheck these before setting a price. Rows written are the line that matters: a 
 
 **Measured, so far only on dev.** Our counters match Cloudflare's analytics: on 2026-11-05 a known load in a test database (a table created, 300 rows imported, 10 unindexed queries, the table dropped) moved ours by 551,473 rows read, 919 written and 26 calls, and Cloudflare's by 551,546, 919 and 26 (`scripts/reconcile-data-usage.mjs`). The heaviest test database (40 MB; 6.8M rows read and 0.95M written in a month, mostly seeding a 50,000-row table and rebuilding it) would cost about **$0.97** at the rates above if nothing were included, $0.95 of it rows written. Our estimate for a busy restaurant (10,000 orders a month, 50 MB) is well under $0.25. Real customer traffic is still unmeasured.
 
+### The project assistant — Claude Opus 5.5 (measured November 2026)
+
+The Assistant tab runs on `claude-opus-5-5` through our own Anthropic key ([MODELS.md](MODELS.md)), and is the one place where a customer's request costs us dollars rather than fractions of a cent. So it isn't bundled: it is measured in **credits**, one per $0.01 of model cost at Anthropic's list price (the `PRICE` table in [`builder/llm.ts`](../apps/api/src/controllers/builder/llm.ts)), computed from each response's usage and stored on its `builder_message` row.
+
+**Measured with the eval** (`scripts/eval-builder.mjs --server` on dev, 2026-11-11, baseline in [`scripts/golden/builder-phase7-server.json`](../scripts/golden/builder-phase7-server.json)): ten typical owner requests, three runs each, each carried through planning, building, applying and testing.
+
+| | per request |
+|---|---|
+| Credits | **22.9 avg** (about $0.23), 42 max |
+| Model calls | 10.7 |
+| Owner turns | 3.1 |
+
+Range by request: a new action with its table 29–42 credits (stock, orders, bookings, opening hours, a spreadsheet import), a change to an action about 20, a knowledge or menu change 12–18, a polite "that can't run on a schedule" 10–20, and answers that change nothing (a request it can't do, explaining a broken action) about 5–8. That is what the prompt's estimate to the owner is built on (25 to 50 for a new action, under 15 for knowledge or a small fix).
+
+**Caching carries it.** Across the 30 runs, 6.5M tokens were read from the cache against 824 uncached input tokens and 335k cache writes; output (188k tokens) was about half the cost. Without the stable cached prefix (a system prompt with nothing per project in it, and the tools), every one of the ~11 calls per request would pay full input price on the instructions and the SDK types again.
+
+One thing the stored numbers can't do: `builder_message.cache_write_tokens` holds 1-hour and 5-minute cache writes together, which are priced differently ($8 and $5 per M). `cost_micros` is computed from the split before it is merged, so it is right; re-pricing a period from the token columns alone can only bracket it.
+
 ### Estimates still to confirm
 
 | What | Estimate | Note |
@@ -230,6 +248,7 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 | Included storage | **1 GB** embedded content (~500,000 pages of text) |
 | Included messages | 3,000/month — of which **1,000 may run on Ganju's model** |
 | Included tool calls | 1,000,000/month |
+| Project assistant | 1,000 credits/month ($10 of model cost) |
 | Project data | ✅ a database per project, up to 9 GB and 50 tables; measured, billed at $0 for now |
 | Support | 24/7 |
 
@@ -241,12 +260,13 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 | Messages on **your** key | $2 per 1,000 | ~$0 | platform fee |
 | Messages on **Ganju's** model | $15 per 1,000 | ~$4–11 | 1.4–3.75× |
 | Custom tool calls | $5 per million | ~$2.30/M | ~2× |
+| Assistant credits | $2 per 100 | $1 per 100 | 2× |
 
 Only tools the customer **wrote** count against that million. Calls to the shipped integrations, and to proxied MCP servers, stay bundled: they cost one screened fetch from a Worker we already pay for, so metering them would bill for something that rounds to zero and turn the tool list into a thing to ration.
 
 **Storage is priced at roughly break-even, on purpose.** When $2/GB was set it sat well under the then-current $4.51/GB. Rather than raise the price again, the gap was closed from the cost side: halving the embedding to 1536 dimensions took the real figure to **~$2.41/GB** (Part 2.5). $2 against $2.41 is close enough to live with, the exposure is bounded by the 1 GB allowance, and raising `CHUNK_TARGET_CHARS` would tip it positive without another price change.
 
-**If a customer maxes every included allowance:** $4.00 inference + $2.41 storage + $2.30 tool calls + $0.02 script = **$8.73**, leaving **$20.27 (70%)**. A typical BYO-key customer with a few hundred MB costs ~$2 → **93%**.
+**If a customer maxes every included allowance:** $4.00 inference + $2.41 storage + $2.30 tool calls + $0.02 script + $10.00 assistant credits = **$18.73**, leaving **$10.27 (35%)**. The assistant is the largest line: without it the same customer costs $8.73 (70%). A typical BYO-key customer with a few hundred MB and a few assistant requests (about 23 credits each, Part 1) costs ~$3 → **~90%**.
 
 **Why $29 and not $20?** Not margin — $20 is safe. It's positioning: code hosting, a CLI, and managed OAuth put this beside Zapier Professional (~$30), n8n Starter (~€24), Pipedream (~$29). $20 anchors it as a tool; $29 anchors it as a platform.
 
@@ -404,6 +424,7 @@ The guardrails the model depends on are now in code:
 - **A monthly ceiling on that compute.** `toolCallHardCap` — 20,000,000 on Pro, `null` on Enterprise, 10,000 on Free for the downgraded org whose script is still published. The per-script CPU ceiling bounds one call and the rate limiter bounds a minute; this is what bounds a month. Refused at dispatch with the reason, never by dropping the tool from `tools/list`.
 - **An abuse process, not just controls** — the runbook in [ABUSE.md](ABUSE.md), and the one command it leans on.
 - **Project data is measured from day one.** Five counters on `subscription` (rows read, rows written, requests, peak storage in MB, trigger runs), snapshotted into `usage_period`, shown as a Data block on the billing page, and reported to four Polar meters at $0. A monthly reconcile against Cloudflare's analytics keeps the counters honest. Ganju's own reads (the hourly size, the index job, the abandoned-database flow) are counted and billed like the customer's.
+- **The project assistant is sold in credits.** 1,000 credits ($10 of model cost) included in Pro, then $2 per 100 — 2× cost (`PRICING_BUILDER_*`) — reported hourly to `ganju_builder_credits` past the allowance. An admin's monthly cap on extra credits (`subscription.builder_credit_cap`, default 2,000) stops new turns rather than capping the meter, so lowering it can't take back what was used; the organization's own Anthropic key uses no credits at all. Its "try it as a customer" chat on our model is charged the same way, at `SHARED_MODEL_PRICE`. Per request it measures 22.9 credits (Part 1), so the allowance is about 40 requests a month.
 - **Shared-key turns are sold, not blocked.** The runner's old gate stopped a channel at the shared allowance; it now only trips at `PRICING_SHARED_KEY_HARD_CAP` (100,000/mo) as an abuse backstop. Between the allowance and the backstop, shared turns keep running and report to a second meter (`ganju_shared_messages`) at $15/1,000. Own-key turns keep reporting to the original meter at $2/1,000, and no turn bills to both. The metering split reproduces every worked example in Part 5.
 
 ### Billing — Polar, live
@@ -412,7 +433,7 @@ The guardrails the model depends on are now in code:
 
 **What it costs.** Polar's Starter tier is 5% + 50¢, plus 1.5% on international cards, plus the Connect payout and COP conversion — call it **~7–8% effective**, against Stripe's ~3.9%. The margin tables above are computed against *inference and storage* cost and are gross of payment processing, so they still read correctly; net of processing, take another ~7–8% off the top. On $29 with ~$1.05 of inference behind it, that is a change from roughly 90% to roughly 86% gross margin — not a number that moves any decision in this document. Polar's own Pro tier ($20/mo) drops the rate to 3.8% + 40¢ and pays for itself around $1,379/mo in sales; stay on Starter until then.
 
-**Live in production** with one **Pro** product carrying the $29 base and four metered prices, one **Enterprise** product (private, metered-only), and four meters filtering on event `name` and aggregating `sum` over `units`:
+**Live in production** with one **Pro** product carrying the $29 base and five billed metered prices (plus the four data meters at $0, below), one **Enterprise** product (private, metered-only), and nine meters filtering on event `name` and aggregating `sum` over `units`:
 
 | Meter | Event name | `unit_amount` (cents/unit) | Displays as |
 | --- | --- | --- | --- |
@@ -420,6 +441,7 @@ The guardrails the model depends on are now in code:
 | Shared messages | `ganju_shared_messages` | `1.5` | $15.00 / 1,000 messages |
 | Embedded storage | `ganju_embedded_storage` | `0.1953125` | $2.00 / 1,024 MB |
 | Custom-tool calls | `ganju_custom_tool_calls` | `0.0005` | $5.00 / 1,000,000 calls |
+| Assistant credits | `ganju_builder_credits` | `2` | $2.00 / 100 credits |
 | Data storage | `ganju_data_storage` | $0 (`metered_tiers`) | peak MB in the period |
 | Data rows written | `ganju_data_rows_written` | $0 (`metered_tiers`) | rows |
 | Data rows read | `ganju_data_rows_read` | $0 (`metered_tiers`) | rows |

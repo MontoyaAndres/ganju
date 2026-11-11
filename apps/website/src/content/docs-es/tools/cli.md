@@ -2,7 +2,7 @@
 title: CLI
 description: La línea de comandos ganju — escribe, despliega, prueba y depura tus herramientas personalizadas desde una terminal, y publícalas desde CI.
 order: 37
-updated: 2026-09-05
+updated: 2026-11-11
 ---
 
 `ganju` es la mitad de terminal de las [funciones](/es/docs/tools/functions/).
@@ -57,7 +57,7 @@ algo que corrió.
 | | |
 | --- | --- |
 | `ganju build` | Revisa las herramientas, empaqueta y minifica a `.ganju/bundle.js`, y reporta el tamaño. `--no-minify` lo deja legible; `--strict` falla si hay advertencias. |
-| `ganju deploy` | Compila, sube y publica. `--draft` se detiene antes de publicar. |
+| `ganju deploy` | Compila, sube y publica. `--draft` se detiene antes de publicar; `--force` reemplaza sin preguntar una versión activa hecha en el panel. |
 | `ganju test <tool>` | Corre una herramienta sin publicarla. |
 | `ganju logs` | Llamadas recientes y su salida de `ctx.log`. |
 
@@ -83,6 +83,7 @@ necesita se revisan en el mismo pull request.
   "artifact": "acme-support",
   "organizationId": "…", // lo escribe `ganju link`
   "projectId": "…",
+  "uploadSource": true, // por defecto: envía también el código legible
 
   // A nivel de fila, porque es el nivel en el que se aplican: un script por
   // proyecto, un conjunto de reglas para todo él.
@@ -177,6 +178,46 @@ Una subida desde el CLI se guarda como un `bundle` compilado, y por eso el panel
 la muestra en solo lectura en vez de invitarte a sobrescribir una compilación real
 con el contenido de un cuadro de texto. Igual puedes leerla ahí, e igual puedes
 hacer rollback a ella.
+
+## Tu código en el panel
+
+Junto al bundle, `ganju deploy` sube el **código legible** del proyecto, así el
+panel muestra tus archivos reales en vez de código minificado — y el
+[Asistente](/es/docs/assistant/) del proyecto puede leerlos. Solo se muestra,
+nunca se ejecuta: lo que corre es el bundle.
+
+Los archivos son los que git incluiría en un commit: los versionados, más los no
+versionados que no estén ignorados. Fuera de un repositorio git, se leen tus
+archivos `.gitignore`. Algunas cosas nunca se suben, digan lo que digan las
+reglas: `node_modules`, archivos `.env*`, lockfiles y archivos binarios. Un
+archivo de más de 256 KB se deja fuera y se nombra en la salida; un proyecto de
+más de 2 MB o 500 archivos no envía código, con un aviso. Si la subida del código
+falla, el despliegue sigue igual.
+
+`ganju versions` marca con `+ source` una versión que tiene su código. Pon
+`"uploadSource": false` en `ganju.json` para enviar solo el bundle.
+
+Como el código está ahí, el asistente no reemplaza el código que despliegas.
+Cuando el dueño del proyecto le pide un cambio de código, escribe un parche para
+ti, que te hace llegar. Aplícalo y despliega como siempre.
+
+## Desplegar sobre el panel
+
+Puede que alguien haya cambiado las funciones del proyecto en el panel desde tu
+último despliegue, a mano o con el asistente. Cuando la versión activa se hizo
+ahí, `ganju deploy` se detiene y lo avisa antes de publicar:
+
+```
+! The live version, v14, was made in the app. Deploying replaces it with this folder's code.
+  These functions would stop working: check-stock
+  Copy any changes made in the app that you want to keep into this project first.
+Replace it? [y/N]
+```
+
+Nombra las funciones que tu carpeta no tiene, que dejarían de funcionar. En una
+terminal pregunta; en un script, donde no hay a quién preguntar, se detiene, y
+`--force` despliega de todos modos. `--draft` nunca se detiene, porque un
+borrador no reemplaza nada.
 
 ## El revisor de herramientas
 

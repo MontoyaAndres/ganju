@@ -2,7 +2,7 @@
 title: Welcome
 description: Connect your AI to your files, tools, and apps — then offer it to anyone through the channels they already use.
 order: 0
-updated: 2026-09-05
+updated: 2026-11-11
 ---
 
 Welcome to the Ganju docs. Ganju connects AI assistants like Claude, ChatGPT,
@@ -28,6 +28,8 @@ with anyone.
 Once you're set up, these guides go deeper on each capability — the building blocks
 you combine to shape exactly what your assistant knows, does, and where it lives:
 
+- **[Assistant](/docs/assistant/)** — describe what your bot should know or do in
+  your own words, and it builds, tests and turns it on with your click.
 - **[Prompts](/docs/prompts/)** — reusable, multi-turn templates with typed
   variables that become **slash commands** in every channel.
 - **[Resources](/docs/resources/)** — ground your AI in your own knowledge: import

@@ -238,8 +238,12 @@ const uploadSource = async (
   try {
     const source = await collectSource(project.root);
     if (source.tooBig) {
+      const limit =
+        source.tooBig.files > constants.CUSTOM_CODE_MAX_SNAPSHOT_FILES
+          ? `${constants.CUSTOM_CODE_MAX_SNAPSHOT_FILES} files`
+          : formatBytes(constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES);
       warn(
-        `Not uploading the source: ${source.tooBig.files} files, ${formatBytes(source.tooBig.bytes)} (the limit is ${formatBytes(constants.CUSTOM_CODE_MAX_SNAPSHOT_BYTES)}).`
+        `Not uploading the source: ${source.tooBig.files} files, ${formatBytes(source.tooBig.bytes)} (the limit is ${limit}).`
       );
       note(
         color.gray(

@@ -6,7 +6,7 @@ How an artifact's channel turns reach a language model: the two tiers of key, th
 
 **The MCP Worker never calls a model.** [`apps/mcp`](../apps/mcp) assembles tools, resources and prompts and serves them over MCP; the client on the other end pays for its own inference on its own model. That's the whole point of the artifact — an MCP server is a capability surface, not an agent.
 
-Inference happens in two places, both in `apps/api`. The main one is the **channel runner** ([`apps/api/src/controllers/channel/runner.ts`](../apps/api/src/controllers/channel/runner.ts)). When a message arrives from WhatsApp, Telegram, Slack or Discord, the runner connects to our own MCP Worker *as a client* over a service binding, lists the artifact's tools, and drives a tool-calling loop:
+Inference happens in three places, all in `apps/api`. The main one is the **channel runner** ([`apps/api/src/controllers/channel/runner.ts`](../apps/api/src/controllers/channel/runner.ts)). When a message arrives from WhatsApp, Telegram, Slack or Discord, the runner connects to our own MCP Worker *as a client* over a service binding, lists the artifact's tools, and drives a tool-calling loop:
 
 ```
 resolveChannelLlm  → which key and model this channel uses
@@ -31,6 +31,16 @@ When their key fails (no access to the model, no quota, an endpoint without `/au
 **Notes are capped by length, not size: `VOICE_NOTE_MAX_SECONDS` (5 minutes).** The transcription is cheap — Gemini counts about 32 tokens per second of audio — but the transcript becomes the user's message, sent on every model call of the turn and replayed in history after it; a 30-minute note is ~5,000 words in every one of them. Telegram, Discord and Slack report a note's length, so a long one is refused before it's downloaded; WhatsApp doesn't, so its notes are measured from the Ogg file itself (`oggDurationSeconds`), with `VOICE_NOTE_MAX_BYTES` (5 MB) as the backstop for an mp3 or m4a of unknown length. A refused note gets a reply asking for shorter parts or text.
 
 **Voice is tracked, not billed.** The reply a note feeds is the message that counts; counting the transcription too would charge the business twice whenever a customer speaks instead of typing. Each note records its provider, model, who paid (`paidBy`), length and tokens on the user's `channel_message` row under `metadata.voiceNote`, and the organization's `subscription` counts notes, seconds and those on our key for the period (`voice_note_count`, `voice_note_seconds`, `voice_note_platform_count`), shown on the billing page. If voice ever needs a price, the unit is audio minutes on our key, not messages.
+
+**The project assistant runs on Claude, outside the adapter layer** ([`builder/llm.ts`](../apps/api/src/controllers/builder/llm.ts)). The dashboard's Assistant tab writes code, data changes and knowledge for an owner, which is a different job from answering customers, so it doesn't use the channel's model or `getLlmAdapter`: it calls the Anthropic SDK directly, always on `BUILDER_MODEL` (`claude-opus-5-5`), with adaptive thinking at high effort and Anthropic's server-side fallback. The system prompt ([`builder/prompt.ts`](../apps/api/src/controllers/builder/prompt.ts)) holds nothing per project or per day, so it and the tools are one stable prefix cached for an hour; the conversation is cached from its end. A turn is at most 25 model calls.
+
+| | Ganju credits (default) | Organization's own Anthropic model |
+|---|---|---|
+| Selected by | `subscription.builder_llm_id IS NULL` | `subscription.builder_llm_id` → an Anthropic `organization_llm` row |
+| Key | `ANTHROPIC_API_KEY` (ours) | theirs |
+| Who pays | the organization, in credits | they do, directly |
+
+Each step's cost is computed from the response's usage at list price (the `PRICE` table in `llm.ts`, cache writes split by TTL) and stored on its `builder_message` row; one credit is $0.01. A chosen own key that fails is reported to the owner, never swapped for ours. The **Try it as a customer** panel is a channel turn like any other, on the bot's own model or the shared one; on the shared one its tokens are charged as assistant credits. Billing is in [PRICING.md](PRICING.md).
 
 **Embeddings are a separate path.** Retrieval runs on `EMBEDDING_MODEL` through Google regardless of what a channel is configured with; an org that brings its own Anthropic key still has its resources embedded by us. Nothing in this document changes that.
 
