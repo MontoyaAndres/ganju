@@ -857,16 +857,23 @@ Choices agreed with the owner (2026-11-11):
 `subscription.builder_alerts`) must run before the API deploy.
 - `controllers/builder/health.ts`: `projectProblems` (the tab's
   `GET …/builder/health`) and `runBuilderHealthAlerts` on the hourly cron;
-  state in `alert_state` as `builder_health:<artifactId>`. The most common
-  error is grouped like Tool health's (marks dropped, values masked).
+  state in `alert_state` as `builder_health:<artifactId>`.
+- Review fixes: error text from outside services is kept out of the prefilled
+  message and the email (it would reach the assistant as the owner's words;
+  the assistant reads the logs instead); the counts read "recent calls",
+  since the window starts at the live version's publish when that is later;
+  a problem not in the last email waits a day, the same or fewer a week; the
+  job only looks at enabled, dashboard-built actions and checks each org's
+  plan and admins once per run; provider names come from
+  `utils.providerDisplayName`, shared with the tab.
 - `PUT …/builder/settings` takes `alerts`; the billing usage returns it.
 - The prompt tells the assistant to read the logs and health first, and to
   ask for a reconnect when an account is the problem.
 - Web: the banner and the prefill (also from the email's `?fix=1` link), and
   the switch in billing settings. EN/ES copy.
 - Read-only on dev: the queries find the eval projects' broken
-  `current-weather` ("Error: Weather service answered 404", 3 of 3: under
-  the 5-failure bar).
+  `current-weather` (3 of 3 failed: under the 5-failure bar); the CLI
+  project "nemo" is left out.
 
 **6. Credits and billing — S/M**
 

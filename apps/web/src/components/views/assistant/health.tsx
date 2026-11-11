@@ -10,24 +10,20 @@ import type { BuilderProblems } from './types';
 export const hasProblems = (problems: BuilderProblems | null) =>
   !!problems && (problems.actions.length > 0 || problems.accounts.length > 0);
 
-// The owner's first message for the fix, in their words; nothing is sent
-// until they send it.
+// The owner's first message for the fix; nothing is sent until they send it.
+// No error text: it comes from outside services, and would reach the
+// assistant as the owner's own words. It reads the logs instead.
 export const fixMessage = (
   problems: BuilderProblems,
   t: Translate<typeof i18n.copy.ASSISTANT.en>
 ) =>
   [
     ...problems.actions.map(action =>
-      [
-        t('fixMessageAction', {
-          name: action.name,
-          failures: t.n(action.failures),
-          calls: t.n(action.calls)
-        }),
-        action.error ? t('fixMessageError', { error: action.error }) : ''
-      ]
-        .filter(Boolean)
-        .join(' ')
+      t('fixMessageAction', {
+        name: action.name,
+        failures: t.n(action.failures),
+        calls: t.n(action.calls)
+      })
     ),
     ...problems.accounts.map(provider =>
       t('fixMessageAccount', { provider: providerName(provider) })

@@ -125,7 +125,6 @@ export interface BuilderProblems {
     name: string;
     calls: number;
     failures: number;
-    error: string | null;
   }[];
   accounts: string[];
 }

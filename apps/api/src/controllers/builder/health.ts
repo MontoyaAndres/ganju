@@ -22,7 +22,6 @@ export interface BrokenAction {
   name: string;
   calls: number;
   failures: number;
-  error: string | null;
 }
 
 export interface BuilderProblems {
@@ -85,34 +84,7 @@ export const projectProblems = async (
       SELECT
         r.tool_name AS name,
         count(*)::int AS calls,
-        count(r.error_message)::int AS failures,
-        -- Grouped the way Tool health groups errors: without the marks around
-        -- outside text (their ids differ on every call), and with quoted
-        -- values, ids and long numbers masked.
-        mode() WITHIN GROUP (
-          ORDER BY regexp_replace(
-            regexp_replace(
-              left(
-                btrim(
-                  regexp_replace(
-                    r.error_message,
-                    ${utils.UNTRUSTED_CONTENT_MARK_PATTERN},
-                    chr(10),
-                    'g'
-                  ),
-                  chr(10)
-                ),
-                300
-              ),
-              '"[^"]*"|''[^'']*''|[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}|[0-9]{5,}',
-              '…',
-              'g'
-            ),
-            '\\s+',
-            ' ',
-            'g'
-          )
-        ) AS error
+        count(r.error_message)::int AS failures
       FROM mcp_request r
       WHERE r.artifact_tool_id = ${tool.id}
         AND r.method = ${constants.MCP_REQUEST_METHOD_TOOLS_CALL}
@@ -155,13 +127,9 @@ export const projectProblems = async (
   return { actions, accounts };
 };
 
-const providerLabel = (provider: string) =>
-  provider
-    .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-// Spanish, then English, in one message: there is no stored language.
+// Spanish, then English, in one message: there is no stored language. Error
+// text comes from outside services, so it stays out; the assistant reads it
+// from the logs, marked as outside text.
 const alertEmail = (input: {
   projectName: string;
   link: string;
@@ -175,11 +143,11 @@ const alertEmail = (input: {
     '',
     ...actions.map(
       action =>
-        `- La acción ${action.name} falló ${action.failures} de ${action.calls} veces en el último día.${action.error ? ` Error más común: ${action.error}` : ''}`
+        `- La acción ${action.name}: fallaron ${action.failures} de sus ${action.calls} llamadas recientes.`
     ),
     ...accounts.map(
       provider =>
-        `- La cuenta de ${providerLabel(provider)} que usan tus acciones necesita que vuelvas a iniciar sesión.`
+        `- La cuenta de ${utils.providerDisplayName(provider)} que usan tus acciones necesita que vuelvas a iniciar sesión.`
     ),
     '',
     `El asistente puede revisarlo y arreglarlo contigo: ${input.link}`
@@ -191,11 +159,11 @@ const alertEmail = (input: {
     '',
     ...actions.map(
       action =>
-        `- The action ${action.name} failed ${action.failures} of ${action.calls} times in the last day.${action.error ? ` Most common error: ${action.error}` : ''}`
+        `- The action ${action.name}: ${action.failures} of its ${action.calls} recent calls failed.`
     ),
     ...accounts.map(
       provider =>
-        `- The ${providerLabel(provider)} account your actions use needs signing in again.`
+        `- The ${utils.providerDisplayName(provider)} account your actions use needs signing in again.`
     ),
     '',
     `The assistant can look into it and fix it with you: ${input.link}`
@@ -206,11 +174,11 @@ const alertEmail = (input: {
   };
 };
 
-const signatureOf = (problems: BuilderProblems) =>
+const entriesOf = (problems: BuilderProblems) =>
   [
     ...problems.actions.map(action => `action:${action.name}`),
     ...problems.accounts.map(provider => `account:${provider}`)
-  ].join(',');
+  ].sort();
 
 /**
  * Email a project's owner and admins when an action the assistant can fix
@@ -230,7 +198,10 @@ export const runBuilderHealthAlerts = async (
     const candidates = (await database.execute(sql`
       SELECT DISTINCT t.artifact_id
       FROM mcp_request r
-      JOIN artifact_tool t ON t.id = r.artifact_tool_id
+      JOIN artifact_tool t ON t.id = r.artifact_tool_id AND t.enabled
+      JOIN artifact_tool_version v
+        ON v.id = t.config::jsonb ->> 'activeVersionId'
+        AND v.source_kind = ${constants.CUSTOM_CODE_SOURCE_KIND_EDITOR}
       WHERE t.tool_key = ${constants.TOOL_DEFINITION_KEY_CUSTOM_CODE}
         AND r.method = ${constants.MCP_REQUEST_METHOD_TOOLS_CALL}
         AND r.created_at >= ${since}
@@ -241,6 +212,10 @@ export const runBuilderHealthAlerts = async (
       JOIN artifact_tool t
         ON t.artifact_id = c.artifact_id
         AND t.tool_key = ${constants.TOOL_DEFINITION_KEY_CUSTOM_CODE}
+        AND t.enabled
+      JOIN artifact_tool_version v
+        ON v.id = t.config::jsonb ->> 'activeVersionId'
+        AND v.source_kind = ${constants.CUSTOM_CODE_SOURCE_KIND_EDITOR}
       WHERE (c.metadata::jsonb ->> 'needsReauth') = 'true'
     `)) as unknown as { artifact_id: string }[];
     if (!candidates.length) return result;
@@ -283,35 +258,47 @@ export const runBuilderHealthAlerts = async (
       : [];
     const stateByKey = new Map(states.map(state => [state.key, state]));
     const webUrl = utils.getEnv(source, 'NEXT_PUBLIC_WEB_URL') ?? '';
+    // Per organization, shared by its projects in this run.
+    const allowedByOrg = new Map<string, Promise<boolean>>();
+    const recipientsByOrg = new Map<string, Promise<string[]>>();
+    const once = <T>(
+      cache: Map<string, Promise<T>>,
+      key: string,
+      load: () => Promise<T>
+    ) => {
+      if (!cache.has(key)) cache.set(key, load());
+      return cache.get(key)!;
+    };
 
     for (const project of projects) {
       if (project.alerts === false) continue;
       result.checked += 1;
-      try {
-        await assertBuilderAllowed(
-          source.env,
-          database,
-          project.organizationId
-        );
-      } catch {
-        continue;
-      }
+      const open = await once(allowedByOrg, project.organizationId, () =>
+        assertBuilderAllowed(source.env, database, project.organizationId)
+          .then(() => true)
+          .catch(() => false)
+      );
+      if (!open) continue;
       const problems = await projectProblems(database, project.artifactId, now);
-      const signature = signatureOf(problems);
-      if (!signature) continue;
+      const entries = entriesOf(problems);
+      if (!entries.length) continue;
+      const signature = entries.join(',');
 
       const key = `${constants.ALERT_STATE_KEY_BUILDER_HEALTH}:${project.artifactId}`;
       const state = stateByKey.get(key);
       const elapsed = state?.lastAlertAt
         ? now.getTime() - state.lastAlertAt.getTime()
         : Infinity;
-      const due =
-        state?.lastSeenId === signature
-          ? elapsed >= constants.BUILDER_HEALTH_REPEAT_DAYS * DAY_MS
-          : elapsed >= DAY_MS;
+      // Something not in the last email waits a day; the rest, a week.
+      const emailed = new Set(state?.lastSeenId?.split(',') ?? []);
+      const due = entries.some(entry => !emailed.has(entry))
+        ? elapsed >= DAY_MS
+        : elapsed >= constants.BUILDER_HEALTH_REPEAT_DAYS * DAY_MS;
       if (!due) continue;
 
-      const to = await ownerAndAdminEmails(database, project.organizationId);
+      const to = await once(recipientsByOrg, project.organizationId, () =>
+        ownerAndAdminEmails(database, project.organizationId)
+      );
       const email = alertEmail({
         projectName: project.projectName,
         link: `${webUrl}/organization/${project.organizationId}/project/${project.projectId}/assistant?fix=1`,

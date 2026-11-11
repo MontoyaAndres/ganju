@@ -21,18 +21,7 @@ import { i18n } from '../../../lib';
 import type { Translate } from '../../../lib';
 import type { ChangeSet, ChangeSetCard, OwnerCard, PatchCard } from './types';
 
-const PROVIDER_NAMES: Record<string, string> = {
-  [utils.constants.OAUTH_PROVIDER_GOOGLE_GMAIL]: 'Gmail',
-  [utils.constants.OAUTH_PROVIDER_GOOGLE_CALENDAR]: 'Google Calendar',
-  [utils.constants.OAUTH_PROVIDER_GOOGLE_DRIVE]: 'Google Drive',
-  [utils.constants.OAUTH_PROVIDER_MICROSOFT_OUTLOOK]: 'Outlook',
-  [utils.constants.OAUTH_PROVIDER_ONE_DRIVE]: 'OneDrive',
-  [utils.constants.OAUTH_PROVIDER_SLACK]: 'Slack',
-  [utils.constants.OAUTH_PROVIDER_SLACK_USER]: 'Slack'
-};
-
-export const providerName = (provider: string | null) =>
-  (provider && PROVIDER_NAMES[provider]) || provider || '';
+export const providerName = utils.providerDisplayName;
 
 // What the change set makes possible, from the actions' own settings rather
 // than the assistant's words.

@@ -134,6 +134,11 @@ const entriesOf = (messages: Message[]): Entry[] => {
   return entries;
 };
 
+const fitInput = (input: HTMLTextAreaElement) => {
+  input.style.height = 'auto';
+  input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+};
+
 // The turn still answering: the last one the owner started.
 const runningTurnOf = (detail: ConversationDetail) => {
   if (detail.conversation.status !== 'running') return null;
@@ -406,14 +411,12 @@ export const Assistant = () => {
       const input = inputRef.current;
       if (!input) return;
       input.focus();
-      input.style.height = 'auto';
-      input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+      fitInput(input);
     });
   };
 
   const startFix = () => {
     if (!problems) return;
-    if (chatId) openChat(null);
     prefill(fixMessage(problems, t));
   };
 
@@ -569,11 +572,6 @@ export const Assistant = () => {
     t('suggestion4')
   ];
 
-  const pickSuggestion = (value: string) => {
-    setText(value);
-    inputRef.current?.focus();
-  };
-
   const avatar = (
     <span className="assistant-avatar" aria-hidden>
       <AutoAwesomeOutlined />
@@ -706,7 +704,7 @@ export const Assistant = () => {
                       <button
                         key={suggestion}
                         type="button"
-                        onClick={() => pickSuggestion(suggestion)}
+                        onClick={() => prefill(suggestion)}
                       >
                         {suggestion}
                       </button>
@@ -821,8 +819,7 @@ export const Assistant = () => {
                 disabled={busy}
                 onChange={event => {
                   setText(event.target.value);
-                  event.target.style.height = 'auto';
-                  event.target.style.height = `${Math.min(event.target.scrollHeight, 180)}px`;
+                  fitInput(event.target);
                 }}
                 onKeyDown={event => {
                   if (event.key === 'Enter' && !event.shiftKey) {

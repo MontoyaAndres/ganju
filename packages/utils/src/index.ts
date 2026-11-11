@@ -359,7 +359,8 @@ import {
   refreshFailureReauthReason,
   buildReauthMetadata,
   clearReauthMetadata,
-  isCredentialNeedingReauth
+  isCredentialNeedingReauth,
+  providerDisplayName
 } from './oauth';
 import type { RefreshOAuthTokenInput, RefreshedOAuthToken } from './oauth';
 import {
@@ -646,6 +647,7 @@ export const utils = {
   buildReauthMetadata,
   clearReauthMetadata,
   isCredentialNeedingReauth,
+  providerDisplayName,
   isValidTimeZone,
   readCredentialTimeZone,
   credentialTimeZoneIsStale,

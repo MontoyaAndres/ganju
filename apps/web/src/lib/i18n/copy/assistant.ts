@@ -119,12 +119,11 @@ const en = {
   connectAction: 'Connect {provider}',
   connectDone: 'I connected {provider}.',
   healthTitle: 'Something stopped working',
-  healthAction: '{name}: failed {failures} of {calls} times in the last day',
+  healthAction: '{name}: {failures} of its {calls} recent calls failed',
   healthAccount: '{provider}: needs signing in again',
   healthFix: 'Fix it with the assistant',
   fixMessageAction:
-    'The action {name} failed {failures} of {calls} times in the last day.',
-  fixMessageError: 'The most common error: "{error}".',
+    'The action {name} is failing: {failures} of its {calls} recent calls failed.',
   fixMessageAccount: 'My {provider} account needs signing in again.',
   fixMessageAsk: 'Can you find out why and fix it?',
   secretTitle: 'A key the assistant needs',
@@ -277,12 +276,12 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     connectAction: 'Conectar {provider}',
     connectDone: 'Ya conecté {provider}.',
     healthTitle: 'Algo dejó de funcionar',
-    healthAction: '{name}: falló {failures} de {calls} veces en el último día',
+    healthAction:
+      '{name}: fallaron {failures} de sus {calls} llamadas recientes',
     healthAccount: '{provider}: hay que volver a iniciar sesión',
     healthFix: 'Arreglarlo con el asistente',
     fixMessageAction:
-      'La acción {name} falló {failures} de {calls} veces en el último día.',
-    fixMessageError: 'El error más común: "{error}".',
+      'La acción {name} está fallando: fallaron {failures} de sus {calls} llamadas recientes.',
     fixMessageAccount:
       'Mi cuenta de {provider} necesita volver a iniciar sesión.',
     fixMessageAsk: '¿Puedes ver por qué y arreglarlo?',
