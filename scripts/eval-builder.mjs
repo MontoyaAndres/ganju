@@ -326,6 +326,18 @@ const runCase = async (c, runIndex) => {
             input: call.input.input ?? {},
             result: String(call.result).slice(0, 1500)
           });
+        // Running a saved query or searching knowledge also checks the
+        // result, and the judge should see it.
+        else if (
+          (call.name === 'data' &&
+            ['run_query', 'query'].includes(call.input?.action)) ||
+          (call.name === 'knowledge' && call.input?.action === 'search')
+        )
+          session.tests.push({
+            tool: `${call.name} ${call.input.action}`,
+            input: call.input,
+            result: String(call.result).slice(0, 1500)
+          });
       }
       const cards = events.filter(e => e.type === 'card').map(e => e.card);
       const said = textOfBlocks(
@@ -520,7 +532,7 @@ const runCase = async (c, runIndex) => {
       ? `Live actions' code (${live.shown.versionId}):\n${JSON.stringify(live.shown.files, null, 1).slice(0, 12000)}`
       : 'No actions.',
     `Probes (customer questions answered by the bot, and action tests):\n${JSON.stringify(probes, null, 1).slice(0, 12000)}`,
-    `Tests the assistant ran itself (run_test), in order:\n${JSON.stringify(session.tests, null, 1).slice(0, 10000)}`,
+    `Tests and checks the assistant ran itself (run_test, data queries, knowledge searches), in order:\n${JSON.stringify(session.tests, null, 1).slice(0, 10000)}`,
     `Changes still staged but never applied: ${JSON.stringify(session.staged.map(s => s.label))}`
   ].join('\n\n');
   const verdict = await judge(c, evidence, sideUsage).catch(e => ({

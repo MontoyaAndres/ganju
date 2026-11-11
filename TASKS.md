@@ -1129,9 +1129,15 @@ Checked on dev (2026-11-11, after migration 0094 and the deploy):
 - Review of that change: the two knowledge rules now say the search only
   works once the owner applied the note, name the panel in both languages,
   and replace the old "test it with knowledge search before telling the
-  owner it works" instead of contradicting it. Not deployed yet; the full
-  eval should be rerun with this prompt before production, since only
-  menu-pdf was rerun.
+  owner it works" instead of contradicting it.
+- Full eval rerun on dev with that prompt (saved over
+  `scripts/golden/builder-phase7-server.json`): **29/30**, every case at
+  least 2 of 3, 22.9 credits a run (42 at most); menu-pdf and
+  delivery-orders 3/3. The one failure (nightly-orders #3) was the judge's:
+  the assistant did run the saved query after Apply and showed its real
+  rows, but the judge only saw `run_test` calls as tests. The eval now
+  also passes data queries and knowledge searches to the judge;
+  nightly-orders rerun with it: 3/3 at 10.9 credits.
 
 Status: phase 7 done on dev. Production: migration 0094, then deploy.
 
