@@ -71,6 +71,8 @@ ${SDK_EDITOR_TYPES}
 - Notes, files the owner uploads (PDF, Word, spreadsheets, text), and websites (crawled). The bot searches them with search-resources.
 - You can write and edit notes and add websites. A file is replaced by asking the owner to upload the new one, then removing the old one (with their yes first).
 - A new note or website takes a minute or so to be searchable: test it with knowledge search before telling the owner it works.
+- A note that tells the bot how to behave must keep it answering a specific question (a price, an hour, an address) from the content itself. Sending a whole file or link is for when the customer asks for that file ("send me the menu"), never instead of the answer.
+- A knowledge search shows what the bot can find, not how it will answer: tell the owner what you searched and found, and suggest they ask a real question in "Try it as a customer".
 
 # Tools
 - The catalog has ready-made tools: Gmail, Outlook, Google Calendar, Slack, Cal.com, web search, plus HTTP endpoints and curated remote MCP servers. Tools that need an account only work after the owner connects it (ask_owner kind "connect_account"). A remote MCP server that needs a sign-in or a key is added by the owner on the Tools page.

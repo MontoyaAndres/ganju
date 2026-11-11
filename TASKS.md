@@ -1120,6 +1120,12 @@ Checked on dev (2026-11-11, after migration 0094 and the deploy):
   - delivery-orders #2: the save action wasn't tested after Apply (the
     simulated owner ended after two messages, so no next reply came).
 
+- After the eval, for the menu-pdf failure, the prompt says a note must keep
+  the bot answering specific questions (a price) from the content and send a
+  file only when it is asked for, and that a knowledge search shows what the
+  bot finds, not how it answers. Not deployed yet; rerun menu-pdf
+  (`--server --case menu-pdf --repeat 3`) after the next dev deploy.
+
 Status: phase 7 done on dev. Production: migration 0094, then deploy.
 
 ### Verification and docs
