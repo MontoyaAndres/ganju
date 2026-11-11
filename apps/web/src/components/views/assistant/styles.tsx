@@ -212,6 +212,12 @@ export const Wrapper = styled.div`
       color: ${theme.colors.bastille}73;
     }
 
+    .assistant-chats-note {
+      margin: 8px 4px 0;
+      font-size: 11px;
+      color: ${theme.colors.bastille}80;
+    }
+
     .assistant-chats-empty {
       margin: 0 4px;
       font-size: ${theme.fonts.xs};
@@ -793,6 +799,10 @@ export const Wrapper = styled.div`
         outline: 2px solid ${theme.colors.thunderbird}55;
         outline-offset: 1px;
       }
+    }
+
+    .assistant-delete-confirm {
+      margin-bottom: 12px;
     }
 
     .assistant-undo-confirm {

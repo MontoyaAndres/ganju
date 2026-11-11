@@ -659,6 +659,13 @@
       "when": 1794395964052,
       "tag": "0093_builder_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1794401370276,
+      "tag": "0094_builder_unstripped_index",
+      "breakpoints": true
     }
   ]
 }

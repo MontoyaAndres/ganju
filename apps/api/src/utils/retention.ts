@@ -3,6 +3,11 @@ import { db } from '@ganju/db';
 import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
+import {
+  deleteOldConversations,
+  stripOldToolResults
+} from '../controllers/builder/retention';
+
 // types
 import type { EnvSource } from '@ganju/utils';
 import type { Bindings } from '../types';
@@ -10,6 +15,10 @@ import type { Bindings } from '../types';
 const { constants } = utils;
 
 type ApiEnvSource = EnvSource & { env: Bindings };
+
+// postgres-js returns the affected rows on `.count`; fall back to length.
+const affectedRows = (result: unknown): number =>
+  (result as { count?: number }).count ?? (result as unknown[]).length ?? 0;
 
 /**
  * Delete a bounded slice of rows older than `days` from an append-only table.
@@ -25,20 +34,15 @@ const purgeOlderThan = async (
   column: string,
   days: number
 ): Promise<number> => {
-  const result = await executor.execute(sql`
+  return affectedRows(
+    await executor.execute(sql`
     DELETE FROM ${sql.identifier(table)}
     WHERE id IN (
       SELECT id FROM ${sql.identifier(table)}
       WHERE ${sql.identifier(column)} < now() - ${`${days} days`}::interval
       LIMIT ${constants.RETENTION_PURGE_BATCH}
     )
-  `);
-
-  // postgres-js returns the affected rows on `.count`; fall back to length.
-  return (
-    (result as unknown as { count?: number }).count ??
-    (result as unknown as unknown[]).length ??
-    0
+  `)
   );
 };
 
@@ -48,6 +52,8 @@ export interface RetentionResult {
   channelMessage: number;
   artifactExecution: number;
   session: number;
+  builderToolResults: number;
+  builderConversation: number;
 }
 
 /**
@@ -76,7 +82,9 @@ export const runRetentionPurge = async (
     errorLog: 0,
     channelMessage: 0,
     artifactExecution: 0,
-    session: 0
+    session: 0,
+    builderToolResults: 0,
+    builderConversation: 0
   };
 
   const tasks: [keyof RetentionResult, string, string, number][] = [
@@ -112,6 +120,22 @@ export const runRetentionPurge = async (
       // stops running is how unbounded retention comes back.
       console.error(`retention purge failed for ${table}`, error);
     }
+  }
+
+  try {
+    result.builderToolResults = affectedRows(
+      await stripOldToolResults(dbInstance)
+    );
+  } catch (error) {
+    console.error('retention purge failed for builder_message', error);
+  }
+  try {
+    result.builderConversation = await deleteOldConversations(
+      source.env,
+      dbInstance
+    );
+  } catch (error) {
+    console.error('retention purge failed for builder_conversation', error);
   }
 
   return result;

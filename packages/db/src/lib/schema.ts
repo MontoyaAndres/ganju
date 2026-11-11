@@ -1471,7 +1471,11 @@ export const builderMessage = pgTable(
     uniqueIndex('builder_message_conversation_seq_idx').on(
       table.conversationId,
       table.seq
-    )
+    ),
+    // What the hourly retention run still has to strip.
+    index('builder_message_unstripped_idx')
+      .on(table.createdAt)
+      .where(sql`${table.toolResultsStrippedAt} is null`)
   ]
 );
 

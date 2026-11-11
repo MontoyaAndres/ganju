@@ -606,6 +606,11 @@ app
     UserMiddleware.verify,
     BuilderController.getConversation
   )
+  .delete(
+    '/organization/:organizationId/project/:projectId/builder/conversation/:conversationId',
+    UserMiddleware.verify,
+    BuilderController.deleteConversation
+  )
   .post(
     '/organization/:organizationId/project/:projectId/builder/conversation/:conversationId/message',
     UserMiddleware.verify,

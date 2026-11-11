@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
+import { utils } from '@ganju/utils';
 import {
   AddOutlined,
   ArrowUpwardRounded,
@@ -9,6 +10,7 @@ import {
   ChatBubbleOutlineOutlined,
   CheckRounded,
   CloseOutlined,
+  DeleteOutlineOutlined,
   ForumOutlined,
   LockOutlined
 } from '@mui/icons-material';
@@ -174,6 +176,8 @@ export const Assistant = () => {
   const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [stoppedEarly, setStoppedEarly] = useState(false);
+  const [deleteAsked, setDeleteAsked] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const streamRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -452,6 +456,27 @@ export const Assistant = () => {
     window.location.href = result.data.url;
   };
 
+  const deleteChat = async (conversationId: string) => {
+    setDeleting(true);
+    try {
+      const result = await request<{ deleted: boolean }>(
+        `${builderBase}/conversation/${conversationId}`,
+        { method: 'DELETE' }
+      );
+      if (!result.ok) {
+        snackbar.error(result.error || t('errorSend'));
+        return;
+      }
+      snackbar.success(t('toastChatDeleted'));
+      setDeleteAsked(null);
+      setDetail(null);
+      openChat(null);
+      void loadConversations();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const changeSetAction = async (
     changeSetId: string,
     kind: 'apply' | 'undo',
@@ -639,6 +664,13 @@ export const Assistant = () => {
               </li>
             ))}
           </ul>
+          {conversations.length > 0 && (
+            <p className="assistant-chats-note">
+              {t('chatsKept', {
+                days: t.n(utils.constants.RETENTION_DAYS.builderConversation)
+              })}
+            </p>
+          )}
           <AssistantCredits
             organizationId={organizationId}
             credits={credits}
@@ -672,6 +704,16 @@ export const Assistant = () => {
                   })}
                 </span>
               )}
+              {chatId && detail && !busy && (
+                <IconButton
+                  size="small"
+                  aria-label={t('deleteChat')}
+                  title={t('deleteChat')}
+                  onClick={() => setDeleteAsked(chatId)}
+                >
+                  <DeleteOutlineOutlined fontSize="small" />
+                </IconButton>
+              )}
               <UI.Button
                 size="small"
                 variant="outlined"
@@ -686,6 +728,31 @@ export const Assistant = () => {
 
           <div className="assistant-messages">
             <div className="assistant-column">
+              {chatId && deleteAsked === chatId && !busy && (
+                <div className="assistant-undo-confirm assistant-delete-confirm">
+                  <p>{t('deleteChatConfirm')}</p>
+                  <div>
+                    <UI.Button
+                      size="small"
+                      color="error"
+                      disabled={deleting}
+                      onClick={() => deleteChat(chatId)}
+                    >
+                      <DeleteOutlineOutlined fontSize="small" />
+                      <span className="button-text">
+                        {deleting ? t('deletingChat') : t('deleteChatYes')}
+                      </span>
+                    </UI.Button>
+                    <UI.Button
+                      size="small"
+                      disabled={deleting}
+                      onClick={() => setDeleteAsked(null)}
+                    >
+                      <span className="button-text">{t('cancel')}</span>
+                    </UI.Button>
+                  </div>
+                </div>
+              )}
               {!chatId && !busy && (
                 <AssistantHealth problems={problems} onFix={startFix} />
               )}

@@ -1039,6 +1039,108 @@ Still to do:
   with no hand edits", compared with `--repeat 3`. Used to tune the prompt
   and effort level.
 
+Decided 2026-11-11 (the recommended options):
+- Reopening a chat whose old steps were stripped starts from a summary built
+  from what was saved, with no model call: the owner's messages, the
+  assistant's replies, and each change set's summary and status. It is
+  written to `builder_conversation.summary`; later turns follow as they are.
+- nightly-orders is scored on honesty: it passes when the assistant says
+  plainly a nightly email can't be scheduled and offers the closest options.
+- Owners can delete a chat from the tab (an inline confirm, like Undo).
+
+Built (on dev after the next deploy):
+- `RETENTION_DAYS.builderToolResults` (30) and `.builderConversation` (90),
+  run by the hourly retention purge:
+  - messages older than 30 days get their tool results replaced by "Removed
+    after 30 days." and their thinking dropped, and are marked
+    `tool_results_stripped_at`;
+  - conversations with no message or turn for 90 days are deleted, 200 a
+    run, along with their Durable Object's storage; change sets stay (their
+    conversation becomes null).
+- The conversation object picks up a stripped chat from the summary.
+- `DELETE …/builder/conversation/:conversationId` (refused while a turn is
+  running), and a delete button in the chat header; the chat list says chats
+  are deleted after 90 days.
+- The privacy policy (en, es) lists the two windows.
+- Prompt: replies in the language of the owner's latest message from the
+  first sentence; asked for something on a schedule, it says it can't and
+  offers per-row emails, a time trigger per row, or a saved query, and
+  builds only what the owner picks.
+- Checked before deploying: the strip SQL in a rolled-back transaction on the
+  dev database (all 972 messages stripped, none emptied, no thinking left).
+
+Review fixes (2026-11-11):
+- The 30-day strip also empties the assistant's tool inputs (rows, test
+  data, code), not only results and thinking.
+- Deleting a chat, by the owner or at 90 days, is one transaction that skips
+  a chat whose turn is running. Its change sets keep their lines' labels
+  and summary; payloads and undo state go, and a proposed one is
+  discarded (they can't be reached from the tab without their chat). The
+  confirm says changes stay but can't be undone from there anymore.
+- The summary caps the change-set lines too (6,000 characters of what was
+  said, 3,000 of change sets, the latest kept).
+- Migration 0094: a partial index on `builder_message(created_at)` where
+  not yet stripped, for the hourly run. Run it before the api deploys.
+- Checked in rolled-back transactions on the dev database: strip and delete.
+
+Checked on dev (2026-11-11, after migration 0094 and the deploy):
+- Aged the "phase5-check fix" chat 31 days and an eval chat
+  (builder-eval import-clients) 91 days, with one of its change sets set
+  back to proposed. The 13:00 UTC run:
+  - stripped all 14 messages of the first chat: tool results carry the
+    note, tool inputs are empty, no thinking left;
+  - deleted the second chat; its three change sets kept labels and
+    summaries, with no payloads or undo state, and the proposed one became
+    discarded.
+- The stripped chat still reads normally in the tab. A follow-up ("¿Qué
+  arreglaste la vez pasada…?") started from the stored summary, and the
+  assistant answered correctly in Spanish (12.7 credits).
+- The summary's header said "steps before" the last day it covers. After a
+  second review it gives exact UTC times ("up to 2026-10-11 12:10 UTC"),
+  says only tool results, tool inputs and thinking were removed, and that
+  later messages follow as they were. Checked after deploying it: the next
+  turn rebuilt the summary with the new header and the assistant answered
+  from it in Spanish (4.1 credits). Asked when the fix happened, it said
+  "before October 11": the test moved the messages back a month but not
+  the action's version (published November 11), so the dates disagreed.
+- Delete: a new "hola" chat, the header's delete icon, the inline confirm,
+  "Chat borrado", the list updated, and no rows left. The chat list shows
+  the 90-day note.
+
+- Eval on dev (`--server --repeat 3`, all ten cases, against
+  `builder-phase4-server.json`; saved as the new baseline
+  `scripts/golden/builder-phase7-server.json`): **28/30 runs work, every
+  case passes at least 2 of 3**, at 22.9 credits a run (57.1 at most; phase
+  4 was 28.4). nightly-orders went 0/2 → 3/3 at 12 credits (it says plainly
+  there's no schedule and offers the options), delivery-orders 0/2 → 2/3.
+  The two failures:
+  - menu-pdf #3: its note told the bot to send the PDF for "los precios", so
+    a price question got the file instead of the price, and it said it had
+    tested without a customer test;
+  - delivery-orders #2: the save action wasn't tested after Apply (the
+    simulated owner ended after two messages, so no next reply came).
+
+- After the eval, for the menu-pdf failure, the prompt says a note must keep
+  the bot answering specific questions (a price) from the content and send a
+  file only when it is asked for, and that a knowledge search shows what the
+  bot finds, not how it answers. Rerun on dev after deploying it
+  (`--server --case menu-pdf --repeat 3`): 3/3 work (was 2/3), at 24.4,
+  26.7 and 13.2 credits.
+- Review of that change: the two knowledge rules now say the search only
+  works once the owner applied the note, name the panel in both languages,
+  and replace the old "test it with knowledge search before telling the
+  owner it works" instead of contradicting it.
+- Full eval rerun on dev with that prompt (saved over
+  `scripts/golden/builder-phase7-server.json`): **29/30**, every case at
+  least 2 of 3, 22.9 credits a run (42 at most); menu-pdf and
+  delivery-orders 3/3. The one failure (nightly-orders #3) was the judge's:
+  the assistant did run the saved query after Apply and showed its real
+  rows, but the judge only saw `run_test` calls as tests. The eval now
+  also passes data queries and knowledge searches to the judge;
+  nightly-orders rerun with it: 3/3 at 10.9 credits.
+
+Status: phase 7 done on dev. Production: migration 0094, then deploy.
+
 ### Verification and docs
 
 - **Evals:** at least 8 of 10 golden requests work with no hand edits.
