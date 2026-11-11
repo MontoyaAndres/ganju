@@ -119,3 +119,12 @@ export interface TryReply {
   files: string[];
   buttons: { yes: string; no: string } | null;
 }
+
+export interface BuilderProblems {
+  actions: {
+    name: string;
+    calls: number;
+    failures: number;
+  }[];
+  accounts: string[];
+}

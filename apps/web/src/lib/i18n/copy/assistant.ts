@@ -118,6 +118,14 @@ const en = {
   connectTitle: 'Connect your account',
   connectAction: 'Connect {provider}',
   connectDone: 'I connected {provider}.',
+  healthTitle: 'Something stopped working',
+  healthAction: '{name}: {failures} of its {calls} recent calls failed',
+  healthAccount: '{provider}: needs signing in again',
+  healthFix: 'Fix it with the assistant',
+  fixMessageAction:
+    'The action {name} is failing: {failures} of its {calls} recent calls failed.',
+  fixMessageAccount: 'My {provider} account needs signing in again.',
+  fixMessageAsk: 'Can you find out why and fix it?',
   secretTitle: 'A key the assistant needs',
   secretName: 'Name: {label}',
   secretValue: 'Paste the key here',
@@ -267,6 +275,16 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     connectTitle: 'Conecta tu cuenta',
     connectAction: 'Conectar {provider}',
     connectDone: 'Ya conecté {provider}.',
+    healthTitle: 'Algo dejó de funcionar',
+    healthAction:
+      '{name}: fallaron {failures} de sus {calls} llamadas recientes',
+    healthAccount: '{provider}: hay que volver a iniciar sesión',
+    healthFix: 'Arreglarlo con el asistente',
+    fixMessageAction:
+      'La acción {name} está fallando: fallaron {failures} de sus {calls} llamadas recientes.',
+    fixMessageAccount:
+      'Mi cuenta de {provider} necesita volver a iniciar sesión.',
+    fixMessageAsk: '¿Puedes ver por qué y arreglarlo?',
     secretTitle: 'Una clave que necesita el asistente',
     secretName: 'Nombre: {label}',
     secretValue: 'Pega la clave aquí',

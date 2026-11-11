@@ -570,6 +570,8 @@ export const subscription = pgTable(
     builderLlmId: text('builder_llm_id').references(() => organizationLlm.id, {
       onDelete: 'set null'
     }),
+    // Email the owner and admins when an action the assistant can fix breaks.
+    builderAlerts: boolean('builder_alerts').notNull().default(true),
     // When the effective plan last changed. What tells a Pro org that
     // downgraded and stayed on Free from one that just arrived there.
     planChangedAt: timestamp('plan_changed_at', { mode: 'date' }),

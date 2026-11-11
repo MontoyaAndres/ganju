@@ -1,0 +1,1 @@
+ALTER TABLE "subscription" ADD COLUMN "builder_alerts" boolean DEFAULT true NOT NULL;

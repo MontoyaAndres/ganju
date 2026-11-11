@@ -136,6 +136,19 @@ export const refreshFailureReauthReason = (
   return err.code ? `refresh_rejected:${err.code}` : 'refresh_rejected';
 };
 
+const PROVIDER_NAMES: Record<string, string> = {
+  [constants.OAUTH_PROVIDER_GOOGLE_GMAIL]: 'Gmail',
+  [constants.OAUTH_PROVIDER_GOOGLE_CALENDAR]: 'Google Calendar',
+  [constants.OAUTH_PROVIDER_GOOGLE_DRIVE]: 'Google Drive',
+  [constants.OAUTH_PROVIDER_MICROSOFT_OUTLOOK]: 'Outlook',
+  [constants.OAUTH_PROVIDER_ONE_DRIVE]: 'OneDrive',
+  [constants.OAUTH_PROVIDER_SLACK]: 'Slack',
+  [constants.OAUTH_PROVIDER_SLACK_USER]: 'Slack'
+};
+
+export const providerDisplayName = (provider: string | null) =>
+  (provider && PROVIDER_NAMES[provider]) || provider || '';
+
 export const isCredentialNeedingReauth = (metadata: unknown): boolean => {
   if (!metadata || typeof metadata !== 'object') return false;
   return (metadata as Record<string, unknown>).needsReauth === true;

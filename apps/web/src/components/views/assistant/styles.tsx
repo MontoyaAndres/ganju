@@ -385,6 +385,34 @@ export const Wrapper = styled.div`
       min-height: 100%;
     }
 
+    .assistant-health {
+      max-width: 560px;
+      margin: 16px auto 0;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: ${theme.colors.earlyDawn};
+      color: ${theme.colors.romanCoffee};
+      font-size: ${theme.fonts.sm};
+
+      ul {
+        margin: 6px 0 12px;
+        padding-left: 18px;
+      }
+
+      li {
+        overflow-wrap: anywhere;
+      }
+    }
+
+    .assistant-health-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-weight: 600;
+      color: ${theme.colors.tahitiGold};
+    }
+
     .assistant-empty {
       margin: auto;
       max-width: 560px;

@@ -838,6 +838,73 @@ Choices agreed with the owner (2026-11-10):
 - Tool-health watching for what the builder made.
 - The fix offer in the tab, and the alert email.
 
+Choices agreed with the owner (2026-11-11):
+- Watched: the live actions of projects built in the dashboard (the
+  assistant's or the owner's), and the accounts those actions use. CLI
+  projects are left out.
+- Broken: in the last 24 hours (or since the live version was published, if
+  later), at least 5 failed calls and at least 30% of the action's calls.
+  Arguments refused by the input schema don't count. An account counts when
+  it needs signing in again.
+- Email: the org owner and admins, at most one a day per project; the same
+  problems again only after a week. An org admin can turn it off in
+  Settings → Billing.
+- Fix: a banner on the Assistant tab; "Fix it with the assistant" writes the
+  owner's first message in the box (what failed, how often, the most common
+  error). Credits are used only once they send it.
+
+**Phase 5 status (2026-11-11): built, not deployed.** Migration 0093 (adds
+`subscription.builder_alerts`) must run before the API deploy.
+- `controllers/builder/health.ts`: `projectProblems` (the tab's
+  `GET …/builder/health`) and `runBuilderHealthAlerts` on the hourly cron;
+  state in `alert_state` as `builder_health:<artifactId>`.
+- Review fixes: error text from outside services is kept out of the prefilled
+  message and the email (it would reach the assistant as the owner's words;
+  the assistant reads the logs instead); the counts read "recent calls",
+  since the window starts at the live version's publish when that is later;
+  a problem not in the last email waits a day, the same or fewer a week; the
+  job only looks at enabled, dashboard-built actions and checks each org's
+  plan and admins once per run; provider names come from
+  `utils.providerDisplayName`, shared with the tab.
+- `PUT …/builder/settings` takes `alerts`; the billing usage returns it.
+- The prompt tells the assistant to read the logs and health first, and to
+  ask for a reconnect when an account is the problem.
+- Web: the banner and the prefill (also from the email's `?fix=1` link), and
+  the switch in billing settings. EN/ES copy.
+- Checked on dev (2026-11-11), with 6 failed calls added to
+  `current-weather` in "builder-eval broken-weather 11101704-2" and removed
+  after:
+  - the route said 6 of 6 (the 3 older failures came before the live
+    version and were left out); a CLI project and a healthy one, nothing;
+  - the banner, "Fix it" and the email's `?fix=1` link wrote the message
+    and resized the box (not sent); the switch saved off and on;
+  - the 12:00 UTC run emailed the owner (received: Spanish then English,
+    "6 of its 6 recent calls failed", the `?fix=1` link) and stored
+    `action:current-weather` as sent. The test calls and that record were deleted after.
+- The two parts not yet seen, checked on dev the same day:
+  - An account needing sign-in (a stand-in Google Calendar credential on
+    "calendar-booking 11101656", deleted after): the route listed
+    `google-calendar`, the banner said "Google Calendar: hay que volver a
+    iniciar sesión", and sending the message got the "Conecta tu cuenta"
+    card with no code change (14.5 credits).
+  - The fix sent on broken-weather, with the 6 test failures added again
+    (copies of an old 404; removed after): the assistant read the logs,
+    tested the live action in three cities, and said it already works and
+    there is nothing to apply (7.7 credits). Right for that data, since the
+    failures were copies; a real repair is what the broken-weather eval
+    case covers. It said it couldn't see when the live version was
+    published.
+- A real repair, end to end: a new project "phase5-check fix" with the
+  eval's broken weather action (v0 address) and 6 real failed calls through
+  MCP. The banner said 6 of 6; "Fix it" and send; the assistant found the
+  v0/v1 address, fixed and tested it (Medellín 17.6 °C) and showed the card
+  (9 credits); after Apply the route reported nothing broken and Bogotá
+  answered 12.3 °C. Its first sentence came out in English to a Spanish
+  message. The project is kept.
+- Read-only on dev: the queries find the eval projects' broken
+  `current-weather` (3 of 3 failed: under the 5-failure bar); the CLI
+  project "nemo" is left out.
+
 **6. Credits and billing — S/M**
 
 - The counters and credit accounting from each call's usage.

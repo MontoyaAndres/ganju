@@ -1762,10 +1762,14 @@ const BUILDER_SETTINGS = z
       .int()
       .min(0)
       .max(constants.BUILDER_MAX_CREDIT_CAP)
-      .optional()
+      .optional(),
+    alerts: z.boolean().optional()
   })
   .refine(
-    value => value.llmId !== undefined || value.creditCap !== undefined,
+    value =>
+      value.llmId !== undefined ||
+      value.creditCap !== undefined ||
+      value.alerts !== undefined,
     { message: 'Nothing to change' }
   );
 

@@ -94,6 +94,8 @@ const en = {
   builderCapHelp: 'Up to ${usd} a month. 0 stops at the included credits.',
   builderCapSave: 'Save',
   builderCapSaved: 'Limit saved',
+  builderAlerts:
+    "Email the owner and admins when a project's action stops working",
   usageVoiceNotes:
     'Voice notes this period: {count} (about {minutes} min). Transcribing them is included — only the reply counts as a message.',
   usageDataTitle: 'Data',
@@ -403,6 +405,8 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Hasta ${usd} al mes. Con 0 se detiene en los créditos incluidos.',
     builderCapSave: 'Guardar',
     builderCapSaved: 'Límite guardado',
+    builderAlerts:
+      'Avisar por correo al dueño y a los administradores cuando una acción de un proyecto deja de funcionar',
     usageVoiceNotes:
       'Notas de voz este periodo: {count} (unos {minutes} min). Transcribirlas va incluido; solo la respuesta cuenta como mensaje.',
     usageDataTitle: 'Datos',

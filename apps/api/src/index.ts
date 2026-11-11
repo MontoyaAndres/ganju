@@ -57,6 +57,7 @@ import {
   runDataIndexAdvice,
   runAbandonedDatabases
 } from './utils';
+import { runBuilderHealthAlerts } from './controllers/builder/health';
 import {
   handleIndexBatch,
   handleCrawlDiscoverBatch,
@@ -631,6 +632,11 @@ app
     BuilderController.access
   )
   .get(
+    '/organization/:organizationId/project/:projectId/builder/health',
+    UserMiddleware.verify,
+    BuilderController.health
+  )
+  .get(
     '/organization/:organizationId/project/:projectId/builder/try',
     UserMiddleware.verify,
     BuilderController.tryHistory
@@ -930,6 +936,9 @@ export default {
     // because the signal it reads is a per-hour rate, and because the monthly
     // ceiling — not this email — is what actually bounds the spend.
     ctx.waitUntil(runToolCallAlerts({ env }));
+    // Actions the assistant can fix that broke, emailed to the project's
+    // owner and admins.
+    ctx.waitUntil(runBuilderHealthAlerts({ env }));
     // WhatsApp templates still in Meta's review, and once a day the rest, for
     // owners whose Meta app doesn't send the status webhook.
     ctx.waitUntil(runWhatsappTemplateSync({ env }));

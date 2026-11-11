@@ -12,6 +12,7 @@ import {
   changeSetNotes,
   undoChangeSet
 } from './changeSets';
+import { projectProblems } from './health';
 import { creditsOf } from './llm';
 import { BuilderTryController } from './tryIt';
 import { RateLimitMiddleware } from '../../middleware/rateLimit';
@@ -366,7 +367,8 @@ const updateSettings = async (c: Context<AppEnv>) => {
   const values = await utils.Schema.BUILDER_SETTINGS.parseAsync({
     organizationId: c.req.param('organizationId'),
     llmId: body?.llmId,
-    creditCap: body?.creditCap
+    creditCap: body?.creditCap,
+    alerts: body?.alerts
   });
   const database = await allowed(c, values.organizationId);
   if (values.llmId) {
@@ -395,19 +397,39 @@ const updateSettings = async (c: Context<AppEnv>) => {
       ...(values.llmId !== undefined ? { builderLlmId: values.llmId } : {}),
       ...(values.creditCap !== undefined
         ? { builderCreditCap: values.creditCap }
-        : {})
+        : {}),
+      ...(values.alerts !== undefined ? { builderAlerts: values.alerts } : {})
     })
     .where(eq(db.schema.subscription.organizationId, values.organizationId));
   const credits = await Plan.checkBuilderCredits(
     database,
     values.organizationId
   );
-  return c.json({ llmId: credits.llmId, creditCap: credits.cap });
+  return c.json({
+    llmId: credits.llmId,
+    creditCap: credits.cap,
+    alerts: credits.alerts
+  });
+};
+
+// What is broken among the actions the assistant can fix, for the tab's
+// banner.
+const health = async (c: Context<AppEnv>) => {
+  const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
+  const database = await allowed(c, scope.organizationId);
+  const [artifact] = await database
+    .select({ id: db.schema.artifact.id })
+    .from(db.schema.artifact)
+    .where(eq(db.schema.artifact.projectId, scope.projectId))
+    .limit(1);
+  if (!artifact) throw new Error('Artifact not found for the project');
+  return c.json(await projectProblems(database, artifact.id));
 };
 
 export const BuilderController = {
   updateSettings,
   access,
+  health,
   createConversation,
   listConversations,
   getConversation,

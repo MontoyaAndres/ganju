@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import { Theme, useTheme } from '@emotion/react';
 import { UI } from '@ganju/ui';
+import Switch from '@mui/material/Switch';
 import { utils } from '@ganju/utils';
 
 import { i18n } from '../../../lib';
@@ -46,6 +47,7 @@ interface BillingStatus {
       cap: number;
       allowed: boolean;
       llmId: string | null;
+      alerts: boolean;
     };
     data?: {
       storageBytes?: number;
@@ -163,6 +165,53 @@ const UsageRow = (props: {
         <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>{hint}</div>
       )}
     </div>
+  );
+};
+
+// Whether the owner and admins are emailed when an action breaks.
+const BuilderAlertsField = (props: {
+  organizationId: string;
+  alerts: boolean;
+  onSaved: () => void;
+}) => {
+  const { organizationId, alerts, onSaved } = props;
+  const t = i18n.useT(i18n.copy.SETTINGS);
+  const snackbar = UI.Alert.useSnackbar();
+  const [saving, setSaving] = useState(false);
+
+  const toggle = async (next: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const data = await utils.fetcher({
+        url: `/organization/${organizationId}/builder/settings`,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ alerts: next })
+        }
+      });
+      if (utils.isApiError(data)) {
+        snackbar.error(utils.getApiErrorMessage(data, t('toastBillingFailed')));
+        return;
+      }
+      onSaved();
+    } catch {
+      snackbar.error(t('toastBillingFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <label className="settings-toggle-row" style={{ marginBottom: 14 }}>
+      <Switch
+        checked={alerts}
+        disabled={saving}
+        onChange={(_, checked) => toggle(checked)}
+      />
+      {t('builderAlerts')}
+    </label>
   );
 };
 
@@ -519,6 +568,11 @@ export const BillingManager = (props: BillingManagerProps) => {
               organizationId={organizationId}
               cap={status.usage.builder.cap}
               per100Usd={status.pricing.builderPer100CreditsUsd}
+              onSaved={() => fetchStatus()}
+            />
+            <BuilderAlertsField
+              organizationId={organizationId}
+              alerts={status.usage.builder.alerts}
               onSaved={() => fetchStatus()}
             />
           </>

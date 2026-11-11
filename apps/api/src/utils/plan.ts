@@ -462,6 +462,7 @@ export type BuilderCredits = {
   cap: number;
   allowed: boolean;
   llmId: string | null;
+  alerts: boolean;
 };
 
 const creditsOfMicros = (micros: number) =>
@@ -489,7 +490,8 @@ export const checkBuilderCredits = async (
     included,
     cap,
     allowed: used < included + cap,
-    llmId: sub.builderLlmId
+    llmId: sub.builderLlmId,
+    alerts: sub.builderAlerts
   };
 };
 
