@@ -4,7 +4,7 @@ import { request } from './api';
 
 /**
  * Whether this project's assistant is open: `locked` is a plan without it,
- * `closed` an organization it hasn't reached yet.
+ * `closed` a project it can't be found for, or a check that kept failing.
  */
 export type AssistantAccess = 'loading' | 'open' | 'locked' | 'closed';
 

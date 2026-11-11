@@ -112,7 +112,7 @@ const createConversation = async (c: Context<AppEnv>) => {
 };
 
 // Whether this project's assistant is open to the caller: 404 when the
-// organization isn't allowed, 402 on a plan without it.
+// project isn't in the organization, 402 on a plan without it.
 const access = async (c: Context<AppEnv>) => {
   const scope = await utils.Schema.BUILDER_SCOPE.parseAsync(scopeOf(c));
   await allowed(c, scope.organizationId);

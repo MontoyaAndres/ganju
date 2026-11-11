@@ -146,8 +146,10 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
     null;
 
   const assistantAccess = useAssistantAccess(currentOrgId, fallbackProjectId);
+  // Every plan shows it (open, or locked with the upgrade), so it doesn't
+  // wait for the check; only an answer of "closed" hides it.
   const showAssistant =
-    assistantAccess === 'open' || assistantAccess === 'locked';
+    !!currentOrgId && !!fallbackProjectId && assistantAccess !== 'closed';
 
   const projectBase = fallbackProjectId
     ? `/organization/${currentOrgId}/project/${fallbackProjectId}`

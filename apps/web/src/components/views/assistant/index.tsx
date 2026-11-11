@@ -170,6 +170,14 @@ export const Assistant = () => {
   const [live, setLive] = useState<LiveTurn | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  // The owner's message, shown as soon as it's sent until its chat reloads
+  // with it: `from` is the chat it was sent in (null for a new one), `to` the
+  // chat it went to.
+  const [outgoing, setOutgoing] = useState<{
+    text: string;
+    from: string | null;
+    to: string | null;
+  } | null>(null);
   const [tryOpen, setTryOpen] = useState(false);
   const [chatsOpen, setChatsOpen] = useState(false);
   const [tryReset, setTryReset] = useState(0);
@@ -183,6 +191,12 @@ export const Assistant = () => {
 
   const chatId =
     typeof router.query.chat === 'string' ? router.query.chat : null;
+  const chatRef = useRef(chatId);
+  chatRef.current = chatId;
+  const shownOutgoing =
+    outgoing && (outgoing.from === chatId || outgoing.to === chatId)
+      ? outgoing.text
+      : null;
 
   const loadConversations = useCallback(async () => {
     const result = await request<{
@@ -299,6 +313,7 @@ export const Assistant = () => {
     if (!chatId) return;
     (async () => {
       const loaded = await loadDetail(chatId);
+      setOutgoing(prev => (prev?.to === chatId ? null : prev));
       const running = loaded && runningTurnOf(loaded);
       if (running) followRef.current(chatId, running);
     })();
@@ -330,9 +345,17 @@ export const Assistant = () => {
 
   const send = async (value: string, conversationId = chatId) => {
     const message = value.trim();
-    if (!message || sending || live) return;
+    if (!message || sending || live || shownOutgoing) return;
     setSending(true);
     setStoppedEarly(false);
+    setOutgoing({ text: message, from: conversationId, to: conversationId });
+    setText('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
+    const failed = (error: string) => {
+      snackbar.error(error);
+      setOutgoing(null);
+      setText(value);
+    };
     try {
       let target = conversationId;
       if (!target) {
@@ -341,7 +364,7 @@ export const Assistant = () => {
           { method: 'POST', body: {} }
         );
         if (!created.ok) {
-          snackbar.error(
+          failed(
             created.feature === CREDITS_LIMIT
               ? t('creditsUsedUp')
               : created.error || t('errorSend')
@@ -349,13 +372,15 @@ export const Assistant = () => {
           return;
         }
         target = created.data.id;
+        const id = target;
+        setOutgoing(prev => prev && { ...prev, to: id });
       }
       const sent = await request<{ turnId: string }>(
         `${builderBase}/conversation/${target}/message`,
         { method: 'POST', body: { text: message } }
       );
       if (!sent.ok) {
-        snackbar.error(
+        failed(
           sent.status === 429
             ? t('rateLimited')
             : sent.feature === CREDITS_LIMIT
@@ -364,16 +389,27 @@ export const Assistant = () => {
                 ? t('busy')
                 : sent.error || t('errorSend')
         );
+        // A chat made for this message is kept, so sending again reuses it.
+        if (target !== conversationId && chatRef.current === conversationId) {
+          openChat(target);
+        }
         return;
       }
-      setText('');
-      if (inputRef.current) inputRef.current.style.height = 'auto';
-      if (target !== chatId) {
+      // The owner went to another chat meanwhile: this one picks its running
+      // turn up when they come back.
+      if (chatRef.current !== conversationId) {
+        setOutgoing(null);
+        return;
+      }
+      if (target !== conversationId) {
         // The new chat's page picks the running turn up as it loads.
-        openChat(target);
+        const opened = target;
+        setOutgoing(prev => prev && { ...prev, from: opened });
+        openChat(opened);
         return;
       }
       await loadDetail(target);
+      setOutgoing(null);
       follow(target, sent.data.turnId);
     } finally {
       setSending(false);
@@ -588,7 +624,7 @@ export const Assistant = () => {
     );
   }
 
-  const busy = sending || !!live;
+  const busy = sending || !!live || !!shownOutgoing;
 
   const suggestions = [
     t('suggestion1'),
@@ -601,6 +637,11 @@ export const Assistant = () => {
     <span className="assistant-avatar" aria-hidden>
       <AutoAwesomeOutlined />
     </span>
+  );
+  const ownerBubble = (content: string, key?: string) => (
+    <div key={key} className="assistant-owner">
+      {content}
+    </div>
   );
 
   return (
@@ -781,11 +822,7 @@ export const Assistant = () => {
               )}
               {entries.map((entry, index) => {
                 if (entry.kind === 'owner') {
-                  return (
-                    <div key={entry.key} className="assistant-owner">
-                      {entry.text}
-                    </div>
-                  );
+                  return ownerBubble(entry.text, entry.key);
                 }
                 if (entry.kind === 'note') {
                   return (
@@ -815,11 +852,12 @@ export const Assistant = () => {
                   </div>
                 );
               })}
-              {live && (
+              {shownOutgoing && ownerBubble(shownOutgoing)}
+              {(live || shownOutgoing) && (
                 <div className="assistant-reply">
                   {avatar}
                   <div className="assistant-reply-body">
-                    {live.steps.length > 0 && (
+                    {live && live.steps.length > 0 && (
                       <ul className="assistant-steps">
                         {live.steps.map((step, index) => {
                           const current =
@@ -849,11 +887,11 @@ export const Assistant = () => {
                         })}
                       </ul>
                     )}
-                    {live.text && <UI.Markdown content={live.text} />}
+                    {live?.text && <UI.Markdown content={live.text} />}
                     {liveCards.map((card, index) =>
                       renderCard(card, entries.length + index, `live-${index}`)
                     )}
-                    {!live.tool && !live.text && (
+                    {!live?.tool && !live?.text && (
                       <div className="assistant-typing">
                         <span />
                         <span />
