@@ -853,8 +853,12 @@ Choices agreed with the owner (2026-11-11):
   owner's first message in the box (what failed, how often, the most common
   error). Credits are used only once they send it.
 
-**Phase 5 status (2026-11-11): built, not deployed.** Migration 0093 (adds
-`subscription.builder_alerts`) must run before the API deploy.
+**Phase 5 status (2026-11-11): done on dev and production.** Migration 0093
+(adds `subscription.builder_alerts`) ran before the API deploy.
+- Production, read-only: the column is there (default true, none off); no
+  project qualifies for an alert yet, so the hourly run emails nobody; on
+  "Girardot - demos" / "test" the health route answered 200 with nothing
+  broken, the tab showed no banner, and Settings showed the switch, on.
 - `controllers/builder/health.ts`: `projectProblems` (the tab's
   `GET …/builder/health`) and `runBuilderHealthAlerts` on the hourly cron;
   state in `alert_state` as `builder_health:<artifactId>`.
