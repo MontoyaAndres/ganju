@@ -1123,8 +1123,15 @@ Checked on dev (2026-11-11, after migration 0094 and the deploy):
 - After the eval, for the menu-pdf failure, the prompt says a note must keep
   the bot answering specific questions (a price) from the content and send a
   file only when it is asked for, and that a knowledge search shows what the
-  bot finds, not how it answers. Not deployed yet; rerun menu-pdf
-  (`--server --case menu-pdf --repeat 3`) after the next dev deploy.
+  bot finds, not how it answers. Rerun on dev after deploying it
+  (`--server --case menu-pdf --repeat 3`): 3/3 work (was 2/3), at 24.4,
+  26.7 and 13.2 credits.
+- Review of that change: the two knowledge rules now say the search only
+  works once the owner applied the note, name the panel in both languages,
+  and replace the old "test it with knowledge search before telling the
+  owner it works" instead of contradicting it. Not deployed yet; the full
+  eval should be rerun with this prompt before production, since only
+  menu-pdf was rerun.
 
 Status: phase 7 done on dev. Production: migration 0094, then deploy.
 
