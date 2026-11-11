@@ -71,7 +71,7 @@ Three special definitions (`http-endpoint`, `mcp-proxy`, `custom-code`) produce 
 
 ```
 artifactTool (toolKey "custom-code", config.activeVersionId)
- └── artifactToolVersion (version, status, tools[], sourceKey, sourceHash, sourceKind, scriptName, scriptTag)
+ └── artifactToolVersion (version, status, tools[], sourceKey, sourceHash, sourceKind, sourceSnapshotKey, scriptName, scriptTag)
 ```
 
 One row per release holds **both halves** — the deployed script and the manifest the MCP server registers from — so publish and rollback move code and schemas together. `config.activeVersionId` names the single `published` version; the MCP boot loop reads that version's `tools` and never calls the dispatcher, so a slow or failed deploy can't break `tools/list`. `status` is `draft` | `published` | `archived`, `version` is monotonic per tool (unique with `artifactToolId`), and `sourceKey` points at the bundle in R2.
@@ -80,6 +80,7 @@ Two columns carry more than their names suggest:
 
 - **`scriptName`** is the dispatch-namespace name this version's bundle was uploaded to, and the name the boot loop actually dispatches to. Every upload mints its own, so this is a pointer rather than a convention — which is what lets a publish write to a name that has never existed (read-your-writes) instead of over the artifact's one script (not read-your-writes, and observed taking ~40s to converge). Keeping it on this row rather than on `artifact_tool.config` is what makes code, contract and the script serving them one row. Null on any version published before the column existed, whose bundle sits under the legacy derived name; the read path falls back to it.
 - **`sourceKind`** says whether the stored bytes are readable: `'editor'` means a person typed them and the dashboard can reopen them, `'bundle'` means the CLI uploaded a compiled artifact, which the editor shows read-only rather than inviting someone to overwrite a real build with the contents of a text box.
+- **`sourceSnapshotKey`** points at the readable source `ganju deploy` uploads beside a `'bundle'` version (a JSON map of path to text, in R2), so the dashboard and the assistant read the author's files instead of the minified bundle. Only shown, never run; set only while the version is a draft, and null on editor versions, on CLI versions deployed with `"uploadSource": false`, and on any version older than the column.
 
 ### Channels (chat bots)
 
@@ -115,11 +116,26 @@ The abandoned-database flow (an organization that left Pro and stayed on Free) k
 
 Inside each object, our own tables sit beside the owner's: `_ganju_meta` (internal schema version, lifecycle, the running export), `_ganju_tables` and `_ganju_columns` (the self-describing metadata), `_ganju_row_log` (row history, 90 days), `_ganju_context` (the actor the history triggers record), `_ganju_queries` (the owner's named queries, with the tables and plan found when each was saved), `_ganju_triggers` (the owner's trigger rules), `_ganju_changes` (the rows a write changed while a trigger listens, emptied before the write commits) and `_ganju_outbox` (trigger events waiting to be delivered, drained by the object's alarm). Every owner table has `id`, `created_at`, `updated_at`, `version`, `created_by`, `updated_by` and a hidden `participant_id`.
 
+### The assistant
+
+The project assistant (the builder) keeps its chats in Postgres; the Durable Object that runs a chat's turn (`BuilderConversation`, one per chat) holds only the turn in progress and what is staged for its next change set.
+
+```
+builderConversation (title, status, summary, lastMessageAt, → artifact, → user?)
+ ├── builderMessage    one model step or owner message (seq, turnId, role, content, tokens, costMicros, ownKey, cards)
+ └── builderChangeSet  what the owner applies and undoes (items, before, status, summary)   — conversationId SET NULL
+```
+
+- **`builderConversation.status`** is `idle` | `running`; a turn claims the chat by moving it to `running`, and one older than 20 minutes is treated as stale. **`summary`** is written when a chat whose old steps were stripped is reopened: the turns up to the last stripped message, rebuilt from what was said and the change sets, with no model call.
+- **`builderMessage.content`** is the Anthropic content blocks as sent, tool results included as `user` blocks. Each assistant step carries its own usage (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`) and `costMicros` at list price (a credit is 10,000); `ownKey` marks a step on the organization's own Anthropic key, which used no credits. `cards` is what the owner was shown with the step (change sets, patches, account, secret and file requests). `toolResultsStrippedAt` is set by the 30-day strip, which blanks tool results and tool inputs and drops thinking; the partial index `builder_message_unstripped_idx` covers what is still to strip.
+- **`builderChangeSet.items`** is `[{ area, op, target, payload, label, undoable }]` and **`before`** what each applied item replaced, for undo. `status` is `proposed` → `applied` | `failed`, then `undone`; a proposed set a newer one replaces is `discarded`. It outlives its chat (`conversationId` is `ON DELETE SET NULL`), so "why does this exist" survives: deleting a chat, by the owner or the 90-day purge, discards a still-proposed set and drops `payload` and `before`, keeping the labels and summary.
+- **Health alerts** keep no table of their own: the last email per project is an `alert_state` row keyed `builder_health:<artifactId>`.
+
 ## Billing & metering
 
 **`subscription`** is one row per organization (unique FK, cascade) holding the plan and everything billing needs: `plan`, `status`, the three provider ids (`billingCustomerId` / `billingSubscriptionId` / `billingProductId`), the provider's period (`currentPeriodStart` / `currentPeriodEnd`), `cancelAtPeriodEnd`, and the `customDomain` add-on. The ids are provider-neutral by name because the counters beside them already are. `billingProductId` is a **product**, not a price: the base fee and all four metered rates hang off one product, so the product is what identifies the plan. Plan **limits** are not here — they live in code, in [`PLAN_LIMITS`](../packages/utils/src/constants.ts), so a plan's allowances are the same everywhere and a row cannot disagree with them.
 
-Four axes are billed, and each is a counter plus a mark. Voice notes are counted beside them (`voiceNoteCount`, `voiceNoteSeconds`, `voiceNotePlatformCount`) but never reported to billing. Project data is counted (`dataRowsReadCount`, `dataRowsWrittenCount`, `dataRequestCount`, `peakDataMb`, `dataTriggerRunCount`) and reported in full, not past an allowance, to four Polar meters priced at $0 until real numbers set its price, with its own marks (`reportedDataStorageMb`, `reportedDataRowsRead`, `reportedDataRowsWritten`, `reportedDataTriggerRuns`). Requests are counted but not reported.
+Five axes are billed, and each is a counter plus a mark. Voice notes are counted beside them (`voiceNoteCount`, `voiceNoteSeconds`, `voiceNotePlatformCount`) but never reported to billing. Project data is counted (`dataRowsReadCount`, `dataRowsWrittenCount`, `dataRequestCount`, `peakDataMb`, `dataTriggerRunCount`) and reported in full, not past an allowance, to four Polar meters priced at $0 until real numbers set its price, with its own marks (`reportedDataStorageMb`, `reportedDataRowsRead`, `reportedDataRowsWritten`, `reportedDataTriggerRuns`). Requests are counted but not reported. The assistant's model cost is counted at list price in `builderCostMicros` (our key) and `builderOwnKeyCostMicros` (the organization's own Anthropic key, tracked only); whole credits past the plan's included ones are reported to the `ganju_builder_credits` meter against `reportedBuilderCredits`. `builderCreditCap` is the extra credits a month an admin allows (null is `BUILDER_DEFAULT_CREDIT_CAP`; it only stops new turns, never what was used), `builderLlmId` the Anthropic connection the assistant runs on instead of credits, and `builderAlerts` the switch for the broken-action email. `usagePeriod` keeps both cost counters and the reported credits for a closed period.
 
 | Axis | Counter | Reported mark |
 | ---- | ------- | ------------- |
@@ -127,6 +143,7 @@ Four axes are billed, and each is a counter plus a mark. Voice notes are counted
 | Channel messages on our shared key | `sharedMessageCount` | `reportedSharedMessageOverage` |
 | Custom tool calls (dispatches into user code) | `toolCallCount` | `reportedToolCallOverage` |
 | Embedded storage | `peakEmbeddedMb`, the period's high-water | `reportedEmbeddedOverageMb` |
+| Assistant credits past the included ones | `builderCostMicros` (in micro-dollars; a credit is 10,000) | `reportedBuilderCredits` |
 
 - **The counters are columns, not queries.** `mcpRequest` holds one row per call and counting them would answer the same question — but that table is purged on a 90-day retention window, which is shorter than some billing disputes, and an hourly cron scanning every artifact in an organization is a scan where reading one row is a read.
 - **The marks are the only memory of what was already billed.** The hourly sweep reports the delta between an axis's counter and its mark, then advances the mark — so a mark that moves without its event landing loses that usage for good, while a mark that stays put costs one retry. Each meter therefore reports independently: one rejected event must not abort the others or strand their marks. Each event also carries a stable `external_id` built from the subscription, meter, period and new mark, so a retry after a failed mark advance deduplicates at the provider rather than double-billing.

@@ -2,7 +2,7 @@
 title: CLI
 description: The ganju command line — write, deploy, test and debug your custom tools from a terminal, and ship them from CI.
 order: 37
-updated: 2026-09-05
+updated: 2026-11-11
 ---
 
 `ganju` is the terminal half of [Functions](/docs/tools/functions/). Everything it
@@ -56,7 +56,7 @@ so the next command succeeds and you edit from something that ran.
 | | |
 | --- | --- |
 | `ganju build` | Lint the tools, bundle and minify to `.ganju/bundle.js`, and report the size. `--no-minify` keeps it readable; `--strict` fails on lint warnings. |
-| `ganju deploy` | Build, upload and publish. `--draft` stops before publishing. |
+| `ganju deploy` | Build, upload and publish. `--draft` stops before publishing; `--force` replaces a live version made in the dashboard without asking. |
 | `ganju test <tool>` | Run one tool without publishing it. |
 | `ganju logs` | Recent calls and their `ctx.log` output. |
 
@@ -82,6 +82,7 @@ reviewed in the same pull request.
   "artifact": "acme-support",
   "organizationId": "…", // written by `ganju link`
   "projectId": "…",
+  "uploadSource": true, // the default: send the readable source too
 
   // Row-level, because that is the level they are enforced at: one script per
   // project, one set of rules for all of it.
@@ -173,6 +174,45 @@ you want them enforced.
 A CLI upload is stored as a compiled `bundle`, which is why the dashboard shows
 it read-only rather than inviting someone to overwrite a real build with the
 contents of a text box. You can still read it there, and still roll back to it.
+
+## Your source in the dashboard
+
+Beside the bundle, `ganju deploy` uploads the project's **readable source**, so
+the dashboard shows your real files instead of minified code — and so the
+project's [Assistant](/docs/assistant/) can read them. It is only shown, never
+run: the bundle is what runs.
+
+The files are what git would commit: tracked files, plus untracked ones that
+aren't ignored. Outside a git repository, your `.gitignore` files are read
+instead. Some things never go, whatever the ignore rules say: `node_modules`,
+`.env*` files, lockfiles and binary files. A file over 256 KB is left out and
+named in the output; a project over 2 MB or 500 files sends no source at all,
+with a warning. A failed source upload never fails the deploy.
+
+`ganju versions` marks a version that has its source with `+ source`. Set
+`"uploadSource": false` in `ganju.json` to send only the bundle.
+
+Because the source is there, the assistant doesn't replace code you deploy. When
+the project's owner asks it for a code change, it writes a patch for you
+instead, which they pass on. Apply it, then deploy as usual.
+
+## Deploying over the dashboard
+
+Someone may have changed the project's functions in the dashboard since your
+last deploy, by hand or through the assistant. When the live version was made
+there, `ganju deploy` stops and says so before publishing:
+
+```
+! The live version, v14, was made in the app. Deploying replaces it with this folder's code.
+  These functions would stop working: check-stock
+  Copy any changes made in the app that you want to keep into this project first.
+Replace it? [y/N]
+```
+
+It names the functions your folder doesn't have, which would stop working. In a
+terminal it asks; in a script, where there is nothing to ask, it stops, and
+`--force` deploys anyway. `--draft` is never stopped, since a draft replaces
+nothing.
 
 ## The tool linter
 

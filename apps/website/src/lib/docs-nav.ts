@@ -85,6 +85,7 @@ const SPEC: DocNavSpec[] = [
     slug: 'organizations-and-projects',
     label: { en: 'Organizations & projects', es: 'Organizaciones y proyectos' }
   },
+  { slug: 'assistant', label: { en: 'Assistant', es: 'Asistente' } },
   { slug: 'prompts', label: { en: 'Prompts', es: 'Prompts' } },
   { slug: 'resources', label: { en: 'Resources', es: 'Recursos' } },
   {

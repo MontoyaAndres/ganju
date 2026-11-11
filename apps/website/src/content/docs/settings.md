@@ -2,7 +2,7 @@
 title: Settings
 description: Your organization's control room — rename it, manage billing and usage, invite members, bring your own language models, and handle destructive actions.
 order: 6
-updated: 2026-09-30
+updated: 2026-11-11
 ---
 
 **Settings** is your organization's control room. A left sub-nav jumps between each
@@ -121,6 +121,10 @@ Pro adds nothing to your bill until you go past the included amounts:
 - **Extra calls to tools you wrote** — $5 per million beyond the included 1,000,000.
   Only your own code counts here; calls to the integrations Ganju ships, and to remote
   MCP servers you connect, are bundled.
+- **Extra [assistant](/docs/assistant/) credits** — $2 per 100 beyond the included
+  1,000, up to the limit you set under **Extra credits a month** (2,000 by
+  default; 0 stops at the included credits). The same section has the switch for
+  the email sent when an action the assistant built stops working.
 - **Custom domain** — $15 / mo add-on.
 
 > Want more for free? Ganju is Apache-2.0 — you can self-host and run on your own

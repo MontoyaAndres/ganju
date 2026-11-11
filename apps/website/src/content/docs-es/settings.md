@@ -2,7 +2,7 @@
 title: Configuración
 description: La sala de control de tu organización — renómbrala, administra la facturación y el consumo, invita miembros, trae tus propios modelos de lenguaje y maneja las acciones destructivas.
 order: 6
-updated: 2026-09-30
+updated: 2026-11-11
 ---
 
 **Settings** es la sala de control de tu organización. Un submenú a la izquierda
@@ -128,6 +128,11 @@ Pro no suma nada a tu cuenta hasta que pasas de los montos incluidos:
   incluido. El contenido consultable se guarda con un índice de búsqueda varias
   veces más grande que él mismo, y por eso cuesta más por GB que el
   almacenamiento de archivos (que es gratis).
+- **Créditos extra del [asistente](/es/docs/assistant/)** — $2 por cada 100 más
+  allá de los 1.000 incluidos, hasta el límite que elijas en **Créditos extra al
+  mes** (2.000 si no lo cambias; 0 se detiene en los créditos incluidos). La misma
+  sección tiene el interruptor del correo que llega cuando una acción que hizo el
+  asistente deja de funcionar.
 - **Dominio propio** — complemento de $15 / mes.
 
 > ¿Quieres más gratis? Ganju es Apache-2.0 — puedes instalarlo por tu cuenta y

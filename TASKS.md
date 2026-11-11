@@ -1175,6 +1175,46 @@ Status: phase 7 done on dev and production. Checked in production
   - `docs/ARCHITECTURE.md` gets the builder controller;
   - `docs/DATA_MODEL.md` gets the three tables and the new column.
 
+**Status (2026-11-11), on `feat/builder-verification-docs`:**
+- Evals: 29/30 on the phase 7 baseline, every request at least 2 of 3.
+- Manual checks: all seen on dev. They ran in `qa-timecap`, because `test`
+  was closed by the allowlist then:
+  - editor project: build, Apply, test chat, Undo (phase 3), with planning
+    in every eval run;
+  - Data and a prompt in one change set, applied and undone (phase 4);
+  - a patch on the CLI project with no version created (phase 3);
+  - the fix offer (phase 5);
+  - the deploy guard (phase 1). Run again today against "phase5-check fix"
+    (live v2, made in the app): with a folder lacking `current-weather`, it
+    named that function as one that would stop working, stopped with "nothing
+    was deployed" and pointed to `--force`. The project still has only v1 and
+    v2.
+- Billing, on dev:
+  - Every assistant step's `cost_micros` (1,170 steps, 2026-10-11 to 11-11)
+    falls between its tokens priced with every cache write at the 5-minute
+    rate and at the 1-hour rate. The table stores the two together, so the
+    exact cost can't be recomputed from the token columns alone.
+  - qa-timecap's counter against its messages since the last hand edit of
+    the counter (2026-11-10 20:23 UTC, the phase 6 cap tests):
+    - the counter grew 15,292,731 micros, and the messages add up to
+      15,180,658;
+    - the 112,073 left (0.7%, 1.1 credits) is likely chats deleted in the
+      phase 7 tests, whose messages are gone;
+    - the own-key counter matches exactly (10,104).
+  - Before that, Nov 9 and 10 are mostly missing from the counter (it read
+    1.27 credits on Nov 10 at 19:28 UTC). Most likely they ran before the
+    phase 6 counting reached dev.
+  - Against Anthropic's own usage: not done. It needs an Admin API key or a
+    console export from the owner.
+- Retention: change-set summaries kept after the 90-day delete (phase 7).
+- Docs: written (the website Assistant page en + es in the menu and the
+  welcome page; the CLI page's source snapshot and deploy guard; PRICING,
+  MODELS, ARCHITECTURE, DATA_MODEL). The pricing pages already matched.
+- Still open: the owner sessions (the owner arranges them). The Anthropic
+  usage comparison is deferred (2026-11-11): nobody here has admin access to
+  the Anthropic Console. Do it once someone can export the Usage page for
+  the API's key.
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 

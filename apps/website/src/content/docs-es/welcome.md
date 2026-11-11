@@ -2,7 +2,7 @@
 title: Bienvenido
 description: Conecta tu IA con tus archivos, herramientas y apps — y luego ofrécesela a quien quieras por los canales que ya usa.
 order: 0
-updated: 2026-09-05
+updated: 2026-11-11
 ---
 
 Bienvenido a la documentación de Ganju. Ganju conecta asistentes de IA como
@@ -29,6 +29,8 @@ que puedes compartir con cualquiera.
 Una vez configurado, estas guías profundizan en cada capacidad — los bloques que
 combinas para definir exactamente qué sabe tu asistente, qué hace y dónde vive:
 
+- **[Asistente](/es/docs/assistant/)** — describe con tus palabras qué debe saber
+  o hacer tu bot, y lo construye, lo prueba y lo activa con tu clic.
 - **[Prompts](/es/docs/prompts/)** — plantillas reutilizables de varios turnos con
   variables tipadas que se convierten en **comandos de barra** en cada canal.
 - **[Recursos](/es/docs/resources/)** — apoya tu IA en tu propio conocimiento:

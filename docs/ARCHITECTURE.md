@@ -21,6 +21,7 @@ A [Hono](https://hono.dev) Worker ([`apps/api/src/index.ts`](../apps/api/src/ind
 - **Integration OAuth** — `GET /oauth/:provider/authorize` + callbacks for Gmail, Google Drive/Calendar, Outlook, OneDrive, and Slack.
 - **Channel webhooks** — `POST /channel/:channelId/webhook/:platform` ingests Telegram/Slack/WhatsApp/Discord events — text and voice notes (see [Channel bot turn](#channel-bot-turn)); a Discord **Durable Object** ([`durable-objects/discordGateway.ts`](../apps/api/src/durable-objects/discordGateway.ts)) holds the persistent Gateway WebSocket.
 - **Queue consumers** — the `queue()` handler dispatches background jobs (see [Queues](#queues-background-work)).
+- **Project assistant** — the dashboard's Assistant tab, where an owner builds their bot in conversation ([`controllers/builder`](../apps/api/src/controllers/builder)); see [An assistant turn](#an-assistant-turn).
 
 ### `apps/mcp` — MCP-server Worker
 
@@ -134,6 +135,21 @@ The webhook only classifies the message and hands it to the `MessageBufferDO`, w
 - **Per-customer limit** — before the model loop, the runner counts the participant's replies in the last 24 hours (`channel.config.participantDailyLimit`, default 50, 0 = off). Each time a customer reaches it, their first message gets a notice and later ones nothing, with no model call and nothing billed; the notice is claimed under a per-participant lock, so messages arriving together get one between them.
 - **Customer memory** — with `channel.config.participantMemory` on, in private conversations the runner adds its own `remember-customer` tool and puts the saved facts in the system prompt; they live on `channel_participant.memory`. Each save applies to the stored row under a lock, so a "Forget" during a turn holds, and a save made after the turn read outside content waits for the customer's yes like a sensitive tool.
 
+### An assistant turn
+
+The owner's message is saved by `POST …/builder/conversation/:id/message`, which claims the chat (`status = running`; one running chat per project, a claim older than 20 minutes counts as stale) and hands the turn to that chat's **`BuilderConversationDO`**. The object runs it from an alarm, so it outlives the request and a closed tab, and the browser follows along on `…/stream`, which it can reconnect to.
+
+A turn is a tool-calling loop against Claude ([`builder/llm.ts`](../apps/api/src/controllers/builder/llm.ts); see [MODELS.md](MODELS.md)) of at most 25 model calls. Every step is written to `builder_message` as it happens, with its usage and cost, and counted on `subscription` before the next call checks the credits left. The tools ([`builder/tools.ts`](../apps/api/src/controllers/builder/tools.ts)) read the project freely through the same controllers the dashboard uses, save and test action drafts, and *stage* everything else in the object's storage. `propose_changes` turns what is staged into one `builder_change_set` the owner sees as a card; for a project whose actions a developer deploys from the CLI, `propose_patch` writes a patch against their uploaded source instead. Results from tests, logs, rows, pages and the catalog reach the model wrapped as untrusted content.
+
+Nothing a customer sees changes until the owner presses **Apply** (`…/change-set/:id/apply`), which runs the items in order as that owner, stops at the first failure, and records what each replaced in `before`. **Undo** puts them back newest first, and refuses before anything moves when something else has changed the same thing since. Dropping a table or column, deleting rows or changing a column's type is undone by a point-in-time restore of the project database.
+
+The **Try it** panel (`…/builder/try`) runs a real channel turn on the project's hidden test channel through the channel runner; on the shared model its tokens are charged as assistant credits.
+
+Two hourly jobs belong to it, both on the API's cron:
+
+- **Health alerts** ([`builder/health.ts`](../apps/api/src/controllers/builder/health.ts)) — for projects built in the dashboard: an action with at least 5 failed calls and 30% of its calls over the last day (or since its last publish), or an account it uses that needs signing in again. The tab shows a banner with **Fix it with the assistant**; the owner and admins get an email at most once a day per project, the same problems again only after a week, unless `subscription.builder_alerts` is off.
+- **Retention** ([`builder/retention.ts`](../apps/api/src/controllers/builder/retention.ts), inside `runRetentionPurge`) — after 30 days a message's tool results and tool inputs are blanked and its thinking dropped (they can hold customers' data); 90 days after a chat's last message it is deleted, with its object's storage. A reopened stripped chat starts from a summary built from what was said and its change sets, with no model call. The owner's **Delete chat** goes through the same deletion.
+
 ## Cloudflare bindings
 
 Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/wrangler.toml) for the full set). The API Worker is the binding hub:
@@ -147,6 +163,7 @@ Defined per app in `wrangler.toml` (see [`apps/api/wrangler.toml`](../apps/api/w
 | `DISCORD_GATEWAY`  | Durable Object             | Persistent Discord Gateway socket                |
 | `MESSAGE_BUFFER`   | Durable Object             | Holds a participant's burst, then runs the turn  |
 | `PROJECT_DATABASE` | Durable Object (apps/data) | A project's tables and rows, one object each     |
+| `BUILDER_CONVERSATION` | Durable Object         | Runs one assistant chat's turn, one object each  |
 | `MCP` / `API`      | Service bindings           | Worker-to-Worker calls                           |
 | `DISPATCH`         | Workers for Platforms      | Runs a customer's deployed tool script           |
 | `*_QUEUE`          | Queues                     | Background jobs (see below)                      |
