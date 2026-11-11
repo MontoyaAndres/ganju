@@ -1083,9 +1083,29 @@ Review fixes (2026-11-11):
   not yet stripped, for the hourly run. Run it before the api deploys.
 - Checked in rolled-back transactions on the dev database: strip and delete.
 
-Still to do: migration 0094 on dev, deploy; age a test chat to check the strip, the summary
-pick-up and the delete; run the eval (`--server --repeat 3`, all ten cases)
-and save it as the new baseline.
+Checked on dev (2026-11-11, after migration 0094 and the deploy):
+- Aged the "phase5-check fix" chat 31 days and an eval chat
+  (builder-eval import-clients) 91 days, with one of its change sets set
+  back to proposed. The 13:00 UTC run:
+  - stripped all 14 messages of the first chat: tool results carry the
+    note, tool inputs are empty, no thinking left;
+  - deleted the second chat; its three change sets kept labels and
+    summaries, with no payloads or undo state, and the proposed one became
+    discarded.
+- The stripped chat still reads normally in the tab. A follow-up ("¿Qué
+  arreglaste la vez pasada…?") started from the stored summary, and the
+  assistant answered correctly in Spanish (12.7 credits).
+- The summary's header said "steps before" the last day it covers. After a
+  second review it gives exact UTC times ("up to 2026-10-11 12:10 UTC"),
+  says only tool results, tool inputs and thinking were removed, and that
+  later messages follow as they were. Not deployed yet: the pick-up above
+  ran with the old header, so it needs one more check after the deploy.
+- Delete: a new "hola" chat, the header's delete icon, the inline confirm,
+  "Chat borrado", the list updated, and no rows left. The chat list shows
+  the 90-day note.
+
+Still to do: the eval (`--server --repeat 3`, all ten cases), saved as the
+new baseline.
 
 ### Verification and docs
 

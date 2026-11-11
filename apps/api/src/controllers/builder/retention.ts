@@ -173,7 +173,8 @@ export const summarizeStripped = async (
     )
     .orderBy(asc(db.schema.builderChangeSet.createdAt));
 
-  const day = (date: Date) => date.toISOString().slice(0, 10);
+  const minute = (date: Date) =>
+    `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
   const said = older.flatMap(row =>
     textsOf(row.content).map(
       text => `${row.role === 'user' ? 'Owner' : 'You'}: ${clip(text)}`
@@ -181,9 +182,9 @@ export const summarizeStripped = async (
   );
   const sets = changeSets.map(
     set =>
-      `- ${day(set.createdAt)}, ${set.status}: ${clip(set.summary ?? 'no summary')}`
+      `- ${minute(set.createdAt)}, ${set.status}: ${clip(set.summary ?? 'no summary')}`
   );
-  const head = `[This conversation started on ${day(older[0].createdAt)}. Its steps before ${day(until)} were removed after ${constants.RETENTION_DAYS.builderToolResults} days; this is what was said, and the change sets. Check the project's current state before relying on it.]`;
+  const head = `[This conversation started ${minute(older[0].createdAt)}. Up to ${minute(until)}, what your tools returned, the inputs you gave them and your thinking were removed after ${constants.RETENTION_DAYS.builderToolResults} days. Below is what you and the owner said up to then, and the change sets; anything after follows as it was. Check the project's current state before relying on it.]`;
   const summary = [
     head,
     ...latest(said, MAX_SUMMARY_SAID),
