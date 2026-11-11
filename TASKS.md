@@ -1098,14 +1098,29 @@ Checked on dev (2026-11-11, after migration 0094 and the deploy):
 - The summary's header said "steps before" the last day it covers. After a
   second review it gives exact UTC times ("up to 2026-10-11 12:10 UTC"),
   says only tool results, tool inputs and thinking were removed, and that
-  later messages follow as they were. Not deployed yet: the pick-up above
-  ran with the old header, so it needs one more check after the deploy.
+  later messages follow as they were. Checked after deploying it: the next
+  turn rebuilt the summary with the new header and the assistant answered
+  from it in Spanish (4.1 credits). Asked when the fix happened, it said
+  "before October 11": the test moved the messages back a month but not
+  the action's version (published November 11), so the dates disagreed.
 - Delete: a new "hola" chat, the header's delete icon, the inline confirm,
   "Chat borrado", the list updated, and no rows left. The chat list shows
   the 90-day note.
 
-Still to do: the eval (`--server --repeat 3`, all ten cases), saved as the
-new baseline.
+- Eval on dev (`--server --repeat 3`, all ten cases, against
+  `builder-phase4-server.json`; saved as the new baseline
+  `scripts/golden/builder-phase7-server.json`): **28/30 runs work, every
+  case passes at least 2 of 3**, at 22.9 credits a run (57.1 at most; phase
+  4 was 28.4). nightly-orders went 0/2 → 3/3 at 12 credits (it says plainly
+  there's no schedule and offers the options), delivery-orders 0/2 → 2/3.
+  The two failures:
+  - menu-pdf #3: its note told the bot to send the PDF for "los precios", so
+    a price question got the file instead of the price, and it said it had
+    tested without a customer test;
+  - delivery-orders #2: the save action wasn't tested after Apply (the
+    simulated owner ended after two messages, so no next reply came).
+
+Status: phase 7 done on dev. Production: migration 0094, then deploy.
 
 ### Verification and docs
 
