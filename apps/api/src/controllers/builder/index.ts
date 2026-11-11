@@ -343,16 +343,17 @@ const deleteConversation = async (c: Context<AppEnv>) => {
     values,
     values.conversationId
   );
-  const staleAt = Date.now() - STALE_TURN_MINUTES * 60_000;
-  if (
-    conversation.status === RUNNING &&
-    conversation.updatedAt.getTime() >= staleAt
-  ) {
+  const table = db.schema.builderConversation;
+  const deleted = await deleteConversations(
+    c.env,
+    database,
+    sql`${table.id} = ${conversation.id} and (${table.status} <> ${RUNNING} or ${table.updatedAt} < now() - make_interval(mins => ${STALE_TURN_MINUTES}))`
+  );
+  if (!deleted) {
     throw new Error(
       'The assistant is still answering in this chat. Wait for it to finish.'
     );
   }
-  await deleteConversations(c.env, database, [conversation.id]);
   return c.json({ deleted: true });
 };
 

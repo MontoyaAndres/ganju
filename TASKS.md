@@ -1069,7 +1069,21 @@ Built (on dev after the next deploy):
 - Checked before deploying: the strip SQL in a rolled-back transaction on the
   dev database (all 972 messages stripped, none emptied, no thinking left).
 
-Still to do: deploy to dev; age a test chat to check the strip, the summary
+Review fixes (2026-11-11):
+- The 30-day strip also empties the assistant's tool inputs (rows, test
+  data, code), not only results and thinking.
+- Deleting a chat, by the owner or at 90 days, is one transaction that skips
+  a chat whose turn is running. Its change sets keep their lines' labels
+  and summary; payloads and undo state go, and a proposed one is
+  discarded (they can't be reached from the tab without their chat). The
+  confirm says changes stay but can't be undone from there anymore.
+- The summary caps the change-set lines too (6,000 characters of what was
+  said, 3,000 of change sets, the latest kept).
+- Migration 0094: a partial index on `builder_message(created_at)` where
+  not yet stripped, for the hourly run. Run it before the api deploys.
+- Checked in rolled-back transactions on the dev database: strip and delete.
+
+Still to do: migration 0094 on dev, deploy; age a test chat to check the strip, the summary
 pick-up and the delete; run the eval (`--server --repeat 3`, all ten cases)
 and save it as the new baseline.
 

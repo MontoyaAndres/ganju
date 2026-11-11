@@ -1,0 +1,1 @@
+CREATE INDEX "builder_message_unstripped_idx" ON "builder_message" USING btree ("created_at") WHERE "builder_message"."tool_results_stripped_at" is null;

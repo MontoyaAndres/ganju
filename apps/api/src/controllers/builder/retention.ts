@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import type { Database } from '@ganju/db';
 import { utils } from '@ganju/utils';
@@ -10,64 +11,80 @@ const { constants } = utils;
 
 export const STRIPPED_TOOL_RESULT = `Removed after ${constants.RETENTION_DAYS.builderToolResults} days.`;
 
-// Postgres-js reports affected rows on `.count`.
-const countOf = (result: unknown) =>
-  (result as { count?: number }).count ?? (result as unknown[]).length ?? 0;
-
 /**
- * Blank the tool results (and the model's thinking, which can quote them) of
- * messages older than the window, since they can hold customers' data. The
- * owner's words, the assistant's replies and the cards stay. Every old
- * message is marked, so the conversation knows to start again from a
- * summary.
+ * Blank what messages older than the window carry from tools, since it can
+ * hold customers' data: tool results, the assistant's tool inputs (rows,
+ * test data, code), and its thinking, which can quote them. The owner's
+ * words, the assistant's replies and the cards stay. Every old message is
+ * marked, so the conversation knows to start again from a summary.
  */
-export const stripOldToolResults = async (database: Database) =>
-  countOf(
-    await database.execute(sql`
-      UPDATE builder_message m
-      SET
-        content = (
-          SELECT coalesce(
-            jsonb_agg(
-              CASE
-                WHEN b ->> 'type' = 'tool_result' THEN jsonb_build_object(
-                  'type', 'tool_result',
-                  'tool_use_id', b -> 'tool_use_id',
-                  'content', ${STRIPPED_TOOL_RESULT}::text,
-                  'is_error', coalesce(b -> 'is_error', 'false'::jsonb)
-                )
-                ELSE b
-              END
-              ORDER BY i
-            ),
-            '[]'::jsonb
-          )
-          FROM jsonb_array_elements(m.content::jsonb) WITH ORDINALITY AS e(b, i)
-          WHERE b ->> 'type' NOT IN ('thinking', 'redacted_thinking')
-        )::json,
-        tool_results_stripped_at = now()
-      WHERE m.id IN (
-        SELECT id FROM builder_message
-        WHERE tool_results_stripped_at IS NULL
-          AND created_at < now() - ${`${constants.RETENTION_DAYS.builderToolResults} days`}::interval
-        LIMIT ${constants.RETENTION_PURGE_BATCH}
-      )
-    `)
-  );
+export const stripOldToolResults = (database: Database) =>
+  database.execute(sql`
+    UPDATE builder_message m
+    SET
+      content = (
+        SELECT coalesce(
+          jsonb_agg(
+            CASE b ->> 'type'
+              WHEN 'tool_result' THEN jsonb_build_object(
+                'type', 'tool_result',
+                'tool_use_id', b -> 'tool_use_id',
+                'content', ${STRIPPED_TOOL_RESULT}::text,
+                'is_error', coalesce(b -> 'is_error', 'false'::jsonb)
+              )
+              WHEN 'tool_use' THEN b || '{"input": {}}'::jsonb
+              ELSE b
+            END
+            ORDER BY i
+          ),
+          '[]'::jsonb
+        )
+        FROM jsonb_array_elements(m.content::jsonb) WITH ORDINALITY AS e(b, i)
+        WHERE b ->> 'type' NOT IN ('thinking', 'redacted_thinking')
+      )::json,
+      tool_results_stripped_at = now()
+    WHERE m.id IN (
+      SELECT id FROM builder_message
+      WHERE tool_results_stripped_at IS NULL
+        AND created_at < now() - ${`${constants.RETENTION_DAYS.builderToolResults} days`}::interval
+      LIMIT ${constants.RETENTION_PURGE_BATCH}
+    )
+  `);
 
 /**
- * Delete conversations, their messages with them. Their change sets stay, so
- * what a change was for outlives the chat.
+ * Delete the conversations `where` picks, their messages with them, in one
+ * transaction so a turn can't start on one in between. Their change sets
+ * keep only what each line was and the summary: one still proposed is
+ * discarded, and the rows, code and undo state they carried go.
  */
 export const deleteConversations = async (
   env: Bindings,
   database: Database,
-  ids: string[]
+  where: SQL
 ) => {
-  if (!ids.length) return 0;
-  await database
-    .delete(db.schema.builderConversation)
-    .where(inArray(db.schema.builderConversation.id, ids));
+  const table = db.schema.builderChangeSet;
+  const ids = await database.transaction(async tx => {
+    const rows = (await tx.execute(sql`
+      SELECT id FROM builder_conversation
+      WHERE ${where}
+      LIMIT ${constants.RETENTION_BUILDER_DELETE_BATCH}
+      FOR UPDATE SKIP LOCKED
+    `)) as unknown as { id: string }[];
+    const found = rows.map(row => row.id);
+    if (!found.length) return found;
+    await tx
+      .update(table)
+      .set({
+        status: sql`CASE WHEN ${table.status} = ${constants.BUILDER_CHANGE_SET_STATUS_PROPOSED} THEN ${constants.BUILDER_CHANGE_SET_STATUS_DISCARDED} ELSE ${table.status} END`,
+        items: sql`(SELECT coalesce(jsonb_agg(item - 'payload' ORDER BY n), '[]'::jsonb) FROM jsonb_array_elements(${table.items}::jsonb) WITH ORDINALITY AS e(item, n))::json`,
+        before: null
+      })
+      .where(inArray(table.conversationId, found));
+    await tx
+      .delete(db.schema.builderConversation)
+      .where(inArray(db.schema.builderConversation.id, found));
+    return found;
+  });
   await Promise.allSettled(
     ids.map(id =>
       env.BUILDER_CONVERSATION.get(
@@ -80,21 +97,12 @@ export const deleteConversations = async (
 
 // `updated_at` moves when a turn starts, so a chat reopened after a long
 // pause isn't deleted while it answers.
-export const deleteOldConversations = async (
-  env: Bindings,
-  database: Database
-) => {
-  const rows = (await database.execute(sql`
-    SELECT id FROM builder_conversation
-    WHERE greatest(last_message_at, updated_at) < now() - ${`${constants.RETENTION_DAYS.builderConversation} days`}::interval
-    LIMIT ${constants.RETENTION_BUILDER_DELETE_BATCH}
-  `)) as unknown as { id: string }[];
-  return deleteConversations(
+export const deleteOldConversations = (env: Bindings, database: Database) =>
+  deleteConversations(
     env,
     database,
-    rows.map(row => row.id)
+    sql`greatest(last_message_at, updated_at) < now() - ${`${constants.RETENTION_DAYS.builderConversation} days`}::interval`
   );
-};
 
 export interface SavedMessage {
   seq: number;
@@ -106,7 +114,21 @@ export interface SavedMessage {
 }
 
 const MAX_SUMMARY_LINE = 600;
-const MAX_SUMMARY = 8_000;
+const MAX_SUMMARY_SAID = 6_000;
+const MAX_SUMMARY_CHANGE_SETS = 3_000;
+
+// The latest lines that fit in `budget` characters.
+const latest = (lines: string[], budget: number) => {
+  const kept: string[] = [];
+  for (const line of [...lines].reverse()) {
+    budget -= line.length + 1;
+    if (budget < 0) break;
+    kept.unshift(line);
+  }
+  return kept.length < lines.length
+    ? [`(${lines.length - kept.length} earlier left out)`, ...kept]
+    : kept;
+};
 
 const textsOf = (content: unknown) =>
   (content as ContentBlock[])
@@ -162,20 +184,12 @@ export const summarizeStripped = async (
       `- ${day(set.createdAt)}, ${set.status}: ${clip(set.summary ?? 'no summary')}`
   );
   const head = `[This conversation started on ${day(older[0].createdAt)}. Its steps before ${day(until)} were removed after ${constants.RETENTION_DAYS.builderToolResults} days; this is what was said, and the change sets. Check the project's current state before relying on it.]`;
-  const tail = sets.length ? ['', 'Change sets:', ...sets] : [];
-  // The latest of what was said is kept when it doesn't all fit.
-  let budget = MAX_SUMMARY - head.length - tail.join('\n').length;
-  const kept: string[] = [];
-  for (const line of [...said].reverse()) {
-    budget -= line.length + 1;
-    if (budget < 0) break;
-    kept.unshift(line);
-  }
   const summary = [
     head,
-    ...(kept.length < said.length ? ['(earlier messages left out)'] : []),
-    ...kept,
-    ...tail
+    ...latest(said, MAX_SUMMARY_SAID),
+    ...(sets.length
+      ? ['', 'Change sets:', ...latest(sets, MAX_SUMMARY_CHANGE_SETS)]
+      : [])
   ].join('\n');
 
   await database

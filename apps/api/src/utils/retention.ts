@@ -16,6 +16,10 @@ const { constants } = utils;
 
 type ApiEnvSource = EnvSource & { env: Bindings };
 
+// postgres-js returns the affected rows on `.count`; fall back to length.
+const affectedRows = (result: unknown): number =>
+  (result as { count?: number }).count ?? (result as unknown[]).length ?? 0;
+
 /**
  * Delete a bounded slice of rows older than `days` from an append-only table.
  *
@@ -30,20 +34,15 @@ const purgeOlderThan = async (
   column: string,
   days: number
 ): Promise<number> => {
-  const result = await executor.execute(sql`
+  return affectedRows(
+    await executor.execute(sql`
     DELETE FROM ${sql.identifier(table)}
     WHERE id IN (
       SELECT id FROM ${sql.identifier(table)}
       WHERE ${sql.identifier(column)} < now() - ${`${days} days`}::interval
       LIMIT ${constants.RETENTION_PURGE_BATCH}
     )
-  `);
-
-  // postgres-js returns the affected rows on `.count`; fall back to length.
-  return (
-    (result as unknown as { count?: number }).count ??
-    (result as unknown as unknown[]).length ??
-    0
+  `)
   );
 };
 
@@ -124,7 +123,9 @@ export const runRetentionPurge = async (
   }
 
   try {
-    result.builderToolResults = await stripOldToolResults(dbInstance);
+    result.builderToolResults = affectedRows(
+      await stripOldToolResults(dbInstance)
+    );
   } catch (error) {
     console.error('retention purge failed for builder_message', error);
   }

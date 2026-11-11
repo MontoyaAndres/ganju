@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import { useRouter } from 'next/router';
 import { UI } from '@ganju/ui';
+import { utils } from '@ganju/utils';
 import {
   AddOutlined,
   ArrowUpwardRounded,
@@ -664,7 +665,11 @@ export const Assistant = () => {
             ))}
           </ul>
           {conversations.length > 0 && (
-            <p className="assistant-chats-empty">{t('chatsKept')}</p>
+            <p className="assistant-chats-note">
+              {t('chatsKept', {
+                days: t.n(utils.constants.RETENTION_DAYS.builderConversation)
+              })}
+            </p>
           )}
           <AssistantCredits
             organizationId={organizationId}
