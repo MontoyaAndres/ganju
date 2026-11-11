@@ -1139,7 +1139,16 @@ Checked on dev (2026-11-11, after migration 0094 and the deploy):
   also passes data queries and knowledge searches to the judge;
   nightly-orders rerun with it: 3/3 at 10.9 credits.
 
-Status: phase 7 done on dev. Production: migration 0094, then deploy.
+Status: phase 7 done on dev and production. Checked in production
+(2026-11-11, read only, "Girardot - demos" / "test"):
+- migration 0094's index is there;
+- 1 assistant chat, 2 messages, none due for the strip or the delete, so
+  the hourly run changes nothing yet;
+- the Assistant tab shows the 90-day note in the chat list, and an open
+  chat shows the delete button;
+- Delete (asked for by the owner): a throwaway "hola" chat (0.8 credits),
+  deleted through the confirm, showed "Chat borrado"; its conversation and
+  messages are gone and the existing chat is untouched.
 
 ### Verification and docs
 
