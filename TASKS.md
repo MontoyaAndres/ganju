@@ -871,6 +871,15 @@ Choices agreed with the owner (2026-11-11):
   ask for a reconnect when an account is the problem.
 - Web: the banner and the prefill (also from the email's `?fix=1` link), and
   the switch in billing settings. EN/ES copy.
+- Checked on dev (2026-11-11), with 6 failed calls added to
+  `current-weather` in "builder-eval broken-weather 11101704-2" and removed
+  after:
+  - the route said 6 of 6 (the 3 older failures came before the live
+    version and were left out); a CLI project and a healthy one, nothing;
+  - the banner, "Fix it" and the email's `?fix=1` link wrote the message
+    and resized the box (not sent); the switch saved off and on;
+  - the 12:00 UTC run emailed the owner and stored `action:current-weather`
+    as sent. The test calls and that record were deleted after.
 - Read-only on dev: the queries find the eval projects' broken
   `current-weather` (3 of 3 failed: under the 5-failure bar); the CLI
   project "nemo" is left out.
