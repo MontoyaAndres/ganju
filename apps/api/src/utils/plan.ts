@@ -462,7 +462,6 @@ export type BuilderCredits = {
   cap: number;
   allowed: boolean;
   llmId: string | null;
-  // Owner and admins are emailed when an action breaks.
   alerts: boolean;
 };
 

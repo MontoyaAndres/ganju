@@ -27,7 +27,6 @@ export interface BrokenAction {
 
 export interface BuilderProblems {
   actions: BrokenAction[];
-  // Providers of the accounts the actions use that need signing in again.
   accounts: string[];
 }
 
