@@ -878,8 +878,29 @@ Choices agreed with the owner (2026-11-11):
     version and were left out); a CLI project and a healthy one, nothing;
   - the banner, "Fix it" and the email's `?fix=1` link wrote the message
     and resized the box (not sent); the switch saved off and on;
-  - the 12:00 UTC run emailed the owner and stored `action:current-weather`
-    as sent. The test calls and that record were deleted after.
+  - the 12:00 UTC run emailed the owner (received: Spanish then English,
+    "6 of its 6 recent calls failed", the `?fix=1` link) and stored
+    `action:current-weather` as sent. The test calls and that record were deleted after.
+- The two parts not yet seen, checked on dev the same day:
+  - An account needing sign-in (a stand-in Google Calendar credential on
+    "calendar-booking 11101656", deleted after): the route listed
+    `google-calendar`, the banner said "Google Calendar: hay que volver a
+    iniciar sesión", and sending the message got the "Conecta tu cuenta"
+    card with no code change (14.5 credits).
+  - The fix sent on broken-weather, with the 6 test failures added again
+    (copies of an old 404; removed after): the assistant read the logs,
+    tested the live action in three cities, and said it already works and
+    there is nothing to apply (7.7 credits). Right for that data, since the
+    failures were copies; a real repair is what the broken-weather eval
+    case covers. It said it couldn't see when the live version was
+    published.
+- A real repair, end to end: a new project "phase5-check fix" with the
+  eval's broken weather action (v0 address) and 6 real failed calls through
+  MCP. The banner said 6 of 6; "Fix it" and send; the assistant found the
+  v0/v1 address, fixed and tested it (Medellín 17.6 °C) and showed the card
+  (9 credits); after Apply the route reported nothing broken and Bogotá
+  answered 12.3 °C. Its first sentence came out in English to a Spanish
+  message. The project is kept.
 - Read-only on dev: the queries find the eval projects' broken
   `current-weather` (3 of 3 failed: under the 5-failure bar); the CLI
   project "nemo" is left out.
