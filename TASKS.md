@@ -838,6 +838,36 @@ Choices agreed with the owner (2026-11-10):
 - Tool-health watching for what the builder made.
 - The fix offer in the tab, and the alert email.
 
+Choices agreed with the owner (2026-11-11):
+- Watched: the live actions of projects built in the dashboard (the
+  assistant's or the owner's), and the accounts those actions use. CLI
+  projects are left out.
+- Broken: in the last 24 hours (or since the live version was published, if
+  later), at least 5 failed calls and at least 30% of the action's calls.
+  Arguments refused by the input schema don't count. An account counts when
+  it needs signing in again.
+- Email: the org owner and admins, at most one a day per project; the same
+  problems again only after a week. An org admin can turn it off in
+  Settings → Billing.
+- Fix: a banner on the Assistant tab; "Fix it with the assistant" writes the
+  owner's first message in the box (what failed, how often, the most common
+  error). Credits are used only once they send it.
+
+**Phase 5 status (2026-11-11): built, not deployed.** Migration 0093 (adds
+`subscription.builder_alerts`) must run before the API deploy.
+- `controllers/builder/health.ts`: `projectProblems` (the tab's
+  `GET …/builder/health`) and `runBuilderHealthAlerts` on the hourly cron;
+  state in `alert_state` as `builder_health:<artifactId>`. The most common
+  error is grouped like Tool health's (marks dropped, values masked).
+- `PUT …/builder/settings` takes `alerts`; the billing usage returns it.
+- The prompt tells the assistant to read the logs and health first, and to
+  ask for a reconnect when an account is the problem.
+- Web: the banner and the prefill (also from the email's `?fix=1` link), and
+  the switch in billing settings. EN/ES copy.
+- Read-only on dev: the queries find the eval projects' broken
+  `current-weather` ("Error: Weather service answered 404", 3 of 3: under
+  the 5-failure bar).
+
 **6. Credits and billing — S/M**
 
 - The counters and credit accounting from each call's usage.

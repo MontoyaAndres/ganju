@@ -23,6 +23,7 @@ import {
 } from './cards';
 import { TryIt } from './tryIt';
 import { AssistantCredits } from './credits';
+import { AssistantHealth, fixMessage, hasProblems } from './health';
 import { useAssistantAccess } from './access';
 import { i18n } from '../../../lib';
 
@@ -36,7 +37,8 @@ import type {
   ConversationDetail,
   Entry,
   Message,
-  StreamEvent
+  StreamEvent,
+  BuilderProblems
 } from './types';
 
 type AssistantCopy = typeof i18n.copy.ASSISTANT.en;
@@ -156,6 +158,7 @@ export const Assistant = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [credits, setCredits] = useState<BuilderCredits | null>(null);
   const [builderKey, setBuilderKey] = useState<BuilderKey | null>(null);
+  const [problems, setProblems] = useState<BuilderProblems | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [live, setLive] = useState<LiveTurn | null>(null);
   const [text, setText] = useState('');
@@ -182,6 +185,11 @@ export const Assistant = () => {
     setConversations(result.data.conversations);
     setCredits(result.data.credits);
     setBuilderKey(result.data.key);
+  }, [builderBase]);
+
+  const loadHealth = useCallback(async () => {
+    const result = await request<BuilderProblems>(`${builderBase}/health`);
+    if (result.ok) setProblems(result.data);
   }, [builderBase]);
 
   const loadDetail = useCallback(
@@ -259,14 +267,16 @@ export const Assistant = () => {
       await loadDetail(conversationId);
       setLive(null);
       loadConversations();
+      loadHealth();
     },
-    [builderBase, loadDetail, loadConversations, snackbar, t]
+    [builderBase, loadDetail, loadConversations, loadHealth, snackbar, t]
   );
 
   useEffect(() => {
     if (access !== 'open') return;
     loadConversations();
-  }, [access, loadConversations]);
+    loadHealth();
+  }, [access, loadConversations, loadHealth]);
 
   const followRef = useRef(follow);
   followRef.current = follow;
@@ -389,6 +399,35 @@ export const Assistant = () => {
       });
     // Once per return from the sign-in.
   }, [access, router.query.connected]);
+
+  const prefill = (value: string) => {
+    setText(value);
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.style.height = 'auto';
+      input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+    });
+  };
+
+  const startFix = () => {
+    if (!problems) return;
+    if (chatId) openChat(null);
+    prefill(fixMessage(problems, t));
+  };
+
+  // From the alert email: the fix waits in the box for the owner to send.
+  useEffect(() => {
+    if (router.query.fix === undefined || !problems) return;
+    router.replace(
+      { pathname: router.pathname, query: { id: organizationId, projectId } },
+      undefined,
+      { shallow: true }
+    );
+    if (hasProblems(problems)) prefill(fixMessage(problems, t));
+    // Once, when the problems arrive.
+  }, [problems, router.query.fix]);
 
   const connect = async (provider: string) => {
     if (!chatId) return;
@@ -649,6 +688,9 @@ export const Assistant = () => {
 
           <div className="assistant-messages">
             <div className="assistant-column">
+              {!chatId && !busy && (
+                <AssistantHealth problems={problems} onFix={startFix} />
+              )}
               {!chatId && !busy && (
                 <div className="assistant-empty">
                   <span className="assistant-empty-icon">

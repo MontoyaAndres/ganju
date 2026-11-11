@@ -2193,6 +2193,14 @@ const PRICING_BUILDER_PER_100_CREDITS_USD = 2;
 const BUILDER_DEFAULT_CREDIT_CAP = 2_000;
 const BUILDER_MAX_CREDIT_CAP = 100_000;
 const BUILDER_MICROS_PER_CREDIT = 10_000;
+// An action counts as broken when, over the window, it failed at least this
+// many times and this share of its calls. Arguments the input schema refused
+// are the model's mistake, so they don't count.
+const BUILDER_HEALTH_WINDOW_HOURS = 24;
+const BUILDER_HEALTH_MIN_FAILURES = 5;
+const BUILDER_HEALTH_MIN_FAILURE_RATE = 0.3;
+// The same problems are emailed again after this long; new ones after a day.
+const BUILDER_HEALTH_REPEAT_DAYS = 7;
 
 // Project data (one SQLite Durable Object per artifact). Cloudflare caps a
 // database at 10 GB; we stop writes that add data at 9 GB so there is room to
@@ -2582,6 +2590,8 @@ const ALERT_STATE_KEY_ERROR_LOG = 'error_log';
 // monthly hard cap bounds what abuse can spend; these thresholds are what say
 // something is happening NOW, while there is still a month left to spend.
 const ALERT_STATE_KEY_TOOL_CALLS = 'tool_calls';
+// Broken actions emailed to a project's admins, keyed `builder_health:<artifactId>`.
+const ALERT_STATE_KEY_BUILDER_HEALTH = 'builder_health';
 // Calls in a single hour. The per-tool rate limit allows 3,600/hour, and a month
 // of the included million sustained is ~1,370/hour — so five figures in one hour
 // is either many artifacts at full tilt or something that should be looked at.
@@ -2665,6 +2675,10 @@ export const constants = {
   BUILDER_DEFAULT_CREDIT_CAP,
   BUILDER_MAX_CREDIT_CAP,
   BUILDER_MICROS_PER_CREDIT,
+  BUILDER_HEALTH_WINDOW_HOURS,
+  BUILDER_HEALTH_MIN_FAILURES,
+  BUILDER_HEALTH_MIN_FAILURE_RATE,
+  BUILDER_HEALTH_REPEAT_DAYS,
   SHARED_MODEL_PRICE,
   DATA_MAX_DATABASE_BYTES,
   DATA_MAX_TABLES_PER_DATABASE,
@@ -2743,6 +2757,7 @@ export const constants = {
   CRON_ERROR_ALERTS,
   ALERT_STATE_KEY_ERROR_LOG,
   ALERT_STATE_KEY_TOOL_CALLS,
+  ALERT_STATE_KEY_BUILDER_HEALTH,
   ALERT_TOOL_CALL_SURGE,
   ALERT_TOOL_CALL_CAP_FRACTION,
   ALERT_TOOL_CALL_COOLDOWN_HOURS,
