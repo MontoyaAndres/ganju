@@ -2569,7 +2569,12 @@ const RETENTION_DAYS = {
   // Channel conversation history.
   channelMessage: 365,
   // "Who ran what, when" audit rows.
-  artifactExecution: 365
+  artifactExecution: 365,
+  // What the assistant's tools returned in its conversations: test output,
+  // logs, Data rows, page text.
+  builderToolResults: 30,
+  // An assistant conversation, after its last message. Its change sets stay.
+  builderConversation: 90
 } as const;
 
 // Sessions are purged once they've been expired for this long — the row is
@@ -2637,6 +2642,8 @@ const ALERT_SPIKE_THRESHOLD = 25;
 // Rows deleted per table per purge run. The cron runs hourly, so this drains a
 // backlog over a few passes instead of holding one very long transaction.
 const RETENTION_PURGE_BATCH = 5_000;
+// Each deleted assistant conversation also clears its Durable Object.
+const RETENTION_BUILDER_DELETE_BATCH = 200;
 
 export type { PlanLimits };
 
@@ -2753,6 +2760,7 @@ export const constants = {
   RETENTION_DAYS,
   RETENTION_EXPIRED_SESSION_DAYS,
   RETENTION_PURGE_BATCH,
+  RETENTION_BUILDER_DELETE_BATCH,
   CRON_HOURLY,
   CRON_ERROR_ALERTS,
   ALERT_STATE_KEY_ERROR_LOG,

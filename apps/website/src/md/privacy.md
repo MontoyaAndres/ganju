@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: September 10, 2026 · Effective: September 10, 2026**
+**Last updated: November 11, 2026 · Effective: November 11, 2026**
 
 This policy explains what Ganju collects when you use the hosted service at
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai`, and `mcp.ganju.ai`, why we collect it,
@@ -438,6 +438,7 @@ automatic limits:
 | Error logs | **90 days** |
 | Channel message history | **365 days** |
 | Execution audit records | **365 days** |
+| Assistant (builder) conversations | **90 days** after the last message; tool results in them (test output, logs, data rows, page text) are removed after **30 days**. Summaries of applied changes are kept |
 | Expired sessions | Purged after **30 days** |
 
 Everything else — accounts, organizations, resources, chunks, credentials, and

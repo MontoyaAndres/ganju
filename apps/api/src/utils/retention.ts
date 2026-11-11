@@ -3,6 +3,11 @@ import { db } from '@ganju/db';
 import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
+import {
+  deleteOldConversations,
+  stripOldToolResults
+} from '../controllers/builder/retention';
+
 // types
 import type { EnvSource } from '@ganju/utils';
 import type { Bindings } from '../types';
@@ -48,6 +53,8 @@ export interface RetentionResult {
   channelMessage: number;
   artifactExecution: number;
   session: number;
+  builderToolResults: number;
+  builderConversation: number;
 }
 
 /**
@@ -76,7 +83,9 @@ export const runRetentionPurge = async (
     errorLog: 0,
     channelMessage: 0,
     artifactExecution: 0,
-    session: 0
+    session: 0,
+    builderToolResults: 0,
+    builderConversation: 0
   };
 
   const tasks: [keyof RetentionResult, string, string, number][] = [
@@ -112,6 +121,20 @@ export const runRetentionPurge = async (
       // stops running is how unbounded retention comes back.
       console.error(`retention purge failed for ${table}`, error);
     }
+  }
+
+  try {
+    result.builderToolResults = await stripOldToolResults(dbInstance);
+  } catch (error) {
+    console.error('retention purge failed for builder_message', error);
+  }
+  try {
+    result.builderConversation = await deleteOldConversations(
+      source.env,
+      dbInstance
+    );
+  } catch (error) {
+    console.error('retention purge failed for builder_conversation', error);
   }
 
   return result;

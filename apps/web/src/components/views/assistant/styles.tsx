@@ -795,6 +795,10 @@ export const Wrapper = styled.div`
       }
     }
 
+    .assistant-delete-confirm {
+      margin-bottom: 12px;
+    }
+
     .assistant-undo-confirm {
       width: 100%;
       padding: 10px 12px;

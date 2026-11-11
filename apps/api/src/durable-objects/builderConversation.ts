@@ -13,6 +13,7 @@ import {
 import { creditsOf, step } from '../controllers/builder/llm';
 import { Plan } from '../utils';
 import { BUILDER_TOOLS, runBuilderTool } from '../controllers/builder/tools';
+import { summarizeStripped } from '../controllers/builder/retention';
 
 import type {
   BuilderMessageParam,
@@ -89,6 +90,14 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
     this.turnId = turn.turnId;
     this.events = [];
     await this.ctx.storage.setAlarm(Date.now());
+  }
+
+  // The conversation was deleted: nothing it staged or streamed is kept.
+  async forget(): Promise<void> {
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
+    this.events = [];
+    this.turnId = null;
   }
 
   async alarm(): Promise<void> {
@@ -174,8 +183,11 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
     const rows = await database
       .select({
         seq: db.schema.builderMessage.seq,
+        turnId: db.schema.builderMessage.turnId,
         role: db.schema.builderMessage.role,
-        content: db.schema.builderMessage.content
+        content: db.schema.builderMessage.content,
+        createdAt: db.schema.builderMessage.createdAt,
+        toolResultsStrippedAt: db.schema.builderMessage.toolResultsStrippedAt
       })
       .from(db.schema.builderMessage)
       .where(eq(db.schema.builderMessage.conversationId, conversationId))
@@ -219,12 +231,25 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
       const staged = (await this.ctx.storage.get<StagedItem[]>('staged')) ?? [];
 
       const rows = await this.loadMessages(database, turn.conversationId);
-      let messages = alternate(
-        rows.map(row => ({
+      const resumed = await summarizeStripped(
+        database,
+        turn.conversationId,
+        rows
+      );
+      let messages = alternate([
+        ...(resumed
+          ? [
+              {
+                role: 'user' as const,
+                content: [{ type: 'text', text: resumed.summary }]
+              }
+            ]
+          : []),
+        ...(resumed?.rest ?? rows).map(row => ({
           role: row.role as 'user' | 'assistant',
           content: row.content as ContentBlock[]
         }))
-      );
+      ]);
       const interrupted = closeOpenToolCalls(messages);
       if (interrupted.length) {
         const answer = { role: 'user' as const, content: interrupted };

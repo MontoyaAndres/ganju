@@ -1,6 +1,6 @@
 # Política de Privacidad y Tratamiento de Datos Personales
 
-**Última actualización: 10 de septiembre de 2026 · Vigente desde: 10 de septiembre de 2026**
+**Última actualización: 11 de noviembre de 2026 · Vigente desde: 11 de noviembre de 2026**
 
 Esta política explica qué datos recoge Ganju cuando usas el servicio alojado en
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai` y `mcp.ganju.ai`, para qué los usamos,
@@ -457,6 +457,7 @@ límites automáticos:
 | Registro de errores | **90 días** |
 | Historial de mensajes de canales | **365 días** |
 | Registros de auditoría de ejecución | **365 días** |
+| Conversaciones con el asistente (constructor) | **90 días** después del último mensaje; los resultados de herramientas en ellas (resultados de pruebas, registros, filas de datos, texto de páginas) se eliminan a los **30 días**. Los resúmenes de los cambios aplicados se conservan |
 | Sesiones vencidas | Se depuran periódicamente |
 
 Todo lo demás — cuentas, organizaciones, recursos, fragmentos, credenciales y

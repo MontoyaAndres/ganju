@@ -14,6 +14,7 @@ import {
 } from './changeSets';
 import { projectProblems } from './health';
 import { creditsOf } from './llm';
+import { deleteConversations } from './retention';
 import { BuilderTryController } from './tryIt';
 import { RateLimitMiddleware } from '../../middleware/rateLimit';
 import { Plan } from '../../utils';
@@ -329,6 +330,32 @@ const streamTurn = async (c: Context<AppEnv>) => {
   );
 };
 
+// The owner deletes a chat; what it changed in the project stays, and so do
+// its change sets.
+const deleteConversation = async (c: Context<AppEnv>) => {
+  const values = await utils.Schema.BUILDER_CONVERSATION.parseAsync({
+    ...scopeOf(c),
+    conversationId: c.req.param('conversationId')
+  });
+  const database = await allowed(c, values.organizationId);
+  const conversation = await loadConversation(
+    database,
+    values,
+    values.conversationId
+  );
+  const staleAt = Date.now() - STALE_TURN_MINUTES * 60_000;
+  if (
+    conversation.status === RUNNING &&
+    conversation.updatedAt.getTime() >= staleAt
+  ) {
+    throw new Error(
+      'The assistant is still answering in this chat. Wait for it to finish.'
+    );
+  }
+  await deleteConversations(c.env, database, [conversation.id]);
+  return c.json({ deleted: true });
+};
+
 const changeSetRoute =
   (run: 'apply' | 'undo') => async (c: Context<AppEnv>) => {
     const values = await utils.Schema.BUILDER_CHANGE_SET.parseAsync({
@@ -433,6 +460,7 @@ export const BuilderController = {
   createConversation,
   listConversations,
   getConversation,
+  deleteConversation,
   sendMessage,
   streamTurn,
   applyChangeSet: changeSetRoute('apply'),

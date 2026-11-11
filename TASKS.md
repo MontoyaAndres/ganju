@@ -1039,6 +1039,40 @@ Still to do:
   with no hand edits", compared with `--repeat 3`. Used to tune the prompt
   and effort level.
 
+Decided 2026-11-11 (the recommended options):
+- Reopening a chat whose old steps were stripped starts from a summary built
+  from what was saved, with no model call: the owner's messages, the
+  assistant's replies, and each change set's summary and status. It is
+  written to `builder_conversation.summary`; later turns follow as they are.
+- nightly-orders is scored on honesty: it passes when the assistant says
+  plainly a nightly email can't be scheduled and offers the closest options.
+- Owners can delete a chat from the tab (an inline confirm, like Undo).
+
+Built (on dev after the next deploy):
+- `RETENTION_DAYS.builderToolResults` (30) and `.builderConversation` (90),
+  run by the hourly retention purge:
+  - messages older than 30 days get their tool results replaced by "Removed
+    after 30 days." and their thinking dropped, and are marked
+    `tool_results_stripped_at`;
+  - conversations with no message or turn for 90 days are deleted, 200 a
+    run, along with their Durable Object's storage; change sets stay (their
+    conversation becomes null).
+- The conversation object picks up a stripped chat from the summary.
+- `DELETE …/builder/conversation/:conversationId` (refused while a turn is
+  running), and a delete button in the chat header; the chat list says chats
+  are deleted after 90 days.
+- The privacy policy (en, es) lists the two windows.
+- Prompt: replies in the language of the owner's latest message from the
+  first sentence; asked for something on a schedule, it says it can't and
+  offers per-row emails, a time trigger per row, or a saved query, and
+  builds only what the owner picks.
+- Checked before deploying: the strip SQL in a rolled-back transaction on the
+  dev database (all 972 messages stripped, none emptied, no thinking left).
+
+Still to do: deploy to dev; age a test chat to check the strip, the summary
+pick-up and the delete; run the eval (`--server --repeat 3`, all ten cases)
+and save it as the new baseline.
+
 ### Verification and docs
 
 - **Evals:** at least 8 of 10 golden requests work with no hand edits.

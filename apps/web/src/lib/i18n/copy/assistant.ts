@@ -12,6 +12,13 @@ const en = {
   pastChats: 'Past chats',
   noChats: 'No chats yet',
   untitled: 'New chat',
+  chatsKept: 'Chats are deleted 90 days after their last message.',
+  deleteChat: 'Delete chat',
+  deleteChatConfirm:
+    'Delete this chat? Its messages are gone for good. What it changed in your project stays.',
+  deleteChatYes: 'Delete',
+  deletingChat: 'Deleting…',
+  toastChatDeleted: 'Chat deleted',
   creditsUsed: '{used} of {included} credits used this month',
   creditsExtra: '{extra} extra credits, of {cap} allowed',
   creditsUsedUp:
@@ -168,6 +175,13 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     pastChats: 'Chats anteriores',
     noChats: 'Aún no hay chats',
     untitled: 'Nuevo chat',
+    chatsKept: 'Los chats se borran 90 días después de su último mensaje.',
+    deleteChat: 'Borrar chat',
+    deleteChatConfirm:
+      '¿Borrar este chat? Sus mensajes se borran para siempre. Lo que cambió en tu proyecto se queda.',
+    deleteChatYes: 'Borrar',
+    deletingChat: 'Borrando…',
+    toastChatDeleted: 'Chat borrado',
     creditsUsed: '{used} de {included} créditos usados este mes',
     creditsExtra: '{extra} créditos extra, de {cap} permitidos',
     creditsUsedUp:
