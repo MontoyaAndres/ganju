@@ -4,7 +4,12 @@ import { db } from '@ganju/db';
 import {
   DataError,
   normaliseEmailAction,
-  renderTriggerText
+  normaliseTrigger,
+  renderTriggerText,
+  scheduleParams,
+  scheduleRowsText,
+  localDate,
+  DATA_SCHEDULE_MAX_ROWS
 } from '@ganju/utils/data';
 
 import {
@@ -509,6 +514,71 @@ export const testSendEmail = async (
     );
   }
   return { sent: 'email' as const, to, subject, text, rowId: row.id };
+};
+
+/**
+ * A schedule's email as tonight's run would send it, now, to `to`: its saved
+ * query run for today, the rows listed after the text.
+ */
+export const testSendScheduleEmail = async (
+  request: DataRequest,
+  body: {
+    query?: string | null;
+    params?: Record<string, unknown> | null;
+    email: unknown;
+  },
+  to: string
+) => {
+  if (request.caller.limits?.readOnly) {
+    throw new DataError(
+      "This organization's plan no longer includes Data, so its triggers are paused and can't be tested. Upgrade to Pro to send a test.",
+      'read_only'
+    );
+  }
+  const schema = await readSchema(request);
+  const trigger = normaliseTrigger(schema, {
+    on: 'schedule',
+    every: 'day',
+    at: '00:00',
+    query: body.query ?? null,
+    params: body.params ?? null,
+    email: body.email
+  });
+  if (trigger.action.type !== 'email') {
+    throw new DataError('"email" is { "to", "subject", "text" }.');
+  }
+  const now = new Date();
+  const timeZone = schema.timeZone ?? undefined;
+  let rows: Record<string, unknown>[] = [];
+  const query = trigger.query;
+  if (query) {
+    const result = await callData(
+      'runQuery',
+      () =>
+        request.opened.stub.runQuery(request.caller, {
+          name: query,
+          params: scheduleParams(trigger.params, now, timeZone),
+          limit: DATA_SCHEDULE_MAX_ROWS
+        }),
+      request.tally,
+      { retryRead: true }
+    );
+    rows = result.rows as Record<string, unknown>[];
+  }
+  const fields = { date: localDate(now, timeZone), count: rows.length };
+  const subject =
+    `[Test] ${renderTriggerText(trigger.action.subject, fields)}`.slice(0, 200);
+  const text =
+    renderTriggerText(trigger.action.text, fields) +
+    (rows.length ? `\n\n${scheduleRowsText(rows, rows.length)}` : '');
+  const failed = await emailEach(request, [to], { subject, text });
+  if (failed.length > 0) {
+    throw new DataError(
+      "The test email couldn't be sent. Try again in a minute.",
+      'internal'
+    );
+  }
+  return { sent: 'email' as const, to, subject, text, rows: rows.length };
 };
 
 // Point-in-time recovery

@@ -20,8 +20,10 @@ escribes, español o inglés.
 - **Acciones** — pequeños programas que tu bot ejecuta, como revisar el
   inventario o guardar una reserva. El asistente las escribe y las prueba por ti.
 - **[Datos](/es/docs/data/)** — las tablas, columnas y filas de tu proyecto, las
-  consultas guardadas y los [disparadores](/es/docs/data/triggers/), como
-  "envíame un correo con cada pedido nuevo".
+  consultas guardadas, los [disparadores](/es/docs/data/triggers/), como
+  "envíame un correo con cada pedido nuevo", y las
+  [programaciones](/es/docs/data/triggers/#programaciones), como "cada noche a
+  las 9, envíame los pedidos de hoy".
 - **Conocimiento** — notas y sitios web que tu bot consulta, en la página
   [Recursos](/es/docs/resources/). Los archivos los pones tú: cuando necesita uno,
   te pide que lo subas.

@@ -54,6 +54,9 @@ import {
   utf8Bytes,
   hasTimeTriggers,
   scanTimeTriggers,
+  hasSchedules,
+  nextScheduleAt,
+  scanSchedules,
   DATA_TIME_SCAN_MS,
   DATA_MAX_USAGE_SHAPES
 } from '@ganju/utils/data';
@@ -1142,10 +1145,15 @@ export class ProjectDatabase
     if (current === null || current > at) await this.ctx.storage.setAlarm(at);
   }
 
-  // When the next time-trigger scan is due, while an enabled one exists.
+  // When the next time-trigger scan or schedule is due, while an enabled
+  // one exists.
   private nextTimeScan(runner: SqlRunner): number | null {
-    if (!hasTimeTriggers(runner)) return null;
-    return Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS;
+    const scanAt = hasTimeTriggers(runner)
+      ? Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS
+      : null;
+    const dueAt = hasSchedules(runner) ? nextScheduleAt(runner, this.schema(runner)) : null;
+    if (scanAt === null) return dueAt;
+    return dueAt === null ? scanAt : Math.min(scanAt, dueAt);
   }
 
   private async scheduleTimeScan(runner: SqlRunner) {
@@ -1158,8 +1166,18 @@ export class ProjectDatabase
   // next one: it mustn't hold up the outbox.
   private timeScan(runner: SqlRunner) {
     if (getMeta(runner, 'deleted_at')) return;
-    const at = this.nextTimeScan(runner);
-    if (at === null || Date.now() < at - ALARM_SLACK_MS) return;
+    // A schedule only fires for a due time not yet handled, so checking on
+    // every alarm is cheap and catches one that woke a little early.
+    if (hasSchedules(runner)) {
+      try {
+        scanSchedules(runner, this.schema(runner));
+      } catch (error) {
+        console.error('project-database-schedule-scan-failed', errorText(error));
+      }
+    }
+    if (!hasTimeTriggers(runner)) return;
+    const at = Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS;
+    if (Date.now() < at - ALARM_SLACK_MS) return;
     try {
       const result = scanTimeTriggers(runner, this.schema(runner));
       for (const off of result.disabled) {

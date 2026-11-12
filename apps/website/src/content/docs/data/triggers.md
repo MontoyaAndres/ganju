@@ -1,8 +1,8 @@
 ---
 title: Triggers and webhooks
-description: Run something when a table's rows change, or a set time after a row's date — a function, a signed webhook, a chat message, an email or a message to the customer — and how delivery, retries and webhook signatures work.
+description: Run something when a table's rows change, a set time after a row's date, or on a schedule every day or week — a function, a signed webhook, a chat message, an email or a message to the customer — and how delivery, retries and webhook signatures work.
 order: 57
-updated: 2026-11-06
+updated: 2026-11-12
 ---
 
 A **trigger** is a rule on a table: when a row is added, changed or deleted,
@@ -17,6 +17,9 @@ channel, the dashboard, the CLI, the API or a function. A write that is undone
 A [time trigger](#time-triggers) fires when time passes instead, with nothing
 written: an order still `pending` 30 minutes after it was placed, a booking
 nobody confirmed by noon the day before.
+
+A [schedule](#schedules) runs on the clock, every day or every week at a set
+time: "every night at 9, email me today's orders".
 
 ## Create one
 
@@ -123,6 +126,52 @@ In `ganju.json` and the API:
 is a day before. The event's `event` is `time`, `previous` is `null`, and
 `dueAt` says when the row came due.
 
+## Schedules
+
+A schedule runs at a set time, every day or on chosen days of the week, in the
+database's time zone (**Database settings**, the gear on the Data page). It has no table: open
+**Schedules** in the Data page's list and choose **New schedule**.
+
+- **Repeats** and **At**: every day, or every week on the days you tick, at a
+  time such as 21:00. Daily is the most often.
+- **Rows from**: a [saved query](/docs/data-api/#named-queries-and-triggers) whose rows go
+  with each run, such as today's orders. Its parameters can take the run's
+  date: `{{today}}` and `{{yesterday}}` are dates, and `{{today_start}}` and
+  `{{today_end}}` are the day's start and end as UTC times, for a column such
+  as `created_at` (stored in UTC). **Don't run when the query returns no rows**
+  skips the days with nothing.
+- **Action**: an **email**, whose text takes `{{date}}` and `{{count}}` and is
+  followed by the rows, one per line; a **function**; or a **webhook**. Both
+  of the last get the rows as `rows`, with `date`, `query` and `rowCount`.
+
+A query for the day's orders, and the schedule that emails it:
+
+```sql
+SELECT customer, items, total FROM orders
+WHERE created_at >= :from AND created_at < :to
+ORDER BY created_at
+```
+
+```json
+{
+  "name": "nightly-orders",
+  "on": "schedule",
+  "every": "day",
+  "at": "21:00",
+  "query": "todays_orders",
+  "params": { "from": "{{today_start}}", "to": "{{today_end}}" },
+  "skipEmpty": true,
+  "email": { "to": "you@example.com", "subject": "Orders {{date}}", "text": "{{count}} orders today:" }
+}
+```
+
+For every week, add `"every": "week"` and `"days": ["mon", "thu"]` (Monday when
+left out). Each run happens once. A run missed at its time goes out once,
+late, if the database is back within 6 hours, and is skipped after that. A database holds up to 5 schedules. A run's
+query can return up to 200 rows; the email says when some were left out. The
+event's `event` is `schedule`, its `table` is empty, `row` is `null` and
+`dueAt` says which time it was for.
+
 ## Actions
 
 | Action | In `ganju.json` | What happens |
@@ -200,8 +249,10 @@ List them under `"triggers"` in `ganju.json`, next to your functions, and
 }
 ```
 
-- `on` is `insert`, `update`, `delete` or `time` (with `after`, see
-  [time triggers](#time-triggers)), and each trigger has exactly one action.
+- `on` is `insert`, `update`, `delete`, `time` (with `after`, see
+  [time triggers](#time-triggers)) or `schedule` (with `every` and `at` and no
+  `table`, see [schedules](#schedules)), and each trigger has exactly one
+  action. A schedule's action is `email`, `function` or `webhook`.
 - Without a `name`, one is made from the table, the event and the action:
   `orders-insert-notify-kitchen`. Names are lowercase letters, digits, `_` and
   `-`. In the dashboard and the API, saving a trigger without a name always
@@ -283,7 +334,10 @@ Each event is a `POST` with a JSON body:
 ```
 
 A time trigger's event has `"event": "time"`, `"previous": null`, `"actor":
-null` and `dueAt`, when the row came due.
+null` and `dueAt`, when the row came due. A schedule's has `"event":
+"schedule"`, an empty `table`, `"row": null`, `dueAt`, `date` (the run's date
+in the database's time zone) and, with a query, `query`, `rows` and
+`rowCount` (`rowsTruncated` when some were left out).
 
 and these headers:
 
@@ -291,7 +345,7 @@ and these headers:
 | --- | --- |
 | `x-ganju-signature` | `t=<unix seconds>,v1=<signature>` |
 | `x-ganju-event-id` | The `eventId` |
-| `x-ganju-event` | `<table>.<event>`, such as `orders.update` or `orders.time` |
+| `x-ganju-event` | `<table>.<event>`, such as `orders.update` or `orders.time`; `schedule` for a schedule |
 | `x-ganju-trigger` | The trigger's name |
 
 The signature is the hex HMAC-SHA256 of `<t>.<raw body>`, keyed with the

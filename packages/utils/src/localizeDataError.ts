@@ -424,8 +424,34 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   'A trigger is an object.': 'Un disparador es un objeto.',
   'There is no table named {0}.': 'No hay ninguna tabla llamada {0}.',
   'A trigger needs "table".': 'Un disparador necesita "table".',
-  '"on" is insert, update, delete or time.':
-    '"on" es insert, update, delete o time.',
+  '"on" is insert, update, delete, time or schedule.':
+    '"on" es insert, update, delete, time o schedule.',
+  // Schedules.
+  'A schedule needs "every": "day" or "week".':
+    'Una programación necesita "every": "day" o "week".',
+  '"at" is a time of day, 24-hour, such as "21:00" or "08:30".':
+    '"at" es una hora del día, en formato de 24 horas, como "21:00" o "08:30".',
+  '"days" is for "every": "week" only.':
+    '"days" es solo para "every": "week".',
+  '"days" is a list of mon, tue, wed, thu, fri, sat and sun.':
+    '"days" es una lista de mon, tue, wed, thu, fri, sat y sun.',
+  'A schedule has no "{0}": it runs on the clock. Name a saved query in "query" for the rows it should carry.':
+    'Una programación no tiene "{0}": corre según la hora. Indica una consulta guardada en "query" para las filas que debe llevar.',
+  '"query" is the name of a saved query.':
+    '"query" es el nombre de una consulta guardada.',
+  'There is no saved query named {0}.':
+    'No hay ninguna consulta guardada llamada {0}.',
+  '"params" is an object, such as { "day": "{{today}}" }.':
+    '"params" es un objeto, por ejemplo { "day": "{{today}}" }.',
+  '"params" goes with "query".': '"params" va con "query".',
+  '"skipEmpty" is true or false.': '"skipEmpty" es true o false.',
+  '"skipEmpty" goes with "query".': '"skipEmpty" va con "query".',
+  'A schedule runs "email", "function" or "webhook".':
+    'Una programación ejecuta "email", "function" o "webhook".',
+  '"{0}" is for "on": "schedule" only.':
+    '"{0}" es solo para "on": "schedule".',
+  'A database holds up to {0} schedules.':
+    'Una base de datos admite hasta {0} programaciones.',
   // Time triggers.
   '"after" is for "on": "time" only.': '"after" es solo para "on": "time".',
   'A time trigger needs "after": { "column", "minutes" }, such as { "column": "created_at", "minutes": 30 }.':

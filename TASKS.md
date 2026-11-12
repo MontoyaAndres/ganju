@@ -1269,6 +1269,49 @@ Status: phase 7 done on dev and production. Checked in production
 **Next:** B (schedules). A's guide and template are a shareable doc (owner
 has the link).
 
+**B built (2026-11-12), on `feat/data-schedules`, not yet on dev:**
+- A trigger with `"on": "schedule"`: no table or `when`; `every` day or week
+  (`days`, Monday when left out), `at` "HH:MM" in the database's time zone;
+  an optional saved `query` whose rows (up to 200, 48 KB) go with each run,
+  its `params` filled with `{{today}}`, `{{yesterday}}`, `{{today_start}}`,
+  `{{today_end}}` (the local day's bounds in UTC) or `{{now}}`; `skipEmpty`.
+  Actions: email (the rows listed after the text, `{{date}}` and `{{count}}`),
+  function and webhook (`date`, `query`, `rows`, `rowCount`). Up to 5 per
+  database. No Postgres or object migration: it reuses `_ganju_triggers`
+  (`table_id` 0, the clock in `schedule`, the last due time in `scan_state`).
+- The object's alarm wakes at the next due time (or the 5-minute time scan,
+  whichever is first) and checks schedules on every alarm. A due time fires
+  in the same transaction that marks it handled, so never twice; one missed
+  by up to 6 hours fires once, late, and older ones are skipped. Turned back
+  on, it counts from then. A failing query is a failed run with its error.
+- Dashboard: Data → Schedules (list, on/off, runs, edit, delete, form), en/es.
+- CLI `ganju.json` types and deploy output, SDK `TriggerEvent`, the Data API
+  description and validation, the triggers docs page (en/es), the Assistant
+  page.
+- The assistant: save_trigger takes schedules and test_email
+  {schedule: {query, params}, email} sends the email as tonight's run would;
+  the prompt's "no schedule" rule and its workarounds are gone. Eval
+  `nightly-orders` now expects the schedule; the judge sees test emails.
+- Tests: 9 for schedules in utils (time zones and daylight saving, once per
+  due time, catch-up, query rows, failures, limits).
+
+**Checked on dev (2026-11-12), in `qa-timecap`:**
+- Eval `nightly-orders` 3/3 (26 to 47 credits): each run saved a query for
+  the Bogotá day with {{today_start}}/{{today_end}}, a schedule at 21:00 with
+  skipEmpty, and test-emailed it after Apply. One guarded its totals row with
+  HAVING count(*) > 0. Each run first tried test_email before Apply (the query
+  didn't exist yet); the prompt now says to test once applied, and to keep a
+  totals row empty on days with none.
+- A schedule saved 3 minutes ahead (11:31 Bogotá) fired once at 16:31:03 UTC
+  and its email was sent; moved to 11:35 it fired once at 16:35:03; one
+  turned off at the same time didn't fire. The two test schedules were
+  deleted afterwards.
+- The dashboard's Schedules list and form (daily and weekly, day boxes, the
+  query's parameters, skip when empty) in Spanish.
+
+**Still to do for B:** deploy the prompt change; re-run `--case
+nightly-orders --repeat 3`, then the full eval, and save a new baseline.
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 

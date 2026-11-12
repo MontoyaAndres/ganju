@@ -82,10 +82,17 @@ const triggerInput = (trigger: DataTrigger) => {
   return {
     name: trigger.name,
     description: trigger.description,
-    table: trigger.table,
     on: trigger.on,
-    after: trigger.after,
-    when: trigger.when,
+    ...(trigger.on === 'schedule'
+      ? {
+          every: trigger.every,
+          at: trigger.at,
+          days: trigger.every === 'week' ? trigger.days : null,
+          query: trigger.query,
+          params: trigger.params,
+          skipEmpty: trigger.skipEmpty
+        }
+      : { table: trigger.table, after: trigger.after, when: trigger.when }),
     enabled: trigger.enabled,
     rateLimit: trigger.rateLimit,
     [type]: value
@@ -461,19 +468,29 @@ export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
       );
     }
   }
-  return withData(
+  return withData<unknown>(
     { env: ctx.env, db: ctx.db },
     { artifactId: ctx.artifactId, userId: ctx.userId },
     request =>
-      dataActions.testSendEmail(
-        request,
-        {
-          table: String(input.table ?? ''),
-          email: input.email,
-          ...(input.rowId ? { rowId: Number(input.rowId) } : {})
-        },
-        owner.email
-      )
+      input.schedule && typeof input.schedule === 'object'
+        ? dataActions.testSendScheduleEmail(
+            request,
+            {
+              query: input.schedule.query ?? null,
+              params: input.schedule.params ?? null,
+              email: input.email
+            },
+            owner.email
+          )
+        : dataActions.testSendEmail(
+            request,
+            {
+              table: String(input.table ?? ''),
+              email: input.email,
+              ...(input.rowId ? { rowId: Number(input.rowId) } : {})
+            },
+            owner.email
+          )
   );
 };
 

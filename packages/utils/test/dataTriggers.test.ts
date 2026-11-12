@@ -342,7 +342,7 @@ test('a trigger is checked when saved', () => {
   );
   refuses(
     { table: 'orders', on: 'upsert', function: 'x' },
-    /insert, update, delete or time/
+    /insert, update, delete, time or schedule/
   );
   refuses({ table: 'orders', on: 'insert' }, /runs one thing/);
   refuses(

@@ -159,8 +159,32 @@ export {
   timeTriggersCountingFrom,
   syncTimeIndexes,
   hasTimeTriggers,
-  scanTimeTriggers
+  scanTimeTriggers,
+  hasSchedules,
+  nextScheduleAt,
+  scanSchedules
 } from './dataTriggers';
+export {
+  DATA_SCHEDULE_EVERY,
+  DATA_SCHEDULE_DAYS,
+  DATA_MAX_SCHEDULES,
+  DATA_SCHEDULE_CATCH_UP_MS,
+  DATA_SCHEDULE_MAX_ROWS,
+  DATA_SCHEDULE_PARAM_VALUES,
+  normaliseClock,
+  previousDue,
+  nextDue,
+  scheduleStep,
+  scheduleParams,
+  scheduleRowsText,
+  localDate
+} from './dataSchedules';
+export type {
+  DataScheduleClock,
+  DataScheduleDay,
+  DataScheduleEvery,
+  DataScheduleStep
+} from './dataSchedules';
 export type {
   DataTrigger,
   DataTriggerAction,

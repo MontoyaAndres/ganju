@@ -9,7 +9,8 @@ import { utils } from '@ganju/utils';
 import {
   DataError,
   renderCustomerMessage,
-  renderTriggerText
+  renderTriggerText,
+  scheduleRowsText
 } from '@ganju/utils/data';
 
 import { invokeCustomCodeScript } from '../utils/customCodeDeploy';
@@ -102,6 +103,23 @@ const rowFor = async (
   );
 };
 
+// What a schedule's event adds for an action or webhook: its run date and
+// its saved query's rows.
+const scheduleFields = (job: DataTriggerJob) =>
+  job.event === 'schedule'
+    ? {
+        ...(job.date ? { date: job.date } : {}),
+        ...(job.query
+          ? {
+              query: job.query,
+              rows: job.rows ?? [],
+              rowCount: job.rowCount ?? 0,
+              ...(job.rowsTruncated ? { rowsTruncated: true } : {})
+            }
+          : {})
+      }
+    : {};
+
 const runAction = async (
   env: Bindings,
   executor: DbExecutor,
@@ -151,7 +169,8 @@ const runAction = async (
           eventId: job.eventId,
           triggerId: job.triggerId,
           ...(job.dueAt ? { dueAt: job.dueAt } : {}),
-          ...(job.truncated ? { rowId: job.rowId, truncated: true } : {})
+          ...(job.truncated ? { rowId: job.rowId, truncated: true } : {}),
+          ...scheduleFields(job)
         },
         allowedHosts: functions.allowedHosts,
         timeoutMs: functions.timeoutMs,
@@ -182,7 +201,8 @@ const runAction = async (
         actor: job.actor,
         at: job.at,
         ...(job.dueAt ? { dueAt: job.dueAt } : {}),
-        ...(job.truncated ? { truncated: true } : {})
+        ...(job.truncated ? { truncated: true } : {}),
+        ...scheduleFields(job)
       });
       const timestamp = Math.floor(Date.now() / 1000);
       let response: Response;
@@ -196,7 +216,9 @@ const runAction = async (
             'content-type': 'application/json',
             'user-agent': 'Ganju-Webhooks/1',
             'x-ganju-event-id': job.eventId,
-            'x-ganju-event': `${job.table}.${job.event}`,
+            'x-ganju-event': job.table
+              ? `${job.table}.${job.event}`
+              : job.event,
             'x-ganju-trigger': job.triggerName,
             'x-ganju-signature': await signWebhook(
               trigger.secret,
@@ -244,10 +266,19 @@ const runAction = async (
       if (allowed.length === 0) {
         throw new SkipRun(`Not sent: ${notes.join(' ')}`);
       }
-      const row = await rowFor(executor, database, stub, job);
+      // A schedule fills in its date and row count, and lists the rows after
+      // the text.
+      const scheduled = job.event === 'schedule';
+      const row = scheduled
+        ? { date: job.date ?? '', count: job.rowCount ?? 0 }
+        : await rowFor(executor, database, stub, job);
+      const listed =
+        scheduled && job.query && job.rows?.length
+          ? `\n\n${scheduleRowsText(job.rows, job.rowCount ?? job.rows.length)}`
+          : '';
       const failed = await emailRecipientsEach(source, allowed, {
         subject: renderTriggerText(action.subject, row).slice(0, 200),
-        text: renderTriggerText(action.text, row)
+        text: renderTriggerText(action.text, row) + listed
       });
       if (failed.length === allowed.length) {
         throw new Error(`The email couldn't be sent to ${failed.join(', ')}.`);

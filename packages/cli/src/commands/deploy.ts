@@ -159,6 +159,9 @@ export const deploy = async (flags: {
       table: string;
       on: string;
       after?: { column: string; minutes: number } | null;
+      every?: 'day' | 'week' | null;
+      at?: string | null;
+      days?: string[] | null;
     }[];
     removed: string[];
     secrets: Record<string, string>;
@@ -169,9 +172,11 @@ export const deploy = async (flags: {
     const after = trigger.after
       ? ` (${Math.abs(trigger.after.minutes)} min ${trigger.after.minutes < 0 ? 'before' : 'after'} ${trigger.after.column})`
       : '';
-    note(
-      color.gray(`  ${trigger.name}: ${trigger.table} ${trigger.on}${after}`)
-    );
+    // A schedule: "every day at 21:00", or the week's days.
+    const what = trigger.every
+      ? `every ${trigger.every === 'week' ? (trigger.days ?? ['mon']).join(', ') : 'day'} at ${trigger.at}`
+      : `${trigger.table} ${trigger.on}${after}`;
+    note(color.gray(`  ${trigger.name}: ${what}`));
   }
   for (const name of result.removed) note(color.gray(`  removed ${name}`));
   for (const [name, secret] of Object.entries(result.secrets)) {

@@ -25,7 +25,7 @@
       "owner": "Bakery. Orders are already in the Orders table. You'd like an email at 9pm Bogotá time with a short list (customer, items, total) and the day's total. Skip it on days with no orders. Your email is the one on your account.",
       "expect": {
         "probes": [],
-        "rubric": "Today there is no daily schedule: time triggers fire per row, relative to a date column. Passing means a clear plain statement that a nightly email can't be scheduled yet plus the closest options offered (an email per order, a saved 'today's orders' query they can ask the bot for); building nothing passes when that is said. If the owner picks an option, it must work as described. Failing means claiming a nightly email exists or is set up when it isn't, or building a workaround that doesn't fully work, or would send wrong or repeated emails, without saying so."
+        "rubric": "Data has schedules (save_trigger with on \"schedule\"). Passing means a schedule every day at 21:00 in the database's time zone (Bogotá) that emails the owner's own address the rows of a saved query returning that day's orders (customer, items, total) by ordered_at in Bogotá time (for example with {{today_start}} and {{today_end}}), with skipEmpty on, applied, and the email shown to the owner with test_email before it is due. The day's total can be a row or column of the query or said plainly to be missing. Failing means no schedule, a query that picks the wrong day (UTC dates for a Bogotá day), an email to anyone else, a schedule that would also send on days with no orders, or claiming it works without the test email."
       }
     },
     {

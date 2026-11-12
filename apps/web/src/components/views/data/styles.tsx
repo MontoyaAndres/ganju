@@ -1013,6 +1013,18 @@ export const DialogContent = styled.div`
       background: ${theme.colors.bastille}0d;
     }
 
+    .schedule-clock {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .schedule-days {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 8px;
+    }
+
     .dialog-row {
       display: flex;
       flex-direction: column;

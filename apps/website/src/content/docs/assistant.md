@@ -19,8 +19,9 @@ in, Spanish or English.
 - **Actions** — small programs your bot runs, like checking stock or saving a
   booking. The assistant writes and tests them for you.
 - **[Data](/docs/data/)** — your project's tables, columns and rows, saved
-  queries, and [triggers](/docs/data/triggers/) such as "email me each new
-  order".
+  queries, [triggers](/docs/data/triggers/) such as "email me each new
+  order", and [schedules](/docs/data/triggers/#schedules) such as "every night
+  at 9, email me today's orders".
 - **Knowledge** — notes and websites your bot searches, on the
   [Resources](/docs/resources/) page. Files come from you: when it needs one, it
   asks you to upload it.
