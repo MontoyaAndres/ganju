@@ -449,6 +449,33 @@ export const stageData = async (
  * An email trigger's message, sent now to the owner's own address from a row
  * of the table (the newest by default), whatever its "to" says.
  */
+// A saved query this conversation staged or proposed and the owner hasn't
+// applied yet, newest first: a schedule's test runs it as it will be.
+const draftQuery = async (ctx: BuilderToolContext, name: unknown) => {
+  const named = (item: StagedItem) =>
+    item.area === 'data' &&
+    item.op === 'save_query' &&
+    (item.payload.query as { name?: string } | undefined)?.name === name;
+  const staged = [...ctx.staged].reverse().find(named);
+  if (staged) return staged.payload.query as { name: string };
+  const [proposed] = await ctx.db
+    .select({ items: db.schema.builderChangeSet.items })
+    .from(db.schema.builderChangeSet)
+    .where(
+      and(
+        eq(db.schema.builderChangeSet.conversationId, ctx.conversationId),
+        eq(
+          db.schema.builderChangeSet.status,
+          constants.BUILDER_CHANGE_SET_STATUS_PROPOSED
+        )
+      )
+    )
+    .orderBy(desc(db.schema.builderChangeSet.createdAt))
+    .limit(1);
+  const item = ((proposed?.items ?? []) as StagedItem[]).find(named);
+  return (item?.payload.query as { name: string } | undefined) ?? null;
+};
+
 export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
   const [owner] = await ctx.db
     .select({ email: db.schema.user.email })
@@ -468,6 +495,10 @@ export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
       );
     }
   }
+  const draft =
+    input.schedule && typeof input.schedule === 'object'
+      ? await draftQuery(ctx, input.schedule.query)
+      : null;
   return withData<unknown>(
     { env: ctx.env, db: ctx.db },
     { artifactId: ctx.artifactId, userId: ctx.userId },
@@ -478,7 +509,8 @@ export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
             {
               query: input.schedule.query ?? null,
               params: input.schedule.params ?? null,
-              email: input.email
+              email: input.email,
+              ...(draft ? { draft } : {})
             },
             owner.email
           )

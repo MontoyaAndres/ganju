@@ -1309,8 +1309,15 @@ has the link).
 - The dashboard's Schedules list and form (daily and weekly, day boxes, the
   query's parameters, skip when empty) in Spanish.
 
-**Still to do for B:** deploy the prompt change; re-run `--case
-nightly-orders --repeat 3`, then the full eval, and save a new baseline.
+- With the prompt saying to test once applied, `nightly-orders` went 0/3:
+  the app sends nothing after Apply, so the assistant only goes on when the
+  owner writes again, and the simulated owner ended the chat. So a schedule's
+  test_email now also runs a query staged or proposed in this conversation
+  and not applied yet (`runDraftQuery`: saved and run in a rolled-back
+  transaction), and the prompt says to send the sample before proposing.
+
+**Still to do for B:** deploy data and api; re-run `--case nightly-orders
+--repeat 3`, then the full eval, and save a new baseline.
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")

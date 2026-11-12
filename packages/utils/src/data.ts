@@ -89,7 +89,8 @@ export {
   queriesFor,
   saveQuery,
   dropQuery,
-  runQuery
+  runQuery,
+  runDraftQuery
 } from './dataQueries';
 export type {
   DataQuery,

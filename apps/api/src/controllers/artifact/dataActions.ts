@@ -526,6 +526,8 @@ export const testSendScheduleEmail = async (
     query?: string | null;
     params?: Record<string, unknown> | null;
     email: unknown;
+    // The query as staged, not saved yet: run without saving it.
+    draft?: { name: string } & Record<string, unknown>;
   },
   to: string
 ) => {
@@ -540,7 +542,7 @@ export const testSendScheduleEmail = async (
     on: 'schedule',
     every: 'day',
     at: '00:00',
-    query: body.query ?? null,
+    query: body.draft?.name ?? body.query ?? null,
     params: body.params ?? null,
     email: body.email
   });
@@ -552,14 +554,22 @@ export const testSendScheduleEmail = async (
   let rows: Record<string, unknown>[] = [];
   const query = trigger.query;
   if (query) {
+    const params = scheduleParams(trigger.params, now, timeZone);
+    const draft = body.draft;
     const result = await callData(
       'runQuery',
       () =>
-        request.opened.stub.runQuery(request.caller, {
-          name: query,
-          params: scheduleParams(trigger.params, now, timeZone),
-          limit: DATA_SCHEDULE_MAX_ROWS
-        }),
+        draft
+          ? request.opened.stub.runDraftQuery(request.caller, {
+              query: draft,
+              params,
+              limit: DATA_SCHEDULE_MAX_ROWS
+            })
+          : request.opened.stub.runQuery(request.caller, {
+              name: query,
+              params,
+              limit: DATA_SCHEDULE_MAX_ROWS
+            }),
       request.tally,
       { retryRead: true }
     );

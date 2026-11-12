@@ -19,7 +19,7 @@ import {
   setTriggerEnabled
 } from '../src/dataTriggers.ts';
 import type { DataTriggerEventMessage } from '../src/dataTriggers.ts';
-import { saveQuery } from '../src/dataQueries.ts';
+import { listQueries, runDraftQuery, saveQuery } from '../src/dataQueries.ts';
 import {
   nextDue,
   normaliseClock,
@@ -423,4 +423,29 @@ test("a query bounded by the run's local day takes today_start and today_end", (
   const [event] = events(runner);
   assert.equal(event.error, undefined);
   assert.equal(event.rowCount, 2);
+});
+
+test('a draft query runs as saving would check it, and nothing stays', () => {
+  const { runner, s } = bakery();
+  const result = runDraftQuery(runner, s(), OWNER, {
+    query: {
+      name: 'big_orders',
+      sql: 'SELECT customer FROM orders WHERE total > :min ORDER BY id',
+      params: [{ name: 'min', type: 'integer' }]
+    },
+    params: { min: 10000 }
+  });
+  assert.deepEqual(result.rows, [{ customer: 'Ana' }]);
+  assert.deepEqual(
+    listQueries(runner).map(q => q.name),
+    ['days_orders']
+  );
+  assert.throws(
+    () =>
+      runDraftQuery(runner, s(), OWNER, {
+        query: { name: 'bad', sql: 'DELETE FROM orders' }
+      }),
+    /./
+  );
+  assert.equal(runner.all('SELECT count(*) AS n FROM orders')[0].n, 2);
 });

@@ -134,7 +134,7 @@ Stage (needs label): set_instructions {text}, the whole new text of the bot's in
     name: 'data',
     description: `The project's database.
 Read now: describe (tables, columns, saved queries, triggers, time zone, and whether a developer pushes the tables from code), rows {table, where?, limit?}, run_query {name, params?}.
-Send now: test_email {table, email: {to, subject?, text}, rowId?}: an email trigger's message built from a row (the newest by default), sent only to the owner's own address whatever "to" says. For a schedule's email: test_email {schedule: {query?, params?}, email}, its query run for today. Use it so the owner sees an email before it is due.
+Send now: test_email {table, email: {to, subject?, text}, rowId?}: an email trigger's message built from a row (the newest by default), sent only to the owner's own address whatever "to" says. For a schedule's email: test_email {schedule: {query?, params?}, email}, its query run for today (a query staged here and not applied yet runs as staged). Use it so the owner sees an email before it is due.
 Stage for the change set (each needs label, the plain line the owner reads):
 - create_database {name?}, delete_database
 - create_table {table: {name, label?, description?, displayColumn?, access?, customerScoped?, history?, source?, columns: [...]}} (source {uri, sheet?, key}: rows synced from a spreadsheet in knowledge, the way to import one), change_table {table, patch}, drop_table {table}

@@ -728,3 +728,32 @@ export const runQuery = (
       : {})
   };
 };
+
+/**
+ * A query not saved yet, run as if it were: saved and run in a transaction
+ * that is then rolled back, so it is checked exactly as saving checks it and
+ * nothing stays.
+ */
+export const runDraftQuery = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  args: { query: unknown; params?: unknown; limit?: unknown }
+) => {
+  const ran: { result?: ReturnType<typeof runQuery> } = {};
+  const rollBack = new Error('draft query');
+  try {
+    runner.transaction(() => {
+      const saved = saveQuery(runner, schema, caller, args.query);
+      ran.result = runQuery(runner, schema, caller, {
+        name: saved.name,
+        params: args.params,
+        limit: args.limit
+      });
+      throw rollBack;
+    });
+  } catch (error) {
+    if (error !== rollBack) throw error;
+  }
+  return ran.result as ReturnType<typeof runQuery>;
+};

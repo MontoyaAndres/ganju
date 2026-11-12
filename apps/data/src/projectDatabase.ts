@@ -14,6 +14,7 @@ import {
   listQueries,
   queriesFor,
   runQuery,
+  runDraftQuery,
   saveQuery,
   assertWritable,
   assertActor,
@@ -796,6 +797,17 @@ export class ProjectDatabase
   async runQuery(caller: DataCaller, args: unknown) {
     return this.call({}, runner =>
       runQuery(runner, this.schema(runner), this.caller(caller, runner), args)
+    );
+  }
+
+  // A query the assistant staged but the owner hasn't applied, run to show
+  // what it returns; nothing is saved.
+  async runDraftQuery(
+    caller: DataCaller,
+    args: { query: unknown; params?: unknown; limit?: unknown }
+  ) {
+    return this.call({}, runner =>
+      runDraftQuery(runner, this.schema(runner), this.caller(caller, runner), args)
     );
   }
 
