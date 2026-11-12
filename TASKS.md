@@ -1393,8 +1393,23 @@ closed outside hours, and a test order added up. Fixed from it, on
   proposed (tables created or relabelled later in it too); a title that isn't
   text falls back to the action's name; the starter card ignores the tools
   every project starts with.
-Still to do: deploy to dev, walk through again, run the eval; the first real
-session (Juanita, burgers and hot dogs in Girardot) is being arranged.
+Checked on dev (second walkthrough, project "Perros y Hamburguesas 2
+(prueba)"): the empty project shows the Assistant card; the estimate said
+about 90 credits including the test (62.5 used so far); the note before a
+tool was in Spanish; the card read "Calcular el total de un pedido" and the
+tables "Menú, Domicilios, Pedidos"; no test exception (the order test waits
+for opening hours, and it said so); Apply sent "Apliqué los cambios." and the
+assistant tested on its own (total $47.000 right, cheese refused on the
+special, Ricaurte refused); Try it opened beside the chat and kept the
+typing. It also showed the change-set note above that message, half in
+English ("Aviso para el asistente: The owner applied …"): the chat no longer
+shows those notes, the card already says it.
+Eval on dev with the fixes: 28/30 at 23.0 credits a run (baseline 30/30 at
+21.3), 2.2 owner turns a run (was 2.7) since Apply now carries the test.
+delivery-orders 2/3 (a run left the save action unmarked as changing
+things, seen before) and shorter-replies 2/3 (a run left out "tú"); the
+baseline stays. The first real session (Juanita, burgers and hot dogs in
+Girardot) is being arranged.
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")

@@ -102,7 +102,6 @@ export type StreamEvent =
 // What the page shows, built from saved messages plus the live turn.
 export type Entry =
   | { kind: 'owner'; key: string; text: string }
-  | { kind: 'note'; key: string; text: string }
   | { kind: 'reply'; key: string; text: string; credits: number }
   | { kind: 'card'; key: string; card: Card };
 

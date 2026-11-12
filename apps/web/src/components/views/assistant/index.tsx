@@ -110,12 +110,9 @@ const entriesOf = (messages: Message[]): Entry[] => {
     );
     const texts = textBlocks(message.content);
     if (message.role === 'user') {
-      // The notes on applied change sets come first; the owner's words last.
-      texts
-        .slice(0, -1)
-        .forEach((text, index) =>
-          entries.push({ kind: 'note', key: `${message.id}-n${index}`, text })
-        );
+      // Notes on what happened to change sets (applied, failed, undone, an
+      // undo that stopped) come first and are for the assistant: the card
+      // shows each of those. The owner's words are last.
       const own = texts[texts.length - 1];
       if (own) entries.push({ kind: 'owner', key: message.id, text: own });
     } else if (texts.length) {
@@ -844,13 +841,6 @@ export const Assistant = () => {
               {entries.map((entry, index) => {
                 if (entry.kind === 'owner') {
                   return ownerBubble(entry.text, entry.key);
-                }
-                if (entry.kind === 'note') {
-                  return (
-                    <p key={entry.key} className="assistant-note">
-                      {t('noteLine', { text: entry.text })}
-                    </p>
-                  );
                 }
                 if (entry.kind === 'reply') {
                   return (
