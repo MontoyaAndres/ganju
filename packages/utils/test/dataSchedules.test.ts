@@ -506,3 +506,22 @@ test('after a restore, a schedule counts from then and sends nothing again', () 
   );
   assert.ok(Date.parse(state.through) > Date.now() - 60_000);
 });
+
+test('a query saved with other parameters names the schedules to change', () => {
+  const { runner, s } = bakery();
+  saveTrigger(runner, s(), OWNER, NIGHTLY);
+  const renamed = saveQuery(runner, s(), OWNER, {
+    name: 'days_orders',
+    sql: 'SELECT customer, total, :on AS day FROM orders ORDER BY id',
+    params: [{ name: 'on', type: 'date' }]
+  });
+  assert.deepEqual(renamed.schedulesToUpdate, ['nightly-orders']);
+  // Then the schedule changes too, and the pair is whole again.
+  saveTrigger(runner, s(), OWNER, { ...NIGHTLY, params: { on: '{{today}}' } });
+  const again = saveQuery(runner, s(), OWNER, {
+    name: 'days_orders',
+    sql: 'SELECT customer, total, :on AS day FROM orders ORDER BY id',
+    params: [{ name: 'on', type: 'date' }]
+  });
+  assert.equal(again.schedulesToUpdate, undefined);
+});

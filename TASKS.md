@@ -1354,10 +1354,13 @@ has the link).
   the query stopped before its last row (`rowCountMore`); in the dashboard a
   new schedule never replaces another trigger of the same name, a saved one
   keeps its name (no rename, so no limit or on/off surprises), and an email
-  to addresses that must confirm says so. Not changed: re-saving a query a
-  schedule runs with other parameters isn't refused, since a change set that
-  changes both would deadlock (each save refuses before the other); the run
-  fails with the reason instead.
+  to addresses that must confirm says so. Re-saving a query a schedule runs
+  with other parameters isn't refused (a change set that changes both would
+  deadlock, each save refusing before the other): the save names the
+  schedules to change (`schedulesToUpdate`), the dashboard warns, and the
+  assistant is told when staging it to stage the schedule in the same change
+  set. A schedule's test email uses a proposed query only from the
+  conversation's newest change set, while it still waits.
 
 **B is done on dev.** Left: merge and deploy to production (no migration).
 

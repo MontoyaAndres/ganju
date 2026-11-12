@@ -479,6 +479,8 @@ const en = {
     'It stops running. Its past runs stay in the list until they expire.',
   toastScheduleDeleted: 'Schedule deleted',
   toastScheduleSaved: 'Schedule saved',
+  toastQuerySavedSchedulesStale:
+    'Query saved. The schedule {names} runs it with other parameters: change it under Schedules, or its runs fail.',
   scheduleEveryDayAt: 'Every day at {at}',
   scheduleEveryWeekAt: 'Every {days} at {at}',
   scheduleEvery: 'Repeats',
@@ -1216,6 +1218,8 @@ export const DATA: Catalog<DataCopy> = {
       'Deja de ejecutarse. Sus ejecuciones anteriores siguen en la lista hasta que vencen.',
     toastScheduleDeleted: 'Programación eliminada',
     toastScheduleSaved: 'Programación guardada',
+    toastQuerySavedSchedulesStale:
+      'Consulta guardada. La programación {names} la ejecuta con otros parámetros: cámbiala en Programaciones, o sus ejecuciones fallan.',
     scheduleEveryDayAt: 'Cada día a las {at}',
     scheduleEveryWeekAt: 'Cada {days} a las {at}',
     scheduleEvery: 'Se repite',

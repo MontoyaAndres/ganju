@@ -90,7 +90,8 @@ export {
   saveQuery,
   dropQuery,
   runQuery,
-  runDraftQuery
+  runDraftQuery,
+  scheduleParamsMismatch
 } from './dataQueries';
 export type {
   DataQuery,

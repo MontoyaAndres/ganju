@@ -319,7 +319,15 @@ const QueryDialog = ({
       setError(result.error || t('toastQuerySaveFailed'));
       return;
     }
-    snackbar.success(t('toastQuerySaved'));
+    const stale = result.data.query.schedulesToUpdate ?? [];
+    // Saved, but those schedules would fail every run until changed too.
+    if (stale.length) {
+      snackbar.error(
+        t('toastQuerySavedSchedulesStale', { names: stale.join(', ') })
+      );
+    } else {
+      snackbar.success(t('toastQuerySaved'));
+    }
     onSaved();
   };
 

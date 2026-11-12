@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
-import { DataError } from '@ganju/utils/data';
+import { DataError, scheduleParamsMismatch } from '@ganju/utils/data';
 
 import * as dataActions from '../artifact/dataActions';
 import {
@@ -375,7 +375,34 @@ export const stageData = async (
     }
     case 'save_query': {
       const query = await Schema.DATA_QUERY_INPUT.parseAsync(input.query);
-      return push({ op: action, payload: { query }, undo: 'reverse' });
+      const staged = push({ op: action, payload: { query }, undo: 'reverse' });
+      // Saved after this change, a schedule that runs it with other
+      // parameters fails each run: say so while it can join this change set.
+      const { triggers } = ready
+        ? ((await withData(caller, scope, request =>
+            dataActions.listTriggers(request)
+          )) as { triggers: DataTrigger[] })
+        : { triggers: [] as DataTrigger[] };
+      const restaged = new Set(
+        ctx.staged
+          .filter(item => item.area === 'data' && item.op === 'save_trigger')
+          .map(item => (item.payload.trigger as { name?: string }).name)
+      );
+      const stale = triggers
+        .filter(
+          t =>
+            t.on === 'schedule' &&
+            t.query === query.name &&
+            !restaged.has(t.name) &&
+            scheduleParamsMismatch(
+              Object.keys(t.params ?? {}),
+              query.params ?? []
+            ).length > 0
+        )
+        .map(t => t.name);
+      return stale.length
+        ? `${staged} The schedule ${stale.join(', ')} runs this query with other parameters: stage a save_trigger for it with the new params in this same change set, or each of its runs fails.`
+        : staged;
     }
     case 'drop_query': {
       const name = String(input.name ?? '');
@@ -455,20 +482,21 @@ const draftQuery = async (ctx: BuilderToolContext, name: unknown) => {
     (item.payload.query as { name?: string } | undefined)?.name === name;
   const staged = [...ctx.staged].reverse().find(named);
   if (staged) return staged.payload.query as { name: string };
-  const [proposed] = await ctx.db
-    .select({ items: db.schema.builderChangeSet.items })
+  // Only the conversation's newest change set, still waiting: an older one
+  // the owner left unapplied is not what will run.
+  const [newest] = await ctx.db
+    .select({
+      items: db.schema.builderChangeSet.items,
+      status: db.schema.builderChangeSet.status
+    })
     .from(db.schema.builderChangeSet)
-    .where(
-      and(
-        eq(db.schema.builderChangeSet.conversationId, ctx.conversationId),
-        eq(
-          db.schema.builderChangeSet.status,
-          constants.BUILDER_CHANGE_SET_STATUS_PROPOSED
-        )
-      )
-    )
+    .where(eq(db.schema.builderChangeSet.conversationId, ctx.conversationId))
     .orderBy(desc(db.schema.builderChangeSet.createdAt))
     .limit(1);
+  const proposed =
+    newest?.status === constants.BUILDER_CHANGE_SET_STATUS_PROPOSED
+      ? newest
+      : null;
   const item = ((proposed?.items ?? []) as StagedItem[]).find(named);
   return (item?.payload.query as { name: string } | undefined) ?? null;
 };
