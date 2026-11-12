@@ -1215,6 +1215,46 @@ Status: phase 7 done on dev and production. Checked in production
   the Anthropic Console. Do it once someone can export the Usage page for
   the API's key.
 
+### Next: bot instructions, schedules, small follow-ups
+
+**Decided (2026-11-12), the owner going with the recommendations:**
+- Bot instructions per project (C) before schedules (B): smaller, and
+  likely what owners ask for most.
+- C: one text per project for all its channels and Try it, at most 2,000
+  characters, added after an own model's system prompt (on the shared model,
+  after the fixed default), Ganju's notes first and winning. Edited by the
+  owner (Channels page, "Bot instructions") and by the assistant through an
+  undoable change set.
+- B: a new trigger event on a clock, `every: day | week`, `at: "21:00"`,
+  optional days, in the database's time zone, no cron syntax. It carries a
+  saved query's rows (capped). Email, function and webhook actions first;
+  chat later. At most 5 per database, daily at most. A missed run runs once
+  if within 6 hours, never more than one catch-up. Pro and Enterprise only.
+- A (owner sessions): the guide and results template as a shareable doc.
+
+**Built (2026-11-12), not yet on dev:**
+- C:
+  - `project.bot_instructions` (migration 0095, generated, not run);
+  - `PUT …/project/:projectId/bot-instructions` (project admins);
+  - the channel runner adds them last, labelled as the owner's, never
+    overriding the notes above;
+  - the Channels page's "Bot instructions" button and editor (en/es);
+  - the assistant reads them in the overview and stages
+    `project set_instructions` (area `bot`); Undo puts the old text back and
+    refuses if they were edited since;
+  - its prompt no longer lists instructions as something it can't change;
+  - docs: the Channels page (en/es) and the Assistant page;
+  - eval `shorter-replies` now expects the instructions change.
+- D: a new chat shows in the chat list as soon as its first message is
+  accepted.
+- E: the overview's versions carry `createdAt` and `publishedAt` (UTC); the
+  failing-action rule says to compare log times with the live version's.
+
+**Still to do:** run migration 0095 and deploy to dev; check C there (the
+editor, a channel and Try it answering by the instructions, the assistant
+staging and undoing them); re-run `--case shorter-replies --repeat 3` and the
+full eval, and save a new baseline if it holds. Then B.
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 

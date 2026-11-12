@@ -10,6 +10,7 @@ import {
   markDatabasesDeleting,
   notifyDatabasesDeleted
 } from '../../utils';
+import { setBotInstructions } from './botInstructions';
 
 // types
 import { AppEnv } from '../../types';
@@ -107,6 +108,25 @@ const update = async (c: Context<AppEnv>) => {
     .returning();
 
   return c.json(result);
+};
+
+const updateBotInstructions = async (c: Context<AppEnv>) => {
+  const body = await c.req.json();
+  const currentValues = await utils.Schema.PROJECT_BOT_INSTRUCTIONS.parseAsync({
+    ...body,
+    id: c.req.param('projectId'),
+    userId: c.get('user').id,
+    organizationId: c.req.param('organizationId')
+  });
+  await setBotInstructions(
+    db.create(c),
+    {
+      projectId: currentValues.id,
+      organizationId: currentValues.organizationId
+    },
+    currentValues.botInstructions
+  );
+  return c.json({ botInstructions: currentValues.botInstructions || null });
 };
 
 const get = async (c: Context<AppEnv>) => {
@@ -363,6 +383,7 @@ const remove = async (c: Context<AppEnv>) => {
 export const ProjectController = {
   create,
   update,
+  updateBotInstructions,
   get,
   getOverview,
   remove

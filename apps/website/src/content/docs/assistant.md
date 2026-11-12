@@ -2,7 +2,7 @@
 title: Assistant
 description: Describe what your bot should know or do in your own words — the assistant builds it with you, tests it, and changes nothing until you press Apply.
 order: 1.5
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 The **Assistant** tab is where you build your bot by talking about it. Tell it
@@ -27,9 +27,11 @@ in, Spanish or English.
 - **[Prompts](/docs/prompts/)** and **[tools](/docs/tools/)**, including the
   catalog's Gmail, Outlook, Google Calendar and Slack through accounts you
   connect with one click.
+- **[Bot instructions](/docs/channels/#tell-your-bot-how-to-answer)** — how
+  your bot answers: "answer in two sentences", "always in Spanish".
 
-What it **can't** change: channels, the bot's model or its instructions,
-members, billing, API tokens, and organization or project settings. Ask it for
+What it **can't** change: channels, the bot's model, members, billing, API
+tokens, and organization or project settings. Ask it for
 one of those and it tells you where to change it yourself.
 
 It never sees your passwords, keys or account sign-ins. When it needs one, it

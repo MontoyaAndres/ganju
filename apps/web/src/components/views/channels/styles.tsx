@@ -55,6 +55,12 @@ export const Wrapper = styled.div<IProps>`
           max-width: 640px;
         }
 
+        .channels-header-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
         .channels-title {
           font-size: ${theme.fonts['2xl']};
           color: ${theme.colors.bastille};

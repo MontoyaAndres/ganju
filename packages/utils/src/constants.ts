@@ -687,6 +687,9 @@ const SHARED_MODEL_PRICE = { input: 0.25, output: 1.5 };
 const DEFAULT_LLM_SYSTEM_PROMPT =
   'You are a helpful assistant. Answer the user using the tools and resources provided to you whenever they are relevant, and prefer that information over your prior knowledge. Cite the resources you used when applicable. Be concise and accurate. If you cannot find a clear answer in the available context, say so honestly instead of guessing.';
 
+// Added to every turn's input, on the shared model too, whose cost we pay.
+const BOT_INSTRUCTIONS_MAX_LENGTH = 2000;
+
 const LLM_CATALOG: ReadonlyArray<{
   provider:
     | typeof LLM_PROVIDER_GOOGLE
@@ -2998,6 +3001,7 @@ export const constants = {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_LLM_MODEL,
   DEFAULT_LLM_SYSTEM_PROMPT,
+  BOT_INSTRUCTIONS_MAX_LENGTH,
   LLM_CATALOG,
   LLM_CATALOG_CUSTOM_KEY,
   LLM_BASE_URL_REQUIRED_MESSAGE,

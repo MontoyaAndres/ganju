@@ -73,11 +73,16 @@ const ACCOUNT_PROVIDERS = Object.keys(utils.oauthProviders);
 export const BUILDER_TOOLS = [
   {
     name: 'project',
-    description:
-      "What the project is made of right now: its actions (and whether a developer uploads them), tools (on/off), data tables, saved queries, triggers, knowledge, prompts, connected accounts, secret labels, the owner's account, and how its tools have been doing (calls, errors) over the last 7 days.",
-    input_schema: obj({ action: { type: 'string', enum: ['overview'] } }, [
-      'action'
-    ])
+    description: `Read now: overview, what the project is made of right now: the bot's instructions, its actions (and whether a developer uploads them), tools (on/off), data tables, saved queries, triggers, knowledge, prompts, connected accounts, secret labels, the owner's account, and how its tools have been doing (calls, errors) over the last 7 days.
+Stage (needs label): set_instructions {text}, the whole new text of the bot's instructions (at most ${utils.constants.BOT_INSTRUCTIONS_MAX_LENGTH} characters; empty clears them).`,
+    input_schema: obj(
+      {
+        action: { type: 'string', enum: ['overview', 'set_instructions'] },
+        label: { type: 'string' },
+        text: { type: 'string' }
+      },
+      ['action']
+    )
   },
   {
     name: 'functions',
@@ -374,7 +379,9 @@ const versionsSummary = async (ctx: BuilderToolContext) => {
       byDeveloper:
         v.sourceKind !== utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR,
       tools: (v.tools as ManifestTool[]).map(t => t.name),
-      error: v.error
+      error: v.error,
+      createdAt: v.createdAt.toISOString(),
+      publishedAt: v.publishedAt?.toISOString() ?? null
     }))
   };
 };
@@ -409,40 +416,54 @@ const overview = async (ctx: BuilderToolContext) => {
     .from(db.schema.user)
     .where(eq(db.schema.user.id, ctx.userId))
     .limit(1);
-  const [tools, prompts, resources, credentials, actions, data, health] =
-    await Promise.all([
-      ctx.db
-        .select()
-        .from(db.schema.artifactTool)
-        .where(eq(db.schema.artifactTool.artifactId, ctx.artifactId)),
-      ctx.db
-        .select({
-          id: db.schema.artifactPrompt.id,
-          title: db.schema.artifactPrompt.title
-        })
-        .from(db.schema.artifactPrompt)
-        .where(eq(db.schema.artifactPrompt.artifactId, ctx.artifactId)),
-      ctx.db
-        .select({
-          id: db.schema.artifactResource.id,
-          title: db.schema.artifactResource.title,
-          uri: db.schema.artifactResource.uri,
-          status: db.schema.artifactResource.status,
-          sourceType: db.schema.artifactResource.sourceType
-        })
-        .from(db.schema.artifactResource)
-        .where(eq(db.schema.artifactResource.artifactId, ctx.artifactId)),
-      ctx.db
-        .select()
-        .from(db.schema.artifactCredential)
-        .where(eq(db.schema.artifactCredential.artifactId, ctx.artifactId)),
-      versionsSummary(ctx),
-      describeData(ctx).catch((error: Error) => ({ error: error.message })),
-      toolHealth(ctx)
-    ]);
+  const [
+    [project],
+    tools,
+    prompts,
+    resources,
+    credentials,
+    actions,
+    data,
+    health
+  ] = await Promise.all([
+    ctx.db
+      .select({ botInstructions: db.schema.project.botInstructions })
+      .from(db.schema.project)
+      .where(eq(db.schema.project.id, ctx.projectId))
+      .limit(1),
+    ctx.db
+      .select()
+      .from(db.schema.artifactTool)
+      .where(eq(db.schema.artifactTool.artifactId, ctx.artifactId)),
+    ctx.db
+      .select({
+        id: db.schema.artifactPrompt.id,
+        title: db.schema.artifactPrompt.title
+      })
+      .from(db.schema.artifactPrompt)
+      .where(eq(db.schema.artifactPrompt.artifactId, ctx.artifactId)),
+    ctx.db
+      .select({
+        id: db.schema.artifactResource.id,
+        title: db.schema.artifactResource.title,
+        uri: db.schema.artifactResource.uri,
+        status: db.schema.artifactResource.status,
+        sourceType: db.schema.artifactResource.sourceType
+      })
+      .from(db.schema.artifactResource)
+      .where(eq(db.schema.artifactResource.artifactId, ctx.artifactId)),
+    ctx.db
+      .select()
+      .from(db.schema.artifactCredential)
+      .where(eq(db.schema.artifactCredential.artifactId, ctx.artifactId)),
+    versionsSummary(ctx),
+    describeData(ctx).catch((error: Error) => ({ error: error.message })),
+    toolHealth(ctx)
+  ]);
 
   return {
     owner: owner ?? null,
+    botInstructions: project?.botInstructions ?? null,
     tools: tools.map(t => ({
       id: t.id,
       toolKey: t.toolKey,
@@ -758,6 +779,8 @@ const run = async (
   const action = input.action;
   switch (name) {
     case 'project':
+      if (action === 'set_instructions')
+        return stageProject(ctx, 'bot', action, input);
       return json(await overview(ctx));
     case 'functions':
       if (action === 'read')

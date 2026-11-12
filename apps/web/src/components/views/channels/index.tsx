@@ -22,11 +22,13 @@ import {
   AudiotrackOutlined,
   VideocamOutlined,
   OpenInNew,
-  MicNoneOutlined
+  MicNoneOutlined,
+  TuneOutlined
 } from '@mui/icons-material';
 
 import { Wrapper, UsageModalOverlay } from './styles';
 import { WhatsappTemplates } from './templates';
+import { BotInstructions } from './bot-instructions';
 import { i18n } from '../../../lib';
 
 import type { Translate } from '../../../lib';
@@ -524,6 +526,7 @@ export const Channels = () => {
     projectId: string;
   };
   const apiBase = `/organization/${organizationId}/project/${projectId}/channel`;
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
 
   const fetchChannels = async (signal?: AbortSignal) => {
     if (!organizationId || !projectId) return;
@@ -1024,11 +1027,23 @@ export const Channels = () => {
             <h1 className="channels-title">{t('title')}</h1>
             <p className="channels-subtitle">{t('subtitle')}</p>
           </div>
-          <UI.Button variant="contained" size="small" onClick={handleCreate}>
-            <Add />
-            <span className="button-text">{t('addChannel')}</span>
-          </UI.Button>
+          <div className="channels-header-actions">
+            <UI.Button size="small" onClick={() => setInstructionsOpen(true)}>
+              <TuneOutlined />
+              <span className="button-text">{t('botInstructions')}</span>
+            </UI.Button>
+            <UI.Button variant="contained" size="small" onClick={handleCreate}>
+              <Add />
+              <span className="button-text">{t('addChannel')}</span>
+            </UI.Button>
+          </div>
         </div>
+        <BotInstructions
+          organizationId={organizationId}
+          projectId={projectId}
+          open={instructionsOpen}
+          onClose={() => setInstructionsOpen(false)}
+        />
 
         {status === 'pending' && channels.length === 0 && (
           <div className="channels-items">

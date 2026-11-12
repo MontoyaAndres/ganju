@@ -708,6 +708,8 @@ export const project = pgTable('project', {
   artifactCount: integer('artifact_count').notNull().default(0),
   projectUserCount: integer('project_user_count').notNull().default(0),
   description: text('description'),
+  // Added after the model's own instructions in every channel's turns.
+  botInstructions: text('bot_instructions'),
   createdById: text('created_by_id')
     .notNull()
     .references(() => user.id),

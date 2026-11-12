@@ -118,6 +118,16 @@ const PROJECT_UPDATE = z.object({
   description: z.string().max(500).optional()
 });
 
+const PROJECT_BOT_INSTRUCTIONS = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+  organizationId: z.uuid(),
+  botInstructions: z
+    .string()
+    .trim()
+    .max(constants.BOT_INSTRUCTIONS_MAX_LENGTH)
+});
+
 const PROJECT_GET = z.object({
   id: z.uuid(),
   organizationId: z.uuid(),
@@ -2255,6 +2265,7 @@ export const Schema = {
   PROJECT_CREATE,
   PROJECT_CREATE_VIEW,
   PROJECT_UPDATE,
+  PROJECT_BOT_INSTRUCTIONS,
   PROJECT_GET,
   ORGANIZATION_INVITATION_CREATE,
   ORGANIZATION_INVITATION_CREATE_VIEW,

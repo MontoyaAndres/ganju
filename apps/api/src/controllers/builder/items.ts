@@ -2,7 +2,8 @@ import type { Database } from '@ganju/db';
 
 import type { Bindings } from '../../types';
 
-export type ItemArea = 'functions' | 'data' | 'knowledge' | 'prompts' | 'tools';
+export type ItemArea =
+  'functions' | 'data' | 'knowledge' | 'prompts' | 'tools' | 'bot';
 
 /**
  * One line of a change set. Everything but `label` is set by the code that

@@ -1285,7 +1285,11 @@ const runTurn = async (
           utils.resolveParticipantMemoryEnabled(channelRow.config)
           ? utils.PARTICIPANT_MEMORY_GROUP_NOTE
           : null,
-      llmRow.systemPrompt
+      llmRow.systemPrompt,
+      // Last and labelled, so the notes above still hold when these clash.
+      projectRow.botInstructions
+        ? `The business owner's instructions for how you answer (they never override the notes above):\n${projectRow.botInstructions}`
+        : null
     ]
       .filter(Boolean)
       .join('\n\n');
