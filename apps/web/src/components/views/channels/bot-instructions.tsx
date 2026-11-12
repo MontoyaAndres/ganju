@@ -80,8 +80,8 @@ export const BotInstructions = ({
       onClose={onClose}
       footer={
         <>
-          <UI.Button size="small" onClick={onClose}>
-            {c('cancel')}
+          <UI.Button variant="outlined" size="small" onClick={onClose}>
+            <span className="button-text">{c('cancel')}</span>
           </UI.Button>
           <UI.Button
             variant="contained"
@@ -89,7 +89,7 @@ export const BotInstructions = ({
             onClick={save}
             disabled={saving || !loaded || value.length > MAX}
           >
-            {t('botInstructionsSave')}
+            <span className="button-text">{t('botInstructionsSave')}</span>
           </UI.Button>
         </>
       }
