@@ -126,7 +126,7 @@ const channelLabel = (channel: ChannelRow) => {
 // The live script's functions, the project's chat channels and its approved
 // WhatsApp templates, for the dialog's selects. Each list comes back empty
 // when it can't be read.
-const useTargets = (base: string) => {
+export const useTargets = (base: string) => {
   const [functions, setFunctions] = useState<ProjectFunction[] | null>(null);
   const [channels, setChannels] = useState<ProjectChannel[]>([]);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
@@ -513,7 +513,7 @@ const describeSchedule = (
 
 // Why Ganju turned a trigger off, in the reader's words when it is one of
 // the reasons Ganju writes; anything else as it was written.
-const disabledReason = (reason: string, t: DataT) => {
+export const disabledReason = (reason: string, t: DataT) => {
   const failures =
     /^Turned off by Ganju after (\d+) failed runs in a row\.$/.exec(reason);
   if (failures)
@@ -1841,7 +1841,12 @@ interface RunsDialogProps {
   onClose: () => void;
 }
 
-const RunsDialog = ({ base, trigger, readOnly, onClose }: RunsDialogProps) => {
+export const RunsDialog = ({
+  base,
+  trigger,
+  readOnly,
+  onClose
+}: RunsDialogProps) => {
   const snackbar = UI.Alert.useSnackbar();
   const t = i18n.useT(i18n.copy.DATA);
   const c = i18n.useT(i18n.copy.COMMON);

@@ -432,8 +432,12 @@ export interface ChannelsContext {
  * text, never as instructions.
  */
 export interface TriggerEvent<Row = Record<string, unknown>> {
-  /** `time`: a time trigger's row came due; nothing changed. */
-  event: 'insert' | 'update' | 'delete' | 'time';
+  /**
+   * `time`: a time trigger's row came due; nothing changed. `schedule`: a
+   * schedule's time came (no table or row; its query's `rows` instead).
+   */
+  event: 'insert' | 'update' | 'delete' | 'time' | 'schedule';
+  /** Empty on `schedule`. */
   table: string;
   /** The row after the change; null on delete. On `time`, the row as it was when it came due. */
   row: Row | null;
@@ -448,6 +452,16 @@ export interface TriggerEvent<Row = Record<string, unknown>> {
   /** Set, with `rowId`, when the row was too large to send: read it by id. */
   truncated?: true;
   rowId?: number;
+  /** On `schedule`: the run's date in the database's time zone (YYYY-MM-DD). */
+  date?: string;
+  /** On `schedule` with a saved query: its name, rows (up to 200) and how many it returned (counted up to 500). */
+  query?: string;
+  rows?: Row[];
+  rowCount?: number;
+  /** Some rows were left out for size; `rowCount` says how many there were. */
+  rowsTruncated?: true;
+  /** More rows than counted: `rowCount` is a lower bound. */
+  rowCountMore?: true;
 }
 
 export interface ToolContext {

@@ -14,6 +14,7 @@ import {
   listQueries,
   queriesFor,
   runQuery,
+  runDraftQuery,
   saveQuery,
   assertWritable,
   assertActor,
@@ -54,6 +55,10 @@ import {
   utf8Bytes,
   hasTimeTriggers,
   scanTimeTriggers,
+  hasSchedules,
+  nextScheduleAt,
+  scanSchedules,
+  restartClocks,
   DATA_TIME_SCAN_MS,
   DATA_MAX_USAGE_SHAPES
 } from '@ganju/utils/data';
@@ -432,7 +437,7 @@ export class ProjectDatabase
   // The zone datetimes come back in for callers that send none: the
   // assistant, functions, and anything that leaves it to the database.
   async setTimeZone(caller: DataCaller, args: { timeZone: string | null }) {
-    return this.call({}, runner => {
+    return this.call({}, async runner => {
       assertActor(caller);
       const zone = args.timeZone === null ? null : validTimeZone(args.timeZone);
       if (args.timeZone !== null && !zone) {
@@ -440,8 +445,13 @@ export class ProjectDatabase
           `"${String(args.timeZone)}" isn't a time zone; use an IANA name such as America/Bogota.`
         );
       }
+      const changed = (getMeta(runner, 'time_zone') ?? null) !== (zone ?? null);
       setMeta(runner, 'time_zone', zone ?? null);
       this.schemaCache = null;
+      // Schedules count from now in a new zone: a time that already passed
+      // there today isn't sent late, and the alarm moves to the next one.
+      if (changed) restartClocks(runner, ['schedule']);
+      await this.scheduleTimeScan(runner);
       return this.readInfo(runner);
     });
   }
@@ -796,6 +806,17 @@ export class ProjectDatabase
     );
   }
 
+  // A query the assistant staged but the owner hasn't applied, run to show
+  // what it returns; nothing is saved.
+  async runDraftQuery(
+    caller: DataCaller,
+    args: { query: unknown; params?: unknown; limit?: unknown }
+  ) {
+    return this.call({}, runner =>
+      runDraftQuery(runner, this.schema(runner), this.caller(caller, runner), args)
+    );
+  }
+
   // Triggers
 
   async listTriggers(_caller: DataCaller) {
@@ -1142,10 +1163,15 @@ export class ProjectDatabase
     if (current === null || current > at) await this.ctx.storage.setAlarm(at);
   }
 
-  // When the next time-trigger scan is due, while an enabled one exists.
+  // When the next time-trigger scan or schedule is due, while an enabled
+  // one exists.
   private nextTimeScan(runner: SqlRunner): number | null {
-    if (!hasTimeTriggers(runner)) return null;
-    return Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS;
+    const scanAt = hasTimeTriggers(runner)
+      ? Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS
+      : null;
+    const dueAt = nextScheduleAt(runner, this.schema(runner));
+    if (scanAt === null) return dueAt;
+    return dueAt === null ? scanAt : Math.min(scanAt, dueAt);
   }
 
   private async scheduleTimeScan(runner: SqlRunner) {
@@ -1158,8 +1184,18 @@ export class ProjectDatabase
   // next one: it mustn't hold up the outbox.
   private timeScan(runner: SqlRunner) {
     if (getMeta(runner, 'deleted_at')) return;
-    const at = this.nextTimeScan(runner);
-    if (at === null || Date.now() < at - ALARM_SLACK_MS) return;
+    // A schedule only fires for a due time not yet handled, so checking on
+    // every alarm is cheap and catches one that woke a little early.
+    if (hasSchedules(runner)) {
+      try {
+        scanSchedules(runner, this.schema(runner));
+      } catch (error) {
+        console.error('project-database-schedule-scan-failed', errorText(error));
+      }
+    }
+    if (!hasTimeTriggers(runner)) return;
+    const at = Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS;
+    if (Date.now() < at - ALARM_SLACK_MS) return;
     try {
       const result = scanTimeTriggers(runner, this.schema(runner));
       for (const off of result.disabled) {

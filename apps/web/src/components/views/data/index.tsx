@@ -9,6 +9,7 @@ import {
   ArrowBack,
   LockOutlined,
   ManageSearchOutlined,
+  ScheduleOutlined,
   SettingsOutlined,
   StorageOutlined,
   TableChartOutlined,
@@ -39,6 +40,10 @@ const RowsTab = dynamic(() => import('./rows').then(m => m.RowsTab), {
   loading: () => <UI.Skeleton variant="rounded" height={360} />
 });
 
+const SchedulesView = dynamic(
+  () => import('./schedules').then(m => m.SchedulesView),
+  { ssr: false }
+);
 const TriggersTab = dynamic(
   () => import('./triggers').then(m => m.TriggersTab),
   {
@@ -77,6 +82,7 @@ export const Data = ({ plan }: DataProps) => {
   const [tab, setTab] = useState<Tab>('rows');
   // The named queries take the main pane instead of a table.
   const [queriesOpen, setQueriesOpen] = useState(false);
+  const [schedulesOpen, setSchedulesOpen] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
   const [rowCounts, setRowCounts] = useState<Record<string, number>>({});
   // Bumped after an import, so the open table reads its rows again.
@@ -213,7 +219,7 @@ export const Data = ({ plan }: DataProps) => {
   // A narrow screen shows one pane at a time: the table list, or the open
   // table. On a wide one both stay up, so open the first table.
   useEffect(() => {
-    if (selected || queriesOpen || tables.length === 0) return;
+    if (selected || queriesOpen || schedulesOpen || tables.length === 0) return;
     // A link from Tool health names the table and the tab.
     const linked = tables.find(table => table.name === router.query.table);
     if (linked) {
@@ -580,7 +586,7 @@ export const Data = ({ plan }: DataProps) => {
 
   const renderTables = () => (
     <div
-      className={`data-layout ${selectedTable || queriesOpen ? 'has-selection' : ''}`}
+      className={`data-layout ${selectedTable || queriesOpen || schedulesOpen ? 'has-selection' : ''}`}
     >
       <aside className="data-tables">
         <div className="data-tables-header">
@@ -623,6 +629,7 @@ export const Data = ({ plan }: DataProps) => {
               onClick={() => {
                 setSelected(table.name);
                 setQueriesOpen(false);
+                setSchedulesOpen(false);
                 setTab('rows');
               }}
             >
@@ -644,16 +651,36 @@ export const Data = ({ plan }: DataProps) => {
             className={`data-table-item ${queriesOpen ? 'active' : ''}`}
             onClick={() => {
               setQueriesOpen(true);
+              setSchedulesOpen(false);
               setSelected(null);
             }}
           >
             <ManageSearchOutlined />
             <span className="data-table-item-name">{t('queries')}</span>
           </button>
+          <button
+            type="button"
+            className={`data-table-item ${schedulesOpen ? 'active' : ''}`}
+            onClick={() => {
+              setSchedulesOpen(true);
+              setQueriesOpen(false);
+              setSelected(null);
+            }}
+          >
+            <ScheduleOutlined />
+            <span className="data-table-item-name">{t('schedules')}</span>
+          </button>
         </div>
       </aside>
       <section className="data-main">
-        {queriesOpen ? (
+        {schedulesOpen ? (
+          <SchedulesView
+            base={base}
+            readOnly={readOnly}
+            timeZone={database?.timeZone ?? null}
+            onBack={() => setSchedulesOpen(false)}
+          />
+        ) : queriesOpen ? (
           <QueriesView
             base={base}
             readOnly={readOnly}

@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
-import { DataError } from '@ganju/utils/data';
+import { DataError, scheduleParamsMismatch } from '@ganju/utils/data';
 
 import * as dataActions from '../artifact/dataActions';
 import {
@@ -82,10 +82,17 @@ const triggerInput = (trigger: DataTrigger) => {
   return {
     name: trigger.name,
     description: trigger.description,
-    table: trigger.table,
     on: trigger.on,
-    after: trigger.after,
-    when: trigger.when,
+    ...(trigger.on === 'schedule'
+      ? {
+          every: trigger.every,
+          at: trigger.at,
+          days: trigger.every === 'week' ? trigger.days : null,
+          query: trigger.query,
+          params: trigger.params,
+          skipEmpty: trigger.skipEmpty
+        }
+      : { table: trigger.table, after: trigger.after, when: trigger.when }),
     enabled: trigger.enabled,
     rateLimit: trigger.rateLimit,
     [type]: value
@@ -368,7 +375,34 @@ export const stageData = async (
     }
     case 'save_query': {
       const query = await Schema.DATA_QUERY_INPUT.parseAsync(input.query);
-      return push({ op: action, payload: { query }, undo: 'reverse' });
+      const staged = push({ op: action, payload: { query }, undo: 'reverse' });
+      // Saved after this change, a schedule that runs it with other
+      // parameters fails each run: say so while it can join this change set.
+      const { triggers } = ready
+        ? ((await withData(caller, scope, request =>
+            dataActions.listTriggers(request)
+          )) as { triggers: DataTrigger[] })
+        : { triggers: [] as DataTrigger[] };
+      const restaged = new Set(
+        ctx.staged
+          .filter(item => item.area === 'data' && item.op === 'save_trigger')
+          .map(item => (item.payload.trigger as { name?: string }).name)
+      );
+      const stale = triggers
+        .filter(
+          t =>
+            t.on === 'schedule' &&
+            t.query === query.name &&
+            !restaged.has(t.name) &&
+            scheduleParamsMismatch(
+              Object.keys(t.params ?? {}),
+              query.params ?? []
+            ).length > 0
+        )
+        .map(t => t.name);
+      return stale.length
+        ? `${staged} The schedule ${stale.join(', ')} runs this query with other parameters: stage a save_trigger for it with the new params in this same change set, or each of its runs fails.`
+        : staged;
     }
     case 'drop_query': {
       const name = String(input.name ?? '');
@@ -438,9 +472,39 @@ export const stageData = async (
   throw new Error(`Unknown data action ${action}`);
 };
 
+// A saved query this conversation staged or proposed and the owner hasn't
+// applied yet, newest first: a schedule's test runs it as it will be.
+const draftQuery = async (ctx: BuilderToolContext, name: unknown) => {
+  if (typeof name !== 'string' || !name) return null;
+  const named = (item: StagedItem) =>
+    item.area === 'data' &&
+    item.op === 'save_query' &&
+    (item.payload.query as { name?: string } | undefined)?.name === name;
+  const staged = [...ctx.staged].reverse().find(named);
+  if (staged) return staged.payload.query as { name: string };
+  // Only the conversation's newest change set, still waiting: an older one
+  // the owner left unapplied is not what will run.
+  const [newest] = await ctx.db
+    .select({
+      items: db.schema.builderChangeSet.items,
+      status: db.schema.builderChangeSet.status
+    })
+    .from(db.schema.builderChangeSet)
+    .where(eq(db.schema.builderChangeSet.conversationId, ctx.conversationId))
+    .orderBy(desc(db.schema.builderChangeSet.createdAt))
+    .limit(1);
+  const proposed =
+    newest?.status === constants.BUILDER_CHANGE_SET_STATUS_PROPOSED
+      ? newest
+      : null;
+  const item = ((proposed?.items ?? []) as StagedItem[]).find(named);
+  return (item?.payload.query as { name: string } | undefined) ?? null;
+};
+
 /**
  * An email trigger's message, sent now to the owner's own address from a row
- * of the table (the newest by default), whatever its "to" says.
+ * of the table (the newest by default), or a schedule's as its run builds it,
+ * whatever its "to" says.
  */
 export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
   const [owner] = await ctx.db
@@ -461,19 +525,34 @@ export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
       );
     }
   }
-  return withData(
+  const draft =
+    input.schedule && typeof input.schedule === 'object'
+      ? await draftQuery(ctx, input.schedule.query)
+      : null;
+  return withData<unknown>(
     { env: ctx.env, db: ctx.db },
     { artifactId: ctx.artifactId, userId: ctx.userId },
     request =>
-      dataActions.testSendEmail(
-        request,
-        {
-          table: String(input.table ?? ''),
-          email: input.email,
-          ...(input.rowId ? { rowId: Number(input.rowId) } : {})
-        },
-        owner.email
-      )
+      input.schedule && typeof input.schedule === 'object'
+        ? dataActions.testSendScheduleEmail(
+            request,
+            {
+              query: input.schedule.query ?? null,
+              params: input.schedule.params ?? null,
+              email: input.email,
+              ...(draft ? { draft } : {})
+            },
+            owner.email
+          )
+        : dataActions.testSendEmail(
+            request,
+            {
+              table: String(input.table ?? ''),
+              email: input.email,
+              ...(input.rowId ? { rowId: Number(input.rowId) } : {})
+            },
+            owner.email
+          )
   );
 };
 

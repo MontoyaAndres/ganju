@@ -4,7 +4,13 @@ import { db } from '@ganju/db';
 import {
   DataError,
   normaliseEmailAction,
-  renderTriggerText
+  normaliseTrigger,
+  renderTriggerText,
+  scheduleParams,
+  scheduleEmail,
+  capScheduleRows,
+  localDate,
+  DATA_SCHEDULE_COUNT_ROWS
 } from '@ganju/utils/data';
 
 import {
@@ -509,6 +515,88 @@ export const testSendEmail = async (
     );
   }
   return { sent: 'email' as const, to, subject, text, rowId: row.id };
+};
+
+/**
+ * A schedule's email as tonight's run would send it, now, to `to`: its saved
+ * query run for today, the rows listed after the text.
+ */
+export const testSendScheduleEmail = async (
+  request: DataRequest,
+  body: {
+    query?: string | null;
+    params?: Record<string, unknown> | null;
+    email: unknown;
+    // The query as staged, not saved yet: run without saving it.
+    draft?: { name: string } & Record<string, unknown>;
+  },
+  to: string
+) => {
+  if (request.caller.limits?.readOnly) {
+    throw new DataError(
+      "This organization's plan no longer includes Data, so its triggers are paused and can't be tested. Upgrade to Pro to send a test.",
+      'read_only'
+    );
+  }
+  const schema = await readSchema(request);
+  const trigger = normaliseTrigger(schema, {
+    on: 'schedule',
+    every: 'day',
+    at: '00:00',
+    query: body.draft?.name ?? body.query ?? null,
+    params: body.params ?? null,
+    email: body.email
+  });
+  if (trigger.action.type !== 'email') {
+    throw new DataError('"email" is { "to", "subject", "text" }.');
+  }
+  const now = new Date();
+  const timeZone = schema.timeZone ?? undefined;
+  let carried: ReturnType<typeof capScheduleRows> | null = null;
+  const query = trigger.query;
+  if (query) {
+    const params = scheduleParams(trigger.params, now, timeZone);
+    const draft = body.draft;
+    const result = await callData(
+      'runQuery',
+      () =>
+        draft
+          ? request.opened.stub.runDraftQuery(request.caller, {
+              query: draft,
+              params,
+              limit: DATA_SCHEDULE_COUNT_ROWS
+            })
+          : request.opened.stub.runQuery(request.caller, {
+              name: query,
+              params,
+              limit: DATA_SCHEDULE_COUNT_ROWS
+            }),
+      request.tally,
+      { retryRead: true }
+    );
+    carried = capScheduleRows(result.rows, 'truncated' in result);
+  }
+  // Built as the nightly run builds it.
+  const email = scheduleEmail(trigger.action, {
+    date: localDate(now, timeZone),
+    ...carried
+  });
+  const subject = `[Test] ${email.subject}`.slice(0, 200);
+  const text = email.text;
+  const failed = await emailEach(request, [to], { subject, text });
+  if (failed.length > 0) {
+    throw new DataError(
+      "The test email couldn't be sent. Try again in a minute.",
+      'internal'
+    );
+  }
+  return {
+    sent: 'email' as const,
+    to,
+    subject,
+    text,
+    rows: carried?.rowCount ?? 0
+  };
 };
 
 // Point-in-time recovery

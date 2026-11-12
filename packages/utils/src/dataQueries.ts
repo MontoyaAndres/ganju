@@ -76,6 +76,9 @@ export interface DataQuery {
   plan: string[];
   updatedAt: string;
   updatedBy: string | null;
+  // On save: schedules that run it with parameters it no longer takes, or
+  // without one it now needs. Each run fails until they are changed too.
+  schedulesToUpdate?: string[];
 }
 
 export const DATA_MAX_QUERIES = 100;
@@ -561,14 +564,61 @@ export const saveQuery = (
       caller.actor
     ]
   );
-  return findQuery(runner, name);
+  const saved = findQuery(runner, name);
+  const stale = schedulesToUpdate(runner, name, params);
+  return stale.length ? { ...saved, schedulesToUpdate: stale } : saved;
 };
+
+/** The parameters a schedule gives that `params` doesn't fit: unknown, or required and missing. */
+export const scheduleParamsMismatch = (
+  given: string[],
+  params: DataQueryParam[]
+): string[] => [
+  ...given.filter(key => !params.some(p => p.name === key)),
+  ...params
+    .filter(p => p.required !== false && !given.includes(p.name))
+    .map(p => p.name)
+];
+
+// Not refused: a change set that changes a query and its schedule saves one
+// before the other, and each would refuse while the other is unchanged.
+const schedulesToUpdate = (
+  runner: SqlRunner,
+  query: string,
+  params: DataQueryParam[]
+): string[] =>
+  runner
+    .all(
+      "SELECT name, json_extract(schedule, '$.params') AS params FROM _ganju_triggers WHERE event = 'schedule' AND json_extract(schedule, '$.query') = ? ORDER BY name",
+      [query]
+    )
+    .filter(row => {
+      const given =
+        typeof row.params === 'string'
+          ? Object.keys((JSON.parse(row.params) as object | null) ?? {})
+          : [];
+      return scheduleParamsMismatch(given, params).length > 0;
+    })
+    .map(row => String(row.name));
 
 export const dropQuery = (
   runner: SqlRunner,
   name: unknown
 ): { dropped: string } => {
   const query = findQuery(runner, name);
+  // A schedule that runs it would fail every run after.
+  const usedBy = runner
+    .all(
+      "SELECT name FROM _ganju_triggers WHERE event = 'schedule' AND json_extract(schedule, '$.query') = ? ORDER BY name",
+      [query.name]
+    )
+    .map(row => String(row.name));
+  if (usedBy.length) {
+    throw new DataError(
+      `${query.name} is used by the schedule ${usedBy.join(', ')}; change or delete it first.`,
+      'conflict'
+    );
+  }
   runner.all('DELETE FROM _ganju_queries WHERE name = ?', [query.name]);
   return { dropped: query.name };
 };
@@ -727,4 +777,33 @@ export const runQuery = (
         }
       : {})
   };
+};
+
+/**
+ * A query not saved yet, run as if it were: saved and run in a transaction
+ * that is then rolled back, so it is checked exactly as saving checks it and
+ * nothing stays.
+ */
+export const runDraftQuery = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  caller: DataCaller,
+  args: { query: unknown; params?: unknown; limit?: unknown }
+) => {
+  const ran: { result?: ReturnType<typeof runQuery> } = {};
+  const rollBack = new Error('draft query');
+  try {
+    runner.transaction(() => {
+      const saved = saveQuery(runner, schema, caller, args.query);
+      ran.result = runQuery(runner, schema, caller, {
+        name: saved.name,
+        params: args.params,
+        limit: args.limit
+      });
+      throw rollBack;
+    });
+  } catch (error) {
+    if (error !== rollBack) throw error;
+  }
+  return ran.result as ReturnType<typeof runQuery>;
 };

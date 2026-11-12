@@ -1269,6 +1269,101 @@ Status: phase 7 done on dev and production. Checked in production
 **Next:** B (schedules). A's guide and template are a shareable doc (owner
 has the link).
 
+**B built (2026-11-12), on `feat/data-schedules`, not yet on dev:**
+- A trigger with `"on": "schedule"`: no table or `when`; `every` day or week
+  (`days`, Monday when left out), `at` "HH:MM" in the database's time zone;
+  an optional saved `query` whose rows (up to 200, 48 KB) go with each run,
+  its `params` filled with `{{today}}`, `{{yesterday}}`, `{{today_start}}`,
+  `{{today_end}}` (the local day's bounds in UTC) or `{{now}}`; `skipEmpty`.
+  Actions: email (the rows listed after the text, `{{date}}` and `{{count}}`),
+  function and webhook (`date`, `query`, `rows`, `rowCount`). Up to 5 per
+  database. No Postgres or object migration: it reuses `_ganju_triggers`
+  (`table_id` 0, the clock in `schedule`, the last due time in `scan_state`).
+- The object's alarm wakes at the next due time (or the 5-minute time scan,
+  whichever is first) and checks schedules on every alarm. A due time fires
+  in the same transaction that marks it handled, so never twice; one missed
+  by up to 6 hours fires once, late, and older ones are skipped. Turned back
+  on, it counts from then. A failing query is a failed run with its error.
+- Dashboard: Data → Schedules (list, on/off, runs, edit, delete, form), en/es.
+- CLI `ganju.json` types and deploy output, SDK `TriggerEvent`, the Data API
+  description and validation, the triggers docs page (en/es), the Assistant
+  page.
+- The assistant: save_trigger takes schedules and test_email
+  {schedule: {query, params}, email} sends the email as tonight's run would;
+  the prompt's "no schedule" rule and its workarounds are gone. Eval
+  `nightly-orders` now expects the schedule; the judge sees test emails.
+- Tests: 9 for schedules in utils (time zones and daylight saving, once per
+  due time, catch-up, query rows, failures, limits).
+
+**Checked on dev (2026-11-12), in `qa-timecap`:**
+- Eval `nightly-orders` 3/3 (26 to 47 credits): each run saved a query for
+  the Bogotá day with {{today_start}}/{{today_end}}, a schedule at 21:00 with
+  skipEmpty, and test-emailed it after Apply. One guarded its totals row with
+  HAVING count(*) > 0. Each run first tried test_email before Apply (the query
+  didn't exist yet); the prompt now says to test once applied, and to keep a
+  totals row empty on days with none.
+- A schedule saved 3 minutes ahead (11:31 Bogotá) fired once at 16:31:03 UTC
+  and its email was sent; moved to 11:35 it fired once at 16:35:03; one
+  turned off at the same time didn't fire. The two test schedules were
+  deleted afterwards.
+- The dashboard's Schedules list and form (daily and weekly, day boxes, the
+  query's parameters, skip when empty) in Spanish.
+
+- With the prompt saying to test once applied, `nightly-orders` went 0/3:
+  the app sends nothing after Apply, so the assistant only goes on when the
+  owner writes again, and the simulated owner ended the chat. So a schedule's
+  test_email now also runs a query staged or proposed in this conversation
+  and not applied yet (`runDraftQuery`: saved and run in a rolled-back
+  transaction), and the prompt says to send the sample before proposing.
+
+- After that deploy: `nightly-orders` 2/3 (11.5 to 31.3 credits), the sample
+  sent before Apply each time; the failed run added a totals row with no
+  HAVING guard, so an empty day would still email. The eval's view of what
+  was built now shows each query's SQL and each trigger's settings (the
+  judges couldn't see a schedule's time, parameters or skipEmpty).
+- Full eval (2026-11-12): 17 of the 18 runs that ran passed (pizza-stock,
+  nightly-orders, menu-pdf, open-now, calendar-booking 3/3; delivery-orders
+  2/3), 25.1 credits a run. The last four cases (12 runs) didn't run:
+  qa-timecap's assistant credits for the month ran out.
+
+- Code review fixes: changing the database's time zone re-arms the alarm and
+  counts schedules from then; `rowCount` counts up to 500 so "(200 / 300)"
+  shows when rows are left out; saving a schedule refuses a query parameter
+  it doesn't give; a saved query a schedule uses can't be deleted; the
+  turned-off email names a schedule, not a table; the test email and the run
+  build the email with one helper. Not fixed: a point-in-time restore to
+  before a run makes that run go out again (rare, owner-initiated).
+
+- Checked on dev after the review fixes: deleting a saved query a schedule
+  uses is refused (409, naming the schedule); a schedule missing its query's
+  required parameters is refused (400); a schedule at 18:18 Madrid time,
+  saved while the database was in Bogotá, fired once at 17:18:03 UTC after
+  the zone was switched to Europe/Madrid (the database was set back to
+  America/Bogota and the test schedule deleted).
+
+- qa-timecap's extra-credit limit raised from 2,000 to 4,000 (the evals of
+  the day had used 3,004 credits).
+- Full eval on dev (2026-11-12): **30/30**, every case 3/3, 21.3 credits a
+  run (max 43.5), 10.5 model calls and 2.7 owner turns a run; saved as the
+  new baseline `scripts/golden/builder-schedules-server.json` (was 29/30,
+  22.9 credits). nightly-orders 3/3 at about 12 credits.
+
+- Second review's fixes: a point-in-time restore restarts schedules as it
+  does time triggers, so a run isn't sent twice; saving the same time zone
+  again no longer restarts them; the "+" on the row count shows only when
+  the query stopped before its last row (`rowCountMore`); in the dashboard a
+  new schedule never replaces another trigger of the same name, a saved one
+  keeps its name (no rename, so no limit or on/off surprises), and an email
+  to addresses that must confirm says so. Re-saving a query a schedule runs
+  with other parameters isn't refused (a change set that changes both would
+  deadlock, each save refusing before the other): the save names the
+  schedules to change (`schedulesToUpdate`), the dashboard warns, and the
+  assistant is told when staging it to stage the schedule in the same change
+  set. A schedule's test email uses a proposed query only from the
+  conversation's newest change set, while it still waits.
+
+**B is done on dev.** Left: merge and deploy to production (no migration).
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 

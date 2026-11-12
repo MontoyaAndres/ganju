@@ -838,8 +838,9 @@ const DATA_TRIGGER_TEMPLATE = z.strictObject({
 const DATA_TRIGGER_INPUT = z.strictObject({
   name: DATA_TRIGGER_NAME.optional(),
   description: z.string().max(300).nullish(),
-  table: DATA_IDENTIFIER,
-  on: z.enum(['insert', 'update', 'delete', 'time']),
+  // Every event but "schedule", which runs on the clock with no table.
+  table: DATA_IDENTIFIER.nullish(),
+  on: z.enum(['insert', 'update', 'delete', 'time', 'schedule']),
   // With "time": fires this many minutes after the column's time (negative:
   // before it). The column is created_at, updated_at or a date / datetime.
   after: z
@@ -852,6 +853,16 @@ const DATA_TRIGGER_INPUT = z.strictObject({
   // combined with { all: [...] } or { any: [...] }. A time trigger takes
   // equals only.
   when: z.record(z.string(), z.unknown()).nullish(),
+  // With "schedule": every day, or every week on `days` (Monday when left
+  // out), at a 24-hour time in the database's zone, carrying a saved query's
+  // rows; `params` values may be {{today}}, {{yesterday}}, {{today_start}},
+  // {{today_end}} or {{now}}.
+  every: z.enum(['day', 'week']).nullish(),
+  at: z.string().max(5).nullish(),
+  days: z.array(z.string().max(9)).min(1).max(7).nullish(),
+  query: DATA_IDENTIFIER.nullish(),
+  params: z.record(z.string(), z.unknown()).nullish(),
+  skipEmpty: z.boolean().nullish(),
   enabled: z.boolean().optional(),
   // false: refuse to save over an existing trigger of this name.
   replace: z.boolean().optional(),

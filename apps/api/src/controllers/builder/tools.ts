@@ -134,7 +134,7 @@ Stage (needs label): set_instructions {text}, the whole new text of the bot's in
     name: 'data',
     description: `The project's database.
 Read now: describe (tables, columns, saved queries, triggers, time zone, and whether a developer pushes the tables from code), rows {table, where?, limit?}, run_query {name, params?}.
-Send now: test_email {table, email: {to, subject?, text}, rowId?}: an email trigger's message built from a row (the newest by default), sent only to the owner's own address whatever "to" says. Use it so the owner sees an email before it is due.
+Send now: test_email {table, email: {to, subject?, text}, rowId?}: an email trigger's message built from a row (the newest by default), sent only to the owner's own address whatever "to" says. For a schedule's email: test_email {schedule: {query?, params?}, email}, its query run for today (a query staged here and not applied yet runs as staged). Use it so the owner sees an email before it is due.
 Stage for the change set (each needs label, the plain line the owner reads):
 - create_database {name?}, delete_database
 - create_table {table: {name, label?, description?, displayColumn?, access?, customerScoped?, history?, source?, columns: [...]}} (source {uri, sheet?, key}: rows synced from a spreadsheet in knowledge, the way to import one), change_table {table, patch}, drop_table {table}
@@ -142,6 +142,7 @@ Stage for the change set (each needs label, the plain line the owner reads):
 - add_rows {table, rows: [{...}]}, change_rows {table, updates: [{id, set}]}, delete_rows {table, ids}
 - save_query {query: {name, description?, sql, params?, assistant?}}, drop_query {name}
 - save_trigger {trigger: {name, table, on, after?, when?, and one action: function | webhook | chat | email | customer}}, turn_trigger {name, enabled}, drop_trigger {name}
+- a schedule is a save_trigger with on "schedule", no table or when: {name, on: "schedule", every: "day" | "week", days?: ["mon", ...], at: "21:00" (the database's time zone), query?: a saved query whose rows go with each run, params?: {name: "{{today}}" | "{{yesterday}}" (dates) | "{{today_start}}" | "{{today_end}}" (the local day's bounds as UTC datetimes, for created_at) | "{{now}}" | a value}, skipEmpty?: true (nothing runs when the query returns no rows), and one action: email (the rows listed after its text; text takes {{date}} and {{count}}) | function | webhook}. At most 5 per database; daily is the most often.
 Deletes (drop_*, delete_*) make the owner type the name of what goes. Stage in the order they must happen (a table before the trigger on it).`,
     input_schema: obj(
       {
@@ -191,6 +192,9 @@ Deletes (drop_*, delete_*) make the owner type the name of what goes. Stage in t
         trigger: anyObject('save_trigger'),
         enabled: { type: 'boolean' },
         email: anyObject('test_email: {to, subject?, text}'),
+        schedule: anyObject(
+          "test_email for a schedule's email: {query?, params?}"
+        ),
         rowId: { type: 'integer' }
       },
       ['action']

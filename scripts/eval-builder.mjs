@@ -329,11 +329,13 @@ const runCase = async (c, runIndex) => {
             input: call.input.input ?? {},
             result: String(call.result).slice(0, 1500)
           });
-        // Running a saved query or searching knowledge also checks the
-        // result, and the judge should see it.
+        // Running a saved query, sending a test email or searching knowledge
+        // also checks the result, and the judge should see it.
         else if (
           (call.name === 'data' &&
-            ['run_query', 'query'].includes(call.input?.action)) ||
+            ['run_query', 'query', 'test_email'].includes(
+              call.input?.action
+            )) ||
           (call.name === 'knowledge' && call.input?.action === 'search')
         )
           session.tests.push({

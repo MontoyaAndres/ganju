@@ -9,7 +9,8 @@ import { utils } from '@ganju/utils';
 import {
   DataError,
   renderCustomerMessage,
-  renderTriggerText
+  renderTriggerText,
+  scheduleEmail
 } from '@ganju/utils/data';
 
 import { invokeCustomCodeScript } from '../utils/customCodeDeploy';
@@ -102,6 +103,24 @@ const rowFor = async (
   );
 };
 
+// What a schedule's event adds for an action or webhook: its run date and
+// its saved query's rows.
+const scheduleFields = (job: DataTriggerJob) =>
+  job.event === 'schedule'
+    ? {
+        ...(job.date ? { date: job.date } : {}),
+        ...(job.query
+          ? {
+              query: job.query,
+              rows: job.rows ?? [],
+              rowCount: job.rowCount ?? 0,
+              ...(job.rowsTruncated ? { rowsTruncated: true } : {}),
+              ...(job.rowCountMore ? { rowCountMore: true } : {})
+            }
+          : {})
+      }
+    : {};
+
 const runAction = async (
   env: Bindings,
   executor: DbExecutor,
@@ -151,7 +170,8 @@ const runAction = async (
           eventId: job.eventId,
           triggerId: job.triggerId,
           ...(job.dueAt ? { dueAt: job.dueAt } : {}),
-          ...(job.truncated ? { rowId: job.rowId, truncated: true } : {})
+          ...(job.truncated ? { rowId: job.rowId, truncated: true } : {}),
+          ...scheduleFields(job)
         },
         allowedHosts: functions.allowedHosts,
         timeoutMs: functions.timeoutMs,
@@ -182,7 +202,8 @@ const runAction = async (
         actor: job.actor,
         at: job.at,
         ...(job.dueAt ? { dueAt: job.dueAt } : {}),
-        ...(job.truncated ? { truncated: true } : {})
+        ...(job.truncated ? { truncated: true } : {}),
+        ...scheduleFields(job)
       });
       const timestamp = Math.floor(Date.now() / 1000);
       let response: Response;
@@ -196,7 +217,9 @@ const runAction = async (
             'content-type': 'application/json',
             'user-agent': 'Ganju-Webhooks/1',
             'x-ganju-event-id': job.eventId,
-            'x-ganju-event': `${job.table}.${job.event}`,
+            'x-ganju-event': job.table
+              ? `${job.table}.${job.event}`
+              : job.event,
             'x-ganju-trigger': job.triggerName,
             'x-ganju-signature': await signWebhook(
               trigger.secret,
@@ -244,11 +267,20 @@ const runAction = async (
       if (allowed.length === 0) {
         throw new SkipRun(`Not sent: ${notes.join(' ')}`);
       }
-      const row = await rowFor(executor, database, stub, job);
-      const failed = await emailRecipientsEach(source, allowed, {
-        subject: renderTriggerText(action.subject, row).slice(0, 200),
-        text: renderTriggerText(action.text, row)
-      });
+      const row =
+        job.event === 'schedule'
+          ? null
+          : await rowFor(executor, database, stub, job);
+      const failed = await emailRecipientsEach(
+        source,
+        allowed,
+        job.event === 'schedule'
+          ? scheduleEmail(action, { ...job, date: job.date ?? '' })
+          : {
+              subject: renderTriggerText(action.subject, row).slice(0, 200),
+              text: renderTriggerText(action.text, row)
+            }
+      );
       if (failed.length === allowed.length) {
         throw new Error(`The email couldn't be sent to ${failed.join(', ')}.`);
       }
@@ -407,7 +439,9 @@ const disableIfFailing = async (
   const web = utils.getEnv({ env }, 'NEXT_PUBLIC_WEB_URL') ?? '';
   await emailEach({ env }, to, {
     subject: `Ganju: the trigger ${job.triggerName} was turned off`,
-    text: `The trigger ${job.triggerName} on the table ${job.table} failed ${FAILURES_TO_DISABLE} times in a row, so Ganju turned it off. Its runs and their errors are in the table's Triggers tab on the project's Data page${web ? ` (${web})` : ''}. Turn it back on there once the cause is fixed.`
+    text: job.table
+      ? `The trigger ${job.triggerName} on the table ${job.table} failed ${FAILURES_TO_DISABLE} times in a row, so Ganju turned it off. Its runs and their errors are in the table's Triggers tab on the project's Data page${web ? ` (${web})` : ''}. Turn it back on there once the cause is fixed.`
+      : `The schedule ${job.triggerName} failed ${FAILURES_TO_DISABLE} times in a row, so Ganju turned it off. Its runs and their errors are under Schedules on the project's Data page${web ? ` (${web})` : ''}. Turn it back on there once the cause is fixed.`
   });
 };
 

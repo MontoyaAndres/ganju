@@ -150,6 +150,11 @@ export interface ProjectDatabaseRpc {
     caller: DataCaller,
     args: { name: string; params?: Record<string, unknown>; limit?: number }
   ): R<{ query: string; rows: Record<string, unknown>[]; truncated?: string }>;
+  // A query not saved yet, run without saving it.
+  runDraftQuery(
+    caller: DataCaller,
+    args: { query: unknown; params?: Record<string, unknown>; limit?: number }
+  ): R<{ query: string; rows: Record<string, unknown>[]; truncated?: string }>;
   // Triggers. `pending` counts events waiting for the queue.
   listTriggers(caller: DataCaller): R<{ triggers: DataTrigger[]; pending: number }>;
   getTrigger(nameOrId: string): R<DataTriggerWithSecret>;

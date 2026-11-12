@@ -1,8 +1,8 @@
 ---
 title: Disparadores y webhooks
-description: Ejecuta algo cuando cambian las filas de una tabla, o un tiempo después de la fecha de una fila — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan la entrega, los reintentos y las firmas de los webhooks.
+description: Ejecuta algo cuando cambian las filas de una tabla, un tiempo después de la fecha de una fila, o según una programación cada día o semana — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan la entrega, los reintentos y las firmas de los webhooks.
 order: 57
-updated: 2026-11-06
+updated: 2026-11-12
 ---
 
 Un **disparador** es una regla sobre una tabla: cuando se agrega, cambia o
@@ -18,6 +18,9 @@ que se deshace (porque falló una condición, por ejemplo) no activa nada.
 Un [disparador por tiempo](#disparadores-por-tiempo) se activa cuando pasa un
 tiempo, sin que nada se escriba: un pedido que sigue `pending` 30 minutos
 después de hecho, una reserva que nadie confirmó al mediodía del día anterior.
+
+Una [programación](#programaciones) corre según la hora, cada día o cada semana
+a una hora fija: "cada noche a las 9, envíame por correo los pedidos de hoy".
 
 ## Crear uno
 
@@ -129,6 +132,54 @@ En `ganju.json` y en la API:
 es un día antes. El `event` del evento es `time`, `previous` es `null`, y
 `dueAt` dice cuándo se cumplió el plazo de la fila.
 
+## Programaciones
+
+Una programación corre a una hora fija, cada día o en los días de la semana que
+elijas, en la zona horaria de la base de datos (**Ajustes de la base de datos**, el engranaje de la página
+Datos). No tiene tabla: abre **Programaciones** en la lista de la página Datos y
+elige **Nueva programación**.
+
+- **Se repite** y **A las**: cada día, o cada semana en los días que marques, a
+  una hora como 21:00. Lo más seguido es una vez al día.
+- **Filas de**: una [consulta guardada](/es/docs/data-api/#consultas-guardadas-y-disparadores)
+  cuyas filas van con cada ejecución, como los pedidos de hoy. Sus parámetros
+  pueden tomar la fecha de la ejecución: `{{today}}` y `{{yesterday}}` son
+  fechas, y `{{today_start}}` y `{{today_end}}` son el inicio y el fin del día
+  en hora UTC, para una columna como `created_at` (guardada en UTC). **No
+  ejecutar cuando la consulta no devuelve filas** omite los días sin nada.
+- **Acción**: un **correo**, cuyo texto acepta `{{date}}` y `{{count}}` y va
+  seguido de las filas, una por línea; una **función**; o un **webhook**. Los
+  dos últimos reciben las filas en `rows`, con `date`, `query` y `rowCount`.
+
+Una consulta con los pedidos del día, y la programación que la envía por correo:
+
+```sql
+SELECT customer, items, total FROM orders
+WHERE created_at >= :from AND created_at < :to
+ORDER BY created_at
+```
+
+```json
+{
+  "name": "nightly-orders",
+  "on": "schedule",
+  "every": "day",
+  "at": "21:00",
+  "query": "todays_orders",
+  "params": { "from": "{{today_start}}", "to": "{{today_end}}" },
+  "skipEmpty": true,
+  "email": { "to": "tu@ejemplo.com", "subject": "Pedidos {{date}}", "text": "{{count}} pedidos hoy:" }
+}
+```
+
+Para cada semana, usa `"every": "week"` y `"days": ["mon", "thu"]` (lunes si no
+los indicas). Cada ejecución ocurre una vez. Una ejecución que no pudo correr a
+su hora sale una vez, tarde, si la base de datos vuelve dentro de 6 horas, y se
+omite después de eso. Una base de datos admite hasta 5 programaciones. La
+consulta de una ejecución puede devolver hasta 200 filas; el correo dice cuándo
+se dejaron algunas por fuera. El `event` del evento es `schedule`, su `table`
+está vacía, `row` es `null` y `dueAt` dice para qué hora era.
+
 ## Acciones
 
 | Acción | En `ganju.json` | Qué pasa |
@@ -210,9 +261,11 @@ Ponlos en `"triggers"` dentro de `ganju.json`, junto a tus funciones, y
 }
 ```
 
-- `on` es `insert`, `update`, `delete` o `time` (con `after`, ver
-  [disparadores por tiempo](#disparadores-por-tiempo)), y cada disparador
-  tiene exactamente una acción.
+- `on` es `insert`, `update`, `delete`, `time` (con `after`, ver
+  [disparadores por tiempo](#disparadores-por-tiempo)) o `schedule` (con
+  `every` y `at` y sin `table`, ver [programaciones](#programaciones)), y cada
+  disparador tiene exactamente una acción. La acción de una programación es
+  `email`, `function` o `webhook`.
 - Sin `name`, se arma uno con la tabla, el evento y la acción:
   `orders-insert-notify-kitchen`. Los nombres son letras minúsculas, dígitos,
   `_` y `-`. En el panel y la API, guardar un disparador sin nombre siempre
@@ -300,7 +353,11 @@ Cada evento es un `POST` con un cuerpo JSON:
 ```
 
 El evento de un disparador por tiempo trae `"event": "time"`, `"previous":
-null`, `"actor": null` y `dueAt`, cuándo se cumplió el plazo de la fila.
+null`, `"actor": null` y `dueAt`, cuándo se cumplió el plazo de la fila. El de
+una programación trae `"event": "schedule"`, una `table` vacía, `"row": null`,
+`dueAt`, `date` (la fecha de la ejecución en la zona horaria de la base de
+datos) y, con una consulta, `query`, `rows` y `rowCount` (`rowsTruncated`
+cuando se dejaron algunas por fuera).
 
 y estos encabezados:
 
@@ -308,7 +365,7 @@ y estos encabezados:
 | --- | --- |
 | `x-ganju-signature` | `t=<segundos unix>,v1=<firma>` |
 | `x-ganju-event-id` | El `eventId` |
-| `x-ganju-event` | `<tabla>.<evento>`, como `orders.update` u `orders.time` |
+| `x-ganju-event` | `<tabla>.<evento>`, como `orders.update` u `orders.time`; `schedule` para una programación |
 | `x-ganju-trigger` | El nombre del disparador |
 
 La firma es el HMAC-SHA256 en hexadecimal de `<t>.<cuerpo crudo>`, con el

@@ -71,13 +71,22 @@ export interface ProjectTool {
  * message to the row's `customer`. `"on": "time"` fires a set time after a
  * row's date instead, with `after`: `{ "column": "created_at", "minutes": 30 }`
  * (negative minutes on a date or datetime column: before it), and `when`
- * tests `equals` only. The API checks the rest.
+ * tests `equals` only. `"on": "schedule"` runs on the clock with no `table`:
+ * `{ "every": "day", "at": "21:00", "query": "todays_orders", "email": … }`
+ * (`"every": "week"` with `days`), carrying the saved query's rows. The API
+ * checks the rest.
  */
 export interface ProjectTrigger {
   name?: string;
-  table: string;
-  on: 'insert' | 'update' | 'delete' | 'time';
+  table?: string;
+  on: 'insert' | 'update' | 'delete' | 'time' | 'schedule';
   after?: { column: string; minutes: number };
+  every?: 'day' | 'week';
+  at?: string;
+  days?: string[];
+  query?: string;
+  params?: Record<string, unknown>;
+  skipEmpty?: boolean;
   when?: Record<string, unknown>;
   [action: string]: unknown;
 }

@@ -14,21 +14,37 @@
 // A time trigger ("on": "time") fires a set time after a row's date, with
 // nothing written: the object's alarm scans for rows that came due since
 // its last scan and stores their events in the same outbox.
+// A schedule ("on": "schedule") fires on the clock, with no table, carrying
+// a saved query's rows if it names one.
 import { DATA_IDENTIFIER_PATTERN } from './dataIdentifiers';
 import { fromStored, isoSeconds, localDatetime } from './dataCompiler';
 import type { SqlValue } from './dataCompiler';
 import { DATA_MAX_DESCRIPTION, DataError } from './dataTypes';
 import type { DataCaller, DataSchema, DataTable } from './dataTypes';
 import type { SqlRow, SqlRunner } from './dataEngine';
+import { listQueries, runQuery } from './dataQueries';
+import {
+  DATA_MAX_SCHEDULES,
+  DATA_SCHEDULE_COUNT_ROWS,
+  capScheduleRows,
+  localDate,
+  nextDue,
+  normaliseClock,
+  scheduleParams,
+  scheduleRowsText,
+  scheduleStep
+} from './dataSchedules';
+import type { DataScheduleClock } from './dataSchedules';
 
 export const DATA_TRIGGER_EVENTS = [
   'insert',
   'update',
   'delete',
-  'time'
+  'time',
+  'schedule'
 ] as const;
 export type DataTriggerEvent = (typeof DATA_TRIGGER_EVENTS)[number];
-// The events a write fires; "time" fires from the alarm's scan instead.
+// The events a write fires; "time" and "schedule" fire from the alarm.
 export const DATA_CHANGE_EVENTS = ['insert', 'update', 'delete'] as const;
 
 // Time triggers: the alarm scans this often, a trigger waits at least this
@@ -141,6 +157,15 @@ export interface DataTriggerInput {
   chat?: { channelId: string; chatId: string; text: string };
   email?: { to: string[] | string; subject?: string; text: string };
   customer?: { text: string; template?: DataTriggerTemplate };
+  // With "schedule" only, which has no "table": when it runs, and the saved
+  // query whose rows it carries.
+  every?: 'day' | 'week';
+  at?: string;
+  days?: string[] | null;
+  query?: string | null;
+  params?: Record<string, unknown> | null;
+  // Nothing runs when the query returns no rows.
+  skipEmpty?: boolean;
 }
 
 export interface DataTrigger {
@@ -150,6 +175,13 @@ export interface DataTrigger {
   table: string;
   on: DataTriggerEvent;
   after: DataTriggerSchedule | null;
+  // A schedule's clock, query and parameters; null on other triggers.
+  every: 'day' | 'week' | null;
+  at: string | null;
+  days: string[] | null;
+  query: string | null;
+  params: Record<string, unknown> | null;
+  skipEmpty: boolean;
   when: DataTriggerCondition | null;
   action: DataTriggerAction;
   enabled: boolean;
@@ -197,6 +229,15 @@ export interface DataTriggerEventMessage {
   // Ganju turned the trigger off here (a time trigger past the daily cap):
   // recorded as a failed run, and the organization's admins are told.
   turnedOff?: true;
+  // A schedule: its saved query's rows (up to a cap), how many it returned,
+  // and whether some were left out; `date` is the run's local date.
+  query?: string;
+  rows?: Record<string, unknown>[];
+  rowCount?: number;
+  rowsTruncated?: true;
+  // The query stopped before its last row, so rowCount is a lower bound.
+  rowCountMore?: true;
+  date?: string;
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -639,9 +680,14 @@ interface NormalisedTrigger {
   // No name was given: saving picks a free one from it.
   defaultName: boolean;
   description: string | null;
-  table: DataTable;
+  // null for a schedule.
+  table: DataTable | null;
   on: DataTriggerEvent;
   after: DataTriggerSchedule | null;
+  clock: DataScheduleClock | null;
+  query: string | null;
+  params: Record<string, unknown> | null;
+  skipEmpty: boolean;
   when: DataTriggerCondition | null;
   action: DataTriggerAction;
   // null: not given, so a saved trigger stays on or off as it was.
@@ -650,11 +696,138 @@ interface NormalisedTrigger {
   rateLimit: number;
 }
 
+const SCHEDULE_ACTIONS: readonly DataTriggerActionType[] = [
+  'email',
+  'function',
+  'webhook'
+];
+
+// The fields a schedule's email can fill in: the run's local date and how
+// many rows its query returned. The rows themselves follow the text.
+const scheduleFields = (name: string): DataTable =>
+  ({
+    name,
+    columns: [
+      { name: 'date', type: 'date' },
+      { name: 'count', type: 'integer' }
+    ]
+  }) as unknown as DataTable;
+
+const normaliseScheduleTrigger = (
+  runner: SqlRunner | null,
+  input: Record<string, unknown>
+): Omit<
+  NormalisedTrigger,
+  'name' | 'defaultName' | 'description' | 'enabled' | 'replace' | 'rateLimit'
+> => {
+  for (const key of ['table', 'when', 'after'] as const) {
+    if (input[key] !== undefined && input[key] !== null) {
+      throw new DataError(
+        `A schedule has no "${key}": it runs on the clock. Name a saved query in "query" for the rows it should carry.`
+      );
+    }
+  }
+  const clock = normaliseClock(input);
+  let query: string | null = null;
+  let params: Record<string, unknown> | null = null;
+  if (input.query !== undefined && input.query !== null) {
+    if (typeof input.query !== 'string' || !input.query.trim()) {
+      throw new DataError('"query" is the name of a saved query.');
+    }
+    query = input.query.trim();
+    const saved = runner
+      ? listQueries(runner).find(q => q.name === query)
+      : undefined;
+    if (runner && !saved) {
+      throw new DataError(
+        `There is no saved query named ${query}.`,
+        'not_found'
+      );
+    }
+    if (input.params !== undefined && input.params !== null) {
+      if (!isPlainObject(input.params)) {
+        throw new DataError(
+          '"params" is an object, such as { "day": "{{today}}" }.'
+        );
+      }
+      const unknown = Object.keys(input.params).filter(
+        key => saved && !saved.params.some(p => p.name === key)
+      );
+      if (unknown.length) {
+        throw new DataError(
+          `${query} takes ${saved?.params.map(p => p.name).join(', ') || 'no parameters'}; not ${unknown.join(', ')}.`
+        );
+      }
+      params = input.params;
+    }
+    // Every run would fail on a parameter the query needs and isn't given.
+    const missing = (saved?.params ?? [])
+      .filter(p => p.required !== false && params?.[p.name] === undefined)
+      .map(p => p.name);
+    if (missing.length) {
+      throw new DataError(
+        `${query} needs ${missing.join(', ')} in "params", such as { "${missing[0]}": "{{today}}" }.`
+      );
+    }
+  } else if (input.params !== undefined && input.params !== null) {
+    throw new DataError('"params" goes with "query".');
+  }
+  if (input.skipEmpty !== undefined && input.skipEmpty !== null) {
+    if (typeof input.skipEmpty !== 'boolean') {
+      throw new DataError('"skipEmpty" is true or false.');
+    }
+    if (input.skipEmpty && !query) {
+      throw new DataError('"skipEmpty" goes with "query".');
+    }
+  }
+  const skipEmpty = input.skipEmpty === true;
+  const given = DATA_TRIGGER_ACTIONS.find(
+    key => input[key] !== undefined && input[key] !== null
+  );
+  if (given && !SCHEDULE_ACTIONS.includes(given)) {
+    throw new DataError('A schedule runs "email", "function" or "webhook".');
+  }
+  const label = query ?? 'schedule';
+  const action = normaliseAction(scheduleFields(label), input);
+  if (
+    action.type === 'email' &&
+    (!isPlainObject(input.email) ||
+      input.email.subject === undefined ||
+      input.email.subject === null)
+  ) {
+    action.subject = `${label}: {{date}}`;
+  }
+  return {
+    table: null,
+    on: 'schedule',
+    after: null,
+    clock,
+    query,
+    params,
+    skipEmpty,
+    when: null,
+    action
+  };
+};
+
 export const normaliseTrigger = (
   schema: DataSchema,
-  input: unknown
+  input: unknown,
+  runner: SqlRunner | null = null
 ): NormalisedTrigger => {
   if (!isPlainObject(input)) throw new DataError('A trigger is an object.');
+  if (input.on === 'schedule') {
+    const rest = normaliseScheduleTrigger(runner, input);
+    return {
+      ...rest,
+      ...commonFields(input, () =>
+        `${rest.query ?? 'schedule'}-${rest.clock?.every}-${rest.action.type === 'function' ? rest.action.function.toLowerCase().replace(/[^a-z0-9_-]/g, '-') : rest.action.type}`.slice(
+          0,
+          63
+        )
+      )
+    };
+  }
   const table = schema.tables.find(t => t.name === input.table);
   if (!table) {
     throw new DataError(
@@ -666,18 +839,50 @@ export const normaliseTrigger = (
   }
   const on = input.on;
   if (!(DATA_TRIGGER_EVENTS as readonly unknown[]).includes(on)) {
-    throw new DataError('"on" is insert, update, delete or time.');
+    throw new DataError('"on" is insert, update, delete, time or schedule.');
   }
   const timed = on === 'time';
   const hasAfter = input.after !== undefined && input.after !== null;
   if (!timed && hasAfter) {
     throw new DataError('"after" is for "on": "time" only.');
   }
+  for (const key of [
+    'every',
+    'at',
+    'days',
+    'query',
+    'params',
+    'skipEmpty'
+  ] as const) {
+    if (input[key] !== undefined && input[key] !== null) {
+      throw new DataError(`"${key}" is for "on": "schedule" only.`);
+    }
+  }
   const action = normaliseAction(table, input);
+  return {
+    table,
+    on: on as DataTriggerEvent,
+    after: timed ? normaliseSchedule(table, input.after) : null,
+    clock: null,
+    query: null,
+    params: null,
+    skipEmpty: false,
+    when:
+      input.when === undefined || input.when === null
+        ? null
+        : normaliseCondition(table, input.when, 0, { tests: 0 }, timed),
+    action,
+    ...commonFields(input, () => defaultName(table.name, on as string, action))
+  };
+};
+
+// Name, description, on/off, replace and rate: the same for every trigger.
+const commonFields = (
+  input: Record<string, unknown>,
+  fallbackName: () => string
+) => {
   const unnamed = input.name === undefined || input.name === null;
-  const name = unnamed
-    ? defaultName(table.name, on as string, action)
-    : input.name;
+  const name = unnamed ? fallbackName() : input.name;
   if (typeof name !== 'string' || !NAME_PATTERN.test(name)) {
     throw new DataError(
       "A trigger's name is lowercase letters, digits, _ and -, starting with a letter."
@@ -707,14 +912,6 @@ export const normaliseTrigger = (
       typeof input.description === 'string' && input.description.trim()
         ? input.description.trim().slice(0, DATA_MAX_DESCRIPTION)
         : null,
-    table,
-    on: on as DataTriggerEvent,
-    after: timed ? normaliseSchedule(table, input.after) : null,
-    when:
-      input.when === undefined || input.when === null
-        ? null
-        : normaliseCondition(table, input.when, 0, { tests: 0 }, timed),
-    action,
     enabled: typeof input.enabled === 'boolean' ? input.enabled : null,
     replace: input.replace !== false,
     rateLimit: rate
@@ -744,23 +941,44 @@ const parse = <T>(value: unknown): T | null => {
   }
 };
 
-const toTrigger = (schema: DataSchema, row: SqlRow): DataTrigger => ({
-  id: String(row.id),
-  name: String(row.name),
-  description: (row.description as string | null) ?? null,
-  table: schema.tables.find(t => t.id === Number(row.table_id))?.name ?? '',
-  on: row.event as DataTriggerEvent,
-  after: parse<DataTriggerSchedule>(row.schedule),
-  when: parse<DataTriggerCondition>(row.condition),
-  action: parse<DataTriggerAction>(row.action) as DataTriggerAction,
-  enabled: row.enabled === 1,
-  disabledReason: (row.disabled_reason as string | null) ?? null,
-  managed: row.managed === 'cli' ? 'cli' : null,
-  rateLimit: Number(row.rate_limit),
-  createdAt: String(row.created_at),
-  updatedAt: String(row.updated_at),
-  updatedBy: (row.updated_by as string | null) ?? null
-});
+// What a schedule keeps in the `schedule` column: its clock, query and
+// parameters. A time trigger keeps its `after` there.
+interface StoredSchedule extends DataScheduleClock {
+  query: string | null;
+  params: Record<string, unknown> | null;
+  skipEmpty?: boolean;
+}
+
+const storedSchedule = (row: SqlRow): StoredSchedule | null =>
+  row.event === 'schedule' ? parse<StoredSchedule>(row.schedule) : null;
+
+const toTrigger = (schema: DataSchema, row: SqlRow): DataTrigger => {
+  const clock = storedSchedule(row);
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    description: (row.description as string | null) ?? null,
+    table: schema.tables.find(t => t.id === Number(row.table_id))?.name ?? '',
+    on: row.event as DataTriggerEvent,
+    after:
+      row.event === 'time' ? parse<DataTriggerSchedule>(row.schedule) : null,
+    every: clock?.every ?? null,
+    at: clock?.at ?? null,
+    days: clock?.days ?? null,
+    query: clock?.query ?? null,
+    params: clock?.params ?? null,
+    skipEmpty: clock?.skipEmpty === true,
+    when: parse<DataTriggerCondition>(row.condition),
+    action: parse<DataTriggerAction>(row.action) as DataTriggerAction,
+    enabled: row.enabled === 1,
+    disabledReason: (row.disabled_reason as string | null) ?? null,
+    managed: row.managed === 'cli' ? 'cli' : null,
+    rateLimit: Number(row.rate_limit),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    updatedBy: (row.updated_by as string | null) ?? null
+  };
+};
 
 export const listTriggers = (
   runner: SqlRunner,
@@ -841,6 +1059,18 @@ const upsert = (
       );
     }
   }
+  if (trigger.on === 'schedule' && existing?.event !== 'schedule') {
+    const scheduled = Number(
+      runner.all(
+        "SELECT count(*) AS n FROM _ganju_triggers WHERE event = 'schedule'"
+      )[0]?.n ?? 0
+    );
+    if (scheduled >= DATA_MAX_SCHEDULES) {
+      throw new DataError(
+        `A database holds up to ${DATA_MAX_SCHEDULES} schedules.`
+      );
+    }
+  }
   const wasTimed = existing?.event === 'time';
   if (trigger.on === 'time' && !wasTimed) {
     const timed = Number(
@@ -870,17 +1100,36 @@ const upsert = (
   const reason = enabled
     ? null
     : ((existing?.disabled_reason as string | null | undefined) ?? null);
-  // A time trigger counts due times from now: when it is new, when it
-  // counts from another column or delay, and when it is turned back on.
-  const schedule = trigger.after ? JSON.stringify(trigger.after) : null;
+  // A time trigger or schedule counts due times from now: when it is new,
+  // when it counts differently, and when it is turned back on.
+  const clocked = trigger.on === 'time' || trigger.on === 'schedule';
+  const schedule = trigger.after
+    ? JSON.stringify(trigger.after)
+    : trigger.clock
+      ? JSON.stringify({
+          ...trigger.clock,
+          query: trigger.query,
+          params: trigger.params,
+          skipEmpty: trigger.skipEmpty
+        } satisfies StoredSchedule)
+      : null;
+  const sameClock =
+    trigger.on === 'schedule'
+      ? JSON.stringify(trigger.clock) ===
+        JSON.stringify(
+          (({ every, at, days }) => ({ every, at, days }))(
+            parse<StoredSchedule>(existing?.schedule) ?? ({} as StoredSchedule)
+          )
+        )
+      : existing?.schedule === schedule;
   const restart =
-    trigger.on === 'time' &&
-    (!wasTimed ||
-      existing?.schedule !== schedule ||
+    clocked &&
+    (existing?.event !== trigger.on ||
+      !sameClock ||
       (enabled && existing?.enabled !== 1));
   const scanState = restart
     ? freshScan()
-    : trigger.on === 'time'
+    : clocked
       ? ((existing?.scan_state as string | null | undefined) ?? freshScan())
       : null;
   runner.all(
@@ -896,7 +1145,7 @@ const upsert = (
       id,
       trigger.name,
       trigger.description,
-      trigger.table.id,
+      trigger.table?.id ?? 0,
       trigger.on,
       schedule,
       scanState,
@@ -911,7 +1160,7 @@ const upsert = (
     ]
   );
   if (trigger.on === 'time' || wasTimed) syncTimeIndexes(runner);
-  else ensureChangeCapture(runner, trigger.table);
+  if (trigger.table && !clocked) ensureChangeCapture(runner, trigger.table);
   const saved = toTrigger(schema, findRow(runner, id));
   return secret && secret !== keep
     ? { trigger: saved, secret }
@@ -925,7 +1174,7 @@ export const saveTrigger = (
   input: unknown
 ): SavedTrigger =>
   runner.transaction(() => {
-    const trigger = normaliseTrigger(schema, input);
+    const trigger = normaliseTrigger(schema, input, runner);
     if (trigger.defaultName) trigger.name = freeName(runner, trigger.name);
     return upsert(runner, schema, caller, trigger, null);
   });
@@ -961,13 +1210,17 @@ export const setTriggerEnabled = (
   );
   // Back on, a time trigger counts from now: what came due while it was off
   // doesn't all go out at once.
-  if (enabled && row.event === 'time' && row.enabled !== 1) {
+  if (
+    enabled &&
+    (row.event === 'time' || row.event === 'schedule') &&
+    row.enabled !== 1
+  ) {
     runner.all('UPDATE _ganju_triggers SET scan_state = ? WHERE id = ?', [
       freshScan(),
       row.id
     ]);
   }
-  if (enabled && row.event !== 'time') {
+  if (enabled && row.event !== 'time' && row.event !== 'schedule') {
     const table = schema.tables.find(t => t.id === Number(row.table_id));
     if (table) ensureChangeCapture(runner, table);
   }
@@ -997,7 +1250,7 @@ export const replaceManagedTriggers = (
   return runner.transaction(() => {
     const normalised = inputs.map((input, i) => {
       try {
-        return normaliseTrigger(schema, input);
+        return normaliseTrigger(schema, input, runner);
       } catch (error) {
         if (error instanceof DataError) {
           throw new DataError(
@@ -1244,10 +1497,24 @@ export const clearOutbox = (runner: SqlRunner, before: string): number => {
   );
   runner.all('DELETE FROM _ganju_outbox WHERE created_at < ?', [before]);
   runner.all('DELETE FROM _ganju_changes');
-  runner.all("UPDATE _ganju_triggers SET scan_state = ? WHERE event = 'time'", [
-    freshScan()
-  ]);
+  restartClocks(runner);
   return n;
+};
+
+/**
+ * Time triggers and schedules count from now: after a restore, a restored
+ * position would send again what already went out. Schedules alone after the
+ * database's time zone changes, so a time that already passed in the new zone
+ * isn't sent late.
+ */
+export const restartClocks = (
+  runner: SqlRunner,
+  events: readonly ('time' | 'schedule')[] = ['time', 'schedule']
+): void => {
+  runner.all(
+    `UPDATE _ganju_triggers SET scan_state = ? WHERE event IN (${events.map(() => '?').join(', ')})`,
+    [freshScan(), ...events]
+  );
 };
 
 const conditionColumns = (condition: unknown): string[] => {
@@ -1725,4 +1992,150 @@ export const scanTimeTriggers = (
       );
     }
     return result;
+  });
+
+// Schedules
+
+export const hasSchedules = (runner: SqlRunner): boolean =>
+  runner.all(
+    "SELECT 1 AS found FROM _ganju_triggers WHERE event = 'schedule' AND enabled = 1 LIMIT 1"
+  ).length > 0;
+
+/** When the next enabled schedule is due (ms), or null with none. */
+export const nextScheduleAt = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  now = new Date()
+): number | null => {
+  let next: number | null = null;
+  for (const row of runner.all(
+    "SELECT event, schedule FROM _ganju_triggers WHERE event = 'schedule' AND enabled = 1"
+  )) {
+    const clock = storedSchedule(row);
+    const due = clock && nextDue(clock, now, schema.timeZone ?? undefined);
+    if (due && (next === null || due.getTime() < next)) next = due.getTime();
+  }
+  return next;
+};
+
+// A schedule's query rows, cut to what an event can carry.
+const scheduleRows = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  clock: StoredSchedule,
+  due: Date
+): Pick<
+  DataTriggerEventMessage,
+  'query' | 'rows' | 'rowCount' | 'rowsTruncated' | 'rowCountMore' | 'error'
+> => {
+  if (!clock.query) return {};
+  const timeZone = schema.timeZone ?? undefined;
+  try {
+    const result = runQuery(
+      runner,
+      schema,
+      { actor: 'system:schedule', timeZone },
+      {
+        name: clock.query,
+        params: scheduleParams(clock.params, due, timeZone),
+        limit: DATA_SCHEDULE_COUNT_ROWS
+      }
+    );
+    return {
+      query: clock.query,
+      ...capScheduleRows(result.rows, 'truncated' in result)
+    };
+  } catch (error) {
+    return {
+      query: clock.query,
+      error: `Not run: the saved query ${clock.query} failed: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+};
+
+/**
+ * A schedule's email as a run sends it: {{date}} and {{count}} filled in,
+ * and the rows listed after the text.
+ */
+export const scheduleEmail = (
+  action: { subject: string; text: string },
+  run: {
+    date: string;
+    rows?: Record<string, unknown>[];
+    rowCount?: number;
+    rowCountMore?: true;
+  }
+): { subject: string; text: string } => {
+  const count = run.rowCount ?? 0;
+  const fields = {
+    date: run.date,
+    count: run.rowCountMore ? `${count}+` : count
+  };
+  const listed = run.rows?.length
+    ? `\n\n${scheduleRowsText(run.rows, run.rowCount ?? run.rows.length, run.rowCountMore)}`
+    : '';
+  return {
+    subject: renderTriggerText(action.subject, fields).slice(0, 200),
+    text: renderTriggerText(action.text, fields) + listed
+  };
+};
+
+/**
+ * Each enabled schedule whose latest due time hasn't been handled stores one
+ * event, in the transaction that marks that time handled. A due time missed
+ * by more than the catch-up window is marked handled without an event.
+ */
+export const scanSchedules = (
+  runner: SqlRunner,
+  schema: DataSchema,
+  now = new Date()
+): number =>
+  runner.transaction(() => {
+    const timeZone = schema.timeZone ?? undefined;
+    const artifactId =
+      (runner.all("SELECT value FROM _ganju_meta WHERE key = 'artifact_id'")[0]
+        ?.value as string | undefined) ?? '';
+    let events = 0;
+    for (const row of runner.all(
+      "SELECT * FROM _ganju_triggers WHERE event = 'schedule' AND enabled = 1 ORDER BY created_at, id"
+    )) {
+      const clock = storedSchedule(row);
+      if (!clock) continue;
+      const state = parse<TimeScanState>(row.scan_state) ?? {
+        through: isoSeconds(new Date(String(row.created_at)))
+      };
+      const step = scheduleStep(clock, state.through, now, timeZone);
+      if (step.kind === 'wait') continue;
+      runner.all('UPDATE _ganju_triggers SET scan_state = ? WHERE id = ?', [
+        JSON.stringify({ through: step.dueAt }),
+        row.id
+      ]);
+      if (step.kind === 'skip') continue;
+      const due = new Date(step.dueAt);
+      const carried = scheduleRows(runner, schema, clock, due);
+      if (clock.skipEmpty && carried.rowCount === 0) continue;
+      const message: DataTriggerEventMessage = {
+        eventId: `evt_${crypto.randomUUID().replace(/-/g, '')}`,
+        artifactId,
+        triggerId: String(row.id),
+        triggerName: String(row.name),
+        table: '',
+        event: 'schedule',
+        rowId: 0,
+        row: null,
+        previous: null,
+        actor: null,
+        depth: 1,
+        at: now.toISOString(),
+        dueAt: step.dueAt,
+        date: localDate(due, timeZone),
+        ...carried
+      };
+      runner.all(
+        'INSERT INTO _ganju_outbox (id, trigger_id, message) VALUES (?, ?, ?)',
+        [message.eventId, String(row.id), JSON.stringify(message)]
+      );
+      events++;
+    }
+    return events;
   });
