@@ -129,6 +129,34 @@ export const Wrapper = styled.div`
       box-shadow: ${theme.colors.bastille}0A 0px 1px 2px;
     }
 
+    .overview-start {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+
+      .overview-start-icon {
+        color: ${theme.colors.bastille};
+      }
+
+      .overview-start-text {
+        flex: 1;
+        min-width: 220px;
+
+        p {
+          margin: 0;
+          font-size: ${theme.fonts.sm};
+          line-height: 1.5;
+        }
+
+        .overview-start-title {
+          font-weight: 700;
+        }
+      }
+    }
+
     .overview-activity {
       padding: 18px 18px 12px;
 

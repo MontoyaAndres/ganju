@@ -110,12 +110,9 @@ const entriesOf = (messages: Message[]): Entry[] => {
     );
     const texts = textBlocks(message.content);
     if (message.role === 'user') {
-      // The notes on applied change sets come first; the owner's words last.
-      texts
-        .slice(0, -1)
-        .forEach((text, index) =>
-          entries.push({ kind: 'note', key: `${message.id}-n${index}`, text })
-        );
+      // Notes on what happened to change sets (applied, failed, undone, an
+      // undo that stopped) come first and are for the assistant: the card
+      // shows each of those. The owner's words are last.
       const own = texts[texts.length - 1];
       if (own) entries.push({ kind: 'owner', key: message.id, text: own });
     } else if (texts.length) {
@@ -181,6 +178,8 @@ export const Assistant = () => {
     to: string | null;
   } | null>(null);
   const [tryOpen, setTryOpen] = useState(false);
+  // A chat whose change set was just applied, waiting to tell the assistant.
+  const [appliedFollowUp, setAppliedFollowUp] = useState<string | null>(null);
   const [chatsOpen, setChatsOpen] = useState(false);
   const [tryReset, setTryReset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -345,18 +344,21 @@ export const Assistant = () => {
     });
   };
 
-  const send = async (value: string, conversationId = chatId) => {
+  // `auto`: sent by the app, not typed, so it leaves the owner's draft alone.
+  const send = async (value: string, conversationId = chatId, auto = false) => {
     const message = value.trim();
     if (!message || sending || live || shownOutgoing) return;
     setSending(true);
     setStoppedEarly(false);
     setOutgoing({ text: message, from: conversationId, to: conversationId });
-    setText('');
-    if (inputRef.current) inputRef.current.style.height = 'auto';
+    if (!auto) {
+      setText('');
+      if (inputRef.current) inputRef.current.style.height = 'auto';
+    }
     const failed = (error: string) => {
       snackbar.error(error);
       setOutgoing(null);
-      setText(value);
+      if (!auto) setText(value);
     };
     try {
       let target = conversationId;
@@ -420,6 +422,14 @@ export const Assistant = () => {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    if (!appliedFollowUp || appliedFollowUp !== chatId) return;
+    if (sending || live || shownOutgoing || !detail) return;
+    setAppliedFollowUp(null);
+    void send(t('appliedMessage'), appliedFollowUp, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFollowUp, chatId, sending, live, shownOutgoing, detail]);
 
   // Back from connecting an account: say so to the chat that asked for it.
   useEffect(() => {
@@ -532,6 +542,9 @@ export const Assistant = () => {
     } else if (result.data.changeSet.status === 'applied') {
       snackbar.success(t('toastApplied'));
       setTryReset(count => count + 1);
+      // The assistant tests what needed to be live and says how it went; it
+      // only answers a message, so Apply sends one, once it is free.
+      if (chatId) setAppliedFollowUp(chatId);
     } else if (result.data.changeSet.status === 'undone') {
       snackbar.success(t('toastUndone'));
       setTryReset(count => count + 1);
@@ -828,13 +841,6 @@ export const Assistant = () => {
               {entries.map((entry, index) => {
                 if (entry.kind === 'owner') {
                   return ownerBubble(entry.text, entry.key);
-                }
-                if (entry.kind === 'note') {
-                  return (
-                    <p key={entry.key} className="assistant-note">
-                      {t('noteLine', { text: entry.text })}
-                    </p>
-                  );
                 }
                 if (entry.kind === 'reply') {
                   return (

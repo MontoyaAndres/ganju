@@ -54,7 +54,6 @@ const en = {
   rateLimited: 'Too many messages in a minute. Wait a moment and try again.',
   stoppedSteps:
     'The assistant stopped after many steps. Tell it to continue if it was not done.',
-  noteLine: 'Update for the assistant: {text}',
 
   toolProject: 'Looking at your project',
   toolInstructions: "Preparing the bot's instructions",
@@ -113,6 +112,7 @@ const en = {
   failedShort: "Didn't apply",
   discarded: 'Replaced by a newer change',
   toastApplied: 'Applied. Your bot uses it from now on.',
+  appliedMessage: 'I applied the changes.',
   toastUndone: 'Undone. Your bot is back to how it was.',
 
   patchTitle: 'A change for your developer',
@@ -219,7 +219,6 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
       'Demasiados mensajes en un minuto. Espera un momento e inténtalo de nuevo.',
     stoppedSteps:
       'El asistente se detuvo después de muchos pasos. Dile que continúe si no había terminado.',
-    noteLine: 'Aviso para el asistente: {text}',
 
     toolProject: 'Revisando tu proyecto',
     toolInstructions: 'Preparando las instrucciones del bot',
@@ -278,6 +277,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     failedShort: 'No se aplicó',
     discarded: 'Reemplazado por un cambio más nuevo',
     toastApplied: 'Aplicado. Tu bot ya lo usa.',
+    appliedMessage: 'Apliqué los cambios.',
     toastUndone: 'Deshecho. Tu bot quedó como estaba.',
 
     patchTitle: 'Un cambio para tu desarrollador',

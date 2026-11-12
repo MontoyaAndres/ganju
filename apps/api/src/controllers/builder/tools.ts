@@ -311,6 +311,7 @@ Stage (each needs label): add {toolKey, config?} (a catalog tool; "http-endpoint
 
 type ManifestTool = {
   name: string;
+  title?: string;
   annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
   data?: { access?: string; tables?: string[] };
 };
@@ -589,7 +590,11 @@ const turnOnEffects = async (ctx: BuilderToolContext, versionId: string) => {
   const actions = source.tools as ManifestTool[];
   return {
     actions: actions.map(action => ({
-      name: action.name,
+      // The card shows the title the owner reads; the manifest is the model's.
+      name:
+        typeof action.title === 'string' && action.title.trim()
+          ? action.title.trim()
+          : action.name,
       changesThings: Boolean(action.annotations?.destructiveHint),
       onlyReads: Boolean(action.annotations?.readOnlyHint),
       data: action.data ?? null
@@ -619,12 +624,79 @@ const stageTurnOn = async (
   return `Staged #${ctx.staged.length}: ${label}. It takes effect when the owner applies the change set (propose_changes).`;
 };
 
+type TurnOnEffects = Awaited<ReturnType<typeof turnOnEffects>>;
+
+/**
+ * The card names tables as the Data page does, by label: worked out when the
+ * whole change set is known, so a table it creates or relabels after the
+ * actions were staged shows its own label.
+ */
+const withTableLabels = async (
+  ctx: BuilderToolContext,
+  items: StagedItem[]
+): Promise<StagedItem[]> => {
+  if (!items.some(item => item.payload.effects)) return items;
+  const labels = new Map<string, string>();
+  const opened = await openDatabase(ctx).catch(() => null);
+  if (opened) {
+    const stored = await db.data
+      .callData('schemaRead', () => opened.stub.schemaRead())
+      .catch(() => null);
+    for (const table of stored?.tables ?? []) {
+      if (table.label) labels.set(table.name, table.label);
+    }
+  }
+  for (const item of items) {
+    if (item.area !== 'data') continue;
+    const payload = item.payload as {
+      table?: string | { name?: string; label?: string };
+      patch?: { label?: string };
+    };
+    if (item.op === 'create_table' && typeof payload.table === 'object') {
+      if (payload.table.name && payload.table.label) {
+        labels.set(payload.table.name, payload.table.label);
+      }
+    }
+    if (
+      item.op === 'change_table' &&
+      typeof payload.table === 'string' &&
+      payload.patch?.label
+    ) {
+      labels.set(payload.table, payload.patch.label);
+    }
+  }
+  return items.map(item => {
+    const effects = item.payload.effects as TurnOnEffects | undefined;
+    if (!effects) return item;
+    return {
+      ...item,
+      payload: {
+        ...item.payload,
+        effects: {
+          ...effects,
+          actions: effects.actions.map(action => ({
+            ...action,
+            data: action.data
+              ? {
+                  ...action.data,
+                  tables: (action.data.tables ?? []).map(
+                    name => labels.get(name) ?? name
+                  )
+                }
+              : null
+          }))
+        }
+      }
+    };
+  });
+};
+
 const proposeChanges = async (
   ctx: BuilderToolContext,
   input: { summary?: string }
 ) => {
   if (!ctx.staged.length) return 'Nothing is staged.';
-  const items = ctx.staged.splice(0);
+  const items = await withTableLabels(ctx, ctx.staged.splice(0));
   const [row] = await ctx.db
     .insert(db.schema.builderChangeSet)
     .values({

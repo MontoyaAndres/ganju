@@ -90,6 +90,22 @@ export const Wrapper = styled.div`
       }
     }
 
+    @media (min-width: ${theme.screens.xl}) {
+      .assistant-layout .assistant-scrim {
+        display: none;
+      }
+
+      .assistant-layout.is-try-open {
+        grid-template-columns: 248px minmax(0, 1fr) 340px;
+      }
+    }
+
+    @media (min-width: ${theme.screens['2xl']}) {
+      .assistant-layout.is-try-open {
+        grid-template-columns: 248px minmax(0, 1fr) 380px;
+      }
+    }
+
     /* Past chats */
 
     .assistant-chats {
@@ -1007,7 +1023,7 @@ export const Wrapper = styled.div`
       box-shadow: -8px 0 32px ${theme.colors.bastille}26;
       box-sizing: border-box;
 
-      @media (min-width: ${theme.screens['2xl']}) {
+      @media (min-width: ${theme.screens.xl}) {
         position: static;
         width: auto;
         padding: 0;

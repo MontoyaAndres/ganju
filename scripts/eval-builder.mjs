@@ -292,6 +292,7 @@ const runCase = async (c, runIndex) => {
   let modelCalls = 0;
   let toolCalls = 0;
   let ownerTurns = 1;
+  let appliedFollowUps = 0;
   let firstTurnChanged = false;
   let stoppedBy = 'owner-done';
 
@@ -414,6 +415,13 @@ const runCase = async (c, runIndex) => {
         for (const card of asks)
           outcomes.push((await session.call('ask_owner', card)).content);
         text = outcomes.join('\n');
+      } else if (appliedNow && appliedFollowUps++ < 3) {
+        // As the app does: Apply sends a message so the assistant can test
+        // what needed to be live. Not the owner's turn.
+        text =
+          c.lang === 'es' ? 'Apliqué los cambios.' : 'I applied the changes.';
+        turns.push({ role: 'owner', text });
+        continue;
       } else {
         const reply = await ownerReply(c, transcriptText(turns), sideUsage);
         log(`owner: ${reply.reply}${reply.done ? ' [done]' : ''}`);

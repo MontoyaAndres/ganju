@@ -1364,6 +1364,53 @@ has the link).
 
 **B is done on dev.** Left: merge and deploy to production (no migration).
 
+**Owner sessions (A), 2026-11-12:** the session guide, invitation, account
+setup and results template are in a shared doc. A simulated walkthrough on
+dev (Claude as a burger and hot dog owner in Girardot, project "Perros y
+Hamburguesas Girardot (prueba)" in org `test`) finished in about 12 minutes
+and 81.6 credits (50 estimated): the bot answered from the menu, said it was
+closed outside hours, and a test order added up. Fixed from it, on
+`feat/builder-walkthrough-fixes`:
+- a note the assistant wrote before a tool came out in English: the prompt
+  says every word it writes is read, in the owner's language;
+- nothing happened after Apply until the owner wrote again: Apply now sends
+  "Apliqué los cambios." for the assistant to test what needed to be live
+  (the eval does the same, up to 3 times a run);
+- the card named actions and tables by their internal names: it shows each
+  action's title (written in the owner's language) and each table's label;
+- the action accepted orders named "PRUEBA" at any hour so it could be
+  tested: the prompt forbids test exceptions in what goes live;
+- the credit estimate was low: 30 to 60 for a new action with its tables, up
+  to about 90 with emails, hours or payments, counting the test after Apply
+  (prompt and the Assistant page, en/es);
+- the project home spoke of MCP servers and clients: plain wording, and a
+  "Build your bot with the Assistant" card on a project with nothing in it;
+- with Try it open, a click on the chat closed it and lost the typing: on
+  screens from 1280px up it opens beside the chat.
+- After a review: Apply's message waits for a reply still running and goes
+  out after it; if it fails it shows the error without putting words in the
+  owner's box; table labels on the card are worked out when the change set is
+  proposed (tables created or relabelled later in it too); a title that isn't
+  text falls back to the action's name; the starter card ignores the tools
+  every project starts with.
+Checked on dev (second walkthrough, project "Perros y Hamburguesas 2
+(prueba)"): the empty project shows the Assistant card; the estimate said
+about 90 credits including the test (62.5 used so far); the note before a
+tool was in Spanish; the card read "Calcular el total de un pedido" and the
+tables "Menú, Domicilios, Pedidos"; no test exception (the order test waits
+for opening hours, and it said so); Apply sent "Apliqué los cambios." and the
+assistant tested on its own (total $47.000 right, cheese refused on the
+special, Ricaurte refused); Try it opened beside the chat and kept the
+typing. It also showed the change-set note above that message, half in
+English ("Aviso para el asistente: The owner applied …"): the chat no longer
+shows those notes, the card already says it.
+Eval on dev with the fixes: 28/30 at 23.0 credits a run (baseline 30/30 at
+21.3), 2.2 owner turns a run (was 2.7) since Apply now carries the test.
+delivery-orders 2/3 (a run left the save action unmarked as changing
+things, seen before) and shorter-replies 2/3 (a run left out "tú"); the
+baseline stays. The first real session (Juanita, burgers and hot dogs in
+Girardot) is being arranged.
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
