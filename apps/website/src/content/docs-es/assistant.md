@@ -2,7 +2,7 @@
 title: Asistente
 description: Describe con tus palabras qué debe saber o hacer tu bot — el asistente lo construye contigo, lo prueba y no cambia nada hasta que presionas Aplicar.
 order: 1.5
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 La pestaña **Asistente** es donde construyes tu bot conversando. Cuéntale lo que
@@ -28,10 +28,11 @@ escribes, español o inglés.
 - **[Prompts](/es/docs/prompts/)** y **[herramientas](/es/docs/tools/)**,
   incluidas Gmail, Outlook, Google Calendar y Slack del catálogo, a través de
   cuentas que conectas con un clic.
+- **[Instrucciones del bot](/es/docs/channels/#dile-a-tu-bot-cómo-responder)** —
+  cómo responde tu bot: "responde en dos frases", "siempre en español".
 
-Lo que **no** puede cambiar: los canales, el modelo del bot o sus instrucciones,
-los miembros, la facturación, los tokens de API y los ajustes de la organización
-o del proyecto. Si le pides uno de esos, te dice dónde cambiarlo tú.
+Lo que **no** puede cambiar: los canales, el modelo del bot, los miembros, la
+facturación, los tokens de API y los ajustes de la organización o del proyecto. Si le pides uno de esos, te dice dónde cambiarlo tú.
 
 Nunca ve tus contraseñas, claves ni inicios de sesión. Cuando necesita uno,
 muestra una tarjeta donde pegas la clave o conectas la cuenta, y el valor va

@@ -1285,7 +1285,10 @@ const runTurn = async (
           utils.resolveParticipantMemoryEnabled(channelRow.config)
           ? utils.PARTICIPANT_MEMORY_GROUP_NOTE
           : null,
-      llmRow.systemPrompt
+      llmRow.systemPrompt,
+      projectRow.botInstructions
+        ? `${utils.constants.BOT_INSTRUCTIONS_HEADING}\n${projectRow.botInstructions}`
+        : null
     ]
       .filter(Boolean)
       .join('\n\n');

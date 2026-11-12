@@ -57,6 +57,7 @@ const en = {
   noteLine: 'Update for the assistant: {text}',
 
   toolProject: 'Looking at your project',
+  toolInstructions: "Preparing the bot's instructions",
   toolRead: 'Reading your actions',
   toolWrite: 'Writing an action',
   toolLogs: 'Checking recent runs',
@@ -221,6 +222,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     noteLine: 'Aviso para el asistente: {text}',
 
     toolProject: 'Revisando tu proyecto',
+    toolInstructions: 'Preparando las instrucciones del bot',
     toolRead: 'Leyendo tus acciones',
     toolWrite: 'Escribiendo una acción',
     toolLogs: 'Revisando lo que pasó hace poco',

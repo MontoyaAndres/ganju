@@ -333,6 +333,11 @@ app
     UserMiddleware.verify,
     ProjectController.update
   )
+  .put(
+    '/organization/:organizationId/project/:projectId/bot-instructions',
+    UserMiddleware.verify,
+    ProjectController.updateBotInstructions
+  )
   .get(
     '/organization/:organizationId/project/:projectId',
     UserMiddleware.verify,

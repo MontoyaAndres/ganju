@@ -1,0 +1,1 @@
+ALTER TABLE "project" ADD COLUMN "bot_instructions" text;

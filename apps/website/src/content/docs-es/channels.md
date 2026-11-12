@@ -2,7 +2,7 @@
 title: Canales
 description: Lleva tu asistente a personas reales en las apps que ya usan — Telegram, WhatsApp, Slack y Discord — o conéctalo a cualquier cliente MCP.
 order: 5
-updated: 2026-07-07
+updated: 2026-11-12
 ---
 
 Los **canales** son la forma de poner tu asistente frente a otras personas. Todo lo
@@ -58,6 +58,28 @@ pero puedes traer el tuyo — tu propio proveedor y tu llave de API, configurado
 vez y reutilizados entre canales. Explicamos cómo agregar uno en
 [Configuración](/es/docs/settings/); hasta entonces, los canales nuevos simplemente
 usan el modelo del sistema.
+
+## Dile a tu bot cómo responder
+
+Las **Instrucciones del bot**, arriba en la página Canales, dicen cómo responde tu
+bot en todos los canales y en el panel
+[Pruébalo como cliente](/es/docs/assistant/#pruébalo-como-cliente) del asistente:
+su idioma, qué tan largo, su tono, o lo que siempre o nunca debe decir. Escríbelas
+como reglas cortas, una por línea:
+
+```
+Responde en dos frases como máximo.
+Responde siempre en español.
+Llama a los clientes por su nombre.
+```
+
+Los datos como precios y horarios van en [Recursos](/es/docs/resources/). Las
+instrucciones admiten hasta 2.000 caracteres y funcionan con cualquier modelo,
+incluido el predeterminado del sistema. En un modelo con su propio system prompt,
+se agregan después de él. Las reglas propias de Ganju van primero, así que no
+pueden desactivar, por ejemplo, que el bot le pregunte a un cliente antes de
+cambiar algo. El [asistente](/es/docs/assistant/) también puede escribirlas por
+ti.
 
 ## Conecta cualquier cliente MCP
 

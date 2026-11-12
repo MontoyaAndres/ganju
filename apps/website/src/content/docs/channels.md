@@ -2,7 +2,7 @@
 title: Channels
 description: Deliver your assistant to real people on the apps they already use — Telegram, WhatsApp, Slack, and Discord — or connect it to any MCP client.
 order: 5
-updated: 2026-07-07
+updated: 2026-11-12
 ---
 
 **Channels** are how you put your assistant in front of other people. Everything
@@ -53,6 +53,27 @@ Every channel runs on a language model. By default that's the **System default**
 but you can bring your own — your own provider and API key, configured once and
 reused across channels. We cover how to add one in [Settings](/docs/settings/);
 until then, new channels simply use the system default.
+
+## Tell your bot how to answer
+
+**Bot instructions**, at the top of the Channels page, say how your bot answers
+on every channel and in the assistant's
+[Try it as a customer](/docs/assistant/#try-it-as-a-customer) panel: its
+language, how long, its tone, or what it should always or never say. Write them
+as short rules, one per line:
+
+```
+Answer in two sentences at most.
+Always answer in Spanish.
+Call customers by their first name.
+```
+
+Keep facts like prices and hours in [Resources](/docs/resources/) instead. The
+instructions take up to 2,000 characters and work on any model, including the
+system default. On a model with its own system prompt, they're added after it.
+Ganju's own rules come first, so they can't turn off, for example, the bot
+asking a customer before it changes something. The
+[assistant](/docs/assistant/) can also write them for you.
 
 ## Connect any MCP client
 

@@ -1215,6 +1215,60 @@ Status: phase 7 done on dev and production. Checked in production
   the Anthropic Console. Do it once someone can export the Usage page for
   the API's key.
 
+### Next: bot instructions, schedules, small follow-ups
+
+**Decided (2026-11-12), the owner going with the recommendations:**
+- Bot instructions per project (C) before schedules (B): smaller, and
+  likely what owners ask for most.
+- C: one text per project for all its channels and Try it, at most 2,000
+  characters, added after an own model's system prompt (on the shared model,
+  after the fixed default), Ganju's notes first and winning. Edited by the
+  owner (Channels page, "Bot instructions") and by the assistant through an
+  undoable change set.
+- B: a new trigger event on a clock, `every: day | week`, `at: "21:00"`,
+  optional days, in the database's time zone, no cron syntax. It carries a
+  saved query's rows (capped). Email, function and webhook actions first;
+  chat later. At most 5 per database, daily at most. A missed run runs once
+  if within 6 hours, never more than one catch-up. Pro and Enterprise only.
+- A (owner sessions): the guide and results template as a shareable doc.
+
+**Built (2026-11-12), on dev (migration 0095 run):**
+- C:
+  - `project.bot_instructions` (migration 0095, generated, not run);
+  - `PUT …/project/:projectId/bot-instructions` (project admins);
+  - the channel runner adds them last, labelled as the owner's, never
+    overriding the notes above;
+  - the Channels page's "Bot instructions" button and editor (en/es);
+  - the assistant reads them in the overview and stages
+    `project set_instructions` (area `bot`); Undo puts the old text back and
+    refuses if they were edited since;
+  - its prompt no longer lists instructions as something it can't change;
+  - docs: the Channels page (en/es) and the Assistant page;
+  - eval `shorter-replies` now expects the instructions change.
+- D: a new chat shows in the chat list as soon as its first message is
+  accepted.
+- E: the overview's versions carry `createdAt` and `publishedAt` (UTC); the
+  failing-action rule says to compare log times with the live version's.
+
+**Checked on dev (2026-11-12), in `qa-timecap`:**
+- The Channels page's editor saved an instruction ("end every answer with
+  PIÑA") and showed it again on reopening; Try it ended its answer with it.
+- The assistant, asked for answers of at most 2 sentences, staged both lines
+  (keeping PIÑA); Apply wrote them, Undo put back the PIÑA line alone. The
+  test instruction was cleared afterwards.
+- D: the new chat showed in the list ("ahora") while its first reply ran.
+- The editor's Cancel button was white on white; fixed.
+- Eval: `shorter-replies` 3/3 (6.4 credits a run). Full run 26/30, 20.5
+  credits a run: `menu-pdf` 0/3 because the eval's simulated customer and
+  judge didn't see the bot's instructions, where the assistant now puts "say
+  you don't know and give the WhatsApp". The eval now passes them like the
+  runner does, and the rubric accepts them: `menu-pdf` 3/3, and the parking
+  probe now gets the number. `pizza-stock` 2/3 (one run stopped after its
+  questions). `nightly-orders` 3/3. No new baseline saved yet.
+
+**Next:** B (schedules). A's guide and template are a shareable doc (owner
+has the link).
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 

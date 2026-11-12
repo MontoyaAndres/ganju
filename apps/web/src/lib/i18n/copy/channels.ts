@@ -16,6 +16,16 @@ const en = {
   subtitle:
     'Connect this artifact to messaging platforms so users can chat with it.',
   addChannel: 'Add channel',
+  botInstructions: 'Bot instructions',
+  botInstructionsHelp:
+    'How your bot answers on every channel and in Try it: its language, length and tone, or what it should always or never say. Facts like prices and hours go in Resources.',
+  botInstructionsPlaceholder:
+    'Answer in two sentences at most.\nAlways answer in Spanish.\nCall customers by their first name.',
+  botInstructionsCount: '{count} of {max} characters',
+  botInstructionsSave: 'Save',
+  botInstructionsSaved: 'Instructions saved',
+  botInstructionsSaveFailed: "We couldn't save the instructions",
+  botInstructionsLoadFailed: "We couldn't load the instructions",
   emptyTitle: 'No channels yet',
   emptyText: 'Connect a Telegram or Slack bot to start receiving messages.',
   statusActive: 'Active',
@@ -274,6 +284,16 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
     subtitle:
       'Conecta este artefacto con plataformas de mensajería para que la gente pueda chatear con él.',
     addChannel: 'Agregar canal',
+    botInstructions: 'Instrucciones del bot',
+    botInstructionsHelp:
+      'Cómo responde tu bot en todos los canales y en Pruébalo: su idioma, largo y tono, o lo que siempre o nunca debe decir. Datos como precios y horarios van en Recursos.',
+    botInstructionsPlaceholder:
+      'Responde en dos frases como máximo.\nResponde siempre en español.\nLlama a los clientes por su nombre.',
+    botInstructionsCount: '{count} de {max} caracteres',
+    botInstructionsSave: 'Guardar',
+    botInstructionsSaved: 'Instrucciones guardadas',
+    botInstructionsSaveFailed: 'No pudimos guardar las instrucciones',
+    botInstructionsLoadFailed: 'No pudimos cargar las instrucciones',
     emptyTitle: 'Todavía no hay canales',
     emptyText:
       'Conecta un bot de Telegram o de Slack para empezar a recibir mensajes.',

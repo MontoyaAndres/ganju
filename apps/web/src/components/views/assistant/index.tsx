@@ -64,7 +64,9 @@ const toolLabel = (
 ) => {
   switch (name) {
     case 'project':
-      return t('toolProject');
+      return action === 'set_instructions'
+        ? t('toolInstructions')
+        : t('toolProject');
     case 'functions':
       if (action === 'save_draft') return t('toolWrite');
       if (action === 'logs') return t('toolLogs');
@@ -395,6 +397,9 @@ export const Assistant = () => {
         }
         return;
       }
+      // Titled by its first message, so it lists now rather than after the
+      // reply.
+      if (target !== conversationId) void loadConversations();
       // The owner went to another chat meanwhile: this one picks its running
       // turn up when they come back.
       if (chatRef.current !== conversationId) {

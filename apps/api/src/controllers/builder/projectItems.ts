@@ -3,6 +3,7 @@ import { utils } from '@ganju/utils';
 import { db } from '@ganju/db';
 
 import * as projectActions from '../artifact/projectActions';
+import { setBotInstructions } from '../project/botInstructions';
 
 import type { BuilderToolContext } from './tools';
 import type {
@@ -248,6 +249,31 @@ export const stageProject = async (
       }
     }
     throw new Error(`Unknown knowledge action ${action}`);
+  }
+
+  if (area === 'bot') {
+    if (action !== 'set_instructions')
+      throw new Error(`Unknown project action ${action}`);
+    const text = String(input.text ?? '').trim();
+    if (text.length > constants.BOT_INSTRUCTIONS_MAX_LENGTH) {
+      throw new Error(
+        `The instructions are ${text.length} characters; keep them under ${constants.BOT_INSTRUCTIONS_MAX_LENGTH}.`
+      );
+    }
+    // One per change set: each is the whole text, and Undo checks the text
+    // is still the one its item wrote.
+    const earlier = ctx.staged.findIndex(item => item.area === 'bot');
+    if (earlier >= 0) {
+      ctx.staged[earlier] = {
+        area,
+        label,
+        op: action,
+        payload: { text },
+        undo: 'reverse'
+      };
+      return `Replaced staged #${earlier + 1}: ${label}.`;
+    }
+    return push({ op: action, payload: { text }, undo: 'reverse' });
   }
 
   if (area === 'prompts') {
@@ -746,6 +772,37 @@ const tools: Record<string, ItemHandler> = {
   }
 };
 
+const bot: Record<string, ItemHandler> = {
+  set_instructions: {
+    apply: async (caller, scope, item) => ({
+      text: await setBotInstructions(
+        caller.db,
+        scope,
+        String(item.payload.text ?? '')
+      )
+    }),
+    check: async (caller, scope, item) => {
+      const [row] = await caller.db
+        .select({ text: db.schema.project.botInstructions })
+        .from(db.schema.project)
+        .where(eq(db.schema.project.id, scope.projectId))
+        .limit(1);
+      if ((row?.text ?? '') !== String(item.payload.text ?? '')) {
+        throw new Error(
+          "The bot's instructions were changed since, so undoing would lose that."
+        );
+      }
+    },
+    undo: async (caller, scope, _item, before) => {
+      await setBotInstructions(
+        caller.db,
+        scope,
+        (before as { text: string | null }).text
+      );
+    }
+  }
+};
+
 export const projectHandler = (area: ItemArea, op: string): ItemHandler => {
   const handler =
     area === 'knowledge'
@@ -754,7 +811,9 @@ export const projectHandler = (area: ItemArea, op: string): ItemHandler => {
         ? prompts[op]
         : area === 'tools'
           ? tools[op]
-          : undefined;
+          : area === 'bot'
+            ? bot[op]
+            : undefined;
   if (!handler) throw new Error(`Unknown change ${area} ${op}`);
   return handler;
 };

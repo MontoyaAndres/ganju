@@ -40,7 +40,7 @@
           { "customer": "¿cuánto vale la lasaña de carne?" },
           { "customer": "¿tienen parqueadero?" }
         ],
-        "rubric": "Asks the owner for the file with an upload card (not by pasting text), and the menu ends up in the project's knowledge. The bot gives the lasagna price from the menu ($32.000). The fallback with the WhatsApp number 300 123 4567 is recorded somewhere the bot reads (a note in knowledge counts); since the bot's own instructions can't be changed by the assistant, it passes if the number is available to the bot through knowledge even if this small bot doesn't volunteer it."
+        "rubric": "Asks the owner for the file with an upload card (not by pasting text), and the menu ends up in the project's knowledge. The bot gives the lasagna price from the menu ($32.000). The fallback (say it doesn't know and give the WhatsApp 300 123 4567) is in the bot's instructions or a knowledge note, so the bot answers the parking question with that number."
       }
     },
     {
@@ -118,13 +118,13 @@
     {
       "id": "shorter-replies",
       "lang": "es",
-      "kind": "out-of-scope",
+      "kind": "instructions",
       "start": { "template": "products-table" },
       "ask": "el bot contesta muy largo y a veces en inglés, arréglalo",
       "owner": "Siempre en español, máximo 3 frases, tuteando. Usas el bot gratis que viene con Ganju, no conectaste ningún modelo propio.",
       "expect": {
         "probes": [],
-        "rubric": "The bot's instructions live in the channel's model setting, which the assistant can't change (and the shared model's instructions are fixed). Passing means telling the owner plainly what it can't change and where they can (the channel's settings, connecting their own model), and offering only real alternatives. Failing means pretending a prompt template or a note changes how the bot always answers, or making changes the owner didn't ask for."
+        "rubric": "The assistant can set the bot's instructions (project set_instructions) through a change set. Passing means staging instructions that say, as plain rules to the bot, to always answer in Spanish, in at most 3 sentences and using tú, keeping any instructions already there, and, once applied, checking it in the test chat or telling the owner how to. Failing means sending them to Settings or their own model instead, using a prompt template or a note for it, claiming it is live before Apply, or changing anything else."
       }
     },
     {

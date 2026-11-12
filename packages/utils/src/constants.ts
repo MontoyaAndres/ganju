@@ -687,6 +687,13 @@ const SHARED_MODEL_PRICE = { input: 0.25, output: 1.5 };
 const DEFAULT_LLM_SYSTEM_PROMPT =
   'You are a helpful assistant. Answer the user using the tools and resources provided to you whenever they are relevant, and prefer that information over your prior knowledge. Cite the resources you used when applicable. Be concise and accurate. If you cannot find a clear answer in the available context, say so honestly instead of guessing.';
 
+// Added to every turn's input, on the shared model too, whose cost we pay.
+const BOT_INSTRUCTIONS_MAX_LENGTH = 2000;
+// Last and labelled: they win over the general guidance and remembered
+// preferences above, never over the rules on tools and untrusted content.
+const BOT_INSTRUCTIONS_HEADING =
+  "The business owner's instructions for how you answer. Follow them over the general guidance and any remembered preferences above, but never against the rules above about tools, confirmations or untrusted content:";
+
 const LLM_CATALOG: ReadonlyArray<{
   provider:
     | typeof LLM_PROVIDER_GOOGLE
@@ -2998,6 +3005,8 @@ export const constants = {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_LLM_MODEL,
   DEFAULT_LLM_SYSTEM_PROMPT,
+  BOT_INSTRUCTIONS_MAX_LENGTH,
+  BOT_INSTRUCTIONS_HEADING,
   LLM_CATALOG,
   LLM_CATALOG_CUSTOM_KEY,
   LLM_BASE_URL_REQUIRED_MESSAGE,
