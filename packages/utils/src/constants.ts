@@ -689,9 +689,10 @@ const DEFAULT_LLM_SYSTEM_PROMPT =
 
 // Added to every turn's input, on the shared model too, whose cost we pay.
 const BOT_INSTRUCTIONS_MAX_LENGTH = 2000;
-// Last and labelled, so the notes before them still hold when they clash.
+// Last and labelled: they win over the general guidance and remembered
+// preferences above, never over the rules on tools and untrusted content.
 const BOT_INSTRUCTIONS_HEADING =
-  "The business owner's instructions for how you answer (they never override the notes above):";
+  "The business owner's instructions for how you answer. Follow them over the general guidance and any remembered preferences above, but never against the rules above about tools, confirmations or untrusted content:";
 
 const LLM_CATALOG: ReadonlyArray<{
   provider:

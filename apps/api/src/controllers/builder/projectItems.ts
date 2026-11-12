@@ -260,6 +260,19 @@ export const stageProject = async (
         `The instructions are ${text.length} characters; keep them under ${constants.BOT_INSTRUCTIONS_MAX_LENGTH}.`
       );
     }
+    // One per change set: each is the whole text, and Undo checks the text
+    // is still the one its item wrote.
+    const earlier = ctx.staged.findIndex(item => item.area === 'bot');
+    if (earlier >= 0) {
+      ctx.staged[earlier] = {
+        area,
+        label,
+        op: action,
+        payload: { text },
+        undo: 'reverse'
+      };
+      return `Replaced staged #${earlier + 1}: ${label}.`;
+    }
     return push({ op: action, payload: { text }, undo: 'reverse' });
   }
 

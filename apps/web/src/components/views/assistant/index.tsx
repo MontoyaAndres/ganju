@@ -64,7 +64,9 @@ const toolLabel = (
 ) => {
   switch (name) {
     case 'project':
-      return t('toolProject');
+      return action === 'set_instructions'
+        ? t('toolInstructions')
+        : t('toolProject');
     case 'functions':
       if (action === 'save_draft') return t('toolWrite');
       if (action === 'logs') return t('toolLogs');
