@@ -1341,10 +1341,14 @@ has the link).
   the zone was switched to Europe/Madrid (the database was set back to
   America/Bogota and the test schedule deleted).
 
-**Still to do for B:** raise qa-timecap's extra-credit limit (or reset its
-counter), run the four cases left (`import-clients`, `refund-cap`,
-`shorter-replies`, `broken-weather`), then a full run to save as the new
-baseline.
+- qa-timecap's extra-credit limit raised from 2,000 to 4,000 (the evals of
+  the day had used 3,004 credits).
+- Full eval on dev (2026-11-12): **30/30**, every case 3/3, 21.3 credits a
+  run (max 43.5), 10.5 model calls and 2.7 owner turns a run; saved as the
+  new baseline `scripts/golden/builder-schedules-server.json` (was 29/30,
+  22.9 credits). nightly-orders 3/3 at about 12 credits.
+
+**B is done on dev.** Left: merge and deploy to production (no migration).
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
