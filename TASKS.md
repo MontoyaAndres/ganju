@@ -1232,7 +1232,7 @@ Status: phase 7 done on dev and production. Checked in production
   if within 6 hours, never more than one catch-up. Pro and Enterprise only.
 - A (owner sessions): the guide and results template as a shareable doc.
 
-**Built (2026-11-12), not yet on dev:**
+**Built (2026-11-12), on dev (migration 0095 run):**
 - C:
   - `project.bot_instructions` (migration 0095, generated, not run);
   - `PUT …/project/:projectId/bot-instructions` (project admins);
@@ -1250,10 +1250,24 @@ Status: phase 7 done on dev and production. Checked in production
 - E: the overview's versions carry `createdAt` and `publishedAt` (UTC); the
   failing-action rule says to compare log times with the live version's.
 
-**Still to do:** run migration 0095 and deploy to dev; check C there (the
-editor, a channel and Try it answering by the instructions, the assistant
-staging and undoing them); re-run `--case shorter-replies --repeat 3` and the
-full eval, and save a new baseline if it holds. Then B.
+**Checked on dev (2026-11-12), in `qa-timecap`:**
+- The Channels page's editor saved an instruction ("end every answer with
+  PIÑA") and showed it again on reopening; Try it ended its answer with it.
+- The assistant, asked for answers of at most 2 sentences, staged both lines
+  (keeping PIÑA); Apply wrote them, Undo put back the PIÑA line alone. The
+  test instruction was cleared afterwards.
+- D: the new chat showed in the list ("ahora") while its first reply ran.
+- The editor's Cancel button was white on white; fixed.
+- Eval: `shorter-replies` 3/3 (6.4 credits a run). Full run 26/30, 20.5
+  credits a run: `menu-pdf` 0/3 because the eval's simulated customer and
+  judge didn't see the bot's instructions, where the assistant now puts "say
+  you don't know and give the WhatsApp". The eval now passes them like the
+  runner does, and the rubric accepts them: `menu-pdf` 3/3, and the parking
+  probe now gets the number. `pizza-stock` 2/3 (one run stopped after its
+  questions). `nightly-orders` 3/3. No new baseline saved yet.
+
+**Next:** B (schedules). A's guide and template are a shareable doc (owner
+has the link).
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")

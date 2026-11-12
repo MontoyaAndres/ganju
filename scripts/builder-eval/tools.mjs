@@ -235,6 +235,7 @@ export const createSession = ({ p, slug, ownerFiles = [], owner, log }) => {
 
   const overview = async () => {
     const [
+      project,
       artifact,
       tools,
       versions,
@@ -245,6 +246,7 @@ export const createSession = ({ p, slug, ownerFiles = [], owner, log }) => {
       connections,
       health
     ] = await Promise.all([
+      p.get(''),
       p.get('/artifact'),
       p.get('/artifact/tool'),
       p.get('/artifact/custom-code/versions').catch(() => null),
@@ -272,6 +274,7 @@ export const createSession = ({ p, slug, ownerFiles = [], owner, log }) => {
     }
     return {
       owner: await ownerAccount(),
+      botInstructions: project?.[0]?.botInstructions ?? null,
       slug: artifact.slug,
       tools: tools.map(t => ({
         id: t.id,

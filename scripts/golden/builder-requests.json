@@ -40,7 +40,7 @@
           { "customer": "¿cuánto vale la lasaña de carne?" },
           { "customer": "¿tienen parqueadero?" }
         ],
-        "rubric": "Asks the owner for the file with an upload card (not by pasting text), and the menu ends up in the project's knowledge. The bot gives the lasagna price from the menu ($32.000). The fallback with the WhatsApp number 300 123 4567 is recorded somewhere the bot reads (a note in knowledge counts); since the bot's own instructions can't be changed by the assistant, it passes if the number is available to the bot through knowledge even if this small bot doesn't volunteer it."
+        "rubric": "Asks the owner for the file with an upload card (not by pasting text), and the menu ends up in the project's knowledge. The bot gives the lasagna price from the menu ($32.000). The fallback (say it doesn't know and give the WhatsApp 300 123 4567) is in the bot's instructions or a knowledge note, so the bot answers the parking question with that number."
       }
     },
     {

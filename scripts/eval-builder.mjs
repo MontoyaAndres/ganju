@@ -109,7 +109,7 @@ const loadAdapter = async () => {
 const sharedAdapter = await loadAdapter();
 const SHARED_KEY = readEnv('EMBEDDING_API_KEY');
 
-const customerTurn = async (slug, question) => {
+const customerTurn = async (slug, question, botInstructions) => {
   const listed = await mcp(slug, 'tools/list');
   const tools = listed.tools
     .slice(0, utils.constants.CHANNEL_MAX_TOOLS ?? 40)
@@ -120,7 +120,10 @@ const customerTurn = async (slug, question) => {
     }));
   const systemPrompt = [
     `Current date and time: ${new Date().toISOString()}. The user's time zone is America/Bogota; resolve relative dates and times ("today", "tomorrow", "9am") in that zone. ${utils.UNTRUSTED_CONTENT_NOTE}`,
-    utils.constants.DEFAULT_LLM_SYSTEM_PROMPT
+    utils.constants.DEFAULT_LLM_SYSTEM_PROMPT,
+    ...(botInstructions
+      ? [`${utils.constants.BOT_INSTRUCTIONS_HEADING}\n${botInstructions}`]
+      : [])
   ].join('\n\n');
   const messages = [{ role: 'user', content: question }];
   const calls = [];
@@ -503,7 +506,11 @@ const runCase = async (c, runIndex) => {
   for (const probe of c.expect.probes ?? []) {
     try {
       if (probe.customer) {
-        const r = await customerTurn(slug, probe.customer);
+        const r = await customerTurn(
+          slug,
+          probe.customer,
+          built?.botInstructions
+        );
         probes.push({
           customer: probe.customer,
           answer: r.answer,
