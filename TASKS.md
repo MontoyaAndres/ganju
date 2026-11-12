@@ -1316,8 +1316,20 @@ has the link).
   and not applied yet (`runDraftQuery`: saved and run in a rolled-back
   transaction), and the prompt says to send the sample before proposing.
 
-**Still to do for B:** deploy data and api; re-run `--case nightly-orders
---repeat 3`, then the full eval, and save a new baseline.
+- After that deploy: `nightly-orders` 2/3 (11.5 to 31.3 credits), the sample
+  sent before Apply each time; the failed run added a totals row with no
+  HAVING guard, so an empty day would still email. The eval's view of what
+  was built now shows each query's SQL and each trigger's settings (the
+  judges couldn't see a schedule's time, parameters or skipEmpty).
+- Full eval (2026-11-12): 17 of the 18 runs that ran passed (pizza-stock,
+  nightly-orders, menu-pdf, open-now, calendar-booking 3/3; delivery-orders
+  2/3), 25.1 credits a run. The last four cases (12 runs) didn't run:
+  qa-timecap's assistant credits for the month ran out.
+
+**Still to do for B:** raise qa-timecap's extra-credit limit (or reset its
+counter), run the four cases left (`import-clients`, `refund-cap`,
+`shorter-replies`, `broken-weather`), then a full run to save as the new
+baseline.
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")

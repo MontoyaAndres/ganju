@@ -307,12 +307,31 @@ export const createSession = ({ p, slug, ownerFiles = [], owner, log }) => {
                 c => `${c.name}:${c.type}`
               )
             })),
-            queries: queries.map(q => q.name),
+            // The judge checks what was built against the request: a
+            // query's SQL, and when and how a trigger runs.
+            queries: queries.map(q => ({
+              name: q.name,
+              sql: q.sql,
+              params: q.params
+            })),
             triggers: triggers.map(t => ({
               name: t.name,
               table: t.table,
               on: t.on,
-              enabled: t.enabled
+              enabled: t.enabled,
+              ...(t.after ? { after: t.after } : {}),
+              ...(t.when ? { when: t.when } : {}),
+              ...(t.on === 'schedule'
+                ? {
+                    every: t.every,
+                    at: t.at,
+                    days: t.days,
+                    query: t.query,
+                    params: t.params,
+                    skipEmpty: t.skipEmpty
+                  }
+                : {}),
+              action: t.action
             }))
           }
         : data?.error
