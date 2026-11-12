@@ -311,6 +311,7 @@ Stage (each needs label): add {toolKey, config?} (a catalog tool; "http-endpoint
 
 type ManifestTool = {
   name: string;
+  title?: string;
   annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
   data?: { access?: string; tables?: string[] };
 };
@@ -587,12 +588,37 @@ const turnOnEffects = async (ctx: BuilderToolContext, versionId: string) => {
   );
   const config = tool ? readCustomCodeConfig(tool) : null;
   const actions = source.tools as ManifestTool[];
+  // The card names tables as the Data page does: by label, including tables
+  // this change set creates.
+  const labels = new Map<string, string>();
+  const opened = await openDatabase(ctx).catch(() => null);
+  if (opened) {
+    const stored = await db.data
+      .callData('schemaRead', () => opened.stub.schemaRead())
+      .catch(() => null);
+    for (const table of stored?.tables ?? []) {
+      if (table.label) labels.set(table.name, table.label);
+    }
+  }
+  for (const item of ctx.staged) {
+    const table = item.payload.table as { name?: string; label?: string };
+    if (item.op === 'create_table' && table?.name && table.label) {
+      labels.set(table.name, table.label);
+    }
+  }
   return {
     actions: actions.map(action => ({
-      name: action.name,
+      name: action.title || action.name,
       changesThings: Boolean(action.annotations?.destructiveHint),
       onlyReads: Boolean(action.annotations?.readOnlyHint),
-      data: action.data ?? null
+      data: action.data
+        ? {
+            ...action.data,
+            tables: (action.data.tables ?? []).map(
+              name => labels.get(name) ?? name
+            )
+          }
+        : null
     })),
     hosts: config?.allowedHosts ?? [],
     accounts: config?.connections ?? []

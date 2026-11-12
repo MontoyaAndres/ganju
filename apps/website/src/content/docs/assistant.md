@@ -83,8 +83,9 @@ applying a card to ask what a customer would ask. **Start over** clears it.
 ## Credits
 
 The assistant is billed in credits; one credit is $0.01 of AI cost. A new action
-with its table usually takes 25 to 50 credits, a change to an action 10 to 50,
-and new knowledge or a small fix under 15. Each reply shows what it used, and
+with its tables usually takes 30 to 60 credits for the whole job, and up to
+about 90 when it also emails, checks your hours or handles payments; a change to
+an action 10 to 50, and new knowledge or a small fix under 15. Each reply shows what it used, and
 each chat its total.
 
 Pro and Enterprise include **1,000 credits a month**. Past that, extra credits are $2 per 100,

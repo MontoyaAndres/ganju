@@ -532,6 +532,13 @@ export const Assistant = () => {
     } else if (result.data.changeSet.status === 'applied') {
       snackbar.success(t('toastApplied'));
       setTryReset(count => count + 1);
+      // The assistant tests what needed to be live and says how it went; it
+      // only answers a message, so Apply sends one.
+      if (chatId) {
+        await loadDetail(chatId);
+        void send(t('appliedMessage'), chatId);
+        return;
+      }
     } else if (result.data.changeSet.status === 'undone') {
       snackbar.success(t('toastUndone'));
       setTryReset(count => count + 1);

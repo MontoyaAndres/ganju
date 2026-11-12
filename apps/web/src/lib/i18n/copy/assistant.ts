@@ -113,6 +113,7 @@ const en = {
   failedShort: "Didn't apply",
   discarded: 'Replaced by a newer change',
   toastApplied: 'Applied. Your bot uses it from now on.',
+  appliedMessage: 'I applied the changes.',
   toastUndone: 'Undone. Your bot is back to how it was.',
 
   patchTitle: 'A change for your developer',
@@ -278,6 +279,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     failedShort: 'No se aplicó',
     discarded: 'Reemplazado por un cambio más nuevo',
     toastApplied: 'Aplicado. Tu bot ya lo usa.',
+    appliedMessage: 'Apliqué los cambios.',
     toastUndone: 'Deshecho. Tu bot quedó como estaba.',
 
     patchTitle: 'Un cambio para tu desarrollador',

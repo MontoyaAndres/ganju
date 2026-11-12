@@ -15,7 +15,8 @@ import {
   FolderOutlined,
   ExtensionOutlined,
   ChatOutlined,
-  ScheduleOutlined
+  ScheduleOutlined,
+  AutoAwesomeOutlined
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -33,6 +34,7 @@ import { Chart } from 'react-chartjs-2';
 
 import { Wrapper, McpModalBody } from './styles';
 import { ToolHealth } from './ToolHealth';
+import { useAssistantAccess } from '../assistant/access';
 import { i18n } from '../../../lib';
 
 import type { Theme } from '@emotion/react';
@@ -388,6 +390,7 @@ export const Overview = () => {
     id: string;
     projectId: string;
   };
+  const assistantAccess = useAssistantAccess(organizationId, projectId);
 
   const [data, setData] = useState<Overview | null>(null);
   const [status, setStatus] = useState<Status>('idle');
@@ -604,6 +607,27 @@ export const Overview = () => {
             )}
           </div>
         </div>
+        {/* A project with nothing in it yet starts in the Assistant. */}
+        {assistantAccess === 'open' &&
+          data &&
+          data.stats.resources.count === 0 &&
+          data.stats.prompts.count === 0 &&
+          data.stats.channels.count === 0 && (
+            <div className="overview-card overview-start">
+              <AutoAwesomeOutlined className="overview-start-icon" />
+              <div className="overview-start-text">
+                <p className="overview-start-title">{t('startTitle')}</p>
+                <p>{t('startText')}</p>
+              </div>
+              <UI.Button
+                variant="contained"
+                size="small"
+                onClick={() => goTo('assistant')}
+              >
+                <span className="button-text">{t('startButton')}</span>
+              </UI.Button>
+            </div>
+          )}
         <div className="overview-card overview-activity">
           <div className="overview-activity-head">
             <div className="overview-activity-headings">

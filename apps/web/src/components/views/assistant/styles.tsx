@@ -84,9 +84,15 @@ export const Wrapper = styled.div`
       }
     }
 
+    /* With room for it, Try it opens beside the chat instead of over it, so
+       the chat stays usable while it is open. */
     @media (min-width: ${theme.screens.lg}) {
-      .assistant-layout:not(.is-try-open) .assistant-scrim {
+      .assistant-layout:not(.is-chats-open) .assistant-scrim {
         display: none;
+      }
+
+      .assistant-layout.is-try-open {
+        grid-template-columns: 248px minmax(0, 1fr) 340px;
       }
     }
 
@@ -1007,7 +1013,7 @@ export const Wrapper = styled.div`
       box-shadow: -8px 0 32px ${theme.colors.bastille}26;
       box-sizing: border-box;
 
-      @media (min-width: ${theme.screens['2xl']}) {
+      @media (min-width: ${theme.screens.lg}) {
         position: static;
         width: auto;
         padding: 0;

@@ -14,7 +14,11 @@ const en = {
 
   // Header.
   defaultDescription:
-    'Everything this project exposes through its MCP server, at a glance.',
+    'How your bot is doing: who it talks to, what it knows and what it can do.',
+  startTitle: 'Build your bot with the Assistant',
+  startText:
+    'Tell it in your own words what your bot should know or do, like "answer from my menu" or "take orders and email them to me". It builds it with you.',
+  startButton: 'Open the Assistant',
   mcpUrl: 'MCP URL',
   clickToCopy: 'Click to copy',
   editMcpUrl: 'Edit MCP URL',
@@ -22,7 +26,7 @@ const en = {
   // Activity chart.
   activity: 'Activity',
   activityHelp:
-    'All interactions per day across channels and MCP clients — including incoming messages. Only assistant replies count toward billing.',
+    "Conversations per day on your channels and connected apps, including the messages that come in. Only the bot's replies count toward billing.",
   /** The range buttons: 7d, 30d, 90d. `{days}` is the number. */
   rangeDays: '{days}d',
   chartLine: 'Line',
@@ -196,14 +200,18 @@ export const OVERVIEW: Catalog<OverviewCopy> = {
     retry: 'Reintentar',
 
     defaultDescription:
-      'Todo lo que este proyecto expone a través de su servidor MCP, de un vistazo.',
+      'Cómo va tu bot: con quién habla, qué sabe y qué puede hacer.',
+    startTitle: 'Arma tu bot con el Asistente',
+    startText:
+      'Cuéntale con tus palabras qué debe saber o hacer tu bot, como "que responda con mi menú" o "que tome pedidos y me los envíe por correo". Lo construye contigo.',
+    startButton: 'Abrir el Asistente',
     mcpUrl: 'URL de MCP',
     clickToCopy: 'Haz clic para copiar',
     editMcpUrl: 'Editar la URL de MCP',
 
     activity: 'Actividad',
     activityHelp:
-      'Todas las interacciones por día, en los canales y los clientes MCP — incluidos los mensajes que entran. Solo las respuestas del asistente cuentan para la facturación.',
+      'Conversaciones por día en tus canales y apps conectadas, incluidos los mensajes que entran. Solo las respuestas del bot cuentan para la facturación.',
     rangeDays: '{days}d',
     chartLine: 'Líneas',
     chartArea: 'Área',

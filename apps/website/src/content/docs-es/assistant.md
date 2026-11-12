@@ -87,8 +87,9 @@ limpia.
 ## Créditos
 
 El asistente se cobra en créditos; un crédito es $0,01 de costo de IA. Una
-acción nueva con su tabla suele tomar de 25 a 50 créditos, un cambio a una acción
-de 10 a 50, y conocimiento nuevo o un arreglo pequeño menos de 15. Cada respuesta
+acción nueva con sus tablas suele tomar de 30 a 60 créditos en total, y hasta
+unos 90 si además envía correos, revisa tu horario o maneja pagos; un cambio a
+una acción de 10 a 50, y conocimiento nuevo o un arreglo pequeño menos de 15. Cada respuesta
 muestra lo que usó, y cada chat su total.
 
 Pro y Enterprise incluyen **1.000 créditos al mes**. Después, los créditos extra cuestan $2

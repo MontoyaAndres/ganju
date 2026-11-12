@@ -1364,6 +1364,32 @@ has the link).
 
 **B is done on dev.** Left: merge and deploy to production (no migration).
 
+**Owner sessions (A), 2026-11-12:** the session guide, invitation, account
+setup and results template are in a shared doc. A simulated walkthrough on
+dev (Claude as a burger and hot dog owner in Girardot, project "Perros y
+Hamburguesas Girardot (prueba)" in org `test`) finished in about 12 minutes
+and 81.6 credits (50 estimated): the bot answered from the menu, said it was
+closed outside hours, and a test order added up. Fixed from it, on
+`feat/builder-walkthrough-fixes`:
+- a note the assistant wrote before a tool came out in English: the prompt
+  says every word it writes is read, in the owner's language;
+- nothing happened after Apply until the owner wrote again: Apply now sends
+  "Apliqué los cambios." for the assistant to test what needed to be live
+  (the eval does the same, up to 3 times a run);
+- the card named actions and tables by their internal names: it shows each
+  action's title (written in the owner's language) and each table's label;
+- the action accepted orders named "PRUEBA" at any hour so it could be
+  tested: the prompt forbids test exceptions in what goes live;
+- the credit estimate was low: 30 to 60 for a new action with its tables, up
+  to about 90 with emails, hours or payments, counting the test after Apply
+  (prompt and the Assistant page, en/es);
+- the project home spoke of MCP servers and clients: plain wording, and a
+  "Build your bot with the Assistant" card on a project with nothing in it;
+- with Try it open, a click on the chat closed it and lost the typing: on
+  screens from lg up it opens beside the chat.
+Still to do: deploy to dev, walk through again, run the eval; the first real
+session (Juanita, burgers and hot dogs in Girardot) is being arranged.
+
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
 
