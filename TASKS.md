@@ -1408,8 +1408,9 @@ Eval on dev with the fixes: 28/30 at 23.0 credits a run (baseline 30/30 at
 21.3), 2.2 owner turns a run (was 2.7) since Apply now carries the test.
 delivery-orders 2/3 (a run left the save action unmarked as changing
 things, seen before) and shorter-replies 2/3 (a run left out "tú"); the
-baseline stays. The first real session (Juanita, burgers and hot dogs in
-Girardot) is being arranged.
+baseline stays. First real session (2026-11-12): Juanita, burgers and hot
+dogs in Girardot. The owner reports she loved it; the owner sessions are
+closed on that.
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba
 ## Project data on SQLite Durable Objects ("Data" / "Datos")
