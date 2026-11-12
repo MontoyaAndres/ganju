@@ -1334,6 +1334,13 @@ has the link).
   build the email with one helper. Not fixed: a point-in-time restore to
   before a run makes that run go out again (rare, owner-initiated).
 
+- Checked on dev after the review fixes: deleting a saved query a schedule
+  uses is refused (409, naming the schedule); a schedule missing its query's
+  required parameters is refused (400); a schedule at 18:18 Madrid time,
+  saved while the database was in Bogotá, fired once at 17:18:03 UTC after
+  the zone was switched to Europe/Madrid (the database was set back to
+  America/Bogota and the test schedule deleted).
+
 **Still to do for B:** raise qa-timecap's extra-credit limit (or reset its
 counter), run the four cases left (`import-clients`, `refund-cap`,
 `shorter-replies`, `broken-weather`), then a full run to save as the new
