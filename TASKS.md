@@ -1386,7 +1386,13 @@ closed outside hours, and a test order added up. Fixed from it, on
 - the project home spoke of MCP servers and clients: plain wording, and a
   "Build your bot with the Assistant" card on a project with nothing in it;
 - with Try it open, a click on the chat closed it and lost the typing: on
-  screens from lg up it opens beside the chat.
+  screens from 1280px up it opens beside the chat.
+- After a review: Apply's message waits for a reply still running and goes
+  out after it; if it fails it shows the error without putting words in the
+  owner's box; table labels on the card are worked out when the change set is
+  proposed (tables created or relabelled later in it too); a title that isn't
+  text falls back to the action's name; the starter card ignores the tools
+  every project starts with.
 Still to do: deploy to dev, walk through again, run the eval; the first real
 session (Juanita, burgers and hot dogs in Girardot) is being arranged.
 

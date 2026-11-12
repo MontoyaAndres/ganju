@@ -607,9 +607,11 @@ export const Overview = () => {
             )}
           </div>
         </div>
-        {/* A project with nothing in it yet starts in the Assistant. */}
+        {/* A project with nothing in it yet (only the tools every project
+            starts with) begins in the Assistant. */}
         {assistantAccess === 'open' &&
           data &&
+          data.stats.tools.count <= utils.constants.RESOURCE_TOOL_KEYS.length &&
           data.stats.resources.count === 0 &&
           data.stats.prompts.count === 0 &&
           data.stats.channels.count === 0 && (
