@@ -454,7 +454,7 @@ export interface TriggerEvent<Row = Record<string, unknown>> {
   rowId?: number;
   /** On `schedule`: the run's date in the database's time zone (YYYY-MM-DD). */
   date?: string;
-  /** On `schedule` with a saved query: its name, rows and row count. */
+  /** On `schedule` with a saved query: its name, rows (up to 200) and how many it returned (counted up to 500). */
   query?: string;
   rows?: Row[];
   rowCount?: number;

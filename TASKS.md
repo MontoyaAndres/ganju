@@ -1326,6 +1326,14 @@ has the link).
   2/3), 25.1 credits a run. The last four cases (12 runs) didn't run:
   qa-timecap's assistant credits for the month ran out.
 
+- Code review fixes: changing the database's time zone re-arms the alarm and
+  counts schedules from then; `rowCount` counts up to 500 so "(200 / 300)"
+  shows when rows are left out; saving a schedule refuses a query parameter
+  it doesn't give; a saved query a schedule uses can't be deleted; the
+  turned-off email names a schedule, not a table; the test email and the run
+  build the email with one helper. Not fixed: a point-in-time restore to
+  before a run makes that run go out again (rare, owner-initiated).
+
 **Still to do for B:** raise qa-timecap's extra-credit limit (or reset its
 counter), run the four cases left (`import-clients`, `refund-cap`,
 `shorter-replies`, `broken-weather`), then a full run to save as the new

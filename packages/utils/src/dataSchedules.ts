@@ -3,7 +3,7 @@
 // object's alarm wakes at the next due time and stores one event, in the same
 // transaction that records the time as done, so none fires twice.
 import { isoSeconds, localDatetime } from './dataCompiler';
-import { DataError } from './dataTypes';
+import { DATA_MAX_PAGE, DataError } from './dataTypes';
 
 export const DATA_SCHEDULE_EVERY = ['day', 'week'] as const;
 export type DataScheduleEvery = (typeof DATA_SCHEDULE_EVERY)[number];
@@ -24,8 +24,40 @@ export const DATA_MAX_SCHEDULES = 5;
 // runs once, late; older ones are skipped.
 export const DATA_SCHEDULE_CATCH_UP_MS = 6 * 3_600_000;
 // Rows of the saved query an event carries, and their size in UTF-8 bytes.
+// Up to DATA_MAX_PAGE more are counted, so `rowCount` says how many there
+// were (at least that many when it reaches it).
 export const DATA_SCHEDULE_MAX_ROWS = 200;
 export const DATA_SCHEDULE_MAX_ROW_BYTES = 48_000;
+export const DATA_SCHEDULE_COUNT_ROWS = DATA_MAX_PAGE;
+
+const encoder = new TextEncoder();
+
+/** The rows an event carries out of what the query returned, and the count. */
+export const capScheduleRows = (
+  returned: Record<string, unknown>[],
+  more: boolean
+): {
+  rows: Record<string, unknown>[];
+  rowCount: number;
+  rowsTruncated?: true;
+} => {
+  const rows: Record<string, unknown>[] = [];
+  let bytes = 0;
+  for (const row of returned) {
+    if (rows.length === DATA_SCHEDULE_MAX_ROWS) break;
+    const size = encoder.encode(JSON.stringify(row)).length;
+    if (bytes + size > DATA_SCHEDULE_MAX_ROW_BYTES) break;
+    bytes += size;
+    rows.push(row);
+  }
+  return {
+    rows,
+    rowCount: returned.length,
+    ...(more || rows.length < returned.length
+      ? { rowsTruncated: true as const }
+      : {})
+  };
+};
 // The values a schedule's query parameters can take from the run itself, in
 // the database's time zone.
 // `today_start` / `today_end` bound the run's local day as UTC times, for a
@@ -226,6 +258,10 @@ export const scheduleRowsText = (
       .map(([key, value]) => `${key}: ${cell(value)}`)
       .join(' · ')
   );
-  if (rowCount > rows.length) lines.push(`… (${rows.length} / ${rowCount})`);
+  if (rowCount > rows.length) {
+    const total =
+      rowCount >= DATA_SCHEDULE_COUNT_ROWS ? `${rowCount}+` : rowCount;
+    lines.push(`… (${rows.length} / ${total})`);
+  }
   return lines.join('\n');
 };

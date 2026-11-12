@@ -436,7 +436,7 @@ export class ProjectDatabase
   // The zone datetimes come back in for callers that send none: the
   // assistant, functions, and anything that leaves it to the database.
   async setTimeZone(caller: DataCaller, args: { timeZone: string | null }) {
-    return this.call({}, runner => {
+    return this.call({}, async runner => {
       assertActor(caller);
       const zone = args.timeZone === null ? null : validTimeZone(args.timeZone);
       if (args.timeZone !== null && !zone) {
@@ -446,6 +446,12 @@ export class ProjectDatabase
       }
       setMeta(runner, 'time_zone', zone ?? null);
       this.schemaCache = null;
+      // Schedules count from now in the new zone: a time that already passed
+      // there today isn't sent late, and the alarm moves to the next one.
+      runner.all("UPDATE _ganju_triggers SET scan_state = ? WHERE event = 'schedule'", [
+        JSON.stringify({ through: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') })
+      ]);
+      await this.scheduleTimeScan(runner);
       return this.readInfo(runner);
     });
   }
@@ -1163,7 +1169,7 @@ export class ProjectDatabase
     const scanAt = hasTimeTriggers(runner)
       ? Number(getMeta(runner, TIME_SCANNED_KEY) ?? 0) + DATA_TIME_SCAN_MS
       : null;
-    const dueAt = hasSchedules(runner) ? nextScheduleAt(runner, this.schema(runner)) : null;
+    const dueAt = nextScheduleAt(runner, this.schema(runner));
     if (scanAt === null) return dueAt;
     return dueAt === null ? scanAt : Math.min(scanAt, dueAt);
   }

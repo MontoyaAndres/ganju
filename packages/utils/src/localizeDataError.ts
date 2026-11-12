@@ -446,6 +446,10 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
   '"params" goes with "query".': '"params" va con "query".',
   '"skipEmpty" is true or false.': '"skipEmpty" es true o false.',
   '"skipEmpty" goes with "query".': '"skipEmpty" va con "query".',
+  '{0} needs {1} in "params", such as { "{2}": "{{today}}" }.':
+    '{0} necesita {1} en "params", por ejemplo { "{2}": "{{today}}" }.',
+  '{0} is used by the schedule {1}; change or delete it first.':
+    '{0} lo usa la programación {1}; cámbiala o elimínala primero.',
   'A schedule runs "email", "function" or "webhook".':
     'Una programación ejecuta "email", "function" o "webhook".',
   '"{0}" is for "on": "schedule" only.':

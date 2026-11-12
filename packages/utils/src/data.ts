@@ -163,7 +163,8 @@ export {
   scanTimeTriggers,
   hasSchedules,
   nextScheduleAt,
-  scanSchedules
+  scanSchedules,
+  scheduleEmail
 } from './dataTriggers';
 export {
   DATA_SCHEDULE_EVERY,
@@ -171,7 +172,9 @@ export {
   DATA_MAX_SCHEDULES,
   DATA_SCHEDULE_CATCH_UP_MS,
   DATA_SCHEDULE_MAX_ROWS,
+  DATA_SCHEDULE_COUNT_ROWS,
   DATA_SCHEDULE_PARAM_VALUES,
+  capScheduleRows,
   normaliseClock,
   previousDue,
   nextDue,

@@ -445,13 +445,10 @@ export const stageData = async (
   throw new Error(`Unknown data action ${action}`);
 };
 
-/**
- * An email trigger's message, sent now to the owner's own address from a row
- * of the table (the newest by default), whatever its "to" says.
- */
 // A saved query this conversation staged or proposed and the owner hasn't
 // applied yet, newest first: a schedule's test runs it as it will be.
 const draftQuery = async (ctx: BuilderToolContext, name: unknown) => {
+  if (typeof name !== 'string' || !name) return null;
   const named = (item: StagedItem) =>
     item.area === 'data' &&
     item.op === 'save_query' &&
@@ -476,6 +473,11 @@ const draftQuery = async (ctx: BuilderToolContext, name: unknown) => {
   return (item?.payload.query as { name: string } | undefined) ?? null;
 };
 
+/**
+ * An email trigger's message, sent now to the owner's own address from a row
+ * of the table (the newest by default), or a schedule's as its run builds it,
+ * whatever its "to" says.
+ */
 export const testEmail = async (ctx: BuilderToolContext, input: Input) => {
   const [owner] = await ctx.db
     .select({ email: db.schema.user.email })

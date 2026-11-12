@@ -19,7 +19,12 @@ import {
   setTriggerEnabled
 } from '../src/dataTriggers.ts';
 import type { DataTriggerEventMessage } from '../src/dataTriggers.ts';
-import { listQueries, runDraftQuery, saveQuery } from '../src/dataQueries.ts';
+import {
+  dropQuery,
+  listQueries,
+  runDraftQuery,
+  saveQuery
+} from '../src/dataQueries.ts';
 import {
   nextDue,
   normaliseClock,
@@ -448,4 +453,44 @@ test('a draft query runs as saving would check it, and nothing stays', () => {
     /./
   );
   assert.equal(runner.all('SELECT count(*) AS n FROM orders')[0].n, 2);
+});
+
+test('a schedule needs the query parameters it uses, and holds on to its query', () => {
+  const { runner, s } = bakery();
+  assert.throws(
+    () => saveTrigger(runner, s(), OWNER, { ...NIGHTLY, params: null }),
+    /days_orders needs day in "params"/
+  );
+  saveTrigger(runner, s(), OWNER, NIGHTLY);
+  assert.throws(
+    () => dropQuery(runner, 'days_orders'),
+    /used by the schedule nightly-orders/
+  );
+});
+
+test('more rows than an event carries: the count says how many there were', () => {
+  const { runner, s } = bakery();
+  write(runner, s(), OWNER, {
+    operations: [
+      {
+        op: 'insert',
+        table: 'orders',
+        rows: Array.from({ length: 298 }, (_, i) => ({
+          customer: `c${i}`,
+          total: i
+        }))
+      }
+    ]
+  });
+  saveTrigger(runner, s(), OWNER, NIGHTLY);
+  savedAt(runner, '2026-11-10T12:00:00Z');
+  assert.equal(scanSchedules(runner, s(), new Date('2026-11-11T02:01:00Z')), 1);
+  const [event] = events(runner);
+  assert.equal(event.rows?.length, 200);
+  assert.equal(event.rowCount, 300);
+  assert.equal(event.rowsTruncated, true);
+  assert.match(
+    scheduleRowsText(event.rows ?? [], event.rowCount ?? 0),
+    /… \(200 \/ 300\)$/
+  );
 });

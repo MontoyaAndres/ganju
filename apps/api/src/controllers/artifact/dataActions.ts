@@ -7,9 +7,10 @@ import {
   normaliseTrigger,
   renderTriggerText,
   scheduleParams,
-  scheduleRowsText,
+  scheduleEmail,
+  capScheduleRows,
   localDate,
-  DATA_SCHEDULE_MAX_ROWS
+  DATA_SCHEDULE_COUNT_ROWS
 } from '@ganju/utils/data';
 
 import {
@@ -551,7 +552,7 @@ export const testSendScheduleEmail = async (
   }
   const now = new Date();
   const timeZone = schema.timeZone ?? undefined;
-  let rows: Record<string, unknown>[] = [];
+  let carried: ReturnType<typeof capScheduleRows> | null = null;
   const query = trigger.query;
   if (query) {
     const params = scheduleParams(trigger.params, now, timeZone);
@@ -563,24 +564,25 @@ export const testSendScheduleEmail = async (
           ? request.opened.stub.runDraftQuery(request.caller, {
               query: draft,
               params,
-              limit: DATA_SCHEDULE_MAX_ROWS
+              limit: DATA_SCHEDULE_COUNT_ROWS
             })
           : request.opened.stub.runQuery(request.caller, {
               name: query,
               params,
-              limit: DATA_SCHEDULE_MAX_ROWS
+              limit: DATA_SCHEDULE_COUNT_ROWS
             }),
       request.tally,
       { retryRead: true }
     );
-    rows = result.rows as Record<string, unknown>[];
+    carried = capScheduleRows(result.rows, 'truncated' in result);
   }
-  const fields = { date: localDate(now, timeZone), count: rows.length };
-  const subject =
-    `[Test] ${renderTriggerText(trigger.action.subject, fields)}`.slice(0, 200);
-  const text =
-    renderTriggerText(trigger.action.text, fields) +
-    (rows.length ? `\n\n${scheduleRowsText(rows, rows.length)}` : '');
+  // Built as the nightly run builds it.
+  const email = scheduleEmail(trigger.action, {
+    date: localDate(now, timeZone),
+    ...carried
+  });
+  const subject = `[Test] ${email.subject}`.slice(0, 200);
+  const text = email.text;
   const failed = await emailEach(request, [to], { subject, text });
   if (failed.length > 0) {
     throw new DataError(
@@ -588,7 +590,13 @@ export const testSendScheduleEmail = async (
       'internal'
     );
   }
-  return { sent: 'email' as const, to, subject, text, rows: rows.length };
+  return {
+    sent: 'email' as const,
+    to,
+    subject,
+    text,
+    rows: carried?.rowCount ?? 0
+  };
 };
 
 // Point-in-time recovery

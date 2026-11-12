@@ -10,7 +10,7 @@ import {
   DataError,
   renderCustomerMessage,
   renderTriggerText,
-  scheduleRowsText
+  scheduleEmail
 } from '@ganju/utils/data';
 
 import { invokeCustomCodeScript } from '../utils/customCodeDeploy';
@@ -266,20 +266,20 @@ const runAction = async (
       if (allowed.length === 0) {
         throw new SkipRun(`Not sent: ${notes.join(' ')}`);
       }
-      // A schedule fills in its date and row count, and lists the rows after
-      // the text.
-      const scheduled = job.event === 'schedule';
-      const row = scheduled
-        ? { date: job.date ?? '', count: job.rowCount ?? 0 }
-        : await rowFor(executor, database, stub, job);
-      const listed =
-        scheduled && job.query && job.rows?.length
-          ? `\n\n${scheduleRowsText(job.rows, job.rowCount ?? job.rows.length)}`
-          : '';
-      const failed = await emailRecipientsEach(source, allowed, {
-        subject: renderTriggerText(action.subject, row).slice(0, 200),
-        text: renderTriggerText(action.text, row) + listed
-      });
+      const row =
+        job.event === 'schedule'
+          ? null
+          : await rowFor(executor, database, stub, job);
+      const failed = await emailRecipientsEach(
+        source,
+        allowed,
+        job.event === 'schedule'
+          ? scheduleEmail(action, { ...job, date: job.date ?? '' })
+          : {
+              subject: renderTriggerText(action.subject, row).slice(0, 200),
+              text: renderTriggerText(action.text, row)
+            }
+      );
       if (failed.length === allowed.length) {
         throw new Error(`The email couldn't be sent to ${failed.join(', ')}.`);
       }
@@ -438,7 +438,9 @@ const disableIfFailing = async (
   const web = utils.getEnv({ env }, 'NEXT_PUBLIC_WEB_URL') ?? '';
   await emailEach({ env }, to, {
     subject: `Ganju: the trigger ${job.triggerName} was turned off`,
-    text: `The trigger ${job.triggerName} on the table ${job.table} failed ${FAILURES_TO_DISABLE} times in a row, so Ganju turned it off. Its runs and their errors are in the table's Triggers tab on the project's Data page${web ? ` (${web})` : ''}. Turn it back on there once the cause is fixed.`
+    text: job.table
+      ? `The trigger ${job.triggerName} on the table ${job.table} failed ${FAILURES_TO_DISABLE} times in a row, so Ganju turned it off. Its runs and their errors are in the table's Triggers tab on the project's Data page${web ? ` (${web})` : ''}. Turn it back on there once the cause is fixed.`
+      : `The schedule ${job.triggerName} failed ${FAILURES_TO_DISABLE} times in a row, so Ganju turned it off. Its runs and their errors are under Schedules on the project's Data page${web ? ` (${web})` : ''}. Turn it back on there once the cause is fixed.`
   });
 };
 

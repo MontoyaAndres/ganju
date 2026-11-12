@@ -25,12 +25,13 @@ import type { SqlRow, SqlRunner } from './dataEngine';
 import { listQueries, runQuery } from './dataQueries';
 import {
   DATA_MAX_SCHEDULES,
-  DATA_SCHEDULE_MAX_ROWS,
-  DATA_SCHEDULE_MAX_ROW_BYTES,
+  DATA_SCHEDULE_COUNT_ROWS,
+  capScheduleRows,
   localDate,
   nextDue,
   normaliseClock,
   scheduleParams,
+  scheduleRowsText,
   scheduleStep
 } from './dataSchedules';
 import type { DataScheduleClock } from './dataSchedules';
@@ -756,6 +757,15 @@ const normaliseScheduleTrigger = (
         );
       }
       params = input.params;
+    }
+    // Every run would fail on a parameter the query needs and isn't given.
+    const missing = (saved?.params ?? [])
+      .filter(p => p.required !== false && params?.[p.name] === undefined)
+      .map(p => p.name);
+    if (missing.length) {
+      throw new DataError(
+        `${query} needs ${missing.join(', ')} in "params", such as { "${missing[0]}": "{{today}}" }.`
+      );
     }
   } else if (input.params !== undefined && input.params !== null) {
     throw new DataError('"params" goes with "query".');
@@ -2012,23 +2022,12 @@ const scheduleRows = (
       {
         name: clock.query,
         params: scheduleParams(clock.params, due, timeZone),
-        limit: DATA_SCHEDULE_MAX_ROWS
+        limit: DATA_SCHEDULE_COUNT_ROWS
       }
     );
-    const rows: Record<string, unknown>[] = [];
-    let bytes = 0;
-    for (const row of result.rows) {
-      const size = utf8Bytes(row);
-      if (bytes + size > DATA_SCHEDULE_MAX_ROW_BYTES) break;
-      bytes += size;
-      rows.push(row);
-    }
-    const truncated = rows.length < result.rows.length || 'truncated' in result;
     return {
       query: clock.query,
-      rows,
-      rowCount: result.rows.length,
-      ...(truncated ? { rowsTruncated: true as const } : {})
+      ...capScheduleRows(result.rows, 'truncated' in result)
     };
   } catch (error) {
     return {
@@ -2036,6 +2035,24 @@ const scheduleRows = (
       error: `Not run: the saved query ${clock.query} failed: ${error instanceof Error ? error.message : String(error)}`
     };
   }
+};
+
+/**
+ * A schedule's email as a run sends it: {{date}} and {{count}} filled in,
+ * and the rows listed after the text.
+ */
+export const scheduleEmail = (
+  action: { subject: string; text: string },
+  run: { date: string; rows?: Record<string, unknown>[]; rowCount?: number }
+): { subject: string; text: string } => {
+  const fields = { date: run.date, count: run.rowCount ?? 0 };
+  const listed = run.rows?.length
+    ? `\n\n${scheduleRowsText(run.rows, run.rowCount ?? run.rows.length)}`
+    : '';
+  return {
+    subject: renderTriggerText(action.subject, fields).slice(0, 200),
+    text: renderTriggerText(action.text, fields) + listed
+  };
 };
 
 /**

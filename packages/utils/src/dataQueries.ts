@@ -569,6 +569,19 @@ export const dropQuery = (
   name: unknown
 ): { dropped: string } => {
   const query = findQuery(runner, name);
+  // A schedule that runs it would fail every run after.
+  const usedBy = runner
+    .all(
+      "SELECT name FROM _ganju_triggers WHERE event = 'schedule' AND json_extract(schedule, '$.query') = ? ORDER BY name",
+      [query.name]
+    )
+    .map(row => String(row.name));
+  if (usedBy.length) {
+    throw new DataError(
+      `${query.name} is used by the schedule ${usedBy.join(', ')}; change or delete it first.`,
+      'conflict'
+    );
+  }
   runner.all('DELETE FROM _ganju_queries WHERE name = ?', [query.name]);
   return { dropped: query.name };
 };
