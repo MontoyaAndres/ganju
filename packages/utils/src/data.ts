@@ -164,7 +164,8 @@ export {
   hasSchedules,
   nextScheduleAt,
   scanSchedules,
-  scheduleEmail
+  scheduleEmail,
+  restartClocks
 } from './dataTriggers';
 export {
   DATA_SCHEDULE_EVERY,

@@ -478,6 +478,7 @@ const en = {
   deleteScheduleText:
     'It stops running. Its past runs stay in the list until they expire.',
   toastScheduleDeleted: 'Schedule deleted',
+  toastScheduleSaved: 'Schedule saved',
   scheduleEveryDayAt: 'Every day at {at}',
   scheduleEveryWeekAt: 'Every {days} at {at}',
   scheduleEvery: 'Repeats',
@@ -1214,6 +1215,7 @@ export const DATA: Catalog<DataCopy> = {
     deleteScheduleText:
       'Deja de ejecutarse. Sus ejecuciones anteriores siguen en la lista hasta que vencen.',
     toastScheduleDeleted: 'Programación eliminada',
+    toastScheduleSaved: 'Programación guardada',
     scheduleEveryDayAt: 'Cada día a las {at}',
     scheduleEveryWeekAt: 'Cada {days} a las {at}',
     scheduleEvery: 'Se repite',

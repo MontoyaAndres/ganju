@@ -12,6 +12,7 @@ import {
 } from '../src/dataEngine.ts';
 import type { SqlRow, SqlRunner } from '../src/dataEngine.ts';
 import {
+  clearOutbox,
   nextScheduleAt,
   readOutbox,
   saveTrigger,
@@ -493,4 +494,15 @@ test('more rows than an event carries: the count says how many there were', () =
     scheduleRowsText(event.rows ?? [], event.rowCount ?? 0),
     /… \(200 \/ 300\)$/
   );
+});
+
+test('after a restore, a schedule counts from then and sends nothing again', () => {
+  const { runner, s } = bakery();
+  saveTrigger(runner, s(), OWNER, NIGHTLY);
+  savedAt(runner, '2000-01-01T00:00:00Z');
+  clearOutbox(runner, new Date().toISOString());
+  const state = JSON.parse(
+    String(runner.all('SELECT scan_state FROM _ganju_triggers')[0].scan_state)
+  );
+  assert.ok(Date.parse(state.through) > Date.now() - 60_000);
 });

@@ -373,6 +373,7 @@ const ScheduleDialog = ({
   onClose,
   onSaved
 }: ScheduleDialogProps) => {
+  const snackbar = UI.Alert.useSnackbar();
   const t = i18n.useT(i18n.copy.DATA);
   const c = i18n.useT(i18n.copy.COMMON);
   const [name, setName] = useState('');
@@ -429,7 +430,9 @@ const ScheduleDialog = ({
       return;
     }
     const body: Record<string, unknown> = {
-      ...(name ? { name } : {}),
+      // Editing keeps its name; a new one never replaces another trigger.
+      ...(schedule ? { name: schedule.name } : name ? { name } : {}),
+      ...(schedule ? {} : { replace: false }),
       description: description.trim() || null,
       on: 'schedule',
       every,
@@ -461,21 +464,22 @@ const ScheduleDialog = ({
     };
     setSaving(true);
     setError(null);
-    // A rename saves the new name and removes the old one.
     const result = await dataRequest<{
       trigger: DataTrigger;
       secret?: string;
+      confirming?: string[];
     }>(base, '/trigger', { method: 'POST', body });
-    if (result.ok && schedule && result.data.trigger.name !== schedule.name) {
-      await dataRequest(base, `/trigger/${encodeURIComponent(schedule.name)}`, {
-        method: 'DELETE'
-      });
-    }
     setSaving(false);
     if (!result.ok) {
       setError(result.error || t('toastTriggerSaveFailed'));
       return;
     }
+    const confirming = result.data.confirming ?? [];
+    snackbar.success(
+      confirming.length > 0
+        ? t('toastTriggerSavedConfirming', { emails: confirming.join(', ') })
+        : t('toastScheduleSaved')
+    );
     onSaved(result.data.secret);
   };
 
@@ -508,8 +512,9 @@ const ScheduleDialog = ({
           label={t('triggerName')}
           placeholder="nightly-orders"
           value={name}
+          disabled={!!schedule}
           onChange={e => setName(e.target.value)}
-          helperText={t('scheduleNameHelp')}
+          helperText={schedule ? undefined : t('scheduleNameHelp')}
         />
         <UI.Input
           size="small"

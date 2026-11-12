@@ -235,6 +235,8 @@ export interface DataTriggerEventMessage {
   rows?: Record<string, unknown>[];
   rowCount?: number;
   rowsTruncated?: true;
+  // The query stopped before its last row, so rowCount is a lower bound.
+  rowCountMore?: true;
   date?: string;
 }
 
@@ -1495,10 +1497,24 @@ export const clearOutbox = (runner: SqlRunner, before: string): number => {
   );
   runner.all('DELETE FROM _ganju_outbox WHERE created_at < ?', [before]);
   runner.all('DELETE FROM _ganju_changes');
-  runner.all("UPDATE _ganju_triggers SET scan_state = ? WHERE event = 'time'", [
-    freshScan()
-  ]);
+  restartClocks(runner);
   return n;
+};
+
+/**
+ * Time triggers and schedules count from now: after a restore, a restored
+ * position would send again what already went out. Schedules alone after the
+ * database's time zone changes, so a time that already passed in the new zone
+ * isn't sent late.
+ */
+export const restartClocks = (
+  runner: SqlRunner,
+  events: readonly ('time' | 'schedule')[] = ['time', 'schedule']
+): void => {
+  runner.all(
+    `UPDATE _ganju_triggers SET scan_state = ? WHERE event IN (${events.map(() => '?').join(', ')})`,
+    [freshScan(), ...events]
+  );
 };
 
 const conditionColumns = (condition: unknown): string[] => {
@@ -2010,7 +2026,7 @@ const scheduleRows = (
   due: Date
 ): Pick<
   DataTriggerEventMessage,
-  'query' | 'rows' | 'rowCount' | 'rowsTruncated' | 'error'
+  'query' | 'rows' | 'rowCount' | 'rowsTruncated' | 'rowCountMore' | 'error'
 > => {
   if (!clock.query) return {};
   const timeZone = schema.timeZone ?? undefined;
@@ -2043,11 +2059,20 @@ const scheduleRows = (
  */
 export const scheduleEmail = (
   action: { subject: string; text: string },
-  run: { date: string; rows?: Record<string, unknown>[]; rowCount?: number }
+  run: {
+    date: string;
+    rows?: Record<string, unknown>[];
+    rowCount?: number;
+    rowCountMore?: true;
+  }
 ): { subject: string; text: string } => {
-  const fields = { date: run.date, count: run.rowCount ?? 0 };
+  const count = run.rowCount ?? 0;
+  const fields = {
+    date: run.date,
+    count: run.rowCountMore ? `${count}+` : count
+  };
   const listed = run.rows?.length
-    ? `\n\n${scheduleRowsText(run.rows, run.rowCount ?? run.rows.length)}`
+    ? `\n\n${scheduleRowsText(run.rows, run.rowCount ?? run.rows.length, run.rowCountMore)}`
     : '';
   return {
     subject: renderTriggerText(action.subject, fields).slice(0, 200),

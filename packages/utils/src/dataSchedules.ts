@@ -40,6 +40,7 @@ export const capScheduleRows = (
   rows: Record<string, unknown>[];
   rowCount: number;
   rowsTruncated?: true;
+  rowCountMore?: true;
 } => {
   const rows: Record<string, unknown>[] = [];
   let bytes = 0;
@@ -55,12 +56,14 @@ export const capScheduleRows = (
     rowCount: returned.length,
     ...(more || rows.length < returned.length
       ? { rowsTruncated: true as const }
-      : {})
+      : {}),
+    // The query stopped before its last row: there were more than counted.
+    ...(more ? { rowCountMore: true as const } : {})
   };
 };
+
 // The values a schedule's query parameters can take from the run itself, in
-// the database's time zone.
-// `today_start` / `today_end` bound the run's local day as UTC times, for a
+// the database's time zone. `today_start` / `today_end` bound the run's local day as UTC times, for a
 // datetime column such as created_at.
 export const DATA_SCHEDULE_PARAM_VALUES = [
   '{{today}}',
@@ -251,17 +254,16 @@ const cell = (value: unknown) =>
  */
 export const scheduleRowsText = (
   rows: Record<string, unknown>[],
-  rowCount: number
+  rowCount: number,
+  more = false
 ): string => {
   const lines = rows.map(row =>
     Object.entries(row)
       .map(([key, value]) => `${key}: ${cell(value)}`)
       .join(' · ')
   );
-  if (rowCount > rows.length) {
-    const total =
-      rowCount >= DATA_SCHEDULE_COUNT_ROWS ? `${rowCount}+` : rowCount;
-    lines.push(`… (${rows.length} / ${total})`);
+  if (rowCount > rows.length || more) {
+    lines.push(`… (${rows.length} / ${rowCount}${more ? '+' : ''})`);
   }
   return lines.join('\n');
 };

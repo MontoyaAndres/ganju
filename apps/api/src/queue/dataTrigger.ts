@@ -114,7 +114,8 @@ const scheduleFields = (job: DataTriggerJob) =>
               query: job.query,
               rows: job.rows ?? [],
               rowCount: job.rowCount ?? 0,
-              ...(job.rowsTruncated ? { rowsTruncated: true } : {})
+              ...(job.rowsTruncated ? { rowsTruncated: true } : {}),
+              ...(job.rowCountMore ? { rowCountMore: true } : {})
             }
           : {})
       }

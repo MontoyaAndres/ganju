@@ -1348,6 +1348,17 @@ has the link).
   new baseline `scripts/golden/builder-schedules-server.json` (was 29/30,
   22.9 credits). nightly-orders 3/3 at about 12 credits.
 
+- Second review's fixes: a point-in-time restore restarts schedules as it
+  does time triggers, so a run isn't sent twice; saving the same time zone
+  again no longer restarts them; the "+" on the row count shows only when
+  the query stopped before its last row (`rowCountMore`); in the dashboard a
+  new schedule never replaces another trigger of the same name, a saved one
+  keeps its name (no rename, so no limit or on/off surprises), and an email
+  to addresses that must confirm says so. Not changed: re-saving a query a
+  schedule runs with other parameters isn't refused, since a change set that
+  changes both would deadlock (each save refuses before the other); the run
+  fails with the reason instead.
+
 **B is done on dev.** Left: merge and deploy to production (no migration).
 
 ## Mirar como se implementa SOC2 kpmg, ey, Johanson, Prescient, Sensiba

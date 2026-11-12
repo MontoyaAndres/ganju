@@ -58,6 +58,7 @@ import {
   hasSchedules,
   nextScheduleAt,
   scanSchedules,
+  restartClocks,
   DATA_TIME_SCAN_MS,
   DATA_MAX_USAGE_SHAPES
 } from '@ganju/utils/data';
@@ -444,13 +445,12 @@ export class ProjectDatabase
           `"${String(args.timeZone)}" isn't a time zone; use an IANA name such as America/Bogota.`
         );
       }
+      const changed = (getMeta(runner, 'time_zone') ?? null) !== (zone ?? null);
       setMeta(runner, 'time_zone', zone ?? null);
       this.schemaCache = null;
-      // Schedules count from now in the new zone: a time that already passed
+      // Schedules count from now in a new zone: a time that already passed
       // there today isn't sent late, and the alarm moves to the next one.
-      runner.all("UPDATE _ganju_triggers SET scan_state = ? WHERE event = 'schedule'", [
-        JSON.stringify({ through: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') })
-      ]);
+      if (changed) restartClocks(runner, ['schedule']);
       await this.scheduleTimeScan(runner);
       return this.readInfo(runner);
     });

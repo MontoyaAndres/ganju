@@ -460,6 +460,8 @@ export interface TriggerEvent<Row = Record<string, unknown>> {
   rowCount?: number;
   /** Some rows were left out for size; `rowCount` says how many there were. */
   rowsTruncated?: true;
+  /** More rows than counted: `rowCount` is a lower bound. */
+  rowCountMore?: true;
 }
 
 export interface ToolContext {
