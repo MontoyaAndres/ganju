@@ -69,7 +69,7 @@ const SPEC: DocNavSpec[] = [
       },
       {
         slug: 'getting-started/tools',
-        label: { en: 'Tools', es: 'Herramientas' }
+        label: { en: 'Tools', es: 'Acciones' }
       },
       {
         slug: 'getting-started/channels',
@@ -122,7 +122,7 @@ const SPEC: DocNavSpec[] = [
   },
   {
     slug: 'tools',
-    label: { en: 'Tools', es: 'Herramientas' },
+    label: { en: 'Tools', es: 'Acciones' },
     // The three tabs of the Tools page, in the order they appear on it. The
     // shipped integrations hang off Catalog rather than sitting beside it,
     // because that is where they live in the product — as siblings they read

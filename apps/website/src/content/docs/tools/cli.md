@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: The ganju command line — write, deploy, test and debug your project's functions from a terminal, manage its database, and ship from CI.
+description: "The ganju command line: write, deploy, test and debug your project's functions from a terminal, manage its database, and ship from CI."
 order: 37
 updated: 2026-11-13
 ---

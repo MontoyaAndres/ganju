@@ -1,6 +1,6 @@
 ---
 title: Triggers and webhooks
-description: Run something when a table's rows change or a set time after a row's date — a function, a signed webhook, a chat message, an email or a message to the customer — and how testing, delivery, retries and webhook signatures work.
+description: Run something when a table's rows change or a set time after a row's date (a function, a signed webhook, a chat message, an email or a message to the customer), and how testing, delivery, retries and webhook signatures work.
 order: 57
 updated: 2026-11-13
 ---

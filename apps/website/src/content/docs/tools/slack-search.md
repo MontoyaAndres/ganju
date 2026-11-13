@@ -1,6 +1,6 @@
 ---
 title: Slack Search
-description: Workspace-wide message search for Slack — a separate connection because Slack blocks bot tokens from searching.
+description: Workspace-wide message search for Slack, a separate connection because Slack blocks bot tokens from searching.
 order: 435
 updated: 2026-11-13
 ---
@@ -20,14 +20,14 @@ It asks for a single permission, `search:read`, and you can connect it with or
 without the main Slack integration.
 
 Because it's a *user* token, search sees what **the person who connected it**
-can see in Slack — including private channels and DMs they're in. Connect it
+can see in Slack, including private channels and DMs they're in. Connect it
 with an account whose visibility you're comfortable giving the assistant, such
 as a dedicated account.
 
 ## Tool
 
-- **Search Messages** (`slack-search-messages`) — searches messages across the
-  workspace. `query` accepts Slack's own modifiers — `in:#channel`,
+- **Search Messages** (`slack-search-messages`): searches messages across the
+  workspace. `query` accepts Slack's own modifiers: `in:#channel`,
   `from:@user`, `before:YYYY-MM-DD`, `has:link`. `sort` is `score` (relevance,
   the default) or `timestamp` (newest first); `maxResults` 1–50, default 10.
   Each match comes with the channel, user, `ts`, a text snippet and a

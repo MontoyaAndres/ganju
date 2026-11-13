@@ -6,7 +6,7 @@ updated: 2026-11-13
 ---
 
 **Prompts** are reusable message templates your project exposes. In any linked
-chat channel, each prompt becomes a **slash command** people can run by name — so
+chat channel, each prompt becomes a **slash command** people can run by name, so
 a common request becomes a one-word shortcut. MCP clients like Claude see them
 too. Use `{{variables}}` in a message for values that get filled in when it
 runs.
@@ -24,20 +24,20 @@ runs.
 
 ## Fill it in
 
-1. **Title** — a short name. Ganju turns it into the slash command shown just
-   below it (**Slash command:**) — here, `start` becomes `/start`.
-2. **Description** — what the prompt does. People and AI clients see it.
-3. **Messages** — write one or more messages, switching each between **User**
+1. **Title**: a short name. Ganju turns it into the slash command shown just
+   below it (**Slash command:**). Here, `start` becomes `/start`.
+2. **Description**: what the prompt does. People and AI clients see it.
+3. **Messages**: write one or more messages, switching each between **User**
    and **Assistant**. **Add message** adds another turn. Prefer raw JSON? Switch
    **Visual / JSON** at any time.
-4. **Variables** — any `{{name}}` you type is detected automatically. Set each
+4. **Variables**: any `{{name}}` you type is detected automatically. Set each
    one's **Type**, a **Description**, and whether it's **Required** or
    **Optional**.
 
 ## Use it
 
 Select **Create**. The prompt appears as a card with its slash command,
-description, and messages — ready to run from any linked channel as `/start`.
+description, and messages, ready to run from any linked channel as `/start`.
 Open a card to edit it, or delete it from there.
 
 ![A saved prompt card showing its title, /start command and description](/images/knowledge-prompts-tab.webp)
@@ -48,4 +48,4 @@ Open a card to edit it, or delete it from there.
 | --- | --- | --- |
 | Prompts per project | 3 | Unlimited |
 
-Next: give it something to work with — add [resources](/docs/getting-started/resources/).
+Next: give it something to work with: add [resources](/docs/getting-started/resources/).

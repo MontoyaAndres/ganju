@@ -1,6 +1,6 @@
 ---
 title: Programaciones
-description: Ejecuta algo cada día o cada semana a una hora fija, en la zona horaria de la base de datos — envía por correo las filas de una consulta guardada, o pásalas a una función o a un webhook.
+description: "Ejecuta algo cada día o cada semana a una hora fija, en la zona horaria de la base de datos: envía por correo las filas de una consulta guardada, o pásalas a una función o a un webhook."
 order: 58
 updated: 2026-11-13
 ---

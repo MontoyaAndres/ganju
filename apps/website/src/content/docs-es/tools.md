@@ -1,6 +1,6 @@
 ---
-title: Herramientas
-description: Dale a tu bot la capacidad de actuar — integraciones como Gmail, Outlook, Slack y Calendar, tus propias APIs HTTP y funciones que escribe el Asistente o tu desarrollador.
+title: Acciones
+description: "Dale a tu bot la capacidad de actuar: integraciones como Gmail, Outlook, Slack y Calendar, tus propias APIs HTTP y funciones que escribe el Asistente o tu desarrollador."
 order: 4
 updated: 2026-11-13
 ---
@@ -14,7 +14,7 @@ agregas más cuando las necesites.
 
 ## Tres tipos de herramienta
 
-La página **Herramientas** tiene tres pestañas, una por tipo:
+La página **Acciones** tiene tres pestañas, una por tipo:
 
 | Pestaña | Qué es | Quién la hace | Plan |
 | --- | --- | --- | --- |

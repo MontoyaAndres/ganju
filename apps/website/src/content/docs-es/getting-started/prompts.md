@@ -7,7 +7,7 @@ updated: 2026-11-13
 
 Los **prompts** son plantillas de mensajes reutilizables que tu proyecto expone.
 En cualquier canal de chat vinculado, cada prompt se convierte en un **comando**
-que la gente puede ejecutar por su nombre — así una solicitud frecuente se vuelve
+que la gente puede ejecutar por su nombre. Así, una solicitud frecuente se vuelve
 un atajo de una sola palabra. Los clientes MCP como Claude también los ven. Usa
 `{{variables}}` en un mensaje para los valores que se completan al ejecutarlo.
 
@@ -24,20 +24,20 @@ un atajo de una sola palabra. Los clientes MCP como Claude también los ven. Usa
 
 ## Complétalo
 
-1. **Título** — un nombre corto. Ganju lo convierte en el comando que aparece
-   justo debajo (**Comando:**) — aquí, `start` se vuelve `/start`.
-2. **Descripción** — qué hace el prompt. La ven las personas y los clientes de
+1. **Título**: un nombre corto. Ganju lo convierte en el comando que aparece
+   justo debajo (**Comando:**); aquí, `start` se vuelve `/start`.
+2. **Descripción**: qué hace el prompt. La ven las personas y los clientes de
    IA.
-3. **Mensajes** — escribe uno o más mensajes, cambiando cada uno entre **User** y
+3. **Mensajes**: escribe uno o más mensajes, cambiando cada uno entre **User** y
    **Assistant**. **Agregar mensaje** suma otro turno. ¿Prefieres JSON puro?
    Cambia entre **Visual / JSON** cuando quieras.
-4. **Variables** — cada `{{nombre}}` que escribas se detecta solo. Define su
+4. **Variables**: cada `{{nombre}}` que escribas se detecta solo. Define su
    **Tipo**, una **Descripción** y si es **Obligatoria** u **Opcional**.
 
 ## Úsalo
 
 Selecciona **Crear**. El prompt aparece como una tarjeta con su comando, su
-descripción y sus mensajes — listo para ejecutarse como `/start` desde cualquier
+descripción y sus mensajes, listo para ejecutarse como `/start` desde cualquier
 canal vinculado. Abre una tarjeta para editarlo, o para eliminarlo.
 
 ![Una tarjeta de prompt guardada con su título, el comando /start y su descripción](/images/knowledge-prompts-tab.webp)
@@ -48,5 +48,5 @@ canal vinculado. Abre una tarjeta para editarlo, o para eliminarlo.
 | --- | --- | --- |
 | Prompts por proyecto | 3 | Ilimitados |
 
-Sigue con: dale con qué trabajar — agrega
+Sigue con: dale con qué trabajar y agrega
 [recursos](/es/docs/getting-started/resources/).

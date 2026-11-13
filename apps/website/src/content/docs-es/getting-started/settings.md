@@ -1,6 +1,6 @@
 ---
 title: Configuración
-description: Gestiona tu organización, tu plan, los miembros, los modelos, los tokens de acceso y más desde un solo lugar.
+description: Administra tu organización, tu plan, los miembros, los modelos, los tokens de acceso y más desde un solo lugar.
 order: 8
 updated: 2026-11-13
 ---
@@ -23,7 +23,7 @@ cámbiale el nombre en **Nombre de la organización** → **Guardar cambios**.
 
 Aquí también está **Confirmar acciones sensibles**. Actívalo y tus bots le
 preguntan a la persona antes de enviar un correo o mensaje, agendar o cambiar un
-evento, borrar algo o hacer cualquier otra acción que no sea de solo lectura — y
+evento, borrar algo o hacer cualquier otra acción que no sea de solo lectura, y
 solo actúan si responde que sí. Detalles en
 [Configuración → Confirmar acciones sensibles](/es/docs/settings/#confirmar-acciones-sensibles).
 
@@ -43,7 +43,7 @@ en un plan de pago, **Gestionar la facturación**.
 ## Miembros y proyectos
 
 **Miembros** lista a todos en la organización. Invita a alguien de tu equipo por
-correo — acepta la invitación dentro de la app — y quita miembros o revoca
+correo (acepta la invitación dentro de la app), y quita miembros o revoca
 invitaciones pendientes. Invitar es una función de Pro.
 
 **Proyectos** lista cada proyecto; cada uno tiene sus propios **Miembros**
@@ -57,7 +57,7 @@ CI con el [`ganju` CLI](/es/docs/tools/cli/)).
 Por defecto tus canales usan el modelo del sistema. En Pro puedes traer el tuyo:
 en **Modelos**, selecciona **Agregar modelo**, ponle un **Nombre visible**, elige
 el **Modelo** (modelos de Gemini, GPT o Claude, o **Personalizado (compatible con
-OpenAI)**) y pega tu **Clave de API** — con una **URL base** y un **Prompt de
+OpenAI)**) y pega tu **Clave de API**, con una **URL base** y un **Prompt de
 sistema** opcionales. Agrégalo una vez y elígelo en el **Modelo de lenguaje** de
 cualquier canal.
 

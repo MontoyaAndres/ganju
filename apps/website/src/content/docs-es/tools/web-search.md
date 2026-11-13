@@ -6,7 +6,7 @@ updated: 2026-11-13
 ---
 
 La integración de **Búsqueda web** le da a tu asistente acceso a la web en vivo,
-con tecnología de **Tavily** — para que responda con datos actuales y cite
+con tecnología de **Tavily**, para que responda con datos actuales y cite
 fuentes cuando la respuesta no está en tus recursos. Ofrece **2 herramientas**.
 
 ## Conéctala
@@ -15,7 +15,7 @@ Búsqueda web usa tu propia **API key de Tavily**; las búsquedas se cobran a tu
 cuenta de Tavily.
 
 1. Crea una cuenta en Tavily y copia una API key desde su panel.
-2. En Ganju, abre **Herramientas → Catálogo**, elige la tarjeta **Búsqueda web**
+2. En Ganju, abre **Acciones → Catálogo**, elige la tarjeta **Búsqueda web**
    y luego **Agregar API key de Búsqueda web**.
 3. Pega la llave y **Guardar**. Hacemos una búsqueda mínima de prueba con ella
    antes de guardarla; se guarda cifrada y no vuelve a mostrarse.
@@ -31,24 +31,24 @@ quita.
 Los nombres entre paréntesis son los que muestran los clientes MCP y los
 registros.
 
-- **Búsqueda web** (`web-search`) — busca una `query` en la web y devuelve los
+- **Búsqueda web** (`web-search`): busca una `query` en la web y devuelve los
   mejores resultados (título, URL y un fragmento), más una respuesta
   sintetizada cuando la hay. Opciones:
-  - `maxResults` — de 1 a 20, 5 por defecto.
-  - `searchDepth` — `basic` (por defecto) o `advanced`, que busca más a fondo
+  - `maxResults`: de 1 a 20, 5 por defecto.
+  - `searchDepth`: `basic` (por defecto) o `advanced`, que busca más a fondo
     pero es más lento y gasta más créditos de Tavily.
-  - `topic` — `general` (por defecto) o `news`, con `days` para quedarse solo
+  - `topic`: `general` (por defecto) o `news`, con `days` para quedarse solo
     con los últimos N días.
-  - `includeDomains` / `excludeDomains` — limita los resultados a ciertos
+  - `includeDomains` / `excludeDomains`: limita los resultados a ciertos
     sitios, o los excluye.
 
   El asistente tiene instrucciones de citar las URLs en las que se apoya.
-- **Extraer página web** (`web-extract`) — trae el texto completo y limpio de
+- **Extraer página web** (`web-extract`): trae el texto completo y limpio de
   una o más páginas (`urls`). `extractDepth` es `basic` (por defecto) o
   `advanced`, que también saca tablas y datos incrustados, a mayor costo. Úsala
   después de una búsqueda, o cuando la persona comparte un enlace, para leer la
-  página en lugar de quedarse con el fragmento. Las páginas que no se pueden
-  traer se reportan aparte.
+  página completa y no solo el fragmento. Las páginas que no se pueden traer se
+  reportan aparte.
 
 El flujo típico es **Búsqueda web** para encontrar fuentes → **Extraer página
 web** para leer completas las más relevantes. Las dos solo leen, así que

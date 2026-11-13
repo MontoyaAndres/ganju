@@ -1,6 +1,6 @@
 ---
 title: Prompts
-description: Arma plantillas de prompts reutilizables y de varios turnos con variables tipadas — cada una se vuelve un comando en tus canales de chat vinculados y un prompt en cualquier cliente MCP.
+description: Arma plantillas de prompts reutilizables y de varios turnos con variables tipadas. Cada una se vuelve un comando en tus canales de chat vinculados y un prompt en cualquier cliente MCP.
 order: 2
 updated: 2026-11-13
 ---
@@ -15,12 +15,12 @@ un solo mensaje o un intercambio completo de varios turnos, y cualquier
 ## Por qué usar prompts
 
 - **Convierte el trabajo repetido en un comando.** Captura una vez la solicitud
-  que envías una y otra vez, y luego ejecútala como `/comando` — sin volver a
+  que envías una y otra vez, y luego ejecútala como `/comando`, sin volver a
   escribirla y sin olvidar los detalles.
 - **Resultados consistentes siempre.** Todos disparan exactamente la misma
   redacción y estructura, así que tu IA responde igual sin importar quién pregunte.
 - **Comparte experiencia con todo tu equipo.** Un prompt bien hecho, escrito una
-  vez, queda disponible al instante para cada compañero del canal — no hace falta
+  vez, queda disponible al instante para cada compañero del canal. No hace falta
   saber de ingeniería de prompts para usarlo.
 - **Guía al modelo con entradas tipadas.** Cada variable tiene un tipo, una
   descripción y una marca de obligatoria, así los clientes MCP saben exactamente
@@ -51,15 +51,15 @@ Selecciona **Nuevo prompt**. A la derecha se abre el panel **Nuevo prompt** con
 ## Ponle nombre y escribe un mensaje
 
 Dale un **Título** al prompt. Ganju lo convierte en el comando que aparece justo
-debajo, como **Comando:** — en minúsculas y con cada grupo de espacios o
+debajo, como **Comando:**, en minúsculas y con cada grupo de espacios o
 símbolos cambiado por `_`. "Resumir Artículo" se vuelve `/resumir_art_culo`
 (las letras con tilde también cuentan como símbolos, así que conviene escribir
 el título sin tildes: "Resumir Articulo" da `/resumir_articulo`). Dos prompts
 de un proyecto no pueden compartir el mismo comando: Ganju rechaza el segundo
 con "A prompt with this command name already exists".
 
-Agrega una **Descripción** corta para que tus compañeros sepan qué hace —
-Telegram y Discord también la muestran junto al comando en sus menús — y luego
+Agrega una **Descripción** corta para que tus compañeros sepan qué hace
+(Telegram y Discord también la muestran junto al comando en sus menús) y luego
 escribe tu primer mensaje.
 
 Pon `{{variables}}` donde quieras que se entregue un valor al ejecutarlo. En este
@@ -75,7 +75,7 @@ Ganju **detecta automáticamente** cada `{{variable}}` de tus mensajes y las
 lista en **Variables**. Cada una nueva empieza como String obligatoria. Para
 cada una puedes:
 
-- definir el **Tipo** — **String**, **Number** o **Boolean**;
+- definir el **Tipo**: **String**, **Number** o **Boolean**;
 - agregar una **Descripción** que le diga a quien ejecute el prompt qué poner ahí;
 - marcar o desmarcar **Obligatoria**.
 
@@ -97,7 +97,7 @@ de Assistant, `this is a new {{message}}`.
 
 ![La sección Mensajes con dos mensajes: uno de User y otro de Assistant que contiene {{message}}](/images/new-prompt-3.webp)
 
-Las variables nuevas que introduces se detectan solas — `{{message}}` aparece
+Las variables nuevas que agregas se detectan solas: `{{message}}` aparece
 ahora junto a `{{name}}` y `{{age}}` en la lista de Variables, lista para
 tiparla y describirla.
 
@@ -144,7 +144,7 @@ En un canal vinculado, escribe el comando y luego el texto que quieras pasarle:
 - El texto después del comando va a la **primera variable** del prompt. Las
   demás quedan vacías, así que pon primero la que la gente va a escribir.
 - Los mensajes del prompt, con la variable completada, reemplazan lo que la
-  persona escribió, y el bot los responde como siempre — con tus recursos,
+  persona escribió, y el bot los responde como siempre, con tus recursos,
   herramientas e
   [instrucciones del bot](/es/docs/channels/#dile-a-tu-bot-cómo-responder).
 - Un comando se responde de inmediato, sin esperar una pausa en la conversación.
@@ -178,7 +178,7 @@ El cliente pide los valores e inserta el resultado en el chat.
 ## Deja que el asistente los escriba
 
 El [asistente](/es/docs/assistant/) del proyecto puede listar, crear, editar y
-eliminar prompts por ti — describe el comando que quieres ("un comando /menu que
+eliminar prompts por ti. Describe el comando que quieres ("un comando /menu que
 liste los platos del día") y te propone el prompt para que lo apruebes.
 
 ## Límites del plan
@@ -195,10 +195,10 @@ El plan **Free** admite hasta **3 prompts** por proyecto. **Pro** y
   con una letra quedan fuera del menú, y Telegram puede tardar un momento en
   actualizarlo. Escribir el comando igual funciona.
 - **Discord no muestra comandos.** Configura la Interactions Endpoint URL e
-  invita al bot con el scope `applications.commands` — mira
+  invita al bot con el scope `applications.commands`. Mira
   [Discord](/es/docs/channels/discord/).
 - **Slack dice que el comando no es válido.** Slack solo acepta los slash
-  commands que creaste en la app de Slack — mira [Slack](/es/docs/channels/slack/).
+  commands que creaste en la app de Slack. Mira [Slack](/es/docs/channels/slack/).
 
-Sigue con: dale a tus prompts algo con qué trabajar — agrega
+Sigue con: dale a tus prompts algo con qué trabajar y agrega
 [recursos](/es/docs/resources/).

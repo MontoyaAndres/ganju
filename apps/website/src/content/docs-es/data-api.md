@@ -1,6 +1,6 @@
 ---
 title: API de Datos
-description: Maneja la base de datos de un proyecto por HTTP — crea tablas, inserta y busca filas, registra pedidos sin errores, ejecuta consultas guardadas, maneja disparadores y programaciones, restaura y exporta — con un token de acceso personal, o desde los comandos ganju data.
+description: Maneja la base de datos de un proyecto por HTTP (crea tablas, inserta y busca filas, registra pedidos sin errores, ejecuta consultas guardadas, maneja disparadores y programaciones, restaura y exporta) con un token de acceso personal, o desde los comandos ganju data.
 order: 7
 updated: 2026-11-13
 ---
@@ -428,7 +428,7 @@ relaciones por el nombre que muestra la otra tabla, y pone las filas que
 rechazó, con el motivo, en un CSV que puedes corregir e importar de nuevo
 (`--out` le da el nombre). Un `--replace` rechazado completo no cambia nada y
 devuelve el archivo entero con cada fila culpable marcada. Una fecha y hora del
-archivo sin desfase se lee en la zona horaria de tu computador.
+archivo sin desfase se lee en la zona horaria de tu computadora.
 
 ### Consultas guardadas
 
@@ -440,7 +440,7 @@ ganju data query rm sales_by_dish --yes
 ```
 
 `run` devuelve hasta `--limit` filas (100 por defecto, 500 como máximo), con
-las fechas y horas en la zona horaria de tu computador.
+las fechas y horas en la zona horaria de tu computadora.
 
 ### El esquema como código
 

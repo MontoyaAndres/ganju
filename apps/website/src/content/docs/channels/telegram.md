@@ -1,12 +1,12 @@
 ---
 title: Telegram
-description: Connect a Telegram bot in a minute — create it with @BotFather, paste the token, and Ganju registers the webhook and the command menu for you.
+description: "Connect a Telegram bot in a minute: create it with @BotFather, paste the token, and Ganju registers the webhook and the command menu for you."
 order: 51
 updated: 2026-11-13
 ---
 
 **Telegram** is the quickest channel to set up. You create a bot with Telegram's
-own **@BotFather**, copy the token it gives you, and paste it into Ganju — that's
+own **@BotFather**, copy the token it gives you, and paste it into Ganju. That's
 it. Ganju registers the webhook and turns your prompts into the bot's command
 menu automatically.
 
@@ -16,8 +16,8 @@ menu automatically.
    checkmark).
 2. Start a chat and send **`/newbot`**.
 3. Enter a **display name** for your bot (anything you like).
-4. Enter a **username** — it must be unique and end in `bot` (e.g. `acme_support_bot`).
-5. BotFather replies with your **bot token** — a long string like
+4. Enter a **username**. It must be unique and end in `bot` (e.g. `acme_support_bot`).
+5. BotFather replies with your **bot token**, a long string like
    `123456789:AA...`. Copy it.
 
 Treat the token like a password. Optionally, while you're in BotFather, give the
@@ -42,7 +42,7 @@ The channel goes **Active** immediately, with the bot's name and `@username` on
 its card.
 
 Ganju now receives the bot's messages through that webhook, so the same token
-can't also run on another server or bot platform at the same time — the last
+can't also run on another server or bot platform at the same time: the last
 one to set a webhook wins.
 
 ## 3. Chat with it
@@ -74,8 +74,8 @@ Long answers are split into several messages.
 
 If the token leaks, revoke it in BotFather via **`/mybots` → your bot → API
 Token → Revoke current token**. The old token stops working at once, and so does
-the channel. To use the new token, remove the channel and connect it again —
-removing a channel deletes its conversation history.
+the channel. To use the new token, remove the channel and connect it again.
+Removing a channel deletes its conversation history.
 
 ## Troubleshooting
 

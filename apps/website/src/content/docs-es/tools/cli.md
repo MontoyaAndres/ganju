@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: La línea de comandos ganju — escribe, despliega, prueba y depura las funciones de tu proyecto desde una terminal, administra su base de datos y publica desde CI.
+description: La línea de comandos ganju. Escribe, despliega, prueba y depura las funciones de tu proyecto desde una terminal, administra su base de datos y publica desde CI.
 order: 37
 updated: 2026-11-13
 ---
@@ -13,8 +13,8 @@ la app, así que un despliegue desde la CLI y un cambio hecho por el
 [Asistente](/es/docs/assistant/) llegan al mismo lugar.
 
 Dentro de la app, el dueño del proyecto construye conversando con el Asistente
-y lee el código en la página **Herramientas**; nadie
-edita código en el navegador. Usa la CLI cuando las funciones pertenecen a un
+y lee el código en la página **Acciones**; nadie edita código en el
+navegador. Usa la CLI cuando las funciones pertenecen a un
 repositorio, a un code review y a un pipeline.
 
 ```bash
@@ -180,7 +180,7 @@ necesita se revisan en el mismo pull request.
 Solo se envían las claves que escribes; el servidor pone sus propios valores
 por defecto para el resto. Las cuatro claves `connections`, `allowedHosts`,
 `timeoutMs` y `resourceAccess` son los mismos ajustes que muestra el diálogo
-**Ajustes** de la página **Herramientas**, así que un cambio en un lugar se ve
+**Ajustes** de la página **Acciones**, así que un cambio en un lugar se ve
 en el otro.
 
 ### Cada herramienta
@@ -194,7 +194,7 @@ en el otro.
 | `input` | JSON Schema de los argumentos. Cada propiedad se le ofrece al modelo. |
 | `output` | JSON Schema opcional. Si declaras uno, la herramienta debe devolver un objeto que coincida; los clientes MCP reciben salida estructurada en vez de texto. |
 | `annotations` | `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`. |
-| `data` | Lo que la herramienta puede hacer con la base de datos del proyecto mediante `ctx.data`: `{ "access": "read" \| "write", "tables": [...] }`. Si lo omites, todo. |
+| `data` | Lo que la herramienta puede hacer con la base de datos del proyecto con `ctx.data`: `{ "access": "read" \| "write", "tables": [...] }`. Si lo omites, todo. |
 | `expose` | `false` despliega la herramienta solo para disparadores: el bot nunca la ve y no cuenta para las herramientas del proyecto. |
 | `channels` | `true` permite que la herramienta escriba a clientes y chats con `ctx.channels`. Si lo omites, esas llamadas se rechazan. |
 
@@ -332,7 +332,7 @@ borrador no reemplaza nada.
 ### Tu código en la app
 
 Junto al bundle, `ganju deploy` sube el **código legible** del proyecto, así la
-página **Herramientas** muestra tus archivos reales en vez de código
+página **Acciones** muestra tus archivos reales en vez de código
 minificado, y el Asistente del proyecto puede leerlos. Solo se muestra, nunca
 se ejecuta: lo que corre es el bundle.
 
@@ -361,7 +361,7 @@ ganju test lookup-order --version 12        # una versión, por número
 ganju test lookup-order --input '{"orderId":"A-1029"}' --json
 ```
 
-La versión corre una vez en un script de vista previa que nada más llama,
+La versión corre una vez en un script de vista previa que nadie más llama,
 contra conexiones, secretos y reglas de salida **reales**, y la vista previa se
 borra al terminar. Tu versión en vivo sigue atendiendo a los clientes todo el
 tiempo. Una herramienta que envía un correo o escribe una fila lo hace de
@@ -449,7 +449,7 @@ unset GANJU_SECRET_VALUE
 
 `ls` funciona como `list`, y `remove` o `delete` como `rm`. Los secretos
 también se agregan y se quitan en el diálogo **Ajustes** de la página
-**Herramientas**.
+**Acciones**.
 
 ## Disparadores
 
@@ -494,8 +494,8 @@ ganju channel templates --json
 Lista las plantillas de mensajes de cada canal de WhatsApp del proyecto, como
 Ganju las sincronizó por última vez desde Meta: nombre, idioma, categoría,
 estado (con el motivo de Meta cuando se rechazó) y las variables. Solo lee:
-las plantillas se crean en la pestaña **Plantillas de mensaje** del canal, en la app,
-donde se revisan antes de ir a revisión de Meta. Una función envía una
+las plantillas se crean en la pestaña **Plantillas de mensaje** del canal, en
+la app, donde se revisan antes de mandarlas a revisión de Meta. Una función envía una
 aprobada con `ctx.channels.send`.
 
 ## Datos del proyecto
@@ -685,7 +685,7 @@ de WhatsApp. Lo demás se hace en la app: prompts, conocimiento
 - **[Ejemplos](/es/docs/tools/examples/)**: siete proyectos para desplegar con
   estos comandos.
 - **[Funciones](/es/docs/tools/functions/)**: qué es una función, la referencia
-  de `ctx` y cómo las muestra la página **Herramientas**.
+  de `ctx` y cómo las muestra la página **Acciones**.
 - **[Datos desde funciones](/es/docs/data/functions/)**: `ctx.data`,
   `ctx.channels` y las funciones que solo corren los disparadores.
 - **[Skill para agentes](/es/docs/tools/agent-skill/)**: deja que un agente de

@@ -1,6 +1,6 @@
 ---
 title: Funciones
-description: Tus propias herramientas en código — el Asistente las escribe por ti, los desarrolladores las despliegan con la CLI, y la página Herramientas muestra lo que está en vivo, te deja probarlo y volver atrás.
+description: Tus propias herramientas en código. El Asistente las escribe por ti, los desarrolladores las despliegan con la CLI, y la página Herramientas muestra lo que está en vivo, te deja probarlo y volver atrás.
 order: 36
 updated: 2026-11-13
 ---
@@ -37,7 +37,7 @@ dos lugares:
 - **Un desarrollador con la [CLI `ganju`](/es/docs/tools/cli/).** Las funciones
   viven en un repositorio, y `ganju deploy` las sube.
 
-Los dos escriben en las mismas versiones, así que la página **Herramientas**,
+Los dos escriben en las mismas versiones, así que la página **Acciones**,
 `ganju versions` y el Asistente siempre coinciden en lo que está en vivo.
 Cuando un desarrollador despliega, el Asistente deja de escribir código para
 ese proyecto: responde a un cambio de código con un parche para el
@@ -46,7 +46,7 @@ despliegue del desarrollador, `ganju deploy` avisa antes de reemplazarlas.
 
 ## La pestaña Funciones
 
-**Herramientas → Funciones** muestra las funciones
+**Acciones → Funciones** muestra las funciones
 del proyecto: lo que está en vivo, cada versión anterior y el código, solo para
 leer.
 
@@ -207,8 +207,8 @@ Expande una función y usa **Ejecutar** con una **Entrada de ejemplo**.
 
 ![Una función expandida con sus esquemas de entrada y salida, un campo de entrada de ejemplo, Format y Run](/images/functions-test.webp)
 
-Una prueba ejecuta la versión abierta una vez en un script de vista previa que
-nada más llama, y lo borra. Es decir, corre **lo de verdad** (conexiones,
+Una prueba ejecuta la versión abierta una vez, en un script de vista previa que
+nadie más llama, y después lo borra. Es decir, corre **lo de verdad** (conexiones,
 secretos y reglas de salida reales) mientras tu versión en vivo sigue
 atendiendo a los clientes. Una función que envía un correo o guarda una fila lo
 hace de verdad.

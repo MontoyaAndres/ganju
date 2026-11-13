@@ -1,14 +1,14 @@
 ---
 title: Instálalo tú mismo
-description: Ganju es software libre (Apache-2.0). Corre tu propia instancia sobre Cloudflare y Postgres — tus claves, tu infraestructura.
+description: "Ganju es software libre (Apache-2.0). Corre tu propia instancia sobre Cloudflare y Postgres: tus claves, tu infraestructura."
 order: 8
 updated: 2026-11-13
 ---
 
 Ganju es **software libre bajo Apache-2.0**, así que puedes correr toda la
 plataforma tú mismo en lugar de usar la versión alojada. Instalarlo tú significa
-tus propias claves de modelo, control total de tus datos y planes que asignas tú
-— solo pones la infraestructura.
+tus propias claves de modelo, control total de tus datos y planes que asignas tú.
+Solo pones la infraestructura.
 
 Esta página es un resumen; el repositorio tiene la guía oficial y siempre al
 día:
@@ -25,14 +25,14 @@ para el almacenamiento y la búsqueda. Es un monorepo de npm workspaces +
 
 | App | Entorno | Responsabilidad |
 |---|---|---|
-| `apps/api` | Cloudflare Worker | Plano de control — autenticación, CRUD, OAuth, webhooks de canales, colas, crons, el Asistente |
+| `apps/api` | Cloudflare Worker | Plano de control: autenticación, CRUD, OAuth, webhooks de canales, colas, crons, el Asistente |
 | `apps/mcp` | Cloudflare Worker | El servidor MCP que expone cada proyecto |
 | `apps/data` | Cloudflare Worker | Las bases de datos de los proyectos (un Durable Object SQLite por base de datos) |
 | `apps/tool-broker` | Cloudflare Worker | Lo que llaman las funciones de los clientes para conexiones, secretos y archivos |
 | `apps/tool-outbound` | Cloudflare Worker | Filtra cada solicitud saliente que hace la función de un cliente |
 | `apps/web` | Next.js (OpenNext → Cloudflare) | El panel |
 | `apps/website` | Cloudflare Pages | El sitio de marketing y esta documentación |
-| `apps/resource-handler` | Contenedor | El trabajo pesado — extracción de documentos, rastreo, envíos grandes. Se construye y despliega con `apps/api` |
+| `apps/resource-handler` | Contenedor | El trabajo pesado: extracción de documentos, rastreo, envíos grandes. Se construye y despliega con `apps/api` |
 
 > **Ojo:** necesitas un plan **de pago** de Cloudflare Workers. El contenedor
 > `ResourceHandler` lo requiere, y las [Funciones](/es/docs/tools/functions/) se
@@ -75,18 +75,18 @@ El `.env` cubre:
 
 - `DATABASE_URL` y la cadena de conexión local de Hyperdrive.
 - Secretos de autenticación y cifrado: `JWT_SECRET`, `CRYPTO_SECRET`
-  (exactamente 32 bytes en base64 — `openssl rand -base64 32`),
+  (exactamente 32 bytes en base64: `openssl rand -base64 32`),
   `MCP_INTERNAL_SECRET`, `CUSTOM_CODE_TOKEN_SECRET`.
-- `EMBEDDING_API_KEY` — una clave de Gemini para los embeddings y el modelo por
+- `EMBEDDING_API_KEY`: una clave de Gemini para los embeddings y el modelo por
   defecto.
-- `ANTHROPIC_API_KEY` — para el [Asistente](/es/docs/assistant/).
+- `ANTHROPIC_API_KEY`: para el [Asistente](/es/docs/assistant/).
 - Los IDs y secretos de cliente OAuth de los proveedores que quieras: Google
   (inicio de sesión, Gmail, Drive, Calendar), GitHub (inicio de sesión),
   Microsoft (Outlook, OneDrive), Slack.
-- `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET` — el cliente que usan los
+- `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET`: el cliente que usan los
   bots de los canales para vincular cuentas. Crea su fila con
   `npx dotenv -e .env -- node scripts/provision-bot-client.mjs`.
-- `CLOUDFLARE_ACCOUNT_ID` y `CUSTOM_CODE_CF_API_TOKEN` — para publicar funciones.
+- `CLOUDFLARE_ACCOUNT_ID` y `CUSTOM_CODE_CF_API_TOKEN`: para publicar funciones.
 - `EMAIL_FROM` y `ALERT_EMAIL`.
 - Solo si quieres cobrar: tus claves de Polar.
 - Las URLs `NEXT_PUBLIC_*` de la API, la app web y el servidor MCP.
@@ -97,34 +97,34 @@ Para un despliegue alojado, crea esto en tu cuenta de Cloudflare (los nombres
 deben coincidir con el `wrangler.toml` de cada app, o actualiza el toml para que
 coincida con los tuyos):
 
-- **Hyperdrive** — apuntando a tu Postgres.
-- **Bucket de R2** — `ganju-storage-<env>` (binding `STORAGE_BUCKET`).
-- **Namespace de KV** — `<env>-JWKS_CACHE`, vinculado en `apps/mcp`.
-- **Colas** — ocho, cada una con su cola de mensajes fallidos: `ganju-index`,
+- **Hyperdrive**: apuntando a tu Postgres.
+- **Bucket de R2**: `ganju-storage-<env>` (binding `STORAGE_BUCKET`).
+- **Namespace de KV**: `<env>-JWKS_CACHE`, vinculado en `apps/mcp`.
+- **Colas**: ocho, cada una con su cola de mensajes fallidos: `ganju-index`,
   `ganju-crawl-discover`, `ganju-crawl-page`, `ganju-gdrive-discover`,
   `ganju-gdrive-file`, `ganju-onedrive-discover`, `ganju-onedrive-file`,
   `ganju-data-triggers` (con el sufijo `-<env>`, y una gemela `-dlq-<env>`).
-- **Dispatch namespace de Workers for Platforms** — `ganju-tools-<env>`, donde se
+- **Dispatch namespace de Workers for Platforms**: `ganju-tools-<env>`, donde se
   despliegan las funciones de los clientes.
-- **Email Service** (`SEND_EMAIL`) — da de alta tu dominio de envío en Email
-  Service para que el correo llegue a cualquier destinatario; antes de eso solo
+- **Email Service** (`SEND_EMAIL`): da de alta tu dominio de envío en Email
+  Service para que el correo llegue a cualquier destinatario. Antes de eso solo
   entrega a los destinos verificados de Email Routing.
-- **Containers** — el contenedor `ResourceHandler`, construido desde
+- **Containers**: el contenedor `ResourceHandler`, construido desde
   `apps/resource-handler/Dockerfile` durante el despliegue de `apps/api`.
-- **Durable Objects** — los crean las migraciones de cada `wrangler.toml`:
+- **Durable Objects**: los crean las migraciones de cada `wrangler.toml`:
   `ResourceHandler`, `DiscordGatewayDO`, `MessageBufferDO` y
   `BuilderConversationDO` en `apps/api`, y `ProjectDatabase` en `apps/data`.
-- **Dominios propios** — `api`, `mcp` y `app` en tu zona.
+- **Dominios propios**: `api`, `mcp` y `app` en tu zona.
 
 Los archivos `wrangler.toml` del repositorio hacen referencia a los IDs de
-recursos y a los dominios (`ganju.ai`) de la cuenta alojada — reemplázalos con
+recursos y a los dominios (`ganju.ai`) de la cuenta alojada. Reemplázalos con
 **tus** IDs y **tu** dominio.
 
 ## Configura los secretos
 
 Los `vars` de `wrangler.toml` solo tienen configuración no secreta (las URLs
 `NEXT_PUBLIC_*`, `NODE_ENV`, los puertos). Todo lo sensible se define con
-`wrangler secret`, por app y por entorno — y solo **después** del primer
+`wrangler secret`, por app y por entorno, y solo **después** del primer
 despliegue de ese Worker, porque un Worker tiene que existir para guardar un
 secreto:
 
@@ -158,12 +158,12 @@ raíz se reparten por el workspace con Turbo.
 
 1. Crea los recursos de Cloudflare de arriba.
 2. Aplica las migraciones a tu base de datos de destino (el código y el esquema
-   van juntos — migra primero):
+   van juntos, así que migra primero):
    ```bash
    npm run migrate-prod   # genera y aplica contra .env.prod
    ```
 3. **Solo el primer despliegue:** despliega los Workers en orden, porque algunos
-   se vinculan entre sí — `apps/tool-outbound` y `apps/data`, luego `apps/api`
+   se vinculan entre sí: `apps/tool-outbound` y `apps/data`, luego `apps/api`
    (con su service binding al Worker de MCP comentado temporalmente), luego
    `apps/mcp`, luego `apps/api` de nuevo con el binding restaurado, y después
    `apps/tool-broker`, `apps/web` y `apps/website`. DEPLOYMENT.md tiene los
@@ -186,13 +186,13 @@ en `{api,mcp,app}.<tu-dominio>`; `development` usa el prefijo `development-`.
 
 ## Comprueba que funciona
 
-- `https://api.<tu-dominio>/.well-known/oauth-authorization-server` responde —
-  los clientes MCP lo leen para saber cómo iniciar sesión.
+- `https://api.<tu-dominio>/.well-known/oauth-authorization-server` responde.
+  Los clientes MCP lo leen para saber cómo iniciar sesión.
 - `https://mcp.<tu-dominio>/health` responde.
 - Inicia sesión en `https://app.<tu-dominio>`, crea una organización y confirma
   que se ve el catálogo de herramientas.
 - Publica una función pequeña (`ganju deploy` con `GANJU_API_URL` apuntando a tu
-  API) — lo único que prueba a la vez el dispatch namespace, el broker y el
+  API): lo único que prueba a la vez el dispatch namespace, el broker y el
   Worker de salida.
 
 ## Planes y facturación en tu instancia
@@ -206,7 +206,7 @@ Polar como se describe en DEPLOYMENT.md.
 
 ## Observa y opera
 
-Los Workers tienen la observabilidad activada — sigue los logs con
+Los Workers tienen la observabilidad activada. Sigue los logs con
 `wrangler tail --env <env>`, vigila las colas de mensajes fallidos por si algún
 trabajo en segundo plano se atasca, y revisa la tabla `error_log` para ver los
 errores entre servicios. En `apps/api` corren dos crons: cada 15 minutos (el
@@ -218,5 +218,5 @@ y [DATA_MODEL.md](https://github.com/MontoyaAndres/ganju/blob/main/docs/DATA_MOD
 en el repositorio.
 
 ¿Prefieres no correr nada de esto? La [versión alojada](https://app.ganju.ai) se
-encarga de todo — empieza en el plan Free y
+encarga de todo: empieza en el plan Free y
 [mejora tu plan](/es/docs/settings/#facturación-y-plan) cuando crezcas.

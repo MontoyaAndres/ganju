@@ -22,7 +22,7 @@ and rename it under **Organization name** → **Save changes**.
 
 Here too: **Confirm sensitive actions**. Turn it on and your bots ask the person
 before sending an email or message, booking or changing a calendar event,
-deleting something, or running any other action that isn't read-only — and act
+deleting something, or running any other action that isn't read-only, and act
 only on a yes. Details in
 [Settings → Confirm sensitive actions](/docs/settings/#confirm-sensitive-actions).
 
@@ -40,8 +40,8 @@ replies count toward billing; incoming messages are free. On Free you'll see
 
 ## Members & projects
 
-**Members** lists everyone in the organization. Invite a teammate by email —
-they accept the invitation in-app — and remove members or revoke pending
+**Members** lists everyone in the organization. Invite a teammate by email
+(they accept the invitation in-app) and remove members or revoke pending
 invitations. Inviting is a Pro feature.
 
 **Projects** lists every project; each has its own **Members** (who can open
@@ -55,7 +55,7 @@ that project) and **Access tokens** (for deploying from CI with the
 By default your channels use the system model. On Pro you can bring your own:
 under **Models**, select **Add model**, give it a **Display name**, choose the
 **Model** (Gemini, GPT, or Claude models, or **Custom (OpenAI-compatible)**),
-and paste your **API key** — with an optional **Base URL** and **System
+and paste your **API key**, with an optional **Base URL** and **System
 prompt**. Add it once and pick it in any channel's **Language model**.
 
 ![The New model form: Display name, Model, API key, Base URL and System prompt](/images/settings-models-new.webp)

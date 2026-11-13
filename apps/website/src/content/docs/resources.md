@@ -1,6 +1,6 @@
 ---
 title: Resources
-description: Give your AI knowledge to search — import from Google Drive or OneDrive, upload files or paste text, crawl a website, keep it all in sync, and cite your sources.
+description: "Give your AI knowledge to search: import from Google Drive or OneDrive, upload files or paste text, crawl a website, keep it all in sync, and cite your sources."
 order: 3
 updated: 2026-11-13
 ---
@@ -15,11 +15,11 @@ client.
 ## Why add resources
 
 - **Grounded, accurate answers.** Your AI replies from your actual documents, not
-  from general training — fewer made-up answers, more citations you can trust.
+  from general training: fewer made-up answers, more citations you can trust.
 - **One knowledge base, every channel.** Add a file once and it's searchable from
   every linked channel and MCP client at the same time.
 - **Bring what you already have.** Pull straight from Google Drive or OneDrive,
-  upload files, or crawl a whole website — no reformatting or copy-paste.
+  upload files, or crawl a whole website, with no reformatting or copy-paste.
 - **Always current.** Sync a drive or a website and only what changed is indexed
   again; on Pro it happens on its own, daily or weekly.
 - **Show your sources.** With citations on, the bot lists the exact resource
@@ -46,19 +46,19 @@ description, and **Back** returns to the cards.
 
 Open **My folder** and select **Add files**. The **New Resource** panel asks for:
 
-- **Title** — a readable name (3 to 200 characters). Picking a file fills it
+- **Title**: a readable name (3 to 200 characters). Picking a file fills it
   with the file's name.
-- **URI** — generated from the title (like `resource://price-list`); edit it if
+- **URI**: generated from the title (like `resource://price-list`); edit it if
   you like. Each URI must be unique in the project.
-- **Type** — **Static — Fixed content** for a normal document, or **Template —
-  Dynamic with variables** for content with placeholders like `{userId}` that an
+- **Type**: **Static** (fixed content) for a normal document, or **Template**
+  (dynamic with variables) for content with placeholders like `{userId}` that an
   MCP client fills in.
-- **Description** — what the resource is about (up to 1,000 characters). It's
+- **Description**: what the resource is about (up to 1,000 characters). It's
   indexed too, so a good description helps the bot find it.
-- **Content source** — **File** to upload one, or **Text** to paste or write
+- **Content source**: **File** to upload one, or **Text** to paste or write
   content directly, with its **MIME Type** (plain text, CSV, HTML, JSON, YAML,
   code and other text formats) and **Encoding**.
-- **Advanced options** — the MCP annotations clients can read: **Audience**,
+- **Advanced options**: the MCP annotations clients can read: **Audience**,
   **Priority (0 to 1)** and **Icons**.
 
 ![The New Resource panel: Title, URI, Type, Description, File or Text, and Advanced options](/images/resource-new-file.webp)
@@ -78,7 +78,7 @@ One file can be up to **500 MB**. What Ganju **reads and makes searchable**:
 | Text and code | plain text, Markdown, HTML, JSON, XML, YAML, TOML, SQL, GraphQL, JavaScript, TypeScript, Python, Ruby, Perl, PHP, shell |
 
 You can also store images (PNG, JPEG, GIF, WebP, SVG) and other
-files. They keep their title, description and URI — which are searchable — and
+files. They keep their title, description and URI (which are searchable), and
 the bot can send them as attachments, but their contents aren't read into the
 index.
 
@@ -93,7 +93,7 @@ the document if you didn't expect that text.
 Open the **Google Drive** card and choose **Add from Google Drive**. The first
 time, Ganju asks you to connect your Google account. A picker opens with **My
 Drive**, **Shared with me**, **Shared drives** and **Starred**; search across a
-tab, tick files or whole folders, and select **Add selected** — Ganju imports and
+tab, tick files or whole folders, and select **Add selected**. Ganju imports and
 indexes them. Picking a folder brings in what's inside it, and keeps it in sync.
 
 Google Docs, Sheets and Slides are converted to Word, Excel and PowerPoint as
@@ -108,11 +108,11 @@ and add your selection.
 Open the **Websites** card and select **Add website**. The **Add Website** panel
 asks for:
 
-- **URL** — the starting page, `http` or `https`. Ganju follows links on the
+- **URL**: the starting page, `http` or `https`. Ganju follows links on the
   same site (same origin) only. Addresses on private networks are refused.
-- **Title** and **Description** — a name for the site and what's on it.
-- **Max pages** — 1 to 1,000 pages (100 by default).
-- **Max depth** — how many clicks away from the starting page to go, 0 to 10
+- **Title** and **Description**: a name for the site and what's on it.
+- **Max pages**: 1 to 1,000 pages (100 by default).
+- **Max depth**: how many clicks away from the starting page to go, 0 to 10
   (3 by default; 0 crawls only the starting page).
 
 ![The Add Website panel: URL, Title, Description, Max pages and Max depth](/images/resource-add-website.webp)
@@ -160,7 +160,7 @@ On Telegram and Discord the sources come as buttons under the message; on Slack 
 WhatsApp
 as a short **Sources** list of links. Turn the switch off
 (**Hidden from citations**) and the bot still uses the resource, but never shows
-it as a source — useful for internal notes.
+it as a source, which is useful for internal notes.
 
 ![A Telegram chat where the bot answers a question from a crawled website and cites the site as the source](/images/resource-chat.webp)
 
@@ -181,7 +181,7 @@ searches and creates resources with `ctx.resources`.
 
 The project [assistant](/docs/assistant/) can list your knowledge, search it the
 way the bot would, add a note (a text resource), edit a note, add a website to
-crawl and remove a resource — each as a change you approve. To add a file, it
+crawl and remove a resource, each as a change you approve. To add a file, it
 asks you to upload it.
 
 ## Plan limits
@@ -191,7 +191,7 @@ asks you to upload it.
 | One file | 500 MB | 500 MB |
 | Stored files (per organization) | 30 MB | No limit |
 | Indexed content (per organization) | 5 MB | No limit |
-| Automatic sync | — | Daily or weekly |
+| Automatic sync | None | Daily or weekly |
 
 Indexed content is the text Ganju extracted and made searchable, which is
 usually far smaller than the files. When an organization on Free is full, new
@@ -202,8 +202,8 @@ resources are refused until you remove some or upgrade. See
 
 - **"Unsupported mime type".** The browser reported a file type Ganju doesn't
   store. Save it as one of the formats above (PDF is the safest).
-- **A resource shows Failed.** The file couldn't be read — a damaged or
-  password-protected file, for example. Export it again and upload the new copy
+- **A resource shows Failed.** The file couldn't be read (a damaged or
+  password-protected file, for example). Export it again and upload the new copy
   (edit the resource and replace the file).
 - **A website crawl found few pages.** Raise **Max depth** or **Max pages**,
   and check that the links stay on the same domain as the starting URL

@@ -1,6 +1,6 @@
 ---
 title: Prompts
-description: Build reusable, multi-turn prompt templates with typed variables — each becomes a slash command in your linked chat channels and a prompt in any MCP client.
+description: Build reusable, multi-turn prompt templates with typed variables. Each becomes a slash command in your linked chat channels and a prompt in any MCP client.
 order: 2
 updated: 2026-11-13
 ---
@@ -14,11 +14,11 @@ is filled in when the prompt runs.
 ## Why use prompts
 
 - **Turn repeat work into one command.** Capture a request you send again and
-  again once, then run it as `/command` — no re-typing, no forgetting the details.
+  again once, then run it as `/command`, with no re-typing, no forgetting the details.
 - **Consistent results every time.** Everyone triggers the exact same wording and
   structure, so your AI answers the same way no matter who asks.
 - **Share expertise with your whole team.** A well-crafted prompt written once is
-  instantly available to every teammate in the channel — no prompt-engineering
+  instantly available to every teammate in the channel, with no prompt-engineering
   skill required to use it.
 - **Guide the model with typed inputs.** Each variable has a type, a description
   and a required flag, so MCP clients know exactly what to ask for.
@@ -47,13 +47,13 @@ Select **New prompt**. The **New Prompt** panel opens on the right with
 ## Name it and write a message
 
 Give the prompt a **Title**. Ganju turns it into the slash command shown right
-under it, as **Slash command:** — lowercase, with every run of spaces or symbols
+under it, as **Slash command:** in lowercase, with every run of spaces or symbols
 replaced by `_`. "Summarize Article" becomes `/summarize_article`; "test"
 becomes `/test`. Two prompts in a project can't share the same command: Ganju
 refuses the second one with "A prompt with this command name already exists".
 
-Add a short **Description** so teammates know what it does — Telegram and
-Discord also show it next to the command in their menus — then write your first
+Add a short **Description** so teammates know what it does (Telegram and
+Discord also show it next to the command in their menus), then write your first
 message.
 
 Drop `{{variables}}` anywhere you want a value supplied at run time. In this
@@ -67,7 +67,7 @@ example the user message is `hi user {{name}} your age is {{age}}`, so `name` an
 Ganju **auto-detects** every `{{variable}}` in your messages and lists them under
 **Variables**. Each new one starts as a required String. For each one you can:
 
-- set the **Type** — **String**, **Number** or **Boolean**;
+- set the **Type**: **String**, **Number** or **Boolean**;
 - add a **Description** to tell whoever runs the prompt what to put there;
 - tick or untick **Required**.
 
@@ -89,7 +89,7 @@ to shape the exchange. This second message is an Assistant turn,
 
 ![The Messages section with two messages: a User message and an Assistant message containing {{message}}](/images/new-prompt-3.webp)
 
-New variables you introduce are picked up automatically — `{{message}}` now
+New variables you introduce are picked up automatically: `{{message}}` now
 appears alongside `{{name}}` and `{{age}}` in the Variables list, ready to type
 and describe.
 
@@ -111,7 +111,7 @@ and it stays in sync with the visual editor.
 ```json
 [
   { "role": "user", "content": "Summarize this article in three bullets: {{article}}" },
-  { "role": "assistant", "content": "Sure — here are the key points:" }
+  { "role": "assistant", "content": "Sure, here are the key points:" }
 ]
 ```
 
@@ -136,7 +136,7 @@ In a linked channel, type the command, then any text you want to pass:
 - The text after the command goes into the prompt's **first variable**. Other
   variables stay empty, so put the one people will type first.
 - The prompt's messages, with the variable filled in, replace what the person
-  typed, and the bot answers them as usual — with your resources, tools and
+  typed, and the bot answers them as usual, with your resources, tools and
   [bot instructions](/docs/channels/#tell-your-bot-how-to-answer).
 - A command answers right away, without waiting for a pause in the conversation.
 - If no prompt has that name, or the prompt can't be built (for example a
@@ -168,7 +168,7 @@ client asks for the values and inserts the result into the chat.
 ## Let the assistant write them
 
 The project [assistant](/docs/assistant/) can list, create, edit and remove
-prompts for you — describe the command you want ("a /menu command that lists
+prompts for you: describe the command you want ("a /menu command that lists
 today's specials") and it proposes the prompt for you to approve.
 
 ## Plan limits
@@ -184,10 +184,10 @@ The **Free** plan holds up to **3 prompts** per project. **Pro** and
   letter are left out of the menu, and Telegram can take a moment to refresh it.
   Typing the command still works.
 - **Discord shows no slash commands.** Set the Interactions Endpoint URL and
-  invite the bot with the `applications.commands` scope — see
+  invite the bot with the `applications.commands` scope; see
   [Discord](/docs/channels/discord/).
 - **Slack says the command isn't valid.** Slack only accepts slash commands
-  you've created in the Slack app — see [Slack](/docs/channels/slack/).
+  you've created in the Slack app; see [Slack](/docs/channels/slack/).
 
-Next: give your prompts something to work with — add
+Next: give your prompts something to work with: add
 [resources](/docs/resources/).

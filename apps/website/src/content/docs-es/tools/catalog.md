@@ -1,6 +1,6 @@
 ---
 title: Catálogo
-description: Las integraciones que traemos — conecta una cuenta una vez, enciende las herramientas que quieras y apágalas de nuevo sin perder la configuración.
+description: "Las integraciones que traemos: conecta una cuenta una vez, enciende las herramientas que quieras y apágalas de nuevo sin perder la configuración."
 order: 39
 updated: 2026-11-13
 ---
@@ -8,9 +8,9 @@ updated: 2026-11-13
 El **catálogo** es todo lo que traemos y mantenemos: Gmail, Outlook, Slack,
 Google Calendar, Cal.com, búsqueda web y los servidores MCP remotos oficiales de
 GitHub y Notion. Si tu caso está cubierto aquí, nunca tienes que escribir código
-para él — conectas una cuenta una vez y enciendes las herramientas que quieras.
+para él: conectas una cuenta una vez y enciendes las herramientas que quieras.
 
-La página **Herramientas** de un proyecto tiene tres pestañas: **Funciones** (tu
+La página **Acciones** de un proyecto tiene tres pestañas: **Funciones** (tu
 propio código), **Endpoints HTTP** (una petición contra tu API) y **Catálogo**.
 Esta página trata de la última.
 
@@ -25,13 +25,13 @@ inicio de sesión dejó de valer muestra **Vencido**.
 
 Encima de la cuadrícula:
 
-- **El presupuesto de herramientas** — cuántas herramientas expone este
+- **El presupuesto de herramientas**: cuántas herramientas expone este
   proyecto, de 40 (**12 de 40 herramientas expuestas**). Cada una se le reenvía
   al modelo en cada turno; la barra te avisa cuando te acercas.
-- **Buscar integraciones...** — busca en los nombres y descripciones de las
+- **Buscar integraciones...**: busca en los nombres y descripciones de las
   tarjetas y en los nombres de sus herramientas, así que buscar "borrador"
   encuentra Gmail y Outlook.
-- **Filtros** — **Todas**, **Encendidas** (al menos una herramienta activa),
+- **Filtros**: **Todas**, **Encendidas** (al menos una herramienta activa),
   **Apagadas** (ninguna activa) y **Falta conectar** (integraciones que
   necesitan una cuenta que aún no vinculaste, y servidores MCP remotos que aún
   no conectaste).
@@ -42,12 +42,12 @@ propio interruptor. **Volver al catálogo** te regresa a la cuadrícula.
 
 Algunas tarjetas no son integraciones con cuenta:
 
-- **Integradas** — las cinco herramientas de recursos y prompts con las que
+- **Integradas**: las cinco herramientas de recursos y prompts con las que
   arranca todo proyecto. No requieren conexión. Mira
   [Integradas](/es/docs/tools/built-in/).
-- **Saludo** — una prueba de una sola herramienta para confirmar que un servidor
+- **Saludo**: una prueba de una sola herramienta para confirmar que un servidor
   nuevo responde. Mira [Saludo](/es/docs/tools/greeting/).
-- **GitHub** y **Notion** — servidores MCP remotos que opera el propio
+- **GitHub** y **Notion**: servidores MCP remotos que opera el propio
   proveedor. Conectar uno trae las herramientas que ofrece *su* servidor. Abren
   un diálogo en lugar de una lista de herramientas; mira
   [GitHub](/es/docs/tools/github/) y [Notion](/es/docs/tools/notion/).
@@ -55,7 +55,7 @@ Algunas tarjetas no son integraciones con cuenta:
 ## Conecta una vez, activa por herramienta
 
 La mayoría de las integraciones necesitan una conexión única, y **una conexión
-sirve a todo el grupo** — conecta Gmail una vez y sus 18 herramientas pueden
+sirve a todo el grupo**: conecta Gmail una vez y sus 18 herramientas pueden
 usarla. Mientras no conectes, el grupo muestra un aviso (*Conecta Gmail para
 activar estas herramientas. Solo necesitas conectarlo una vez para toda la
 integración.*) y sus interruptores aparecen deshabilitados.
@@ -85,11 +85,11 @@ actual.
 ## El presupuesto de herramientas
 
 El esquema de cada herramienta activa se le reenvía al modelo en **cada**
-llamada, así que la cantidad de herramientas es un costo directo — y los modelos
-eligen peor pasadas unas decenas de opciones. Lo medimos con nuestro propio
-tráfico: un asistente con 5 herramientas promedia ~1.100 tokens de entrada por
-turno, y uno con 12 promedia ~13.100. Una lista más corta es un asistente más
-barato y más certero. Enciende las herramientas que necesitas, no el grupo
+llamada, así que la cantidad de herramientas es un costo directo, y los
+modelos eligen peor cuando pasan de unas decenas de opciones. Lo medimos con
+nuestro propio tráfico: un asistente con 5 herramientas promedia ~1.100 tokens
+de entrada por turno, y uno con 12 promedia ~13.100. Una lista más corta es un
+asistente más barato y más certero. Enciende las herramientas que necesitas, no el grupo
 entero.
 
 Los límites:
@@ -147,8 +147,8 @@ herramienta. La misma conexión de Gmail está disponible para:
 - todas las herramientas de Gmail del catálogo;
 - un [endpoint HTTP](/es/docs/tools/http-endpoints/) con autenticación
   **Cuenta conectada**, en lugar de guardar una segunda copia de la credencial;
-- una [función](/es/docs/tools/functions/), vía `ctx.connection('google-gmail')`
-  — pero solo si el proveedor está en las conexiones de esa función (la sección
+- una [función](/es/docs/tools/functions/), vía `ctx.connection('google-gmail')`,
+  pero solo si el proveedor está en las conexiones de esa función (la sección
   **Conexiones** de su configuración, o `"connections"` en `ganju.json` cuando
   despliegas con el [CLI](/es/docs/tools/cli/)). Tu código nunca recibe el
   refresh token, solo un access token de vida corta.
@@ -163,7 +163,7 @@ Desconectar una integración afecta a las tres.
 
 En los planes de pago, el [Asistente](/es/docs/assistant/) puede trabajar con el
 catálogo por ti: consulta lo que ofrece y propone agregar una herramienta del
-catálogo, encender o apagar herramientas, o eliminarlas — como un cambio que tú
+catálogo, encender o apagar herramientas, o eliminarlas, como un cambio que tú
 apruebas, con opción de deshacer. Cuando una herramienta necesita una cuenta, te
 muestra una tarjeta para conectarla; nunca te pide una contraseña ni un token.
 Las API keys (Cal.com, Búsqueda web) y los servidores MCP remotos que piden
@@ -191,7 +191,7 @@ pueden usar las mismas conexiones.
 ## Solución de problemas
 
 - **Los interruptores están deshabilitados.** La integración aún no está
-  conectada — usa **Conectar** o **Agregar API key** en el encabezado del grupo.
+  conectada; usa **Conectar** o **Agregar API key** en el encabezado del grupo.
 - **La tarjeta dice Vencido.** El proveedor dejó de aceptar el inicio de sesión
   guardado (cambio de contraseña, acceso revocado). Abre la tarjeta y conecta de
   nuevo; tus herramientas y ajustes se conservan.
@@ -201,13 +201,13 @@ pueden usar las mismas conexiones.
   no necesites, o mejora tu plan.
 - **El bot ignora una herramienta que tiene.** Revisa que esté encendida (no
   **Apagada · conserva su configuración**) y que su descripción encaje con lo
-  que se pide — y recuerda que un canal envía como máximo 40 herramientas.
+  que se pide. Recuerda también que un canal envía como máximo 40 herramientas.
 
 ## ¿No está aquí?
 
 Dos salidas, en orden de esfuerzo:
 
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — una petición contra una
+- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)**: una petición contra una
   API que ya tienes, descrita en un formulario. Disponible en todos los planes.
-- **[Funciones](/es/docs/tools/functions/)** — tu propio código, cuando necesitas
+- **[Funciones](/es/docs/tools/functions/)**: tu propio código, cuando necesitas
   lógica y no una sola llamada.

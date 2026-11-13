@@ -5,11 +5,11 @@ order: 48
 updated: 2026-11-13
 ---
 
-**Notion** isn't a set of tools we build — it's Notion's **official remote MCP
+**Notion** isn't a set of tools we build; it's Notion's **official remote MCP
 server**, connected through Ganju. Ganju links to Notion's hosted server, lists
 the tools *it* offers, and exposes the ones you pick to your assistant. You get
-Notion's own, up-to-date toolset — searching, reading and updating pages and
-databases — maintained by Notion, not re-implemented by us.
+Notion's own, up-to-date toolset (searching, reading and updating pages and
+databases), maintained by Notion, not re-implemented by us.
 
 ## How it works
 
@@ -22,7 +22,7 @@ Notion and returns the result.
 
 ## Connect it
 
-Notion's server signs you in with **OAuth** — no token to copy.
+Notion's server signs you in with **OAuth**, so there's no token to copy.
 
 1. Open **Tools → Catalog** and select the **Notion** card.
 2. Select **Connect Notion**. You're sent to Notion to sign in and choose the
@@ -45,12 +45,12 @@ many more you can turn on.
 
 Under the list:
 
-- **Trust this server's read-only labels** — tools Notion itself marks as
+- **Trust this server's read-only labels**: tools Notion itself marks as
   read-only skip confirmation. Turn this on only for servers you trust.
-- **Only reads — looks things up, changes nothing** — mark tools yourself, so
+- **Only reads: looks things up, changes nothing**: mark tools yourself, so
   they run without asking for confirmation, even after the assistant has read
   outside content. Everything else is treated as a sensitive action.
-- **Resources & prompts (optional)** — if the server offers resources or
+- **Resources & prompts (optional)**: if the server offers resources or
   prompts, they're off by default; only the ones you enable here are exposed.
 
 The dialog works the same way as GitHub's; see the screenshot on
@@ -64,7 +64,7 @@ the setup; **Disconnect** removes it and its sign-in.
 
 ## Available tools
 
-The tools come from Notion's server and can change as Notion updates it —
+The tools come from Notion's server and can change as Notion updates it,
 typically searching your workspace and reading, creating or updating pages and
 databases. The dialog always shows the current list. Responses are capped in
 size before they reach the model, and results from the server are treated as

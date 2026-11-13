@@ -5,16 +5,16 @@ order: 48
 updated: 2026-11-13
 ---
 
-**Notion** no es un conjunto de herramientas que construimos nosotros — es el
+**Notion** no es un conjunto de herramientas que construimos nosotros: es el
 **servidor MCP remoto oficial** de Notion, conectado a través de Ganju. Ganju se
 enlaza con el servidor alojado de Notion, lista las herramientas que ofrece *él*
 y le expone a tu asistente las que elijas. Recibes el conjunto propio y al día
-de Notion — buscar, leer y actualizar páginas y bases de datos — mantenido por
-Notion, no reimplementado por nosotros.
+de Notion (buscar, leer y actualizar páginas y bases de datos), mantenido por
+Notion y no reimplementado por nosotros.
 
 ## Cómo funciona
 
-La tarjeta **Notion** está en **Herramientas → Catálogo** junto a las demás
+La tarjeta **Notion** está en **Acciones → Catálogo** junto a las demás
 integraciones, marcada *Servidor MCP remoto · conéctalo para activar sus
 herramientas* hasta que lo conectes. Ganju habla con el servidor de Notion
 (`https://mcp.notion.com/mcp`) por streamable HTTP. Cada herramienta que
@@ -23,10 +23,10 @@ asistente llama una, Ganju reenvía la llamada a Notion y devuelve el resultado.
 
 ## Conéctalo
 
-El servidor de Notion te hace iniciar sesión con **OAuth** — no hay token que
-copiar.
+El servidor de Notion te hace iniciar sesión con **OAuth**, así que no hay
+token que copiar.
 
-1. Abre **Herramientas → Catálogo** y elige la tarjeta **Notion**.
+1. Abre **Acciones → Catálogo** y elige la tarjeta **Notion**.
 2. Elige **Conectar Notion**. Te enviamos a Notion para iniciar sesión y elegir
    el workspace y las páginas a las que puede llegar el asistente.
 3. Vuelves a Herramientas con el diálogo de Notion abierto. Elige las
@@ -47,14 +47,14 @@ y el diálogo te dice cuántas más puedes encender.
 
 Debajo de la lista:
 
-- **Confiar en las marcas de solo lectura de este servidor** — las herramientas
+- **Confiar en las marcas de solo lectura de este servidor**: las herramientas
   que el propio Notion marca como de solo lectura no piden confirmación.
   Actívalo solo con servidores en los que confías.
-- **Solo lee — consulta, no cambia nada** — marca tú mismo las herramientas,
+- **Solo lee** (*consulta, no cambia nada*): marca tú mismo las herramientas,
   para que se ejecuten sin pedir confirmación, incluso después de que el
   asistente haya leído contenido externo. Todas las demás se tratan como
   acciones sensibles.
-- **Recursos y prompts (opcional)** — si el servidor ofrece recursos o prompts,
+- **Recursos y prompts (opcional)**: si el servidor ofrece recursos o prompts,
   están apagados por defecto; solo se exponen los que actives aquí.
 
 El diálogo funciona igual que el de GitHub; mira la captura en
@@ -70,7 +70,7 @@ sesión.
 ## Herramientas disponibles
 
 Las herramientas vienen del servidor de Notion y pueden cambiar cuando Notion lo
-actualiza — normalmente buscar en tu workspace y leer, crear o actualizar
+actualiza. Normalmente sirven para buscar en tu workspace y leer, crear o actualizar
 páginas y bases de datos. El diálogo siempre muestra la lista actual. Las
 respuestas se recortan de tamaño antes de llegar al modelo, y los resultados del
 servidor se tratan como contenido externo.

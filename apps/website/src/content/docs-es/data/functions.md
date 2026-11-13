@@ -236,8 +236,8 @@ await ctx.channels.post({
 ## Funciones que solo ejecutan los disparadores
 
 Una función que ejecuta un [disparador](/es/docs/data/triggers/) o una
-[programación](/es/docs/data/schedules/) — avisarle a la cocina, escribirle al
-cliente, enviar el reporte de la noche — no debería ser una herramienta que el
+[programación](/es/docs/data/schedules/) (avisarle a la cocina, escribirle al
+cliente, enviar el reporte de la noche) no debería ser una herramienta que el
 asistente pueda llamar. Ponle `"expose": false` en `ganju.json`, o apaga **El
 asistente puede usar esta función** en su diálogo de la pestaña Funciones:
 

@@ -6,7 +6,7 @@ updated: 2026-11-13
 ---
 
 **Greeting** is a demo and smoke-test tool. It's there so you can confirm a
-brand-new MCP server is connected and responding before you add anything real —
+brand-new MCP server is connected and responding before you add anything real;
 it needs no connection and has no side effects.
 
 ## Turn it on
@@ -17,8 +17,8 @@ like any other, so turn it off again once you've checked.
 
 ## Tool
 
-- **Greeting** (`greeting`) — returns a templated hello for a `name`, in English
-  or Spanish (`language`: `en` or `es`). It's only for testing — ask your client
+- **Greeting** (`greeting`): returns a templated hello for a `name`, in English
+  or Spanish (`language`: `en` or `es`). It's only for testing. Ask your client
   to "test the greeting tool"; in normal conversation the assistant replies
   directly instead of calling it.
 

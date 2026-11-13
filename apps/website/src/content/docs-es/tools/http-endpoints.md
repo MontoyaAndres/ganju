@@ -1,6 +1,6 @@
 ---
 title: Endpoints HTTP
-description: Apunta tu bot a una API que ya tienes — describe una petición y se convierte en una herramienta con nombre, sin código y sin despliegue.
+description: Apunta tu bot a una API que ya tienes. Describe una petición y se convierte en una herramienta con nombre, sin código y sin despliegue.
 order: 38
 updated: 2026-11-13
 ---
@@ -52,9 +52,9 @@ id).
 - **Método** (`GET`, `POST`, `PUT`, `PATCH` o `DELETE`) y **URL**. Usa `{{arg}}`
   en cualquier parte de la URL para insertar una entrada.
 - **Qué hace**: si la llamada solo lee o cambia algo. El valor por defecto,
-  **Según el método — GET solo lee, cualquier otro es sensible**, sirve para la
-  mayoría de las APIs. Elige **Solo lee — consulta, no cambia nada** para un
-  `POST` que solo busca, **Cambia cosas que se pueden deshacer**, o **Envía,
+  **Según el método** (*GET solo lee, cualquier otro es sensible*), sirve para
+  la mayoría de las APIs. Elige **Solo lee** (*consulta, no cambia nada*) para
+  un `POST` que solo busca, **Cambia cosas que se pueden deshacer**, o **Envía,
   borra, cobra o no se puede deshacer**. Cuando la organización activa
   [Confirmar acciones sensibles](/es/docs/settings/#confirmar-acciones-sensibles),
   un bot de canal pregunta antes de llamar a un endpoint sensible.
@@ -92,7 +92,7 @@ que guardaste antes.
   **Texto**.
 - **Ruta JSON**: extrae un subárbol, p. ej. `data.items`, para que el modelo
   reciba la parte que necesita y no toda la envoltura.
-- **Esquema de salida — opcional**: si declaras uno, una respuesta JSON llega a
+- **Esquema de salida** (opcional): si declaras uno, una respuesta JSON llega a
   los clientes MCP como **salida estructurada** en vez de texto. La respuesta
   debe ser entonces un objeto JSON, o la llamada se reporta como error.
 - **Estados de éxito**: separados por comas, p. ej. `200, 201`. Por defecto,

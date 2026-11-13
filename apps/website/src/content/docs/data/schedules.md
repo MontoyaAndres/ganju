@@ -1,6 +1,6 @@
 ---
 title: Schedules
-description: Run something every day or every week at a set time, in the database's time zone — email a saved query's rows, or hand them to a function or a webhook.
+description: "Run something every day or every week at a set time, in the database's time zone: email a saved query's rows, or hand them to a function or a webhook."
 order: 58
 updated: 2026-11-13
 ---

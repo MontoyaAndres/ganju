@@ -1,6 +1,6 @@
 ---
 title: WhatsApp
-description: Connect the WhatsApp Business (Meta) Cloud API — create a permanent System User token, grab your phone number ID, point the webhook at Ganju, and manage message templates.
+description: "Connect the WhatsApp Business (Meta) Cloud API: create a permanent System User token, grab your phone number ID, point the webhook at Ganju, and manage message templates."
 order: 52
 updated: 2026-11-13
 ---
@@ -14,7 +14,7 @@ copy your **Phone number ID**, then paste Ganju's **Callback URL** back into Met
 
 1. In the [Meta for Developers](https://developers.facebook.com/) dashboard, create
    an app (type **Business**) and add the **WhatsApp** product.
-2. Note your **Phone number ID** (a numeric string — *not* the phone number
+2. Note your **Phone number ID** (a numeric string, *not* the phone number
    itself) and your **WhatsApp Business Account ID**. For your real number,
    both are under **WhatsApp → Production setup → Register your WhatsApp phone
    number**, where Meta labels the account "Messaging Account ID". The **API
@@ -23,8 +23,8 @@ copy your **Phone number ID**, then paste Ganju's **Callback URL** back into Met
 
 ## 2. Generate a permanent access token
 
-The temporary token on the API Setup page expires in 24 hours — create a permanent
-one instead:
+The temporary token on the API Setup page expires in 24 hours, so create a
+permanent one instead:
 
 1. Open **Business Settings → System users** and add a **System user**.
 2. Assign your app to it and generate a token with the
@@ -40,11 +40,11 @@ and fill in the fields:
 
 ![The Connect channel panel with WhatsApp selected: Access token, Phone number ID and Verify token](/images/new-channel-whatsapp.webp)
 
-- **Access token** — the permanent System User token from step 2.
-- **Phone number ID** — from **WhatsApp → Production setup** (the ID, not the
+- **Access token**: the permanent System User token from step 2.
+- **Phone number ID**: from **WhatsApp → Production setup** (the ID, not the
   display number). API Setup shows only the test number's.
-- **Verify token** — any value you choose; you'll enter the same string in Meta.
-- **App secret** — from **App → Settings → Basic**, used to verify incoming
+- **Verify token**: any value you choose; you'll enter the same string in Meta.
+- **App secret**: from **App → Settings → Basic**, used to verify incoming
   webhooks.
 
 Select **Connect**. Ganju checks that the token can act for that number, then
@@ -96,7 +96,7 @@ Long answers are split into several messages.
 WhatsApp only lets a business write freely to a customer within **24 hours of
 the customer's last message**. After that, only a **message template** Meta
 approved reaches them. Your assistant never needs one, since it always answers
-a message. Triggers and functions that message a customer later do — "your
+a message. Triggers and functions that message a customer later do, like "your
 order is ready" the next morning.
 
 Open the channel and the **Message templates** tab. There you can:
@@ -181,7 +181,7 @@ ganju channel templates
 - **The Callback URL won't verify.** The **Verify token** in Meta must match
   the one you typed in Ganju exactly.
 - **Meta's Test works, real messages don't arrive.** The app isn't subscribed
-  to the business account — see the end of step 4.
+  to the business account. See the end of step 4.
 - **Messages stopped after a day.** You used the temporary token from API Setup.
   Generate a permanent System User token and paste it in the **Message
   templates** tab.
@@ -189,5 +189,5 @@ ganju channel templates
   only an **Approved** template gets through. Check its status in **Message
   templates**.
 
-Sources: [WhatsApp Cloud API — Get Started (Meta)](https://developers.facebook.com/documentation/business-messaging/whatsapp/get-started),
+Sources: [WhatsApp Cloud API: Get Started (Meta)](https://developers.facebook.com/documentation/business-messaging/whatsapp/get-started),
 [Creating a permanent WhatsApp access token](https://noem.ai/help/creating-a-permanent-access-token-for-whatsapp-business-api)

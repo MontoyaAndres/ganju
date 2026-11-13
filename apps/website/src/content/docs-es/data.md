@@ -1,6 +1,6 @@
 ---
 title: Datos
-description: Dale a un proyecto su propia base de datos — tablas con columnas tipadas, relaciones y búsqueda — que el asistente, tus funciones, la CLI y la API leen y escriben, con restauración a cualquier momento de los últimos 30 días.
+description: Dale a un proyecto su propia base de datos (tablas con columnas tipadas, relaciones y búsqueda) que el asistente, tus funciones, la CLI y la API leen y escriben, con restauración a cualquier momento de los últimos 30 días.
 order: 7
 updated: 2026-11-13
 ---
@@ -15,8 +15,8 @@ El asistente, tus [funciones](/es/docs/data/functions/), la
 [API de Datos](/es/docs/data-api/) y el panel usan la misma base de datos, con
 las mismas reglas. Nada puede escribir en ella por fuera de ellos.
 
-> **¿Datos o Recursos?** Filas con campos — menús, pedidos, clientes, reservas,
-> inventario — van en Datos. Documentos y páginas que el asistente lee y cita van
+> **¿Datos o Recursos?** Filas con campos (menús, pedidos, clientes, reservas,
+> inventario) van en Datos. Documentos y páginas que el asistente lee y cita van
 > en [Recursos](/es/docs/resources/).
 
 ## Crear la base de datos
@@ -57,8 +57,8 @@ Una tabla se abre en tres pestañas: **Filas**, **Esquema** y **Disparadores**.
 
 ## Tablas y columnas
 
-Una tabla guarda un tipo de cosa — los platos que vendes, tus pedidos, tus
-clientes — con una columna para cada detalle. Haz clic en **Nueva tabla**, dale
+Una tabla guarda un tipo de cosa (los platos que vendes, tus pedidos, tus
+clientes), con una columna para cada detalle. Haz clic en **Nueva tabla**, dale
 un **Nombre de la tabla** (minúsculas, dígitos y `_`, como `lineas_pedido`) y
 sus columnas, o en **Nueva tabla desde un archivo** para empezar desde una hoja
 de cálculo: mira [Importar un archivo](#importar-un-archivo).
@@ -210,8 +210,8 @@ CSV, Excel y JSONL. Mira [la línea de comandos](/es/docs/data-api/#desde-la-lí
 ## Quién ve qué
 
 Tus propios clientes MCP, como dueño del proyecto, el panel, la CLI y tus
-funciones ven todas las tablas y todas las filas. Los **bots de los canales** —
-el asistente que atiende a los clientes en WhatsApp, Telegram, Slack o Discord —
+funciones ven todas las tablas y todas las filas. Los **bots de los canales**
+(el asistente que atiende a los clientes en WhatsApp, Telegram, Slack o Discord)
 solo ven lo que permiten los ajustes de cada tabla. En la pestaña **Esquema** de
 la tabla, en **Ajustes de la tabla**:
 

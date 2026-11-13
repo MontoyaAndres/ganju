@@ -1,6 +1,6 @@
 ---
 title: Ejemplos
-description: Siete proyectos de funciones listos para desplegar — clima, issues de GitHub, notas del equipo, tiempo libre en el calendario, un resumen de noticias por correo, un escritorio de soporte que confirma los reembolsos y los pedidos de un restaurante sobre la base de datos del proyecto — cada uno muestra algo que puedes copiar en tus propias herramientas.
+description: Siete proyectos de funciones listos para desplegar (clima, issues de GitHub, notas del equipo, tiempo libre en el calendario, un resumen de noticias por correo, un escritorio de soporte que confirma los reembolsos y los pedidos de un restaurante sobre la base de datos del proyecto). Cada uno muestra algo que puedes copiar en tus propias herramientas.
 order: 38
 updated: 2026-11-13
 ---
@@ -235,7 +235,7 @@ Encuentra los huecos libres de un día en tu Google Calendar donde cabe una
 reunión, dentro del horario laboral. Puede responder *"¿Cuándo estoy libre el
 martes una hora?"* o proponerle horarios a alguien.
 
-Conecta **Google Calendar** en la página **Tools** del proyecto y luego:
+Conecta **Google Calendar** en la página **Acciones** del proyecto y luego:
 
 ```bash
 ganju test find-free-time --input '{"date":"2026-09-21","durationMinutes":60}'
@@ -287,7 +287,7 @@ const response = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
 La portada de Hacker News, en el chat o enviada por correo a alguien con la
 lista adjunta como archivo Markdown.
 
-Conecta **Gmail** en la página **Tools** del proyecto y luego:
+Conecta **Gmail** en la página **Acciones** del proyecto y luego:
 
 ```bash
 ganju test hn-top-stories --input '{"limit":5}'
@@ -295,7 +295,7 @@ ganju test email-hn-digest --input '{"to":"tu@ejemplo.com","limit":5}'
 ganju deploy
 ```
 
-La segunda prueba envía un correo real, así que envíatelo a ti.
+La segunda prueba envía un correo real, así que mándatelo a ti mismo.
 
 **Primero se crea el archivo, luego se envía:**
 
@@ -345,7 +345,7 @@ ganju test order-lookup --input '{"orderId":"A-1001"}'
 ganju deploy
 ```
 
-Luego activa **Confirmar acciones sensibles** en **Settings → Organization** y
+Luego activa **Confirmar acciones sensibles** en **Ajustes → Organización** y
 pregunta *"El pedido A-1001 llegó con una taza rota, ¿me reembolsas esa taza?"*
 
 **Una herramienta por cada respuesta a "¿qué hace?":**

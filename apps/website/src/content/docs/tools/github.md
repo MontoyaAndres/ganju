@@ -5,10 +5,10 @@ order: 47
 updated: 2026-11-13
 ---
 
-**GitHub** isn't a set of tools we build — it's GitHub's **official remote MCP
+**GitHub** isn't a set of tools we build; it's GitHub's **official remote MCP
 server**, connected through Ganju. Ganju links to GitHub's hosted server, lists
 the tools *it* offers, and exposes the ones you pick to your assistant. You get
-GitHub's own, up-to-date toolset — repositories, issues, pull requests and more —
+GitHub's own, up-to-date toolset (repositories, issues, pull requests and more),
 maintained by GitHub, not re-implemented by us.
 
 ## How it works
@@ -27,7 +27,8 @@ GitHub's server authenticates with a **personal access token** (PAT).
 
 1. In GitHub, go to **Settings → Developer settings → Personal access tokens**
    and create a token. Give it access only to the repositories and permissions
-   you want the assistant to have — the token is the ceiling of what it can do.
+   you want the assistant to have, because the token is the ceiling of what it
+   can do.
 2. In Ganju, open **Tools → Catalog** and select the **GitHub** card.
 3. Paste the token in **GitHub token** and select **Connect & list tools**. If
    GitHub refuses it, you'll see *Could not list tools with this token.*
@@ -45,13 +46,13 @@ many tools; pick the handful your assistant needs.
 
 Under the list:
 
-- **Trust this server's read-only labels** — tools GitHub itself marks as
+- **Trust this server's read-only labels**: tools GitHub itself marks as
   read-only skip confirmation. A server could mislabel a tool, so turn this on
   only for servers you trust.
-- **Only reads — looks things up, changes nothing** — mark tools yourself, so
+- **Only reads: looks things up, changes nothing**: mark tools yourself, so
   they run without asking for confirmation, even after the assistant has read
   outside content. Everything else is treated as a sensitive action.
-- **Resources & prompts (optional)** — if the server offers resources or
+- **Resources & prompts (optional)**: if the server offers resources or
   prompts, they're off by default; only the ones you enable here are exposed.
 
 ![The GitHub tools dialog: the tool count, trust read-only labels, each tool with "Only reads", Exposed, Disconnect and Save](/images/tools-mcp-github-tools.webp)
@@ -65,7 +66,7 @@ its token.
 
 ## Available tools
 
-The tools come from GitHub's server and can change as GitHub updates it —
+The tools come from GitHub's server and can change as GitHub updates it,
 typically covering repositories, files, issues, pull requests and related
 workflows. The dialog always shows the current list. Responses are capped in
 size before they reach the model, and results from the server are treated as

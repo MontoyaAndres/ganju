@@ -6,14 +6,14 @@ updated: 2026-11-13
 ---
 
 The **Cal.com** integration lets your assistant schedule through a Cal.com
-account — finding a bookable meeting type, checking open slots, and creating or
+account: finding a bookable meeting type, checking open slots, and creating or
 cancelling bookings. It offers **4 tools**. Cal.com applies your availability,
 buffers and booking rules, so a booking made by the assistant follows the same
 rules as one made on your booking page.
 
 ## Connect it
 
-Cal.com uses an **API key** — there's no sign-in step.
+Cal.com uses an **API key**, so there's no sign-in step.
 
 1. In Cal.com, create an API key (in your Cal.com settings, under the developer
    / API keys section) and copy it.
@@ -32,9 +32,9 @@ To swap the key later, use **Update API key**; **Disconnect** removes it.
 With the key saved and at least one Cal.com tool on, the group header shows two
 settings for every Cal.com tool (a tool you turn on later inherits them):
 
-- **Default event type** — the meeting type bookings are made against, e.g.
+- **Default event type**: the meeting type bookings are made against, e.g.
   "30 Min Meeting (30 min)", unless a call names another.
-- **Default time zone** — used to look up availability and as the attendee's
+- **Default time zone**: used to look up availability and as the attendee's
   booking time zone when the conversation doesn't reveal theirs. Without one,
   the zone on your Cal.com profile is used.
 
@@ -44,18 +44,18 @@ settings for every Cal.com tool (a tool you turn on later inherits them):
 
 The names in parentheses are what MCP clients and logs show.
 
-- **List Event Types** (`calcom-list-event-types`) — lists the bookable meeting
+- **List Event Types** (`calcom-list-event-types`): lists the bookable meeting
   types on the account with each one's ID, title, duration and slug.
-- **List Available Slots** (`calcom-list-available-slots`) — finds open start
+- **List Available Slots** (`calcom-list-available-slots`): finds open start
   times between `start` and `end` (ISO 8601, UTC). Optional `eventTypeId` and
   `timeZone` (IANA) for the returned times.
-- **Create Booking** (`calcom-create-booking`) — books a `start` (one of the
+- **Create Booking** (`calcom-create-booking`): books a `start` (one of the
   times List Available Slots returned) for an attendee's `name` and `email`.
-  Optional `attendeeTimeZone` — the zone their confirmation and reminders use,
-  which the assistant passes whenever it knows where they are — `notes`, and
+  Optional `attendeeTimeZone` (the zone their confirmation and reminders use,
+  which the assistant passes whenever it knows where they are), `notes`, and
   `eventTypeId`. In a channel conversation, the name and email come from the
   person. Returns the booking UID and status.
-- **Cancel Booking** (`calcom-cancel-booking`) — cancels a booking by
+- **Cancel Booking** (`calcom-cancel-booking`): cancels a booking by
   `bookingUid`, with an optional `reason` shown to the attendee, who is
   notified.
 

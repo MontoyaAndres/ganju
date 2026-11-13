@@ -1,6 +1,6 @@
 ---
 title: Functions
-description: Your own tools in code — the Assistant writes them for you, developers deploy them with the CLI, and the Tools page shows what is live, lets you test it and roll back.
+description: "Your own tools in code: the Assistant writes them for you, developers deploy them with the CLI, and the Tools page shows what is live, lets you test it and roll back."
 order: 36
 updated: 2026-11-13
 ---

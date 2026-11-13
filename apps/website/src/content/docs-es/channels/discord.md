@@ -1,13 +1,13 @@
 ---
 title: Discord
-description: Conecta una aplicación de Discord — reinicia el token del bot, activa los intents de mensajes, invita al bot, pega el token, el application ID y la public key, y define el endpoint de interacciones para los comandos.
+description: "Conecta una aplicación de Discord: reinicia el token del bot, activa los intents de mensajes, invita al bot, pega el token, el application ID y la public key, y define el endpoint de interacciones para los comandos."
 order: 54
 updated: 2026-11-13
 ---
 
-**Discord** se conecta mediante una aplicación que creas en el Discord Developer
-Portal. Vas a necesitar tres valores — el **token del bot**, el **Application ID**
-y la **Public key** —, activar los intents de mensajes e invitar al bot. Los
+**Discord** se conecta con una aplicación que creas en el Discord Developer
+Portal. Vas a necesitar tres valores (el **token del bot**, el **Application ID**
+y la **Public key**), activar los intents de mensajes e invitar al bot. Los
 mensajes normales llegan a Ganju solos por el Gateway de Discord; los slash
 commands usan la **Interactions Endpoint URL** que configuras al final.
 
@@ -36,10 +36,10 @@ lenguaje** y completa:
 
 ![El panel Conectar canal con Discord: token del bot, ID de la aplicación, clave pública y los intents requeridos](/images/new-channel-discord.webp)
 
-- **Token del bot** — de la pestaña **Bot** (Reset Token).
-- **Application ID** — de **General Information**; sirve para registrar los
+- **Token del bot**: de la pestaña **Bot** (Reset Token).
+- **Application ID**: de **General Information**; sirve para registrar los
   comandos.
-- **Public key** — de **General Information**; sirve para verificar las
+- **Public key**: de **General Information**; sirve para verificar las
   interacciones que llegan.
 
 Selecciona **Conectar**. Ganju revisa el token con Discord, registra los
@@ -48,10 +48,10 @@ responder mensajes directos y menciones.
 
 ## 4. Configura el endpoint de interacciones
 
-Los slash commands nativos llegan por aparte. El **Resumen** del canal muestra
+Los slash commands nativos llegan por separado. El **Resumen** del canal muestra
 **Configuración de Discord** con una **Interactions Endpoint URL** y un botón
 para copiarla. Pégala en **General Information → Interactions Endpoint URL** de
-tu aplicación y guarda — Discord la verifica en el momento con tu public key.
+tu aplicación y guarda. Discord la verifica en el momento con tu public key.
 
 ## Slash commands
 

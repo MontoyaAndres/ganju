@@ -1,6 +1,6 @@
 ---
 title: Slack
-description: Connect a Slack app — add the bot scopes, install it to your workspace, paste the bot token and signing secret, then set the Request URL for events and slash commands.
+description: "Connect a Slack app: add the bot scopes, install it to your workspace, paste the bot token and signing secret, then set the Request URL for events and slash commands."
 order: 53
 updated: 2026-11-13
 ---
@@ -21,11 +21,11 @@ event endpoint (and for any slash commands).
 
 Under **OAuth & Permissions → Bot Token Scopes**, add the **required** scopes:
 
-- `app_mentions:read` — see messages that @mention the bot
-- `im:history` — read direct messages to the bot
-- `chat:write` — post replies
-- `files:write` — send files as attachments
-- `files:read` — download voice clips to transcribe them
+- `app_mentions:read`: see messages that @mention the bot
+- `im:history`: read direct messages to the bot
+- `chat:write`: post replies
+- `files:write`: send files as attachments
+- `files:read`: download voice clips to transcribe them
 
 Optionally add the **recommended** scopes so the bot shows names instead of raw
 IDs: `users:read`, `channels:read`, `groups:read`.
@@ -59,7 +59,7 @@ After connecting, the channel's **Overview** shows **Slack setup** with a
 **Request URL** and a copy button. Back in your Slack app:
 
 1. Go to **Event Subscriptions** and toggle **Enable Events** on.
-2. Paste Ganju's Request URL — Slack verifies it instantly.
+2. Paste Ganju's Request URL. Slack verifies it instantly.
 3. Under **Subscribe to bot events**, add **`app_mention`** and **`message.im`**,
    then **Save Changes**. Reinstall the app if Slack asks you to.
 

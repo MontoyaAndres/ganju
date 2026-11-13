@@ -5,16 +5,16 @@ order: 47
 updated: 2026-11-13
 ---
 
-**GitHub** no es un conjunto de herramientas que construimos nosotros — es el
+**GitHub** no es un conjunto de herramientas que construimos nosotros: es el
 **servidor MCP remoto oficial** de GitHub, conectado a través de Ganju. Ganju se
 enlaza con el servidor alojado de GitHub, lista las herramientas que ofrece *él*
 y le expone a tu asistente las que elijas. Recibes el conjunto propio y al día
-de GitHub — repositorios, issues, pull requests y más — mantenido por GitHub, no
+de GitHub (repositorios, issues, pull requests y más), mantenido por GitHub y no
 reimplementado por nosotros.
 
 ## Cómo funciona
 
-La tarjeta **GitHub** está en **Herramientas → Catálogo** junto a las demás
+La tarjeta **GitHub** está en **Acciones → Catálogo** junto a las demás
 integraciones, marcada *Servidor MCP remoto · conéctalo para activar sus
 herramientas* hasta que lo conectes. Ganju habla con el servidor de GitHub
 (`https://api.githubcopilot.com/mcp/`) por streamable HTTP. Cada herramienta que
@@ -28,8 +28,8 @@ El servidor de GitHub se autentica con un **token de acceso personal** (PAT).
 
 1. En GitHub, ve a **Settings → Developer settings → Personal access tokens** y
    crea un token. Dale acceso solo a los repositorios y permisos que quieras que
-   tenga el asistente — el token es el techo de lo que puede hacer.
-2. En Ganju, abre **Herramientas → Catálogo** y elige la tarjeta **GitHub**.
+   tenga el asistente. El token es el techo de lo que puede hacer.
+2. En Ganju, abre **Acciones → Catálogo** y elige la tarjeta **GitHub**.
 3. Pega el token en **Token de GitHub** y elige **Conectar y listar
    herramientas**. Si GitHub lo rechaza, verás *No pudimos listar las
    herramientas con este token.*
@@ -48,15 +48,15 @@ muchas; elige las pocas que tu asistente necesita.
 
 Debajo de la lista:
 
-- **Confiar en las marcas de solo lectura de este servidor** — las herramientas
+- **Confiar en las marcas de solo lectura de este servidor**: las herramientas
   que el propio GitHub marca como de solo lectura no piden confirmación. Un
   servidor podría marcar mal una herramienta, así que actívalo solo con
   servidores en los que confías.
-- **Solo lee — consulta, no cambia nada** — marca tú mismo las herramientas,
+- **Solo lee** (*consulta, no cambia nada*): marca tú mismo las herramientas,
   para que se ejecuten sin pedir confirmación, incluso después de que el
   asistente haya leído contenido externo. Todas las demás se tratan como
   acciones sensibles.
-- **Recursos y prompts (opcional)** — si el servidor ofrece recursos o prompts,
+- **Recursos y prompts (opcional)**: si el servidor ofrece recursos o prompts,
   están apagados por defecto; solo se exponen los que actives aquí.
 
 ![El diálogo de herramientas de GitHub: el total, confiar en las etiquetas de solo lectura, cada herramienta con "Solo lee", Expuesta, Desconectar y Guardar](/images/tools-mcp-github-tools.webp)
@@ -71,7 +71,7 @@ sin perder la configuración (*Se conservan, pero no están en tu servidor MCP*)
 ## Herramientas disponibles
 
 Las herramientas vienen del servidor de GitHub y pueden cambiar cuando GitHub lo
-actualiza — normalmente cubren repositorios, archivos, issues, pull requests y
+actualiza. Normalmente cubren repositorios, archivos, issues, pull requests y
 flujos relacionados. El diálogo siempre muestra la lista actual. Las respuestas
 se recortan de tamaño antes de llegar al modelo, y los resultados del servidor
 se tratan como contenido externo.

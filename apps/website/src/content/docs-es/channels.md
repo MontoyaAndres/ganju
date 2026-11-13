@@ -1,13 +1,13 @@
 ---
 title: Canales
-description: Lleva tu asistente a personas reales en las apps que ya usan — Telegram, WhatsApp, Slack y Discord —, ajusta cómo responde y mira cada conversación.
+description: Lleva tu asistente a personas reales en las apps que ya usan (Telegram, WhatsApp, Slack y Discord), ajusta cómo responde y mira cada conversación.
 order: 5
 updated: 2026-11-13
 ---
 
 Los **canales** son la forma de poner tu asistente frente a otras personas. Todo
-lo que construiste — [prompts](/es/docs/prompts/), [recursos](/es/docs/resources/),
-[herramientas](/es/docs/tools/) y [datos](/es/docs/data/) — viaja con él
+lo que construiste ([prompts](/es/docs/prompts/), [recursos](/es/docs/resources/),
+[herramientas](/es/docs/tools/) y [datos](/es/docs/data/)) viaja con él
 automáticamente; tú solo eliges dónde lo encuentra la gente. Conecta una **app
 de mensajería** para que clientes y compañeros conversen con tu IA donde ya
 están, o conecta cualquier [cliente MCP](/es/docs/mcp/) para un flujo de trabajo
@@ -15,7 +15,7 @@ más avanzado.
 
 ## Por qué usar canales
 
-- **Encuentra a la gente donde está.** No hay una app nueva que instalar — tu
+- **Encuentra a la gente donde está.** No hay una app nueva que instalar: tu
   asistente vive en Telegram, WhatsApp, Slack o Discord.
 - **Un asistente, disponible en todas partes.** Cada canal sirve los mismos
   prompts, recursos, herramientas e instrucciones del bot, así que las
@@ -44,8 +44,8 @@ con instrucciones paso a paso para crear las credenciales que necesita:
 Abre **Canales** en la barra lateral del proyecto y selecciona **Agregar canal**.
 El panel **Conectar canal** te pide:
 
-1. **Plataforma** — Telegram, Slack, WhatsApp o Discord.
-2. **Modelo de lenguaje** — deja **Modelo por defecto**, o elige uno de los
+1. **Plataforma**: Telegram, Slack, WhatsApp o Discord.
+2. **Modelo de lenguaje**: deja **Modelo por defecto**, o elige uno de los
    modelos de tu organización (mira [más abajo](#elige-el-modelo-de-lenguaje)).
 3. Las credenciales de la plataforma. El panel explica cada campo y, para Slack,
    Discord y WhatsApp, muestra los scopes, intents o campos del webhook que
@@ -60,8 +60,8 @@ Luego:
 - **Telegram** queda listo al instante: Ganju registra el webhook y el menú de
   comandos por ti.
 - **Slack**, **Discord** y **WhatsApp** necesitan un paso más: el **Resumen** del
-  canal muestra una URL para pegar de vuelta en esa plataforma — la **Request
-  URL**, la **Interactions Endpoint URL** o la **Callback URL** — con un botón
+  canal muestra una URL para pegar de vuelta en esa plataforma (la **Request
+  URL**, la **Interactions Endpoint URL** o la **Callback URL**) con un botón
   para copiarla. La página de cada plataforma cubre los pasos exactos.
 
 Un bot, una app de Slack, una aplicación de Discord o un número de WhatsApp solo
@@ -81,27 +81,27 @@ de mensaje**.
 
 La pestaña **Resumen** reúne todo sobre un canal:
 
-- **Estado** — **Recibiendo mensajes** activado, o **En pausa**. En pausa, la
+- **Estado**: **Recibiendo mensajes** activado, o **En pausa**. En pausa, la
   plataforma sigue enviándole los mensajes a Ganju, pero se descartan hasta que
   lo vuelvas a activar.
-- **Modelo de lenguaje** — cambia el modelo que usa este canal.
-- **Tiempo de respuesta** — la gente suele mandar una misma idea en varios
+- **Modelo de lenguaje**: cambia el modelo que usa este canal.
+- **Tiempo de respuesta**: la gente suele mandar una misma idea en varios
   mensajes. Esperar una pausa deja que el bot responda a todos de una vez. Elige
   **Responder cada mensaje**, o esperar **2**, **5** (recomendado, el valor por
   defecto), **10** o **30 segundos**. El bot nunca espera más de un minuto desde
   el primer mensaje, y un comando siempre se responde de inmediato.
-- **Respuestas por cliente** — cuántas respuestas recibe un cliente en 24 horas:
+- **Respuestas por cliente**: cuántas respuestas recibe un cliente en 24 horas:
   **20**, **50** (recomendado, el valor por defecto), **100**, **200** o **Sin
   límite**. Al pasarse, se le avisa una vez y el bot no responde hasta que se
   libere el día, así el spam y los chats de todo el día dejan de costarte
   mensajes y tiempo de modelo.
-- **Memoria de clientes** — activa **Recordar a los clientes** y el bot guarda
+- **Memoria de clientes**: activa **Recordar a los clientes** y el bot guarda
   lo que cada cliente le cuenta de sí mismo (nombre, dirección, alergias, fechas
   importantes) y lo usa la próxima vez («¿a la misma dirección de siempre?»).
   Está desactivada por defecto, funciona solo en chats privados y el cliente
   puede pedirle al bot que olvide. Tú puedes borrarla desde una conversación.
-- **Actividad** — la cuenta de conversaciones y mensajes del canal.
-- **Zona de riesgo** — **Eliminar canal** lo desconecta y borra su historial de
+- **Actividad**: la cuenta de conversaciones y mensajes del canal.
+- **Zona de riesgo**: **Eliminar canal** lo desconecta y borra su historial de
   conversaciones. No se puede deshacer.
 
 ![El Resumen de un canal de Telegram: el bot, Recibiendo mensajes, Modelo de lenguaje, Tiempo de respuesta y Respuestas por cliente](/images/channel-overview.webp)
@@ -109,7 +109,7 @@ La pestaña **Resumen** reúne todo sobre un canal:
 ## Elige el modelo de lenguaje
 
 Cada canal corre sobre un modelo de lenguaje. Por defecto es el **Modelo por
-defecto**, que opera Ganju. En **Pro** y **Enterprise** puedes traer el tuyo —
+defecto**, que opera Ganju. En **Pro** y **Enterprise** puedes traer el tuyo:
 tu propio proveedor y tu llave de API, que agregas una vez en
 [Configuración](/es/docs/settings/) y eliges por canal, al conectarlo o después
 desde su Resumen. Mientras no agregues uno, el desplegable solo ofrece el modelo
@@ -176,9 +176,9 @@ y cuándo llegó el último. Selecciona uno para leer el hilo:
 
 - cada mensaje, con quién lo envió y cuándo;
 - debajo de cada respuesta, los tokens y el tiempo que tomó, y cada
-  **Herramienta**, **Recurso** o **Prompt** que usó el bot — selecciona uno para
+  **Herramienta**, **Recurso** o **Prompt** que usó el bot (selecciona uno para
   ver su entrada, su salida o su error, con un enlace para abrirlo en
-  Herramientas, Recursos o Prompts;
+  Herramientas, Recursos o Prompts);
 - los archivos que el bot envió como adjuntos y las **Fuentes** que citó (con el
   número de página en los PDF);
 - etiquetas como **Nota de voz** o **Límite diario alcanzado**;
@@ -187,14 +187,14 @@ y cuándo llegó el último. Selecciona uno para leer el hilo:
 
 ![Un hilo de conversación en el panel: el comando /start del usuario y la respuesta del asistente con los recursos, herramientas y prompts del proyecto](/images/channel-messages.webp)
 
-Para ver números de todos los canales — conversaciones, mensajes, herramientas —
+Para ver números de todos los canales (conversaciones, mensajes, herramientas),
 mira [Analítica](/es/docs/analytics/).
 
 ## Conecta cualquier cliente MCP
 
 Las apps de mensajería no son la única puerta de entrada. Por debajo, tu
 proyecto es un **servidor de Model Context Protocol (MCP)**, así que cualquier
-cliente compatible con MCP — **Claude**, **ChatGPT** o **Cursor** — puede
+cliente compatible con MCP, como **Claude**, **ChatGPT** o **Cursor**, puede
 conectarse al mismo asistente, con todos tus prompts, recursos y herramientas.
 Los canales son para las personas a las que atiendes; los clientes MCP son para
 conectar tu IA con tus propias herramientas y flujos de trabajo. Ambos apuntan
@@ -227,7 +227,7 @@ Mira planes y consumo en [Configuración](/es/docs/settings/).
   mensajes** activado, y luego el paso propio de la plataforma: la Request URL y
   los eventos del bot en Slack, el intent Message Content en Discord, la
   Callback URL y el campo `messages` en WhatsApp. En Slack, **Socket Mode** debe
-  estar **apagado** — si está activo, Slack envía los eventos por su socket en
+  estar **apagado**: si está activo, Slack envía los eventos por su socket en
   vez de a la Request URL de Ganju.
 - **Responde en mensajes directos pero no en un grupo.** Menciona al bot
   (`@tubot`). Ignora la conversación del grupo que no va dirigida a él.

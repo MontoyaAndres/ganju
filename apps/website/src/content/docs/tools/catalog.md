@@ -1,6 +1,6 @@
 ---
 title: Catalog
-description: The integrations we ship — connect an account once, switch on the tools you want, and turn them off again without losing the setup.
+description: "The integrations we ship: connect an account once, switch on the tools you want, and turn them off again without losing the setup."
 order: 39
 updated: 2026-11-13
 ---
@@ -8,7 +8,7 @@ updated: 2026-11-13
 The **Catalog** is everything we ship and maintain: Gmail, Outlook, Slack,
 Google Calendar, Cal.com, web search, and the official remote MCP servers of
 GitHub and Notion. If your case is covered here you never have to write code
-for it — connect an account once and switch on the tools you want.
+for it: connect an account once and switch on the tools you want.
 
 The **Tools** page of a project has three tabs: **Functions** (your own code),
 **HTTP Endpoints** (one request against your API) and **Catalog**. This page is
@@ -24,12 +24,12 @@ shows a **Connected** chip; one whose sign-in has lapsed shows **Expired**.
 
 Above the grid:
 
-- **The tool budget** — how many tools this project exposes, out of 40 (**12 of
+- **The tool budget**: how many tools this project exposes, out of 40 (**12 of
   40 tools exposed**). Each one is re-sent to the model on every turn; the bar
   warns you as you get close.
-- **Search integrations...** — matches card names, descriptions and the names of
+- **Search integrations...**: matches card names, descriptions and the names of
   the tools inside them, so searching "draft" finds Gmail and Outlook.
-- **Filters** — **All**, **On** (at least one tool enabled), **Off** (nothing
+- **Filters**: **All**, **On** (at least one tool enabled), **Off** (nothing
   enabled) and **Needs connection** (integrations that need an account you
   haven't linked yet, and remote MCP servers you haven't connected).
 
@@ -39,11 +39,11 @@ switch. **Back to catalog** returns to the grid.
 
 Some cards are not integrations with an account:
 
-- **Built-in** — the five resource and prompt tools every project starts with.
+- **Built-in**: the five resource and prompt tools every project starts with.
   No connection needed. See [Built-in](/docs/tools/built-in/).
-- **Greeting** — a one-tool smoke test for confirming a new server responds. See
+- **Greeting**: a one-tool smoke test for confirming a new server responds. See
   [Greeting](/docs/tools/greeting/).
-- **GitHub** and **Notion** — remote MCP servers run by the vendor. Connecting
+- **GitHub** and **Notion**: remote MCP servers run by the vendor. Connecting
   one brings the tools *their* server offers. They open a dialog instead of a
   tool list; see [GitHub](/docs/tools/github/) and
   [Notion](/docs/tools/notion/).
@@ -51,7 +51,7 @@ Some cards are not integrations with an account:
 ## Connect once, enable per tool
 
 Most integrations need a one-time connection, and **one connection serves the
-whole group** — connect Gmail once and all 18 of its tools can use it. Until
+whole group**: connect Gmail once and all 18 of its tools can use it. Until
 you connect, the group shows a banner (*Connect Gmail to enable these tools. You
 only need to connect once for the whole integration.*) and its switches are
 greyed out.
@@ -80,7 +80,7 @@ add the missing scope on top of your existing connection.
 ## The tool budget
 
 Every enabled tool's schema is re-sent to the model on **every** call, so tool
-count is a direct cost — and models choose worse past a few dozen options. We
+count is a direct cost, and models choose worse past a few dozen options. We
 measured it on our own traffic: an assistant with 5 tools averages ~1,100 input
 tokens per turn, one with 12 averages ~13,100. A shorter tool list is a cheaper,
 sharper assistant. Turn on the tools you need, not the whole group.
@@ -137,8 +137,8 @@ same Gmail connection is available to:
 - every Gmail tool in the catalog;
 - an [HTTP endpoint](/docs/tools/http-endpoints/) using **Connected account**
   authentication, instead of holding a second copy of the credential;
-- a [function](/docs/tools/functions/), through `ctx.connection('google-gmail')`
-  — but only if the provider is listed in that function's connections (the
+- a [function](/docs/tools/functions/), through `ctx.connection('google-gmail')`,
+  but only if the provider is listed in that function's connections (the
   **Connections** section of Function settings, or `"connections"` in
   `ganju.json` when you deploy with the [CLI](/docs/tools/cli/)). Your code never
   receives the refresh token, only a short-lived access token.
@@ -153,7 +153,7 @@ Disconnecting an integration affects all three.
 
 On paid plans, the [Assistant](/docs/assistant/) can work with the catalog for
 you: it looks up what the catalog offers, and proposes adding a catalog tool,
-turning tools on or off, or removing them — as a change you approve, with
+turning tools on or off, or removing them, as a change you approve, with
 undo. When a tool needs an account, it shows you a card to connect it; it never
 asks for a password or a token. API keys (Cal.com, Web Search) and remote MCP
 servers that need a sign-in or a token are added by you on the Tools page.
@@ -179,7 +179,7 @@ use the same connections.
 
 ## Troubleshooting
 
-- **The switches are greyed out.** The integration isn't connected yet — use
+- **The switches are greyed out.** The integration isn't connected yet. Use
   **Connect** or **Add API key** in the group header.
 - **The card says Expired.** The provider stopped accepting the stored sign-in
   (password changed, access revoked). Open the card and connect again; your
@@ -189,14 +189,14 @@ use the same connections.
 - **Turning a tool on is refused.** You're at your tool limit. Turn off a tool
   you don't need, or upgrade.
 - **The bot ignores a tool it has.** Check it's on (not **Off · settings kept**)
-  and that its description fits the request — and remember a channel sends at
+  and that its description fits the request, and remember a channel sends at
   most 40 tools.
 
 ## Not here?
 
 Two escape hatches, in order of effort:
 
-- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — one request against an API
+- **[HTTP Endpoints](/docs/tools/http-endpoints/)**: one request against an API
   you already run, described in a form. Available on every plan.
-- **[Functions](/docs/tools/functions/)** — your own code, when you need logic
+- **[Functions](/docs/tools/functions/)**: your own code, when you need logic
   rather than a single call.

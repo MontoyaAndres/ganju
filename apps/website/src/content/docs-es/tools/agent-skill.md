@@ -82,7 +82,7 @@ vez de dejarlo adivinar:
   `ctx.secret('NAME')` y te da el comando `ganju secret set`. Tú escribes el
   valor, que nunca pasa por la conversación ni por el historial de tu shell.
 - **Conectar cuentas.** Gmail, Google Calendar, Slack y las demás se conectan
-  en la pestaña **Catálogo** de la página **Herramientas** de tu proyecto.
+  en la pestaña **Catálogo** de la página **Acciones** de tu proyecto.
 - **Tokens de acceso para CI.** `ganju token create` necesita tu inicio de
   sesión en el navegador.
 - **Desplegar en un proyecto que la gente usa.** `ganju deploy` cambia lo que
@@ -91,8 +91,9 @@ vez de dejarlo adivinar:
   `ganju versions` por si algo en vivo desaparecería, y te lo confirma
   primero. Si el dueño del proyecto cambió las funciones con el
   [Asistente](/es/docs/assistant/), el mismo `ganju deploy` se detiene y nombra
-  lo que dejaría de funcionar. `ganju test` también es real: una herramienta que envía correos envía uno. El agente te
-  lo advierte, y lo apunta a un destino seguro, antes de ejecutarlo.
+  lo que dejaría de funcionar. `ganju test` también es real: una herramienta
+  que envía correos envía uno de verdad. Por eso el agente te avisa y la apunta
+  a un destino seguro antes de ejecutarla.
 
 ## Pruébalo
 
@@ -113,4 +114,4 @@ da los comandos `link`, `test` y `deploy` para terminar.
 - **[Ejemplos](/es/docs/tools/examples/)**: proyectos desde los que puede
   empezar el agente.
 - **[Funciones](/es/docs/tools/functions/)**: qué es una función, la referencia
-  de `ctx` y cómo las muestra la página **Herramientas**.
+  de `ctx` y cómo las muestra la página **Acciones**.

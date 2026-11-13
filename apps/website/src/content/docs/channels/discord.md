@@ -1,13 +1,13 @@
 ---
 title: Discord
-description: Connect a Discord application — reset the bot token, enable the message intents, invite the bot, paste the token, application ID and public key, then set the interactions endpoint for slash commands.
+description: "Connect a Discord application: reset the bot token, enable the message intents, invite the bot, paste the token, application ID and public key, then set the interactions endpoint for slash commands."
 order: 54
 updated: 2026-11-13
 ---
 
 **Discord** connects through an application you create in the Discord Developer
-Portal. You'll grab three values — the **bot token**, **Application ID** and
-**Public key** — enable the message intents, and invite the bot. Free-form
+Portal. You'll grab three values (the **bot token**, **Application ID** and
+**Public key**), enable the message intents, and invite the bot. Free-form
 messages reach Ganju over Discord's Gateway automatically; slash commands use the
 **Interactions Endpoint URL** you set at the end.
 
@@ -36,10 +36,10 @@ and fill in:
 
 ![The Connect channel panel with Discord selected: Bot token, Application ID, Public key and the required intents](/images/new-channel-discord.webp)
 
-- **Bot token** — from the **Bot** tab (Reset Token).
-- **Application ID** — from **General Information**; used to register slash
+- **Bot token**: from the **Bot** tab (Reset Token).
+- **Application ID**: from **General Information**; used to register slash
   commands.
-- **Public key** — from **General Information**; used to verify incoming
+- **Public key**: from **General Information**; used to verify incoming
   interactions.
 
 Select **Connect**. Ganju checks the token with Discord, registers the slash
@@ -51,7 +51,7 @@ reply to DMs and mentions.
 Native slash commands arrive separately. The channel's **Overview** shows
 **Discord setup** with an **Interactions Endpoint URL** and a copy button. Paste
 it into your application's **General Information → Interactions Endpoint URL**
-and save — Discord verifies it against your public key on the spot.
+and save. Discord verifies it against your public key on the spot.
 
 ## Slash commands
 

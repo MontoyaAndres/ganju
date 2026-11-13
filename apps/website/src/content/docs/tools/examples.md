@@ -1,6 +1,6 @@
 ---
 title: Examples
-description: Seven ready-to-deploy function projects — weather, GitHub issues, team notes, calendar free time, an emailed news digest, a support desk that confirms refunds and a restaurant's order desk on the project's database — each showing one thing you can copy into your own tools.
+description: Seven ready-to-deploy function projects (weather, GitHub issues, team notes, calendar free time, an emailed news digest, a support desk that confirms refunds and a restaurant's order desk on the project's database), each showing one thing you can copy into your own tools.
 order: 38
 updated: 2026-11-13
 ---
@@ -376,7 +376,7 @@ doesn't run until the person says yes:
 - **Leave "confirm first" out of the description.** The platform asks, and a
   model told to ask as well asks twice.
 - **A tool with no annotations is confirmed every time.** By the MCP defaults,
-  a tool that doesn't say it only reads may change things — lookups included.
+  a tool that doesn't say it only reads may change things, lookups included.
   `ganju build` warns about it, and `--strict` fails on it.
 - **`ganju test` doesn't ask.** It runs the tool directly, so testing
   `order-refund` records a real refund on the sample order.

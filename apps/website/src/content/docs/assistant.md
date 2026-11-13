@@ -1,6 +1,6 @@
 ---
 title: Assistant
-description: Describe what your bot should know or do in your own words — the assistant builds it with you, tests it, and changes nothing until you press Apply.
+description: Describe what your bot should know or do in your own words, and the assistant builds it with you, tests it, and changes nothing until you press Apply.
 order: 1.5
 updated: 2026-11-13
 ---

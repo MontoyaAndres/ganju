@@ -1,6 +1,6 @@
 ---
 title: Sync a table from a spreadsheet
-description: Keep a table's rows in step with a Google Sheet, an Excel file or a CSV in Resources — matched by a key column, read again whenever the file changes, read-only everywhere else.
+description: Keep a table's rows in step with a Google Sheet, an Excel file or a CSV in Resources, matched by a key column, read again whenever the file changes, read-only everywhere else.
 order: 59
 updated: 2026-11-13
 ---

@@ -1,6 +1,6 @@
 ---
 title: Data
-description: Give a project its own database — tables with typed columns, relations and search — that the assistant, your functions, the CLI and the API all read and write, with restore to any moment in the last 30 days.
+description: Give a project its own database (tables with typed columns, relations and search) that the assistant, your functions, the CLI and the API all read and write, with restore to any moment in the last 30 days.
 order: 7
 updated: 2026-11-13
 ---
@@ -15,8 +15,8 @@ The assistant, your [functions](/docs/data/functions/), the
 and the dashboard all use the same database, under the same rules. Nothing can
 write to it around them.
 
-> **Data or Resources?** Rows with fields — menus, orders, customers, bookings,
-> stock — go in Data. Documents and pages the assistant reads and quotes go in
+> **Data or Resources?** Rows with fields (menus, orders, customers, bookings,
+> stock) go in Data. Documents and pages the assistant reads and quotes go in
 > [Resources](/docs/resources/).
 
 ## Create the database
@@ -56,8 +56,8 @@ A table opens on three tabs: **Rows**, **Schema** and **Triggers**.
 
 ## Tables and columns
 
-A table holds one kind of thing — the dishes you sell, your orders, your
-customers — with a column for each detail. Click **New table**, give it a
+A table holds one kind of thing (the dishes you sell, your orders, your
+customers), with a column for each detail. Click **New table**, give it a
 **Table name** (lowercase letters, digits and `_`, such as `order_lines`) and
 its columns, or **New table from a file** to start from a spreadsheet: see
 [Import a file](#import-a-file).
@@ -197,8 +197,8 @@ and JSONL files. See [the command line](/docs/data-api/#from-the-command-line).
 ## Who sees what
 
 Your own MCP clients, as the project's owner, the dashboard, the CLI and your
-functions see every table and every row. **Channel bots** — the assistant
-answering customers on WhatsApp, Telegram, Slack or Discord — see only what
+functions see every table and every row. **Channel bots** (the assistant
+answering customers on WhatsApp, Telegram, Slack or Discord) see only what
 each table's settings allow. In the table's **Schema** tab, under **Table
 settings**:
 

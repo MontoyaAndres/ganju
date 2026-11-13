@@ -1,6 +1,6 @@
 ---
 title: HTTP Endpoints
-description: Point your bot at an API you already run — describe one request and it becomes a named tool, with no code and no deploy.
+description: "Point your bot at an API you already run: describe one request and it becomes a named tool, with no code and no deploy."
 order: 38
 updated: 2026-11-13
 ---
@@ -48,8 +48,8 @@ secret or a connected account there, set `auth.credentialId` to its id).
 - **Method** (`GET`, `POST`, `PUT`, `PATCH` or `DELETE`) and **URL**. Use
   `{{arg}}` anywhere in the URL to drop in an input.
 - **What it does**: whether the call only reads or changes something. The
-  default, **Decide from the method — GET reads, anything else is sensitive**,
-  fits most APIs. Pick **Only reads — looks things up, changes nothing** for a
+  default, **Decide from the method: GET reads, anything else is sensitive**,
+  fits most APIs. Pick **Only reads: looks things up, changes nothing** for a
   `POST` that just searches, **Changes things that can be undone**, or
   **Sends, deletes, charges or can't be undone**. When the organization turns
   on [Confirm sensitive actions](/docs/settings/#confirm-sensitive-actions), a
@@ -86,7 +86,7 @@ shown back to you or sent to the model. You can **Add new secret** with a
 - **Response type**: **Auto-detect**, or force **JSON** or **Text**.
 - **JSON path**: extract a sub-tree, e.g. `data.items`, so the model gets the
   part it needs rather than the whole envelope.
-- **Output schema — optional**: declare one and a JSON response comes back to
+- **Output schema (optional)**: declare one and a JSON response comes back to
   MCP clients as **structured output** instead of text. The response must then
   be a JSON object, or the call is reported as an error.
 - **Success statuses**: comma-separated, e.g. `200, 201`. Defaults to any 2xx.

@@ -5,7 +5,7 @@ order: 2
 updated: 2026-11-13
 ---
 
-Ganju is free to start — no credit card required. There's no separate sign-up:
+Ganju is free to start, no credit card required. There's no separate sign-up:
 the first time you sign in, your account is created.
 
 ## Sign in
@@ -17,7 +17,7 @@ the first time you sign in, your account is created.
    request on that site.
 
 You land on your organizations. On your very first sign-in that's the **Create
-Your Organization** form — next step:
+Your Organization** form. Next step:
 [create an organization & project](/docs/getting-started/organization-and-project/).
 
 ![The sign-in page: Sign in with Google, Sign in with GitHub and the Terms and Privacy checkbox](/images/sign-in.webp)
@@ -34,7 +34,7 @@ then select **Accept invitation** (or **Decline**).
 - Signed in with a different address? The page tells you which address the
   invitation is for. Sign out and sign in with that one.
 - Invitations expire after **7 days**. An expired, revoked, or already-used
-  link says so — ask whoever invited you to send a new one.
+  link says so; ask whoever invited you to send a new one.
 - You can also accept from the **Organizations** page, under **Your
   invitations**, with **Accept** or **Decline**.
 

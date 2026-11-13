@@ -6,7 +6,7 @@ updated: 2026-11-13
 ---
 
 The **Web Search** integration gives your assistant access to the live web,
-powered by **Tavily** — so it can answer with current facts and cite sources
+powered by **Tavily**, so it can answer with current facts and cite sources
 when the answer isn't in your resources. It offers **2 tools**.
 
 ## Connect it
@@ -29,19 +29,19 @@ To swap the key later, use **Update API key**; **Disconnect** removes it.
 
 The names in parentheses are what MCP clients and logs show.
 
-- **Web Search** (`web-search`) — searches the web for a `query` and returns the
+- **Web Search** (`web-search`): searches the web for a `query` and returns the
   top results (title, URL and a snippet), plus a synthesized answer when one is
   available. Options:
-  - `maxResults` — 1–20, default 5.
-  - `searchDepth` — `basic` (default) or `advanced`, which digs deeper but is
+  - `maxResults`: 1–20, default 5.
+  - `searchDepth`: `basic` (default) or `advanced`, which digs deeper but is
     slower and costs more Tavily credits.
-  - `topic` — `general` (default) or `news`, with `days` to keep only the last
+  - `topic`: `general` (default) or `news`, with `days` to keep only the last
     N days.
-  - `includeDomains` / `excludeDomains` — restrict results to, or drop them
+  - `includeDomains` / `excludeDomains`: restrict results to, or drop them
     from, given sites.
 
   The assistant is told to cite the URLs it relies on.
-- **Web Extract** (`web-extract`) — fetches the full, cleaned text of one or
+- **Web Extract** (`web-extract`): fetches the full, cleaned text of one or
   more pages (`urls`). `extractDepth` is `basic` (default) or `advanced`, which
   also pulls tables and embedded data at a higher cost. Use it after a search,
   or when the person shares a link, to read a page rather than rely on the

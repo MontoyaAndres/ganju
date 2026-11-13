@@ -1,6 +1,6 @@
 ---
 title: Tools
-description: Give your bot the ability to take action — integrations like Gmail, Outlook, Slack and Calendar, your own HTTP APIs, and functions the Assistant or your developer writes.
+description: "Give your bot the ability to take action: integrations like Gmail, Outlook, Slack and Calendar, your own HTTP APIs, and functions the Assistant or your developer writes."
 order: 4
 updated: 2026-11-13
 ---

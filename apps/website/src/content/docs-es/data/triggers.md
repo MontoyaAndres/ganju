@@ -1,6 +1,6 @@
 ---
 title: Disparadores y webhooks
-description: Ejecuta algo cuando cambian las filas de una tabla o un tiempo después de la fecha de una fila — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan las pruebas, la entrega, los reintentos y las firmas de los webhooks.
+description: Ejecuta algo cuando cambian las filas de una tabla o un tiempo después de la fecha de una fila (una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente), y cómo funcionan las pruebas, la entrega, los reintentos y las firmas de los webhooks.
 order: 57
 updated: 2026-11-13
 ---

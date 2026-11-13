@@ -1,6 +1,6 @@
 ---
 title: Data API
-description: Manage a project's database over HTTP — create tables, insert and search rows, write orders safely, run named queries, manage triggers and schedules, restore and export — with a personal access token, or from the ganju data commands.
+description: Manage a project's database over HTTP (create tables, insert and search rows, write orders safely, run named queries, manage triggers and schedules, restore and export) with a personal access token, or from the ganju data commands.
 order: 7
 updated: 2026-11-13
 ---

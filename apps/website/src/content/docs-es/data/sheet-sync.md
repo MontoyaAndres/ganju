@@ -1,6 +1,6 @@
 ---
 title: Sincronizar una tabla desde una hoja de cálculo
-description: Mantén las filas de una tabla al día con una hoja de Google, un archivo de Excel o un CSV de Recursos — emparejadas por una columna clave, leídas otra vez cada vez que cambia el archivo y de solo lectura en todo lo demás.
+description: Mantén las filas de una tabla al día con una hoja de Google, un archivo de Excel o un CSV de Recursos, emparejadas por una columna clave, leídas otra vez cada vez que cambia el archivo y de solo lectura en todo lo demás.
 order: 59
 updated: 2026-11-13
 ---

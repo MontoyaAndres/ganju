@@ -1,13 +1,13 @@
 ---
 title: Telegram
-description: Conecta un bot de Telegram en un minuto — créalo con @BotFather, pega el token y Ganju registra el webhook y el menú de comandos por ti.
+description: "Conecta un bot de Telegram en un minuto: créalo con @BotFather, pega el token y Ganju registra el webhook y el menú de comandos por ti."
 order: 51
 updated: 2026-11-13
 ---
 
 **Telegram** es el canal más rápido de configurar. Creas un bot con
 **@BotFather**, la cuenta oficial de Telegram, copias el token que te da y lo
-pegas en Ganju — eso es todo. Ganju registra el webhook y convierte tus prompts
+pegas en Ganju. Eso es todo. Ganju registra el webhook y convierte tus prompts
 en el menú de comandos del bot automáticamente.
 
 ## 1. Crea un bot con BotFather
@@ -15,9 +15,9 @@ en el menú de comandos del bot automáticamente.
 1. Abre Telegram y busca **@BotFather** (la cuenta verificada con la marca azul).
 2. Inicia un chat y envía **`/newbot`**.
 3. Escribe un **nombre visible** para tu bot (el que quieras).
-4. Escribe un **username** — debe ser único y terminar en `bot` (por ejemplo,
+4. Escribe un **username**: debe ser único y terminar en `bot` (por ejemplo,
    `acme_soporte_bot`).
-5. BotFather te responde con el **token del bot** — una cadena larga como
+5. BotFather te responde con el **token del bot**, una cadena larga como
    `123456789:AA...`. Cópiala.
 
 Trata el token como una contraseña. Si quieres, ya que estás en BotFather, dale
@@ -42,7 +42,7 @@ El canal queda **Activo** de inmediato, con el nombre y el `@username` del bot e
 su tarjeta.
 
 Desde ese momento Ganju recibe los mensajes del bot por ese webhook, así que el
-mismo token no puede funcionar a la vez en otro servidor o plataforma de bots —
+mismo token no puede funcionar a la vez en otro servidor o plataforma de bots:
 gana el último que configure un webhook.
 
 ## 3. Chatea con él
@@ -74,7 +74,7 @@ Las respuestas largas se dividen en varios mensajes.
 Si el token se filtra, revócalo en BotFather con **`/mybots` → tu bot → API
 Token → Revoke current token**. El token viejo deja de funcionar de inmediato, y
 el canal también. Para usar el token nuevo, elimina el canal y vuelve a
-conectarlo — eliminar un canal borra su historial de conversaciones.
+conectarlo. Eliminar un canal borra su historial de conversaciones.
 
 ## Solución de problemas
 

@@ -1,13 +1,13 @@
 ---
 title: Deploy it yourself
-description: Ganju is open source (Apache-2.0). Run your own instance on Cloudflare and Postgres — your keys, your infrastructure.
+description: Ganju is open source (Apache-2.0). Run your own instance on Cloudflare and Postgres, with your keys and your infrastructure.
 order: 8
 updated: 2026-11-13
 ---
 
 Ganju is **open source under Apache-2.0**, so you can run the whole platform
 yourself instead of using the hosted version. Self-hosting means your own model
-keys, full control of your data, and plans you grant yourself — you just bring
+keys, full control of your data, and plans you grant yourself; you just bring
 the infrastructure.
 
 This page is an overview; the repository holds the authoritative, always-current
@@ -24,14 +24,14 @@ retrieval. It's an npm-workspaces + [Turborepo](https://turbo.build/) monorepo:
 
 | App | Runtime | Responsibility |
 |---|---|---|
-| `apps/api` | Cloudflare Worker | Control plane — auth, CRUD, OAuth, channel webhooks, queues, crons, the Assistant |
+| `apps/api` | Cloudflare Worker | Control plane: auth, CRUD, OAuth, channel webhooks, queues, crons, the Assistant |
 | `apps/mcp` | Cloudflare Worker | The MCP server every project exposes |
 | `apps/data` | Cloudflare Worker | Project databases (one SQLite Durable Object per database) |
 | `apps/tool-broker` | Cloudflare Worker | What customer-written functions call for connections, secrets and files |
 | `apps/tool-outbound` | Cloudflare Worker | Screens every outbound request a customer's function makes |
 | `apps/web` | Next.js (OpenNext → Cloudflare) | The dashboard |
 | `apps/website` | Cloudflare Pages | The marketing site and these docs |
-| `apps/resource-handler` | Container | Heavy work — document extraction, crawling, large sends. Built and deployed with `apps/api` |
+| `apps/resource-handler` | Container | Heavy work: document extraction, crawling, large sends. Built and deployed with `apps/api` |
 
 > **Heads up:** you need a **paid** Cloudflare Workers plan. The
 > `ResourceHandler` container requires it, and
@@ -73,17 +73,17 @@ The `.env` covers:
 
 - `DATABASE_URL` and the local Hyperdrive connection string.
 - Auth and crypto secrets: `JWT_SECRET`, `CRYPTO_SECRET` (exactly 32 bytes,
-  base64 — `openssl rand -base64 32`), `MCP_INTERNAL_SECRET`,
+  base64, from `openssl rand -base64 32`), `MCP_INTERNAL_SECRET`,
   `CUSTOM_CODE_TOKEN_SECRET`.
-- `EMBEDDING_API_KEY` — a Gemini key for embeddings and the default model.
-- `ANTHROPIC_API_KEY` — for the [Assistant](/docs/assistant/).
+- `EMBEDDING_API_KEY`: a Gemini key for embeddings and the default model.
+- `ANTHROPIC_API_KEY`: for the [Assistant](/docs/assistant/).
 - OAuth client IDs and secrets for the providers you want: Google (sign-in,
   Gmail, Drive, Calendar), GitHub (sign-in), Microsoft (Outlook, OneDrive),
   Slack.
-- `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET` — the client channel bots
+- `BOT_OAUTH_CLIENT_ID` / `BOT_OAUTH_CLIENT_SECRET`: the client channel bots
   use to link accounts. Provision its row with
   `npx dotenv -e .env -- node scripts/provision-bot-client.mjs`.
-- `CLOUDFLARE_ACCOUNT_ID` and `CUSTOM_CODE_CF_API_TOKEN` — to publish functions.
+- `CLOUDFLARE_ACCOUNT_ID` and `CUSTOM_CODE_CF_API_TOKEN`: to publish functions.
 - `EMAIL_FROM` and `ALERT_EMAIL`.
 - Only if you want billing: your Polar keys.
 - The `NEXT_PUBLIC_*` URLs of the API, web app, and MCP server.
@@ -93,33 +93,33 @@ The `.env` covers:
 For a hosted deployment, create these in your Cloudflare account (names must
 match each app's `wrangler.toml`, or update the toml to match yours):
 
-- **Hyperdrive** — pointing at your Postgres.
-- **R2 bucket** — `ganju-storage-<env>` (binding `STORAGE_BUCKET`).
-- **KV namespace** — `<env>-JWKS_CACHE`, bound in `apps/mcp`.
-- **Queues** — eight, each with a dead-letter queue: `ganju-index`,
+- **Hyperdrive**: pointing at your Postgres.
+- **R2 bucket**: `ganju-storage-<env>` (binding `STORAGE_BUCKET`).
+- **KV namespace**: `<env>-JWKS_CACHE`, bound in `apps/mcp`.
+- **Queues**: eight, each with a dead-letter queue: `ganju-index`,
   `ganju-crawl-discover`, `ganju-crawl-page`, `ganju-gdrive-discover`,
   `ganju-gdrive-file`, `ganju-onedrive-discover`, `ganju-onedrive-file`,
   `ganju-data-triggers` (suffixed `-<env>`, with a `-dlq-<env>` twin).
-- **Workers for Platforms dispatch namespace** — `ganju-tools-<env>`, where
+- **Workers for Platforms dispatch namespace**: `ganju-tools-<env>`, where
   customer functions are deployed.
-- **Email Service** (`SEND_EMAIL`) — onboard your sending domain under Email
+- **Email Service** (`SEND_EMAIL`): onboard your sending domain under Email
   Service so mail reaches any recipient; before that it only delivers to
   verified Email Routing destinations.
-- **Containers** — the `ResourceHandler` container, built from
+- **Containers**: the `ResourceHandler` container, built from
   `apps/resource-handler/Dockerfile` during the `apps/api` deploy.
-- **Durable Objects** — created by the migrations in each `wrangler.toml`:
+- **Durable Objects**: created by the migrations in each `wrangler.toml`:
   `ResourceHandler`, `DiscordGatewayDO`, `MessageBufferDO`, and
   `BuilderConversationDO` in `apps/api`, and `ProjectDatabase` in `apps/data`.
-- **Custom domains** — `api`, `mcp`, and `app` under your zone.
+- **Custom domains**: `api`, `mcp`, and `app` under your zone.
 
 The committed `wrangler.toml` files reference the hosted account's resource IDs
-and domains (`ganju.ai`) — replace those with **your** resource IDs and domain.
+and domains (`ganju.ai`); replace those with **your** resource IDs and domain.
 
 ## Set secrets
 
 `wrangler.toml` `vars` hold only non-secret config (the `NEXT_PUBLIC_*` URLs,
 `NODE_ENV`, ports). Everything sensitive is set with `wrangler secret`, per app
-and per environment — and only **after** that Worker's first deploy, since a
+and per environment, and only **after** that Worker's first deploy, since a
 Worker must exist before it can hold a secret:
 
 ```bash
@@ -152,12 +152,12 @@ scripts fan out across the workspace via Turbo.
 
 1. Provision the Cloudflare resources above.
 2. Apply DB migrations against your target database (code and schema ship
-   together — migrate first):
+   together, so migrate first):
    ```bash
    npm run migrate-prod   # generates + applies against .env.prod
    ```
 3. **First deploy only:** deploy the Workers in order, because some bind to
-   each other — `apps/tool-outbound` and `apps/data`, then `apps/api` (with its
+   each other: `apps/tool-outbound` and `apps/data`, then `apps/api` (with its
    service binding to the MCP Worker temporarily commented out), then
    `apps/mcp`, then `apps/api` again with the binding restored, then
    `apps/tool-broker`, `apps/web`, and `apps/website`. DEPLOYMENT.md has the
@@ -180,13 +180,13 @@ prefix.
 
 ## Check it works
 
-- `https://api.<your-domain>/.well-known/oauth-authorization-server` answers —
+- `https://api.<your-domain>/.well-known/oauth-authorization-server` answers;
   MCP clients read it to discover how to sign in.
 - `https://mcp.<your-domain>/health` answers.
 - Sign in at `https://app.<your-domain>`, create an organization, and confirm
   the tools catalog renders.
 - Publish a small function (`ganju deploy` with `GANJU_API_URL` pointing at your
-  API) — the only thing that exercises the dispatch namespace, the broker, and
+  API), the only thing that exercises the dispatch namespace, the broker, and
   the outbound Worker together.
 
 ## Plans and billing on your instance
@@ -200,7 +200,7 @@ DEPLOYMENT.md.
 
 ## Observe & operate
 
-Workers have observability enabled — stream logs with
+Workers have observability enabled: stream logs with
 `wrangler tail --env <env>`, watch the dead-letter queues for stuck background
 jobs, and check the `error_log` table for cross-service errors. Two crons run on
 `apps/api`: every 15 minutes (the error digest, emailed to `ALERT_EMAIL`) and
@@ -211,5 +211,5 @@ and [DATA_MODEL.md](https://github.com/MontoyaAndres/ganju/blob/main/docs/DATA_M
 in the repo.
 
 Prefer not to run any of this? The [hosted version](https://app.ganju.ai)
-handles all of it — start on the Free plan and
+handles all of it: start on the Free plan and
 [upgrade](/docs/settings/#billing--plan) when you grow.

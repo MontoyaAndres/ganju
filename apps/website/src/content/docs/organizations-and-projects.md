@@ -1,11 +1,11 @@
 ---
 title: Organizations & projects
-description: How Ganju is structured — an organization holds your team, billing, and plan; each project inside it is a self-contained workspace for one assistant.
+description: "How Ganju is structured: an organization holds your team, billing, and plan; each project inside it is a self-contained workspace for one assistant."
 order: 1
 updated: 2026-11-13
 ---
 
-Ganju has two levels. Your **organization** represents your team or company —
+Ganju has two levels. Your **organization** represents your team or company:
 it's where members, billing, your [plan](/docs/settings/), and your own language
 models live. Inside it, each **project** is a self-contained workspace for one
 assistant, with its own [knowledge](/docs/resources/), [prompts](/docs/prompts/),
@@ -27,7 +27,7 @@ assistant, with its own [knowledge](/docs/resources/), [prompts](/docs/prompts/)
 ## Why two levels
 
 - **One workspace per assistant.** Give each client, product, or use case its
-  own project — their knowledge, data, and tools stay completely separate.
+  own project, so their knowledge, data, and tools stay completely separate.
 - **Shared team and billing.** Members and the plan sit at the organization
   level, so everything inside is covered by one subscription and one member
   list.
@@ -36,8 +36,8 @@ assistant, with its own [knowledge](/docs/resources/), [prompts](/docs/prompts/)
 
 ## Switch between them
 
-The **Organizations & Projects** switcher — the grid icon at the top of the left
-rail — is how you move around. Pick an organization on the left (each shows its
+The **Organizations & Projects** switcher (the grid icon at the top of the left
+rail) is how you move around. Pick an organization on the left (each shows its
 member count) to see its projects on the right, then open one. At the bottom:
 **Manage organizations** and **New project**.
 
@@ -63,7 +63,7 @@ upgrade; Pro and Enterprise have no project limit.
 **Manage organizations** opens the **Organizations** page, listing every
 organization you belong to. Each card shows your badges (**Owner** if you
 created it, and its plan: **Free**, **Pro**, or **Enterprise**), its project and
-member counts, and when it was created — with **Invite** and **Settings**
+member counts, and when it was created, with **Invite** and **Settings**
 actions. If you were added to just one project in an organization, its card
 reads **Project access** instead and says how many projects you can open.
 
@@ -76,17 +76,17 @@ Above the list, **Your invitations** shows invitations waiting for you, with
 
 Select **New organization**. The **Create a new organization** dialog asks for
 the organization **Name** and its first project's **Project name** and
-**Project description** — every organization starts with one project.
+**Project description**. Every organization starts with one project.
 
 You can own **one Free organization**. To create more, at least one
-organization you own must be on a paid plan — upgrade one to Pro and you can add
+organization you own must be on a paid plan: upgrade one to Pro and you can add
 others (each new one starts on Free with its own billing).
 
 ## Who can do what
 
 Organization membership and project membership are separate:
 
-- **Organization members** see the organization's full **Settings** — rename
+- **Organization members** see the organization's full **Settings**: rename
   it, billing, members, projects, models. The person who creates an
   organization is its **Owner**; everyone invited to it joins as an **Admin**.
   Only the Owner can remove the organization.

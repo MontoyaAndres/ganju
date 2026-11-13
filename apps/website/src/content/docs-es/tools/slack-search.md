@@ -1,6 +1,6 @@
 ---
 title: Búsqueda en Slack
-description: Búsqueda de mensajes en todo el workspace de Slack — una conexión aparte porque Slack no deja buscar con tokens de bot.
+description: Búsqueda de mensajes en todo el workspace de Slack, en una conexión aparte porque Slack no deja buscar con tokens de bot.
 order: 435
 updated: 2026-11-13
 ---
@@ -13,7 +13,7 @@ lugar del token de bot que usan las demás herramientas de Slack.
 
 ## Conéctala
 
-1. Abre **Herramientas → Catálogo** y elige la tarjeta **Búsqueda en Slack**.
+1. Abre **Acciones → Catálogo** y elige la tarjeta **Búsqueda en Slack**.
 2. Elige **Conectar Búsqueda en Slack**, escoge el workspace y aprueba.
 3. Enciende **Buscar mensajes**.
 
@@ -21,14 +21,14 @@ Pide un solo permiso, `search:read`, y puedes conectarla con o sin la
 integración principal de Slack.
 
 Como es un token de *usuario*, la búsqueda ve lo que puede ver **la persona que
-la conectó** en Slack — incluidos los canales privados y mensajes directos en
+la conectó** en Slack, incluidos los canales privados y mensajes directos en
 los que está. Conéctala con una cuenta cuya visibilidad estés dispuesto a darle
 al asistente, por ejemplo una cuenta dedicada.
 
 ## Herramienta
 
-- **Buscar mensajes** (`slack-search-messages`) — busca mensajes en todo el
-  workspace. `query` acepta los modificadores de Slack — `in:#canal`,
+- **Buscar mensajes** (`slack-search-messages`): busca mensajes en todo el
+  workspace. `query` acepta los modificadores de Slack: `in:#canal`,
   `from:@usuario`, `before:AAAA-MM-DD`, `has:link`. `sort` es `score`
   (relevancia, por defecto) o `timestamp` (más recientes primero);
   `maxResults` de 1 a 50, 10 por defecto. Cada resultado trae el canal, el

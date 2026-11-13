@@ -6,7 +6,7 @@ updated: 2026-11-13
 ---
 
 La integración de **Cal.com** le permite a tu asistente agendar a través de una
-cuenta de Cal.com — encontrar un tipo de reunión reservable, consultar los
+cuenta de Cal.com: encontrar un tipo de reunión reservable, consultar los
 espacios libres y crear o cancelar reservas. Ofrece **4 herramientas**. Cal.com
 aplica tu disponibilidad, tus márgenes y tus reglas de reserva, así que una
 reserva del asistente sigue las mismas reglas que una hecha en tu página de
@@ -14,11 +14,11 @@ reservas.
 
 ## Conéctala
 
-Cal.com usa una **API key** — no hay paso de inicio de sesión.
+Cal.com usa una **API key**, así que no hay paso de inicio de sesión.
 
 1. En Cal.com, crea una API key (en tu configuración de Cal.com, en la sección
    de desarrolladores / API keys) y cópiala.
-2. En Ganju, abre **Herramientas → Catálogo**, elige la tarjeta **Cal.com** y
+2. En Ganju, abre **Acciones → Catálogo**, elige la tarjeta **Cal.com** y
    luego **Agregar API key de Cal.com**.
 3. Pega la llave y **Guardar**. La validamos con Cal.com antes de guardarla; se
    guarda cifrada y no vuelve a mostrarse.
@@ -36,10 +36,10 @@ Con la llave guardada y al menos una herramienta de Cal.com encendida, el
 encabezado del grupo muestra dos ajustes para todas las herramientas de Cal.com
 (una que enciendas después los hereda):
 
-- **Tipo de evento por defecto** — el tipo de reunión sobre el que se crean las
+- **Tipo de evento por defecto**: el tipo de reunión sobre el que se crean las
   reservas, por ejemplo "30 Min Meeting (30 min)", salvo que la llamada indique
   otro.
-- **Zona horaria por defecto** — se usa para consultar disponibilidad y como
+- **Zona horaria por defecto**: se usa para consultar disponibilidad y como
   zona horaria de reserva del invitado cuando la conversación no revela la suya.
   Sin una, se usa la zona de tu perfil de Cal.com.
 
@@ -50,19 +50,19 @@ encabezado del grupo muestra dos ajustes para todas las herramientas de Cal.com
 Los nombres entre paréntesis son los que muestran los clientes MCP y los
 registros.
 
-- **Listar tipos de evento** (`calcom-list-event-types`) — lista los tipos de
+- **Listar tipos de evento** (`calcom-list-event-types`): lista los tipos de
   reunión reservables de la cuenta con el ID, el título, la duración y el slug
   de cada uno.
-- **Listar espacios disponibles** (`calcom-list-available-slots`) — encuentra
+- **Listar espacios disponibles** (`calcom-list-available-slots`): encuentra
   horarios de inicio libres entre `start` y `end` (ISO 8601, UTC). `eventTypeId`
   y `timeZone` (IANA, para las horas devueltas) son opcionales.
-- **Crear reserva** (`calcom-create-booking`) — reserva un `start` (uno de los
+- **Crear reserva** (`calcom-create-booking`): reserva un `start` (uno de los
   horarios que devolvió Listar espacios disponibles) para el `name` y el `email`
-  de un invitado. Opcionales: `attendeeTimeZone` — la zona de su confirmación y
-  sus recordatorios, que el asistente pasa siempre que sepa dónde está —,
+  de un invitado. Opcionales: `attendeeTimeZone` (la zona de su confirmación y
+  sus recordatorios, que el asistente pasa siempre que sepa dónde está),
   `notes` y `eventTypeId`. En una conversación de canal, el nombre y el correo
   vienen de la persona. Devuelve el UID de la reserva y su estado.
-- **Cancelar reserva** (`calcom-cancel-booking`) — cancela una reserva por
+- **Cancelar reserva** (`calcom-cancel-booking`): cancela una reserva por
   `bookingUid`, con un `reason` opcional que ve el invitado, a quien se le
   notifica.
 

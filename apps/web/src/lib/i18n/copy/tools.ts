@@ -706,7 +706,7 @@ type ToolsCopy = typeof en;
 export const TOOLS: Catalog<ToolsCopy> = {
   en,
   es: {
-    title: 'Herramientas',
+    title: 'Acciones',
     subtitle:
       'Conecta integraciones y elige qué herramientas expone este servidor MCP.',
     bannerConnected:

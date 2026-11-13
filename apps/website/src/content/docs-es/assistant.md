@@ -1,6 +1,6 @@
 ---
 title: Asistente
-description: Describe con tus palabras qué debe saber o hacer tu bot — el asistente lo construye contigo, lo prueba y no cambia nada hasta que presionas Aplicar.
+description: Describe con tus palabras qué debe saber o hacer tu bot. El asistente lo construye contigo, lo prueba y no cambia nada hasta que presionas Aplicar.
 order: 1.5
 updated: 2026-11-13
 ---
@@ -33,7 +33,7 @@ preguntas sobre mi menú**, **Que tome pedidos y me los envíe por correo**,
 - **Acciones**: pequeños programas que tu bot ejecuta, como revisar el
   inventario o guardar una reserva. El asistente las escribe y las prueba por
   ti, y puede dejarlas como estaban un día anterior. Por dentro son
-  [funciones](/es/docs/tools/functions/), que la página **Herramientas**
+  [funciones](/es/docs/tools/functions/), que la página **Acciones**
   muestra solo para leer.
 - **[Datos](/es/docs/data/)**: las tablas, columnas y filas de tu proyecto, las
   consultas guardadas, los [disparadores](/es/docs/data/triggers/), como
@@ -188,7 +188,7 @@ detiene en los créditos incluidos). La lista de chats muestra lo que va del
 mes; cuando se acaban los créditos, lo dice.
 
 Los mensajes en **Pruébalo como cliente** también usan créditos cuando tu bot
-usa nuestro modelo de IA. Nada más los usa.
+usa nuestro modelo de IA. Ninguna otra cosa los usa.
 
 ### Tu propia clave de Anthropic
 
@@ -217,8 +217,8 @@ vez solo después de una semana. Se apaga en **Ajustes → Plan y facturación**
 Cuando las acciones de un proyecto las subió un desarrollador con la
 [CLI](/es/docs/tools/cli/), el asistente no reemplaza su código. Lo lee, y
 responde a un cambio de código con **Un cambio para tu desarrollador**: los
-archivos cambiados, para **Copiar** o **Descargar** y enviárselos. Lo aplica y
-vuelve a subirlo.
+archivos cambiados, para **Copiar** o **Descargar** y mandárselos. Él los aplica
+y vuelve a subirlos.
 
 Si el desarrollador maneja tus tablas desde código, la tarjeta lo dice: su
 próxima subida revierte los cambios de tablas y columnas, así que pásale esos

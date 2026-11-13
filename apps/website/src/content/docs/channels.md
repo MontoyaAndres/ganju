@@ -1,20 +1,20 @@
 ---
 title: Channels
-description: Deliver your assistant to real people on the apps they already use — Telegram, WhatsApp, Slack, and Discord — tune how it answers, and watch every conversation.
+description: Deliver your assistant to real people on the apps they already use (Telegram, WhatsApp, Slack, and Discord), tune how it answers, and watch every conversation.
 order: 5
 updated: 2026-11-13
 ---
 
 **Channels** are how you put your assistant in front of other people. Everything
-you've built — [prompts](/docs/prompts/), [resources](/docs/resources/),
-[tools](/docs/tools/) and [data](/docs/data/) — comes along automatically; you
+you've built ([prompts](/docs/prompts/), [resources](/docs/resources/),
+[tools](/docs/tools/) and [data](/docs/data/)) comes along automatically; you
 just choose where people reach it. Connect a **messaging app** so clients and
 teammates chat with your AI where they already are, or connect any
 [MCP client](/docs/mcp/) for a power-user workflow.
 
 ## Why use channels
 
-- **Meet people where they are.** No new app to install — your assistant lives in
+- **Meet people where they are.** No new app to install: your assistant lives in
   Telegram, WhatsApp, Slack, or Discord.
 - **One assistant, delivered everywhere.** Every channel serves the same prompts,
   resources, tools and bot instructions, so answers stay consistent across apps.
@@ -42,8 +42,8 @@ instructions for creating the credentials it needs:
 Open **Channels** in the project's sidebar and select **Add channel**. The
 **Connect channel** panel asks for:
 
-1. **Platform** — Telegram, Slack, WhatsApp or Discord.
-2. **Language model** — leave **System default**, or pick one of your
+1. **Platform**: Telegram, Slack, WhatsApp or Discord.
+2. **Language model**: leave **System default**, or pick one of your
    organization's models (see [below](#choose-the-language-model)).
 3. The platform's credentials. The panel shows what each field is and, for
    Slack, Discord and WhatsApp, the scopes, intents or webhook fields the app
@@ -57,8 +57,8 @@ them (a wrong token is refused right away) and stores them encrypted. Then:
 - **Telegram** is ready at once: Ganju registers the webhook and the command menu
   for you.
 - **Slack**, **Discord** and **WhatsApp** need one more step: the channel's
-  **Overview** shows a URL to paste back into that platform — the **Request URL**,
-  **Interactions Endpoint URL** or **Callback URL** — with a copy button. Each
+  **Overview** shows a URL to paste back into that platform (the **Request URL**,
+  **Interactions Endpoint URL** or **Callback URL**) with a copy button. Each
   platform page covers the exact steps.
 
 A bot, Slack app, Discord application or WhatsApp number can be connected to only
@@ -77,26 +77,26 @@ messages. Select a card to open it. The panel has an **Overview** and a
 
 The **Overview** tab holds everything about one channel:
 
-- **Status** — **Receiving messages** on, or **Paused**. While paused, the
+- **Status**: **Receiving messages** on, or **Paused**. While paused, the
   platform still sends messages to Ganju, but they're dropped until you turn it
   back on.
-- **Language model** — change the model this channel uses.
-- **Reply timing** — people often send one thought across several messages.
+- **Language model**: change the model this channel uses.
+- **Reply timing**: people often send one thought across several messages.
   Waiting for a pause lets the bot answer them all in one reply. Choose **Answer
   every message**, or wait **2**, **5** (recommended, the default), **10** or
   **30 seconds**. The bot never waits more than a minute from the first message,
   and a slash command is always answered right away.
-- **Replies per customer** — how many replies one customer gets in 24 hours:
+- **Replies per customer**: how many replies one customer gets in 24 hours:
   **20**, **50** (recommended, the default), **100**, **200** or **No limit**.
   Past it, the customer is told once, and the bot stays quiet until the day frees
-  up — so spam and all-day chats stop costing you messages and model time.
-- **Customer memory** — turn on **Remember customers** and the bot keeps what
+  up, so spam and all-day chats stop costing you messages and model time.
+- **Customer memory**: turn on **Remember customers** and the bot keeps what
   each customer tells it about themselves (name, address, allergies, important
   dates) and uses it next time ("same address as always?"). It's off by default,
   works in private chats only, and customers can ask the bot to forget. You can
   clear it from a conversation.
-- **Activity** — the channel's conversation and message counts.
-- **Danger zone** — **Remove channel** disconnects it and deletes its
+- **Activity**: the channel's conversation and message counts.
+- **Danger zone**: **Remove channel** disconnects it and deletes its
   conversation history. This can't be undone.
 
 ![A Telegram channel's Overview: the bot, Receiving messages, Language model, Reply timing and Replies per customer](/images/channel-overview.webp)
@@ -104,7 +104,7 @@ The **Overview** tab holds everything about one channel:
 ## Choose the language model
 
 Every channel runs on a language model. By default that's the **System
-default**, run by Ganju. On **Pro** and **Enterprise** you can bring your own —
+default**, run by Ganju. On **Pro** and **Enterprise** you can bring your own:
 your own provider and API key, added once in [Settings](/docs/settings/) and
 picked per channel, when you connect it or later from its Overview. Until you
 add one, the dropdown only offers the system default.
@@ -167,7 +167,7 @@ Select one to read the thread:
 
 - every message, with who sent it and when;
 - under each answer, the tokens and time it took, and each **Tool**,
-  **Resource** or **Prompt** the bot used — select one to see its input, output
+  **Resource** or **Prompt** the bot used; select one to see its input, output
   or error, with a link to open it in Tools, Resources or Prompts;
 - the files the bot sent as attachments, and the **Sources** it cited (with the
   page number for PDFs);
@@ -177,14 +177,14 @@ Select one to read the thread:
 
 ![A conversation thread in the dashboard: the user's /start command and the assistant's answer listing the project's resources, tools and prompts](/images/channel-messages.webp)
 
-For numbers across all channels — conversations, messages, tools — see
+For numbers across all channels (conversations, messages, tools), see
 [Analytics](/docs/analytics/).
 
 ## Connect any MCP client
 
 Messaging apps aren't the only way in. Under the hood your project is a **Model
-Context Protocol (MCP) server**, so any MCP-compatible client — **Claude**,
-**ChatGPT** or **Cursor** — can connect to the very same assistant, with all your
+Context Protocol (MCP) server**, so any MCP-compatible client (**Claude**,
+**ChatGPT** or **Cursor**) can connect to the very same assistant, with all your
 prompts, resources and tools. Channels are for the people you serve; MCP clients
 are for wiring your AI into your own tools and workflows. Both point at one
 project. See [MCP clients](/docs/mcp/).
@@ -215,7 +215,7 @@ See [Settings](/docs/settings/) for plans and usage.
 - **The bot never answers.** Check the channel is **Active** with **Receiving
   messages** on, then the platform-specific step: Slack's Request URL and bot
   events, Discord's Message Content intent, WhatsApp's Callback URL and
-  `messages` field. On Slack, **Socket Mode** must be **off** — with it on, Slack
+  `messages` field. On Slack, **Socket Mode** must be **off**. With it on, Slack
   sends events over its socket instead of to Ganju's Request URL.
 - **It answers in DMs but not in a group.** Mention the bot (`@yourbot`). It
   ignores group chatter that isn't addressed to it.

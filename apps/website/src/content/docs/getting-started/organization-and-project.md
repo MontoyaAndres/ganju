@@ -5,7 +5,7 @@ order: 3
 updated: 2026-11-13
 ---
 
-Your **organization** represents your team or company — it's where members,
+Your **organization** represents your team or company; it's where members,
 billing, and projects live. Inside it, each **project** is a self-contained
 workspace for one bot, with its own knowledge, data, tools, channels, and MCP
 URL.
@@ -15,7 +15,7 @@ URL.
 The first time you sign in, Ganju shows **Create Your Organization** and sets up
 the organization and its first project together:
 
-1. Under **Organization**, enter a **Name** — your team or company. You can
+1. Under **Organization**, enter a **Name**: your team or company. You can
    change it later.
 2. Under **Project**, enter the project's **Name** and, optionally, a
    **Description** of what the bot is for.
@@ -31,10 +31,10 @@ Every new organization starts on the **Free** plan, with one project. See
 ## Your project's Home
 
 You land on the project's **Home**. At the top: the project name and
-description, and its **MCP URL** — the address AI clients like Claude connect to
+description, and its **MCP URL**, the address AI clients like Claude connect to
 (see [MCP clients](/docs/mcp/)). Below: the **Activity** chart, counters for
 **Resources**, **Tools**, and **Prompts**, **Tool health**, and **Recent
-activity** — all explained in [Analytics](/docs/analytics/).
+activity**, all explained in [Analytics](/docs/analytics/).
 
 On Pro and Enterprise, a brand-new project also shows **Build your bot with the
 Assistant** with an **Open the Assistant** button. The card goes away once the
@@ -54,14 +54,14 @@ The left rail is the same in every project:
 | **Channels** | Connect Telegram, WhatsApp, Slack, or Discord, and set the **Bot instructions**. |
 
 The grid icon at the top of the rail opens **Organizations & Projects**, to
-switch project or create a new one — see
+switch project or create a new one; see
 [Organizations & projects](/docs/organizations-and-projects/).
 
 ## Built-in tools
 
-Every project starts with five built-in tools already on — **List Resources**,
+Every project starts with five built-in tools already on (**List Resources**,
 **Read Resource**, **Send Resource**, **Search Resources**, and **List
-Prompts** — so your bot can work with your knowledge right away. That's the
+Prompts**), so your bot can work with your knowledge right away. That's the
 **5** on the Tools counter. They need no connection, and they count toward the
 Free plan's limit of 7 tools per project.
 

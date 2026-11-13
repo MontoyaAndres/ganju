@@ -1,11 +1,11 @@
 ---
 title: Slack
-description: Conecta una app de Slack — agrega los scopes del bot, instálala en tu espacio de trabajo, pega el bot token y el signing secret, y define la Request URL para eventos y slash commands.
+description: "Conecta una app de Slack: agrega los scopes del bot, instálala en tu espacio de trabajo, pega el bot token y el signing secret, y define la Request URL para eventos y slash commands."
 order: 53
 updated: 2026-11-13
 ---
 
-**Slack** se conecta mediante una app de Slack que creas una sola vez. Agregarás
+**Slack** se conecta con una app de Slack que creas una sola vez. Agregarás
 unos scopes de bot, instalarás la app para obtener su **Bot User OAuth Token** y
 su **Signing secret**, pegarás ambos en Ganju y luego pondrás la **Request URL**
 de Ganju como endpoint de eventos de la app (y de los slash commands que
@@ -23,11 +23,11 @@ quieras).
 En **OAuth & Permissions → Bot Token Scopes**, agrega los scopes
 **obligatorios**:
 
-- `app_mentions:read` — ver los mensajes que mencionan al bot con @
-- `im:history` — leer los mensajes directos al bot
-- `chat:write` — publicar respuestas
-- `files:write` — enviar archivos como adjuntos
-- `files:read` — descargar los clips de voz para transcribirlos
+- `app_mentions:read`: ver los mensajes que mencionan al bot con @
+- `im:history`: leer los mensajes directos al bot
+- `chat:write`: publicar respuestas
+- `files:write`: enviar archivos como adjuntos
+- `files:read`: descargar los clips de voz para transcribirlos
 
 Opcionalmente agrega los **recomendados** para que el bot muestre nombres en
 lugar de IDs: `users:read`, `channels:read`, `groups:read`.
@@ -64,7 +64,7 @@ Después de conectar, el **Resumen** del canal muestra **Configuración de Slack
 con una **Request URL** y un botón para copiarla. De vuelta en tu app de Slack:
 
 1. Ve a **Event Subscriptions** y activa **Enable Events**.
-2. Pega la Request URL de Ganju — Slack la verifica al instante.
+2. Pega la Request URL de Ganju. Slack la verifica al instante.
 3. En **Subscribe to bot events**, agrega **`app_mention`** y **`message.im`**, y
    selecciona **Save Changes**. Vuelve a instalar la app si Slack te lo pide.
 

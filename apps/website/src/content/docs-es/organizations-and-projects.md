@@ -1,12 +1,12 @@
 ---
 title: Organizaciones y proyectos
-description: Cómo está estructurado Ganju — una organización reúne a tu equipo, la facturación y el plan; cada proyecto dentro de ella es un espacio de trabajo independiente para un asistente.
+description: "Cómo está estructurado Ganju: una organización reúne a tu equipo, la facturación y el plan; cada proyecto dentro de ella es un espacio de trabajo independiente para un asistente."
 order: 1
 updated: 2026-11-13
 ---
 
-Ganju tiene dos niveles. Tu **organización** representa a tu equipo o empresa —
-ahí viven los miembros, la facturación, tu [plan](/es/docs/settings/) y tus
+Ganju tiene dos niveles. Tu **organización** representa a tu equipo o empresa,
+y ahí viven los miembros, la facturación, tu [plan](/es/docs/settings/) y tus
 propios modelos de lenguaje. Dentro de ella, cada **proyecto** es un espacio de
 trabajo independiente para un asistente, con su propio
 [conocimiento](/es/docs/resources/), [prompts](/es/docs/prompts/),
@@ -29,7 +29,7 @@ puede tener muchos proyectos.
 ## Por qué dos niveles
 
 - **Un espacio de trabajo por asistente.** Dale a cada cliente, producto o caso
-  de uso su propio proyecto — su conocimiento, sus datos y sus herramientas se
+  de uso su propio proyecto. Su conocimiento, sus datos y sus herramientas se
   mantienen completamente separados.
 - **Equipo y facturación compartidos.** Los miembros y el plan están a nivel de
   organización, así que todo lo de adentro queda cubierto por una sola
@@ -40,8 +40,8 @@ puede tener muchos proyectos.
 
 ## Cambia entre ellos
 
-El selector **Organizaciones y proyectos** — el ícono de cuadrícula arriba en la
-barra lateral — es la forma de moverte. Elige una organización a la izquierda
+El selector **Organizaciones y proyectos** (el ícono de cuadrícula arriba en la
+barra lateral) es la forma de moverte. Elige una organización a la izquierda
 (cada una muestra su número de miembros) para ver sus proyectos a la derecha, y
 abre uno. Abajo: **Gestionar organizaciones** y **Nuevo proyecto**.
 
@@ -68,7 +68,7 @@ mejorar el plan; Pro y Enterprise no tienen límite de proyectos.
 **Gestionar organizaciones** abre la página **Organizaciones**, con cada
 organización a la que perteneces. Cada tarjeta muestra tus insignias
 (**Propietario** si la creaste, y su plan: **Free**, **Pro** o **Enterprise**),
-su número de proyectos y miembros, y cuándo se creó — con las acciones
+su número de proyectos y miembros, y cuándo se creó, con las acciones
 **Invitar** y **Ajustes**. Si te agregaron solo a un proyecto de una
 organización, su tarjeta dice **Acceso al proyecto** y cuántos proyectos puedes
 abrir.
@@ -82,10 +82,10 @@ con **Aceptar** y **Rechazar**.
 
 Selecciona **Nueva organización**. El diálogo **Crear una organización** pide el
 **Nombre** de la organización y el **Nombre del proyecto** y la **Descripción del
-proyecto** de su primer proyecto — toda organización empieza con uno.
+proyecto** de su primer proyecto: toda organización empieza con uno.
 
 Puedes ser propietario de **una sola organización Free**. Para crear más, al
-menos una organización tuya tiene que estar en un plan de pago — pasa una a Pro
+menos una organización tuya tiene que estar en un plan de pago. Pasa una a Pro
 y podrás agregar otras (cada una nueva empieza en Free, con su propia
 facturación).
 
@@ -94,7 +94,7 @@ facturación).
 Ser miembro de la organización y ser miembro de un proyecto son cosas
 distintas:
 
-- **Los miembros de la organización** ven todos sus **Ajustes** — cambiarle el
+- **Los miembros de la organización** ven todos sus **Ajustes**: cambiarle el
   nombre, la facturación, los miembros, los proyectos, los modelos. Quien crea
   una organización es su **Propietario**; todos los invitados a ella entran como
   **administradores** (ADMIN). Solo el propietario puede eliminar la

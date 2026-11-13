@@ -229,8 +229,8 @@ await ctx.channels.post({
 ## Functions only triggers run
 
 A function a [trigger](/docs/data/triggers/) or a
-[schedule](/docs/data/schedules/) runs — tell the kitchen, message the
-customer, send the nightly report — shouldn't be a tool the assistant can call.
+[schedule](/docs/data/schedules/) runs (tell the kitchen, message the
+customer, send the nightly report) shouldn't be a tool the assistant can call.
 Set `"expose": false` on it in `ganju.json`, or turn off **Assistant can use
 this function** in its dialog on the Functions tab:
 

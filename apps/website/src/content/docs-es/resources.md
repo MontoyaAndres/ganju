@@ -1,6 +1,6 @@
 ---
 title: Recursos
-description: Dale a tu IA conocimiento para buscar — importa desde Google Drive o OneDrive, sube archivos o pega texto, rastrea un sitio web, mantenlo todo sincronizado y cita tus fuentes.
+description: "Dale a tu IA conocimiento para buscar: importa desde Google Drive o OneDrive, sube archivos o pega texto, rastrea un sitio web, mantenlo todo sincronizado y cita tus fuentes."
 order: 3
 updated: 2026-11-13
 ---
@@ -15,12 +15,12 @@ puede buscar en él en todos los canales, igual que cualquier cliente MCP.
 ## Por qué agregar recursos
 
 - **Respuestas fundamentadas y precisas.** Tu IA responde desde tus documentos
-  reales, no desde su entrenamiento general — menos respuestas inventadas, más
+  reales, no desde su entrenamiento general. Menos respuestas inventadas, más
   citas en las que puedes confiar.
 - **Una base de conocimiento, todos los canales.** Agrega un archivo una vez y
   se puede buscar desde cada canal vinculado y cliente MCP al mismo tiempo.
 - **Trae lo que ya tienes.** Importa directo desde Google Drive u OneDrive, sube
-  archivos o rastrea un sitio web completo — sin reformatear ni copiar y pegar.
+  archivos o rastrea un sitio web completo, sin reformatear ni copiar y pegar.
 - **Siempre al día.** Sincroniza una unidad o un sitio y solo se vuelve a
   indexar lo que cambió; en Pro pasa solo, cada día o cada semana.
 - **Muestra tus fuentes.** Con las citas activadas, el bot muestra el recurso
@@ -49,19 +49,19 @@ título, URI o descripción, y **Volver** te lleva de nuevo a las tarjetas.
 Abre **Mi carpeta** y selecciona **Agregar archivos**. El panel **Nuevo
 recurso** te pide:
 
-- **Título** — un nombre legible (de 3 a 200 caracteres). Al elegir un archivo
+- **Título**: un nombre legible (de 3 a 200 caracteres). Al elegir un archivo
   se llena con su nombre.
-- **URI** — se genera a partir del título (como `resource://lista-de-precios`);
+- **URI**: se genera a partir del título (como `resource://lista-de-precios`);
   edítala si quieres. Cada URI debe ser única en el proyecto.
-- **Tipo** — **Estático — contenido fijo** para un documento normal, o
-  **Plantilla — dinámico con variables** para contenido con marcadores como
+- **Tipo**: **Estático** (contenido fijo) para un documento normal, o
+  **Plantilla** (dinámico con variables) para contenido con marcadores como
   `{userId}` que un cliente MCP completa.
-- **Descripción** — de qué trata el recurso (hasta 1.000 caracteres). También se
+- **Descripción**: de qué trata el recurso (hasta 1.000 caracteres). También se
   indexa, así que una buena descripción ayuda al bot a encontrarlo.
-- **Origen del contenido** — **Archivo** para subir uno, o **Texto** para pegar
+- **Origen del contenido**: **Archivo** para subir uno, o **Texto** para pegar
   o escribir el contenido directamente, con su tipo de archivo (texto plano, CSV,
   HTML, JSON, YAML, código y otros formatos de texto) y su **Codificación**.
-- **Opciones avanzadas** — las anotaciones MCP que leen los clientes:
+- **Opciones avanzadas**: las anotaciones MCP que leen los clientes:
   **Audiencia**, **Prioridad (0 a 1)** e **Iconos**.
 
 ![El panel Nuevo recurso: título, URI, tipo, descripción, archivo o texto, y opciones avanzadas](/images/resource-new-file.webp)
@@ -81,7 +81,7 @@ Un archivo puede pesar hasta **500 MB**. Lo que Ganju **lee y vuelve buscable**:
 | Texto y código | texto plano, Markdown, HTML, JSON, XML, YAML, TOML, SQL, GraphQL, JavaScript, TypeScript, Python, Ruby, Perl, PHP, shell |
 
 También puedes guardar imágenes (PNG, JPEG, GIF, WebP, SVG) y otros
-archivos. Conservan su título, descripción y URI — que sí se pueden buscar — y
+archivos. Conservan su título, descripción y URI (que sí se pueden buscar), y
 el bot puede enviarlos como adjuntos, pero su contenido no se lee para el
 índice.
 
@@ -98,7 +98,7 @@ Abre la tarjeta **Google Drive** y elige **Agregar desde Google Drive**. La
 primera vez, Ganju te pide conectar tu cuenta de Google. Se abre un selector con
 **Mi unidad**, **Compartido conmigo**, **Unidades compartidas** y
 **Destacados**; busca en una pestaña, marca archivos o carpetas enteras y
-selecciona **Agregar lo seleccionado** — Ganju los importa y los indexa. Elegir
+selecciona **Agregar lo seleccionado**. Ganju los importa y los indexa. Elegir
 una carpeta trae lo que tiene adentro y la mantiene sincronizada.
 
 Los Documentos, Hojas de cálculo y Presentaciones de Google se convierten a
@@ -114,11 +114,11 @@ Microsoft, recorre **Mis archivos**, **Compartido conmigo**, **Recientes** o
 Abre la tarjeta **Sitios web** y selecciona **Agregar sitio web**. El panel te
 pide:
 
-- **URL** — la página de inicio, `http` o `https`. Ganju solo sigue los enlaces
+- **URL**: la página de inicio, `http` o `https`. Ganju solo sigue los enlaces
   del mismo sitio (mismo origen). Las direcciones de redes privadas se rechazan.
-- **Título** y **Descripción** — un nombre para el sitio y qué hay en él.
-- **Máximo de páginas** — de 1 a 1.000 páginas (100 por defecto).
-- **Profundidad máxima** — a cuántos clics de la página de inicio llegar, de 0
+- **Título** y **Descripción**: un nombre para el sitio y qué hay en él.
+- **Máximo de páginas**: de 1 a 1.000 páginas (100 por defecto).
+- **Profundidad máxima**: a cuántos clics de la página de inicio llegar, de 0
   a 10 (3 por defecto; 0 rastrea solo la página de inicio).
 
 ![El panel Agregar sitio web: URL, título, descripción, máximo de páginas y profundidad máxima](/images/resource-add-website.webp)
@@ -170,7 +170,7 @@ muestra debajo de la respuesta como una fuente numerada:
 En Telegram y Discord las fuentes llegan como botones debajo del mensaje; en
 Slack y WhatsApp, como una lista corta de enlaces **Sources**. Desactiva el interruptor
 (**Oculto en las citas**) y el bot sigue usando el recurso, pero nunca lo
-muestra como fuente — útil para notas internas.
+muestra como fuente. Sirve para notas internas.
 
 ![Un chat de Telegram donde el bot responde una pregunta a partir de un sitio web rastreado y cita el sitio como fuente](/images/resource-chat.webp)
 
@@ -192,7 +192,7 @@ lista, busca y crea recursos con `ctx.resources`.
 
 El [asistente](/es/docs/assistant/) del proyecto puede listar tu conocimiento,
 buscar en él como lo haría el bot, agregar una nota (un recurso de texto),
-editar una nota, agregar un sitio web para rastrear y eliminar un recurso —
+editar una nota, agregar un sitio web para rastrear y eliminar un recurso,
 cada cosa como un cambio que tú apruebas. Para agregar un archivo, te pide que
 lo subas.
 
@@ -203,7 +203,7 @@ lo subas.
 | Un archivo | 500 MB | 500 MB |
 | Archivos guardados (por organización) | 30 MB | Sin límite |
 | Contenido indexado (por organización) | 5 MB | Sin límite |
-| Sincronización automática | — | Cada día o cada semana |
+| Sincronización automática | No incluida | Cada día o cada semana |
 
 El contenido indexado es el texto que Ganju extrajo y volvió buscable, que suele
 ser mucho más liviano que los archivos. Cuando una organización en Free se
@@ -215,7 +215,7 @@ plan. Mira los planes en [Configuración](/es/docs/settings/).
 - **"Tipo de archivo no admitido".** El navegador reportó un tipo de archivo que
   Ganju no guarda. Guárdalo en uno de los formatos de arriba (PDF es lo más
   seguro).
-- **Un recurso muestra Falló.** No se pudo leer el archivo — por ejemplo, uno
+- **Un recurso muestra Falló.** No se pudo leer el archivo; por ejemplo, uno
   dañado o protegido con contraseña. Expórtalo de nuevo y sube la copia nueva
   (edita el recurso y reemplaza el archivo).
 - **El rastreo encontró pocas páginas.** Sube la **Profundidad máxima** o el

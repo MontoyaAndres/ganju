@@ -5,7 +5,7 @@ order: 3
 updated: 2026-11-13
 ---
 
-Tu **organización** representa a tu equipo o empresa — ahí viven los miembros, la
+Tu **organización** representa a tu equipo o empresa: ahí viven los miembros, la
 facturación y los proyectos. Dentro de ella, cada **proyecto** es un espacio de
 trabajo independiente para un bot, con su propio conocimiento, datos,
 herramientas, canales y URL de MCP.
@@ -15,7 +15,7 @@ herramientas, canales y URL de MCP.
 La primera vez que inicias sesión, Ganju muestra **Crea tu organización** y
 configura la organización y su primer proyecto a la vez:
 
-1. En **Organización**, escribe un **Nombre** — tu equipo o empresa. Puedes
+1. En **Organización**, escribe un **Nombre** (tu equipo o empresa). Puedes
    cambiarlo después.
 2. En **Proyecto**, escribe el **Nombre** del proyecto y, si quieres, una
    **Descripción** de para qué es el bot.
@@ -33,10 +33,10 @@ ver lo que suma Pro.
 ## El Inicio de tu proyecto
 
 Llegas al **Inicio** del proyecto. Arriba: el nombre y la descripción del
-proyecto, y su **URL de MCP** — la dirección a la que se conectan clientes de IA
+proyecto, y su **URL de MCP**, la dirección a la que se conectan clientes de IA
 como Claude (mira [Clientes MCP](/es/docs/mcp/)). Debajo: la gráfica de
 **Actividad**, los contadores de **Recursos**, **Herramientas** y **Prompts**, la
-**Salud de las herramientas** y la **Actividad reciente** — todo explicado en
+**Salud de las herramientas** y la **Actividad reciente**, todo explicado en
 [Analítica](/es/docs/analytics/).
 
 En Pro y Enterprise, un proyecto recién creado también muestra **Arma tu bot con
@@ -54,18 +54,18 @@ La barra lateral es igual en todos los proyectos:
 | **Asistente** | Describe qué debe hacer el bot y deja que lo construya (Pro y Enterprise; en Free aparece bloqueado, con la opción de mejorar el plan). |
 | **Conocimiento** | Dos pestañas: **Recursos** (archivos, sitios web, Google Drive, OneDrive) y **Prompts** (plantillas que se vuelven comandos). |
 | **Datos** | Las tablas del proyecto (Pro y Enterprise). |
-| **Herramientas** | La página de herramientas, con tres pestañas: **Funciones**, **Endpoints HTTP** y **Catálogo**. |
+| **Acciones** | La página **Acciones**, con tres pestañas: **Funciones**, **Endpoints HTTP** y **Catálogo**. |
 | **Canales** | Conecta Telegram, WhatsApp, Slack o Discord, y define las **Instrucciones del bot**. |
 
 El ícono de cuadrícula arriba en la barra abre **Organizaciones y proyectos**,
-para cambiar de proyecto o crear uno nuevo — mira
+para cambiar de proyecto o crear uno nuevo. Mira
 [Organizaciones y proyectos](/es/docs/organizations-and-projects/).
 
 ## Herramientas integradas
 
-Todo proyecto empieza con cinco herramientas integradas ya activadas —
-**Listar recursos**, **Leer recurso**, **Enviar recurso**, **Buscar recursos** y
-**Listar prompts** — para que tu bot pueda trabajar con tu conocimiento desde el
+Todo proyecto empieza con cinco herramientas integradas ya activadas
+(**Listar recursos**, **Leer recurso**, **Enviar recurso**, **Buscar recursos** y
+**Listar prompts**) para que tu bot pueda trabajar con tu conocimiento desde el
 principio. Ese es el **5** del contador de Herramientas. No necesitan conexión, y
 cuentan para el límite de 7 herramientas por proyecto del plan Free.
 

@@ -1,11 +1,11 @@
 ---
 title: Iniciar sesión
-description: Crea tu cuenta de Ganju con Google o GitHub, acepta una invitación y gestiona tu perfil.
+description: Crea tu cuenta de Ganju con Google o GitHub, acepta una invitación y administra tu perfil.
 order: 2
 updated: 2026-11-13
 ---
 
-Empezar en Ganju es gratis — no necesitas tarjeta de crédito. No hay un registro
+Empezar en Ganju es gratis y no necesitas tarjeta de crédito. No hay un registro
 aparte: la primera vez que inicias sesión, se crea tu cuenta.
 
 ## Inicia sesión
@@ -17,7 +17,7 @@ aparte: la primera vez que inicias sesión, se crea tu cuenta.
    solicitud en ese sitio.
 
 Llegas a tus organizaciones. La primera vez, eso es el formulario **Crea tu
-organización** — siguiente paso:
+organización**. Siguiente paso:
 [crear una organización y un proyecto](/es/docs/getting-started/organization-and-project/).
 
 ![La página de inicio de sesión: Google, GitHub y la casilla de Términos y Privacidad](/images/sign-in.webp)
@@ -35,7 +35,7 @@ Inicia sesión con **el mismo correo al que se envió la invitación** y selecci
 - ¿Entraste con otra dirección? La página te dice para qué dirección es la
   invitación. Cierra sesión y entra con esa.
 - Las invitaciones vencen a los **7 días**. Un enlace vencido, revocado o ya
-  usado lo indica — pídele a quien te invitó que te mande uno nuevo.
+  usado lo indica; pídele a quien te invitó que te mande uno nuevo.
 - También puedes aceptar desde la página **Organizaciones**, en **Tus
   invitaciones**, con **Aceptar** o **Rechazar**.
 
