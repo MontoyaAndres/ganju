@@ -3,6 +3,8 @@ title: Canales
 description: Ofrece tu IA a clientes y equipos en las apps que ya usan (Telegram, WhatsApp, Slack y Discord) y dile cómo responder.
 order: 7
 updated: 2026-11-13
+minutes: 5
+outcome: "Un bot en vivo en Telegram (u otra app) que responde con tu conocimiento y tus acciones."
 ---
 
 Los **canales** son la forma de llevar tu asistente a otras personas: clientes,
@@ -121,6 +123,3 @@ gente tu asistente.
 Solo cuentan las **respuestas** de tu bot; los mensajes que la gente le envía
 son gratis. Mira
 [Configuración → Facturación y plan](/es/docs/settings/#facturación-y-plan).
-
-Sigue con: adminístralo con el tiempo en la
-[configuración](/es/docs/getting-started/settings/).

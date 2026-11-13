@@ -3,6 +3,8 @@ title: Sign in
 description: Create your Ganju account with Google or GitHub, accept an invitation, and manage your profile.
 order: 2
 updated: 2026-11-13
+minutes: 2
+outcome: "You're signed in to Ganju and looking at your organizations."
 ---
 
 Ganju is free to start, no credit card required. There's no separate sign-up:
@@ -75,5 +77,3 @@ ganju logout    # forget the stored token
 - **"You don't have access to this project".** You're in the organization but
   not in that project. A project admin can add you from the project's members in
   the organization settings.
-
-Next: [create an organization & project](/docs/getting-started/organization-and-project/).

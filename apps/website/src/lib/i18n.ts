@@ -153,9 +153,21 @@ export const DOCS = {
     feedback: {
       eyebrow: 'Open source',
       heading: 'Found a bug or have an idea?',
-      body: 'Ganju is open source. Report bugs and request features on GitHub — we read every issue.',
+      body: 'Ganju is open source. Report bugs and request features on GitHub. We read every issue.',
       create: 'Create a GitHub issue',
       browse: 'Browse open issues'
+    },
+    steps: {
+      stepOf: (n: number, total: number) => `Step ${n} of ${total}`,
+      minutes: (n: number) => `About ${n} min`,
+      total: (n: number) => `About ${n} minutes from start to finish`,
+      outcome: 'When you finish',
+      progress: 'Get started progress',
+      previous: 'Previous',
+      next: 'Next',
+      after: 'Keep going',
+      overview: 'Overview',
+      start: 'Start here'
     }
   },
   es: {
@@ -171,9 +183,21 @@ export const DOCS = {
     feedback: {
       eyebrow: 'Código abierto',
       heading: '¿Encontraste un error o tienes una idea?',
-      body: 'Ganju es software libre. Reporta errores y pide funciones en GitHub — leemos todos los issues.',
+      body: 'Ganju es software libre. Reporta errores y pide funciones en GitHub. Leemos todos los issues.',
       create: 'Crear un issue en GitHub',
       browse: 'Ver los issues abiertos'
+    },
+    steps: {
+      stepOf: (n: number, total: number) => `Paso ${n} de ${total}`,
+      minutes: (n: number) => `Unos ${n} min`,
+      total: (n: number) => `Unos ${n} minutos de principio a fin`,
+      outcome: 'Al terminar',
+      progress: 'Progreso en Primeros pasos',
+      previous: 'Anterior',
+      next: 'Siguiente',
+      after: 'Sigue adelante',
+      overview: 'Resumen',
+      start: 'Empieza aquí'
     }
   }
 } as const satisfies Record<Lang, unknown>;

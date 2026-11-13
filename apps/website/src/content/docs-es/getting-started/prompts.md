@@ -3,6 +3,8 @@ title: Prompts
 description: Crea plantillas de prompts reutilizables que se vuelven comandos en tus canales de chat.
 order: 4
 updated: 2026-11-13
+minutes: 3
+outcome: "Un comando `/start` que la gente puede ejecutar en cualquier canal."
 ---
 
 Los **prompts** son plantillas de mensajes reutilizables que tu proyecto expone.
@@ -47,6 +49,3 @@ canal vinculado. Abre una tarjeta para editarlo, o para eliminarlo.
 | | Free | Pro / Enterprise |
 | --- | --- | --- |
 | Prompts por proyecto | 3 | Ilimitados |
-
-Sigue con: dale con qué trabajar y agrega
-[recursos](/es/docs/getting-started/resources/).

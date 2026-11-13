@@ -3,6 +3,8 @@ title: Create an organization & project
 description: Set up your team and your first workspace, and learn your way around a project.
 order: 3
 updated: 2026-11-13
+minutes: 3
+outcome: "An organization, your first project, and you know your way around its Home."
 ---
 
 Your **organization** represents your team or company; it's where members,
@@ -94,5 +96,3 @@ ganju link --status                          # what this folder is linked to
 
 `--organization` and `--project` take a name or an id. See the
 [CLI guide](/docs/tools/cli/).
-
-Next: add [prompts](/docs/getting-started/prompts/) to give people shortcuts.

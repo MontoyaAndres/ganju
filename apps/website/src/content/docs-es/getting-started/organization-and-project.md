@@ -3,6 +3,8 @@ title: Crear una organización y un proyecto
 description: Configura tu equipo y tu primer espacio de trabajo, y aprende a moverte por un proyecto.
 order: 3
 updated: 2026-11-13
+minutes: 3
+outcome: "Una organización, tu primer proyecto, y ya sabes moverte por su Inicio."
 ---
 
 Tu **organización** representa a tu equipo o empresa: ahí viven los miembros, la
@@ -99,6 +101,3 @@ ganju link --status                          # a qué está vinculada esta carpe
 
 `--organization` y `--project` aceptan un nombre o un id. Mira la
 [guía del CLI](/es/docs/tools/cli/).
-
-Sigue con: agrega [prompts](/es/docs/getting-started/prompts/) para darle atajos
-a la gente.

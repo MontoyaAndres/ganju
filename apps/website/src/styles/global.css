@@ -2264,3 +2264,271 @@ a.docs-group-link:hover {
     display: none;
   }
 }
+
+/* Get started: step tracker, step grid and previous/next pager. */
+.gs-top {
+  margin: 0 0 2.2em;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.gs-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+}
+
+.gs-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.gs-time {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.gs-track ol {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prose .gs-track li {
+  position: relative;
+  margin: 0;
+}
+
+/* The line joining one step's circle to the next. */
+.gs-track li + li::before {
+  content: '';
+  position: absolute;
+  top: 13px;
+  right: calc(50% + 15px);
+  left: calc(-50% + 15px);
+  height: 2px;
+  background: var(--border-strong);
+}
+
+.gs-track li.done + li::before,
+.gs-track li.here::before {
+  background: var(--text);
+}
+
+.prose .gs-track a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  text-decoration: none;
+  text-align: center;
+}
+
+.gs-num {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.gs-track .done .gs-num {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.gs-track .here .gs-num {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.gs-label {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.prose .gs-track .here a {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.prose .gs-track a:hover .gs-label {
+  color: var(--text);
+}
+
+.prose .gs-outcome {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+
+.prose .gs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0.4em 0 0.8em;
+  padding: 0;
+  list-style: none;
+}
+
+.prose .gs-grid li {
+  margin: 0;
+}
+
+.prose .gs-grid li:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.prose .gs-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+
+.prose .gs-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
+}
+
+.gs-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.gs-card-desc {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.prose .gs-total {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.gs-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 2.6em;
+  padding-top: 1.4em;
+  border-top: 1px solid var(--border);
+}
+
+.gs-pager.solo {
+  justify-content: flex-end;
+}
+
+.prose .gs-pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: 48%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.2s var(--ease);
+}
+
+.prose .gs-pager-link:hover {
+  background: var(--bg-2);
+}
+
+.prose .gs-pager-link.prev {
+  margin-left: -14px;
+}
+
+.prose .gs-pager-link.next {
+  margin-right: -14px;
+  margin-left: auto;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.gs-pager-dir {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gs-pager-dir::before,
+.gs-pager-dir::after {
+  transition: transform 0.2s var(--ease);
+  display: inline-block;
+}
+
+.prev .gs-pager-dir::before {
+  content: '←';
+  margin-right: 6px;
+}
+
+.next .gs-pager-dir::after {
+  content: '→';
+  margin-left: 6px;
+}
+
+.prose .gs-pager-link.prev:hover .gs-pager-dir::before {
+  transform: translateX(-3px);
+}
+
+.prose .gs-pager-link.next:hover .gs-pager-dir::after {
+  transform: translateX(3px);
+}
+
+.gs-pager-link strong {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 720px) {
+  .gs-label {
+    display: none;
+  }
+
+  .prose .gs-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The pager already draws the rule above it. */
+.gs-pager + .docs-updated {
+  margin-top: 1.2em;
+  padding-top: 0;
+  border-top: 0;
+}

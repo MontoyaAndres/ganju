@@ -3,6 +3,8 @@ title: Channels
 description: Offer your AI to clients and teams on the apps they already use (Telegram, WhatsApp, Slack, and Discord) and tell it how to answer.
 order: 7
 updated: 2026-11-13
+minutes: 5
+outcome: "A live bot on Telegram (or another app) that answers with your knowledge and tools."
 ---
 
 **Channels** are how you deliver your assistant to other people: clients, your
@@ -117,5 +119,3 @@ your assistant.
 
 Only your bot's **replies** count; messages people send it are free. See
 [Settings → Billing & plan](/docs/settings/#billing--plan).
-
-Next: manage it over time in [settings](/docs/getting-started/settings/).

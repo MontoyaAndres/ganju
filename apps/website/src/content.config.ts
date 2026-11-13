@@ -7,7 +7,11 @@ const docs = defineCollection({
     title: z.string(),
     description: z.string(),
     order: z.number().default(100),
-    updated: z.coerce.date().optional()
+    updated: z.coerce.date().optional(),
+    /** Get started steps: rough minutes the step takes. */
+    minutes: z.number().optional(),
+    /** Get started steps: what the reader has once the step is done. */
+    outcome: z.string().optional()
   })
 });
 
@@ -25,7 +29,11 @@ const docsEs = defineCollection({
     title: z.string(),
     description: z.string(),
     order: z.number().default(100),
-    updated: z.coerce.date().optional()
+    updated: z.coerce.date().optional(),
+    /** Get started steps: rough minutes the step takes. */
+    minutes: z.number().optional(),
+    /** Get started steps: what the reader has once the step is done. */
+    outcome: z.string().optional()
   })
 });
 

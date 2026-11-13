@@ -1,43 +1,34 @@
 ---
 title: Getting started
-description: "A summary of the setup walkthrough: sign in, build your project, and share your AI, one short page at a time."
+description: "Seven short pages take you from no account to a bot answering real people on Telegram, WhatsApp, Slack, or Discord. All of it works on the Free plan."
 order: 1
 updated: 2026-11-13
 ---
 
-Getting started walks you through setting up Ganju from scratch, one short page
-per step. Follow them in order the first time, or jump to whichever piece you
-need. Here's what each page covers:
+## How the pieces fit
 
-1. **[Sign in](/docs/getting-started/sign-in/)**: create your account with
-   Google or GitHub and accept an invitation if you have one.
-2. **[Create an organization & project](/docs/getting-started/organization-and-project/)**:
-   set up your team and your first workspace, and find your way around the
-   project.
-3. **[Prompts](/docs/getting-started/prompts/)**: reusable templates that
-   become slash commands in your channels.
-4. **[Resources](/docs/getting-started/resources/)**: add the files, websites,
-   and Drive folders your AI can search.
-5. **[Tools](/docs/getting-started/tools/)**: switch on the actions your AI can
-   take, like email, calendar, and web search.
-6. **[Channels](/docs/getting-started/channels/)**: offer your AI on Telegram,
-   WhatsApp, Slack, or Discord, and tell it how to answer.
-7. **[Settings](/docs/getting-started/settings/)**: manage members, plan and
-   billing, and the model your AI runs on.
+A Ganju **project** is one bot. People reach it through a **channel** (or an AI
+app like Claude, through the project's [MCP URL](/docs/mcp/)), and on every
+message the bot can use three things you give it:
 
-Work through them and you'll have a live assistant answering real people on a
-channel.
+| Piece | What it gives the bot | Where in the app | Step |
+| --- | --- | --- | --- |
+| **Prompts** | Ready-made requests people run as slash commands, like `/start`. | Knowledge → Prompts | 3 |
+| **Resources** | Your files, Drive folders, and websites, to answer from instead of guessing. | Knowledge → Resources | 4 |
+| **Tools** | Actions it can take: send an email, book a meeting, search the web, call your API. | Tools | 5 |
 
-> Each item above is its own page in the sidebar under **Get started**. New
-> here? Begin with **[Sign in](/docs/getting-started/sign-in/)**.
+**Bot instructions** on the Channels page set its tone and rules, and
+**Settings** holds the plan, members, and models for the whole organization.
+
+![A project's Home: the MCP URL, the Activity chart by channel, and the Resources, Tools and Prompts counters](/images/project-home.webp)
 
 ## The shortcut: the Assistant
 
 On **Pro** and **Enterprise**, a new project opens with a card on its Home:
 **Build your bot with the Assistant**. Select **Open the Assistant** and tell it
-in your own words what your bot should do, like "answer from my menu", "take orders
-and email them to me". It writes the actions, tests them, and asks you before
-turning anything on. You can still follow the steps below by hand at any time;
+in your own words what your bot should do, like "answer from my menu" or "take
+orders and email them to me". It writes the actions, tests them, and asks you
+before turning anything on. The steps above still work by hand at any time;
 they're the same building blocks the Assistant uses. See
 **[Assistant](/docs/assistant/)**.
 
@@ -51,6 +42,25 @@ they're the same building blocks the Assistant uses. See
 ```bash
 npm install -g @ganju/cli
 ```
+
+## Free and Pro, for these steps
+
+Everything in the walkthrough works on Free. Pro raises the limits and adds the
+Assistant:
+
+| | Free | Pro / Enterprise |
+| --- | --- | --- |
+| Prompts per project | 3 | Unlimited |
+| Searchable content | 5 MB | 1 GB included |
+| Tools switched on at once | 7 | 40 |
+| HTTP endpoints per project | 3 | Unlimited |
+| Channels per project | 1 | Unlimited |
+| Bot replies a month | 100, then it pauses | 3,000 included, then billed |
+| Assistant, functions, and Data | No | Yes |
+| Invite teammates | No | Yes |
+
+Prices and the full comparison are in
+[Settings → Compare plans](/docs/settings/#compare-plans).
 
 ## Go deeper
 

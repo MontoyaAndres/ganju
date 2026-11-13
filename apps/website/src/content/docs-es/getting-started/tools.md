@@ -3,6 +3,8 @@ title: Acciones
 description: "Activa las acciones que tu IA puede hacer: conecta una integración, apúntala a tu propia API o deja que el Asistente escriba una."
 order: 6
 updated: 2026-11-13
+minutes: 4
+outcome: "Una integración como Gmail conectada, con las herramientas que quieres encendidas."
 ---
 
 Las **herramientas** son las acciones que tu asistente puede hacer por ti,
@@ -18,7 +20,7 @@ y Google Calendar. Abre **Acciones** en la barra lateral. La página tiene tres 
 Esta página trata del **Catálogo**, que es donde todos empiezan.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Herramientas](/es/docs/tools/)** documenta cada integración, herramienta
+> de **[Acciones](/es/docs/tools/)** documenta cada integración, herramienta
 > por herramienta.
 
 ## Herramientas integradas
@@ -72,7 +74,7 @@ del Inicio lista las que nadie usó en 30 días, con un botón **Desactivar**.
 
 | | Free | Pro / Enterprise |
 | --- | --- | --- |
-| Herramientas por proyecto | 7 (incluidas las integradas) | Ilimitadas |
+| Herramientas encendidas a la vez | 7 (incluidas las integradas) | 40 |
 | Endpoints HTTP por proyecto | 3 | Ilimitados |
 | Funciones | No disponible | ✓ |
 
@@ -98,6 +100,3 @@ ganju deploy                  # empaqueta, sube y publica
 
 Una versión subida desde el CLI se ve en **Funciones** solo para leer; se cambia
 en el repositorio, con `ganju deploy`.
-
-Sigue con: decide dónde la usa la gente y configura los
-[canales](/es/docs/getting-started/channels/).

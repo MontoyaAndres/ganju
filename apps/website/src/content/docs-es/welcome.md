@@ -62,7 +62,7 @@ combinas para definir exactamente qué sabe tu asistente, qué hace y dónde viv
 - **[Datos](/es/docs/data/)**: dale a un proyecto su propia base de datos:
   tablas que el asistente y tus funciones leen y escriben, con disparadores que
   se ejecutan cuando cambian las filas.
-- **[Herramientas](/es/docs/tools/)**: deja que actúe: correo (Gmail, Outlook),
+- **[Acciones](/es/docs/tools/)**: deja que actúe: correo (Gmail, Outlook),
   Slack, calendarios (Google, Cal.com), búsqueda web, servidores MCP remotos como
   GitHub y Notion, o tus propias APIs HTTP.
 - **[Funciones](/es/docs/tools/functions/)**: acciones propias en código. En la

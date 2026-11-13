@@ -3,6 +3,8 @@ title: Settings
 description: Manage your organization, plan, members, models, access tokens, and more from one place.
 order: 8
 updated: 2026-11-13
+minutes: 3
+outcome: "You know where to change the plan, invite people, and pick the model."
 ---
 
 **Settings** is your organization's control room. Open it from your avatar menu
@@ -66,5 +68,6 @@ prompt**. Add it once and pick it in any channel's **Language model**.
 Terms and Privacy Policy you accepted. The **Danger zone** has **Remove
 organization** (owner only) and **Delete your account**. Both are permanent.
 
-Next: open a [channel](/docs/getting-started/channels/) to go live, or read the
-full [Settings](/docs/settings/) guide.
+That's the whole walkthrough: your bot is live on a channel. To go further,
+each piece has a full guide, starting with
+[Organizations & projects](/docs/organizations-and-projects/).

@@ -3,6 +3,8 @@ title: Recursos
 description: "Agrega los archivos y el conocimiento que tu IA puede consultar: desde unidades en la nube, el rastreo de un sitio web o subidas directas."
 order: 5
 updated: 2026-11-13
+minutes: 5
+outcome: "Tus archivos, carpetas de Drive o sitio web listos para que el bot los consulte, marcados como **Listo**."
 ---
 
 Los **recursos** son los documentos y el conocimiento que tu asistente puede
@@ -88,5 +90,3 @@ elegir **Cada día** o **Cada semana**; en Free, sincroniza a mano.
 | Contenido consultable (indexado) | 5 MB | 1 GB incluido, luego 2 USD/GB en Pro |
 | Almacenamiento de archivos | 30 MB | Ilimitado |
 | Sincronización automática | No disponible | Cada día o cada semana |
-
-Sigue con: deja que actúe con [herramientas](/es/docs/getting-started/tools/).

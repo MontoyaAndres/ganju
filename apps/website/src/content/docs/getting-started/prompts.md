@@ -3,6 +3,8 @@ title: Prompts
 description: Create reusable prompt templates that become slash commands in your chat channels.
 order: 4
 updated: 2026-11-13
+minutes: 3
+outcome: "A `/start` command people can run in any channel."
 ---
 
 **Prompts** are reusable message templates your project exposes. In any linked
@@ -47,5 +49,3 @@ Open a card to edit it, or delete it from there.
 | | Free | Pro / Enterprise |
 | --- | --- | --- |
 | Prompts per project | 3 | Unlimited |
-
-Next: give it something to work with: add [resources](/docs/getting-started/resources/).

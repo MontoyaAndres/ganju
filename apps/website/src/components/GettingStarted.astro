@@ -1,0 +1,132 @@
+---
+import { getCollection } from 'astro:content';
+import { DOCS_ROOT, docsHref, gettingStartedSteps } from '../lib/docs-nav';
+import { DOCS, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  /** Collection id of the page this sits on. */
+  id: string;
+  /** `top` and `bottom` frame a step page; `overview` is the step grid. */
+  place: 'top' | 'bottom' | 'overview';
+}
+
+const { lang, id, place } = Astro.props;
+
+// Outcomes are one line of frontmatter that may use **bold** or `code`.
+const inline = (text: string) =>
+  text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code>$1</code>');
+const t = DOCS[lang].steps;
+const entries = await getCollection(lang === 'es' ? 'docsEs' : 'docs');
+const byId = new Map(entries.map(entry => [entry.id, entry.data]));
+
+const steps = gettingStartedSteps(lang).map((step, i) => ({
+  ...step,
+  n: i + 1,
+  description: byId.get(step.slug)?.description ?? '',
+  minutes: byId.get(step.slug)?.minutes,
+  outcome: byId.get(step.slug)?.outcome
+}));
+const total = steps.reduce((sum, step) => sum + (step.minutes ?? 0), 0);
+const index = steps.findIndex(step => step.slug === id);
+const current = steps[index];
+
+const overview = {
+  label: byId.get('getting-started')?.title ?? t.overview,
+  href: docsHref('getting-started', lang),
+  description: byId.get('getting-started')?.description ?? ''
+};
+// After the last step, the walkthrough hands off to the Assistant guide.
+const after = {
+  label: byId.get('assistant')?.title ?? '',
+  href: `${DOCS_ROOT[lang]}assistant/`,
+  description: byId.get('assistant')?.description ?? ''
+};
+
+// On the overview (index -1) the pager only points at the first step.
+const prev = index > 0 ? steps[index - 1] : index === 0 ? overview : null;
+const next = index === -1 ? steps[0] : (steps[index + 1] ?? after);
+const nextLabel = index === -1 ? t.start : steps[index + 1] ? t.next : t.after;
+---
+
+{
+  place === 'top' && current && (
+    <div class="gs-top">
+      <div class="gs-meta">
+        <span class="gs-badge">{t.stepOf(current.n, steps.length)}</span>
+        {current.minutes && <span class="gs-time">{t.minutes(current.minutes)}</span>}
+      </div>
+      <nav class="gs-track" aria-label={t.progress}>
+        <ol>
+          {steps.map(step => (
+            <li
+              class:list={[
+                'gs-dot',
+                { done: step.n < current.n, here: step.n === current.n }
+              ]}
+            >
+              <a
+                href={step.href}
+                aria-current={step.n === current.n ? 'step' : undefined}
+                title={step.label}
+              >
+                <span class="gs-num">{step.n}</span>
+                <span class="gs-label">{step.label}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+      {current.outcome && (
+        <p class="gs-outcome">
+          <strong>{t.outcome}:</strong> <span set:html={inline(current.outcome)} />
+        </p>
+      )}
+    </div>
+  )
+}
+
+{
+  place === 'overview' && (
+    <div class="gs-overview">
+      <ol class="gs-grid">
+        {steps.map(step => (
+          <li>
+            <a class="gs-card" href={step.href}>
+              <span class="gs-card-head">
+                <span class="gs-num">{step.n}</span>
+                {step.minutes && <span class="gs-time">{t.minutes(step.minutes)}</span>}
+              </span>
+              <strong>{step.label}</strong>
+              <span class="gs-card-desc">{step.description}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+      {total > 0 && <p class="gs-total">{t.total(total)}</p>}
+    </div>
+  )
+}
+
+{
+  place === 'bottom' && (
+    <nav class:list={['gs-pager', { solo: !prev }]}>
+      {prev && (
+        <a class="gs-pager-link prev" href={prev.href}>
+          <span class="gs-pager-dir">{t.previous}</span>
+          <strong>{prev.label}</strong>
+        </a>
+      )}
+      {next && (
+        <a class="gs-pager-link next" href={next.href}>
+          <span class="gs-pager-dir">{nextLabel}</span>
+          <strong>{next.label}</strong>
+        </a>
+      )}
+    </nav>
+  )
+}

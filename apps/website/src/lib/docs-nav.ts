@@ -269,3 +269,40 @@ export function docsTrail(
   }
   return trail;
 }
+
+/** The Get started walkthrough, in menu order, with the menu's short labels. */
+export function gettingStartedSteps(
+  lang: Lang
+): { slug: string; label: string; href: string }[] {
+  const group = SPEC.find(spec => spec.slug === 'getting-started');
+  return (group?.items ?? []).flatMap(item =>
+    item.slug
+      ? [
+          {
+            slug: item.slug,
+            label: item.label[lang],
+            href: docsHref(item.slug, lang)
+          }
+        ]
+      : []
+  );
+}
+
+/**
+ * The "Next" line a Get started page's markdown export ends with; the HTML
+ * page shows it as a card instead. Empty for any other page.
+ */
+export function gettingStartedNext(id: string, lang: Lang): string {
+  const steps = gettingStartedSteps(lang);
+  const word = lang === 'es' ? 'Sigue con' : 'Next';
+  if (id === 'getting-started') {
+    return `\n\n${word}: [${steps[0].label}](${steps[0].href})\n`;
+  }
+  const index = steps.findIndex(step => step.slug === id);
+  if (index === -1) return '';
+  const next = steps[index + 1] ?? {
+    label: lang === 'es' ? 'Asistente' : 'Assistant',
+    href: docsHref('assistant', lang)
+  };
+  return `\n\n${word}: [${next.label}](${next.href})\n`;
+}

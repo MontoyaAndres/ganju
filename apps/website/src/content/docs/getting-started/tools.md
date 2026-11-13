@@ -3,6 +3,8 @@ title: Tools
 description: "Switch on the actions your AI can take: connect an integration, point it at your own API, or let the Assistant write one."
 order: 6
 updated: 2026-11-13
+minutes: 4
+outcome: "An integration like Gmail connected, with the tools you want switched on."
 ---
 
 **Tools** are the actions your assistant can take on your behalf, from the
@@ -68,7 +70,7 @@ lists tools no one has used in 30 days, with a **Disable** button.
 
 | | Free | Pro / Enterprise |
 | --- | --- | --- |
-| Tools per project | 7 (built-ins included) | Unlimited |
+| Tools switched on at once | 7 (built-ins included) | 40 |
 | HTTP endpoints per project | 3 | Unlimited |
 | Functions | None | ✓ |
 
@@ -94,5 +96,3 @@ ganju deploy          # bundle, upload, publish
 
 A version uploaded from the CLI shows in **Functions** read-only; it changes in
 the repository, with `ganju deploy`.
-
-Next: decide where people use it: set up [channels](/docs/getting-started/channels/).

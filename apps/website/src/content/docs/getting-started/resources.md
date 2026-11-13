@@ -3,6 +3,8 @@ title: Resources
 description: Add the files and knowledge your AI can search, from cloud drives, a website crawl, or direct uploads.
 order: 5
 updated: 2026-11-13
+minutes: 5
+outcome: "Your files, Drive folders, or website searchable by the bot, marked **Ready**."
 ---
 
 **Resources** are the documents and knowledge your assistant can search, so it
@@ -84,5 +86,3 @@ sync by hand.
 | Searchable (embedded) content | 5 MB | 1 GB included, then $2/GB on Pro |
 | File storage | 30 MB | Unlimited |
 | Automatic sync | None | Daily or weekly |
-
-Next: let it take action with [tools](/docs/getting-started/tools/).

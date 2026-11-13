@@ -3,6 +3,8 @@ title: Configuración
 description: Administra tu organización, tu plan, los miembros, los modelos, los tokens de acceso y más desde un solo lugar.
 order: 8
 updated: 2026-11-13
+minutes: 3
+outcome: "Ya sabes dónde cambiar el plan, invitar gente y elegir el modelo."
 ---
 
 **Ajustes** es la sala de control de tu organización. Ábrelo desde el menú de tu
@@ -70,5 +72,6 @@ Términos y la Política de Privacidad que aceptaste. La **Zona de riesgo** tien
 **Eliminar la organización** (solo el propietario) y **Eliminar tu cuenta**.
 Ambas son permanentes.
 
-Sigue con: abre un [canal](/es/docs/getting-started/channels/) para salir en
-vivo, o lee la guía completa de [Configuración](/es/docs/settings/).
+Con esto terminas la guía: tu bot ya está en vivo en un canal. Para ir más
+lejos, cada parte tiene su guía completa, empezando por
+[Organizaciones y proyectos](/es/docs/organizations-and-projects/).

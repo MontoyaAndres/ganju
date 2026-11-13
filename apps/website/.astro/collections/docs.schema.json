@@ -16,6 +16,12 @@
       "type": "string",
       "format": "date-time"
     },
+    "minutes": {
+      "type": "number"
+    },
+    "outcome": {
+      "type": "string"
+    },
     "$schema": {
       "type": "string"
     }

@@ -3,6 +3,8 @@ title: Iniciar sesión
 description: Crea tu cuenta de Ganju con Google o GitHub, acepta una invitación y administra tu perfil.
 order: 2
 updated: 2026-11-13
+minutes: 2
+outcome: "Ya entraste a Ganju y estás viendo tus organizaciones."
 ---
 
 Empezar en Ganju es gratis y no necesitas tarjeta de crédito. No hay un registro
@@ -77,5 +79,3 @@ ganju logout    # olvida el token guardado
 - **"No tienes acceso a este proyecto".** Estás en la organización, pero no en
   ese proyecto. Alguien del proyecto puede agregarte desde los miembros del
   proyecto, en los ajustes de la organización.
-
-Sigue con: [crear una organización y un proyecto](/es/docs/getting-started/organization-and-project/).
