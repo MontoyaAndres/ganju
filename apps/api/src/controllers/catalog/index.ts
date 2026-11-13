@@ -16,13 +16,6 @@ import { AppEnv } from '../../types';
  */
 const listGroups = async (c: Context<AppEnv>) => c.json(utils.TOOL_CATALOG);
 
-// Iconify stopped serving "prefix:name.svg"; rows saved that way still say it.
-const iconifyPath = (icon: string | null) =>
-  icon?.replace(
-    /^(https:\/\/api\.iconify\.design\/)([a-z0-9-]+):([a-z0-9-]+\.svg)$/,
-    '$1$2/$3'
-  ) ?? null;
-
 /**
  * Curated remote MCP servers, which are a different thing from the catalog
  * above and stay in the database for that reason: nothing in our code implements
@@ -46,9 +39,7 @@ const listMcpServers = async (c: Context<AppEnv>) => {
     .from(db.schema.mcpServerCatalog)
     .where(eq(db.schema.mcpServerCatalog.verified, true));
 
-  return c.json(
-    servers.map(server => ({ ...server, icon: iconifyPath(server.icon) }))
-  );
+  return c.json(servers);
 };
 
 export const CatalogController = {
