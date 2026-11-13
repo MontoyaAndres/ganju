@@ -2,7 +2,7 @@
 title: Recursos
 description: Agrega los archivos y el conocimiento que tu IA puede consultar — desde discos en la nube, un rastreo de sitio web o archivos que subas.
 order: 5
-updated: 2026-07-06
+updated: 2026-11-13
 ---
 
 Los **recursos** son los documentos y el conocimiento que tu asistente puede
@@ -17,8 +17,9 @@ directamente — cada uno recibe una URI y, una vez procesado, queda marcado com
 
 ## De dónde vienen los recursos
 
-La página **Resources** agrupa todo por origen: **Google Drive**, **OneDrive**,
-**Websites** y las carpetas que llenas con tus propios archivos.
+La pestaña **Recursos**, en **Conocimiento** en la barra lateral, agrupa todo
+por origen: **Google Drive**, **OneDrive**, **Websites** y las carpetas que
+llenas con tus propios archivos.
 
 ![La página de Recursos mostrando los orígenes Google Drive, OneDrive, Websites y My folder](/images/new-resource.webp)
 

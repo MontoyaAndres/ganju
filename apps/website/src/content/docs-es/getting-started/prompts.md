@@ -2,7 +2,7 @@
 title: Prompts
 description: Crea plantillas de prompts reutilizables que se vuelven comandos de barra en tus canales de chat.
 order: 4
-updated: 2026-07-06
+updated: 2026-11-13
 ---
 
 Los **prompts** son plantillas de mensajes reutilizables que tu proyecto expone.
@@ -17,8 +17,8 @@ valores que se completan al ejecutarlo.
 
 ## Crea un prompt
 
-Abre la página **Prompts** y selecciona **New prompt**. Se abre un panel donde
-armarás la plantilla.
+Abre **Conocimiento** en la barra lateral, luego la pestaña **Prompts**, y
+selecciona **New prompt**. Se abre un panel donde armarás la plantilla.
 
 ![La página de Prompts con el panel New Prompt abierto, mostrando los campos vacíos de Título, Descripción y Mensajes](/images/new-prompt.webp)
 

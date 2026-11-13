@@ -2,7 +2,7 @@
 title: Asistente
 description: Describe con tus palabras qué debe saber o hacer tu bot — el asistente lo construye contigo, lo prueba y no cambia nada hasta que presionas Aplicar.
 order: 1.5
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 La pestaña **Asistente** es donde construyes tu bot conversando. Cuéntale lo que
@@ -24,8 +24,8 @@ escribes, español o inglés.
   "envíame un correo con cada pedido nuevo", y las
   [programaciones](/es/docs/data/triggers/#programaciones), como "cada noche a
   las 9, envíame los pedidos de hoy".
-- **Conocimiento** — notas y sitios web que tu bot consulta, en la página
-  [Recursos](/es/docs/resources/). Los archivos los pones tú: cuando necesita uno,
+- **Conocimiento** — notas y sitios web que tu bot consulta, en **Conocimiento →
+  [Recursos](/es/docs/resources/)**. Los archivos los pones tú: cuando necesita uno,
   te pide que lo subas.
 - **[Prompts](/es/docs/prompts/)** y **[herramientas](/es/docs/tools/)**,
   incluidas Gmail, Outlook, Google Calendar y Slack del catálogo, a través de

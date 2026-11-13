@@ -19,6 +19,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { Wrapper } from './styles';
+import { KnowledgeTabs } from '../resources/knowledge-tabs';
 import { i18n } from '../../../lib';
 
 interface Prompt {
@@ -36,6 +37,7 @@ export const Prompts = () => {
   const router = useRouter();
   const snackbar = UI.Alert.useSnackbar();
   const t = i18n.useT(i18n.copy.PROMPTS);
+  const r = i18n.useT(i18n.copy.RESOURCES);
   const c = i18n.useT(i18n.copy.COMMON);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
@@ -445,7 +447,8 @@ export const Prompts = () => {
       >
         <div className="prompts-header">
           <div className="prompts-header-text">
-            <h1 className="prompts-title">{t('title')}</h1>
+            <h1 className="prompts-title">{r('knowledgeTitle')}</h1>
+            <KnowledgeTabs current="prompts" />
             <p className="prompts-subtitle">{t('subtitle')}</p>
           </div>
           <UI.Button variant="contained" size="small" onClick={handleCreate}>

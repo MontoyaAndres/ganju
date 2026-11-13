@@ -2,7 +2,7 @@
 title: Prompts
 description: Create reusable prompt templates that become slash commands in your chat channels.
 order: 4
-updated: 2026-07-06
+updated: 2026-11-13
 ---
 
 **Prompts** are reusable message templates your project exposes. In any linked
@@ -16,8 +16,8 @@ for values that get filled in when it runs.
 
 ## Create a prompt
 
-Open the **Prompts** page and select **New prompt**. A panel opens where you'll
-build the template.
+Open **Knowledge** in the sidebar, then the **Prompts** tab, and select **New
+prompt**. A panel opens where you'll build the template.
 
 ![The Prompts page with the New Prompt panel open, showing empty Title, Description, and Messages fields](/images/new-prompt.webp)
 

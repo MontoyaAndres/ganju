@@ -12,6 +12,7 @@ import type { Catalog } from '../core';
  * defaults there are English, and this is where a translation reaches them.
  */
 const en = {
+  knowledgeTitle: 'Knowledge',
   title: 'Resources',
   subtitle: 'Static files and templates this MCP server can serve to clients.',
   search: 'Search',
@@ -284,6 +285,7 @@ type ResourcesCopy = typeof en;
 export const RESOURCES: Catalog<ResourcesCopy> = {
   en,
   es: {
+    knowledgeTitle: 'Conocimiento',
     title: 'Recursos',
     subtitle:
       'Archivos y plantillas estáticos que este servidor MCP puede entregar a sus clientes.',

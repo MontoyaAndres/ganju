@@ -2,7 +2,7 @@
 title: Resources
 description: Add the files and knowledge your AI can search — from cloud drives, a website crawl, or direct uploads.
 order: 5
-updated: 2026-07-06
+updated: 2026-11-13
 ---
 
 **Resources** are the documents and knowledge your assistant can search, so it
@@ -16,8 +16,9 @@ and, once processed, is marked **Ready**.
 
 ## Where resources come from
 
-The **Resources** page groups everything by source: **Google Drive**, **OneDrive**,
-**Websites**, and folders you fill with your own uploads.
+The **Resources** tab, under **Knowledge** in the sidebar, groups everything by
+source: **Google Drive**, **OneDrive**, **Websites**, and folders you fill with
+your own uploads.
 
 ![The Resources page showing Google Drive, OneDrive, Websites, and My folder sources](/images/new-resource.webp)
 

@@ -39,6 +39,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { Wrapper } from './styles';
+import { KnowledgeTabs } from './knowledge-tabs';
 import { i18n } from '../../../lib';
 
 import type { CloudDriveItem } from '@ganju/ui';
@@ -2154,7 +2155,8 @@ export const Resources = ({ plan }: ResourcesProps) => {
       >
         <div className="resources-header">
           <div className="resources-header-text">
-            <h1 className="resources-title">{t('title')}</h1>
+            <h1 className="resources-title">{t('knowledgeTitle')}</h1>
+            <KnowledgeTabs current="resources" />
             <p className="resources-subtitle">{t('subtitle')}</p>
           </div>
           <div className="resources-header-actions">

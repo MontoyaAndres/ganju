@@ -2,7 +2,7 @@
 title: Assistant
 description: Describe what your bot should know or do in your own words — the assistant builds it with you, tests it, and changes nothing until you press Apply.
 order: 1.5
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 The **Assistant** tab is where you build your bot by talking about it. Tell it
@@ -22,8 +22,8 @@ in, Spanish or English.
   queries, [triggers](/docs/data/triggers/) such as "email me each new
   order", and [schedules](/docs/data/triggers/#schedules) such as "every night
   at 9, email me today's orders".
-- **Knowledge** — notes and websites your bot searches, on the
-  [Resources](/docs/resources/) page. Files come from you: when it needs one, it
+- **Knowledge** — notes and websites your bot searches, under **Knowledge →
+  [Resources](/docs/resources/)**. Files come from you: when it needs one, it
   asks you to upload it.
 - **[Prompts](/docs/prompts/)** and **[tools](/docs/tools/)**, including the
   catalog's Gmail, Outlook, Google Calendar and Slack through accounts you

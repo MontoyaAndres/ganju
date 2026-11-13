@@ -96,6 +96,11 @@ export const Wrapper = styled.nav<IProps>`
               font-weight: 400;
               line-height: 110%;
               margin-top: 8px;
+
+              // "Conocimiento" is wider than the rail at the base size.
+              &.is-long {
+                font-size: ${theme.fonts.sm};
+              }
             }
 
             & > svg {
@@ -122,6 +127,13 @@ export const Wrapper = styled.nav<IProps>`
               }
             }
           }
+        }
+
+        .rail-divider {
+          width: 40px;
+          height: 1px;
+          flex-shrink: 0;
+          background-color: ${theme.colors.bastille}1A;
         }
 
         .sub-navbar-user {
@@ -426,6 +438,13 @@ export const MobileMenuWrapper = styled.div<IMobileMenuWrapperProps>`
             text-overflow: ellipsis;
           }
         }
+      }
+
+      .menu-divider {
+        display: block;
+        height: 1px;
+        margin: 6px 16px;
+        background-color: ${theme.colors.bastille}1A;
       }
 
       .options {

@@ -47,13 +47,19 @@ type AssistantCopy = typeof i18n.copy.ASSISTANT.en;
 
 const CONNECT_KEY = 'ganju:assistant-connect';
 
+// What the turn shows, in the order it came, as the saved chat shows it: one
+// text per model call and each card where its tool ran. Steps aren't saved;
+// they go once the turn ends.
+type LiveItem =
+  | { kind: 'text'; text: string }
+  | { kind: 'steps'; steps: string[] }
+  | { kind: 'card'; card: Card };
+
 interface LiveTurn {
   turnId: string;
-  text: string;
+  items: LiveItem[];
   tool: string | null;
-  steps: string[];
   stepAt: number;
-  cards: Card[];
   credits: number;
 }
 
@@ -235,39 +241,46 @@ export const Assistant = () => {
       streamRef.current = controller;
       setLive({
         turnId,
-        text: '',
+        items: [],
         tool: null,
-        steps: [],
         stepAt: Date.now(),
-        cards: [],
         credits: 0
       });
       const onEvent = (event: StreamEvent) => {
         setLive(prev => {
           if (!prev) return prev;
           switch (event.type) {
-            case 'text':
-              return {
-                ...prev,
-                text: prev.text + event.text,
-                tool: null,
-                stepAt: Date.now()
-              };
+            case 'text': {
+              // A tool since the last text means a new model call.
+              const last = prev.items[prev.items.length - 1];
+              const items: LiveItem[] =
+                last?.kind === 'text' && !prev.tool
+                  ? [
+                      ...prev.items.slice(0, -1),
+                      { kind: 'text', text: last.text + event.text }
+                    ]
+                  : [...prev.items, { kind: 'text', text: event.text }];
+              return { ...prev, items, tool: null, stepAt: Date.now() };
+            }
             case 'tool': {
               const label = toolLabel(t, event.name, event.action);
-              return {
-                ...prev,
-                text: '',
-                tool: label,
-                stepAt: Date.now(),
-                steps:
-                  prev.steps[prev.steps.length - 1] === label
-                    ? prev.steps
-                    : [...prev.steps, label]
-              };
+              const last = prev.items[prev.items.length - 1];
+              const items: LiveItem[] =
+                last?.kind !== 'steps'
+                  ? [...prev.items, { kind: 'steps', steps: [label] }]
+                  : last.steps[last.steps.length - 1] === label
+                    ? prev.items
+                    : [
+                        ...prev.items.slice(0, -1),
+                        { kind: 'steps', steps: [...last.steps, label] }
+                      ];
+              return { ...prev, items, tool: label, stepAt: Date.now() };
             }
             case 'card':
-              return { ...prev, cards: [...prev.cards, event.card] };
+              return {
+                ...prev,
+                items: [...prev.items, { kind: 'card', card: event.card }]
+              };
             case 'usage':
               return { ...prev, credits: event.credits };
             default:
@@ -333,7 +346,7 @@ export const Assistant = () => {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
-  }, [detail, live?.text, live?.tool, live?.cards.length]);
+  }, [detail, live?.items, live?.tool]);
 
   const openChat = (conversationId: string | null) => {
     setChatsOpen(false);
@@ -552,19 +565,34 @@ export const Assistant = () => {
     if (chatId) await loadDetail(chatId);
   };
 
-  // A turn picked up after a reload replays from its start, so what it has
-  // already saved is shown once, from the saved messages.
+  // A turn picked up after a reload replays from its start, so the texts and
+  // cards it has already saved are shown once, from the saved messages.
   const liveTurnMessages =
     live && detail
       ? detail.messages.filter(message => message.turnId === live.turnId)
       : [];
-  const savedLiveCards = new Set(
-    liveTurnMessages.flatMap(message =>
-      (message.cards ?? []).map(card => JSON.stringify(card))
-    )
+  let savedTexts = liveTurnMessages.filter(
+    message =>
+      message.role === 'assistant' && textBlocks(message.content).length > 0
+  ).length;
+  let savedCards = liveTurnMessages.reduce(
+    (sum, message) => sum + (message.cards?.length ?? 0),
+    0
   );
-  const liveCards =
-    live?.cards.filter(card => !savedLiveCards.has(JSON.stringify(card))) ?? [];
+  const unsaved = (live?.items ?? [])
+    .filter(item => item.kind !== 'text' || item.text.trim())
+    .map(item => ({
+      item,
+      saved:
+        item.kind === 'text'
+          ? savedTexts-- > 0
+          : item.kind === 'card' && savedCards-- > 0
+    }));
+  const lastSaved = unsaved.findLastIndex(entry => entry.saved);
+  const liveItems = unsaved
+    .filter((entry, index) => index > lastSaved)
+    .map(entry => entry.item);
+  const lastLive = liveItems[liveItems.length - 1];
   const chatCredits = detail
     ? detail.credits -
       liveTurnMessages.reduce((sum, message) => sum + message.credits, 0) +
@@ -864,54 +892,79 @@ export const Assistant = () => {
                 );
               })}
               {shownOutgoing && ownerBubble(shownOutgoing)}
-              {(live || shownOutgoing) && (
-                <div className="assistant-reply">
-                  {avatar}
-                  <div className="assistant-reply-body">
-                    {live && live.steps.length > 0 && (
-                      <ul className="assistant-steps">
-                        {live.steps.map((step, index) => {
-                          const current =
-                            index === live.steps.length - 1 && !!live.tool;
-                          return (
-                            <li
-                              key={`${step}-${index}`}
-                              className={current ? 'is-current' : ''}
-                            >
-                              {current ? (
-                                <span className="assistant-dot" />
-                              ) : (
-                                <CheckRounded fontSize="small" />
-                              )}
-                              <span>{step}</span>
-                              {current && now - live.stepAt > 8000 && (
-                                <span className="assistant-step-time">
-                                  {t('stepSeconds', {
-                                    seconds: Math.round(
-                                      (now - live.stepAt) / 1000
-                                    )
-                                  })}
-                                </span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                    {live?.text && <UI.Markdown content={live.text} />}
-                    {liveCards.map((card, index) =>
-                      renderCard(card, entries.length + index, `live-${index}`)
-                    )}
-                    {!live?.tool && !live?.text && (
+              {liveItems.map((item, index) => {
+                const key = `live-${index}`;
+                if (item.kind === 'text') {
+                  return (
+                    <div key={key} className="assistant-reply">
+                      {avatar}
+                      <div className="assistant-reply-body">
+                        <UI.Markdown content={item.text} />
+                      </div>
+                    </div>
+                  );
+                }
+                if (item.kind === 'card') {
+                  return (
+                    <div key={key} className="assistant-card-row">
+                      {renderCard(item.card, entries.length + index, key)}
+                    </div>
+                  );
+                }
+                const running = item === lastLive && !!live?.tool;
+                return (
+                  <div key={key} className="assistant-card-row">
+                    <ul className="assistant-steps">
+                      {item.steps.map((step, stepIndex) => {
+                        const current =
+                          running && stepIndex === item.steps.length - 1;
+                        return (
+                          <li
+                            key={`${step}-${stepIndex}`}
+                            className={current ? 'is-current' : ''}
+                          >
+                            {current ? (
+                              <span className="assistant-dot" />
+                            ) : (
+                              <CheckRounded fontSize="small" />
+                            )}
+                            <span>{step}</span>
+                            {current && now - (live?.stepAt ?? now) > 8000 && (
+                              <span className="assistant-step-time">
+                                {t('stepSeconds', {
+                                  seconds: Math.round(
+                                    (now - (live?.stepAt ?? now)) / 1000
+                                  )
+                                })}
+                              </span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+              {(live || shownOutgoing) &&
+                !live?.tool &&
+                lastLive?.kind !== 'text' && (
+                  <div
+                    className={
+                      liveItems.length
+                        ? 'assistant-card-row'
+                        : 'assistant-reply'
+                    }
+                  >
+                    {!liveItems.length && avatar}
+                    <div className="assistant-reply-body">
                       <div className="assistant-typing">
                         <span />
                         <span />
                         <span />
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               {stoppedEarly && !live && (
                 <p className="assistant-note">{t('stoppedSteps')}</p>
               )}

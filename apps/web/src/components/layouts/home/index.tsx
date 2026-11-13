@@ -1,4 +1,5 @@
 import {
+  Fragment,
   JSXElementConstructor,
   ReactElement,
   useEffect,
@@ -18,11 +19,7 @@ import {
   Menu,
   Close,
   HomeFilled,
-  ChatOutlined,
   HomeOutlined,
-  EmojiObjects,
-  EmojiObjectsOutlined,
-  Chat,
   Settings,
   CameraAltOutlined,
   Google,
@@ -38,7 +35,9 @@ import {
   Storage,
   StorageOutlined,
   AutoAwesome,
-  AutoAwesomeOutlined
+  AutoAwesomeOutlined,
+  LibraryBooks,
+  LibraryBooksOutlined
 } from '@mui/icons-material';
 
 import {
@@ -83,7 +82,15 @@ interface SwitcherOrganization {
   projects?: SwitcherProject[];
 }
 
-const ASSISTANT_PATH = '/organization/[id]/project/[projectId]/assistant';
+const PROJECT_PATH = '/organization/[id]/project/[projectId]';
+
+interface NavItem {
+  label: string;
+  section: string | null;
+  pages: string[];
+  Icon: typeof HomeOutlined;
+  ActiveIcon: typeof HomeOutlined;
+}
 
 type HomePage = ReactElement<unknown, string | JSXElementConstructor<any>>;
 
@@ -166,6 +173,90 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
     setMobileMenuClicked(false);
     router.push(projectBase);
   };
+
+  // Knowledge holds resources and prompts as two tabs, so it stays lit on
+  // both pages. The groups: build, what the bot has, where it answers.
+  const navGroups: NavItem[][] = [
+    [
+      {
+        label: t('home'),
+        section: null,
+        pages: [''],
+        Icon: HomeOutlined,
+        ActiveIcon: HomeFilled
+      },
+      ...(showAssistant
+        ? [
+            {
+              label: t('assistant'),
+              section: 'assistant',
+              pages: ['/assistant'],
+              Icon: AutoAwesomeOutlined,
+              ActiveIcon: AutoAwesome
+            }
+          ]
+        : [])
+    ],
+    [
+      {
+        label: t('knowledge'),
+        section: 'resources',
+        pages: ['/resources', '/prompts'],
+        Icon: LibraryBooksOutlined,
+        ActiveIcon: LibraryBooks
+      },
+      {
+        label: t('data'),
+        section: 'data',
+        pages: ['/data'],
+        Icon: StorageOutlined,
+        ActiveIcon: Storage
+      },
+      {
+        label: t('tools'),
+        section: 'tools',
+        pages: ['/tools'],
+        Icon: SettingsOutlined,
+        ActiveIcon: Settings
+      }
+    ],
+    [
+      {
+        label: t('channels'),
+        section: 'channels',
+        pages: ['/channels'],
+        Icon: ForumOutlined,
+        ActiveIcon: Forum
+      }
+    ]
+  ];
+
+  const projectNav = (place: 'rail' | 'menu') =>
+    navGroups.map((group, groupIndex) => (
+      <Fragment key={group[0].label}>
+        {groupIndex > 0 && <span className={`${place}-divider`} />}
+        {group.map(({ label, section, pages, Icon, ActiveIcon }) => {
+          const active = pages.some(page => pathname === PROJECT_PATH + page);
+          return (
+            <UI.Button
+              key={label}
+              fullWidth
+              className={active ? 'active' : ''}
+              onClick={() =>
+                section ? goToProjectSection(section) : goToProjectHome()
+              }
+            >
+              {active ? <ActiveIcon /> : <Icon />}
+              <span
+                className={`button-text${place === 'rail' && label.length > 10 ? ' is-long' : ''}`}
+              >
+                {label}
+              </span>
+            </UI.Button>
+          );
+        })}
+      </Fragment>
+    ));
 
   useEffect(() => {
     if (currentOrgId && !currentProjectId && organizations === null) {
@@ -582,124 +673,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
                   <AppsOutlined />
                   <span className="button-text">{t('organizations')}</span>
                 </UI.Button>
-                <UI.Button
-                  fullWidth
-                  className={
-                    pathname === '/organization/[id]/project/[projectId]'
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={goToProjectHome}
-                >
-                  {pathname === '/organization/[id]/project/[projectId]' ? (
-                    <HomeFilled />
-                  ) : (
-                    <HomeOutlined />
-                  )}
-                  <span className="button-text">{t('home')}</span>
-                </UI.Button>
-                {showAssistant && (
-                  <UI.Button
-                    fullWidth
-                    className={pathname === ASSISTANT_PATH ? 'active' : ''}
-                    onClick={() => goToProjectSection('assistant')}
-                  >
-                    {pathname === ASSISTANT_PATH ? (
-                      <AutoAwesome />
-                    ) : (
-                      <AutoAwesomeOutlined />
-                    )}
-                    <span className="button-text">{t('assistant')}</span>
-                  </UI.Button>
-                )}
-                <UI.Button
-                  fullWidth
-                  className={
-                    pathname ===
-                    '/organization/[id]/project/[projectId]/prompts'
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={() => goToProjectSection('prompts')}
-                >
-                  {pathname ===
-                  '/organization/[id]/project/[projectId]/prompts' ? (
-                    <EmojiObjects />
-                  ) : (
-                    <EmojiObjectsOutlined />
-                  )}
-                  <span className="button-text">{t('prompts')}</span>
-                </UI.Button>
-                <UI.Button
-                  fullWidth
-                  className={
-                    pathname ===
-                    '/organization/[id]/project/[projectId]/resources'
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={() => goToProjectSection('resources')}
-                >
-                  {pathname ===
-                  '/organization/[id]/project/[projectId]/resources' ? (
-                    <Chat />
-                  ) : (
-                    <ChatOutlined />
-                  )}
-                  <span className="button-text">{t('resources')}</span>
-                </UI.Button>
-                <UI.Button
-                  fullWidth
-                  className={
-                    pathname === '/organization/[id]/project/[projectId]/data'
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={() => goToProjectSection('data')}
-                >
-                  {pathname ===
-                  '/organization/[id]/project/[projectId]/data' ? (
-                    <Storage />
-                  ) : (
-                    <StorageOutlined />
-                  )}
-                  <span className="button-text">{t('data')}</span>
-                </UI.Button>
-                <UI.Button
-                  fullWidth
-                  className={
-                    pathname === '/organization/[id]/project/[projectId]/tools'
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={() => goToProjectSection('tools')}
-                >
-                  {pathname ===
-                  '/organization/[id]/project/[projectId]/tools' ? (
-                    <Settings />
-                  ) : (
-                    <SettingsOutlined />
-                  )}
-                  <span className="button-text">{t('tools')}</span>
-                </UI.Button>
-                <UI.Button
-                  fullWidth
-                  className={
-                    pathname ===
-                    '/organization/[id]/project/[projectId]/channels'
-                      ? 'active'
-                      : ''
-                  }
-                  onClick={() => goToProjectSection('channels')}
-                >
-                  {pathname ===
-                  '/organization/[id]/project/[projectId]/channels' ? (
-                    <Forum />
-                  ) : (
-                    <ForumOutlined />
-                  )}
-                  <span className="button-text">{t('channels')}</span>
-                </UI.Button>
+                {projectNav('menu')}
               </div>
               <div className="options-down">
                 <UI.Button fullWidth onClick={handleProfileOpen}>
@@ -743,120 +717,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               <AppsOutlined />
             </div>
           </Tooltip>
-          <div className="sub-navbar-options">
-            <UI.Button
-              fullWidth
-              className={
-                pathname === '/organization/[id]/project/[projectId]'
-                  ? 'active'
-                  : ''
-              }
-              onClick={goToProjectHome}
-            >
-              {pathname === '/organization/[id]/project/[projectId]' ? (
-                <HomeFilled />
-              ) : (
-                <HomeOutlined />
-              )}
-              <span className="button-text">{t('home')}</span>
-            </UI.Button>
-            {showAssistant && (
-              <UI.Button
-                fullWidth
-                className={pathname === ASSISTANT_PATH ? 'active' : ''}
-                onClick={() => goToProjectSection('assistant')}
-              >
-                {pathname === ASSISTANT_PATH ? (
-                  <AutoAwesome />
-                ) : (
-                  <AutoAwesomeOutlined />
-                )}
-                <span className="button-text">{t('assistant')}</span>
-              </UI.Button>
-            )}
-            <UI.Button
-              fullWidth
-              className={
-                pathname === '/organization/[id]/project/[projectId]/prompts'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() => goToProjectSection('prompts')}
-            >
-              {pathname === '/organization/[id]/project/[projectId]/prompts' ? (
-                <EmojiObjects />
-              ) : (
-                <EmojiObjectsOutlined />
-              )}
-              <span className="button-text">{t('prompts')}</span>
-            </UI.Button>
-            <UI.Button
-              fullWidth
-              className={
-                pathname === '/organization/[id]/project/[projectId]/resources'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() => goToProjectSection('resources')}
-            >
-              {pathname ===
-              '/organization/[id]/project/[projectId]/resources' ? (
-                <Chat />
-              ) : (
-                <ChatOutlined />
-              )}
-              <span className="button-text">{t('resources')}</span>
-            </UI.Button>
-            <UI.Button
-              fullWidth
-              className={
-                pathname === '/organization/[id]/project/[projectId]/data'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() => goToProjectSection('data')}
-            >
-              {pathname === '/organization/[id]/project/[projectId]/data' ? (
-                <Storage />
-              ) : (
-                <StorageOutlined />
-              )}
-              <span className="button-text">{t('data')}</span>
-            </UI.Button>
-            <UI.Button
-              fullWidth
-              className={
-                pathname === '/organization/[id]/project/[projectId]/tools'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() => goToProjectSection('tools')}
-            >
-              {pathname === '/organization/[id]/project/[projectId]/tools' ? (
-                <Settings />
-              ) : (
-                <SettingsOutlined />
-              )}
-              <span className="button-text">{t('tools')}</span>
-            </UI.Button>
-            <UI.Button
-              fullWidth
-              className={
-                pathname === '/organization/[id]/project/[projectId]/channels'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() => goToProjectSection('channels')}
-            >
-              {pathname ===
-              '/organization/[id]/project/[projectId]/channels' ? (
-                <Forum />
-              ) : (
-                <ForumOutlined />
-              )}
-              <span className="button-text">{t('channels')}</span>
-            </UI.Button>
-          </div>
+          <div className="sub-navbar-options">{projectNav('rail')}</div>
           <div
             className="sub-navbar-user"
             role="button"

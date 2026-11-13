@@ -2,7 +2,7 @@
 title: Prompts
 description: Build reusable, multi-turn prompt templates with typed variables — each becomes a slash command in your linked chat channels.
 order: 2
-updated: 2026-07-07
+updated: 2026-11-13
 ---
 
 **Prompts** are reusable message templates your project exposes through its MCP
@@ -30,8 +30,8 @@ is filled in when the prompt runs.
 
 ## Create a prompt
 
-Open the **Prompts** page and select **New prompt**. A panel opens on the right
-with empty **Title**, **Description**, and **Messages** fields.
+Open **Knowledge** in the sidebar, then the **Prompts** tab, and select **New
+prompt**. A panel opens on the right with empty **Title**, **Description**, and **Messages** fields.
 
 ![The Prompts page showing the empty state, with the New Prompt panel open and blank Title, Description, and Messages fields](/images/new-prompt.webp)
 
