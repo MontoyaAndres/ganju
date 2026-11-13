@@ -1,253 +1,276 @@
 ---
 title: Funciones
-description: Escribe tus propias herramientas en JavaScript — declara una función, edítala en el navegador o despliégala desde el CLI, pruébala antes de que nadie la vea y vuelve atrás cuando lo necesites.
+description: Tus propias herramientas en código — el Asistente las escribe por ti, los desarrolladores las despliegan con la CLI, y la página Herramientas muestra lo que está en vivo, te deja probarlo y volver atrás.
 order: 36
-updated: 2026-09-05
+updated: 2026-11-13
 ---
 
-Las **funciones** son herramientas que escribes tú. El catálogo es una
-suposición finita sobre lo que necesitas; una función es la salida de emergencia
-— lógica de varios pasos, una transformación, una llamada a tu propia API
-combinada con una credencial, cualquier cosa que no sea una sola petición HTTP ni
-una integración que nosotros traigamos.
+Las **funciones** son herramientas escritas en código. En la app se llaman
+**acciones**: "revisar si queda una pizza", "guardar una reserva", "enviarme
+por correo cada pedido nuevo". Una función es la forma de hacer cualquier cosa
+que no sea una sola petición HTTP ni una integración que ya ofrecemos: varios
+pasos, lógica, una llamada a tu propia API con una clave, leer y escribir la
+[base de datos](/es/docs/data/) del proyecto.
 
 Tu código corre en el edge de Cloudflare, en un isolate que desplegamos por ti.
-No hay servidor que administrar, contenedor que construir ni pipeline que armar.
-Las cuentas conectadas y el envío de archivos de la plataforma llegan como
-**capacidades del anfitrión**, así que tu código nunca toca un refresh token ni
-un adjunto de 40MB.
+No hay servidor que mantener ni pipeline que armar. Las cuentas conectadas, el
+envío de archivos, la base de datos y tus canales le llegan al código como
+**capacidades del host**, así que nunca maneja un refresh token ni un adjunto
+de 40 MB.
 
-> Las funciones son una característica **Pro**. En Free la pestaña muestra lo que
-> te daría y te apunta a los [endpoints HTTP](/es/docs/tools/http-endpoints/), que
-> no requieren código.
+> Las funciones son parte de **Pro** y **Enterprise**. En Free, la pestaña
+> Funciones muestra **Escribe tus propias herramientas** con **Cambiar a Pro**,
+> y los [Endpoints HTTP](/es/docs/tools/http-endpoints/) son la herramienta
+> personalizada que no necesita código.
 
-## La pestaña
+![La pestaña Funciones en el plan Free: "Escribe tus propias herramientas" con un ejemplo de código y Mejorar a Pro](/images/tools-functions-free.webp)
 
-Todo lo de una función vive en una sola pestaña: declararla, editarla, probarla,
-desplegarla y volver a una versión que funcionaba.
+## Quién las escribe
 
-![La página de Herramientas en la pestaña Functions, vacía, con New function, Settings, Save draft y Deploy](/images/new-function.webp)
+Nadie escribe código en la app. Las funciones de un proyecto vienen de uno de
+dos lugares:
 
-Cuatro controles cruzan la parte superior, y se quedan en ese orden conforme
-crece el script:
+- **El [Asistente](/es/docs/assistant/).** El dueño describe lo que debe hacer
+  el bot, y el Asistente escribe la función, la prueba y la activa cuando el
+  dueño presiona **Aplicar**. Así obtienen sus acciones la mayoría de los
+  proyectos.
+- **Un desarrollador con la [CLI `ganju`](/es/docs/tools/cli/).** Las funciones
+  viven en un repositorio, y `ganju deploy` las sube.
 
-- **Settings** — qué puede alcanzar tu código: conexiones, secretos, hosts
-  permitidos, timeout y acceso a recursos.
-- **New function** — declarar una herramienta.
-- **Save draft** — guardar tu código como una versión nueva. Nadie la ve.
-- **Deploy** — publicar la versión abierta. *Esto* es lo que cambia lo que tus
-  clientes MCP y tus canales pueden llamar.
+Los dos escriben en las mismas versiones, así que la página **Herramientas**,
+`ganju versions` y el Asistente siempre coinciden en lo que está en vivo.
+Cuando un desarrollador despliega, el Asistente deja de escribir código para
+ese proyecto: responde a un cambio de código con un parche para el
+desarrollador. Cuando el Asistente cambió las funciones después del último
+despliegue del desarrollador, `ganju deploy` avisa antes de reemplazarlas.
 
-Guardar y exponer son actos distintos, que es justamente para lo que hay dos
-botones. `⌘S` guarda un borrador.
+## La pestaña Funciones
 
-## Declarar una función
+**Herramientas → Funciones** muestra las funciones
+del proyecto: lo que está en vivo, cada versión anterior y el código, solo para
+leer.
 
-Elige **New function** y describe la herramienta tal como la verá el modelo.
+![La pestaña Funciones: el recuadro con "Abrir el asistente", el selector de versión, los datos de la versión y las funciones con sus interruptores y Ejecutar](/images/functions-assistant-readonly.webp)
 
-![El diálogo New function con nombre, título, descripción, esquema de entrada y esquema de salida opcional](/images/new-function-modal.webp)
+Arriba:
+
+- **Versión**, un selector con cada versión (`v14 · en vivo`,
+  `v13 · publicada`, `v12 · borrador`). Elige una y se abren sus funciones y su
+  código.
+- **Revertir a v13**, solo en proyectos sin el Asistente: aparece cuando la
+  versión abierta estuvo en vivo antes pero ya no lo está, y la vuelve a poner.
+  Donde el Asistente escribe las acciones, pídele a él que vuelva atrás.
+- **Ajustes**, a qué puede llegar el código. Mira [Ajustes](#ajustes).
+
+Cuando el Asistente escribe las funciones del proyecto, un recuadro lo dice:
+**Tus acciones las escribe el asistente. Aquí puedes leerlas; para agregar o
+cambiar una, pídeselo.**, con **Abrir el asistente**. Un proyecto que aún no
+tiene funciones muestra el mismo botón.
+
+Debajo, una fila describe la versión abierta: **Versión**, **Estado**
+(`en vivo`, `publicada`, `borrador` o `archivada`), cuántas **Funciones**
+tiene, su **Origen**, y cuándo fue **Creada** y **Publicada**. El origen es
+uno de estos:
+
+| Origen | De dónde vino |
+| --- | --- |
+| **Editor del panel** | Escrita en la app, por el Asistente. |
+| **CLI (código fuente)** | Desplegada con la CLI, con su código legible. La página muestra tus archivos. |
+| **Bundle del CLI** | Desplegada con la CLI sin su código. La página muestra el bundle compilado. |
+
+Una versión que no se pudo publicar muestra su error en un aviso.
+
+### Cada función
+
+Cada función es una fila con su título, su descripción, su nombre, cuántas
+entradas recibe y etiquetas: **salida estructurada** cuando declara un esquema
+de salida, y **Solo disparadores** cuando solo la ejecutan los disparadores de
+la base de datos.
+
+- El **interruptor** (en la versión en vivo) decide si el servidor ofrece la
+  función, **sin volver a desplegar**. Apagar una conserva su código y acorta la
+  lista de herramientas que el modelo lee en cada turno. Al menos una tiene que
+  quedar encendida.
+- **Ejecutar** expande la función y la ejecuta con su entrada de ejemplo. Mira
+  [Pruébala antes de que alguien la vea](#pruébala-antes-de-que-alguien-la-vea).
+- Al expandir la fila se ven su **Esquema de entrada** y su **Esquema de
+  salida**.
+
+### El código
+
+Debajo de las funciones está el código de la versión abierta, marcado **solo
+lectura**, con un explorador de archivos al lado. `index.js` es la entrada que
+llama la plataforma, y `ganju-sdk.js` aparece atenuado como **adjunto**: la
+plataforma lo agrega a cada despliegue. Una versión de la CLI con su código
+muestra los archivos de tu proyecto, con una nota de que se cambia en el
+proyecto, con `ganju deploy`.
+
+## Cómo es una función
+
+Un proyecto es un solo script con todas sus funciones. El módulo de entrada
+exporta un router, y cada función es un handler asíncrono que recibe los
+argumentos del modelo y un `ctx`:
+
+```js
+import { createHandler, defineTool } from './ganju-sdk.js';
+
+const checkStock = async (input, ctx) => {
+  const { rows } = await ctx.data.query({
+    table: 'stock',
+    where: { pizza: input.pizza }
+  });
+  return { pizza: input.pizza, left: rows[0]?.quantity ?? 0 };
+};
+
+export default createHandler({ 'check-stock': defineTool(checkStock) });
+```
+
+Junto al código, cada versión lleva un **manifiesto** que declara cada función
+como la ve el modelo:
 
 | Campo | Para qué sirve |
 | --- | --- |
-| **Name** | Lo que el modelo llama, p. ej. `lookup-order`. Se vuelve el nombre de la herramienta MCP *y* la llave en tu handler — renombrarlo aquí renombra también esa llave en tu código. |
-| **Title** | La etiqueta legible para personas. |
-| **Description** | Cómo decide el modelo si debe llamarla. Di **cuándo** usarla, no solo qué hace — es el campo con más peso del formulario. |
-| **Input schema** | JSON Schema. Cada propiedad que declare se le ofrece al modelo como argumento. |
-| **Output schema** | Opcional. Si declaras uno, tu herramienta debe devolver un objeto que lo cumpla; el cliente MCP recibe entonces salida estructurada en vez de texto. |
+| **name** | Lo que llama el modelo, p. ej. `check-stock`. Debe ser una clave del router. |
+| **title** | La etiqueta legible. |
+| **description** | Cómo decide el modelo si llamarla. Dice **cuándo** usarla ("Úsala cuando un cliente pregunte si hay una pizza"). |
+| **input schema** | JSON Schema. Cada propiedad se le ofrece al modelo como argumento. |
+| **output schema** | Opcional. Con uno, la función debe devolver un objeto que coincida, y los clientes MCP reciben salida estructurada en vez de texto. |
+| **annotations** | Qué hace: solo lee, cambia cosas que se pueden deshacer, o envía, borra, cobra o no se puede deshacer. Decide qué confirma primero un bot de canal. |
+| **data** | Lo que puede hacer con la base de datos: leer o escribir, y en qué tablas. |
+| **expose** | Apagado: solo la ejecutan los disparadores, y no cuenta para las herramientas del proyecto. |
+| **channels** | Encendido: puede escribir a clientes y chats con `ctx.channels`. |
 
-Ambos campos de esquema son editores de verdad con validación de JSON Schema, así
-que una comilla faltante o un `"type": "date"` se subraya donde está en lugar de
-volver como un error después de guardar.
-
-**Agregar la función escribe el esqueleto del handler por ti.** El nombre de la
-herramienta y la llave del handler son dos formas de escribir lo mismo, y que se
-desalineen es un despliegue que falla en cada llamada — así que el diálogo
-escribe los dos:
-
-```js
-/** @type {import('./ganju-sdk.js').ToolHandler<{ orderId: string }>} */
-const lookupOrder = async (input, ctx) => {
-  ctx.log('lookup-order called');
-  return { ok: true };
-};
-
-export default createHandler({
-  'lookup-order': defineTool(lookupOrder)
-});
-```
-
-El tipo de `input` se genera del esquema que acabas de declarar, así que
-`input.orderId` autocompleta y una propiedad que nadie declaró no.
-
-## El editor
-
-El editor es Monaco — el mismo sobre el que está construido VS Code — servido
-desde este sitio y no desde un CDN, y cargado solo cuando ya hay algo que editar.
-
-`ctx` autocompleta desde las declaraciones de tipos reales del SDK, así que pasar
-el cursor sobre un método muestra la misma documentación que verías en un editor
-local. Una pasada de marcadores señala cosas que existen en un navegador pero no
-en un Worker (`localStorage`, `process`, `require`), además de `eval` y cualquier
-import que no sea uno de tus propios archivos — cada uno con su razón y con la
-alternativa.
-
-**El archivo que escribes se despliega exactamente como lo tecleaste.** No hay
-paso de compilación entre el cuadro de texto y el Worker en ejecución, y por eso
-el lenguaje es JavaScript: las anotaciones de tipo llegarían al runtime como
-errores de sintaxis. La *verificación* de tipos sigue corriendo, contra los tipos
-del SDK y el JSDoc que escribas.
-
-Un script es un conjunto de archivos. El explorador junto al editor es el
-proyecto completo — crear carpetas, renombrar, borrar, navegar con las flechas.
-Dos archivos son especiales: `index.js` es el módulo que llamamos y no se puede
-renombrar ni borrar, y `ganju-sdk.js` va adjunto en cada despliegue y se muestra
-atenuado, porque es parte de la respuesta honesta a "qué hay en mi script".
+El código que escribe el Asistente son módulos de JavaScript simples, sin paso
+de compilación ni paquetes de npm, con máximo 25 archivos. Un desarrollador que
+despliega con la CLI puede usar TypeScript y paquetes, porque la CLI los
+empaqueta. Los campos de `ganju.json` para todo lo anterior están en la
+[referencia de la CLI](/es/docs/tools/cli/#cada-herramienta).
 
 ## Qué puede hacer tu código
 
-Cada handler recibe los argumentos del modelo y un objeto `ctx`:
-
 | Miembro de `ctx` | Qué te da |
 | --- | --- |
-| `ctx.connection(provider)` | Un access token de vida corta para una cuenta conectada. Nunca el refresh token — esos se quedan del lado del servidor. |
-| `ctx.secret(name)` | Una llave de API que guardaste en Settings, resuelta al momento de la llamada. |
-| `ctx.resources.search / read / list` | La misma base de conocimiento desde la que responde tu asistente. |
-| `ctx.resources.create / delete` | Escribir un archivo o una nota de vuelta en el proyecto. No es buscable a menos que lo pidas con `index: true`. |
-| `ctx.sendFile(opts)` | Enviar un recurso como adjunto real por Gmail, Outlook o Slack. Los bytes nunca pasan por tu código. |
-| `ctx.log(...)` | Aparece en el panel de pruebas y en `ganju logs`. |
-| `fetch` | El global que ya conoces, filtrado a la salida. |
+| `ctx.connection(provider)` | Un token de acceso de corta duración para una cuenta conectada, p. ej. `google-calendar`. Nunca el refresh token. |
+| `ctx.secret(name)` | Una clave guardada en **Ajustes** o con `ganju secret set`, leída al momento de la llamada. |
+| `ctx.resources.search / read / list` | El mismo conocimiento con el que responde tu bot. |
+| `ctx.resources.create / delete` | Escribe un archivo o una nota en el proyecto, o quita uno. No se puede buscar salvo que se cree con `index: true`. |
+| `ctx.sendFile(options)` | Envía por correo o publica archivos guardados como adjuntos reales, con Gmail, Outlook o Slack (hasta 10 por llamada). Los bytes nunca pasan por tu código. |
+| `ctx.data` | La base de datos del proyecto: `describe`, `query`, `search`, `insert`, `update`, `delete`, `write` (todo o nada) y `run` (una consulta guardada). |
+| `ctx.channels` | Escribe a un cliente con el que habló el bot (`send`), publica en un chat donde está el bot (`post`) y lista las plantillas de WhatsApp aprobadas (`templates`). |
+| `ctx.log(...)` | Líneas que se ven en el panel de prueba, en los logs que lee el Asistente y en `ganju logs`. |
+| `fetch` | El global que ya conoces, revisado a la salida. |
 
-`ctx.sendFile` es lo único que tu código genuinamente no podría hacer solo: un
-Worker está limitado a 128MB y no tiene camino al almacenamiento, así que los
-adjuntos grandes y las subidas siguen siendo una capacidad de la plataforma en
-lugar de algo que reimplementas.
+`ctx.data` y `ctx.channels` se explican en
+[Datos desde funciones](/es/docs/data/functions/), junto con las funciones que
+solo ejecutan los disparadores.
 
-## Settings
+`ctx.sendFile` es lo que tu código no podría hacer solo: la memoria de una
+función es limitada, así que la plataforma envía los adjuntos grandes desde el
+almacenamiento. `ctx.resources.create` recibe hasta 1 MB de texto o 10 MB de
+bytes de archivo.
 
-**Settings** es qué puede alcanzar tu código y cuánto puede gastar haciéndolo.
-Nada de esto vive en tu código, a propósito — un límite que el código puede
-ampliar no es un límite.
+## Ajustes
 
-![El diálogo Function settings con conexiones, secretos, hosts permitidos, timeout y acceso a recursos](/images/function-settings.webp)
+**Ajustes** abre **Ajustes de las funciones**: a qué puede llegar el código, y
+cuánto puede gastar al hacerlo. Nada de esto vive en el código, a propósito: un
+límite que el código pudiera ampliar no sería un límite. Se pueden cambiar
+aquí, y un desarrollador pone los mismos valores en `ganju.json`; un cambio en
+un lugar se ve en el otro.
 
-- **Connections** — los proveedores a los que este script puede pedir un token, y
-  como los que puede enviar archivos. Lo que no esté encendido aquí se rechaza en
-  tiempo de ejecución. Declarar un proveedor que aún no conectas está permitido:
-  la llamada falla con un mensaje que lo dice, en lugar de que la herramienta
-  falle al desplegar.
-- **Secrets** — los valores que lee `ctx.secret()`. Cifrados en reposo, resueltos
-  a través del broker en cada llamada y nunca devueltos al navegador. Cambiar uno
-  surte efecto en la siguiente llamada, sin volver a desplegar.
-- **Allowed hosts** — una lista separada por comas para las peticiones salientes.
-  **Vacío significa cualquier host público**, no ninguno. Las direcciones privadas
-  y de loopback siempre están bloqueadas, diga lo que diga este campo.
-- **Timeout** — cuánto puede durar una llamada. Por defecto 10.000ms, con tope de
-  30.000.
-- **Resource access** — hasta dónde llegan `ctx.resources.create` y `.delete`.
-  *Solo lo que esta herramienta escribió* es el valor por defecto y el piso
-  seguro; el otro deja que la herramienta reemplace y elimine también recursos
-  subidos y rastreados, que es lo que de verdad necesita una herramienta cuyo
-  trabajo es limpiar un crawl viejo.
+![El diálogo de configuración de funciones: Conexiones con su estado y luego Secretos](/images/function-settings-live.webp)
 
-Las dos mitades guardan distinto, y se nota. Las capacidades se guardan juntas
-detrás de un botón; un secreto actúa en el momento en que lo agregas o lo quitas,
-porque eso es lo que realmente pasa.
+- **Conexiones**: las cuentas para las que el código puede pedir un token y
+  enviar archivos. Cada una muestra si está **Conectado**, **Requiere volver a
+  autorizar** o **Sin conectar**. Lo que no está encendido se rechaza cuando la
+  función corre. Puedes encender una que aún no conectaste: la llamada falla
+  con un mensaje que lo dice.
+- **Secretos**: los valores que lee `ctx.secret()`. Cifrados, leídos en cada
+  llamada y nunca devueltos al navegador. Agregar o quitar uno aplica desde la
+  siguiente llamada, sin volver a desplegar. El Asistente pide los que necesita
+  con una tarjeta donde pegas la clave.
+- **Hosts permitidos**: una lista separada por comas para las peticiones
+  salientes. **Vacía significa cualquier host público**, no ninguno. Las
+  direcciones privadas y de loopback siempre están bloqueadas.
+- **Tiempo límite (ms)**: cuánto puede tardar una llamada. Por defecto 10.000,
+  máximo 30.000.
+- **Acceso a recursos**: hasta dónde llegan `ctx.resources.create` y `.delete`.
+  **Solo lo que escribió esta herramienta** es el valor por defecto y el
+  seguro; **Todos los recursos de este proyecto** deja que una función
+  reemplace y quite también los recursos subidos y rastreados.
 
-## Probar antes de que nadie la vea
+Conexiones, hosts, tiempo límite y acceso a recursos se guardan juntos con
+**Guardar**; un secreto aplica en cuanto lo agregas o lo quitas.
 
-Cada fila de función se expande a sus esquemas y a un botón **Run**.
+## Pruébala antes de que alguien la vea
 
-![Una función expandida con sus esquemas de entrada y salida, un campo de entrada de ejemplo y un botón Run](/images/functions-test.webp)
+Expande una función y usa **Ejecutar** con una **Entrada de ejemplo**.
 
-Una ejecución de prueba despliega la versión en un script de vista previa al que
-nada despacha, lo llama una vez y lo borra. Eso significa que corre **la cosa
-real** — conexiones reales, secretos reales, reglas de salida reales — mientras tu
-versión en vivo sigue atendiendo clientes todo el tiempo.
+![Una función expandida con sus esquemas de entrada y salida, un campo de entrada de ejemplo, Format y Run](/images/functions-test.webp)
 
-Recibes de vuelta la salida, tus líneas de `ctx.log`, el error si lo hubo y
-cuánto tardó. La entrada de ejemplo se valida contra tu propio esquema de entrada
-antes de correr, y el resultado contra tu esquema de salida después, porque esas
-son exactamente las dos maneras en que falla una llamada real.
+Una prueba ejecuta la versión abierta una vez en un script de vista previa que
+nada más llama, y lo borra. Es decir, corre **lo de verdad** (conexiones,
+secretos y reglas de salida reales) mientras tu versión en vivo sigue
+atendiendo a los clientes. Una función que envía un correo o guarda una fila lo
+hace de verdad.
 
-Las ejecuciones de prueba cuentan para tus llamadas mensuales, igual que
-cualquier otra llamada a tu código.
+Recibes la salida, las líneas de `ctx.log`, el error si lo hubo y cuánto tardó.
+La entrada de ejemplo se revisa contra el esquema de entrada antes de correr, y
+el resultado contra el esquema de salida después, porque esas son las dos
+formas en que falla una llamada real.
 
-## Versiones, despliegue y rollback
+El Asistente prueba de la misma forma mientras construye, y los desarrolladores
+usan [`ganju test`](/es/docs/tools/cli/#pruebas). Las pruebas cuentan para tus
+llamadas a herramientas del mes.
 
-Una versión es la unidad de **código y contrato** a la vez: los nombres de
-herramienta que ven tus clientes salen de esa fila, no del script en ejecución.
-Eso es lo que hace seguro el rollback — volver atrás se lleva también los
-esquemas.
+## Versiones, activar y volver atrás
 
-![Un script desplegado con cuatro funciones, un selector de versión con v21 en vivo y un bundle de CLI en solo lectura](/images/functions-existing.webp)
+Una versión es la unidad tanto del **código como del contrato**: los nombres de
+herramientas que ven tus clientes vienen de la versión, no del script que
+corre, así que volver atrás trae los esquemas junto con el código.
 
-El encabezado dice qué versión está abierta, su estado, cuántas funciones tiene,
-si el código vino del editor o del CLI, y cuándo se creó y se publicó. El
-historial es un **selector**, no una lista — eliges cualquier versión y se abre su
-código. Deploy publica lo que está abierto; una versión publicada que no es la
-que está en vivo ofrece **Roll back** en su lugar.
+- El Asistente guarda **borradores** mientras trabaja. Nadie ve un borrador.
+  Activa uno con un conjunto de cambios, que entra en vivo cuando el dueño
+  presiona **Aplicar**, y **Deshacer** en esa tarjeta vuelve atrás.
+- Pídele al Asistente que vuelva atrás ("deja las acciones como estaban ayer")
+  y busca la versión que estaba en vivo entonces y la prepara, diciendo qué
+  acciones agregadas después se irían.
+- Un desarrollador publica con `ganju deploy` y vuelve atrás con
+  `ganju rollback`.
 
-Cada fila de función lleva además un interruptor. Apagar una reduce lo que expone
-el servidor **sin volver a desplegar** — útil cuando una lista larga de
-herramientas te está costando tokens en cada llamada al modelo — y tu código
-queda intacto. El manifiesto es lo que tu código *puede* hacer; los interruptores
-son lo que el servidor ofrece ahora mismo.
-
-Una versión subida desde el CLI es un bundle compilado, así que el editor la
-muestra en solo lectura en lugar de invitarte a sobrescribir una compilación real
-con el contenido de un cuadro de texto. Igual puedes leerla, e igual puedes hacer
-rollback a ella.
-
-## CLI
-
-Todo lo anterior tiene su equivalente en terminal. `ganju` es un cliente de los
-mismos endpoints que usa el panel — no una segunda puerta de escritura — así que
-ambos escriben en las mismas filas y elegir entre ellos es una decisión sobre
-dónde viven tus herramientas, no sobre lo que pueden hacer. Úsala cuando tus
-herramientas pertenecen a un repositorio, a un code review y a un pipeline.
-
-```bash
-npm install -g @ganju/cli
-
-ganju init my-tools
-cd my-tools
-ganju login          # abre tu navegador, inicia sesión en esta máquina
-ganju link           # apunta el proyecto a una organización y un proyecto
-ganju deploy         # compila, sube y publica
-```
-
-Un proyecto es un `ganju.json` — las herramientas que expone más los cuatro
-ajustes que escribe el diálogo **Settings**, para que el código y los permisos que
-necesita se revisen juntos — y un archivo de handler por herramienta.
-`ganju test`, `ganju logs`, `ganju versions` y `ganju rollback` hacen desde una
-terminal lo que hacen arriba los paneles en el navegador, y `ganju token create`
-genera una credencial con la que CI puede desplegar.
-
-Una subida desde el CLI es un bundle compilado, y por eso el panel la muestra en
-solo lectura en vez de invitarte a sobrescribir una compilación real con el
-contenido de un cuadro de texto. Igual puedes leerla ahí, e igual puedes hacer
-rollback a ella.
-
-**→ [`ganju` CLI](/es/docs/tools/cli/)** — instalación, todos los comandos,
-`ganju.json`, las dos formas de router, secretos, inicio de sesión y despliegue
-desde CI.
+**Publicada** y **en vivo** son distintas: toda versión que estuvo en vivo
+queda publicada, y exactamente una está en vivo.
 
 ## Límites y costo
 
-- **Por llamada**: 5 segundos de CPU, y tu timeout configurado como tope de reloj.
+- **Por llamada**: 5 segundos de CPU, y tu tiempo límite (máximo 30 segundos)
+  para toda la llamada. Un resultado de más de 256 KB se recorta.
 - **Por minuto**: 60 llamadas por herramienta.
-- **Por mes**: 1.000.000 de llamadas incluidas en Pro, y después $5 por millón.
-  Solo cuentan las llamadas a **tu propio código** — las integraciones que traemos
-  y los servidores MCP remotos que conectas siguen incluidas.
-- **Las peticiones salientes** se filtran: las direcciones privadas, de loopback y
-  link-local siempre se rechazan, y tu lista de hosts permitidos aplica encima.
+- **Por script**: hasta 50 funciones, y un bundle de 3 MB.
+- **Por mes**: 1.000.000 de llamadas a herramientas incluidas en Pro y
+  Enterprise, luego $5 por millón. Solo cuentan las llamadas a **tu propio
+  código**; las integraciones que ofrecemos y los servidores MCP remotos que
+  conectas no.
+- **Las peticiones salientes** se revisan: las direcciones privadas, de
+  loopback y link-local siempre se rechazan, y tus hosts permitidos aplican
+  además.
+
+## Cuando una función falla
+
+El Asistente vigila las funciones que construyó. Cuando una falla seguido, o
+una cuenta que usa necesita volver a iniciar sesión, la pestaña Asistente
+muestra **Algo dejó de funcionar**, y **Arreglarlo con el asistente** le pide
+leer los logs y proponer un arreglo. Mira
+[Cuando una acción deja de funcionar](/es/docs/assistant/#cuando-una-acción-deja-de-funcionar).
+Los desarrolladores leen las mismas llamadas con
+[`ganju logs`](/es/docs/tools/cli/#logs).
 
 ## Siguiente
 
-- **[`ganju` CLI](/es/docs/tools/cli/)** — el mismo trabajo desde una terminal,
-  y desde CI.
-- **[Ejemplos](/es/docs/tools/examples/)** — cinco proyectos listos para
-  desplegar, cada uno con una capacidad de `ctx`.
-- **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** — cuando una sola petición
-  es todo lo que necesitas, y sin código.
-- **[Catálogo](/es/docs/tools/catalog/)** — las integraciones que traemos.
+- **[Asistente](/es/docs/assistant/)**: construye y cambia funciones
+  describiéndolas.
+- **[CLI `ganju`](/es/docs/tools/cli/)**: despliégalas desde un repositorio y
+  desde CI.
+- **[Datos desde funciones](/es/docs/data/functions/)**: `ctx.data`,
+  `ctx.channels` y los disparadores.
+- **[Ejemplos](/es/docs/tools/examples/)**: siete proyectos listos para
+  desplegar.

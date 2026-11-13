@@ -646,7 +646,7 @@ export const TOOL_CATALOG = [
         key: 'custom-code',
         title: 'Custom code',
         description:
-          'Tools implemented by your own code. One script per artifact; names and schemas come from the published version.',
+          'Tools implemented by your own code. One script per project; names and schemas come from the published version.',
         requiredScopes: null,
         annotations: null
       }

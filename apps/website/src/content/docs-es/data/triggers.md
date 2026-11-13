@@ -1,8 +1,8 @@
 ---
 title: Disparadores y webhooks
-description: Ejecuta algo cuando cambian las filas de una tabla, un tiempo después de la fecha de una fila, o según una programación cada día o semana — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan la entrega, los reintentos y las firmas de los webhooks.
+description: Ejecuta algo cuando cambian las filas de una tabla o un tiempo después de la fecha de una fila — una función, un webhook firmado, un mensaje de chat, un correo o un mensaje al cliente — y cómo funcionan las pruebas, la entrega, los reintentos y las firmas de los webhooks.
 order: 57
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 Un **disparador** es una regla sobre una tabla: cuando se agrega, cambia o
@@ -12,48 +12,67 @@ le escribe al cliente; cada cambio en `bookings` llega a tu propio sistema como
 webhook.
 
 Los disparadores se activan con cada escritura, venga de donde venga: el
-asistente en un canal, el panel, la CLI, la API o una función. Una escritura
-que se deshace (porque falló una condición, por ejemplo) no activa nada.
+asistente en un canal, el panel, la CLI, la API, una función o una
+[sincronización con una hoja de cálculo](/es/docs/data/sheet-sync/). Una
+escritura que se deshace (porque falló una condición, por ejemplo) no activa
+nada.
 
 Un [disparador por tiempo](#disparadores-por-tiempo) se activa cuando pasa un
 tiempo, sin que nada se escriba: un pedido que sigue `pending` 30 minutos
 después de hecho, una reserva que nadie confirmó al mediodía del día anterior.
 
-Una [programación](#programaciones) corre según la hora, cada día o cada semana
-a una hora fija: "cada noche a las 9, envíame por correo los pedidos de hoy".
+Una [programación](/es/docs/data/schedules/) se ejecuta según el reloj, cada día
+o cada semana a una hora fija, sin tabla: "cada noche a las 9, envíame por
+correo los pedidos de hoy".
 
 ## Crear uno
 
 Abre una tabla en la página de **Datos**, luego su pestaña **Disparadores**, y
 haz clic en **Nuevo disparador**:
 
-1. **Cuando**: se agrega una fila, cambia una fila, se elimina una fila o
-   [pasa un tiempo](#disparadores-por-tiempo).
-2. **Solo si**: opcional. Una columna y una prueba, como `status` **cambia a**
-   `ready`. **Avanzado (JSON)** acepta cualquier [condición](#condiciones).
-3. **Entonces**: la [acción](#acciones).
-4. **Ejecuciones por minuto**: 60 por defecto, hasta 600. Pasado ese número,
+1. **Nombre** y **Descripción**: opcionales. Un nombre lleva minúsculas,
+   dígitos, `_` y `-`, y empieza con una letra; si lo dejas vacío, se crea uno.
+2. **Cuando**: **Se agrega una fila**, **Cambia una fila**, **Se elimina una
+   fila** o **Pasa un tiempo** (mira
+   [disparadores por tiempo](#disparadores-por-tiempo)).
+3. **Solo si**: opcional. Una columna, una prueba (**cambia a**, **cambia
+   desde**, **es**, **cambia (cualquier valor)**) y un valor, como `status`
+   **cambia a** `ready`. **Avanzado (JSON)** acepta cualquier
+   [condición](#condiciones).
+4. **Entonces**: la [acción](#acciones).
+5. **Ejecuciones por minuto**: 60 por defecto, hasta 600. Pasado ese número,
    los eventos esperan y salen después.
 
-Un disparador se puede apagar y encender desde su tarjeta. **Ejecuciones
-recientes** lista cada evento que manejó, con su estado y error, y
-**Reintentar** vuelve a enviar uno que falló.
+![El diálogo Nuevo disparador: nombre, Cuándo, Solo si, Entonces "Ejecutar una función" y ejecuciones por minuto](/images/data-trigger-dialog.webp)
 
-Una base de datos guarda hasta 50 disparadores. Eliminar una tabla elimina sus
-disparadores. Renombrar una columna la renombra en los disparadores que la
-usan, en sus condiciones y en sus textos `{{columna}}`. Una columna que usa un
-disparador no se puede eliminar hasta que cambies o elimines ese disparador.
+Cada disparador aparece como una tarjeta en la pestaña Disparadores, con lo que
+hace en una línea, como "status cambia a ready". Desde la tarjeta puedes
+encenderlo y apagarlo, **Editarlo**, **Eliminarlo** y abrir **Ejecuciones
+recientes**: cada evento que manejó, con su estado (**Ejecutando**, **En
+espera**, **Listo**, **Falló** u **Omitido**), sus intentos y su error, y
+**Reintentar** para volver a enviar uno que falló. Cuando hay eventos esperando
+a salir, la pestaña dice cuántos.
+
+Una base de datos guarda hasta 50 disparadores, contando las programaciones.
+Eliminar una tabla elimina sus disparadores. Renombrar una columna la renombra
+en los disparadores que la usan, en sus condiciones y en sus textos
+`{{columna}}`. Una columna que usa un disparador no se puede eliminar hasta que
+cambies o elimines ese disparador.
+
+También puedes pedirle al [Asistente](/es/docs/assistant/) del proyecto que
+cree uno («cuando un pedido quede listo, escríbele al cliente»): te propone el
+disparador y tú lo aplicas.
 
 ## Condiciones
 
 Una condición revisa la fila antes y después del cambio:
 
-| Prueba | Se cumple cuando |
-| --- | --- |
-| `{ "status": { "changedTo": "ready" } }` | `status` ahora es `ready` y antes no |
-| `{ "status": { "changedFrom": "open" } }` | `status` era `open` y ahora no |
-| `{ "price": { "changed": true } }` | `price` tiene otro valor |
-| `{ "zone": { "equals": "north" } }` | `zone` es `north` (en la fila después del cambio, o en la fila eliminada) |
+| Prueba | En el panel | Se cumple cuando |
+| --- | --- | --- |
+| `{ "status": { "changedTo": "ready" } }` | cambia a | `status` ahora es `ready` y antes no |
+| `{ "status": { "changedFrom": "open" } }` | cambia desde | `status` era `open` y ahora no |
+| `{ "price": { "changed": true } }` | cambia (cualquier valor) | `price` tiene otro valor |
+| `{ "zone": { "equals": "north" } }` | es | `zone` es `north` (en la fila después del cambio, o en la fila eliminada) |
 
 Una fila agregada no tiene "antes", y una eliminada no tiene "después", así que
 cada uno cuenta como todas las columnas vacías: una inserción **cambia a** los
@@ -74,21 +93,22 @@ condiciones:
 }
 ```
 
-Los valores se comparan exactos: `3` y `3.0` coinciden, `"3"` y `3` no. `null`
-significa vacío.
+Los valores se comparan exactos: `3` y `3.0` coinciden, `"3"` y `3` no. `null`,
+o un valor que dejas vacío en el panel, significa vacío.
 
 ## Disparadores por tiempo
 
-Elige **Pasa un tiempo** en **Cuando**, y luego cuánto tiempo y desde qué hora
-de la fila:
+Elige **Pasa un tiempo** en **Cuando**, y luego **Cuánto tiempo** y desde qué
+hora de la fila:
 
-- **La hora de la fila**: cuando se agregó (`created_at`), cuando cambió por
-  última vez (`updated_at`), o una columna de fecha o de fecha y hora de la
+- **La hora de la fila**: **Cuando se agregó (created_at)**, **Cuando cambió por
+  última vez (updated_at)**, o una columna de fecha o de fecha y hora de la
   tabla, como el `starts_at` de una reserva.
-- **Cuánto tiempo**: de 5 minutos a 30 días, **después** de esa hora, o
-  **antes** en una columna de fecha o de fecha y hora (un recordatorio el día
-  antes de una reserva). Una fecha sin hora cuenta desde la medianoche en la
-  zona horaria de la base de datos.
+- **Cuánto tiempo**: una cantidad en minutos, horas o días, de 5 minutos a 30
+  días, **después** de esa hora, o **antes** en una columna de fecha o de fecha
+  y hora (un recordatorio el día antes de una reserva). Una fecha sin hora
+  cuenta desde la medianoche en la [zona horaria](/es/docs/data/#zona-horaria)
+  de la base de datos.
 - **Solo si**: se revisa en la fila tal como está cuando se cumple el plazo,
   así que la única prueba es **es** (`equals`). `status` **es** `pending` se
   activa para un pedido que sigue pendiente 30 minutos después, no para uno
@@ -128,67 +148,34 @@ En `ganju.json` y en la API:
 }
 ```
 
-`minutes` es negativo para antes: `{ "column": "starts_at", "minutes": -1440 }`
-es un día antes. El `event` del evento es `time`, `previous` es `null`, y
-`dueAt` dice cuándo se cumplió el plazo de la fila.
+`minutes` va de 5 a 43.200 (30 días), y es negativo para antes:
+`{ "column": "starts_at", "minutes": -1440 }` es un día antes. El `event` del
+evento es `time`, `previous` y `actor` son `null`, y `dueAt` dice cuándo se
+cumplió el plazo de la fila.
 
 ## Programaciones
 
-Una programación corre a una hora fija, cada día o en los días de la semana que
-elijas, en la zona horaria de la base de datos (**Ajustes de la base de datos**, el engranaje de la página
-Datos). No tiene tabla: abre **Programaciones** en la lista de la página Datos y
-elige **Nueva programación**.
-
-- **Se repite** y **A las**: cada día, o cada semana en los días que marques, a
-  una hora como 21:00. Lo más seguido es una vez al día.
-- **Filas de**: una [consulta guardada](/es/docs/data-api/#consultas-guardadas-y-disparadores)
-  cuyas filas van con cada ejecución, como los pedidos de hoy. Sus parámetros
-  pueden tomar la fecha de la ejecución: `{{today}}` y `{{yesterday}}` son
-  fechas, y `{{today_start}}` y `{{today_end}}` son el inicio y el fin del día
-  en hora UTC, para una columna como `created_at` (guardada en UTC). **No
-  ejecutar cuando la consulta no devuelve filas** omite los días sin nada.
-- **Acción**: un **correo**, cuyo texto acepta `{{date}}` y `{{count}}` y va
-  seguido de las filas, una por línea; una **función**; o un **webhook**. Los
-  dos últimos reciben las filas en `rows`, con `date`, `query` y `rowCount`.
-
-Una consulta con los pedidos del día, y la programación que la envía por correo:
-
-```sql
-SELECT customer, items, total FROM orders
-WHERE created_at >= :from AND created_at < :to
-ORDER BY created_at
-```
-
-```json
-{
-  "name": "nightly-orders",
-  "on": "schedule",
-  "every": "day",
-  "at": "21:00",
-  "query": "todays_orders",
-  "params": { "from": "{{today_start}}", "to": "{{today_end}}" },
-  "skipEmpty": true,
-  "email": { "to": "tu@ejemplo.com", "subject": "Pedidos {{date}}", "text": "{{count}} pedidos hoy:" }
-}
-```
-
-Para cada semana, usa `"every": "week"` y `"days": ["mon", "thu"]` (lunes si no
-los indicas). Cada ejecución ocurre una vez. Una ejecución que no pudo correr a
-su hora sale una vez, tarde, si la base de datos vuelve dentro de 6 horas, y se
-omite después de eso. Una base de datos admite hasta 5 programaciones. La
-consulta de una ejecución puede devolver hasta 200 filas; el correo dice cuándo
-se dejaron algunas por fuera. El `event` del evento es `schedule`, su `table`
-está vacía, `row` es `null` y `dueAt` dice para qué hora era.
+Las programaciones se ejecutan a una hora fija cada día o cada semana, sin
+tabla, y pueden llevar las filas de una consulta guardada, como los pedidos de
+hoy. Tienen su propio lugar en la página Datos y su propia página aquí:
+[Programaciones](/es/docs/data/schedules/). Comparten las acciones, la entrega,
+los reintentos y las firmas de webhook que se describen en esta página.
 
 ## Acciones
 
-| Acción | En `ganju.json` | Qué pasa |
-| --- | --- | --- |
-| Ejecutar una función | `"function": "notify-kitchen"` | La función se ejecuta con el evento. Mira [funciones que solo ejecutan los disparadores](/es/docs/data/functions/#funciones-que-solo-ejecutan-los-disparadores) |
-| Llamar a un webhook | `"webhook": "https://example.com/hooks/orders"` | El evento se envía por POST como JSON, [firmado](#verificar-un-webhook) |
-| Enviar un mensaje de chat | `"chat": { "channelId": "…", "chatId": "-1001234567890", "text": "Nuevo pedido #{{id}}" }` | Se publica en un grupo de Telegram o un canal de Slack o Discord donde está el bot |
-| Enviar un correo | `"email": { "to": ["cocina@example.com"], "subject": "Pedido {{id}}", "text": "…" }` | Hasta 10 direcciones. El asunto por defecto es `<tabla>: {{id}}` |
-| Escribirle al cliente | `"customer": { "text": "Tu pedido #{{id}} está listo." }` | Se envía al cliente cuya conversación escribió la fila, en el canal que usó |
+| Acción | En el panel | En `ganju.json` | Qué pasa |
+| --- | --- | --- | --- |
+| Ejecutar una función | **Ejecutar una función** | `"function": "notify-kitchen"` | La función se ejecuta con el evento. Mira [funciones que solo ejecutan los disparadores](/es/docs/data/functions/#funciones-que-solo-ejecutan-los-disparadores) |
+| Llamar a un webhook | **Llamar a un webhook** | `"webhook": "https://example.com/hooks/orders"` | El evento se envía por POST como JSON, [firmado](#verificar-un-webhook) |
+| Enviar un mensaje de chat | **Enviar un mensaje de chat** | `"chat": { "channelId": "…", "chatId": "-1001234567890", "text": "Nuevo pedido #{{id}}" }` | Se publica en un grupo de Telegram o un canal de Slack o Discord donde está el bot |
+| Enviar un correo | **Enviar un correo** | `"email": { "to": ["cocina@example.com"], "subject": "Pedido {{id}}", "text": "…" }` | Hasta 10 direcciones. El asunto por defecto es `<tabla>: {{id}}` |
+| Escribirle al cliente | **Escribirle al cliente** | `"customer": { "text": "Tu pedido #{{id}} está listo." }` | Se envía al cliente cuya conversación escribió la fila, en el canal que usó |
+
+**Función** lista las funciones desplegadas en el proyecto, y marca las que son
+**solo disparadores** y las que ya no están desplegadas. **Canal** lista los
+canales de Telegram, Slack y Discord del proyecto; el **Id del chat** es el id
+del grupo de Telegram (como `-1001234`) o el id del canal de Slack o Discord.
+Los textos llevan hasta 2.000 caracteres.
 
 En un mensaje, `{{columna}}` inserta el valor de esa columna de la fila, como
 texto plano. También funcionan `id`, `created_at`, `updated_at` y
@@ -239,6 +226,30 @@ Los mensajes que envía un disparador quedan en la conversación, así que el
 siguiente turno del bot sabe qué se le dijo al cliente. No se cobran como
 respuestas del asistente.
 
+## Probar un mensaje antes de guardar
+
+El diálogo del disparador puede enviar lo que escribiste, guardado o no,
+armado con una fila de la tabla (**Fila más reciente** por defecto, o la que
+elijas en **Fila**). No es una ejecución: no aparece en las ejecuciones del
+disparador y no cuenta para ningún límite por cliente.
+
+- **Escribirle al cliente**: **Probar este mensaje** lo envía a tu propio chat
+  con el bot. Vincula ese chat primero: desde tu teléfono, escríbele al bot del
+  proyecto, envía `/link` y abre el enlace que te responde con tu sesión de
+  Ganju iniciada. Si tienes más de un chat vinculado, elige uno en **Enviar
+  a**. **Enviar como la plantilla** envía la plantilla de WhatsApp incluso
+  dentro de la ventana de 24 horas; apagado, la prueba decide entre texto y
+  plantilla como lo hace una ejecución real.
+- **Enviar un correo**: la prueba va solo a la dirección de tu propia cuenta,
+  diga lo que diga **Para**, con "[Test]" antes del asunto.
+
+Haz clic en **Enviar prueba**; el diálogo muestra lo que salió, y el rechazo de
+Meta o del canal cuando lo hay. Puedes enviar cinco pruebas por minuto.
+
+La API tiene lo mismo: `GET /trigger/test-send` lista tus chats vinculados, y
+`POST /trigger/test-send` envía una, con `{ table, customer, rowId?,
+participantId?, asTemplate? }` o `{ table, email, rowId? }`.
+
 ## Desplegar disparadores con la CLI
 
 Ponlos en `"triggers"` dentro de `ganju.json`, junto a tus funciones, y
@@ -261,19 +272,25 @@ Ponlos en `"triggers"` dentro de `ganju.json`, junto a tus funciones, y
 }
 ```
 
-- `on` es `insert`, `update`, `delete`, `time` (con `after`, ver
-  [disparadores por tiempo](#disparadores-por-tiempo)) o `schedule` (con
-  `every` y `at` y sin `table`, ver [programaciones](#programaciones)), y cada
-  disparador tiene exactamente una acción. La acción de una programación es
-  `email`, `function` o `webhook`.
+| Campo | Qué es |
+| --- | --- |
+| `name` | Opcional. Minúsculas, dígitos, `_` y `-`, empezando con una letra |
+| `description` | Opcional, hasta 300 caracteres |
+| `table` | La tabla. No va en una programación |
+| `on` | `insert`, `update`, `delete`, `time` (con `after`, mira [disparadores por tiempo](#disparadores-por-tiempo)) o `schedule` (mira [programaciones](/es/docs/data/schedules/)) |
+| `when` | Opcional. Una [condición](#condiciones) |
+| `after` | En `time`: `{ "column", "minutes" }` |
+| `rateLimit` | Ejecuciones por minuto, de 1 a 600; 60 si no lo pones |
+| `enabled` | `true` o `false`. Si no lo pones, un despliegue lo deja como estaba |
+| una acción | `function`, `webhook`, `chat`, `email` o `customer`; exactamente una |
+
 - Sin `name`, se arma uno con la tabla, el evento y la acción:
-  `orders-insert-notify-kitchen`. Los nombres son letras minúsculas, dígitos,
-  `_` y `-`. En el panel y la API, guardar un disparador sin nombre siempre
-  crea uno nuevo, con un número si el nombre ya está tomado
+  `orders-insert-notify-kitchen`. En el panel y la API, guardar un disparador
+  sin nombre siempre crea uno nuevo, con un número si el nombre ya está tomado
   (`orders-insert-webhook-2`), así que nunca reemplaza a otro.
 - `ganju deploy` agrega y actualiza los disparadores de la lista, y quita los
   que desplegó antes y ya no están. Los disparadores creados en el panel no se
-  tocan, y un nombre que usan los dos se rechaza.
+  tocan, y un nombre que usan los dos se rechaza. Se aplica todo, o nada.
 - **Renombrar una columna que usa un disparador desplegado:** ejecuta
   `ganju data column rename`, que también la renombra en el disparador, y
   luego cambia ganju.json al nombre nuevo antes del siguiente despliegue. Un
@@ -292,10 +309,21 @@ En el panel, un disparador desplegado muestra **Administrado por la CLI
 (ganju.json)**. Lo cambias en el archivo, pero ahí puedes apagarlo y
 encenderlo.
 
-La [API de Datos](/es/docs/data-api/) tiene lo mismo: `GET /trigger`,
-`POST /trigger` (con la forma de arriba), `PATCH /trigger/:name` con
-`{ "enabled": false }`, `DELETE /trigger/:name`, `POST /trigger/deploy`,
-`GET /trigger/:name/run` y `POST /trigger/:name/run/:runId/retry`.
+## Desde la API de Datos
+
+La [API de Datos](/es/docs/data-api/#consultas-guardadas-disparadores-y-programaciones)
+tiene las mismas rutas que usa el panel:
+
+| Ruta | Qué hace |
+| --- | --- |
+| `GET /trigger` | Todos los disparadores y programaciones, y `pending`: los eventos que aún no se envían. Los secretos de los webhooks nunca se listan |
+| `POST /trigger` | Guarda uno (con la forma de arriba). Un webhook nuevo responde con su `secret`, una sola vez; las direcciones que faltan por confirmar vuelven en `confirming`. `"replace": false` se niega a guardar encima de un disparador con ese nombre |
+| `PATCH /trigger/:name` | Lo enciende o apaga: `{ "enabled": false }`. Encenderlo borra el motivo por el que Ganju lo apagó |
+| `DELETE /trigger/:name` | Lo elimina |
+| `POST /trigger/deploy` | Lo que envía `ganju deploy`: `{ "triggers": [...] }` |
+| `GET /trigger/:name/run` | Sus ejecuciones recientes, de la más nueva a la más vieja, hasta 50 (`?limit=`) |
+| `POST /trigger/:name/run/:runId/retry` | Vuelve a ejecutar un evento que falló o se omitió, con el mismo `eventId` |
+| `GET /trigger/test-send`, `POST /trigger/test-send` | [Probar un mensaje](#probar-un-mensaje-antes-de-guardar) |
 
 ## Cómo se entregan los eventos
 
@@ -307,7 +335,8 @@ La [API de Datos](/es/docs/data-api/) tiene lo mismo: `GET /trigger`,
 - **Reintentos.** Una ejecución que falla se intenta tres veces más, esperando
   un poco más cada vez. Algunas fallas no se reintentan, porque volver a
   intentar no las cambiaría: una función que no está publicada, un cliente
-  fuera de la ventana de WhatsApp, una cadena demasiado profunda.
+  fuera de la ventana de WhatsApp, una cadena demasiado profunda, una URL de
+  webhook que apunta a una dirección privada.
 - **Se apaga tras 20 fallas seguidas.** La tarjeta del disparador dice por qué,
   y los administradores de la organización reciben un correo. Vuelve a
   encenderlo cuando arregles la causa.
@@ -354,15 +383,19 @@ Cada evento es un `POST` con un cuerpo JSON:
 
 El evento de un disparador por tiempo trae `"event": "time"`, `"previous":
 null`, `"actor": null` y `dueAt`, cuándo se cumplió el plazo de la fila. El de
-una programación trae `"event": "schedule"`, una `table` vacía, `"row": null`,
-`dueAt`, `date` (la fecha de la ejecución en la zona horaria de la base de
-datos) y, con una consulta, `query`, `rows` y `rowCount` (`rowsTruncated`
-cuando se dejaron algunas por fuera).
+una [programación](/es/docs/data/schedules/#qué-envía-una-ejecución) trae
+`"event": "schedule"`, una `table` vacía, `"row": null`, `dueAt`, `date` (la
+fecha de la ejecución en la zona horaria de la base de datos) y, con una
+consulta, `query`, `rows` y `rowCount` (`rowsTruncated` cuando se dejaron
+algunas por fuera). Una fila demasiado grande para enviarla llega con
+`"truncated": true`.
 
 y estos encabezados:
 
 | Encabezado | Valor |
 | --- | --- |
+| `content-type` | `application/json` |
+| `user-agent` | `Ganju-Webhooks/1` |
 | `x-ganju-signature` | `t=<segundos unix>,v1=<firma>` |
 | `x-ganju-event-id` | El `eventId` |
 | `x-ganju-event` | `<tabla>.<evento>`, como `orders.update` u `orders.time`; `schedule` para una programación |

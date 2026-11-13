@@ -91,7 +91,7 @@ export const LAYOUT: Catalog<LayoutCopy> = {
     assistant: 'Asistente',
     knowledge: 'Conocimiento',
     data: 'Datos',
-    tools: 'Acciones',
+    tools: 'Herramientas',
     channels: 'Canales',
     account: 'Cuenta',
     settings: 'Ajustes',

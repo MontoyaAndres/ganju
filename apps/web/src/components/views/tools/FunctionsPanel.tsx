@@ -976,8 +976,10 @@ export const FunctionsPanel = ({
           {/* A published version that is not the live one is a rollback, not a
               deploy — the endpoints differ and so does what happened. Hidden
               while dirty, because then the button below is minting a new
-              version out of what is in the editor. */}
-          {openVersion && !isLive && !isDraft && !dirty && (
+              version out of what is in the editor. Where the assistant writes
+              the actions, going back is its job too, so it stays in its
+              history and undo. */}
+          {!byAssistant && openVersion && !isLive && !isDraft && !dirty && (
             <UI.Button
               size="small"
               disabled={!!busy}

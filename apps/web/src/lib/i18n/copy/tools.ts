@@ -514,7 +514,7 @@ const en = {
     'How long one call may take. Default {default}, capped at {max}.',
   settingsResourceAccess: 'Resource access',
   settingsResourceAccessOwn: 'Only what this tool wrote',
-  settingsResourceAccessAll: 'Every resource on this artifact',
+  settingsResourceAccessAll: 'Every resource in this project',
   settingsResourceAccessHelp:
     'How far ctx.resources.create and .delete reach. The default confines a tool to its own output, so a buggy function has none of your documents to destroy — widen it only for a tool whose job is to prune what it did not write.',
   settingsOkSaved: 'Settings saved',
@@ -1136,7 +1136,7 @@ export const TOOLS: Catalog<ToolsCopy> = {
       'Cuánto puede tardar una llamada. Por defecto {default}, con un tope de {max}.',
     settingsResourceAccess: 'Acceso a recursos',
     settingsResourceAccessOwn: 'Solo lo que escribió esta herramienta',
-    settingsResourceAccessAll: 'Todos los recursos de este artefacto',
+    settingsResourceAccessAll: 'Todos los recursos de este proyecto',
     settingsResourceAccessHelp:
       'Hasta dónde llegan ctx.resources.create y .delete. Por defecto una herramienta queda confinada a lo que ella misma escribió, así que una función con errores no tiene ninguno de tus documentos que destruir — amplíalo solo para una herramienta cuyo trabajo sea limpiar lo que no escribió.',
     settingsOkSaved: 'Ajustes guardados',

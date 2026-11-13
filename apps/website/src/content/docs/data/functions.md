@@ -1,8 +1,8 @@
 ---
 title: Data from functions
-description: Read and write the project's database from your own functions with ctx.data, message customers and staff chats with ctx.channels, and keep a function for triggers only.
+description: Read and write the project's database from your own functions with ctx.data, message customers and staff chats with ctx.channels, and keep a function for triggers and schedules only.
 order: 56
-updated: 2026-11-03
+updated: 2026-11-13
 ---
 
 Your [functions](/docs/tools/functions/) reach the project's
@@ -21,17 +21,80 @@ There is no SQL from a function. For a report the filters can't express, save a
 | `describe(table?)` | Tables, columns, row counts and descriptions; one table when named |
 | `query({ table, where, search, sort, limit, cursor, include, aggregate, groupBy })` | Find rows, or count, sum and average them |
 | `search(table, text, options?)` | Full-text search over a table's searchable columns, best matches first |
-| `insert(table, values)` | One row; returns `{ id }`. Pass a list of rows to add several; returns `{ ids }` |
-| `update(table, idOrWhere, set, { where?, expect? })` | Change one row by id, or the rows a filter matches |
-| `delete(table, idOrWhere, { where?, expect? })` | Delete them |
-| `write(operations)` | Several inserts, updates and deletes, applied together or not at all |
-| `run(name, params?, { limit? })` | A named query, by name |
+| `insert(table, values)` | One row; returns `{ id }`. Pass a list of rows (up to 500) to add several; returns `{ ids }` |
+| `update(table, idOrWhere, set, { where?, expect? })` | Change one row by id, or the rows a filter matches; returns `{ changed }` |
+| `delete(table, idOrWhere, { where?, expect? })` | Delete them; returns `{ changed }` |
+| `write(operations)` | Up to 50 inserts, updates and deletes, applied together or not at all |
+| `run(name, params?, { limit? })` | A named query, by name; returns `{ query, rows, truncated? }` |
 
-`where` uses the same filters as the Data API: `{ status: "open" }`,
-`{ price: { lt: 30000 } }`, `{ name: { contains: "pizza" } }`, combined with
-`or`. A page has up to 500 rows; `nextCursor` reads the next one. A relation
-column comes back as `{ id, label }`, and `include` brings the whole related
-row.
+### Filters
+
+`where` uses the same filters as the Data API and the assistant:
+
+```ts
+{ status: 'open' }                              // equals
+{ price: { lt: 30000 } }                        // eq, ne, gt, gte, lt, lte
+{ status: { in: ['open', 'ready'] } }           // in, notIn (up to 50 values)
+{ name: { contains: 'pizza' } }                 // contains, startsWith (any case)
+{ note: { isNull: true } }                      // empty, or not
+{ 'customer.name': 'Ana' }                      // a column of the related row
+{ or: [{ status: 'open' }, { total: { gte: 100000 } }] }
+```
+
+Several keys must all hold; `or` matches any of its filters, and `and` groups
+them. A date and time without an offset is read in the database's
+[time zone](/docs/data/#time-zone).
+
+### Reading rows
+
+```ts
+const { rows, nextCursor } = await ctx.data.query({
+  table: 'orders',
+  where: { status: 'open' },
+  sort: ['-created_at'],
+  include: ['customer'],
+  limit: 50
+});
+```
+
+- A page has 20 rows by default, up to 500 (or 1 MB). Pass `nextCursor` back as
+  `cursor` to read the next one.
+- `sort` is a list of up to 3 columns; `-` in front sorts descending.
+- A relation column comes back as `{ id, label }`, and `include` brings the
+  whole related row instead.
+- A file column comes back as `{ uri, title, mimeType }`, or `{ uri, missing:
+  true }` when the file was deleted from Resources. Read the file with
+  `ctx.resources.read(uri)`; write the column with the uri.
+- Dates and times come back in the database's time zone, with their offset.
+
+To count or add up instead of listing, pass `aggregate`, and `groupBy` (up to
+3 columns) for one result per group:
+
+```ts
+const { groups } = await ctx.data.query({
+  table: 'orders',
+  where: { created_at: { gte: '2026-11-01T00:00:00-05:00' } },
+  aggregate: [{ fn: 'count' }, { fn: 'sum', column: 'total' }],
+  groupBy: ['status']
+});
+```
+
+`fn` is `count`, `sum`, `avg`, `min` or `max`. `times` multiplies before adding
+up: `{ fn: 'sum', column: 'stock', times: 'unit_cost' }` is the value of the
+stock.
+
+### Writing rows
+
+```ts
+const { id } = await ctx.data.insert('orders', { customer: 7, status: 'open' });
+await ctx.data.update('menu', 12, { stock: { decrement: 2 } }, { where: { stock: { gte: 2 } } });
+await ctx.data.delete('orders', { status: 'cancelled' });
+```
+
+A number can change relative to itself with `{ increment: n }` or
+`{ decrement: n }`. `where` in the options is a guard that must hold, and
+`expect` says how many rows must change; when either fails, nothing is written
+and the call throws.
 
 A refused call throws, with a message written for a person: "menu.stock can't
 go below 0".
@@ -68,6 +131,9 @@ export default defineTool<{ dish: number; quantity: number }>(
   }
 );
 ```
+
+Each result says what its step did: `{ op: 'insert', table, id }` (or `ids`
+for several rows) and `{ op: 'update' | 'delete', table, changed }`.
 
 ## What a function may touch
 
@@ -139,7 +205,8 @@ await ctx.channels.post({
 - **`send`** writes to the customer's latest private conversation, on the
   channel they used. The channel's daily limit per customer applies. A row in a
   table where each customer sees only their own rows carries the customer as
-  `participant_id`.
+  `participant_id`. It returns `{ messageId, conversationId, channelId,
+  platform, sent }`, where `sent` is `text` or `template`.
 - **WhatsApp** only takes free text within 24 hours of the customer's last
   message. After that only a template Meta approved reaches them; pass it as
   `template: { name, language, params }`, with one value per variable. Give
@@ -149,10 +216,11 @@ await ctx.channels.post({
   template is approved before calling Meta, and
   throws with Meta's reason when it is in review, rejected, paused or
   disabled. Meta bills template messages to your own WhatsApp account.
+  Telegram, Slack and Discord have no window and take the text.
 - **`templates()`** lists the templates Meta approved on the project's
-  WhatsApp channels that Ganju can send, each with its `name`, `language`, `category`, `text` and
-  `variables` (`{ n, label, example }`), so a function can choose one.
-  Templates are created in the channel's
+  WhatsApp channels that Ganju can send, each with its `channelId`, `name`,
+  `language`, `category`, `text` and `variables` (`{ n, label, example }`), so
+  a function can choose one. Templates are created in the channel's
   [Message templates](/docs/channels/whatsapp/#5-message-templates).
 - **`post`** takes the channel's id from the dashboard and the platform's chat
   id, such as a Telegram group's `-1001234567890`. It doesn't post to
@@ -160,10 +228,11 @@ await ctx.channels.post({
 
 ## Functions only triggers run
 
-A function a [trigger](/docs/data/triggers/) runs — tell the kitchen, message
-the customer — shouldn't be a tool the assistant can call. Set `"expose": false`
-on it in `ganju.json`, or turn off **Assistant can use this function** in its
-dialog on the Functions tab:
+A function a [trigger](/docs/data/triggers/) or a
+[schedule](/docs/data/schedules/) runs — tell the kitchen, message the
+customer, send the nightly report — shouldn't be a tool the assistant can call.
+Set `"expose": false` on it in `ganju.json`, or turn off **Assistant can use
+this function** in its dialog on the Functions tab:
 
 ```json
 {
@@ -197,14 +266,34 @@ export default defineTool<TriggerEvent>(async (event, ctx) => {
 
 | Field | What it is |
 | --- | --- |
-| `event` | `insert`, `update` or `delete` |
-| `table` | The table's name |
-| `row` | The row after the change; `null` on delete |
-| `previous` | The row before the change; `null` on insert |
-| `actor` | Who made the change: `channel:<customer>`, `user:<id>`, `function:<name>`… |
+| `event` | `insert`, `update`, `delete`, `time` (a [time trigger](/docs/data/triggers/#time-triggers)'s row came due) or `schedule` |
+| `table` | The table's name; empty on `schedule` |
+| `row` | The row after the change; `null` on delete and on `schedule`. On `time`, the row as it was when it came due |
+| `previous` | The row before the change; `null` on insert, `time` and `schedule` |
+| `actor` | Who made the change: `channel:<customer>`, `user:<id>`, `function:<name>`…; `null` on `time` |
 | `eventId` | The same on every delivery of this event. Use it to skip a repeat |
 | `triggerId` | The trigger that ran it |
+| `dueAt` | On `time` and `schedule`: when it came due (ISO 8601, UTC) |
 | `truncated`, `rowId` | Set when the row was too large to send. Read it with `ctx.data.query({ table, where: { id: rowId } })` |
+| `date` | On `schedule`: the run's date in the database's time zone (`YYYY-MM-DD`) |
+| `query`, `rows`, `rowCount` | On `schedule` with a query: its name, its rows (up to 200) and how many it returned (counted up to 500) |
+| `rowsTruncated`, `rowCountMore` | On `schedule`: some rows were left out for size; there were more rows than counted |
+
+A schedule's function gets the rows straight away:
+
+```ts
+export default defineTool<TriggerEvent>(async (event, ctx) => {
+  const total = (event.rows ?? []).reduce((sum, r) => sum + Number(r.total ?? 0), 0);
+  await ctx.channels.post({
+    channelId: await ctx.secret('KITCHEN_CHANNEL_ID'),
+    chatId: await ctx.secret('KITCHEN_CHAT_ID'),
+    text: `${event.date}: ${event.rowCount ?? 0} orders, ${total} in sales`
+  });
+});
+```
+
+The row is content a customer may have written. Pass it to an AI model as
+untrusted text, never as instructions.
 
 Writes a triggered function makes are recorded as that trigger, never fire
 that same trigger again, and can fire other triggers one level deeper. See
@@ -213,5 +302,5 @@ that same trigger again, and can fire other triggers one level deeper. See
 ## Usage
 
 Every `ctx.data` call counts as one database request on the billing page's
-**Data** block, with the rows it read and wrote. A function a trigger runs
-counts as a custom tool call, like one the assistant calls.
+**Data** block, with the rows it read and wrote. A function a trigger or a
+schedule runs counts as a custom tool call, like one the assistant calls.

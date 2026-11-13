@@ -1,95 +1,134 @@
 ---
 title: Endpoints HTTP
-description: Apunta el asistente a una API que ya tienes — describe una petición y se vuelve una herramienta con nombre, sin código y sin despliegue.
+description: Apunta tu bot a una API que ya tienes — describe una petición y se convierte en una herramienta con nombre, sin código y sin despliegue.
 order: 38
-updated: 2026-09-05
+updated: 2026-11-13
 ---
 
-Los **endpoints HTTP** convierten una API que ya tienes en una herramienta.
-Describes una petición — método, URL, encabezados, argumentos — y se registra como
+Los **Endpoints HTTP** convierten una API que ya tienes en una herramienta.
+Describes una petición (método, URL, cabeceras, argumentos) y se convierte en
 una herramienta con nombre que el modelo puede llamar. Sin código, sin bundle,
 sin paso de despliegue.
 
-Este es el escalón intermedio entre el catálogo y las
+Es el escalón intermedio entre el catálogo y las
 [funciones](/es/docs/tools/functions/): más flexible que una integración que
-traigamos nosotros, y mucho menos trabajo que escribir una. Además es la
+ofrecemos, y mucho menos trabajo que escribir código. También es la
 herramienta personalizada disponible en **todos los planes**, incluido Free.
+
+Puedes llenar el formulario tú mismo, o pedírselo al
+[Asistente](/es/docs/assistant/): puede agregar y cambiar un endpoint HTTP como
+parte de un conjunto de cambios que tú aplicas.
 
 ## La pestaña
 
-![La página de Herramientas en la pestaña HTTP Endpoints, vacía, con un botón New endpoint](/images/new-http-function.webp)
+![La pestaña Endpoints HTTP, vacía, con el botón Nuevo endpoint](/images/new-http-function.webp)
 
-Cada endpoint que agregas se vuelve su propia herramienta, listada aquí con un
-interruptor y un borrar. **Apagar conserva la fila y todo lo configurado en ella;
-Eliminar se lleva la configuración** — usa el interruptor cuando quieras que la
-herramienta se calle, y la papelera cuando ya no la necesites.
+Cada endpoint que agregas se convierte en su propia herramienta, listada aquí
+con un interruptor, un botón para editar y otro para eliminar. **Apagar
+conserva el endpoint y todo lo configurado en él** (la fila muestra **Apagada ·
+conserva su configuración**); **Eliminar lo borra con su configuración**. Usa
+el interruptor cuando quieras que la herramienta se quede callada, y elimínala
+cuando ya no la necesites. En Free, la pestaña muestra cuántos de tus 3
+endpoints usaste.
 
 ## Agregar un endpoint
 
-**New endpoint** abre un formulario, con un selector **JSON** en la esquina para
-quien prefiera escribir toda la configuración de una vez.
+**Nuevo endpoint** abre **Agregar endpoint HTTP**. **Formulario** te guía campo
+por campo; **JSON** te deja escribir toda la configuración de una vez (para usar
+ahí un secreto guardado o una cuenta conectada, pon `auth.credentialId` con su
+id).
 
-![El diálogo Add HTTP endpoint con método, URL, encabezados, entradas, autenticación y opciones avanzadas desplegadas](/images/new-http-function-advanced-options.webp)
+![El diálogo Agregar endpoint HTTP con método, URL, cabeceras, entradas, autenticación y las opciones avanzadas abiertas](/images/new-http-function-advanced-options.webp)
+
+### Nombre y descripción
+
+- **Nombre de la herramienta**: lo que llama el modelo, p. ej. `lookup-order`.
+  Letras, dígitos, `_` o `-`.
+- **Descripción**: dile al modelo **cuándo** llamar a esta herramienta. Así es
+  como decide.
 
 ### La petición
 
-- **Método y URL** — usa `{{arg}}` en cualquier parte de la URL para insertar una
-  entrada.
-- **Encabezados** y **parámetros de consulta** — valores fijos, o marcadores
+- **Método** (`GET`, `POST`, `PUT`, `PATCH` o `DELETE`) y **URL**. Usa `{{arg}}`
+  en cualquier parte de la URL para insertar una entrada.
+- **Qué hace**: si la llamada solo lee o cambia algo. El valor por defecto,
+  **Según el método — GET solo lee, cualquier otro es sensible**, sirve para la
+  mayoría de las APIs. Elige **Solo lee — consulta, no cambia nada** para un
+  `POST` que solo busca, **Cambia cosas que se pueden deshacer**, o **Envía,
+  borra, cobra o no se puede deshacer**. Cuando la organización activa
+  [Confirmar acciones sensibles](/es/docs/settings/#confirmar-acciones-sensibles),
+  un bot de canal pregunta antes de llamar a un endpoint sensible.
+- **Cabeceras** y **Parámetros de consulta**: valores fijos, o marcadores
   `{{arg}}` que se llenan al momento de la llamada.
-- **Entradas (argumentos del modelo)** — lo que el modelo provee cuando llama a la
-  herramienta. Cada una lleva nombre, tipo y descripción; la descripción es cómo
-  el modelo sabe qué poner ahí.
-- **Cuerpo** — para `POST`/`PUT`/`PATCH`, una plantilla armada con los mismos
-  marcadores.
+- **Cuerpo**, para `POST`, `PUT` y `PATCH`: un **Formato** (**Ninguno**,
+  **JSON**, **Formulario (urlencoded)** o **Texto**) y una **Plantilla del
+  cuerpo** hecha con los mismos marcadores. Una plantilla JSON debe poder
+  leerse como JSON una vez llenos los argumentos, p. ej. `{"id":"{{orderId}}"}`.
+- **Entradas (argumentos del modelo)**: lo que el modelo aporta al llamar la
+  herramienta. Cada una tiene un nombre, un **Tipo** (**Texto**, **Número** o
+  **Booleano**), si es **Obligatorio**, y una **Descripción**, que es como el
+  modelo sabe qué poner ahí.
 
 ### Autenticación
 
-Elige un **tipo de autenticación** y la credencial se guarda cifrada, se aplica
-justo antes de que salga la petición, y nunca se te devuelve ni se le muestra al
-modelo. Un bearer token, un encabezado con llave de API, autenticación básica — o
-**OAuth**, que deja a un endpoint reutilizar una cuenta que ya conectaste en el
-[catálogo](/es/docs/tools/catalog/) en lugar de guardar una segunda copia de la
-misma credencial.
+Elige un **Tipo de autenticación**:
+
+| Tipo de autenticación | Qué se envía |
+| --- | --- |
+| **Ninguna** | Nada. |
+| **Token Bearer** | El token guardado, como cabecera `Authorization: Bearer`. |
+| **Basic (usuario:contraseña)** | El `usuario:contraseña` guardado, como autenticación básica. |
+| **API key** | La clave guardada, en una **Cabecera** o un **Parámetro de consulta** con el **Nombre del parámetro** que elijas. |
+| **Cuenta conectada** | Una cuenta que conectaste desde el [catálogo](/es/docs/tools/catalog/). Su token de acceso se renueva y se envía como cabecera Bearer en cada llamada. |
+
+Una clave se guarda cifrada, se aplica justo antes de que salga la petición, y
+nunca se te vuelve a mostrar ni se le envía al modelo. Puedes **Agregar secreto
+nuevo** con una **Etiqueta** para reconocerlo, o **Usar un secreto existente**
+que guardaste antes.
 
 ### Opciones avanzadas
 
-- **Tipo de respuesta** — detección automática, o forzar JSON o texto.
-- **JSON path** — extrae un subárbol, p. ej. `data.items`, para que el modelo
-  reciba la parte que necesita y no el sobre completo.
-- **Esquema de salida** — opcional. Si declaras uno, una respuesta JSON llega al
-  cliente MCP como **salida estructurada** en vez de texto. La respuesta debe ser
-  entonces un objeto JSON, o la llamada se reporta como error.
-- **Estados de éxito** — separados por comas, p. ej. `200, 201`. Por defecto,
+- **Tipo de respuesta**: **Detectar automáticamente**, o forzar **JSON** o
+  **Texto**.
+- **Ruta JSON**: extrae un subárbol, p. ej. `data.items`, para que el modelo
+  reciba la parte que necesita y no toda la envoltura.
+- **Esquema de salida — opcional**: si declaras uno, una respuesta JSON llega a
+  los clientes MCP como **salida estructurada** en vez de texto. La respuesta
+  debe ser entonces un objeto JSON, o la llamada se reporta como error.
+- **Estados de éxito**: separados por comas, p. ej. `200, 201`. Por defecto,
   cualquier 2xx.
-- **Timeout** — por defecto 10.000ms, máximo 30.000.
-- **Hosts permitidos** — una lista separada por comas. Los hosts privados y de
-  loopback siempre están bloqueados, diga lo que diga este campo.
+- **Tiempo límite (ms)**: por defecto 10.000, máximo 30.000.
+- **Hosts permitidos**: una lista separada por comas. Los hosts privados y de
+  loopback siempre están bloqueados, diga lo que diga.
+
+**Agregar endpoint** lo guarda.
 
 ## Cómo corre una llamada
 
 Cuando el modelo decide usar la herramienta, Ganju llena tus marcadores con sus
 argumentos, aplica la credencial guardada y hace la petición desde nuestra
-infraestructura. La respuesta — acotada por tu JSON path, moldeada por tu esquema
-de salida — vuelve al modelo para que termine su respuesta.
+infraestructura. La respuesta, recortada por tu ruta JSON y con la forma de tu
+esquema de salida, vuelve al modelo para terminar su respuesta.
 
-Cada petición se filtra contra SSRF, así que un endpoint nunca se puede apuntar a
-una dirección interna, y tiene límite de tasa para que un modelo hablador no
-sature tu servicio. Los fallos vuelven marcados como errores y no como texto que
-casualmente empieza con "Error", que es lo que permite al modelo distinguir "la
-llamada falló" de "la respuesta es no".
+Cada petición se revisa, así que un endpoint nunca puede apuntar a una dirección
+interna, y cada endpoint está limitado a 60 llamadas por minuto para que un
+modelo insistente no sature tu servicio. Los fallos vuelven marcados como
+errores, no como texto que casualmente empieza con "Error", y eso es lo que le
+permite al modelo distinguir "la llamada falló" de "la respuesta es no".
 
 ## Cuándo usar cuál
 
 | | Usa |
 | --- | --- |
-| El proveedor está en nuestro catálogo | **[Catálogo](/es/docs/tools/catalog/)** — conectas una vez y listo |
-| El proveedor publica un servidor MCP remoto | **Catálogo** → conecta el servidor y obtén todo su conjunto mantenido |
+| El proveedor está en nuestro catálogo | **[Catálogo](/es/docs/tools/catalog/)**: conecta una vez y listo |
+| El proveedor publica un servidor MCP remoto | **Catálogo**: conecta el servidor y obtén todas sus herramientas mantenidas |
 | Una petición contra tu propia API | **Endpoints HTTP** |
-| Varios pasos, una transformación, ramificaciones o combinar una credencial con lógica | **[Funciones](/es/docs/tools/functions/)** |
+| Varios pasos, lógica, tu base de datos, o una clave combinada con un cálculo | **[Funciones](/es/docs/tools/functions/)**, escritas por el [Asistente](/es/docs/assistant/) |
 
 ## Límites
 
-Free permite **3 endpoints** por asistente. Pro y Enterprise son ilimitados. Las
-llamadas a endpoints HTTP no se miden como llamadas de herramienta — solo se miden
-los despachos a [tu propio código](/es/docs/tools/functions/).
+Free permite **3 endpoints** por proyecto. Pro y Enterprise no tienen límite de
+endpoints; cada endpoint encendido sigue contando para las
+[herramientas](/es/docs/tools/#encender-y-apagar-herramientas) del proyecto.
+Las llamadas a endpoints HTTP no se miden como llamadas a herramientas: solo
+cuentan las llamadas a [tu propio código](/es/docs/tools/functions/).

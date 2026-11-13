@@ -14,7 +14,7 @@ import type { Catalog } from '../core';
 const en = {
   title: 'Channels',
   subtitle:
-    'Connect this artifact to messaging platforms so users can chat with it.',
+    'Connect this project to messaging platforms so users can chat with it.',
   addChannel: 'Add channel',
   botInstructions: 'Bot instructions',
   botInstructionsHelp:
@@ -282,7 +282,7 @@ export const CHANNELS: Catalog<ChannelsCopy> = {
   es: {
     title: 'Canales',
     subtitle:
-      'Conecta este artefacto con plataformas de mensajería para que la gente pueda chatear con él.',
+      'Conecta este proyecto con plataformas de mensajería para que la gente pueda chatear con él.',
     addChannel: 'Agregar canal',
     botInstructions: 'Instrucciones del bot',
     botInstructionsHelp:

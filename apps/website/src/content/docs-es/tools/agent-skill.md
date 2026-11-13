@@ -1,8 +1,8 @@
 ---
 title: Skill para agentes
-description: Instala el skill ganju-cli para que Claude Code y otros agentes de programación escriban, prueben, desplieguen y depuren tus funciones de Ganju con el CLI, y sepan qué pasos dejarte a ti.
+description: Instala el skill ganju-cli para que Claude Code y otros agentes de programación escriban, prueben, desplieguen y depuren tus funciones de Ganju con la CLI, y sepan qué pasos dejarte a ti.
 order: 39
-updated: 2026-09-18
+updated: 2026-11-13
 ---
 
 El **skill ganju-cli** le enseña a un agente de programación con IA, como
@@ -60,8 +60,16 @@ herramientas de Ganju, por ejemplo:
 | **CI** | Tokens con alcance de proyecto y un paso de despliegue en GitHub Actions |
 | **Solución de problemas** | Los mensajes de error comunes, qué los causa y cómo arreglarlos |
 
-También le indica al agente dónde están los [ejemplos](/es/docs/tools/examples/),
-así que una herramienta nueva suele empezar como copia del más parecido.
+También le indica al agente dónde están seis de los
+[ejemplos](/es/docs/tools/examples/), así que una herramienta nueva suele
+empezar como copia del más parecido.
+
+El skill trata de funciones. No cubre la base de datos del proyecto
+(`ganju data`, `ctx.data`, los disparadores en `ganju.json`) ni
+`ctx.channels`; para eso, indícale al agente
+[Datos desde funciones](/es/docs/data/functions/), la
+[API de Datos](/es/docs/data-api/#desde-la-línea-de-comandos) y la
+[referencia de la CLI](/es/docs/tools/cli/).
 
 ## Qué te deja a ti
 
@@ -74,15 +82,16 @@ vez de dejarlo adivinar:
   `ctx.secret('NAME')` y te da el comando `ganju secret set`. Tú escribes el
   valor, que nunca pasa por la conversación ni por el historial de tu shell.
 - **Conectar cuentas.** Gmail, Google Calendar, Slack y las demás se conectan
-  en la página **Tools** de tu proyecto.
+  en la pestaña **Catálogo** de la página **Herramientas** de tu proyecto.
 - **Tokens de acceso para CI.** `ganju token create` necesita tu inicio de
   sesión en el navegador.
 - **Desplegar en un proyecto que la gente usa.** `ganju deploy` cambia lo que
   ve cada cliente y reemplaza todo el conjunto de herramientas personalizadas
   del proyecto por las de la carpeta. Por eso el agente revisa
   `ganju versions` por si algo en vivo desaparecería, y te lo confirma
-  primero. `ganju test`
-  también es real: una herramienta que envía correos envía uno. El agente te
+  primero. Si el dueño del proyecto cambió las funciones con el
+  [Asistente](/es/docs/assistant/), el mismo `ganju deploy` se detiene y nombra
+  lo que dejaría de funcionar. `ganju test` también es real: una herramienta que envía correos envía uno. El agente te
   lo advierte, y lo apunta a un destino seguro, antes de ejecutarlo.
 
 ## Pruébalo
@@ -101,6 +110,7 @@ da los comandos `link`, `test` y `deploy` para terminar.
 
 - **[`ganju` CLI](/es/docs/tools/cli/)**: todos los comandos que usa el
   skill.
-- **[Ejemplos](/es/docs/tools/examples/)**: cinco proyectos desde los que puede
+- **[Ejemplos](/es/docs/tools/examples/)**: proyectos desde los que puede
   empezar el agente.
-- **[Funciones](/es/docs/tools/functions/)**: el mismo trabajo en el panel.
+- **[Funciones](/es/docs/tools/functions/)**: qué es una función, la referencia
+  de `ctx` y cómo las muestra la página **Herramientas**.

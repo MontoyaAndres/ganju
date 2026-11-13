@@ -2,7 +2,7 @@
 title: Agent skill
 description: Install the ganju-cli skill so Claude Code and other coding agents can write, test, deploy and debug your Ganju functions with the CLI, and know which steps to leave to you.
 order: 39
-updated: 2026-09-18
+updated: 2026-11-13
 ---
 
 The **ganju-cli skill** teaches an AI coding agent, such as Claude Code, how to
@@ -59,8 +59,14 @@ tools, for example:
 | **CI** | Project-scoped tokens and a GitHub Actions deploy step |
 | **Troubleshooting** | The common error messages, what causes each, and the fix |
 
-It also points the agent at the [examples](/docs/tools/examples/), so a new
-tool often starts as a copy of the closest one.
+It also points the agent at six of the [examples](/docs/tools/examples/), so a
+new tool often starts as a copy of the closest one.
+
+The skill is about functions. It doesn't cover the project's database
+(`ganju data`, `ctx.data`, triggers in `ganju.json`) or `ctx.channels`; for
+those, point the agent at [Data from functions](/docs/data/functions/), the
+[Data API](/docs/data-api/#from-the-command-line) and the
+[CLI reference](/docs/tools/cli/).
 
 ## What it leaves to you
 
@@ -73,12 +79,14 @@ letting it guess:
   you the `ganju secret set` command. You type the value, which never goes
   through the conversation or your shell history.
 - **Connecting accounts.** Gmail, Google Calendar, Slack and the rest are
-  connected on your project's **Tools** page.
+  connected in the **Catalog** tab of your project's **Tools** page.
 - **Access tokens for CI.** `ganju token create` needs your browser login.
 - **Deploying to a project people use.** `ganju deploy` changes what every
   client sees, and replaces the project's whole set of custom tools with the
   ones in the folder. So the agent checks `ganju versions` for anything live
-  it would drop, and confirms with you first. `ganju test` is real too:
+  it would drop, and confirms with you first. If the project's owner changed
+  the functions with the [Assistant](/docs/assistant/), `ganju deploy` itself
+  stops and names what would stop working. `ganju test` is real too:
   a tool that sends email sends one. The agent says so, and aims it at a safe
   target, before running it.
 
@@ -97,6 +105,6 @@ you the `link`, `test` and `deploy` commands to finish.
 ## Next
 
 - **[`ganju` CLI](/docs/tools/cli/)**: every command the skill uses.
-- **[Examples](/docs/tools/examples/)**: five projects the agent can start
-  from.
-- **[Functions](/docs/tools/functions/)**: the same work in the dashboard.
+- **[Examples](/docs/tools/examples/)**: projects the agent can start from.
+- **[Functions](/docs/tools/functions/)**: what a function is, the `ctx`
+  reference, and how the **Tools** page shows them.

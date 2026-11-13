@@ -539,6 +539,7 @@ const EXTENSION_BY_MIME: Record<string, string> = {
 };
 const TEXT_MIME_TYPES = [
   MIMETYPE_TEXT,
+  MIMETYPE_TEXT_MARKDOWN,
   MIMETYPE_TEXT_CSV,
   MIMETYPE_TEXT_HTML,
   MIMETYPE_APPLICATION_JSON,
@@ -1146,7 +1147,7 @@ export type CalendarConfigField =
   | { key: string; label: string; type: 'weekdays'; help?: string };
 
 const CALENDAR_TOOL_FIELDS: Record<string, CalendarConfigField[]> = {
-  'calendar-list-calendars': [
+  'calendar-list-events': [
     {
       key: 'defaultMaxResults',
       label: 'Default max results',
@@ -1196,7 +1197,7 @@ const CALENDAR_TOOL_FIELDS: Record<string, CalendarConfigField[]> = {
       type: 'number',
       min: 0,
       max: 23,
-      help: 'Local hour. Requires a default time zone to take effect.'
+      help: "Local hour, in the default time zone or else the calendar's own."
     },
     {
       key: 'workingHoursEnd',

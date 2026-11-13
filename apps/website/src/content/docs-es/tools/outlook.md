@@ -1,72 +1,120 @@
 ---
 title: Outlook
-description: Correo de Microsoft 365 para tu asistente, respaldado por Microsoft Graph — 18 herramientas para enviar, clasificar, manejar carpetas, hilos y borradores.
+description: Correo de Microsoft 365 para tu asistente, sobre Microsoft Graph — 18 herramientas para enviar, clasificar, mover entre carpetas, manejar conversaciones y borradores.
 order: 42
-updated: 2026-07-07
+updated: 2026-11-13
 ---
 
-La integración de **Outlook** le da a tu asistente el correo de Microsoft 365,
-respaldado por **Microsoft Graph**. Replica la superficie de
-[Gmail](/es/docs/tools/gmail/) — enviar, leer, organizar y redactar — con **18
-herramientas**, usando *carpetas* de correo donde Gmail usa etiquetas.
+La integración de **Outlook** le da a tu asistente el correo de Microsoft 365 /
+Outlook, sobre **Microsoft Graph**. Replica el conjunto de
+[Gmail](/es/docs/tools/gmail/) — enviar, leer, organizar y redactar borradores —
+con **18 herramientas**, usando *carpetas* donde Gmail usa etiquetas.
 
 ## Conéctala
 
-Outlook usa **OAuth de Microsoft**. Conéctate una vez para toda la cuenta y luego
-activa las herramientas que necesites. Cada herramienta solicita solo el permiso de
-Graph que requiere (`Mail.Read`, `Mail.Send`, `Mail.ReadWrite` o `User.Read`), así
-que los permisos se mantienen al mínimo.
+1. Abre **Herramientas → Catálogo** y elige la tarjeta **Outlook**.
+2. Elige **Conectar Outlook**, inicia sesión con la cuenta de Microsoft y
+   aprueba.
+3. De vuelta en Herramientas, enciende las herramientas que quieras.
+
+Una conexión sirve a las 18 herramientas. Al conectar se le piden a Microsoft
+`Mail.ReadWrite`, `Mail.Send`, `User.Read` y `offline_access` (para que la
+conexión siga funcionando sin volver a iniciar sesión). Cada fila muestra el
+permiso que usa en **Permisos**. Si el administrador de Microsoft 365 de tu
+organización restringe las apps de terceros, puede que tenga que aprobarla
+primero.
+
+![Outlook antes de conectarlo: Conectar Outlook, el aviso y las herramientas desactivadas](/images/tools-catalog-not-connected.webp)
+
+Las herramientas no tienen ajustes propios. Los cuerpos van en HTML salvo que la
+llamada pase `contentType: "text"`. Los nombres entre paréntesis son los que
+muestran los clientes MCP y los registros.
 
 ## Enviar
 
-- **Send Email** — envía un mensaje nuevo. El cuerpo es HTML por defecto (pasa
-  `contentType='text'` para texto plano); soporta adjuntos, y los archivos grandes
-  se suben con la sesión de carga por partes de Graph. Inicia una conversación
-  nueva.
-- **Reply** — responde a un mensaje mediante el flujo createReply de Graph,
-  conservando la conversación. Activa `replyAll` para incluir a todos los
-  destinatarios originales.
-- **Forward** — reenvía un mensaje a un nuevo destinatario; la copia reenviada
-  inicia una conversación nueva, con una introducción opcional sobre el original
-  citado.
+- **Enviar correo** (`outlook-send-email`) — envía un mensaje nuevo, que inicia
+  una conversación nueva. Recibe `to`, `subject` y `body`, con `cc`, `bcc`
+  (separados por comas), `contentType` y `attachmentUris` opcionales (archivos
+  de tus [recursos](/es/docs/resources/), hasta 150 MB por archivo; los grandes
+  se suben por partes).
+- **Responder** (`outlook-reply-email`) — responde a un mensaje por
+  `messageId`, dentro de la conversación. Activa `replyAll` para incluir a todos
+  los destinatarios originales; admite adjuntos.
+- **Reenviar** (`outlook-forward-email`) — reenvía un mensaje (`messageId`) a
+  `to`, con una introducción opcional en `body` sobre el original citado, `cc`
+  opcional y adjuntos. Inicia una conversación nueva.
 
 ## Leer y buscar
 
-- **List Emails** — lista los mensajes de la bandeja de entrada, con filtro opcional
-  usando una consulta `$search` de Graph. Devuelve líneas de resumen (de / asunto /
-  recibido / ID).
-- **Read Email** — lee un mensaje por ID; los cuerpos HTML se convierten a texto
-  plano para el modelo.
-- **List Threads** — lista los hilos de conversación (una entrada por
-  `conversationId` con su mensaje más reciente).
-- **Get Thread** — resume cada mensaje de una conversación; usa Read Email para los
-  cuerpos completos.
-- **Get Profile** — informa el nombre y la dirección de la cuenta conectada y los
-  totales de la bandeja de entrada.
+- **Listar correos** (`outlook-list-emails`) — lista mensajes (de / asunto /
+  recibido / ID), del más nuevo al más viejo. `query` es una búsqueda de texto
+  completo — operadores como `from:` se buscan como palabras, no como filtros.
+  `folderId` la limita a una carpeta (por defecto, la bandeja de entrada).
+  `maxResults` de 1 a 50, 10 por defecto.
+- **Leer correo** (`outlook-read-email`) — lee un mensaje por `messageId`; los
+  cuerpos HTML se convierten a texto plano para el modelo.
+- **Listar conversaciones** (`outlook-list-threads`) — lista conversaciones (una
+  entrada por conversación, con su último asunto y remitente), con `query`
+  opcional. `maxResults` de 1 a 50, 10 por defecto.
+- **Ver conversación** (`outlook-get-thread`) — resume cada mensaje de una
+  conversación (`conversationId`) sin los cuerpos completos; luego usa Leer
+  correo para el que quieras.
+- **Ver perfil** (`outlook-get-profile`) — dice el nombre, la dirección y los
+  totales de la bandeja de la cuenta conectada.
 
 ## Organizar
 
-- **List Folders** — lista cada carpeta de correo (del sistema y creada por el
-  usuario) con su ID y sus conteos de no leídos. Llámala para encontrar los IDs que
-  necesitan las herramientas de movimiento.
-- **Move Message** — mueve un mensaje a otra carpeta por su nombre conocido
-  (`inbox`, `archive`, `junkemail`, `deleteditems`…) o por ID de carpeta. Archiva,
-  marca como spam o restaura desde la papelera.
-- **Batch Move Messages** — mueve hasta 20 mensajes a la misma carpeta en una sola
-  llamada.
-- **Move to Trash** — mueve un mensaje a Elementos eliminados (restaurable hasta que
-  se purgue) — la opción segura para "eliminar".
+- **Listar carpetas** (`outlook-list-folders`) — lista cada carpeta de correo,
+  del sistema y propias, con su ID y su cantidad de no leídos.
+- **Mover mensaje** (`outlook-move-message`) — mueve un mensaje (`messageId`) a
+  `destinationId`: un nombre conocido (`inbox`, `drafts`, `sentitems`,
+  `deleteditems`, `junkemail`, `archive`) o un ID de Listar carpetas. Archivar,
+  marcar como spam o restaurar desde Elementos eliminados.
+- **Mover mensajes en lote** (`outlook-batch-move-messages`) — mueve hasta 20
+  mensajes (`messageIds`) a la misma carpeta en una llamada; los IDs que sobren
+  se ignoran.
+- **Mover a la papelera** (`outlook-trash-email`) — mueve un mensaje a Elementos
+  eliminados, donde aún se puede restaurar. La opción segura para "eliminar".
 
 ## Borradores
 
-- **Create Draft** — guarda un mensaje redactado en Borradores sin enviarlo; soporta
-  adjuntos.
-- **List Drafts** — lista los borradores guardados con destinatario, asunto y fecha
-  de última modificación.
-- **Get Draft** — lee el contenido completo de un borrador antes de enviarlo.
-- **Update Draft** — reemplaza los campos de un borrador; omite `attachmentUris`
-  para conservar los adjuntos existentes, o pasa una lista nueva para
-  reemplazarlos.
-- **Send Draft** — envía tal cual un borrador existente.
-- **Delete Draft** — elimina permanentemente un borrador sin enviar (se borra de
-  inmediato, no va a Elementos eliminados).
+- **Crear borrador** (`outlook-create-draft`) — guarda un mensaje en Borradores
+  sin enviarlo; mismos campos que Enviar correo, adjuntos incluidos.
+- **Listar borradores** (`outlook-list-drafts`) — lista borradores con ID,
+  destinatario, asunto y fecha de última modificación. `maxResults` de 1 a 50,
+  10 por defecto.
+- **Ver borrador** (`outlook-get-draft`) — lee un borrador completo por
+  `draftId`.
+- **Actualizar borrador** (`outlook-update-draft`) — sobrescribe `to`, `subject`
+  y `body` de un borrador (los tres obligatorios). Omite `attachmentUris` para
+  conservar los adjuntos, o pasa una lista para reemplazarlos. No lo envía.
+- **Enviar borrador** (`outlook-send-draft`) — envía tal cual un borrador
+  guardado.
+- **Eliminar borrador** (`outlook-delete-draft`) — borra para siempre un
+  borrador sin enviar (no va a Elementos eliminados).
+
+## Acciones sensibles
+
+Con [Confirmar acciones sensibles](/es/docs/settings/#confirmar-acciones-sensibles)
+encendido, el asistente pregunta antes de **Enviar correo**, **Responder**,
+**Reenviar**, **Enviar borrador**, **Mover a la papelera** y **Eliminar
+borrador**. Leer, mover entre carpetas y crear o editar borradores se ejecutan
+sin preguntar.
+
+## Usa la conexión desde tu propio código
+
+Una [función](/es/docs/tools/functions/) puede llamar a Microsoft Graph con la
+misma conexión: agrega `microsoft-outlook` a sus conexiones y llama a
+`ctx.connection('microsoft-outlook')`. Un
+[endpoint HTTP](/es/docs/tools/http-endpoints/) puede usarla como **Cuenta
+conectada**.
+
+## Solución de problemas
+
+- **"Microsoft Outlook credential not connected".** Outlook se desconectó.
+  Conéctalo de nuevo desde la tarjeta.
+- **La tarjeta muestra Vencido.** Microsoft dejó de aceptar el inicio de sesión
+  (cambio de contraseña, acceso revocado o una política del administrador).
+  Conecta de nuevo; tus herramientas se conservan.
+- **Una búsqueda con `from:` no sirve.** La búsqueda de Outlook es de texto
+  completo; busca el nombre o la dirección del remitente como palabras.

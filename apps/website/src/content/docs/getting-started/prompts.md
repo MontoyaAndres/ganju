@@ -7,34 +7,45 @@ updated: 2026-11-13
 
 **Prompts** are reusable message templates your project exposes. In any linked
 chat channel, each prompt becomes a **slash command** people can run by name — so
-a common request becomes a one-word shortcut. Use `{{variables}}` in a message
-for values that get filled in when it runs.
+a common request becomes a one-word shortcut. MCP clients like Claude see them
+too. Use `{{variables}}` in a message for values that get filled in when it
+runs.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Prompts](/docs/prompts/)** guide covers multi-turn templates, typed variables,
-> and editing messages as JSON.
+> **[Prompts](/docs/prompts/)** guide covers multi-turn templates, typed
+> variables, and editing messages as JSON.
 
 ## Create a prompt
 
-Open **Knowledge** in the sidebar, then the **Prompts** tab, and select **New
-prompt**. A panel opens where you'll build the template.
+1. Open **Knowledge** in the rail, then the **Prompts** tab.
+2. Select **New prompt**. The **New Prompt** panel opens.
 
-![The Prompts page with the New Prompt panel open, showing empty Title, Description, and Messages fields](/images/new-prompt.webp)
+![The New Prompt panel: Title, Description, Messages with the Visual/JSON switch and Add message](/images/new-prompt-panel.webp)
 
 ## Fill it in
 
-Give the prompt a **title** — Ganju turns it into the slash command shown just
-below (here, `start` becomes `/start`). Add a short description, then write one or
-more messages, switching each between **User** and **Assistant** as needed. Prefer
-raw JSON? Toggle **Visual / JSON** at any time.
-
-![The New Prompt panel filled in: title "start", slash command /start, a description, and a user message](/images/new-prompt-init.webp)
+1. **Title** — a short name. Ganju turns it into the slash command shown just
+   below it (**Slash command:**) — here, `start` becomes `/start`.
+2. **Description** — what the prompt does. People and AI clients see it.
+3. **Messages** — write one or more messages, switching each between **User**
+   and **Assistant**. **Add message** adds another turn. Prefer raw JSON? Switch
+   **Visual / JSON** at any time.
+4. **Variables** — any `{{name}}` you type is detected automatically. Set each
+   one's **Type**, a **Description**, and whether it's **Required** or
+   **Optional**.
 
 ## Use it
 
-Select **Create** and the prompt appears as a card with its slash command,
-description, and messages — ready to run from any linked channel.
+Select **Create**. The prompt appears as a card with its slash command,
+description, and messages — ready to run from any linked channel as `/start`.
+Open a card to edit it, or delete it from there.
 
-![The saved "start" prompt shown as a card with its /start command and message detail](/images/prompt-start.webp)
+![A saved prompt card showing its title, /start command and description](/images/knowledge-prompts-tab.webp)
+
+## Limits
+
+| | Free | Pro / Enterprise |
+| --- | --- | --- |
+| Prompts per project | 3 | Unlimited |
 
 Next: give it something to work with — add [resources](/docs/getting-started/resources/).

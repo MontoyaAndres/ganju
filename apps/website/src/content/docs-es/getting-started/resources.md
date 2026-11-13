@@ -1,66 +1,92 @@
 ---
 title: Recursos
-description: Agrega los archivos y el conocimiento que tu IA puede consultar — desde discos en la nube, un rastreo de sitio web o archivos que subas.
+description: Agrega los archivos y el conocimiento que tu IA puede consultar — desde unidades en la nube, el rastreo de un sitio web o subidas directas.
 order: 5
 updated: 2026-11-13
 ---
 
 Los **recursos** son los documentos y el conocimiento que tu asistente puede
 consultar, para que responda con tu contenido en lugar de adivinar. Agrégalos
-desde Google Drive, OneDrive, un rastreo de sitio web o subiendo archivos
+desde Google Drive, OneDrive, el rastreo de un sitio web o subiendo archivos
 directamente — cada uno recibe una URI y, una vez procesado, queda marcado como
-**Ready**.
+**Listo**.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Recursos](/es/docs/resources/)** cubre las importaciones desde Google Drive
-> y OneDrive, los rastreos de sitios web, los archivos subidos y las citas.
+> de **[Recursos](/es/docs/resources/)** cubre las importaciones de Google Drive y
+> OneDrive, el rastreo de sitios web, las subidas, las citas y la
+> sincronización.
 
 ## De dónde vienen los recursos
 
-La pestaña **Recursos**, en **Conocimiento** en la barra lateral, agrupa todo
-por origen: **Google Drive**, **OneDrive**, **Websites** y las carpetas que
-llenas con tus propios archivos.
+Abre **Conocimiento** en la barra lateral; se abre en la pestaña **Recursos**.
+Todo está agrupado por origen: **Google Drive**, **OneDrive**, **Sitios web**,
+**Mi carpeta** (tus propias subidas) y **Datos adjuntos** (archivos subidos desde
+una fila de la página [Datos](/es/docs/data/)). Los botones de arriba agregan a
+cada uno: **Agregar desde Google Drive**, **Agregar desde OneDrive**, **Agregar
+sitio web** y — dentro de una carpeta — **Agregar archivos**.
 
-![La página de Recursos mostrando los orígenes Google Drive, OneDrive, Websites y My folder](/images/new-resource.webp)
+![Conocimiento, pestaña Recursos: Google Drive, OneDrive, Sitios web y Mi carpeta, cada uno con su botón para agregar](/images/knowledge-resources.webp)
 
-## Importar desde Google Drive u OneDrive
+## Importa desde Google Drive u OneDrive
 
-Elige **Add from Google Drive** para abrir el selector. Navega **My Drive**,
-**Shared with me**, **Shared drives** o **Starred**, marca los archivos que
-quieras y selecciona **Add selected**.
+Elige **Agregar desde Google Drive**. La primera vez conectas tu cuenta de
+Google; después se abre el selector. Recorre **Mi unidad**, **Compartido
+conmigo**, **Unidades compartidas** o **Destacados**, marca los archivos o
+carpetas que quieras y selecciona **Agregar lo seleccionado**.
 
-![El selector Import from Google Drive con las pestañas My Drive, Shared with me, Shared drives y Starred](/images/resource-google-drive.webp)
+![El selector Importar desde Google Drive con pestañas para Mi unidad, Compartido conmigo, Unidades compartidas y Destacados](/images/resource-google-drive.webp)
 
-**OneDrive** funciona igual — navega **My files**, **Shared with me**, **Recent**
-o **Drives**, y luego agrega tu selección.
+**OneDrive** funciona igual — recorre **Mis archivos**, **Compartido conmigo**,
+**Recientes** o **Unidades**, y agrega tu selección.
 
-![El selector Import from OneDrive con las pestañas My files, Shared with me, Recent y Drives](/images/resource-onedrive.webp)
+![El selector Importar desde OneDrive con pestañas para Mis archivos, Compartido conmigo, Recientes y Unidades](/images/resource-onedrive.webp)
 
-## Subir un archivo
+## Sube un archivo
 
-Dentro de una carpeta, selecciona **Add files**. Dale un **título** al recurso —
-su URI se genera automáticamente (como `resource://mathematics-book`) y se puede
-editar —, elige un **tipo** y adjunta un archivo o pega texto.
+Abre **Mi carpeta** y selecciona **Agregar archivos**. En el panel **Nuevo
+recurso**:
 
-![El panel New Resource con un título, la URI generada automáticamente, el tipo y un PDF subido](/images/resource-math-book.webp)
+1. Ponle un **Título**. Su **URI** se genera a partir del título (como
+   `resource://mathematics-book`); edítala si quieres.
+2. Elige un **Tipo**: **Estático** (contenido fijo) o **Plantilla** (dinámico,
+   con variables).
+3. En **Origen del contenido**, elige **Archivo** y adjunta uno, o **Texto** y
+   pégalo.
 
-Una vez procesado, el recurso muestra **Ready**, junto con su tipo, tamaño y URI.
-Activa **Cite this resource in replies** para que tu asistente lo cite como fuente
-en las respuestas donde lo use.
+![El panel Nuevo recurso con un título, la URI generada automáticamente, el tipo y un PDF subido](/images/resource-math-book.webp)
 
-![El recurso mathematics-book guardado y marcado como Ready, con sus metadatos y el interruptor Cite in replies](/images/resource-math-book-done.webp)
+Una vez procesado, el recurso muestra **Listo**, con su tipo, tamaño y URI.
+Activa **Citar este recurso en las respuestas** para que tu asistente lo cite
+como fuente en las respuestas que lo usen.
 
-## Rastrear un sitio web
+![El detalle de un recurso: Listo, fuente, tipo, tamaño, URI y el interruptor para citarlo en las respuestas](/images/resource-details.webp)
 
-Selecciona **Add website**, escribe una **URL** de inicio (se siguen los enlaces
-del mismo origen) y define **Max pages** y **Max depth**. Luego selecciona **Start
-crawl**.
+## Rastrea un sitio web
 
-![El panel Add Website con los campos de URL, título, descripción, máximo de páginas y profundidad](/images/resource-webpage.webp)
+Selecciona **Agregar sitio web**, escribe una **URL** de inicio (se siguen los
+enlaces del mismo origen), un **Título** y una **Descripción** opcionales, y
+define el **Máximo de páginas** y la **Profundidad máxima**. Luego selecciona
+**Iniciar rastreo**.
 
-Cuando termina el rastreo, las páginas del sitio quedan indexadas y consultables —
-marcadas **Ready** como cualquier otro recurso.
+![El panel Agregar sitio web con los campos URL, título, descripción, máximo de páginas y profundidad](/images/resource-webpage.webp)
 
-![El recurso del sitio web rastreado marcado como Ready, con su origen, URI y descripción](/images/resource-website-done.webp)
+Cuando termina el rastreo, las páginas del sitio quedan indexadas y se pueden
+consultar — aparecen como **Listo**, igual que cualquier otro recurso.
 
-Sigue con: déjala actuar con [herramientas](/es/docs/getting-started/tools/).
+## Mantén las fuentes al día
+
+Las fuentes de Drive, OneDrive y sitios web se pueden actualizar. Abre la fuente
+y selecciona **Sincronizar ahora** — solo se vuelve a indexar el contenido nuevo
+o modificado, y lo que se eliminó en el origen también se elimina aquí. En
+**Pro** y **Enterprise** también puedes activar **Sincronizar automáticamente** y
+elegir **Cada día** o **Cada semana**; en Free, sincroniza a mano.
+
+## Límites
+
+| | Free | Pro / Enterprise |
+| --- | --- | --- |
+| Contenido consultable (indexado) | 5 MB | 1 GB incluido, luego 2 USD/GB en Pro |
+| Almacenamiento de archivos | 30 MB | Ilimitado |
+| Sincronización automática | — | Cada día o cada semana |
+
+Sigue con: deja que actúe con [herramientas](/es/docs/getting-started/tools/).

@@ -1,8 +1,8 @@
 ---
 title: Datos desde funciones
-description: Lee y escribe la base de datos del proyecto desde tus propias funciones con ctx.data, escríbeles a clientes y chats del equipo con ctx.channels, y deja una función solo para disparadores.
+description: Lee y escribe la base de datos del proyecto desde tus propias funciones con ctx.data, escríbeles a clientes y chats del equipo con ctx.channels, y deja una función solo para disparadores y programaciones.
 order: 56
-updated: 2026-11-03
+updated: 2026-11-13
 ---
 
 Tus [funciones](/es/docs/tools/functions/) llegan a la
@@ -23,17 +23,82 @@ nombre.
 | `describe(table?)` | Tablas, columnas, número de filas y descripciones; una tabla si la nombras |
 | `query({ table, where, search, sort, limit, cursor, include, aggregate, groupBy })` | Busca filas, o las cuenta, suma y promedia |
 | `search(table, text, options?)` | Búsqueda de texto completo en las columnas buscables de una tabla, mejores resultados primero |
-| `insert(table, values)` | Una fila; devuelve `{ id }`. Pasa una lista de filas para agregar varias; devuelve `{ ids }` |
-| `update(table, idOrWhere, set, { where?, expect? })` | Cambia una fila por id, o las filas que coinciden con un filtro |
-| `delete(table, idOrWhere, { where?, expect? })` | Las elimina |
-| `write(operations)` | Varias inserciones, cambios y eliminaciones, aplicadas juntas o ninguna |
-| `run(name, params?, { limit? })` | Una consulta guardada, por nombre |
+| `insert(table, values)` | Una fila; devuelve `{ id }`. Pasa una lista de filas (hasta 500) para agregar varias; devuelve `{ ids }` |
+| `update(table, idOrWhere, set, { where?, expect? })` | Cambia una fila por id, o las filas que coinciden con un filtro; devuelve `{ changed }` |
+| `delete(table, idOrWhere, { where?, expect? })` | Las elimina; devuelve `{ changed }` |
+| `write(operations)` | Hasta 50 inserciones, cambios y eliminaciones, aplicadas juntas o ninguna |
+| `run(name, params?, { limit? })` | Una consulta guardada, por nombre; devuelve `{ query, rows, truncated? }` |
 
-`where` usa los mismos filtros que la API de Datos: `{ status: "open" }`,
-`{ price: { lt: 30000 } }`, `{ name: { contains: "pizza" } }`, combinados con
-`or`. Una página tiene hasta 500 filas; `nextCursor` lee la siguiente. Una
-columna de relación vuelve como `{ id, label }`, e `include` trae la fila
-relacionada completa.
+### Filtros
+
+`where` usa los mismos filtros que la API de Datos y el asistente:
+
+```ts
+{ status: 'open' }                              // igual a
+{ price: { lt: 30000 } }                        // eq, ne, gt, gte, lt, lte
+{ status: { in: ['open', 'ready'] } }           // in, notIn (hasta 50 valores)
+{ name: { contains: 'pizza' } }                 // contains, startsWith (sin importar mayúsculas)
+{ note: { isNull: true } }                      // vacío, o no
+{ 'customer.name': 'Ana' }                      // una columna de la fila relacionada
+{ or: [{ status: 'open' }, { total: { gte: 100000 } }] }
+```
+
+Varias claves deben cumplirse todas; `or` coincide con cualquiera de sus
+filtros, y `and` los agrupa. Una fecha y hora sin desfase se lee en la
+[zona horaria](/es/docs/data/#zona-horaria) de la base de datos.
+
+### Leer filas
+
+```ts
+const { rows, nextCursor } = await ctx.data.query({
+  table: 'orders',
+  where: { status: 'open' },
+  sort: ['-created_at'],
+  include: ['customer'],
+  limit: 50
+});
+```
+
+- Una página tiene 20 filas por defecto, hasta 500 (o 1 MB). Pasa `nextCursor`
+  como `cursor` para leer la siguiente.
+- `sort` es una lista de hasta 3 columnas; un `-` delante ordena de mayor a
+  menor.
+- Una columna de relación vuelve como `{ id, label }`, e `include` trae en su
+  lugar la fila relacionada completa.
+- Una columna de archivo vuelve como `{ uri, title, mimeType }`, o
+  `{ uri, missing: true }` cuando el archivo se eliminó de Recursos. Lee el
+  archivo con `ctx.resources.read(uri)`; escribe la columna con el uri.
+- Las fechas y horas vuelven en la zona horaria de la base de datos, con su
+  desfase.
+
+Para contar o sumar en vez de listar, pasa `aggregate`, y `groupBy` (hasta 3
+columnas) para un resultado por grupo:
+
+```ts
+const { groups } = await ctx.data.query({
+  table: 'orders',
+  where: { created_at: { gte: '2026-11-01T00:00:00-05:00' } },
+  aggregate: [{ fn: 'count' }, { fn: 'sum', column: 'total' }],
+  groupBy: ['status']
+});
+```
+
+`fn` es `count`, `sum`, `avg`, `min` o `max`. `times` multiplica antes de
+sumar: `{ fn: 'sum', column: 'stock', times: 'unit_cost' }` es el valor del
+inventario.
+
+### Escribir filas
+
+```ts
+const { id } = await ctx.data.insert('orders', { customer: 7, status: 'open' });
+await ctx.data.update('menu', 12, { stock: { decrement: 2 } }, { where: { stock: { gte: 2 } } });
+await ctx.data.delete('orders', { status: 'cancelled' });
+```
+
+Un número puede cambiar respecto a sí mismo con `{ increment: n }` o
+`{ decrement: n }`. `where` en las opciones es una condición que debe
+cumplirse, y `expect` dice cuántas filas deben cambiar; si alguna falla, no se
+escribe nada y la llamada lanza un error.
 
 Una llamada rechazada lanza un error, con un mensaje escrito para una persona:
 "menu.stock can't go below 0".
@@ -71,6 +136,9 @@ export default defineTool<{ dish: number; quantity: number }>(
   }
 );
 ```
+
+Cada resultado dice qué hizo su paso: `{ op: 'insert', table, id }` (o `ids`
+para varias filas) y `{ op: 'update' | 'delete', table, changed }`.
 
 ## Qué puede tocar una función
 
@@ -143,20 +211,22 @@ await ctx.channels.post({
 - **`send`** escribe en la conversación privada más reciente del cliente, en el
   canal que usó. Aplica el límite diario por cliente del canal. Una fila de una
   tabla donde cada cliente ve solo sus propias filas trae al cliente en
-  `participant_id`.
+  `participant_id`. Devuelve `{ messageId, conversationId, channelId,
+  platform, sent }`, donde `sent` es `text` o `template`.
 - **WhatsApp** solo acepta texto libre dentro de las 24 horas siguientes al
   último mensaje del cliente. Después solo le llega una plantilla aprobada por
   Meta; pásala como `template: { name, language, params }`, con un valor por
   variable. Si das `text` y `template`, Ganju elige según el cliente. Sin
   plantilla, `send` lanza un error: "Outside WhatsApp's 24-hour window … use an
   approved template." Cuando puede leer las plantillas de la cuenta, Ganju
-  revisa que la plantilla esté aprobada antes de llamar a Meta, y lanza un error con el motivo de Meta cuando está en
-  revisión, rechazada, pausada o desactivada. Meta le cobra los mensajes de
-  plantilla a tu propia cuenta de WhatsApp.
+  revisa que la plantilla esté aprobada antes de llamar a Meta, y lanza un
+  error con el motivo de Meta cuando está en revisión, rechazada, pausada o
+  desactivada. Meta le cobra los mensajes de plantilla a tu propia cuenta de
+  WhatsApp. Telegram, Slack y Discord no tienen ventana y aceptan el texto.
 - **`templates()`** lista las plantillas aprobadas por Meta en los canales de
-  WhatsApp del proyecto que Ganju puede enviar, cada una con su `name`, `language`, `category`, `text`
-  y `variables` (`{ n, label, example }`), para que una función elija una. Las
-  plantillas se crean en
+  WhatsApp del proyecto que Ganju puede enviar, cada una con su `channelId`,
+  `name`, `language`, `category`, `text` y `variables` (`{ n, label, example }`),
+  para que una función elija una. Las plantillas se crean en
   [Plantillas de mensaje](/es/docs/channels/whatsapp/#5-plantillas-de-mensaje)
   del canal.
 - **`post`** recibe el id del canal que muestra el panel y el id del chat en la
@@ -165,8 +235,9 @@ await ctx.channels.post({
 
 ## Funciones que solo ejecutan los disparadores
 
-Una función que ejecuta un [disparador](/es/docs/data/triggers/) — avisarle a
-la cocina, escribirle al cliente — no debería ser una herramienta que el
+Una función que ejecuta un [disparador](/es/docs/data/triggers/) o una
+[programación](/es/docs/data/schedules/) — avisarle a la cocina, escribirle al
+cliente, enviar el reporte de la noche — no debería ser una herramienta que el
 asistente pueda llamar. Ponle `"expose": false` en `ganju.json`, o apaga **El
 asistente puede usar esta función** en su diálogo de la pestaña Funciones:
 
@@ -202,14 +273,34 @@ export default defineTool<TriggerEvent>(async (event, ctx) => {
 
 | Campo | Qué es |
 | --- | --- |
-| `event` | `insert`, `update` o `delete` |
-| `table` | El nombre de la tabla |
-| `row` | La fila después del cambio; `null` al eliminar |
-| `previous` | La fila antes del cambio; `null` al insertar |
-| `actor` | Quién hizo el cambio: `channel:<cliente>`, `user:<id>`, `function:<nombre>`… |
+| `event` | `insert`, `update`, `delete`, `time` (se cumplió el plazo de la fila en un [disparador por tiempo](/es/docs/data/triggers/#disparadores-por-tiempo)) o `schedule` |
+| `table` | El nombre de la tabla; vacío en `schedule` |
+| `row` | La fila después del cambio; `null` al eliminar y en `schedule`. En `time`, la fila como estaba cuando se cumplió el plazo |
+| `previous` | La fila antes del cambio; `null` al insertar, en `time` y en `schedule` |
+| `actor` | Quién hizo el cambio: `channel:<cliente>`, `user:<id>`, `function:<nombre>`…; `null` en `time` |
 | `eventId` | El mismo en cada entrega de este evento. Úsalo para saltarte una repetición |
 | `triggerId` | El disparador que la ejecutó |
+| `dueAt` | En `time` y `schedule`: cuándo se cumplió el plazo (ISO 8601, UTC) |
 | `truncated`, `rowId` | Vienen cuando la fila era demasiado grande para enviarla. Léela con `ctx.data.query({ table, where: { id: rowId } })` |
+| `date` | En `schedule`: la fecha de la ejecución en la zona horaria de la base de datos (`YYYY-MM-DD`) |
+| `query`, `rows`, `rowCount` | En `schedule` con una consulta: su nombre, sus filas (hasta 200) y cuántas devolvió (contadas hasta 500) |
+| `rowsTruncated`, `rowCountMore` | En `schedule`: algunas filas quedaron fuera por tamaño; había más filas de las contadas |
+
+La función de una programación recibe las filas directamente:
+
+```ts
+export default defineTool<TriggerEvent>(async (event, ctx) => {
+  const total = (event.rows ?? []).reduce((sum, r) => sum + Number(r.total ?? 0), 0);
+  await ctx.channels.post({
+    channelId: await ctx.secret('KITCHEN_CHANNEL_ID'),
+    chatId: await ctx.secret('KITCHEN_CHAT_ID'),
+    text: `${event.date}: ${event.rowCount ?? 0} pedidos, ${total} en ventas`
+  });
+});
+```
+
+La fila es contenido que pudo escribir un cliente. Pásala a un modelo de IA como
+texto no confiable, nunca como instrucciones.
 
 Las escrituras de una función que ejecutó un disparador quedan a nombre de ese
 disparador, nunca vuelven a activar ese mismo disparador y pueden activar otros
@@ -220,5 +311,5 @@ un nivel más abajo. Mira
 
 Cada llamada a `ctx.data` cuenta como una solicitud a la base de datos en el
 bloque **Datos** de la página de facturación, con las filas que leyó y
-escribió. Una función que ejecuta un disparador cuenta como una llamada a una
-herramienta propia, igual que una que llama el asistente.
+escribió. Una función que ejecuta un disparador o una programación cuenta como
+una llamada a una herramienta propia, igual que una que llama el asistente.

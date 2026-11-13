@@ -252,15 +252,15 @@ const es: Record<string, string> = {
     'Escribe tus propias herramientas como un Worker de Cloudflare y despliégalas en este servidor MCP.',
   'tool.custom-code.title': 'Código propio',
   'tool.custom-code.description':
-    'Herramientas implementadas por tu propio código. Un script por artefacto; los nombres y esquemas vienen de la versión publicada.',
+    'Herramientas implementadas por tu propio código. Un script por proyecto; los nombres y esquemas vienen de la versión publicada.',
 
-  'field.calendar-list-calendars.defaultMaxResults.label':
+  'field.calendar-list-events.defaultMaxResults.label':
     'Máximo de resultados por defecto',
-  'field.calendar-list-calendars.defaultMaxResults.help':
+  'field.calendar-list-events.defaultMaxResults.help':
     'Se usa cuando una llamada omite maxResults (1–50).',
-  'field.calendar-list-calendars.defaultWindowDays.label':
+  'field.calendar-list-events.defaultWindowDays.label':
     'Ventana por defecto (días)',
-  'field.calendar-list-calendars.defaultWindowDays.help':
+  'field.calendar-list-events.defaultWindowDays.help':
     'Cuando no se indica hora de fin, lista los eventos de estos días hacia adelante.',
   'field.calendar-create-event.defaultDurationMinutes.label':
     'Duración por defecto (minutos)',
@@ -275,7 +275,7 @@ const es: Record<string, string> = {
   'field.calendar-find-free-slots.workingHoursStart.label':
     'Inicio del horario laboral (0–23)',
   'field.calendar-find-free-slots.workingHoursStart.help':
-    'Hora local. Necesita una zona horaria por defecto para surtir efecto.',
+    'Hora local, en la zona horaria por defecto o, si no hay, en la del calendario.',
   'field.calendar-find-free-slots.workingHoursEnd.label':
     'Fin del horario laboral (1–24)',
   'field.calendar-find-free-slots.workingDays.label': 'Días laborales',

@@ -1,79 +1,98 @@
 ---
 title: Tools
-description: Switch on the actions your AI can take — connect an integration, point it at your own API, or write the tool yourself.
+description: Switch on the actions your AI can take — connect an integration, point it at your own API, or let the Assistant write one.
 order: 6
-updated: 2026-09-05
+updated: 2026-11-13
 ---
 
-**Tools** are the actions your assistant can take on your behalf — from built-in
-resource helpers to integrations like Gmail, Slack, and Google Calendar. The
-**Tools** page has three tabs: **[Functions](/docs/tools/functions/)** (code you
-write), **[HTTP Endpoints](/docs/tools/http-endpoints/)** (an API you already
-run), and **[Catalog](/docs/tools/catalog/)** (the integrations we ship). This
-page is about the last one — it's where everyone starts.
+**Tools** are the actions your assistant can take on your behalf — from the
+built-in resource helpers to integrations like Gmail, Slack, and Google
+Calendar. Open **Tools** in the rail. The page has three tabs:
+
+| Tab | What's in it |
+| --- | --- |
+| **[Functions](/docs/tools/functions/)** | Custom actions written in code — by the [Assistant](/docs/assistant/) for you, or by a developer with the CLI. Pro. |
+| **[HTTP Endpoints](/docs/tools/http-endpoints/)** | An API you already run, described once and turned into a named tool. No code. |
+| **[Catalog](/docs/tools/catalog/)** | The integrations Ganju ships, plus remote MCP servers like GitHub and Notion. |
+
+This page is about the **Catalog** — it's where everyone starts.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Tools](/docs/tools/)** guide documents every integration — Gmail, Outlook,
-> Slack, calendars, web search, GitHub, Notion — plus your own HTTP endpoints and
-> functions, tool by tool.
+> **[Tools](/docs/tools/)** guide documents every integration, tool by tool.
 
 ## Built-in tools
 
-Every project starts with five **built-in** tools already installed — **List
+Every project starts with five **Built-in** tools already on — **List
 Resources**, **Read Resource**, **Send Resource**, **Search Resources**, and
-**List Prompts** — so your assistant can work with your content right away. They
-sit in the catalog under **Built-in** and need no connection.
+**List Prompts** — so your assistant can work with your knowledge right away.
+They need no connection.
 
 ## Browse the catalog
 
-The **Catalog** lists every integration you can add — Gmail, Outlook, Slack,
-Google Calendar, Cal.com, Web Search, GitHub, Notion, and more. Each card shows
-how many of its tools you've enabled (Gmail alone offers 18).
+The **Catalog** lists every integration you can add: Gmail, Outlook, Slack,
+Slack Search, Google Calendar, Cal.com, Web Search, Built-in, and remote MCP
+servers. Each card shows how many of its tools you've enabled (Gmail alone
+offers 18). Use **Search integrations...** or the filters **All**, **On**,
+**Off**, and **Needs connection** to narrow the list.
 
-![The Tools catalog with integration cards like Gmail, Slack, and Google Calendar](/images/catalog-tools.webp)
+![Tools, Catalog tab: the tools-exposed bar, search, filters and the integration cards](/images/tools-catalog.webp)
 
 ## Connect an integration
 
-Open an integration to see the tools it offers. Most need a one-time connection —
-select **Connect Gmail** (you only connect once for the whole integration), then
-turn on just the tools you want.
+1. Open an integration to see the tools it offers.
+2. Select **Connect Gmail** (or **Connect** plus the integration's name) and
+   sign in to that account. You only connect once for the whole integration.
+   Some integrations ask for an API key instead (**Add … API key**).
+3. Switch on just the tools you want — here, **Send Email**. Each tool you
+   enable is available to your assistant straight away.
 
-![The Gmail integration with a Connect Gmail button and its individual tools listed](/images/tool-gmail.webp)
-
-Once connected, flip on the individual tools you need — here, **Send Email**. Each
-tool you enable is exposed to your assistant straight away. The switch on a tool
-turns it off while keeping its setup; **Disconnect** removes the whole
-integration.
-
-![Gmail connected, with the Send Email tool toggled on](/images/tool-gmail-done.webp)
+![Gmail connected: the Connected chip, Disconnect, and each tool with its switch](/images/tool-gmail-enabled.webp)
 
 Back in the catalog, Gmail now shows **Connected** with your enabled count
-(`1/18`).
+(`1/18 tools enabled`).
 
-![The catalog showing Gmail marked Connected with 1 of 18 tools enabled](/images/tool-gmail-catalog.webp)
+## On, off, or removed
 
-## Keep the list short
+- The **switch** turns a tool off but keeps its settings and connection — the
+  row then reads **Off · settings kept**.
+- **Remove** deletes a tool and its settings.
+- **Disconnect** removes the whole integration's connection.
 
-Turning a tool **off** stops it being exposed but keeps its configuration and its
-connection; **Remove** deletes it outright. Prefer the switch — every enabled
-tool's schema is re-sent to the model on every call, so a long list costs tokens
-on every turn and makes the model's choice harder.
+Prefer the switch. Every enabled tool's description is re-sent to the model on
+every turn, so a long list costs more and makes the model's choice harder. The
+counter at the top shows how many tools are exposed out of **40** — past that,
+channels stop sending the extras. Home's [Tool health](/docs/analytics/#tool-health)
+lists tools no one has used in 30 days, with a **Disable** button.
+
+## Limits
+
+| | Free | Pro / Enterprise |
+| --- | --- | --- |
+| Tools per project | 7 (built-ins included) | Unlimited |
+| HTTP endpoints per project | 3 | Unlimited |
+| Functions | — | ✓ |
 
 ## When the catalog doesn't cover it
 
-Two escape hatches, on the other two tabs, in order of effort:
+- **Ask the [Assistant](/docs/assistant/)** (Pro). Describe what the bot should
+  do; it writes the action, tests it, and turns it on with your click. The
+  actions it writes appear under **Functions**, where you can read them — to add
+  or change one, ask the Assistant.
+- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — describe one request
+  against an API you already run and it becomes a named tool. No code, and it's
+  on every plan.
+- **Developers** write functions in a repository and ship them with the
+  [`ganju` CLI](/docs/tools/cli/):
 
-- **[HTTP Endpoints](/docs/tools/http-endpoints/)** — describe one request against
-  an API you already run and it becomes a named tool. No code, and it's on every
-  plan.
-- **[Functions](/docs/tools/functions/)** — write the tool yourself in JavaScript
-  when you need logic rather than a single call: several steps, a transform, or
-  combining a credential with a computation. Declare it, and the editor writes
-  the handler stub with `ctx` fully typed; test it against real connections
-  before anyone sees it, then deploy. Pro.
+```bash
+ganju init my-tools   # scaffold a project that deploys as-is
+cd my-tools
+ganju login
+ganju link            # pick the organization and project
+ganju deploy          # bundle, upload, publish
+```
 
-Prefer to work in a terminal? **[`ganju` CLI](/docs/tools/cli/)** does the same
-thing from a repository — `ganju init`, `ganju login`, `ganju link`,
-`ganju deploy` — plus testing, logs, rollback, and deploying from CI.
+A version uploaded from the CLI shows in **Functions** read-only; it changes in
+the repository, with `ganju deploy`.
 
 Next: decide where people use it — set up [channels](/docs/getting-started/channels/).

@@ -1,15 +1,15 @@
 ---
 title: Prompts
-description: Crea plantillas de prompts reutilizables que se vuelven comandos de barra en tus canales de chat.
+description: Crea plantillas de prompts reutilizables que se vuelven comandos en tus canales de chat.
 order: 4
 updated: 2026-11-13
 ---
 
 Los **prompts** son plantillas de mensajes reutilizables que tu proyecto expone.
-En cualquier canal de chat vinculado, cada prompt se convierte en un **comando de
-barra** que la gente puede ejecutar por su nombre — así una solicitud frecuente se
-vuelve un atajo de una sola palabra. Usa `{{variables}}` en un mensaje para los
-valores que se completan al ejecutarlo.
+En cualquier canal de chat vinculado, cada prompt se convierte en un **comando**
+que la gente puede ejecutar por su nombre — así una solicitud frecuente se vuelve
+un atajo de una sola palabra. Los clientes MCP como Claude también los ven. Usa
+`{{variables}}` en un mensaje para los valores que se completan al ejecutarlo.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
 > de **[Prompts](/es/docs/prompts/)** cubre plantillas de varios turnos, variables
@@ -17,28 +17,36 @@ valores que se completan al ejecutarlo.
 
 ## Crea un prompt
 
-Abre **Conocimiento** en la barra lateral, luego la pestaña **Prompts**, y
-selecciona **New prompt**. Se abre un panel donde armarás la plantilla.
+1. Abre **Conocimiento** en la barra lateral y luego la pestaña **Prompts**.
+2. Selecciona **Nuevo prompt**. Se abre el panel **Nuevo prompt**.
 
-![La página de Prompts con el panel New Prompt abierto, mostrando los campos vacíos de Título, Descripción y Mensajes](/images/new-prompt.webp)
+![El panel Nuevo prompt: título, descripción, mensajes con el cambio Visual/JSON y Agregar mensaje](/images/new-prompt-panel.webp)
 
 ## Complétalo
 
-Dale un **título** al prompt — Ganju lo convierte en el comando de barra que se
-muestra justo debajo (aquí, `start` se vuelve `/start`). Agrega una descripción
-corta y luego escribe uno o más mensajes, cambiando cada uno entre **User** y
-**Assistant** según necesites. ¿Prefieres JSON puro? Alterna **Visual / JSON**
-cuando quieras.
-
-![El panel New Prompt completo: título "start", comando /start, una descripción y un mensaje de usuario](/images/new-prompt-init.webp)
+1. **Título** — un nombre corto. Ganju lo convierte en el comando que aparece
+   justo debajo (**Comando:**) — aquí, `start` se vuelve `/start`.
+2. **Descripción** — qué hace el prompt. La ven las personas y los clientes de
+   IA.
+3. **Mensajes** — escribe uno o más mensajes, cambiando cada uno entre **User** y
+   **Assistant**. **Agregar mensaje** suma otro turno. ¿Prefieres JSON puro?
+   Cambia entre **Visual / JSON** cuando quieras.
+4. **Variables** — cada `{{nombre}}` que escribas se detecta solo. Define su
+   **Tipo**, una **Descripción** y si es **Obligatoria** u **Opcional**.
 
 ## Úsalo
 
-Selecciona **Create** y el prompt aparece como una tarjeta con su comando de
-barra, su descripción y sus mensajes — listo para ejecutarse desde cualquier canal
-vinculado.
+Selecciona **Crear**. El prompt aparece como una tarjeta con su comando, su
+descripción y sus mensajes — listo para ejecutarse como `/start` desde cualquier
+canal vinculado. Abre una tarjeta para editarlo, o para eliminarlo.
 
-![El prompt "start" guardado, mostrado como tarjeta con su comando /start y el detalle del mensaje](/images/prompt-start.webp)
+![Una tarjeta de prompt guardada con su título, el comando /start y su descripción](/images/knowledge-prompts-tab.webp)
+
+## Límites
+
+| | Free | Pro / Enterprise |
+| --- | --- | --- |
+| Prompts por proyecto | 3 | Ilimitados |
 
 Sigue con: dale con qué trabajar — agrega
 [recursos](/es/docs/getting-started/resources/).

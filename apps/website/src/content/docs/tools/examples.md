@@ -1,16 +1,20 @@
 ---
 title: Examples
-description: Six ready-to-deploy function projects — weather, GitHub issues, team notes, calendar free time, an emailed news digest and a support desk that confirms refunds — each showing one thing you can copy into your own tools.
+description: Seven ready-to-deploy function projects — weather, GitHub issues, team notes, calendar free time, an emailed news digest, a support desk that confirms refunds and a restaurant's order desk on the project's database — each showing one thing you can copy into your own tools.
 order: 38
-updated: 2026-09-30
+updated: 2026-11-13
 ---
 
-Six small projects you can deploy with the [CLI](/docs/tools/cli/) as they
+Seven small projects you can deploy with the [CLI](/docs/tools/cli/) as they
 are, then change into your own tools. Each is a `ganju.json` and a few short
 TypeScript files. The first five each add one host capability to what the one
-before used, so read in order they cover all of `ctx`. The sixth shows how a
-tool tells the platform what it does, so the ones that can't be undone are
-confirmed before they run.
+before used. The sixth shows how a tool tells the platform what it does, so the
+ones that can't be undone are confirmed before they run. The seventh works on
+the project's [database](/docs/data/), with triggers that message the kitchen
+and the customer.
+
+They are for developers. If you'd rather describe what your bot should do, the
+[Assistant](/docs/assistant/) writes functions like these for you.
 
 They live in the [`examples/`](https://github.com/MontoyaAndres/ganju/tree/main/examples)
 folder of the Ganju repository.
@@ -23,10 +27,11 @@ folder of the Ganju repository.
 | [Calendar free time](#calendar-free-time) | `find-free-time` | `ctx.connection` | Google Calendar connected |
 | [News digest](#news-digest) | `hn-top-stories`, `email-hn-digest` | `ctx.resources.create` + `ctx.sendFile` | Gmail connected |
 | [Order desk](#order-desk) | `order-lookup`, `order-add-note`, `order-refund` | `annotations` + confirming sensitive actions | None |
+| [Restaurant orders](#restaurant-orders) | `place-order`, `sales-report`, `notify-kitchen`, `tell-customer` | `ctx.data`, saved queries, triggers + `ctx.channels` | A database, and a Telegram channel for the kitchen |
 
 ## Before you start
 
-You need Node 20 or newer, and a project on **Pro**, where
+You need Node 20 or newer, and a project on **Pro** or **Enterprise**, where
 [Functions](/docs/tools/functions/) are available.
 
 ```bash
@@ -38,9 +43,14 @@ cd ganju/examples/weather
 ganju link       # choose the organization and project to deploy to
 ```
 
-Every example works the same way from here: `ganju test` to run a tool once
-without publishing it, `ganju deploy` to make it live, and `ganju logs` to see
-the calls your assistant makes.
+Every example works the same way from here: `ganju build --strict` to check
+it, `ganju test` to run a tool once without publishing it, `ganju deploy` to
+make it live, and `ganju logs` to see the calls your bot makes.
+
+A deploy replaces the project's whole set of functions with the example's, so
+use a project for trying things, not one your customers use. If the project's
+functions were made in the app, `ganju deploy` says so and asks before
+replacing them.
 
 `ganju link` fills in `organizationId`, `projectId` and `artifact` in
 `ganju.json`. The copies in the repository leave them out so they work for
@@ -370,6 +380,79 @@ doesn't run until the person says yes:
   `ganju build` warns about it, and `--strict` fails on it.
 - **`ganju test` doesn't ask.** It runs the tool directly, so testing
   `order-refund` records a real refund on the sample order.
+
+## Restaurant orders
+
+A restaurant's order desk on the project's own [database](/docs/data/). The
+menu, orders and their lines are rows in Data, so the app, the Assistant and
+these functions all read the same numbers. It's the `data-orders` folder.
+
+| Tool | What it does | `data` |
+| --- | --- | --- |
+| `place-order` | Saves an order and its lines and takes the dishes out of stock, all or nothing | `write`, three tables |
+| `sales-report` | Units and revenue per dish for a period, from a saved query | `read` |
+| `notify-kitchen` | Posts each new order to the staff's chat; run by a trigger only | `write`, three tables |
+| `tell-customer` | Tells the customer their order is ready; run by a trigger only | `read`, `orders` |
+
+The tables and the saved query live in `ganju.data.json`, beside the code:
+
+```bash
+ganju link
+ganju data create
+ganju data schema push
+ganju data insert menu --input '[{"name":"Margherita","price":28000,"stock":10},{"name":"Hawaiana","price":30000,"stock":2}]'
+ganju build --strict
+ganju test place-order --input '{"customer":"Ana","items":[{"dish":"Margherita","quantity":2}]}'
+ganju secret set KITCHEN_CHANNEL_ID   # the Telegram channel's id, from the app
+ganju secret set KITCHEN_CHAT_ID      # the staff group's chat id
+ganju deploy
+```
+
+Then ask *"Two Hawaianas and one Margherita for Ana"*, and then *"and three
+more Hawaianas"*: the second is refused, since two were left.
+
+**One write for one order:**
+
+```ts
+// src/placeOrder.ts (abridged)
+const { results } = await ctx.data.write([
+  { op: 'insert', table: 'orders', values: { customer: input.customer, total } },
+  // a line per dish, pointing at the order inserted first
+  { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: dish.id, quantity, price } },
+  // and a stock decrement per dish, guarded so stock never goes below zero
+  {
+    op: 'update',
+    table: 'menu',
+    id: dish.id,
+    set: { stock: { decrement: quantity } },
+    where: { stock: { gte: quantity } }
+  }
+]);
+```
+
+**What to notice**
+
+- **`ctx.data` needs no setup.** Every function of a project with a database
+  gets it. Calls follow the same rules as the [Data API](/docs/data-api/), and
+  each change is recorded as the function that made it.
+- **All or nothing.** If one dish is short, the guard fails and the whole order
+  is refused with how many are left. Nothing is half-saved.
+- **A saved query instead of SQL.** `sales_by_dish` is a `SELECT` saved with
+  the tables, and `ctx.data.run` runs it by name. A function never sends SQL.
+- **`data` in `ganju.json` narrows a function.** `sales-report` can only read;
+  `place-order` reaches only its three tables. The platform enforces it, whatever
+  the code does with the model's input.
+- **Triggers are deployed with the code.** `"triggers"` in `ganju.json` runs
+  `notify-kitchen` on each new order, `tell-customer` when an order's status
+  changes to `ready`, and messages the customer when an order is still
+  `pending` 30 minutes after it was placed.
+- **Functions only triggers run.** `notify-kitchen` and `tell-customer` have
+  `"expose": false`, so the bot never sees them and they don't count toward its
+  tools, and `"channels": true`, so they can message through
+  `ctx.channels`.
+
+More on all of this in [Data from functions](/docs/data/functions/) and
+[Triggers](/docs/data/triggers/).
 
 ## Make it yours
 

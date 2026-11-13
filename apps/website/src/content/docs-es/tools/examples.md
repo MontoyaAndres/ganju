@@ -1,17 +1,21 @@
 ---
 title: Ejemplos
-description: Seis proyectos de funciones listos para desplegar — clima, issues de GitHub, notas del equipo, tiempo libre en el calendario, un resumen de noticias por correo y un escritorio de soporte que confirma los reembolsos — cada uno muestra algo que puedes copiar en tus propias herramientas.
+description: Siete proyectos de funciones listos para desplegar — clima, issues de GitHub, notas del equipo, tiempo libre en el calendario, un resumen de noticias por correo, un escritorio de soporte que confirma los reembolsos y los pedidos de un restaurante sobre la base de datos del proyecto — cada uno muestra algo que puedes copiar en tus propias herramientas.
 order: 38
-updated: 2026-09-30
+updated: 2026-11-13
 ---
 
-Seis proyectos pequeños que puedes desplegar tal cual con la
+Siete proyectos pequeños que puedes desplegar tal cual con la
 [CLI](/es/docs/tools/cli/) y luego convertir en tus propias herramientas. Cada
 uno es un `ganju.json` y unos pocos archivos TypeScript cortos. Los cinco
 primeros agregan cada uno una capacidad del anfitrión a lo que usaba el
-anterior, así que leídos en orden cubren todo `ctx`. El sexto muestra cómo una
-herramienta le dice a la plataforma qué hace, para que las que no se pueden
-deshacer se confirmen antes de correr.
+anterior. El sexto muestra cómo una herramienta le dice a la plataforma qué
+hace, para que las que no se pueden deshacer se confirmen antes de correr. El
+séptimo trabaja sobre la [base de datos](/es/docs/data/) del proyecto, con
+disparadores que le escriben a la cocina y al cliente.
+
+Son para desarrolladores. Si prefieres describir lo que debe hacer tu bot, el
+[Asistente](/es/docs/assistant/) escribe funciones como estas por ti.
 
 Están en la carpeta [`examples/`](https://github.com/MontoyaAndres/ganju/tree/main/examples)
 del repositorio de Ganju.
@@ -24,11 +28,12 @@ del repositorio de Ganju.
 | [Tiempo libre en el calendario](#tiempo-libre-en-el-calendario) | `find-free-time` | `ctx.connection` | Google Calendar conectado |
 | [Resumen de noticias](#resumen-de-noticias) | `hn-top-stories`, `email-hn-digest` | `ctx.resources.create` + `ctx.sendFile` | Gmail conectado |
 | [Escritorio de pedidos](#escritorio-de-pedidos) | `order-lookup`, `order-add-note`, `order-refund` | `annotations` + confirmar acciones sensibles | Ninguna |
+| [Pedidos de un restaurante](#pedidos-de-un-restaurante) | `place-order`, `sales-report`, `notify-kitchen`, `tell-customer` | `ctx.data`, consultas guardadas, disparadores + `ctx.channels` | Una base de datos, y un canal de Telegram para la cocina |
 
 ## Antes de empezar
 
-Necesitas Node 20 o superior y un proyecto en **Pro**, que es donde están
-disponibles las [funciones](/es/docs/tools/functions/).
+Necesitas Node 20 o superior y un proyecto en **Pro** o **Enterprise**, que es
+donde están disponibles las [funciones](/es/docs/tools/functions/).
 
 ```bash
 npm install -g @ganju/cli
@@ -39,9 +44,15 @@ cd ganju/examples/weather
 ganju link       # elige la organización y el proyecto de destino
 ```
 
-A partir de aquí todos los ejemplos funcionan igual: `ganju test` ejecuta una
-herramienta una vez sin publicarla, `ganju deploy` la pone en vivo y
-`ganju logs` muestra las llamadas que hace tu asistente.
+A partir de aquí todos los ejemplos funcionan igual: `ganju build --strict` lo
+revisa, `ganju test` ejecuta una herramienta una vez sin publicarla,
+`ganju deploy` la pone en vivo y `ganju logs` muestra las llamadas que hace tu
+bot.
+
+Un despliegue reemplaza todas las funciones del proyecto por las del ejemplo,
+así que usa un proyecto de pruebas, no uno que usen tus clientes. Si las
+funciones del proyecto se hicieron en la app, `ganju deploy` lo dice y pregunta
+antes de reemplazarlas.
 
 `ganju link` completa `organizationId`, `projectId` y `artifact` en
 `ganju.json`. Las copias del repositorio no los traen, para que sirvan a
@@ -378,6 +389,82 @@ reembolso no corre hasta que la persona dice que sí:
   cosas, consultas incluidas. `ganju build` lo advierte y `--strict` falla.
 - **`ganju test` no pregunta.** Ejecuta la herramienta directamente, así que
   probar `order-refund` registra un reembolso real en el pedido de ejemplo.
+
+## Pedidos de un restaurante
+
+Los pedidos de un restaurante sobre la propia [base de datos](/es/docs/data/)
+del proyecto. El menú, los pedidos y sus líneas son filas en Datos, así que la
+app, el Asistente y estas funciones leen los mismos números. Es la carpeta
+`data-orders`.
+
+| Herramienta | Qué hace | `data` |
+| --- | --- | --- |
+| `place-order` | Guarda un pedido con sus líneas y descuenta los platos del inventario, todo o nada | `write`, tres tablas |
+| `sales-report` | Unidades e ingresos por plato en un periodo, desde una consulta guardada | `read` |
+| `notify-kitchen` | Publica cada pedido nuevo en el chat del equipo; solo lo ejecuta un disparador | `write`, tres tablas |
+| `tell-customer` | Le avisa al cliente que su pedido está listo; solo lo ejecuta un disparador | `read`, `orders` |
+
+Las tablas y la consulta guardada viven en `ganju.data.json`, junto al código:
+
+```bash
+ganju link
+ganju data create
+ganju data schema push
+ganju data insert menu --input '[{"name":"Margherita","price":28000,"stock":10},{"name":"Hawaiana","price":30000,"stock":2}]'
+ganju build --strict
+ganju test place-order --input '{"customer":"Ana","items":[{"dish":"Margherita","quantity":2}]}'
+ganju secret set KITCHEN_CHANNEL_ID   # el id del canal de Telegram, desde la app
+ganju secret set KITCHEN_CHAT_ID      # el id del chat del grupo del equipo
+ganju deploy
+```
+
+Luego pide *"Dos hawaianas y una margherita para Ana"*, y después *"y tres
+hawaianas más"*: el segundo pedido se rechaza, porque quedaban dos.
+
+**Una escritura por pedido:**
+
+```ts
+// src/placeOrder.ts (resumido)
+const { results } = await ctx.data.write([
+  { op: 'insert', table: 'orders', values: { customer: input.customer, total } },
+  // una línea por plato, que apunta al pedido insertado primero
+  { op: 'insert', table: 'order_lines', values: { order: { $ref: 0 }, dish: dish.id, quantity, price } },
+  // y un descuento de inventario por plato, con una condición para que nunca baje de cero
+  {
+    op: 'update',
+    table: 'menu',
+    id: dish.id,
+    set: { stock: { decrement: quantity } },
+    where: { stock: { gte: quantity } }
+  }
+]);
+```
+
+**Qué notar**
+
+- **`ctx.data` no necesita configuración.** Toda función de un proyecto con
+  base de datos lo recibe. Las llamadas siguen las mismas reglas que la
+  [API de Datos](/es/docs/data-api/), y cada cambio queda registrado a nombre de
+  la función que lo hizo.
+- **Todo o nada.** Si falta un plato, la condición falla y el pedido entero se
+  rechaza diciendo cuántos quedan. Nada queda guardado a medias.
+- **Una consulta guardada en vez de SQL.** `sales_by_dish` es un `SELECT`
+  guardado con las tablas, y `ctx.data.run` lo ejecuta por su nombre. Una
+  función nunca envía SQL.
+- **`data` en `ganju.json` limita una función.** `sales-report` solo puede leer;
+  `place-order` solo llega a sus tres tablas. La plataforma lo hace cumplir,
+  haga lo que haga el código con la entrada del modelo.
+- **Los disparadores se despliegan con el código.** `"triggers"` en
+  `ganju.json` ejecuta `notify-kitchen` con cada pedido nuevo, `tell-customer`
+  cuando el estado de un pedido cambia a `ready`, y le escribe al cliente
+  cuando un pedido sigue `pending` 30 minutos después de hecho.
+- **Funciones que solo ejecutan los disparadores.** `notify-kitchen` y
+  `tell-customer` tienen `"expose": false`, así que el bot nunca las ve y no
+  cuentan para sus herramientas, y `"channels": true`, así que pueden escribir
+  con `ctx.channels`.
+
+Más sobre todo esto en [Datos desde funciones](/es/docs/data/functions/) y
+[Disparadores](/es/docs/data/triggers/).
 
 ## Hazlo tuyo
 

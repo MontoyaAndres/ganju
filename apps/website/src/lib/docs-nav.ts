@@ -86,8 +86,14 @@ const SPEC: DocNavSpec[] = [
     label: { en: 'Organizations & projects', es: 'Organizaciones y proyectos' }
   },
   { slug: 'assistant', label: { en: 'Assistant', es: 'Asistente' } },
-  { slug: 'prompts', label: { en: 'Prompts', es: 'Prompts' } },
-  { slug: 'resources', label: { en: 'Resources', es: 'Recursos' } },
+  {
+    // Resources and Prompts are the two tabs of the app's Knowledge page.
+    label: { en: 'Knowledge', es: 'Conocimiento' },
+    items: [
+      { slug: 'resources', label: { en: 'Resources', es: 'Recursos' } },
+      { slug: 'prompts', label: { en: 'Prompts', es: 'Prompts' } }
+    ]
+  },
   {
     slug: 'data',
     label: { en: 'Data', es: 'Datos' },
@@ -99,6 +105,17 @@ const SPEC: DocNavSpec[] = [
       {
         slug: 'data/triggers',
         label: { en: 'Triggers and webhooks', es: 'Disparadores y webhooks' }
+      },
+      {
+        slug: 'data/schedules',
+        label: { en: 'Schedules', es: 'Programaciones' }
+      },
+      {
+        slug: 'data/sheet-sync',
+        label: {
+          en: 'Sync from a spreadsheet',
+          es: 'Sincronizar desde una hoja de cálculo'
+        }
       },
       { slug: 'data-api', label: { en: 'Data API', es: 'API de Datos' } }
     ]

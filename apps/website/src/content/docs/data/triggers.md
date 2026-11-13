@@ -1,8 +1,8 @@
 ---
 title: Triggers and webhooks
-description: Run something when a table's rows change, a set time after a row's date, or on a schedule every day or week — a function, a signed webhook, a chat message, an email or a message to the customer — and how delivery, retries and webhook signatures work.
+description: Run something when a table's rows change or a set time after a row's date — a function, a signed webhook, a chat message, an email or a message to the customer — and how testing, delivery, retries and webhook signatures work.
 order: 57
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 A **trigger** is a rule on a table: when a row is added, changed or deleted,
@@ -11,48 +11,61 @@ kitchen's group; an order that becomes `ready` messages the customer; every
 change to `bookings` reaches your own system as a webhook.
 
 Triggers fire for every write, wherever it came from: the assistant on a
-channel, the dashboard, the CLI, the API or a function. A write that is undone
-(because a guard failed, say) fires nothing.
+channel, the dashboard, the CLI, the API, a function or a
+[spreadsheet sync](/docs/data/sheet-sync/). A write that is undone (because a
+guard failed, say) fires nothing.
 
 A [time trigger](#time-triggers) fires when time passes instead, with nothing
 written: an order still `pending` 30 minutes after it was placed, a booking
 nobody confirmed by noon the day before.
 
-A [schedule](#schedules) runs on the clock, every day or every week at a set
-time: "every night at 9, email me today's orders".
+A [schedule](/docs/data/schedules/) runs on the clock, every day or every week
+at a set time, with no table: "every night at 9, email me today's orders".
 
 ## Create one
 
 Open a table on the **Data** page, then its **Triggers** tab, and click **New
 trigger**:
 
-1. **When**: a row is added, a row changes, a row is deleted, or
-   [time passes](#time-triggers).
-2. **Only if**: optional. A column and a test, such as `status` **changes to**
-   `ready`. **Advanced (JSON)** takes any [condition](#conditions).
-3. **Then**: the [action](#actions).
-4. **Runs a minute**: 60 by default, up to 600. Past it, events wait and go out
+1. **Name** and **Description**: optional. A name is lowercase letters,
+   digits, `_` and `-`, starting with a letter; left empty, one is made up.
+2. **When**: **A row is added**, **A row changes**, **A row is deleted**, or
+   **Time passes** (see [time triggers](#time-triggers)).
+3. **Only if**: optional. A column, a test (**changes to**, **changes from**,
+   **is**, **changes (any value)**) and a value, such as `status` **changes
+   to** `ready`. **Advanced (JSON)** takes any [condition](#conditions).
+4. **Then**: the [action](#actions).
+5. **Runs a minute**: 60 by default, up to 600. Past it, events wait and go out
    later.
 
-A trigger can be turned off and on from its card. **Recent runs** lists each
-event it handled, with its status and error, and **Retry** sends a failed one
-again.
+![The New trigger dialog: Name, When, Only if, Then "Run a function" and Runs a minute](/images/data-trigger-dialog.webp)
 
-A database holds up to 50 triggers. Dropping a table deletes its triggers.
-Renaming a column renames it in the triggers that use it, in their conditions
-and `{{column}}` texts. A column a trigger uses can't be dropped until you
-change or delete that trigger.
+Each trigger shows as a card on the Triggers tab with what it does in one
+line, such as "status changes to ready". From the card you can turn it on and
+off, **Edit** it, **Delete** it, and open **Recent runs**: each event it
+handled, with its status (**Running**, **Waiting**, **Done**, **Failed** or
+**Skipped**), its attempts and error, and **Retry** to send a failed one again.
+When events are waiting to go out, the tab says how many.
+
+A database holds up to 50 triggers, schedules included. Dropping a table
+deletes its triggers. Renaming a column renames it in the triggers that use it,
+in their conditions and `{{column}}` texts. A column a trigger uses can't be
+dropped until you change or delete that trigger.
+
+You can also ask the project's [Assistant](/docs/assistant/) to make one ("when
+an order becomes ready, message the customer"): it proposes the trigger and you
+apply it.
 
 ## Conditions
 
 A condition tests the row before and after the change:
 
-| Test | Holds when |
-| --- | --- |
-| `{ "status": { "changedTo": "ready" } }` | `status` is now `ready` and wasn't before |
-| `{ "status": { "changedFrom": "open" } }` | `status` was `open` and isn't now |
-| `{ "price": { "changed": true } }` | `price` has a different value |
-| `{ "zone": { "equals": "north" } }` | `zone` is `north` (on the row after the change, or the deleted row) |
+| Test | In the dashboard | Holds when |
+| --- | --- | --- |
+| `{ "status": { "changedTo": "ready" } }` | changes to | `status` is now `ready` and wasn't before |
+| `{ "status": { "changedFrom": "open" } }` | changes from | `status` was `open` and isn't now |
+| `{ "price": { "changed": true } }` | changes (any value) | `price` has a different value |
+| `{ "zone": { "equals": "north" } }` | is | `zone` is `north` (on the row after the change, or the deleted row) |
 
 An added row has no "before", and a deleted row no "after", so each counts as
 every column empty: an insert **changes to** the values it was created with,
@@ -71,20 +84,21 @@ Tests on several columns must all hold. `all` and `any` combine conditions:
 }
 ```
 
-Values compare exactly: `3` and `3.0` match, `"3"` and `3` don't. `null` means
-empty.
+Values compare exactly: `3` and `3.0` match, `"3"` and `3` don't. `null`, or a
+value left empty in the dashboard, means empty.
 
 ## Time triggers
 
-Choose **Time passes** under **When**, then how long and from which time of
-the row:
+Choose **Time passes** under **When**, then **How long** and from which time
+of the row:
 
-- **The row's time**: when it was added (`created_at`), when it last changed
-  (`updated_at`), or a date or date and time column of the table, such as a
-  booking's `starts_at`.
-- **How long**: 5 minutes to 30 days, **after** that time, or **before** it on
-  a date or date and time column (a reminder the day before a booking). A date
-  with no time counts from midnight in the database's time zone.
+- **The row's time**: **When it was added (created_at)**, **When it last
+  changed (updated_at)**, or a date or date and time column of the table, such
+  as a booking's `starts_at`.
+- **How long**: an amount in minutes, hours or days, from 5 minutes to 30
+  days, **after** that time, or **before** it on a date or date and time
+  column (a reminder the day before a booking). A date with no time counts
+  from midnight in the database's [time zone](/docs/data/#time-zone).
 - **Only if**: tested on the row as it is when it comes due, so the only test
   is **is** (`equals`). `status` **is** `pending` fires for an order still
   pending 30 minutes on, not for one already marked ready.
@@ -122,65 +136,34 @@ In `ganju.json` and the API:
 }
 ```
 
-`minutes` is negative for before: `{ "column": "starts_at", "minutes": -1440 }`
-is a day before. The event's `event` is `time`, `previous` is `null`, and
-`dueAt` says when the row came due.
+`minutes` goes from 5 to 43,200 (30 days), and is negative for before:
+`{ "column": "starts_at", "minutes": -1440 }` is a day before. The event's
+`event` is `time`, `previous` and `actor` are `null`, and `dueAt` says when the
+row came due.
 
 ## Schedules
 
-A schedule runs at a set time, every day or on chosen days of the week, in the
-database's time zone (**Database settings**, the gear on the Data page). It has no table: open
-**Schedules** in the Data page's list and choose **New schedule**.
-
-- **Repeats** and **At**: every day, or every week on the days you tick, at a
-  time such as 21:00. Daily is the most often.
-- **Rows from**: a [saved query](/docs/data-api/#named-queries-and-triggers) whose rows go
-  with each run, such as today's orders. Its parameters can take the run's
-  date: `{{today}}` and `{{yesterday}}` are dates, and `{{today_start}}` and
-  `{{today_end}}` are the day's start and end as UTC times, for a column such
-  as `created_at` (stored in UTC). **Don't run when the query returns no rows**
-  skips the days with nothing.
-- **Action**: an **email**, whose text takes `{{date}}` and `{{count}}` and is
-  followed by the rows, one per line; a **function**; or a **webhook**. Both
-  of the last get the rows as `rows`, with `date`, `query` and `rowCount`.
-
-A query for the day's orders, and the schedule that emails it:
-
-```sql
-SELECT customer, items, total FROM orders
-WHERE created_at >= :from AND created_at < :to
-ORDER BY created_at
-```
-
-```json
-{
-  "name": "nightly-orders",
-  "on": "schedule",
-  "every": "day",
-  "at": "21:00",
-  "query": "todays_orders",
-  "params": { "from": "{{today_start}}", "to": "{{today_end}}" },
-  "skipEmpty": true,
-  "email": { "to": "you@example.com", "subject": "Orders {{date}}", "text": "{{count}} orders today:" }
-}
-```
-
-For every week, add `"every": "week"` and `"days": ["mon", "thu"]` (Monday when
-left out). Each run happens once. A run missed at its time goes out once,
-late, if the database is back within 6 hours, and is skipped after that. A database holds up to 5 schedules. A run's
-query can return up to 200 rows; the email says when some were left out. The
-event's `event` is `schedule`, its `table` is empty, `row` is `null` and
-`dueAt` says which time it was for.
+Schedules run at a set time every day or every week, with no table, and can
+carry a saved query's rows, such as today's orders. They have their own place
+on the Data page and their own page here: [Schedules](/docs/data/schedules/).
+They share the actions, delivery, retries and webhook signatures described on
+this page.
 
 ## Actions
 
-| Action | In `ganju.json` | What happens |
-| --- | --- | --- |
-| Run a function | `"function": "notify-kitchen"` | The function runs with the event. See [functions only triggers run](/docs/data/functions/#functions-only-triggers-run) |
-| Call a webhook | `"webhook": "https://example.com/hooks/orders"` | The event is POSTed as JSON, [signed](#verify-a-webhook) |
-| Send a chat message | `"chat": { "channelId": "…", "chatId": "-1001234567890", "text": "New order #{{id}}" }` | Posted to a Telegram group or a Slack or Discord channel the bot is in |
-| Send an email | `"email": { "to": ["kitchen@example.com"], "subject": "Order {{id}}", "text": "…" }` | Up to 10 addresses. The subject defaults to `<table>: {{id}}` |
-| Message the customer | `"customer": { "text": "Your order #{{id}} is ready." }` | Sent to the customer whose conversation wrote the row, on the channel they used |
+| Action | In the dashboard | In `ganju.json` | What happens |
+| --- | --- | --- | --- |
+| Run a function | **Run a function** | `"function": "notify-kitchen"` | The function runs with the event. See [functions only triggers run](/docs/data/functions/#functions-only-triggers-run) |
+| Call a webhook | **Call a webhook** | `"webhook": "https://example.com/hooks/orders"` | The event is POSTed as JSON, [signed](#verify-a-webhook) |
+| Send a chat message | **Send a chat message** | `"chat": { "channelId": "…", "chatId": "-1001234567890", "text": "New order #{{id}}" }` | Posted to a Telegram group or a Slack or Discord channel the bot is in |
+| Send an email | **Send an email** | `"email": { "to": ["kitchen@example.com"], "subject": "Order {{id}}", "text": "…" }` | Up to 10 addresses. The subject defaults to `<table>: {{id}}` |
+| Message the customer | **Message the customer** | `"customer": { "text": "Your order #{{id}} is ready." }` | Sent to the customer whose conversation wrote the row, on the channel they used |
+
+**Function** lists the functions deployed in the project, marking those that
+are **triggers only** and any that is no longer deployed. **Channel** lists
+the project's Telegram, Slack and Discord channels; **Chat id** is the
+Telegram group's id (such as `-1001234`) or the Slack or Discord channel's id.
+Texts are up to 2,000 characters.
 
 In a message, `{{column}}` inserts that column's value from the row, as plain
 text. `id`, `created_at`, `updated_at` and `participant_id` work too. Messages
@@ -227,6 +210,29 @@ WhatsApp account. A chat message can't go to WhatsApp.
 Messages sent by a trigger are recorded on the conversation, so the bot's next
 turn knows what the customer was told. They aren't billed as assistant replies.
 
+## Test a message before saving
+
+The trigger dialog can send what you wrote, saved or not, built from a row of
+the table (**Newest row** by default, or one you pick under **Row**). It isn't
+a run: it isn't listed under the trigger's runs and doesn't count toward any
+limit per customer.
+
+- **Message the customer**: **Test this message** sends it to your own chat
+  with the bot. Link that chat first: from your phone, write to the project's
+  bot, send `/link`, and open the link it answers with while signed in to
+  Ganju. With more than one linked chat, pick one under **Send to**. **Send as
+  the template** sends the WhatsApp template even inside the 24-hour window;
+  off, a test decides between text and template the way a real run does.
+- **Send an email**: the test goes only to your own account's address,
+  whatever **To** says, with "[Test]" before the subject.
+
+Click **Send a test**; the dialog shows what went out, and Meta's or the
+channel's refusal when there is one. You can send five tests a minute.
+
+The API has the same: `GET /trigger/test-send` lists your linked chats, and
+`POST /trigger/test-send` sends one, with `{ table, customer, rowId?,
+participantId?, asTemplate? }` or `{ table, email, rowId? }`.
+
 ## Deploy triggers with the CLI
 
 List them under `"triggers"` in `ganju.json`, next to your functions, and
@@ -249,18 +255,25 @@ List them under `"triggers"` in `ganju.json`, next to your functions, and
 }
 ```
 
-- `on` is `insert`, `update`, `delete`, `time` (with `after`, see
-  [time triggers](#time-triggers)) or `schedule` (with `every` and `at` and no
-  `table`, see [schedules](#schedules)), and each trigger has exactly one
-  action. A schedule's action is `email`, `function` or `webhook`.
+| Field | What it is |
+| --- | --- |
+| `name` | Optional. Lowercase letters, digits, `_` and `-`, starting with a letter |
+| `description` | Optional, up to 300 characters |
+| `table` | The table. Left out on a schedule |
+| `on` | `insert`, `update`, `delete`, `time` (with `after`, see [time triggers](#time-triggers)) or `schedule` (see [schedules](/docs/data/schedules/)) |
+| `when` | Optional. A [condition](#conditions) |
+| `after` | On `time`: `{ "column", "minutes" }` |
+| `rateLimit` | Runs a minute, 1 to 600; 60 when left out |
+| `enabled` | `true` or `false`. Left out, a deploy keeps it as it was |
+| one action | `function`, `webhook`, `chat`, `email` or `customer`; exactly one |
+
 - Without a `name`, one is made from the table, the event and the action:
-  `orders-insert-notify-kitchen`. Names are lowercase letters, digits, `_` and
-  `-`. In the dashboard and the API, saving a trigger without a name always
-  creates a new one, numbered when the name is taken
-  (`orders-insert-webhook-2`), so it never replaces another.
+  `orders-insert-notify-kitchen`. In the dashboard and the API, saving a
+  trigger without a name always creates a new one, numbered when the name is
+  taken (`orders-insert-webhook-2`), so it never replaces another.
 - `ganju deploy` adds and updates the triggers listed and removes the ones it
   deployed before that aren't listed anymore. Triggers made in the dashboard are
-  left alone, and a name used by both is refused.
+  left alone, and a name used by both is refused. All of it applies, or none.
 - **Renaming a column a deployed trigger uses:** run
   `ganju data column rename`, which renames it in the trigger too, then change
   ganju.json to the new name before the next deploy. A deploy that still names
@@ -277,10 +290,21 @@ List them under `"triggers"` in `ganju.json`, next to your functions, and
 In the dashboard, a deployed trigger shows **Managed by the CLI (ganju.json)**.
 You change it in the file, but can still turn it off and on there.
 
-The [Data API](/docs/data-api/) has the same: `GET /trigger`, `POST /trigger`
-(the shape above), `PATCH /trigger/:name` with `{ "enabled": false }`,
-`DELETE /trigger/:name`, `POST /trigger/deploy`, `GET /trigger/:name/run` and
-`POST /trigger/:name/run/:runId/retry`.
+## From the Data API
+
+The [Data API](/docs/data-api/#named-queries-triggers-and-schedules) has the
+same routes the dashboard uses:
+
+| Route | What it does |
+| --- | --- |
+| `GET /trigger` | Every trigger and schedule, and `pending`: events not yet sent. Webhook secrets are never listed |
+| `POST /trigger` | Save one (the shape above). A new webhook answers with its `secret`, once; addresses still to confirm come back as `confirming`. `"replace": false` refuses to save over a trigger of that name |
+| `PATCH /trigger/:name` | Turn it on or off: `{ "enabled": false }`. Turning it on clears why Ganju turned it off |
+| `DELETE /trigger/:name` | Delete it |
+| `POST /trigger/deploy` | What `ganju deploy` sends: `{ "triggers": [...] }` |
+| `GET /trigger/:name/run` | Its recent runs, newest first, up to 50 (`?limit=`) |
+| `POST /trigger/:name/run/:runId/retry` | Run a failed or skipped event again, with the same `eventId` |
+| `GET /trigger/test-send`, `POST /trigger/test-send` | [Test a message](#test-a-message-before-saving) |
 
 ## How events are delivered
 
@@ -291,7 +315,7 @@ The [Data API](/docs/data-api/) has the same: `GET /trigger`, `POST /trigger`
 - **Retries.** A failed run is tried three more times, waiting longer each time.
   Some failures aren't retried, because trying again wouldn't change them: a
   function that isn't published, a customer outside WhatsApp's window, a
-  chain that went too deep.
+  chain that went too deep, a webhook URL that points at a private address.
 - **Turned off after 20 failures in a row.** The trigger's card says why, and
   the organization's admins get an email. Turn it back on once the
   cause is fixed.
@@ -334,15 +358,19 @@ Each event is a `POST` with a JSON body:
 ```
 
 A time trigger's event has `"event": "time"`, `"previous": null`, `"actor":
-null` and `dueAt`, when the row came due. A schedule's has `"event":
+null` and `dueAt`, when the row came due. A
+[schedule's](/docs/data/schedules/#what-a-run-sends) has `"event":
 "schedule"`, an empty `table`, `"row": null`, `dueAt`, `date` (the run's date
 in the database's time zone) and, with a query, `query`, `rows` and
-`rowCount` (`rowsTruncated` when some were left out).
+`rowCount` (`rowsTruncated` when some were left out). A row too large to send
+comes with `"truncated": true`.
 
 and these headers:
 
 | Header | Value |
 | --- | --- |
+| `content-type` | `application/json` |
+| `user-agent` | `Ganju-Webhooks/1` |
 | `x-ganju-signature` | `t=<unix seconds>,v1=<signature>` |
 | `x-ganju-event-id` | The `eventId` |
 | `x-ganju-event` | `<table>.<event>`, such as `orders.update` or `orders.time`; `schedule` for a schedule |
