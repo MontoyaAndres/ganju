@@ -238,6 +238,33 @@ export const stageData = async (
   };
 
   switch (action) {
+    case 'set_time_zone': {
+      const zone =
+        typeof input.timeZone === 'string' && input.timeZone.trim()
+          ? input.timeZone.trim()
+          : null;
+      if (zone) {
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone: zone });
+        } catch {
+          throw new Error(
+            `"${zone}" isn't a time zone; use an IANA name such as America/Bogota.`
+          );
+        }
+      }
+      const current = ('timeZone' in schema ? schema.timeZone : null) ?? null;
+      if (current === zone) {
+        return `The database already uses ${zone ?? 'UTC'}; nothing to stage.`;
+      }
+      if (staged(action).length) {
+        throw new Error('A time zone change is already staged.');
+      }
+      return push({
+        op: action,
+        payload: { timeZone: zone, previous: current },
+        undo: 'reverse'
+      });
+    }
     case 'create_table': {
       const table = await Schema.DATA_TABLE_INPUT.parseAsync(input.table);
       if (
@@ -601,6 +628,36 @@ const handlers: Record<string, ItemHandler> = {
       const row = await findArtifactDatabase(caller.db, scope.artifactId);
       if (!row) throw new Error('The database is gone for good.');
       await restoreDeletedDatabase(caller, row, actorOf(scope.userId));
+    }
+  },
+  set_time_zone: {
+    apply: (caller, scope, item) =>
+      withData(caller, scope, async request => {
+        const previous =
+          (await dataActions.readSchema(request)).timeZone ?? null;
+        const applied = (item.payload.timeZone as string | null) ?? null;
+        await dataActions.setTimeZone(request, applied);
+        return { previous, applied };
+      }),
+    check: async (caller, scope, _item, before) => {
+      const { applied } = before as { applied: string | null };
+      const current = await withData(
+        caller,
+        scope,
+        async request =>
+          (await dataActions.readSchema(request)).timeZone ?? null
+      );
+      if (current !== applied) {
+        throw new Error(
+          'The time zone was changed again after this was applied, so undoing it would replace that change. Ask the assistant to set it instead.'
+        );
+      }
+    },
+    undo: async (caller, scope, _item, before) => {
+      const { previous } = before as { previous: string | null };
+      await withData(caller, scope, request =>
+        dataActions.setTimeZone(request, previous)
+      );
     }
   },
   create_table: {

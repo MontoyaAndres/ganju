@@ -68,6 +68,7 @@ const en = {
   toolTools: 'Looking at your tools',
   toolPropose: 'Preparing your changes',
   toolPatch: 'Writing the change for your developer',
+  toolDocs: "Reading Ganju's documentation",
   toolAsk: 'Preparing a request for you',
 
   lockedBadge: 'Pro',
@@ -172,10 +173,10 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
   es: {
     title: 'Asistente',
     subtitle: 'Cuéntale qué debe saber o hacer tu bot. Lo construye contigo.',
-    newChat: 'Nuevo chat',
+    newChat: 'Chat nuevo',
     pastChats: 'Chats anteriores',
     noChats: 'Aún no hay chats',
-    untitled: 'Nuevo chat',
+    untitled: 'Chat nuevo',
     chatsKept: 'Los chats se borran {days} días después de su último mensaje.',
     deleteChat: 'Borrar chat',
     deleteChatConfirm:
@@ -233,6 +234,7 @@ export const ASSISTANT: Catalog<AssistantCopy> = {
     toolTools: 'Revisando tus herramientas',
     toolPropose: 'Preparando tus cambios',
     toolPatch: 'Escribiendo el cambio para tu desarrollador',
+    toolDocs: 'Leyendo la documentación de Ganju',
     toolAsk: 'Preparando algo que necesita de ti',
 
     lockedBadge: 'Pro',

@@ -92,6 +92,8 @@ const toolLabel = (
       return t('toolPropose');
     case 'propose_patch':
       return t('toolPatch');
+    case 'docs':
+      return t('toolDocs');
     default:
       return t('toolAsk');
   }
@@ -912,8 +914,14 @@ export const Assistant = () => {
                   );
                 }
                 const running = item === lastLive && !!live?.tool;
+                // A turn that starts with a step shows the avatar on it.
+                const first = index === 0;
                 return (
-                  <div key={key} className="assistant-card-row">
+                  <div
+                    key={key}
+                    className={first ? 'assistant-reply' : 'assistant-card-row'}
+                  >
+                    {first && avatar}
                     <ul className="assistant-steps">
                       {item.steps.map((step, stepIndex) => {
                         const current =

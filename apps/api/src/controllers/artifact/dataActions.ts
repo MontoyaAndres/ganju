@@ -153,6 +153,20 @@ const change = (
     ...entry
   });
 
+// Also restarts the schedules' clocks in the new zone.
+export const setTimeZone = async (
+  request: DataRequest,
+  timeZone: string | null
+) => {
+  const info = await callData(
+    'setTimeZone',
+    () => request.opened.stub.setTimeZone(request.caller, { timeZone }),
+    request.tally
+  );
+  await change(request, { kind: 'database.update', detail: { timeZone } });
+  return info;
+};
+
 // A file column takes the uri of a resource the project has.
 export const assertFileUris = (request: DataRequest, operations: unknown) =>
   assertFileUrisExist(

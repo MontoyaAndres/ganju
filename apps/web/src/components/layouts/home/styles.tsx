@@ -27,7 +27,7 @@ export const Wrapper = styled.nav<IProps>`
         @media (min-width: ${theme.screens.xl}) {
           display: none;
           padding: 24px 20px;
-          width: calc(100% - 93px);
+          width: calc(100% - 100px);
         }
       }
 
@@ -39,9 +39,9 @@ export const Wrapper = styled.nav<IProps>`
           top: 0;
           left: 0;
           z-index: 10;
-          width: 93px;
+          width: 100px;
           height: 100vh;
-          padding: 20px 12px;
+          padding: 20px 6px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -75,32 +75,28 @@ export const Wrapper = styled.nav<IProps>`
           display: flex;
           flex-direction: column;
           align-items: center;
-          grid-gap: 14px;
+          grid-gap: 10px;
           margin-top: 16px;
 
           .MuiButtonBase-root {
-            padding: 8px 14px;
+            padding: 8px 1px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-transform: none;
             margin: 0;
-            border-radius: 16px;
-            width: 69px;
+            border-radius: 14px;
+            width: 88px;
 
+            // Small enough for "Conocimiento" to fit the rail.
             .button-text {
               color: ${theme.colors.bastille};
-              font-size: ${theme.fonts.base};
+              font-size: 13px;
               font-style: normal;
               font-weight: 400;
               line-height: 110%;
-              margin-top: 8px;
-
-              // "Conocimiento" is wider than the rail at the base size.
-              &.is-long {
-                font-size: ${theme.fonts.sm};
-              }
+              margin-top: 6px;
             }
 
             & > svg {
@@ -170,7 +166,7 @@ export const Wrapper = styled.nav<IProps>`
       .account-menu {
         position: fixed;
         bottom: 24px;
-        left: 90px;
+        left: 97px;
         z-index: 20;
         width: 328px;
         background-color: ${theme.colors.white};
@@ -252,7 +248,7 @@ export const Wrapper = styled.nav<IProps>`
 
       @media (min-width: ${theme.screens.xl}) {
         padding-top: 0;
-        margin-left: 93px;
+        margin-left: 100px;
       }
     }
 
@@ -271,7 +267,7 @@ export const Wrapper = styled.nav<IProps>`
 
       @media (min-width: ${theme.screens.xl}) {
         top: 74px;
-        left: 116px;
+        left: 123px;
       }
 
       .projects-item-new {
@@ -524,7 +520,7 @@ export const OrgSwitcherWrapper = styled.div`
 
       @media (min-width: ${theme.screens.xl}) {
         top: 20px;
-        left: 104px;
+        left: 111px;
         right: auto;
         bottom: auto;
         width: 560px;

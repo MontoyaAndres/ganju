@@ -578,6 +578,8 @@ export const Wrapper = styled.div`
     }
 
     .assistant-steps {
+      flex: 1;
+      min-width: 0;
       list-style: none;
       margin: 0;
       padding: 10px 14px;

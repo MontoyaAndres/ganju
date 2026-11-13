@@ -624,6 +624,7 @@ export const Overview = () => {
               <UI.Button
                 variant="contained"
                 size="small"
+                className="small"
                 onClick={() => goTo('assistant')}
               >
                 <span className="button-text">{t('startButton')}</span>

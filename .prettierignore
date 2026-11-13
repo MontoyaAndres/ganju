@@ -32,3 +32,7 @@ packages/db/drizzle/meta
 # every one of them to say the same thing differently. The formatter is here for
 # code.
 *.md
+
+# The CLI docs copied into the assistant by apps/api/scripts/builder-docs.mjs,
+# rewritten on every api build.
+apps/api/src/controllers/builder/docs.generated.ts

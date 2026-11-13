@@ -18,12 +18,14 @@ escribes, español o inglés.
 ## Qué puede cambiar
 
 - **Acciones** — pequeños programas que tu bot ejecuta, como revisar el
-  inventario o guardar una reserva. El asistente las escribe y las prueba por ti.
+  inventario o guardar una reserva. El asistente las escribe y las prueba por ti,
+  y puede dejarlas como estaban un día anterior ("vuelve a como estaba ayer").
 - **[Datos](/es/docs/data/)** — las tablas, columnas y filas de tu proyecto, las
   consultas guardadas, los [disparadores](/es/docs/data/triggers/), como
   "envíame un correo con cada pedido nuevo", y las
   [programaciones](/es/docs/data/triggers/#programaciones), como "cada noche a
-  las 9, envíame los pedidos de hoy".
+  las 9, envíame los pedidos de hoy", y la zona horaria de la base de datos, en
+  la que corren las programaciones.
 - **Conocimiento** — notas y sitios web que tu bot consulta, en **Conocimiento →
   [Recursos](/es/docs/resources/)**. Los archivos los pones tú: cuando necesita uno,
   te pide que lo subas.
@@ -133,9 +135,13 @@ Si el desarrollador maneja tus tablas desde código, la tarjeta lo dice: su
 próxima subida revierte los cambios de tablas y columnas, así que pásale esos
 también.
 
+Pregúntale por la CLI — cómo instalarla, desplegar, probar o configurar CI — y
+responde con la [documentación de la CLI](/es/docs/tools/cli/), con los comandos
+y un enlace.
+
 ## Chats
 
-Empieza un **Nuevo chat** para cada cosa nueva que construyas; los anteriores
+Empieza un **Chat nuevo** para cada cosa nueva que construyas; los anteriores
 están en la lista. En cada proyecto responde un chat a la vez.
 
 - Después de **30 días**, un mensaje conserva lo que tú y el asistente dijeron,

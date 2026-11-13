@@ -13,6 +13,7 @@ import { buildArtifactConnections } from '../artifact/connections';
 import { DATA_TOOL_MAX_LIMIT } from '@ganju/utils/data';
 import { generateEmbedding } from '../../utils/embedding';
 
+import { BUILDER_DOCS } from './docs.generated';
 import { lastSchemaPush, stageData, testEmail } from './dataItems';
 import { stageProject } from './projectItems';
 
@@ -90,7 +91,7 @@ Stage (needs label): set_instructions {text}, the whole new text of the bot's in
 - read: the files, manifest and config of a version (default: the live one, or the newest draft when nothing is live). Lists recent versions too.
 - save_draft: save a new draft from the complete set of files plus the manifest (and optionally config). Returns its versionId. Nobody sees drafts. Always send every file and every action of the project, not only the changed ones. Not available when a developer uploads the live actions: use propose_patch.
 - logs: the latest real calls of the live actions (optionally one tool), with their errors and ctx.log lines.
-- turn_on: stage making a draft live (the owner applies it with the change set).`,
+- turn_on {versionId}: stage making a version live (the owner applies it with the change set): a new draft, or an earlier version to go back to (one with publishedAt was live before; read lists the last 20 with their dates). Going back puts that version's actions back as they were, and drops any action added since.`,
     input_schema: obj(
       {
         action: {
@@ -137,6 +138,7 @@ Read now: describe (tables, columns, saved queries, triggers, time zone, and whe
 Send now: test_email {table, email: {to, subject?, text}, rowId?}: an email trigger's message built from a row (the newest by default), sent only to the owner's own address whatever "to" says. For a schedule's email: test_email {schedule: {query?, params?}, email}, its query run for today (a query staged here and not applied yet runs as staged). Use it so the owner sees an email before it is due.
 Stage for the change set (each needs label, the plain line the owner reads):
 - create_database {name?}, delete_database
+- set_time_zone {timeZone}: the database's time zone, an IANA name such as America/Bogota, or null for UTC. Schedules and {{today}} run in it, and its clocks restart in the new zone (a time that already passed there today isn't sent late).
 - create_table {table: {name, label?, description?, displayColumn?, access?, customerScoped?, history?, source?, columns: [...]}} (source {uri, sheet?, key}: rows synced from a spreadsheet in knowledge, the way to import one), change_table {table, patch}, drop_table {table}
 - add_column {table, column: {name, type, ...}}, change_column {table, column, patch}, drop_column {table, column}
 - add_rows {table, rows: [{...}]}, change_rows {table, updates: [{id, set}]}, delete_rows {table, ids}
@@ -155,6 +157,7 @@ Deletes (drop_*, delete_*) make the owner type the name of what goes. Stage in t
             'test_email',
             'create_database',
             'delete_database',
+            'set_time_zone',
             'create_table',
             'change_table',
             'drop_table',
@@ -189,6 +192,10 @@ Deletes (drop_*, delete_*) make the owner type the name of what goes. Stage in t
         updates: { type: 'array', items: { type: 'object' } },
         ids: { type: 'array', items: { type: 'integer' } },
         query: anyObject('save_query'),
+        timeZone: {
+          type: ['string', 'null'],
+          description: 'set_time_zone: an IANA name, or null for UTC'
+        },
         trigger: anyObject('save_trigger'),
         enabled: { type: 'boolean' },
         email: anyObject('test_email: {to, subject?, text}'),
@@ -269,6 +276,14 @@ Stage (each needs label): add {toolKey, config?} (a catalog tool; "http-endpoint
         enabled: { type: 'boolean' }
       },
       ['action']
+    )
+  },
+  {
+    name: 'docs',
+    description: `Ganju's documentation for developers, as the docs site has it. topic "cli": the ganju command line (install, sign in, deploy actions from a computer, test, logs, versions, secrets, CI tokens). topic "cli_data": its ganju data commands (rows, imports, schema as code, restore). Read it before answering a question about the command line.`,
+    input_schema: obj(
+      { topic: { type: 'string', enum: Object.keys(BUILDER_DOCS) } },
+      ['topic']
     )
   },
   {
@@ -358,6 +373,7 @@ const describeData = async (ctx: BuilderToolContext) => {
   };
   const pushed = await lastSchemaPush(caller(ctx), ctx.artifactId, opened.row);
   return {
+    timeZone: stored.timeZone ?? 'UTC (none set)',
     schema,
     queries,
     triggers,
@@ -377,7 +393,7 @@ const versionsSummary = async (ctx: BuilderToolContext) => {
     developerUploaded: Boolean(
       live && live.sourceKind !== utils.constants.CUSTOM_CODE_SOURCE_KIND_EDITOR
     ),
-    versions: listed.versions.slice(0, 8).map(v => ({
+    versions: listed.versions.slice(0, 20).map(v => ({
       id: v.id,
       version: v.version,
       status: v.status,
@@ -974,6 +990,15 @@ const run = async (
         );
       }
       return stageProject(ctx, 'tools', action, input);
+    case 'docs': {
+      const topic = String(input.topic) as keyof typeof BUILDER_DOCS;
+      if (!(topic in BUILDER_DOCS)) {
+        throw new Error(
+          `Unknown topic ${topic}; one of ${Object.keys(BUILDER_DOCS).join(', ')}`
+        );
+      }
+      return BUILDER_DOCS[topic];
+    }
     case 'propose_changes':
       return proposeChanges(ctx, input);
     case 'propose_patch':

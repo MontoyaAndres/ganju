@@ -17,11 +17,13 @@ in, Spanish or English.
 ## What it can change
 
 - **Actions** — small programs your bot runs, like checking stock or saving a
-  booking. The assistant writes and tests them for you.
+  booking. The assistant writes and tests them for you, and can put them back
+  the way they were on an earlier day ("go back to how it was yesterday").
 - **[Data](/docs/data/)** — your project's tables, columns and rows, saved
   queries, [triggers](/docs/data/triggers/) such as "email me each new
-  order", and [schedules](/docs/data/triggers/#schedules) such as "every night
-  at 9, email me today's orders".
+  order", [schedules](/docs/data/triggers/#schedules) such as "every night
+  at 9, email me today's orders", and the database's time zone, which schedules
+  run in.
 - **Knowledge** — notes and websites your bot searches, under **Knowledge →
   [Resources](/docs/resources/)**. Files come from you: when it needs one, it
   asks you to upload it.
@@ -126,6 +128,9 @@ or download and send them. They apply it and upload again.
 
 If the developer manages your tables from code, the card says so: their next
 upload puts table and column changes back, so pass those on to them too.
+
+Ask it about the CLI — how to install it, deploy, test or set up CI — and it
+answers from the [CLI docs](/docs/tools/cli/), with the commands and a link.
 
 ## Chats
 

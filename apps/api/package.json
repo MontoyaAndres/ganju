@@ -2,7 +2,7 @@
   "name": "api",
   "version": "0.0.1",
   "scripts": {
-    "build": "node esbuild.config.mjs && tsc --emitDeclarationOnly",
+    "build": "node scripts/builder-docs.mjs && node esbuild.config.mjs && tsc --emitDeclarationOnly",
     "dev": "../../scripts/wrangler-dev.sh apps/api 8080",
     "start": "node ./dist/index.js",
     "clean": "rm -rf dist && rm -rf node_modules",

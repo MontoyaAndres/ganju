@@ -1626,6 +1626,8 @@ export default createHandler({
             </div>
             <UI.Button
               variant="contained"
+              size="small"
+              className="small"
               onClick={() =>
                 router.push(`/organization/${organizationId}/settings`)
               }

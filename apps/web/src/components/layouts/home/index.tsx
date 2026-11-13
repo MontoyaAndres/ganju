@@ -247,11 +247,7 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
               }
             >
               {active ? <ActiveIcon /> : <Icon />}
-              <span
-                className={`button-text${place === 'rail' && label.length > 10 ? ' is-long' : ''}`}
-              >
-                {label}
-              </span>
+              <span className="button-text">{label}</span>
             </UI.Button>
           );
         })}
