@@ -104,6 +104,7 @@ export const BotInstructions = ({
         minRows={5}
         maxRows={14}
         fullWidth
+        sx={{ mt: 2 }}
         disabled={!loaded || saving}
         error={value.length > MAX}
         helperText={t('botInstructionsCount', {

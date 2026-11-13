@@ -98,7 +98,11 @@ export const Dialog = styled.div<DialogProps>`
         min-height: 0;
         border-radius: 6px;
         text-transform: none;
-        color: ${theme.colors.white};
+        color: ${theme.colors.bastille};
+
+        &.MuiButton-contained {
+          color: ${theme.colors.white};
+        }
       }
 
       @media (min-width: ${theme.screens.md}) {

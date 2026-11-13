@@ -231,7 +231,7 @@ export const TOOL_CATALOG = [
     key: 'outlook',
     title: 'Outlook',
     description: 'Microsoft Outlook mail tools backed by Microsoft Graph.',
-    icon: 'https://api.iconify.design/vscode-icons:file-type-outlook.svg',
+    icon: 'https://api.iconify.design/vscode-icons/file-type-outlook.svg',
     provider: 'microsoft-outlook',
     tools: [
       {
@@ -368,7 +368,7 @@ export const TOOL_CATALOG = [
     title: 'Slack',
     description:
       'Post messages, browse channels, and upload files in Slack via Web API.',
-    icon: 'https://api.iconify.design/logos:slack-icon.svg',
+    icon: 'https://api.iconify.design/logos/slack-icon.svg',
     provider: 'slack',
     tools: [
       {
@@ -406,7 +406,7 @@ export const TOOL_CATALOG = [
     title: 'Slack Search',
     description:
       'Workspace-wide message search for Slack. Backed by a user (xoxp) token because Slack does not allow bot tokens to call search.messages.',
-    icon: 'https://api.iconify.design/logos:slack-icon.svg',
+    icon: 'https://api.iconify.design/logos/slack-icon.svg',
     provider: 'slack-user',
     tools: [
       {
@@ -423,7 +423,7 @@ export const TOOL_CATALOG = [
     key: 'google-calendar',
     title: 'Google Calendar',
     description: 'Create and manage calendar events, and find open time slots',
-    icon: 'https://api.iconify.design/logos:google-calendar.svg',
+    icon: 'https://api.iconify.design/logos/google-calendar.svg',
     provider: 'google-calendar',
     tools: [
       {
@@ -474,7 +474,7 @@ export const TOOL_CATALOG = [
     key: 'calcom',
     title: 'Cal.com',
     description: 'Check availability and book or cancel meetings on Cal.com',
-    icon: 'https://api.iconify.design/simple-icons:caldotcom.svg',
+    icon: 'https://api.iconify.design/simple-icons/caldotcom.svg',
     provider: 'calcom',
     tools: [
       {
@@ -514,7 +514,7 @@ export const TOOL_CATALOG = [
     title: 'Web Search',
     description:
       'Search the live web and extract page content, powered by Tavily.',
-    icon: 'https://api.iconify.design/mdi:web.svg',
+    icon: 'https://api.iconify.design/mdi/web.svg',
     provider: 'tavily',
     tools: [
       {
@@ -603,7 +603,7 @@ export const TOOL_CATALOG = [
     title: 'HTTP Endpoints',
     description:
       'Expose your own HTTP APIs to the agent as named tools. Each endpoint you add becomes a tool the assistant can call.',
-    icon: 'https://api.iconify.design/mdi:api.svg',
+    icon: 'https://api.iconify.design/mdi/api.svg',
     provider: null,
     tools: [
       {
@@ -621,7 +621,7 @@ export const TOOL_CATALOG = [
     title: 'MCP Servers',
     description:
       "Connect a vendor's official remote MCP server and expose its tools to the agent. Each server you add brings its own set of tools.",
-    icon: 'https://api.iconify.design/mdi:server-network.svg',
+    icon: 'https://api.iconify.design/mdi/server-network.svg',
     provider: null,
     tools: [
       {

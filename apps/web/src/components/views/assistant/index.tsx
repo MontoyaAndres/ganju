@@ -639,10 +639,61 @@ export const Assistant = () => {
     );
   };
 
+  // The chat's own layout, so nothing moves when it loads.
   if (access === 'loading') {
     return (
       <Wrapper>
-        <UI.Skeleton variant="rounded" height={420} />
+        <div className="assistant-layout" aria-busy="true">
+          <aside className="assistant-chats">
+            <div className="assistant-chats-top">
+              <UI.Skeleton variant="rounded" height={34} />
+            </div>
+            <UI.Skeleton variant="text" width="45%" height={14} />
+            {[70, 85, 60].map(width => (
+              <UI.Skeleton
+                key={width}
+                variant="text"
+                width={`${width}%`}
+                height={28}
+              />
+            ))}
+          </aside>
+          <section className="assistant-chat">
+            <header className="assistant-header">
+              <div className="assistant-header-title">
+                <UI.Skeleton variant="circular" width={32} height={32} />
+                <div>
+                  <UI.Skeleton variant="text" width={110} height={18} />
+                  <UI.Skeleton variant="text" width={240} height={14} />
+                </div>
+              </div>
+              <UI.Skeleton variant="rounded" width={96} height={32} />
+            </header>
+            <div className="assistant-messages">
+              <div className="assistant-column">
+                <UI.Skeleton
+                  variant="rounded"
+                  width="45%"
+                  height={44}
+                  sx={{ alignSelf: 'flex-end', borderRadius: '18px' }}
+                />
+                <div className="assistant-reply">
+                  <UI.Skeleton variant="circular" width={32} height={32} />
+                  <div className="assistant-reply-body">
+                    <UI.Skeleton variant="text" width="90%" height={16} />
+                    <UI.Skeleton variant="text" width="75%" height={16} />
+                    <UI.Skeleton variant="text" width="40%" height={16} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="assistant-compose">
+              <div className="assistant-compose-box">
+                <UI.Skeleton variant="text" width="35%" height={22} />
+              </div>
+            </div>
+          </section>
+        </div>
       </Wrapper>
     );
   }

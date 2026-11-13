@@ -6,6 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import {
   Add,
+  AutoAwesomeOutlined,
   Close,
   CodeOutlined,
   DeleteOutlined,
@@ -1076,17 +1077,17 @@ export const FunctionsPanel = ({
       )}
 
       {byAssistant && !snapshot && (
-        <div className="tools-banner">
-          <span>
-            {t('assistantBannerBefore')}{' '}
-            <button
-              type="button"
-              className="tools-inline-link"
-              onClick={openAssistant}
-            >
-              {t('openAssistant')}
-            </button>
-          </span>
+        <div className="tools-banner tools-banner-info">
+          <AutoAwesomeOutlined />
+          <span>{t('assistantBannerBefore')}</span>
+          <UI.Button
+            variant="outlined"
+            size="small"
+            className="small"
+            onClick={openAssistant}
+          >
+            <span className="button-text">{t('openAssistant')}</span>
+          </UI.Button>
         </div>
       )}
 

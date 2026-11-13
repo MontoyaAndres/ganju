@@ -203,6 +203,21 @@ export const Wrapper = styled.div`
         }
       }
 
+      &.tools-banner-info {
+        flex-wrap: wrap;
+        background-color: #5c6ac40f;
+        border: 1px solid #5c6ac42e;
+        color: ${theme.colors.bastille};
+
+        & > svg {
+          color: #5c6ac4;
+        }
+
+        & > span {
+          min-width: 200px;
+        }
+      }
+
       &.tools-banner-error {
         background-color: ${theme.colors.fairPink};
         color: ${theme.colors.thunderbird};
