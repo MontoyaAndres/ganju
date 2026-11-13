@@ -1,57 +1,79 @@
 # Ganju Pricing
 
-Start free, scale when you're ready — or run it yourself for free under Apache-2.0.
+Simple pricing. Try it for free, move to Pro when your bot gets real use, and
+only pay more if you go past what's included.
 
-## Free — $0/mo
+## Free: $0/mo
 
-Perfect for personal projects and trying things out.
+Try Ganju with one bot.
 
-- 1 workspace, no teammates
-- Up to 7 tools, 3 prompts, 1 channel
-- 30 MB files · ~5 MB searchable (embedded) content
-- 100 channel messages / mo on our shared AI model
-- Your own connection link
+- 1 project
+- 100 bot replies a month, on our AI model (the bot pauses at the limit)
+- 7 tools, 3 prompts, 1 channel
+- 5 MB of searchable content, 30 MB of files
+- Use it from Claude, ChatGPT or Cursor
 - Community support
 
-## Pro — $29/mo + usage
+## Pro: $29/mo
 
-For teams and growing products. A flat base that includes an allowance; you pay
-only for what you use beyond it.
+For a bot people use every day.
 
-- Unlimited projects, teammates, tools & prompts
-- Connect your own AI model (bring-your-own-key)
-- Includes 3,000 channel messages/mo — up to 1,000 of them on our AI model — + 1 GB searchable content each month
-- Past that: $2 per 1,000 messages on your own AI key, $15 per 1,000 on ours · $2 per extra GB
-- MCP-client tool calls (Claude, Cursor, ChatGPT) are bundled — not billed as messages
-- Includes 1,000,000 calls/mo to tools you write in code, then $5 per million
-- A database per project (Data): up to 9 GB and 50 tables, restore to any moment in the last 30 days · usage measured, not billed yet
-- A project assistant that builds your bot with you: 1,000 credits/mo included, then $2 per 100 credits up to a monthly limit you set (2,000 extra by default), or no credits at all on your own Anthropic key
-- Custom domain add-on ($15/mo) · build your own custom tools
+- Unlimited projects, prompts and channels
+- 3,000 bot replies a month
+- 1 GB of searchable content
+- The Assistant builds actions for you
+- Functions and a database per project
+- Invite your team and use your own AI model
 - 24/7 support
 
-Three things are metered, because they're the only things that cost us money:
-channel-bot assistant replies (each runs an LLM tool-calling loop), embedded
-RAG content (stored as vectors in Postgres), and calls to tools you wrote in code
-(which run on our compute). Raw file storage is free, and so are calls to the
-integrations we ship.
+### How Pro is billed
 
-Data (the project database) is measured too: storage, rows read and written,
-and trigger runs, all shown on the billing page. It isn't billed yet; a price
-will be set once there are real usage numbers. On Free, an existing database
-stays readable but not editable.
+$29 covers the month. Each item has an amount included; you only pay extra for
+what goes past it.
 
-The project assistant is billed in credits: one credit is $0.01 of AI cost, and
-building a new action usually takes 25 to 50. Its try-it-as-a-customer chats on
-our AI model use credits too, and nothing else does.
+| What | Included each month | After that |
+| --- | --- | --- |
+| Bot replies on your own AI key | 3,000 | $2 per 1,000 |
+| Bot replies on our AI model | 1,000 of those 3,000 | $15 per 1,000 |
+| Searchable content | 1 GB | $2 per GB |
+| Calls to your own functions | 1,000,000 | $5 per million |
+| Assistant credits | 1,000 | $2 per 100, up to a limit you set |
+| Custom web address | Optional | $15 a month |
 
-## Enterprise — Custom
+Always free, on every plan: messages people send to your bot, using Ganju from
+Claude, ChatGPT or Cursor, catalog integrations and remote MCP servers, file
+storage, and the project database (measured, not billed yet).
 
-For larger organizations with advanced needs.
+## Enterprise: Custom
 
-- Everything in Pro, with no limits on projects, tools, prompts, or channels
-- Custom web address & tools
-- Allowances and contract terms arranged directly
+For larger teams with their own terms.
+
+- Everything in Pro
+- Allowances and contract set with you
+- A custom web address
 - A named contact for support
+
+## Compare plans
+
+| | Free | Pro | Enterprise |
+| --- | --- | --- | --- |
+| Price | $0 | $29 / mo | Custom |
+| Projects | 1 | Unlimited | Unlimited |
+| Bot replies included | 100 / mo | 3,000 / mo | Custom |
+| Past the included replies | Bot pauses | Billed as usage | Custom |
+| Searchable content | 5 MB | 1 GB, then $2 / GB | Custom |
+| File storage | 30 MB | Unlimited | Unlimited |
+| Prompts per project | 3 | Unlimited | Unlimited |
+| Tools switched on | 7 | Up to 40 per channel | Up to 40 per channel |
+| HTTP endpoints per project | 3 | Unlimited | Unlimited |
+| Channels per project | 1 | Unlimited | Unlimited |
+| Automatic resource sync | By hand | Daily or weekly | Daily or weekly |
+| The Assistant | No | 1,000 credits / mo | Yes |
+| Functions | No | 1M calls / mo | Yes |
+| Database per project | No | 9 GB, 50 tables | Yes |
+| Invite your team | No | Yes | Yes |
+| Bring your own AI model | No | Yes | Yes |
+| Support | Community | 24/7 | Named contact |
 
 ## Self-host
 

@@ -44,7 +44,6 @@ export const UI = {
     star: 'Star',
     getStarted: 'Get started',
     nav: [
-      { label: 'Features', href: '/#features' },
       { label: 'Docs', href: '/docs/' },
       { label: 'Blog', href: '/blog/' },
       { label: 'Pricing', href: '/pricing/' },
@@ -55,7 +54,6 @@ export const UI = {
       product: {
         title: 'Product',
         links: [
-          { label: 'Features', href: '/#features' },
           { label: 'How it works', href: '/#how' },
           { label: 'Integrations', href: '/#integrations' },
           { label: 'Pricing', href: '/pricing/' }
@@ -91,7 +89,6 @@ export const UI = {
     star: 'Estrella',
     getStarted: 'Empezar',
     nav: [
-      { label: 'Funciones', href: '/es/#features' },
       { label: 'Docs', href: '/es/docs/' },
       { label: 'Blog', href: '/blog/' },
       { label: 'Precios', href: '/es/precios/' },
@@ -102,7 +99,6 @@ export const UI = {
       product: {
         title: 'Producto',
         links: [
-          { label: 'Funciones', href: '/es/#features' },
           { label: 'Cómo funciona', href: '/es/#how' },
           { label: 'Integraciones', href: '/es/#integrations' },
           { label: 'Precios', href: '/es/precios/' }
@@ -286,13 +282,13 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     messagesLabel: 'How many messages will your bots send?',
     messagesUnit: '/mo',
     messagesHint:
-      'Every reply your bot sends on Telegram, Slack, WhatsApp, or Discord. The first {included} each month are included. This estimate assumes you connect your own AI model — replies on ours are included up to 1,000/mo, then $15 per 1,000.',
+      'Every reply your bot sends on Telegram, Slack, WhatsApp, or Discord. The first {included} each month are included. This estimate assumes you connect your own AI model. Replies on ours are included up to 1,000/mo, then $15 per 1,000.',
     storageLabel: 'How much can your AI search through?',
     storageUnit: ' GB',
     storageHint:
-      "Documents, web pages, and files your AI can read and answer from. The first {included} GB are included — that's thousands of pages.",
+      "Documents, web pages, and files your AI can read and answer from. The first {included} GB are included, that's thousands of pages.",
     domainLabel: 'Use your own web address',
-    domainHint: 'Like your-company.mcp.ganju.ai — adds {price}/mo',
+    domainHint: 'Like your-company.mcp.ganju.ai, adds {price}/mo',
     resultLabel: "You'd pay about",
     resultPer: 'per month',
     proPlan: 'Pro plan',
@@ -301,8 +297,8 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     domainLine: 'Your own web address',
     included:
       'Your plan already includes {messages} messages and {storage} GB every month.',
-    note: 'Using Ganju from Claude, Cursor, or ChatGPT is always free — it never uses up your messages.',
-    free: '🎉 Good news — this fits the Free plan. You might not need Pro yet.'
+    note: 'Using Ganju from Claude, Cursor, or ChatGPT is always free. It never uses up your messages.',
+    free: '🎉 Good news: this fits the Free plan. You might not need Pro yet.'
   },
   es: {
     locale: 'es-CO',
@@ -315,13 +311,13 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     messagesLabel: '¿Cuántos mensajes enviarán tus bots?',
     messagesUnit: '/mes',
     messagesHint:
-      'Cada respuesta que tu bot envía en Telegram, Slack, WhatsApp o Discord. Los primeros {included} de cada mes están incluidos. Este estimado asume que conectas tu propio modelo de IA — con el nuestro van incluidas hasta 1.000/mes, y luego cuestan $15 por cada 1.000.',
+      'Cada respuesta que tu bot envía en Telegram, Slack, WhatsApp o Discord. Los primeros {included} de cada mes están incluidos. Este estimado asume que conectas tu propio modelo de IA. Con el nuestro van incluidas hasta 1.000/mes, y luego cuestan $15 por cada 1.000.',
     storageLabel: '¿Cuánto contenido puede buscar tu IA?',
     storageUnit: ' GB',
     storageHint:
-      'Documentos, páginas web y archivos que tu IA puede leer y usar para responder. Los primeros {included} GB están incluidos — son miles de páginas.',
+      'Documentos, páginas web y archivos que tu IA puede leer y usar para responder. Los primeros {included} GB están incluidos: son miles de páginas.',
     domainLabel: 'Usar tu propia dirección web',
-    domainHint: 'Como tu-empresa.mcp.ganju.ai — suma {price}/mes',
+    domainHint: 'Como tu-empresa.mcp.ganju.ai, suma {price}/mes',
     resultLabel: 'Pagarías alrededor de',
     resultPer: 'al mes',
     proPlan: 'Plan Pro',
@@ -329,7 +325,7 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     extraStorage: '{n} GB de contenido adicional',
     domainLine: 'Tu propia dirección web',
     included: 'Tu plan ya incluye {messages} mensajes y {storage} GB cada mes.',
-    note: 'Usar Ganju desde Claude, Cursor o ChatGPT siempre es gratis — nunca consume tus mensajes.',
+    note: 'Usar Ganju desde Claude, Cursor o ChatGPT siempre es gratis. Nunca consume tus mensajes.',
     free: '🎉 Buenas noticias: esto cabe en el plan Gratis. Puede que todavía no necesites Pro.'
   }
 };

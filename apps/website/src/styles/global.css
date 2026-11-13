@@ -2532,3 +2532,96 @@ a.docs-group-link:hover {
   padding-top: 0;
   border-top: 0;
 }
+
+/* ===== Pricing: usage and compare tables ===== */
+.pricing-note {
+  margin: 36px 0 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.pricing-note a {
+  color: var(--text);
+}
+
+/* Wide tables scroll inside their box instead of the page on phones. */
+.plan-table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.plan-table th,
+.plan-table td {
+  padding: 14px 18px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.plan-table tbody tr:last-child th,
+.plan-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.plan-table thead th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg-2);
+}
+
+.plan-table tbody th {
+  font-weight: 600;
+}
+
+.plan-compare th:not(:first-child),
+.plan-compare td {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Pro's column, the same emphasis as its card. */
+.plan-compare td:nth-child(3),
+.plan-compare thead th:nth-child(3) {
+  background: var(--accent-soft);
+}
+
+.plan-no {
+  color: var(--muted-2);
+}
+
+.plan-free {
+  margin-top: 40px;
+}
+
+.plan-free h3 {
+  font-size: 1.1rem;
+  margin: 0 0 16px;
+}
+
+.plan-free .price-features {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .plan-table th,
+  .plan-table td {
+    padding: 12px 14px;
+  }
+
+  .plan-free .price-features {
+    grid-template-columns: 1fr;
+  }
+}

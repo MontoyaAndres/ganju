@@ -1,63 +1,82 @@
 # Precios de Ganju
 
-Empieza gratis, crece cuando estés listo — o instálalo tú mismo sin costo bajo
-Apache-2.0.
+Precios simples. Pruébalo gratis, pasa a Pro cuando tu bot tenga uso real, y
+solo paga más si te pasas de lo incluido.
 
-> Esta es la versión en español de nuestra página de [Pricing](/pricing/).
+## Free: $0/mes
 
-## Gratis — $0/mes
+Prueba Ganju con un bot.
 
-Ideal para proyectos personales y para probar.
-
-- 1 espacio de trabajo, sin compañeros de equipo
-- Hasta 7 herramientas, 3 prompts, 1 canal
-- 30 MB de archivos · ~5 MB de contenido consultable (con embeddings)
-- 100 mensajes de canal / mes en nuestro modelo de IA compartido
-- Tu propio enlace de conexión
+- 1 proyecto
+- 100 respuestas del bot al mes, en nuestro modelo de IA (el bot se pausa al llegar al límite)
+- 7 herramientas, 3 prompts, 1 canal
+- 5 MB de contenido consultable, 30 MB de archivos
+- Úsalo desde Claude, ChatGPT o Cursor
 - Soporte de la comunidad
 
-## Pro — $29/mes + consumo
+## Pro: $29/mes
 
-Para equipos y productos en crecimiento. Una base fija que incluye una cuota; pagas
-solo por lo que uses por encima de ella.
+Para un bot que la gente usa todos los días.
 
-- Proyectos, compañeros de equipo, herramientas y prompts ilimitados
-- Conecta tu propio modelo de IA (con tu propia llave)
-- Incluye 3.000 mensajes de canal/mes — hasta 1.000 con nuestro modelo de IA — más 1 GB de contenido consultable cada mes
-- Pasado eso: $2 por cada 1.000 mensajes con tu propia llave de IA, $15 por cada 1.000 con la nuestra · $2 por GB adicional
-- Las llamadas a herramientas desde clientes MCP (Claude, Cursor, ChatGPT) están incluidas — no se cobran como mensajes
-- Incluye 1.000.000 de llamadas al mes a las funciones que escribes en código; después, 5 USD por millón
-- Una base de datos por proyecto (Datos): hasta 9 GB y 50 tablas, restaurable a cualquier momento de los últimos 30 días · el consumo se mide, todavía no se cobra
-- Un asistente que construye tu bot contigo: 1.000 créditos/mes incluidos, después $2 por cada 100 créditos hasta el límite mensual que elijas (2.000 extra si no lo cambias), o ningún crédito con tu propia clave de Anthropic
-- Complemento de dominio propio ($15/mes) · crea tus propias herramientas
+- Proyectos, prompts y canales ilimitados
+- 3.000 respuestas del bot al mes
+- 1 GB de contenido consultable
+- El Asistente crea las acciones por ti
+- Funciones y una base de datos por proyecto
+- Invita a tu equipo y usa tu propio modelo de IA
 - Soporte 24/7
 
-Medimos tres cosas, porque son las únicas que nos cuestan dinero: las respuestas
-del asistente en canales (cada una ejecuta un ciclo de llamadas a herramientas con un
-LLM), el contenido consultable con embeddings (almacenado como vectores en Postgres)
-y las llamadas a las funciones que escribiste en código (que corren en nuestro
-cómputo). El almacenamiento de archivos en bruto es gratis, y las llamadas a las
-integraciones que incluimos también.
+### Cómo se cobra Pro
 
-Datos (la base de datos del proyecto) también se mide: almacenamiento, filas
-leídas y escritas y ejecuciones de disparadores, todo visible en la página de
-facturación. Todavía no se cobra; el precio se fijará cuando haya cifras reales
-de uso. En Gratis, una base de datos que ya exista se puede leer pero no editar.
+Los $29 cubren el mes. Cada punto trae una cantidad incluida; solo pagas extra
+por lo que pase de ahí.
 
-El asistente del proyecto se cobra en créditos: un crédito es $0,01 de costo de
-IA, y crear una acción nueva suele tomar entre 25 y 50. Sus chats de prueba como
-cliente con nuestro modelo de IA también usan créditos, y nada más los usa.
+| Qué | Incluido cada mes | Después |
+| --- | --- | --- |
+| Respuestas del bot con tu propia clave de IA | 3.000 | $2 por cada 1.000 |
+| Respuestas del bot en nuestro modelo de IA | 1.000 de esas 3.000 | $15 por cada 1.000 |
+| Contenido consultable | 1 GB | $2 por GB |
+| Llamadas a tus propias funciones | 1.000.000 | $5 por millón |
+| Créditos del Asistente | 1.000 | $2 por cada 100, hasta el límite que elijas |
+| Dirección web propia | Opcional | $15 al mes |
 
-## Empresarial — A la medida
+Siempre gratis, en todos los planes: los mensajes que la gente le manda a tu
+bot, usar Ganju desde Claude, ChatGPT o Cursor, las integraciones del catálogo
+y los servidores MCP remotos, el almacenamiento de archivos y la base de datos
+del proyecto (se mide, todavía no se cobra).
 
-Para organizaciones grandes con necesidades avanzadas.
+## Enterprise: a la medida
 
-- Todo lo de Pro, sin límites de proyectos, herramientas, prompts ni canales
-- Dirección web y herramientas a la medida
-- Cuotas y condiciones contractuales acordadas directamente
+Para equipos grandes con sus propias condiciones.
+
+- Todo lo de Pro
+- Cupos y contrato acordados contigo
+- Una dirección web propia
 - Un contacto asignado para soporte
 
-## Instalación propia
+## Compara los planes
 
-Ganju es software libre (Apache-2.0). Córrelo en tu propia cuenta de Cloudflare sin
-costo. Código fuente: https://github.com/MontoyaAndres/ganju
+| | Free | Pro | Enterprise |
+| --- | --- | --- | --- |
+| Precio | $0 | $29 / mes | A la medida |
+| Proyectos | 1 | Ilimitados | Ilimitados |
+| Respuestas del bot incluidas | 100 / mes | 3.000 / mes | A la medida |
+| Pasadas las incluidas | El bot se pausa | Se cobran por consumo | A la medida |
+| Contenido consultable | 5 MB | 1 GB, luego $2 / GB | A la medida |
+| Almacenamiento de archivos | 30 MB | Ilimitado | Ilimitado |
+| Prompts por proyecto | 3 | Ilimitados | Ilimitados |
+| Herramientas encendidas | 7 | Hasta 40 por canal | Hasta 40 por canal |
+| Endpoints HTTP por proyecto | 3 | Ilimitados | Ilimitados |
+| Canales por proyecto | 1 | Ilimitados | Ilimitados |
+| Sincronización automática de recursos | A mano | Diaria o semanal | Diaria o semanal |
+| El Asistente | No | 1.000 créditos / mes | Sí |
+| Funciones | No | 1M de llamadas / mes | Sí |
+| Base de datos por proyecto | No | 9 GB, 50 tablas | Sí |
+| Invitar a tu equipo | No | Sí | Sí |
+| Usar tu propio modelo de IA | No | Sí | Sí |
+| Soporte | Comunidad | 24/7 | Contacto asignado |
+
+## Instálalo tú mismo
+
+Ganju es software libre (Apache-2.0). Córrelo gratis en tu propia cuenta de Cloudflare.
+Código: https://github.com/MontoyaAndres/ganju

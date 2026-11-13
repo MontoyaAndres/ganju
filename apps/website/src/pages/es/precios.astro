@@ -6,43 +6,131 @@ import { PRICING } from '../../lib/pricing';
 import { CALCULATOR } from '../../lib/i18n';
 
 const description =
-  'Precios de Ganju — empieza gratis, crece cuando estés listo, o instálalo tú mismo sin costo bajo Apache-2.0.';
+  'Precios de Ganju: empieza gratis, pasa a Pro por $29 al mes cuando tu bot tenga uso real, o instálalo tú mismo sin costo bajo Apache-2.0.';
 
-// Respuestas a lo que la gente realmente busca antes de comprar. Cada una
-// repite un dato que ya está en esta página — mantenlas sincronizadas.
+// Cada respuesta repite un dato que ya está en esta página; mantenlas sincronizadas.
 const faqs = [
   {
-    q: '¿Hay un plan gratuito?',
-    a: 'Sí. El plan Gratis cuesta $0/mes: un espacio de trabajo, hasta 7 herramientas, 3 prompts, 1 canal, 30 MB de archivos y 100 mensajes de canal al mes sobre nuestro modelo de IA compartido.'
+    q: '¿Hay un plan gratis?',
+    a: 'Sí. Free cuesta $0 al mes: un proyecto con 100 respuestas del bot al mes en nuestro modelo de IA, 7 herramientas, 3 prompts, 1 canal y 5 MB de contenido consultable. No necesitas tarjeta.'
   },
   {
-    q: '¿Cuánto cuesta Ganju?',
-    a: 'Pro cuesta $29/mes más consumo. Incluye 3.000 mensajes al mes — hasta 1.000 con nuestro modelo de IA — y 1 GB de contenido consultable. De ahí en adelante son $2 por cada 1.000 mensajes con tu propia clave de IA, $15 por cada 1.000 con la nuestra, y $2 por GB.'
+    q: '¿Qué pasa si paso los límites de Free?',
+    a: 'Tu bot se pausa hasta que empiece el mes siguiente, o hasta que pases a Pro. No se borra nada.'
   },
   {
-    q: '¿Qué es MCP?',
-    a: 'MCP (Model Context Protocol) es la forma estándar en que los asistentes de IA se conectan con herramientas e información externas. Ganju te da un servidor MCP sin nada de la configuración, para que asistentes como Claude, ChatGPT y Cursor puedan usar tus archivos y herramientas. No necesitas entender el protocolo para usarlo.'
+    q: '¿Cuánto cuesta Pro?',
+    a: 'Pro cuesta $29 al mes. Incluye 3.000 respuestas del bot (hasta 1.000 de ellas en nuestro modelo de IA), 1 GB de contenido consultable, 1.000.000 de llamadas a tus propias funciones y 1.000 créditos del Asistente. Solo pagas más si te pasas de alguno.'
   },
   {
-    q: '¿Las llamadas a herramientas por MCP se cobran aparte?',
-    a: 'Las llamadas a las integraciones que incluimos, y a servidores MCP remotos, van incluidas en el plan — clientes como Claude, Cursor y ChatGPT las usan sin límite. Las funciones que escribes tú ejecutan tu código en nuestra infraestructura, así que Pro incluye 1.000.000 de esas llamadas al mes y después cuestan 5 USD por millón.'
+    q: '¿Qué cuenta como una respuesta?',
+    a: 'Cada respuesta que tu bot envía en un canal como Telegram, WhatsApp, Slack o Discord. Los mensajes que la gente le manda a tu bot son gratis, y también usar Ganju desde Claude, ChatGPT o Cursor.'
   },
   {
-    q: '¿Hay una base de datos, y cuánto cuesta?',
-    a: 'Pro y Empresarial incluyen Datos: cada proyecto tiene su propia base de datos, de hasta 9 GB y 50 tablas, que usan tu asistente, tus funciones, la CLI y la API, y que puedes restaurar a cualquier momento de los últimos 30 días. El almacenamiento, las filas leídas y escritas y las ejecuciones de disparadores se miden y aparecen en tu página de facturación, pero todavía no se cobran. En Gratis, una base de datos que ya exista se puede leer pero no editar.'
+    q: '¿Por qué cuestan más las respuestas en su modelo de IA?',
+    a: 'Con nuestro modelo, nosotros pagamos la IA. Con tu propia clave le pagas directamente a tu proveedor de IA, así que los $2 por cada 1.000 solo cubren ejecutar las herramientas y la conversación. Agrega tu clave de Anthropic, OpenAI o Google Gemini en Configuración para usar la tarifa más baja.'
   },
   {
-    q: '¿Cómo se cobra el asistente del proyecto?',
-    a: 'En créditos. Un crédito es un centavo de costo de IA, y crear una acción nueva suele tomar entre 25 y 50. Pro incluye 1.000 créditos al mes; después son $2 por cada 100, y se detiene en el límite mensual que elijas (2.000 créditos extra si no lo cambias). Los chats de prueba como cliente con nuestro modelo de IA también usan créditos. Con tu propia clave de Anthropic, el asistente no gasta créditos.'
+    q: '¿Cómo funcionan los créditos del Asistente?',
+    a: 'Un crédito es un centavo de costo de IA, y crear una acción nueva suele tomar entre 25 y 50. Pro incluye 1.000 al mes; después son $2 por cada 100, hasta el límite mensual que elijas (2.000 extra si no lo cambias). Con tu propia clave de Anthropic, el Asistente no gasta créditos.'
   },
   {
-    q: '¿Puedo usar mi propio modelo de IA?',
-    a: 'Sí. En Pro puedes traer tu propia llave de Anthropic Claude, OpenAI o Google Gemini y ejecutar los mensajes en tu modelo en lugar del nuestro.'
+    q: '¿Se cobra la base de datos?',
+    a: 'Todavía no. En Pro y Enterprise cada proyecto tiene una base de datos de hasta 9 GB y 50 tablas. Su consumo se mide y aparece en tu página de facturación, pero no se cobra. En Free, una base de datos que ya exista se puede leer pero no editar.'
+  },
+  {
+    q: '¿Puedo cancelar cuando quiera?',
+    a: 'Sí. Pro sigue funcionando hasta el final del periodo que pagaste, y después la organización vuelve a los límites de Free. Las bases de datos de tus proyectos se conservan, en solo lectura.'
   },
   {
     q: '¿Puedo instalar Ganju por mi cuenta gratis?',
-    a: 'Sí. Ganju es software libre bajo Apache-2.0. Despliégalo en tu propia cuenta sin costo, y tus datos se quedan por completo en ella.'
+    a: 'Sí. Ganju es software libre bajo Apache-2.0. Despliégalo en tu propia cuenta de Cloudflare sin costo, con tus propias claves de IA, y tus datos se quedan en tu cuenta.'
   }
+];
+
+const cards = [
+  {
+    tier: 'Free',
+    amount: '$0',
+    per: '/mes',
+    sub: 'Prueba Ganju con un bot.',
+    items: [
+      '1 proyecto',
+      '100 respuestas del bot al mes',
+      '7 herramientas, 3 prompts, 1 canal',
+      '5 MB de contenido consultable',
+      'Úsalo desde Claude, ChatGPT o Cursor'
+    ],
+    cta: { label: 'Empieza gratis', href: SITE.appUrl, external: true, primary: false }
+  },
+  {
+    tier: 'Pro',
+    amount: '$29',
+    per: '/mes',
+    sub: 'Para un bot que la gente usa todos los días.',
+    ribbon: 'El más elegido',
+    items: [
+      'Proyectos, prompts y canales ilimitados',
+      '3.000 respuestas del bot al mes',
+      '1 GB de contenido consultable',
+      'El Asistente crea las acciones por ti',
+      'Funciones y una base de datos por proyecto',
+      'Invita a tu equipo y usa tu propio modelo de IA'
+    ],
+    cta: { label: 'Empezar con Pro', href: SITE.appUrl, external: true, primary: true }
+  },
+  {
+    tier: 'Enterprise',
+    amount: 'A la medida',
+    per: '',
+    sub: 'Para equipos grandes con sus propias condiciones.',
+    items: [
+      'Todo lo de Pro',
+      'Cupos y contrato acordados contigo',
+      'Una dirección web propia',
+      'Un contacto asignado para soporte'
+    ],
+    cta: { label: 'Hablar con ventas', href: '/es/contacto/', external: false, primary: false }
+  }
+];
+
+// Solo Pro. Refleja las constantes PRICING_* de @ganju/utils.
+const usage = [
+  ['Respuestas del bot con tu propia clave de IA', '3.000', '$2 por cada 1.000'],
+  ['Respuestas del bot en nuestro modelo de IA', '1.000 de esas 3.000', '$15 por cada 1.000'],
+  ['Contenido consultable', '1 GB', '$2 por GB'],
+  ['Llamadas a tus propias funciones', '1.000.000', '$5 por millón'],
+  ['Créditos del Asistente', '1.000', '$2 por cada 100, hasta el límite que elijas'],
+  ['Dirección web propia', 'Opcional', '$15 al mes']
+];
+
+const free = [
+  'Los mensajes que la gente le manda a tu bot',
+  'Usar Ganju desde Claude, ChatGPT o Cursor',
+  'Las integraciones del catálogo y los servidores MCP remotos',
+  'El almacenamiento de archivos',
+  'La base de datos del proyecto (se mide, todavía no se cobra)'
+];
+
+const yes = '✓';
+const compare = [
+  ['Precio', '$0', '$29 / mes', 'A la medida'],
+  ['Proyectos', '1', 'Ilimitados', 'Ilimitados'],
+  ['Respuestas del bot incluidas', '100 / mes', '3.000 / mes', 'A la medida'],
+  ['Pasadas las incluidas', 'El bot se pausa', 'Se cobran por consumo', 'A la medida'],
+  ['Contenido consultable', '5 MB', '1 GB, luego $2 / GB', 'A la medida'],
+  ['Almacenamiento de archivos', '30 MB', 'Ilimitado', 'Ilimitado'],
+  ['Prompts por proyecto', '3', 'Ilimitados', 'Ilimitados'],
+  ['Herramientas encendidas', '7', 'Hasta 40 por canal', 'Hasta 40 por canal'],
+  ['Endpoints HTTP por proyecto', '3', 'Ilimitados', 'Ilimitados'],
+  ['Canales por proyecto', '1', 'Ilimitados', 'Ilimitados'],
+  ['Sincronización automática de recursos', 'A mano', 'Diaria o semanal', 'Diaria o semanal'],
+  ['El Asistente', '', '1.000 créditos / mes', yes],
+  ['Funciones', '', '1M de llamadas / mes', yes],
+  ['Base de datos por proyecto', '', '9 GB, 50 tablas', yes],
+  ['Invitar a tu equipo', '', yes, yes],
+  ['Usar tu propio modelo de IA', '', yes, yes],
+  ['Soporte', 'Comunidad', '24/7', 'Contacto asignado']
 ];
 
 const alternates = { en: '/pricing', es: '/es/precios' };
@@ -57,69 +145,94 @@ const jsonLd = [
 ];
 ---
 
-<Base
-  title="Precios"
-  {description}
-  mdPath="/es/precios.md"
-  {jsonLd}
-  lang="es"
-  {alternates}
->
+<Base title="Precios" {description} mdPath="/es/precios.md" {jsonLd} lang="es" {alternates}>
   <section class="section">
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Precios</span>
-        <h1>Empieza gratis. Crece cuando estés listo.</h1>
-        <p>Úsalo gratis, mejora tu plan a medida que creces — o instálalo tú mismo sin costo.</p>
+        <h1>Precios simples. Empieza gratis.</h1>
+        <p>Pruébalo gratis. Pasa a Pro cuando tu bot tenga uso real. Solo pagas más si te pasas de lo incluido.</p>
       </div>
 
       <div class="pricing-grid">
-        <article class="price-card reveal">
-          <h3 class="tier">Gratis</h3>
-          <div class="price"><span class="amount">$0</span><span class="per">/mes</span></div>
-          <p class="tier-sub">Ideal para proyectos personales y para probar.</p>
-          <ul class="price-features">
-            <li>1 espacio de trabajo, sin compañeros de equipo</li>
-            <li>Hasta 7 herramientas, 3 prompts, 1 canal</li>
-            <li>30&nbsp;MB de archivos · ~5&nbsp;MB de contenido consultable</li>
-            <li>100 mensajes de canal / mes en nuestro modelo de IA compartido</li>
-            <li>Tu propio enlace de conexión</li>
-            <li>Soporte de la comunidad</li>
-          </ul>
-          <a class="btn btn-ghost btn-block" href={SITE.appUrl} target="_blank" rel="noopener">Empezar</a>
-        </article>
+        {
+          cards.map((card) => (
+            <article class:list={['price-card reveal', { 'price-featured': card.ribbon }]}>
+              {card.ribbon && <span class="ribbon">{card.ribbon}</span>}
+              <h2 class="tier">{card.tier}</h2>
+              <div class="price">
+                <span class="amount">{card.amount}</span>
+                {card.per && <span class="per">{card.per}</span>}
+              </div>
+              <p class="tier-sub">{card.sub}</p>
+              <ul class="price-features">
+                {card.items.map((item) => <li>{item}</li>)}
+              </ul>
+              <a
+                class:list={['btn btn-block', card.cta.primary ? 'btn-primary' : 'btn-ghost']}
+                href={card.cta.href}
+                {...(card.cta.external ? { target: '_blank', rel: 'noopener' } : {})}
+              >
+                {card.cta.label}
+              </a>
+            </article>
+          ))
+        }
+      </div>
+      <p class="pricing-note reveal">
+        ¿Prefieres correrlo tú mismo? Ganju es software libre. <a href="/es/docs/deploy/">Instálalo gratis</a>.
+      </p>
+    </div>
+  </section>
 
-        <article class="price-card price-featured reveal">
-          <span class="ribbon">El más popular</span>
-          <h3 class="tier">Pro</h3>
-          <div class="price"><span class="amount">$29</span><span class="per">/mes + consumo</span></div>
-          <p class="tier-sub">Para equipos y productos en crecimiento. Pagas solo por lo que uses por encima de la base.</p>
-          <ul class="price-features">
-            <li>Proyectos, compañeros de equipo, herramientas y prompts ilimitados</li>
-            <li>Conecta tu propio modelo de IA (con tu propia llave)</li>
-            <li>Incluye 3.000 mensajes/mes — hasta 1.000 con nuestro modelo de IA — y 1&nbsp;GB de contenido consultable</li>
-            <li>Pasado eso: $2 / 1.000 mensajes con tu propia clave de IA, $15 / 1.000 con la nuestra · $2 / GB</li>
-            <li>Llamadas a herramientas por MCP incluidas (Claude, Cursor, ChatGPT) · 1M al mes a tus propias funciones, después 5 USD/M</li>
-            <li>Una base de datos por proyecto (Datos): hasta 9&nbsp;GB, restaurable a cualquier momento de los últimos 30 días · el consumo se mide, todavía no se cobra</li>
-            <li>Un asistente que construye tu bot contigo: 1.000 créditos/mes incluidos, después $2 por cada 100 hasta el límite que elijas, o gratis con tu propia clave de Anthropic</li>
-            <li>Complemento de dominio propio · crea tus propias herramientas</li>
-            <li>Soporte 24/7</li>
-          </ul>
-          <a class="btn btn-primary btn-block" href={SITE.appUrl} target="_blank" rel="noopener">Empezar con Pro</a>
-        </article>
+  <section class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Cómo se cobra Pro</span>
+        <h2>Los $29 cubren el mes</h2>
+        <p>Cada punto de abajo trae una cantidad incluida. Solo pagas extra por lo que pase de ahí.</p>
+      </div>
+      <div class="plan-table-wrap reveal">
+        <table class="plan-table">
+          <thead>
+            <tr><th>Qué</th><th>Incluido cada mes</th><th>Después</th></tr>
+          </thead>
+          <tbody>
+            {usage.map(([what, included, after]) => (
+              <tr><th scope="row">{what}</th><td>{included}</td><td>{after}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div class="plan-free reveal">
+        <h3>Siempre gratis, en todos los planes</h3>
+        <ul class="price-features">
+          {free.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </div>
+  </section>
 
-        <article class="price-card reveal">
-          <h3 class="tier">Empresarial</h3>
-          <div class="price"><span class="amount">A la medida</span></div>
-          <p class="tier-sub">Para organizaciones grandes con necesidades avanzadas.</p>
-          <ul class="price-features">
-            <li>Todo lo de Pro, sin límites de proyectos, herramientas, prompts ni canales</li>
-            <li>Dirección web y herramientas a la medida</li>
-            <li>Cuotas y condiciones contractuales acordadas directamente</li>
-            <li>Un contacto asignado para soporte</li>
-          </ul>
-          <a class="btn btn-ghost btn-block" href="/es/contacto/">Hablar con ventas</a>
-        </article>
+  <section class="section">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <span class="eyebrow">Compara los planes</span>
+        <h2>Todo lado a lado</h2>
+      </div>
+      <div class="plan-table-wrap reveal">
+        <table class="plan-table plan-compare">
+          <thead>
+            <tr><th></th><th>Free</th><th>Pro</th><th>Enterprise</th></tr>
+          </thead>
+          <tbody>
+            {compare.map(([row, ...cells]) => (
+              <tr>
+                <th scope="row">{row}</th>
+                {cells.map((cell) => <td>{cell || <span class="plan-no" aria-label="No incluido">–</span>}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -129,13 +242,12 @@ const jsonLd = [
       <div class="section-head reveal">
         <span class="eyebrow">Calcula tu cuenta</span>
         <h2>¿Cuánto me costaría Pro?</h2>
-        <p>Elige un punto de partida o mueve los controles según cómo vayas a usar Ganju. Solo pagas por dos cosas: los mensajes que envían tus bots y cuánto contenido puede buscar tu IA.</p>
+        <p>Elige un punto de partida o mueve los controles. Si te mantienes dentro de lo incluido, pagas $29.</p>
       </div>
       <PricingCalculator config={PRICING} copy={CALCULATOR.es} client:visible />
     </div>
   </section>
 
-  <!-- ===== FAQ ===== -->
   <section class="section" id="faq">
     <div class="container narrow">
       <div class="section-head reveal">
@@ -156,13 +268,12 @@ const jsonLd = [
     </div>
   </section>
 
-  <!-- ===== ¿Todavía dudas? ===== -->
   <section class="section section-alt">
     <div class="container narrow">
       <div class="section-head reveal">
         <span class="eyebrow">¿Todavía lo estás pensando?</span>
         <h2>¿No sabes qué plan te sirve?</h2>
-        <p>Cuéntanos qué estás construyendo y te ayudamos a elegir — o armamos un plan a la medida para equipos grandes.</p>
+        <p>Cuéntanos qué estás construyendo y te ayudamos a elegir, o armamos un plan a la medida para un equipo grande.</p>
       </div>
       <div class="hero-cta center reveal">
         <a class="btn btn-primary btn-lg" href="/es/contacto/">Contáctanos</a>

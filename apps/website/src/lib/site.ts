@@ -127,7 +127,7 @@ export const PRICING_SCHEMA = {
       priceCurrency: 'USD',
       url: `${SITE.url}/pricing/`,
       description:
-        'One workspace, up to 7 tools, 3 prompts, 1 channel, and 100 channel messages a month.'
+        'One project with 100 bot replies a month, 7 tools, 3 prompts and 1 channel.'
     },
     {
       '@type': 'Offer',
@@ -136,7 +136,7 @@ export const PRICING_SCHEMA = {
       priceCurrency: 'USD',
       url: `${SITE.url}/pricing/`,
       description:
-        'Unlimited projects, teammates, tools and prompts. Includes 3,000 messages a month, 1 GB of searchable content and a database per project, then usage-based pricing.'
+        'Unlimited projects, prompts and channels. Includes 3,000 bot replies a month, 1 GB of searchable content, the Assistant and a database per project; past that, usage-based pricing.'
     }
   ]
 } as const;
@@ -150,12 +150,12 @@ export const PRICING_SCHEMA_ES = {
   offers: [
     {
       '@type': 'Offer',
-      name: 'Gratis',
+      name: 'Free',
       price: '0',
       priceCurrency: 'USD',
       url: `${SITE.url}/es/precios/`,
       description:
-        'Un espacio de trabajo, hasta 7 herramientas, 3 prompts, 1 canal y 100 mensajes de canal al mes.'
+        'Un proyecto con 100 respuestas del bot al mes, 7 herramientas, 3 prompts y 1 canal.'
     },
     {
       '@type': 'Offer',
@@ -164,7 +164,7 @@ export const PRICING_SCHEMA_ES = {
       priceCurrency: 'USD',
       url: `${SITE.url}/es/precios/`,
       description:
-        'Proyectos, compañeros de equipo, herramientas y prompts ilimitados. Incluye 3.000 mensajes al mes, 1 GB de contenido consultable y una base de datos por proyecto; de ahí en adelante, precio por consumo.'
+        'Proyectos, prompts y canales ilimitados. Incluye 3.000 respuestas del bot al mes, 1 GB de contenido consultable, el Asistente y una base de datos por proyecto; después, precio por consumo.'
     }
   ]
 } as const;
