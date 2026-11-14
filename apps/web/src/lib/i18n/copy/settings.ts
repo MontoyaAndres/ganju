@@ -74,17 +74,17 @@ const en = {
     "You've used the {count} replies included on our AI model this month. ",
   sharedCapLink: 'connect your own model',
   sharedCapOverMiddle:
-    'Channels without their own model keep running, billed at ${rate} per 1,000 — ',
+    'Channels without their own model keep running, billed at ${rate} per 1,000; ',
   sharedCapOverAfter:
     ' to stop the charge. Channels on their own key are unaffected.',
   sharedCapUnderBefore:
     'Up to {count}/mo run on our AI model; past that they bill at ${rate} per 1,000, or you can ',
   sharedCapUnderAfter:
-    " instead. Only your assistant's replies count — incoming user messages are free.",
+    " instead. Only your assistant's replies count; incoming user messages are free.",
   messagesHintFree:
     "Only your assistant's replies count here. Incoming messages from users are free and don't use your allowance.",
   toolCallsHint:
-    'Only tools you wrote in code count here — calls to the integrations we ship, and to remote MCP servers, are included in your plan.',
+    'Only tools you wrote in code count here. Calls to the integrations we ship, and to remote MCP servers, are included in your plan.',
   usageBuilder: 'Assistant credits',
   builderHint:
     'What the project assistant and its customer test chat use. Past the included credits it stops at {cap} extra credits a month.',
@@ -384,17 +384,17 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Ya usaste las {count} respuestas incluidas con nuestro modelo de IA este mes. ',
     sharedCapLink: 'conecta tu propio modelo',
     sharedCapOverMiddle:
-      'Los canales sin modelo propio siguen funcionando, con un cargo de ${rate} por cada 1.000 — ',
+      'Los canales sin modelo propio siguen funcionando, con un cargo de ${rate} por cada 1.000; ',
     sharedCapOverAfter:
       ' para evitar ese cargo. Los canales con su propia clave no se ven afectados.',
     sharedCapUnderBefore:
       'Hasta {count} al mes funcionan con nuestro modelo de IA; después de eso se cobran a ${rate} por cada 1.000, o puedes ',
     sharedCapUnderAfter:
-      ' en su lugar. Solo cuentan las respuestas de tu asistente — los mensajes que entran son gratis.',
+      ' en su lugar. Solo cuentan las respuestas de tu asistente; los mensajes que entran son gratis.',
     messagesHintFree:
       'Aquí solo cuentan las respuestas de tu asistente. Los mensajes que te envían son gratis y no consumen tu cupo.',
     toolCallsHint:
-      'Aquí solo cuentan las funciones que escribiste en código — las llamadas a las integraciones que incluimos, y a servidores MCP remotos, van incluidas en tu plan.',
+      'Aquí solo cuentan las funciones que escribiste en código. Las llamadas a las integraciones que incluimos y a servidores MCP remotos van incluidas en tu plan.',
     usageBuilder: 'Créditos del asistente',
     builderHint:
       'Lo que usan el asistente del proyecto y su chat de prueba. Pasados los créditos incluidos, se detiene en {cap} créditos extra al mes.',

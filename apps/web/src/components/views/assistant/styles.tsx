@@ -32,7 +32,7 @@ export const Wrapper = styled.div`
   ${({ theme }) => css`
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     max-width: 1560px;
     margin: 0 auto;
     padding: 12px;
@@ -43,7 +43,7 @@ export const Wrapper = styled.div`
     }
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100vh;
+      height: 100dvh;
       padding: 20px 24px;
     }
 

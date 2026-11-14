@@ -8,13 +8,13 @@ interface IProps {
 export const Wrapper = styled.div<IProps>`
   ${({ theme, panelWidth }) => css`
     display: flex;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     position: relative;
     max-width: 1100px;
     margin: 0 auto;
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100vh;
+      height: 100dvh;
     }
 
     .prompts-list {

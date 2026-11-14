@@ -866,7 +866,7 @@ export const ImportDialog = ({
       title={title}
       closeLabel={c('close')}
       width={880}
-      maxHeight="90vh"
+      maxHeight="90dvh"
       closeOnBackdrop={false}
       onClose={() => phase !== 'uploading' && onClose()}
       footer={

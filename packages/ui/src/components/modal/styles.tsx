@@ -26,7 +26,7 @@ export const Overlay = styled.div`
 `;
 
 export const Dialog = styled.div<DialogProps>`
-  ${({ theme, width = 720, maxHeight = '85vh' }) => css`
+  ${({ theme, width = 720, maxHeight = '85dvh' }) => css`
     background-color: ${theme.colors.white};
     width: 100%;
     height: 100%;

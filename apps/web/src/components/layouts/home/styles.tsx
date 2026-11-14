@@ -40,7 +40,7 @@ export const Wrapper = styled.nav<IProps>`
           left: 0;
           z-index: 10;
           width: 100px;
-          height: 100vh;
+          height: 100dvh;
           padding: 20px 6px;
           display: flex;
           flex-direction: column;
@@ -374,7 +374,7 @@ export const MobileMenuWrapper = styled.div<IMobileMenuWrapperProps>`
     .background {
       background-color: ${theme.colors.bastille}99;
       width: 100vw;
-      height: 100vh;
+      height: 100dvh;
       position: fixed;
       top: 0;
       left: 0;
@@ -384,7 +384,7 @@ export const MobileMenuWrapper = styled.div<IMobileMenuWrapperProps>`
     .mobile-menu {
       background-color: ${theme.colors.white};
       width: calc(100% - 40px);
-      height: 100vh;
+      height: 100dvh;
       position: fixed;
       top: 0;
       left: 0;
@@ -447,7 +447,7 @@ export const MobileMenuWrapper = styled.div<IMobileMenuWrapperProps>`
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        height: calc(100vh - 68px);
+        height: calc(100dvh - 68px);
         overflow-y: auto;
 
         .MuiButtonBase-root {
@@ -873,7 +873,7 @@ export const ModalDialog = styled.div`
     border-radius: 12px;
     width: calc(100% - 32px);
     max-width: 480px;
-    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
@@ -881,7 +881,7 @@ export const ModalDialog = styled.div`
 
     @media (min-width: ${theme.screens.md}) {
       width: 100%;
-      max-height: calc(100% - 10vh);
+      max-height: calc(100% - 10dvh);
     }
 
     .profile-modal-header {
@@ -1050,11 +1050,11 @@ export const NoAccessWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: calc(100vh - 60px);
+    min-height: calc(100dvh - 60px);
     padding: 24px;
 
     @media (min-width: ${theme.screens.xl}) {
-      min-height: 100vh;
+      min-height: 100dvh;
     }
 
     .no-access-card {

@@ -3,12 +3,12 @@ import styled from '@emotion/styled';
 
 export const Wrapper = styled.div`
   ${({ theme }) => css`
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     overflow-y: auto;
     padding: 20px;
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100vh;
+      height: 100dvh;
       padding: 28px 32px;
     }
 

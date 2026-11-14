@@ -5,7 +5,7 @@ export const Wrapper = styled.div`
   ${({ theme }) => css`
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 130px);
+    min-height: calc(100dvh - 130px);
     padding: 24px 20px 32px;
 
     @media (min-width: ${theme.screens.md}) {

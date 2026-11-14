@@ -363,7 +363,7 @@ export const ModalDialog = styled.div`
     background-color: ${theme.colors.white};
     border-radius: 12px;
     width: 100%;
-    height: 100vh;
+    height: 100dvh;
     max-width: 520px;
     display: flex;
     flex-direction: column;
@@ -371,7 +371,7 @@ export const ModalDialog = styled.div`
     position: relative;
 
     @media (min-width: ${theme.screens.md}) {
-      height: calc(100% - 20vh);
+      height: calc(100% - 20dvh);
     }
 
     .modal-header {
@@ -474,7 +474,7 @@ export const CreateOrganizationWrapper = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: calc(100vh - 190px);
+    height: calc(100dvh - 190px);
     padding: 0 20px;
     margin: 60px 0;
 

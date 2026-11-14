@@ -154,6 +154,19 @@ export const Settings = (props: SettingsProps) => {
     return () => observer.disconnect();
   }, []);
 
+  // On a phone the nav is one scrolling row; keep the current section's tab
+  // in view instead of leaving it cut off at the edge.
+  const navRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = nav?.querySelector<HTMLElement>('.settings-nav-item.active');
+    if (!nav || !active || nav.scrollWidth <= nav.clientWidth) return;
+    nav.scrollTo({
+      left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2,
+      behavior: 'smooth'
+    });
+  }, [section]);
+
   const scrollToSection = (id: Section) => {
     const map: Record<Section, HTMLElement | null> = {
       organization: organizationRef.current,
@@ -1329,7 +1342,7 @@ export const Settings = (props: SettingsProps) => {
 
   return (
     <Wrapper>
-      <aside className="settings-nav">
+      <aside className="settings-nav" ref={navRef}>
         {isMember && navItem('organization', t('navOrganization'))}
         {isMember && navItem('billing', t('navBilling'))}
         {isMember && navItem('members', t('navMembers'))}

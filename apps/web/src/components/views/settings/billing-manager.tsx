@@ -660,7 +660,6 @@ export const BillingManager = (props: BillingManagerProps) => {
                 }
                 .billing-data dd {
                   margin: 0;
-                  font-variant-numeric: tabular-nums;
                 }
               `}</style>
             </div>

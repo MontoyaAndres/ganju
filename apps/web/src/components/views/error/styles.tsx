@@ -7,7 +7,7 @@ export const Wrapper = styled.div`
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: calc(100vh - 130px);
+    min-height: calc(100dvh - 130px);
     padding: 24px 20px 32px;
 
     .error-card {

@@ -422,6 +422,25 @@ export const Wrapper = styled.div`
 
     .projects-list .project-item {
       flex-wrap: wrap;
+
+      // A phone has no room for the name beside three buttons, so the name
+      // gets its own line instead of being cut to a few letters.
+      @media (max-width: calc(${theme.screens.sm} - 1px)) {
+        justify-content: flex-start;
+        gap: 4px 8px;
+
+        .project-item-name {
+          flex-basis: 100%;
+        }
+
+        .project-item-toggle:first-of-type {
+          margin-left: -8px;
+        }
+
+        .project-item-link {
+          margin-left: auto;
+        }
+      }
     }
 
     .project-item-toggle {
@@ -442,6 +461,7 @@ export const Wrapper = styled.div`
 
     .project-members {
       flex-basis: 100%;
+      min-width: 0;
       margin-top: 4px;
       padding-top: 14px;
       border-top: 1px solid ${theme.colors.bastille}14;
@@ -747,16 +767,31 @@ export const TokensManagerWrapper = styled.div`
 
     .tm-create {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-start;
       gap: 8px;
 
       .tm-create-field {
-        flex: 1;
+        flex: 1 1 220px;
+        min-width: 0;
       }
 
       .tm-create-expiry {
         width: 150px;
         flex-shrink: 0;
+      }
+
+      // A phone gives the name field the whole row, so its help text is not
+      // wrapped one word per line.
+      @media (max-width: calc(${theme.screens.sm} - 1px)) {
+        .tm-create-field {
+          flex-basis: 100%;
+        }
+
+        .tm-create-expiry {
+          flex: 1;
+          width: auto;
+        }
       }
 
       .MuiButtonBase-root {

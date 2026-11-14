@@ -70,7 +70,7 @@ export const Wrapper = styled.div`
   ${({ theme }) => css`
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     max-width: 1400px;
     margin: 0 auto;
     padding: 20px 16px;
@@ -82,7 +82,7 @@ export const Wrapper = styled.div`
     }
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100vh;
+      height: 100dvh;
       padding: 28px 32px;
     }
 
@@ -468,6 +468,19 @@ export const Wrapper = styled.div`
             color: ${theme.colors.bastille}80;
           }
         }
+
+        // On a phone the tabs take their own row so the table name is not cut
+        // to a few letters.
+        @media (max-width: calc(${theme.screens.md} - 1px)) {
+          .data-tabs {
+            display: flex;
+            flex-basis: 100%;
+
+            .data-tab {
+              flex: 1;
+            }
+          }
+        }
       }
 
       .data-main-description {
@@ -761,10 +774,18 @@ export const Wrapper = styled.div`
 
       .data-card-header {
         display: flex;
+        flex-wrap: wrap;
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
         margin-bottom: 12px;
+
+        // The text keeps a readable width; the button wraps under it instead
+        // of squeezing it into a one-word column.
+        & > div:first-of-type {
+          flex: 1 1 260px;
+          min-width: 0;
+        }
 
         h3 {
           font-size: ${theme.fonts.base};
@@ -1089,7 +1110,7 @@ export const DialogContent = styled.div`
 
     .query-results {
       overflow: auto;
-      max-height: 50vh;
+      max-height: 50dvh;
       border: 1px solid ${theme.colors.alto};
       border-radius: 8px;
 

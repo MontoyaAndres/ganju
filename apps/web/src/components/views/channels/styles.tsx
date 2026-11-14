@@ -8,13 +8,13 @@ interface IProps {
 export const Wrapper = styled.div<IProps>`
   ${({ theme, panelWidth }) => css`
     display: flex;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     position: relative;
     max-width: 1100px;
     margin: 0 auto;
 
     @media (min-width: ${theme.screens.xl}) {
-      height: calc(100vh - 0px);
+      height: calc(100dvh - 0px);
     }
 
     .channels-list {
@@ -58,7 +58,12 @@ export const Wrapper = styled.div<IProps>`
         .channels-header-actions {
           display: flex;
           flex-wrap: wrap;
+          justify-content: space-between;
           gap: 8px;
+
+          @media (min-width: ${theme.screens.md}) {
+            justify-content: flex-start;
+          }
         }
 
         .channels-title {
@@ -1093,7 +1098,7 @@ export const UsageModalOverlay = styled.div`
       border-radius: 12px;
       width: 100%;
       max-width: 640px;
-      max-height: 80vh;
+      max-height: 80dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;

@@ -121,10 +121,10 @@ export const Wrapper = styled.div`
   ${({ theme }) => css`
     ${jsonField(theme)}
 
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100vh;
+      height: 100dvh;
     }
 
     .tools-container {
@@ -954,10 +954,16 @@ export const Wrapper = styled.div`
 
     .tools-section-header {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px 16px;
       margin-bottom: 16px;
+
+      & > div:first-of-type {
+        flex: 1 1 240px;
+        min-width: 0;
+      }
 
       .tools-section-title {
         font-size: ${theme.fonts.base};
@@ -973,10 +979,12 @@ export const Wrapper = styled.div`
       }
 
       .MuiButtonBase-root {
+        flex-shrink: 0;
         font-size: ${theme.fonts.sm};
         padding: 6px 16px;
         border-radius: 8px;
         text-transform: none;
+        white-space: nowrap;
 
         .button-text {
           font-weight: 600;
@@ -2158,7 +2166,7 @@ export const ModalDialog = styled.div`
     border-radius: 12px;
     width: 100%;
     max-width: 520px;
-    max-height: 90vh;
+    max-height: 90dvh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);

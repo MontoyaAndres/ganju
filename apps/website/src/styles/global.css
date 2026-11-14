@@ -1451,10 +1451,35 @@ svg {
     gap: 12px 18px;
   }
 
+  /* Brand on top, Product and Resources side by side, then Legal across the
+     width in two columns, so the footer is not one long list on a phone. */
   .footer-grid {
-    grid-template-columns: 1fr;
-    gap: 28px;
-    padding-bottom: 20px;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 20px;
+    padding-bottom: 24px;
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
+
+  .footer-brand p {
+    max-width: none;
+  }
+
+  .footer-col {
+    gap: 10px;
+  }
+
+  .footer-col:last-child {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+  }
+
+  .footer-col:last-child h4 {
+    grid-column: 1 / -1;
   }
 
   .site-footer {
