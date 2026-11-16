@@ -2439,7 +2439,8 @@ export const ModalDialog = styled.div`
         }
       }
 
-      .http-endpoint-form {
+      // Same element as .tools-modal-body, hence the &.
+      &.http-endpoint-form {
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -2843,11 +2844,16 @@ export const ModalDialog = styled.div`
         margin-right: 0;
       }
 
-      .tools-modal-body .http-endpoint-form {
+      // One element carries both classes, so no space between them.
+      .tools-modal-body.http-endpoint-form {
         .tools-settings-secret-add {
-          flex-direction: column;
+          grid-template-columns: 1fr;
           align-items: stretch;
           gap: 14px;
+
+          .MuiButtonBase-root {
+            justify-self: start;
+          }
         }
 
         .http-endpoint-row {

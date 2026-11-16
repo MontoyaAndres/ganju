@@ -395,6 +395,8 @@ export const ModalDialog = styled.div`
     }
 
     .modal-body {
+      flex: 1;
+      min-height: 0;
       padding: 20px;
       overflow-y: auto;
       display: flex;
@@ -443,10 +445,6 @@ export const ModalDialog = styled.div`
       gap: 8px;
       padding: 14px 20px;
       border-top: 1px solid ${theme.colors.alto};
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
     }
 
     .MuiButtonBase-root {
