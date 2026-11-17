@@ -66,6 +66,9 @@ const CUSTOM_MESSAGES: Record<string, Record<string, string>> = {
   [constants.OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE]: {
     es: 'Esquema de salida no válido — debe describir un objeto'
   },
+  [constants.HTTP_ENDPOINT_SINGLE_BRACE_MESSAGE]: {
+    es: 'Marcador no válido: escribe {{nombre}} para un dato de entrada; {nombre} se envía tal cual'
+  },
   [constants.CUSTOM_CODE_RESOURCE_PAYLOAD_MESSAGE]: {
     es: 'Envía exactamente uno de content (texto) o bytes (base64)'
   },

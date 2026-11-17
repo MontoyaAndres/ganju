@@ -22,11 +22,12 @@ idioma en que le escribes, español o inglés.
 
 Escribe lo que debe hacer tu bot en la caja de abajo (**Enter** envía,
 **Shift + Enter** agrega una línea), o elige una de las sugerencias de un chat
-vacío: **Que diga a los clientes si estamos abiertos ahora**, **Que responda
-preguntas sobre mi menú**, **Que tome pedidos y me los envíe por correo**,
-**Que agende citas en mi Google Calendar**.
+vacío: **Que responda las preguntas de mi equipo en Slack con nuestros
+documentos**, **Que los clientes consulten el estado de su pedido**, **Que lleve
+mis gastos y pueda preguntarle a Claude por ellos**, **Que agende citas en mi
+Google Calendar**.
 
-![Un chat nuevo en la pestaña Asistente: "¿Qué debe hacer tu bot?" con cuatro sugerencias, la lista de chats y los créditos del mes](/images/assistant-empty.webp)
+![Un chat nuevo en la pestaña Asistente: "¿Qué quieres construir?" con cuatro sugerencias, la lista de chats y los créditos del mes](/images/assistant-empty.webp)
 
 ## Qué puede cambiar
 

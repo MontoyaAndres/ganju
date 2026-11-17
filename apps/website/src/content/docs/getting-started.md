@@ -26,8 +26,8 @@ message the bot can use three things you give it:
 
 On **Pro** and **Enterprise**, a new project opens with a card on its Home:
 **Build your bot with the Assistant**. Select **Open the Assistant** and tell it
-in your own words what your bot should do, like "answer from my menu" or "take
-orders and email them to me". It writes the actions, tests them, and asks you
+in your own words what your bot should do, like "answer my team's questions
+from our handbook" or "let customers check their order status". It writes the actions, tests them, and asks you
 before turning anything on. The steps above still work by hand at any time;
 they're the same building blocks the Assistant uses. See
 **[Assistant](/docs/assistant/)**.

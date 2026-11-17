@@ -1656,6 +1656,12 @@ const CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE =
 const OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE =
   'Invalid output schema — it must describe an object';
 
+// `{id}` (the OpenAPI way of writing a path parameter) where an http-endpoint
+// expects `{{id}}`: it is sent as written and the request misses. Fixed string
+// for the same reasons as the two above.
+const HTTP_ENDPOINT_SINGLE_BRACE_MESSAGE =
+  'Invalid placeholder: write {{name}} for an input; {name} is sent as written';
+
 // The script bindings and the broker routes they call live in ./sdkConstants:
 // they are the SDK's runtime contract, so they are bundled into every deployed
 // script and must not drag this module in with them.
@@ -3254,6 +3260,7 @@ export const constants = {
   RESERVED_TOOL_NAME_MESSAGE,
   CUSTOM_CODE_UNKNOWN_CONNECTION_MESSAGE,
   OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE,
+  HTTP_ENDPOINT_SINGLE_BRACE_MESSAGE,
   CUSTOM_CODE_BINDING_TOKEN,
   CUSTOM_CODE_BINDING_BROKER,
   CUSTOM_CODE_BINDING_VERSION,

@@ -27,8 +27,9 @@ toda la organización.
 
 En **Pro** y **Enterprise**, un proyecto nuevo abre con una tarjeta en su
 Inicio: **Arma tu bot con el Asistente**. Selecciona **Abrir el Asistente** y
-cuéntale con tus palabras qué debe hacer tu bot: "que responda con mi menú",
-"que tome pedidos y me los mande por correo". Escribe las acciones, las prueba y
+cuéntale con tus palabras qué debe hacer tu bot: "que responda las preguntas de
+mi equipo con nuestro manual", "que los clientes consulten el estado de su
+pedido". Escribe las acciones, las prueba y
 te pregunta antes de activar nada. Igual puedes seguir los pasos de arriba a
 mano cuando quieras; son los mismos bloques que usa el Asistente. Mira
 **[Asistente](/es/docs/assistant/)**.

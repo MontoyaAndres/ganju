@@ -140,6 +140,55 @@
         ],
         "rubric": "Reads the logs or tests the action to find the cause (the forecast address moved from /v0/ to /v1/), fixes it, tests it, and the fix is live: the action returns a current temperature for Bogotá."
       }
+    },
+    {
+      "id": "team-handbook",
+      "lang": "en",
+      "kind": "knowledge",
+      "start": { "template": "empty" },
+      "ask": "my team keeps pinging me with the same questions about our policies, can this answer them instead",
+      "owner": "You lead a 12-person remote software team. Nobody outside the team will use this; your team would ask it in your company Slack. The policies: 20 vacation days a year, requested in BambooHR at least two weeks ahead; expenses up to 50 USD need no approval, above that your OK by email first; on-call rotates weekly, Monday 9am Bogotá time, the schedule is in the #oncall channel; laptops are replaced every 3 years, ask IT. You have no document, you can type them out if asked.",
+      "expect": {
+        "probes": [
+          {
+            "customer": "How many vacation days do we get and how do I ask for them?"
+          },
+          { "customer": "Can I expense a 120 dollar keyboard without asking?" }
+        ],
+        "rubric": "The people using this are the owner's team, not customers. Passing means: before building, the assistant understands or asks who uses it and where (the owner's brief answers: the team, in Slack) instead of assuming customers or a business; it never calls the team 'customers' or 'clients' and uses no restaurant or shop examples; it puts the policies in knowledge (a note, applied) and checks the bot finds them; it says plainly that putting the bot in Slack is done on the Channels page by the owner (it cannot add channels itself), and may mention using it from an AI app with the project's MCP URL. The bot answers 20 days requested in BambooHR two weeks ahead, and says a 120 dollar expense needs the owner's OK by email first. Failing means customer framing, inventing policies, claiming it is in Slack already, or claiming it works before Apply."
+      }
+    },
+    {
+      "id": "expenses-claude",
+      "lang": "es",
+      "kind": "new-action",
+      "start": { "template": "empty" },
+      "ask": "quiero anotar mis gastos y después preguntarle a Claude cuánto llevo",
+      "owner": "Es solo para ti, nadie más lo va a usar. Usas Claude en el computador y en el celular. Cada gasto tiene fecha, monto en pesos colombianos, categoría (comida, transporte, casa, otros) y una nota opcional. Quieres preguntarle a Claude cosas como cuánto llevas este mes o cuánto en comida. Vives en Bogotá. No tienes ningún archivo, empiezas de cero.",
+      "expect": {
+        "probes": [
+          {
+            "customer": "Anota un gasto de 25000 pesos en comida, almuerzo con el equipo"
+          },
+          { "customer": "¿Cuánto llevo gastado este mes en comida?" }
+        ],
+        "rubric": "The person using it is the owner, from Claude, not customers in a chat app. Passing means: the assistant does not assume a business or customers; it builds a place to keep expenses (a table with date, amount, category and an optional note, with the categories as an enum or checked values) and a way to add and total them (table access, a saved query or actions), applied; it tests saving and totaling with a clearly fake row and says where it stayed; and it tells the owner to add the project's MCP URL in Claude (giving the URL from the overview, or saying it is on the project's Home page) rather than only pointing to the Try panel or a channel. The bot saves the 25000 lunch and then reports at least 25000 in food this month. Failing means customer or restaurant framing, steering them to Telegram or WhatsApp, no way to total by month or category, or claiming it works before Apply."
+      }
+    },
+    {
+      "id": "api-ticket-status",
+      "lang": "en",
+      "kind": "tools",
+      "start": { "template": "empty" },
+      "ask": "add a tool that calls our REST API, GET https://jsonplaceholder.typicode.com/todos/{id}, no auth. it returns JSON with title and completed. our support agents will ask Claude for a ticket's status by id",
+      "owner": "You are a developer. The URL is a stand-in for your ticket API and works as given: id is a number, completed true means the ticket is closed, false means it is open, title is the ticket's subject. Your support agents use Claude Desktop. Read only, nothing is written. You are fine with technical terms.",
+      "expect": {
+        "probes": [
+          { "customer": "What's the status of ticket 3?" },
+          { "customer": "Is ticket 4 closed?" }
+        ],
+        "rubric": "A specific technical request from a developer. Passing means: no needless planning questions about things already stated; it may use the developer's own technical words (API, endpoint, JSON) back; it builds a read-only way to call the URL by id (an HTTP endpoint tool or an action with the host allowed, marked read-only), applied, and tests it; it tells them the agents connect from Claude with the project's MCP URL. The bot says ticket 3 'fugiat veniam minus' is open and ticket 4 'et porro tempora' is closed. Failing means asking for an API key, refusing technical terms the developer used, framing the users as customers of a shop, inventing fields, or claiming it works before Apply."
+      }
     }
   ]
 }

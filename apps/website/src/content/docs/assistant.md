@@ -21,11 +21,11 @@ language you write in, Spanish or English.
 
 Write what your bot should do in the box at the bottom (**Enter** sends,
 **Shift + Enter** adds a line), or pick one of the suggestions on an empty
-chat: **Tell customers if we are open right now**, **Answer questions from my
-menu**, **Take orders and email them to me**, **Book appointments in my Google
-Calendar**.
+chat: **Answer my team's questions in Slack from our docs**, **Let customers
+check the status of their order**, **Keep track of my expenses so I can ask
+Claude about them**, **Book appointments in my Google Calendar**.
 
-![A new chat in the Assistant tab: "What should your bot do?" with four suggestions, the past chats list and the month's credits](/images/assistant-empty.webp)
+![A new chat in the Assistant tab: "What do you want to build?" with four suggestions, the past chats list and the month's credits](/images/assistant-empty.webp)
 
 ## What it can change
 

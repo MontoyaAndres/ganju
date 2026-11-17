@@ -260,7 +260,7 @@ Stage (each needs label): create {title, description?, messages: [{role, content
     name: 'tools',
     description: `Ready-made tools.
 Read now: catalog {query?} (what can be added, and which account each needs), list (what the project has, with id and on/off).
-Stage (each needs label): add {toolKey, config?} (a catalog tool; "http-endpoint" with its config; "mcp-proxy" for a catalog MCP server without sign-in), change {id, config}, turn {id, enabled}, remove {id} (the owner types its name; its own key or sign-in goes with it). A catalog tool that needs an account works only once the owner connects it (ask_owner).`,
+Stage (each needs label): add {toolKey, config?} (a catalog tool; "http-endpoint" with its config, where {{name}} in its url, query, headers or body is filled from inputSchema's property of that name, so a path like /todos/{id} is written /todos/{{id}}; "mcp-proxy" for a catalog MCP server without sign-in), change {id, config}, turn {id, enabled}, remove {id} (the owner types its name; its own key or sign-in goes with it). A catalog tool that needs an account works only once the owner connects it (ask_owner).`,
     input_schema: obj(
       {
         action: {
@@ -448,8 +448,12 @@ const overview = async (ctx: BuilderToolContext) => {
     health
   ] = await Promise.all([
     ctx.db
-      .select({ botInstructions: db.schema.project.botInstructions })
+      .select({
+        botInstructions: db.schema.project.botInstructions,
+        slug: db.schema.artifact.slug
+      })
       .from(db.schema.project)
+      .innerJoin(db.schema.artifact, eq(db.schema.artifact.id, ctx.artifactId))
       .where(eq(db.schema.project.id, ctx.projectId))
       .limit(1),
     ctx.db
@@ -482,8 +486,13 @@ const overview = async (ctx: BuilderToolContext) => {
     toolHealth(ctx)
   ]);
 
+  const mcpRoot = utils
+    .getEnv({ env: ctx.env }, 'NEXT_PUBLIC_MCP_URL')
+    ?.replace(/\/+$/, '');
+
   return {
     owner: owner ?? null,
+    mcpUrl: mcpRoot && project?.slug ? `${mcpRoot}/${project.slug}` : null,
     botInstructions: project?.botInstructions ?? null,
     tools: tools.map(t => ({
       id: t.id,

@@ -1,0 +1,1698 @@
+{
+ "summary": {
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "date": "2026-11-16T22:13:05.099Z",
+  "runs": 39,
+  "passed": 12,
+  "credits": {
+   "total": 346,
+   "perRun": 26.6,
+   "max": 56.5
+  },
+  "tokens": {
+   "input": 446,
+   "output": 79097,
+   "cacheRead": 3882055,
+   "write5m": 0,
+   "write1h": 188803
+  },
+  "modelCallsPerRun": 13,
+  "ownerTurnsPerRun": 2.5,
+  "sideUsd": 0.86,
+  "byCase": {
+   "pizza-stock": {
+    "passRate": 1,
+    "credits": [
+     35.1,
+     51.4,
+     56.5
+    ],
+    "modelCalls": [
+     9,
+     18,
+     22
+    ],
+    "ownerTurns": [
+     2,
+     3,
+     3
+    ]
+   },
+   "nightly-orders": {
+    "passRate": 1,
+    "credits": [
+     13.9,
+     16,
+     14.5
+    ],
+    "modelCalls": [
+     10,
+     9,
+     10
+    ],
+    "ownerTurns": [
+     2,
+     2,
+     2
+    ]
+   },
+   "menu-pdf": {
+    "passRate": 1,
+    "credits": [
+     15.5,
+     13.6,
+     21.9
+    ],
+    "modelCalls": [
+     13,
+     12,
+     19
+    ],
+    "ownerTurns": [
+     3,
+     3,
+     4
+    ]
+   },
+   "delivery-orders": {
+    "passRate": 0.6666666666666666,
+    "credits": [
+     26.6,
+     23.9,
+     27.3
+    ],
+    "modelCalls": [
+     11,
+     11,
+     16
+    ],
+    "ownerTurns": [
+     2,
+     2,
+     3
+    ]
+   },
+   "open-now": {
+    "passRate": 0.3333333333333333,
+    "credits": [
+     29.8,
+     null,
+     null
+    ],
+    "modelCalls": [
+     9,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     2,
+     null,
+     null
+    ]
+   },
+   "calendar-booking": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "import-clients": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "refund-cap": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "shorter-replies": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "broken-weather": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "team-handbook": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "expenses-claude": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   },
+   "api-ticket-status": {
+    "passRate": 0,
+    "credits": [
+     null,
+     null,
+     null
+    ],
+    "modelCalls": [
+     null,
+     null,
+     null
+    ],
+    "ownerTurns": [
+     null,
+     null,
+     null
+    ]
+   }
+  }
+ },
+ "results": [
+  {
+   "id": "pizza-stock",
+   "run": 3,
+   "lang": "es",
+   "kind": "new-action",
+   "projectId": "01a1e660-b3eb-7210-99fe-61c192fd08d7",
+   "slug": "e7da83e2f43751c2c5ad40260ce8fcba",
+   "conversationId": "01a1e660-be43-7708-8b46-97f5dc42266c",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Asked five clear questions before building. After apply, the project has a 'pizzas' table with today's 4 rows (12 margherita, 5 pepperoni, 3 cuatro quesos, 0 hawaiana) that the owner can edit in Datos each morning. A published action reads that table and returns sold-out items plus in-stock alternatives, and the bot instructions tell the bot to always use it. Probes pass: hawaiana is reported as not available and margherita, pepperoni or cuatro quesos are offered; margherita shows as available with 12. The '4 quesos' spelling is handled. The assistant stated plainly that counts do not drop by themselves when a pizza is sold. Its claims match the three action tests it ran, including the claim that the largest-stock pizza is offered first. Wording stayed plain apart from mild words like 'acción' and 'base de datos', and no code was shown. Minor caveat: it says the test panel answers 'igual que a tus clientes en WhatsApp', but nothing in the project shows a connected WhatsApp channel, and it never told the owner how to connect one. This is not required by the rubric, but it is worth flagging."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 9,
+   "toolCalls": 14,
+   "toolCounts": {
+    "project": 2,
+    "data": 5,
+    "knowledge": 1,
+    "functions": 2,
+    "propose_changes": 1,
+    "run_test": 3
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "data.create_database",
+    "data.create_table",
+    "bot.set_instructions",
+    "data.add_rows",
+    "functions.turn_on"
+   ],
+   "builder": {
+    "calls": 9,
+    "input": 24,
+    "output": 6460,
+    "cacheRead": 177255,
+    "write5m": 0,
+    "write1h": 26864,
+    "usd": 0.3509999999999999,
+    "credits": 35.1
+   },
+   "sideUsd": 0.073,
+   "seconds": 134,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "quiero que el bot diga si hay pizza"
+    },
+    {
+     "role": "assistant",
+     "text": "Tu proyecto está vacío por ahora, así que empezamos desde cero.\n\nEntiendo que quieres que, cuando alguien pregunte \"¿hay pizza?\", el bot responda si hay o no. Antes de armarlo necesito saber unas cosas:\n\n1. **¿Quién le va a preguntar al bot?** ¿Tus clientes por un chat (WhatsApp, Telegram…), tu equipo, o tú desde una app como Claude o ChatGPT?\n2. **¿Cada cuánto cambia si hay pizza o no?** ¿Es fijo (por ejemplo, \"siempre hay de martes a domingo\") o cambia durante el día (por ejemplo, \"se acabó la masa\")?\n3. **¿Quién lo actualiza y cómo?** ¿Tú lo cambias a mano en el panel, o quieres decírselo al bot (\"ya no hay pizza\") para que lo guarde?\n4. **¿Es solo la pizza o también otros sabores o productos?** Por ejemplo: \"hay hawaiana pero no pepperoni\", o el precio.\n5. **¿Solo debe responder, o también tomar pedidos?**\n\nPara que te hagas una idea de lo que gastaría:\n- Si es algo fijo, lo guardo como una nota de lo que el bot necesita saber: **menos de 15 créditos**.\n- Si cambia durante el día y quieres poder marcarlo como disponible o agotado: una pequeña lista con una acción que la consulte, **unos 30 a 50 créditos**, incluida la prueba."
+    },
+    {
+     "role": "owner",
+     "text": "Es para mis clientes por WhatsApp. Tengo 4 pizzas: margherita, pepperoni, hawaiana y cuatro quesos, y cada mañana yo mismo quiero anotar cuántas hay de cada una. Si se acaba una, que el bot diga que está agotada y ofrezca otra que sí haya; hoy hay 12 margherita, 5 pepperoni, 3 cuatro quesos y 0 hawaiana."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya tienes la tarjeta con el botón **Aplicar**. Una vez la apliques:\n\n- **Tu lista \"Pizzas\"** queda en **Datos** con las cantidades de hoy: 12 margherita, 5 pepperoni, 3 cuatro quesos y 0 hawaiana. Cada mañana cambias ahí los números.\n- **El bot** revisa esa lista cada vez que alguien pregunta. Si piden hawaiana, dirá que está agotada y ofrecerá, por ejemplo, margherita o pepperoni.\n\nTen en cuenta que los números no bajan solos cuando vendes una pizza: el bot ve lo que anotaste en la mañana. Si una se acaba durante el día, pon su cantidad en 0 en **Datos** y el bot la dará por agotada.\n\nCuando la apliques, pruebo la acción con preguntas reales y te cuento cómo respondió. Lo que falta usaría unos 10 créditos. También quiero saber una cosa: ¿está bien que el bot diga cuántas quedan (\"quedan 3 de cuatro quesos\"), o prefieres que solo diga si hay o no?\n[Card: Crea tu lista de pizzas con las cantidades de hoy, y el bot de WhatsApp podrá decir cuáles hay y ofrecer otra cuando una esté agotada. — Crear la base de datos del proyecto; Crear la lista \"Pizzas\" con cuántas hay de cada una; Indicarle al bot cómo responder sobre las pizzas; Anotar las pizzas de hoy: 12 margherita, 5 pepperoni, 3 cuatro quesos, 0 hawaiana; Activar la acción que revisa qué pizzas hay y ofrece otra si una está agotada — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está funcionando. La probé con tres preguntas y las tres respuestas coinciden con lo que anotaste:\n\n- **\"¿Hay hawaiana?\"** → está agotada, y ofrece margherita, pepperoni o cuatro quesos. Primero ofrece la que tiene más cantidad.\n- **\"¿Hay 4 quesos?\"** → sí, quedan 3. La reconoce aunque la escriban con número.\n- **\"¿Qué pizzas hay?\"** → margherita (12), pepperoni (5) y cuatro quesos (3). La hawaiana está agotada.\n\nEstas pruebas solo consultaron la lista: no guardaron ni cambiaron nada.\n\n**Para probarlo tú:** usa el panel junto a este chat, **\"Pruébalo como cliente\"**, y escribe algo como \"¿tienen pizza hawaiana?\". Te responde igual que a tus clientes en WhatsApp.\n\n**Cada mañana:** ve a **Datos** → **Pizzas** y cambia las cantidades. Si una se acaba durante el día, ponla en 0.\n\nSigue pendiente una pregunta: ¿quieres que el bot diga cuántas quedan, o solo si hay o no? Si prefieres lo segundo, lo cambio en un momento y usaría menos de 5 créditos."
+    }
+   ],
+   "probes": [
+    {
+     "customer": "¿tienen pizza hawaiana?",
+     "answer": "Lo siento, en este momento no tenemos pizza hawaiana. Si deseas, puedo ofrecerte alguna de las otras opciones que sí tenemos disponibles: Margherita, Pepperoni o Cuatro quesos.",
+     "calls": [
+      {
+       "tool": "disponibilidad-pizzas",
+       "arguments": {
+        "pizza": "hawaiana"
+       },
+       "result": "<untrusted_content id=\"4765527cf00cd789\" source=\"disponibilidad-pizzas\">\n{\n  \"disponibles\": [\n    \"Margherita\",\n    \"Pepperoni\",\n    \"Cuatro quesos\"\n  ],\n  \"agotadas\": [\n    \"Hawaiana\"\n  ],\n  \"pizzas\": [\n    {\n      \"nombre\": \"Cuatro quesos\",\n      \"cantidad\": 3,\n      \"disponible\": true\n    },\n    {\n      \"nombre\": \"Hawaiana\",\n      \"cantidad\": 0,\n      \"disponible\": false\n    },\n    {\n      \"nombre\": \"Margherita\",\n      \"cantidad\": 12,\n      \"disponible\": true\n    },\n    {\n      \"nombre\": \"Pepperoni\",\n      \"cantidad\": 5,\n      \"disponible\": true\n    }\n  ],\n  \"pedida\": {\n    \"nombre\": \"Hawaiana\",\n    \"cantidad\": 0,\n    \"disponible\": false\n  },\n  \"alternativas\": [\n    \"Margherita\",\n    \"Pepperoni\",\n    \"Cuatro quesos\"\n  ]\n}\n</untrusted_content id=\"4765527cf00cd789\">"
+      }
+     ]
+    },
+    {
+     "customer": "¿hay margherita?",
+     "answer": "¡Hola! Sí, tenemos 12 pizzas Margherita disponibles hoy. ¿Te gustaría pedir una?",
+     "calls": [
+      {
+       "tool": "disponibilidad-pizzas",
+       "arguments": {
+        "pizza": "margherita"
+       },
+       "result": "<untrusted_content id=\"7a0925878c32afb2\" source=\"disponibilidad-pizzas\">\n{\n  \"disponibles\": [\n    \"Margherita\",\n    \"Pepperoni\",\n    \"Cuatro quesos\"\n  ],\n  \"agotadas\": [\n    \"Hawaiana\"\n  ],\n  \"pizzas\": [\n    {\n      \"nombre\": \"Cuatro quesos\",\n      \"cantidad\": 3,\n      \"disponible\": true\n    },\n    {\n      \"nombre\": \"Hawaiana\",\n      \"cantidad\": 0,\n      \"disponible\": false\n    },\n    {\n      \"nombre\": \"Margherita\",\n      \"cantidad\": 12,\n      \"disponible\": true\n    },\n    {\n      \"nombre\": \"Pepperoni\",\n      \"cantidad\": 5,\n      \"disponible\": true\n    }\n  ],\n  \"pedida\": {\n    \"nombre\": \"Margherita\",\n    \"cantidad\": 12,\n    \"disponible\": true\n  }\n}\n</untrusted_content id=\"7a0925878c32afb2\">"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pizza-stock",
+   "run": 2,
+   "lang": "es",
+   "kind": "new-action",
+   "projectId": "01a1e660-b496-75a4-963a-ca87c8ee2da3",
+   "slug": "4249274d4df697c4ff7eecfcd15f065e",
+   "conversationId": "01a1e660-c044-7280-8cba-c50163b16037",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Asked four clear questions before building. The project now has a Pizzas table with each pizza's name and quantity, which the owner can edit under Datos → Pizzas. A published action reads that table and, for a sold-out pizza, returns the in-stock ones as alternatives. The bot instructions say to check the action before every answer. Today's quantities are saved (Margherita 12, Pepperoni 5, Cuatro quesos 3, Hawaiana 0). Probes confirm the bot calls the action, says the Hawaiana is sold out and offers Cuatro quesos, Margherita or Pepperoni, and says Margherita is available. The first round of tests ran with everything at 0, and the assistant said plainly it could not yet test the offer of another pizza. It also stated the real limit that quantities do not go down by themselves as pizzas sell. Minor issues: 1) it says it 'asked the bot', but it actually tested the action directly. The results match what the bot really answers, so this is not a false claim. 2) When the owner said the quantities were already in, the assistant did not say clearly that they had not been saved. It only suggested checking that changes are saved. 3) The second card repeats the same item twice. 4) It uses product words like 'acción', 'tabla' and 'créditos', but showed no code or technical data."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 3,
+   "modelCalls": 18,
+   "toolCalls": 27,
+   "toolCounts": {
+    "project": 2,
+    "data": 9,
+    "knowledge": 1,
+    "functions": 2,
+    "propose_changes": 3,
+    "run_test": 10
+   },
+   "cards": [
+    "change_set",
+    "change_set"
+   ],
+   "applied": [
+    "data.create_database",
+    "data.create_table",
+    "bot.set_instructions",
+    "data.add_rows",
+    "functions.turn_on",
+    "data.change_rows",
+    "data.change_rows"
+   ],
+   "builder": {
+    "calls": 18,
+    "input": 46,
+    "output": 10159,
+    "cacheRead": 453633,
+    "write5m": 0,
+    "write1h": 33594,
+    "usd": 0.514,
+    "credits": 51.4
+   },
+   "sideUsd": 0.094,
+   "seconds": 186,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "quiero que el bot diga si hay pizza"
+    },
+    {
+     "role": "assistant",
+     "text": "Tu proyecto está vacío por ahora, así que empezamos desde cero. Entiendo que quieres que, cuando alguien pregunte \"¿hay pizza?\", el bot responda si hay o no. Antes de armarlo necesito saber un par de cosas:\n\n1. **¿Quién le va a preguntar al bot?** ¿Tus clientes por un chat (WhatsApp, Telegram…), tu equipo, o tú desde una app como ChatGPT o Claude?\n2. **¿Cada cuánto cambia si hay pizza?** ¿Es algo fijo (por ejemplo \"hay pizza de martes a domingo\") o cambia durante el día (se acaba, vuelve a haber)?\n3. **¿Quién avisa cuando se acaba o vuelve a haber?** ¿Tú lo cambias a mano, o quieres poder decírselo al bot (\"ya no hay pizza\") y que él lo guarde?\n4. **¿Es solo \"sí o no\", o hay varios sabores** (hawaiana, pepperoni…) y cada uno puede estar disponible o no? ¿Quieres que diga también precios u horarios?\n\nSegún lo que me digas hay dos caminos:\n- **Sencillo:** una nota con la información que tú editas cuando cambie. Cuesta menos de 15 créditos.\n- **Completo:** una pequeña tabla de pizzas con su disponibilidad y una acción para consultarla (y si quieres, otra para marcar \"se acabó / volvió a haber\"). Serían unos 40 a 60 créditos en total, contando la prueba."
+    },
+    {
+     "role": "owner",
+     "text": "Es para los clientes por WhatsApp. Tengo 4 pizzas: margherita, pepperoni, hawaiana y cuatro quesos, y cada mañana quiero anotar yo mismo cuántas hay de cada una. Si se acaba una, que el bot diga que está agotada y ofrezca otra que sí haya."
+    },
+    {
+     "role": "assistant",
+     "text": "Te dejé lista una tarjeta con los cambios. Todavía no está funcionando: empieza a funcionar cuando le das a **Aplicar**. Esto es lo que trae:\n\n- **Tabla Pizzas** con Margherita, Pepperoni, Hawaiana y Cuatro quesos. Todas empiezan en **0**, así que hasta que pongas las cantidades el bot dirá que están agotadas.\n- **La acción que revisa qué pizzas hay**: el bot la usa cada vez que un cliente pregunta por pizza. Si la que piden está en 0, dice que está agotada y ofrece una de las que sí quedan.\n- **Reglas para el bot**: responder en español, corto y amable, revisar siempre antes de contestar y no decir cuántas quedan salvo que se lo pregunten.\n\n**Cada mañana** entras en **Datos → Pizzas** y cambias la cantidad de cada una. Ten en cuenta que la cantidad **no baja sola** cuando vendes una pizza: si una se acaba durante el día, la pones en 0 ahí mismo. Si más adelante quieres que baje sola con cada pedido, te lo puedo armar.\n\nCuando apliques, pon las cantidades de hoy con al menos una en 0. Después le pregunto al bot por esa pizza y por otra que sí haya, y te cuento qué contestó. Luego puedes probarlo tú en el panel de al lado, **\"Pruébalo como cliente\"**.\n[Card: Crea la tabla de tus 4 pizzas con su cantidad del día y activa la acción para que el bot de WhatsApp diga si hay una pizza y, si está agotada, ofrezca otra que sí haya. — Crear la base de datos del proyecto; Crear la tabla Pizzas (nombre y cantidad disponible hoy); Reglas del bot: responder en español y revisar siempre las pizzas antes de contestar; Agregar las 4 pizzas (empiezan en 0 hasta que pongas las cantidades de hoy); Activar la acción que revisa qué pizzas hay — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está funcionando y lo probé. Por ahora las 4 pizzas siguen en **0** porque todavía no pusiste las cantidades de hoy. Con eso, esto es lo que contesta:\n\n- Pregunté por la **hawaiana**: la encuentra y dice que está agotada.\n- Pregunté por **\"4 quesos\"**, escrito así con número: entiende que es la Cuatro quesos y dice que está agotada.\n- Pregunté **\"¿hay pizza?\"**: revisa las 4 y ve que no queda ninguna.\n- Pregunté por una **napolitana**: dice que no está en el menú.\n\nNo pude probar la parte más importante, que es **ofrecer otra cuando una se acaba**, porque ahora no hay ninguna pizza disponible para ofrecer. Para probarla:\n\n1. Entra en **Datos → Pizzas** y pon las cantidades de hoy, con al menos una en 0. Por ejemplo: Margherita 5, Pepperoni 3, Hawaiana 0, Cuatro quesos 4.\n2. Avísame y le pregunto por la que está en 0, para confirmar que ofrece otra de las que sí hay.\n\nTú también puedes probarlo en el panel de al lado, **\"Pruébalo como cliente\"**, escribiendo algo como \"¿tienen hawaiana?\". Contesta igual que a tus clientes por WhatsApp."
+    },
+    {
+     "role": "owner",
+     "text": "Listo, ya puse las de hoy: 12 margherita, 5 pepperoni, 3 cuatro quesos y la hawaiana en 0. Pruébalo a ver si ofrece otra."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está la tarjeta. Al darle a **Aplicar** se guardan las cantidades de hoy:\n- Margherita: 12\n- Pepperoni: 5\n- Cuatro quesos: 3\n- Hawaiana: sigue en 0, o sea agotada\n\nApenas apliques, le vuelvo a preguntar al bot por la hawaiana. Así confirmamos que dice que está agotada y ofrece otra de las que sí hay.\n\nPara las próximas mañanas: cuando cambies una cantidad en **Datos → Pizzas**, revisa que quede guardada antes de salir. Si te resulta más fácil, también puedes decirme las cantidades aquí y te las dejo listas en una tarjeta, como ahora.\n[Card: Guarda las cantidades de hoy: Margherita 12, Pepperoni 5 y Cuatro quesos 3. La Hawaiana sigue en 0 (agotada). — Poner las cantidades de hoy: Margherita 12, Pepperoni 5, Cuatro quesos 3, Hawaiana 0; Poner las cantidades de hoy: Margherita 12, Pepperoni 5, Cuatro quesos 3 (Hawaiana sigue en 0) — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya funciona con las cantidades de hoy. Le volví a preguntar al bot:\n\n- **Hawaiana:** dice que está agotada y tiene para ofrecer Margherita, Pepperoni o Cuatro quesos. Era justo lo que faltaba probar.\n- **Pepperoni:** dice que sí hay.\n- **\"¿Hay pizza?\":** dice que sí: Margherita, Pepperoni y Cuatro quesos, y que la Hawaiana está agotada.\n\nPor las reglas que le pusimos, no les dice a tus clientes cuántas quedan, salvo que lo pregunten.\n\nTen en cuenta que la cantidad **no baja sola** cuando vendes. Si una pizza se acaba durante el día, ponla en 0 en **Datos → Pizzas**, o dímelo aquí y te dejo el cambio en una tarjeta.\n\nPara verlo tal como lo verán tus clientes en WhatsApp, escribe \"¿tienen hawaiana?\" en el panel de al lado, **\"Pruébalo como cliente\"**."
+    }
+   ],
+   "probes": [
+    {
+     "customer": "¿tienen pizza hawaiana?",
+     "answer": "Lo siento, en este momento no tenemos pizza hawaiana. Si deseas, te puedo ofrecer una de nuestras otras opciones disponibles: Cuatro quesos, Margherita o Pepperoni. ¿Te gustaría alguna de ellas?",
+     "calls": [
+      {
+       "tool": "ver-pizzas",
+       "arguments": {
+        "pizza": "hawaiana"
+       },
+       "result": "<untrusted_content id=\"de8487adabeaeb81\" source=\"ver-pizzas\">\n{\n  \"encontrada\": true,\n  \"nombre\": \"Hawaiana\",\n  \"disponible\": false,\n  \"cantidad\": 0,\n  \"alternativas\": [\n    {\n      \"nombre\": \"Cuatro quesos\",\n      \"cantidad\": 3\n    },\n    {\n      \"nombre\": \"Margherita\",\n      \"cantidad\": 12\n    },\n    {\n      \"nombre\": \"Pepperoni\",\n      \"cantidad\": 5\n    }\n  ]\n}\n</untrusted_content id=\"de8487adabeaeb81\">"
+      }
+     ]
+    },
+    {
+     "customer": "¿hay margherita?",
+     "answer": "Sí, ¡tenemos pizza Margherita disponible! ¿Te gustaría pedir una?",
+     "calls": [
+      {
+       "tool": "ver-pizzas",
+       "arguments": {
+        "pizza": "margherita"
+       },
+       "result": "<untrusted_content id=\"179524d23f70b7e0\" source=\"ver-pizzas\">\n{\n  \"encontrada\": true,\n  \"nombre\": \"Margherita\",\n  \"disponible\": true,\n  \"cantidad\": 12,\n  \"alternativas\": []\n}\n</untrusted_content id=\"179524d23f70b7e0\">"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pizza-stock",
+   "run": 1,
+   "lang": "es",
+   "kind": "new-action",
+   "projectId": "01a1e660-b40a-71e5-8030-286fa953e325",
+   "slug": "45ec9a8ea51713786128c3ff122a47ee",
+   "conversationId": "01a1e660-bee8-70dc-814a-0df52bb83c66",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "The assistant asked four clear questions before building, covering who asks, whether the answer changes, flavours, and extras. It then built a 'pizzas' table with name and quantity that the owner can edit in Datos, plus a live action that reads that table. The action gives a pizza's availability and, when one is sold out, lists the ones still in stock. It also matches misspellings and '4 quesos'. Today's stock (12/5/3/0) is saved, and the final tests confirm it. Probes match the rubric: asking for hawaiana says sold out and offers cuatro quesos, margherita or pepperoni; asking for margherita says available (12). Claims stayed honest. The assistant said plainly that it could not yet test offering an alternative while everything was at 0. When the owner's numbers had not been saved, it said so and staged a card to record them. It also noted that the bot does not subtract sold pizzas. The language stayed plain throughout, with no code or technical terms. Minor point: the bot may tell customers exact quantities, which the assistant raised for the owner to decide."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 3,
+   "modelCalls": 22,
+   "toolCalls": 30,
+   "toolCounts": {
+    "project": 1,
+    "data": 7,
+    "knowledge": 1,
+    "functions": 4,
+    "propose_changes": 3,
+    "run_test": 14
+   },
+   "cards": [
+    "change_set",
+    "change_set",
+    "change_set"
+   ],
+   "applied": [
+    "data.create_database",
+    "data.create_table",
+    "data.add_rows",
+    "functions.turn_on",
+    "functions.turn_on",
+    "data.change_rows"
+   ],
+   "builder": {
+    "calls": 22,
+    "input": 56,
+    "output": 11118,
+    "cacheRead": 571928,
+    "write5m": 0,
+    "write1h": 35491,
+    "usd": 0.5650000000000001,
+    "credits": 56.5
+   },
+   "sideUsd": 0.097,
+   "seconds": 205,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "quiero que el bot diga si hay pizza"
+    },
+    {
+     "role": "assistant",
+     "text": "Tu proyecto está vacío por ahora, así que empezamos de cero. Entiendo que quieres que, cuando alguien le pregunte al bot si hay pizza, conteste sí o no. Antes de armarlo necesito saber unas cosas:\n\n1. **¿Quién le va a preguntar?** ¿Tus clientes por un chat (WhatsApp, Telegram…), tu equipo, o tú mismo desde una app como ChatGPT o Claude?\n2. **¿La respuesta cambia?**\n   - Si **siempre hay pizza** (o siempre según tu horario), basta con escribirle eso al bot como información fija.\n   - Si **cambia durante el día** (a veces se acaba), lo mejor es una pequeña lista donde tú marcas \"hay\" o \"no hay\" y el bot la consulta antes de contestar.\n3. **¿Es pizza en general o por sabores?** Por ejemplo: \"hay hawaiana, pero se acabó la pepperoni\".\n4. ¿Quieres que dé algún dato más, como precio u horario?\n\nLo que cuesta, más o menos: si es información fija, menos de 15 créditos. Si es la lista que tú actualizas, con una acción para consultarla, entre 30 y 60 créditos, contando la prueba al final."
+    },
+    {
+     "role": "owner",
+     "text": "Es para los clientes por WhatsApp. Tengo 4 pizzas: margherita, pepperoni, hawaiana y cuatro quesos, y cada mañana quiero anotar yo mismo cuántas hay de cada una. Si se acaba una, que el bot diga que está agotada y ofrezca otra que sí haya; precio u horario no hace falta."
+    },
+    {
+     "role": "assistant",
+     "text": "Te dejé los cambios listos en la tarjeta. Al pulsar **Aplicar** pasa esto:\n- Se crea la lista **Pizzas** en **Datos**, con las 4 pizzas en 0. Cada mañana cambias ahí la cantidad de cada una.\n- El bot de WhatsApp consulta esa lista cuando un cliente pregunta por pizza. Si la que pide está en 0, le dice que está agotada y le ofrece una que sí quede. Si no queda ninguna, también se lo dice.\n\nEl bot no resta pizzas cuando alguien compra. Solo mira el número que tú anotas. Si quieres que se descuenten solas, lo podemos agregar después.\n\nCuando lo apliques, pruebo la acción con la lista real y te cuento qué contesta. Después puedes preguntarle tú mismo en el panel de al lado (**Pruébalo como cliente**).\n[Card: Crea tu lista de pizzas (margherita, pepperoni, hawaiana y cuatro quesos) donde anotas cada mañana cuántas hay, y activa la acción con la que el bot de WhatsApp le dice al cliente si hay pizza o, si se acabó, le ofrece otra que sí quede. — Crear la base de datos del proyecto; Crear la lista de pizzas con su cantidad del día; Agregar las 4 pizzas (empiezan en 0); Activar la acción que revisa qué pizzas hay — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya lo probé con tu lista real. Todas las pizzas están en 0, así que contesta lo que corresponde:\n- \"¿Hay pizza?\" → hoy están todas agotadas.\n- \"¿Hay hawaiana?\" → está agotada y no queda ninguna otra.\n- \"¿Tienen vegetariana?\" → no está en el menú.\n\n**Encontré y corregí un problema:** si el cliente escribía \"4 quesos\" con número, el bot no la reconocía. Ahora entiende \"4 quesos\", \"una pizza margarita\" y \"peperoni\", y las probé las tres. El arreglo queda activo cuando pulses **Aplicar** en la tarjeta.\n\nTodavía no pude probar una cosa: que ofrezca otra pizza cuando se acaba una. Para eso tiene que haber alguna con cantidad mayor que 0. Cuando anotes las cantidades de hoy en **Datos → Pizzas**, avísame y lo pruebo. También puedes preguntarle tú mismo en el panel de al lado (**Pruébalo como cliente**), por ejemplo \"¿hay pepperoni?\" con la pepperoni en 0. No creé filas de prueba, así que no hay nada que borrar.\n[Card: Mejora la acción de las pizzas para que reconozca los nombres aunque el cliente los escriba con número o con faltas, como \"4 quesos\", \"margarita\" o \"peperoni\". — Que el bot entienda \"4 quesos\", \"margarita\" o \"peperoni\" aunque estén mal escritas — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Listo, el arreglo ya está activo. Le pregunté por \"4 quesos\" y ahora la reconoce: contesta que está agotada, porque todas las pizzas siguen en 0.\n\nTu bot de WhatsApp ya sabe qué pizzas hay. Solo falta una cosa: **cada mañana, entra en Datos → Pizzas y cambia la cantidad de cada una.** Mientras estén en 0, el bot dirá que no hay.\n\nTodavía me falta probar una parte: cuando se acaba una pizza, que el bot ofrezca otra que sí quede. Cuando anotes las cantidades de hoy, avísame y lo pruebo. También puedes probarlo tú en el panel de al lado (**Pruébalo como cliente**): deja una pizza en 0 y pregunta por ella."
+    },
+    {
+     "role": "owner",
+     "text": "Listo, ya anoté las de hoy: 12 margherita, 5 pepperoni, 3 cuatro quesos y 0 hawaiana. Pruébalo pues."
+    },
+    {
+     "role": "assistant",
+     "text": "Probé la acción y los números no llegaron: en tu lista las 4 pizzas siguen en 0, y nadie la ha cambiado desde que la creamos. Por eso el bot ahora mismo diría que todo está agotado.\n\nTe dejé los números de hoy (12 margherita, 5 pepperoni, 3 cuatro quesos y 0 hawaiana) en una tarjeta. Cuando pulses **Aplicar**, pruebo enseguida que el bot diga que la hawaiana está agotada y ofrezca otra.\n\nPara las próximas mañanas: en **Datos → Pizzas**, después de escribir cada número, pulsa Enter o haz clic fuera de la casilla para que se guarde. Si algo no se guarda, avísame y lo revisamos.\n[Card: Guarda las cantidades de hoy en tu lista de pizzas: 12 margherita, 5 pepperoni, 3 cuatro quesos y 0 hawaiana. — Anotar las pizzas de hoy: 12 margherita, 5 pepperoni, 0 hawaiana, 3 cuatro quesos — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ahora sí funciona todo. Probé tres preguntas con las cantidades de hoy:\n\n- **\"¿Hay hawaiana?\"**: dice que está agotada y ofrece cuatro quesos, margherita o pepperoni.\n- **\"¿Hay peperoni?\"** (mal escrita a propósito): la reconoce y dice que sí hay.\n- **\"¿Qué pizzas hay?\"**: margherita, pepperoni y cuatro quesos. La hawaiana sale como agotada.\n\nYa puedes preguntarle tú mismo en el panel de al lado (**Pruébalo como cliente**), igual que un cliente por WhatsApp.\n\nUn detalle para que decidas: el bot sabe cuántas quedan de cada una, así que a veces podría decir algo como \"quedan 3 de cuatro quesos\". ¿Te sirve así, o prefieres que solo diga si hay o no, sin dar números?"
+    }
+   ],
+   "probes": [
+    {
+     "customer": "¿tienen pizza hawaiana?",
+     "answer": "Lo siento, la pizza hawaiana está agotada por hoy. Si deseas, tenemos disponibles **Cuatro quesos**, **Margherita** o **Pepperoni**. ¿Te gustaría alguna de esas?",
+     "calls": [
+      {
+       "tool": "ver-pizzas",
+       "arguments": {
+        "pizza": "hawaiana"
+       },
+       "result": "<untrusted_content id=\"cfe8591606a83e91\" source=\"ver-pizzas\">\n{\n  \"pizza\": \"Hawaiana\",\n  \"enElMenu\": true,\n  \"disponible\": false,\n  \"cantidad\": 0,\n  \"alternativas\": [\n    \"Cuatro quesos\",\n    \"Margherita\",\n    \"Pepperoni\"\n  ],\n  \"nota\": \"Está agotada. Dilo y ofrece una de las alternativas.\"\n}\n</untrusted_content id=\"cfe8591606a83e91\">"
+      }
+     ]
+    },
+    {
+     "customer": "¿hay margherita?",
+     "answer": "Sí, tenemos pizza Margherita disponible (quedan 12 unidades).",
+     "calls": [
+      {
+       "tool": "ver-pizzas",
+       "arguments": {
+        "pizza": "margherita"
+       },
+       "result": "<untrusted_content id=\"9b2539427a3ba720\" source=\"ver-pizzas\">\n{\n  \"pizza\": \"Margherita\",\n  \"enElMenu\": true,\n  \"disponible\": true,\n  \"cantidad\": 12,\n  \"alternativas\": [],\n  \"nota\": \"Hay de esta pizza.\"\n}\n</untrusted_content id=\"9b2539427a3ba720\">"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nightly-orders",
+   "run": 1,
+   "lang": "en",
+   "kind": "trigger",
+   "projectId": "01a1e662-bc24-73d7-abdf-1838896eacc0",
+   "slug": "a6ee2a30165b5db30065ac9423b3aac3",
+   "conversationId": "01a1e662-d784-7608-bbbd-021d2681bfac",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Everything the owner asked for is applied. A daily schedule runs at 21:00 in the database's Bogotá time zone. It uses the saved query daily_orders, which filters on ordered_at between {{today_start}} and {{today_end}}, so the day follows Bogotá time. The query returns customer, items and total, plus a TOTAL row at the end. Its HAVING count(*) > 0 clause means an empty day returns no rows at all, and skipEmpty is on, so nothing is sent on days with no orders. The email goes only to the owner's account address. A test email was sent before applying, using Bogotá-day boundaries (05:00Z to 05:00Z), and the owner was told about it. After applying, the assistant also checked a day with orders (5 rows) and a day without (0 rows). The assistant asked about time, days, empty days and the total before building, and used plain language. One small concern: it said today is Nov 16 and that tonight's email will contain the 4 orders without clearly checking the current date. It is plausible, and minor."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 10,
+   "toolCalls": 10,
+   "toolCounts": {
+    "project": 1,
+    "data": 8,
+    "propose_changes": 1
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "data.save_query",
+    "data.save_trigger"
+   ],
+   "builder": {
+    "calls": 10,
+    "input": 26,
+    "output": 2942,
+    "cacheRead": 208387,
+    "write5m": 0,
+    "write1h": 7406,
+    "usd": 0.139,
+    "credits": 13.9
+   },
+   "sideUsd": 0.043,
+   "seconds": 76,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "send me the day's orders every night"
+    },
+    {
+     "role": "assistant",
+     "text": "I can set this up: every night you'd get an email at **andresmontoyafcb@gmail.com** listing that day's orders (customer, items, total and time). It uses the order time, and the day follows Bogotá time, which your database already uses. You have 4 orders in there now, all from Nov 16.\n\nA few quick questions first:\n\n1. **What time** should it arrive? For example 9:00 pm.\n2. **Which days?** Every day, or only some (for example Monday to Saturday)?\n3. **On days with no orders**, should it skip the email or send one that says \"no orders\"?\n4. Should it add a **total for the day** at the end (number of orders and money taken)?\n\nThis will take about 15 credits, including sending you a sample email before you turn it on."
+    },
+    {
+     "role": "owner",
+     "text": "9pm Bogotá time, every day. Skip it if there are no orders, and yes please add the day's total at the end. I just need customer, items and total for each order, no time needed."
+    },
+    {
+     "role": "assistant",
+     "text": "I sent a sample to **andresmontoyafcb@gmail.com**, built from your Nov 16 orders. The subject starts with \"[Test]\". It lists your 4 orders and ends with **TOTAL (4 orders): 113000**. Have a look and tell me if you'd like the wording or layout changed.\n\nOnce you click **Apply** on the card, the email will arrive every night at 9:00 pm Bogotá time with that day's orders. On days with no orders, you won't get one.\n[Card: Every night at 9:00 pm Bogotá time, you'll get an email with that day's orders (customer, items, total) and the day's total at the end. On days with no orders, no email is sent. — Save the list of the day's orders with a total at the end; Email me the day's orders every night at 9:00 pm (Bogotá), skipped when there are none — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "I applied the changes."
+    },
+    {
+     "role": "assistant",
+     "text": "The nightly email is on, and I tested it again:\n\n- **A day with orders (today, Nov 16):** the list shows your 4 orders and ends with **TOTAL (4 orders): 113000**, same as the sample you got.\n- **A day with no orders (Nov 17):** nothing comes back, so no email is sent that day.\n\nYour first real email arrives **tonight at 9:00 pm** with today's 4 orders. If you'd like to change the time, the days or the wording later, just tell me."
+    }
+   ],
+   "probes": []
+  },
+  {
+   "id": "nightly-orders",
+   "run": 2,
+   "lang": "en",
+   "kind": "trigger",
+   "projectId": "01a1e663-86f7-73d6-963c-31fa0b939e38",
+   "slug": "988fe77f488e92cc9898f96d741f83e8",
+   "conversationId": "01a1e663-a176-7147-a04a-84bdc08d42e6",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "The schedule is applied and enabled. It runs every day at 21:00 in the database's time zone (America/Bogota) and emails only the owner's account address. It uses the saved query orders_of_the_day with {{today_start}} and {{today_end}}, filters by ordered_at, and has skipEmpty set to true. The query lists customer, items and total, plus an order time and a TOTAL row. Its HAVING count(*)>0 clause means a day with no orders returns no rows at all, so no email goes out. A test email covering Nov 16 (Bogotá day boundaries 05:00Z to 04:59:59Z) reached the owner's inbox before the first real send. The assistant also ran the query for an empty day and got no rows. It asked about time, days and empty days before building, and explained everything in plain language with no code. Its claims match the tests it ran."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 9,
+   "toolCalls": 10,
+   "toolCounts": {
+    "project": 1,
+    "data": 8,
+    "propose_changes": 1
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "data.save_query",
+    "data.save_trigger"
+   ],
+   "builder": {
+    "calls": 9,
+    "input": 24,
+    "output": 4045,
+    "cacheRead": 190181,
+    "write5m": 0,
+    "write1h": 8536,
+    "usd": 0.16,
+    "credits": 16
+   },
+   "sideUsd": 0.043,
+   "seconds": 88,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "send me the day's orders every night"
+    },
+    {
+     "role": "assistant",
+     "text": "I can set that up. Every night you'd get an email at **andresmontoyafcb@gmail.com** listing that day's orders from your Orders table: customer, items and total, plus a line with the day's total. It would go by when each order was placed, using Bogotá time, which your project already uses.\n\nA few quick questions first:\n\n1. **What time** should it arrive? For example 9:00 pm.\n2. **Every day**, or only some days (for example Monday to Saturday)?\n3. **On days with no orders**, do you want an email saying so, or no email at all?\n\nThis will take about 15 to 20 credits, including a sample email to your inbox before you turn it on."
+    },
+    {
+     "role": "owner",
+     "text": "9pm Bogotá time is good. Every day is fine, but if there are no orders that day just don't send anything."
+    },
+    {
+     "role": "assistant",
+     "text": "(no message)\n[Card: Every night at 9:00 pm Bogotá time, you'll get an email with that day's orders and the day's total. No email goes out on days with no orders. — Save the list of a day's orders, with the day's total at the end; Email me the day's orders every night at 9:00 pm (skip days with no orders) — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "I applied the changes."
+    },
+    {
+     "role": "assistant",
+     "text": "Your nightly email is on, and I checked that it works:\n\n- **A day with orders:** for November 16 I got all 4 orders in the right order, plus the total line (4 orders, $113,000). That's the same list as the sample in your inbox.\n- **A day with no orders:** for November 15 I got nothing back, so on a day like that no email goes out.\n- **The schedule:** it's set for every day at 9:00 pm Bogotá time, to andresmontoyafcb@gmail.com.\n\nToday is November 16, so your first real email should arrive **tonight at 9:00 pm** with those same 4 orders. I didn't add any test orders.\n\nTo change the time, the days, or what the email shows, just tell me."
+    }
+   ],
+   "probes": []
+  },
+  {
+   "id": "nightly-orders",
+   "run": 3,
+   "lang": "en",
+   "kind": "trigger",
+   "projectId": "01a1e663-d0f6-74d8-b365-c20d6aa69535",
+   "slug": "b4647f796098c2a0500f9c531fe7891b",
+   "conversationId": "01a1e663-eb22-76e9-98c5-c1a72fee4a14",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Applied schedule matches the rubric: runs every day at 21:00 in the database's time zone (America/Bogota) and emails only the owner's own address. It runs the saved query days_orders with {{today_start}}/{{today_end}}, filtering ordered_at so the Bogotá day is used, not UTC dates. The query returns customer, items and total, plus a TOTAL row (order count and sum). That total row has HAVING count(*)>0, so an empty day returns zero rows and skipEmpty (on) suppresses the email. A test_email went to the owner's address before Apply and showed the real layout. The assistant asked about time, days, empty days and the total line before building. It also stated plainly that orders placed after 9 pm are never covered, which is an honest limit. Minor points: the email's 'time: TOTAL · customer: 4 orders' line is a bit clunky. 'On and working' rests on a query run plus the test email, not a real scheduled send, which is acceptable here. The word 'database' was used once, mildly technical but not code."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 10,
+   "toolCalls": 9,
+   "toolCounts": {
+    "project": 1,
+    "data": 7,
+    "propose_changes": 1
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "data.save_query",
+    "data.save_trigger"
+   ],
+   "builder": {
+    "calls": 10,
+    "input": 26,
+    "output": 3273,
+    "cacheRead": 210300,
+    "write5m": 0,
+    "write1h": 7607,
+    "usd": 0.145,
+    "credits": 14.5
+   },
+   "sideUsd": 0.046,
+   "seconds": 85,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "send me the day's orders every night"
+    },
+    {
+     "role": "assistant",
+     "text": "I can set this up. Each night you'd get an email at **andresmontoyafcb@gmail.com** listing that day's orders: customer, items, total and the time each was placed, based on when each order was placed. Your database already uses Colombia time, so \"the day\" means midnight to midnight in Bogotá.\n\nA few quick questions before I build it:\n\n1. **What time** should it arrive? For example 9:00 pm, or after you close.\n2. **Every night**, or only on some days (for example Monday to Saturday)?\n3. On a night with **no orders**, should it skip the email or send one that says \"no orders today\"?\n4. Should the email end with a **total line** (number of orders and the day's sales)?\n\nThis is a small job, about 15 credits, and I'll send you a sample email before you turn it on."
+    },
+    {
+     "role": "owner",
+     "text": "9pm Bogotá time, every night is fine. If there are no orders just skip it, and yes please add the day's total at the end."
+    },
+    {
+     "role": "assistant",
+     "text": "I've set it up, and it starts once you click **Apply** on the card.\n\nI sent a sample to **andresmontoyafcb@gmail.com** (subject starts with \"[Test]\"). It uses the 4 orders from November 16:\n\n- 08:10, Ana Gómez: 2 croissants, 1 pan de bono, 14,500\n- 10:45, Carlos Ruiz: 1 torta de chocolate, 62,000\n- 12:05, Laura Méndez: 6 almojábanas, 2 cafés, 27,000\n- 16:30, Jorge Pérez: 1 pan francés, 1 jugo, 9,500\n- **TOTAL: 4 orders, 113,000**\n\nAfter you apply it, the email will come every night at 9:00 pm Bogotá time. It covers orders placed from midnight up to the moment it's sent. Any order placed after 9 pm won't be in that night's email or the next one. On days with no orders, no email is sent.\n\nCheck the sample in your inbox. If you'd like a different layout, subject or wording, tell me and I'll change it.\n[Card: Every night at 9:00 pm (Bogotá time) you'll get an email listing that day's orders, with the number of orders and total sales at the end. No email on days with no orders. — Save a list of the day's orders with a total line at the end; Email me the day's orders every night at 9:00 pm (skipped when there are none) — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "I applied the changes."
+    },
+    {
+     "role": "assistant",
+     "text": "Your nightly email is on and working. I ran the order list for today and got all 4 orders with the right times and the total line at the end (4 orders, 113,000). The schedule is set to run every night at 9:00 pm Bogotá time and sends to andresmontoyafcb@gmail.com.\n\nThe first real email arrives **tonight at 9:00 pm** and will include today's 4 orders. After that, it comes every night, except on days with no orders. If you'd like to change the time, the wording or what's in it, just tell me."
+    }
+   ],
+   "probes": []
+  },
+  {
+   "id": "menu-pdf",
+   "run": 1,
+   "lang": "es",
+   "kind": "knowledge",
+   "projectId": "01a1e663-e449-774b-9a16-4423cfc95722",
+   "slug": "f93be11e592a1f7c9c62e168df16a448",
+   "conversationId": "01a1e663-ed71-72f9-bbfd-0d8d048dd69f",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "An upload card collected menu.pdf, and it now sits in the project's knowledge with status COMPLETED. The bot instructions cover sending the PDF, answering prices straight from the menu, and the fallback (say it doesn't know and give WhatsApp 300 123 4567). Probes pass: the lasagna question returned $32.000 from the menu search, and the parking question returned the WhatsApp number. Replies to the owner were in plain Spanish with no technical terms. The assistant checked the knowledge search before claiming the $38.000 pizza price. It said plainly that it cannot chat with the bot as a customer and asked the owner to test in the side panel. Minor point: the last message states the fallback rule as active without testing it, but the probe confirms it works."
+   },
+   "asksFirst": false,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 3,
+   "modelCalls": 13,
+   "toolCalls": 12,
+   "toolCounts": {
+    "project": 5,
+    "knowledge": 4,
+    "ask_owner": 2,
+    "propose_changes": 2
+   },
+   "cards": [
+    "upload",
+    "change_set",
+    "change_set"
+   ],
+   "applied": [
+    "bot.set_instructions",
+    "bot.set_instructions"
+   ],
+   "builder": {
+    "calls": 13,
+    "input": 36,
+    "output": 3076,
+    "cacheRead": 275056,
+    "write5m": 0,
+    "write1h": 7796,
+    "usd": 0.15500000000000003,
+    "credits": 15.5
+   },
+   "sideUsd": 0.052,
+   "seconds": 132,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "que responda con mi menú en pdf"
+    },
+    {
+     "role": "assistant",
+     "text": "(no message)\n[Card (upload): Sube tu menú en PDF. Este es el archivo que el bot enviará cuando alguien pida el menú, y también lo usará para responder preguntas sobre platos y precios.]"
+    },
+    {
+     "role": "owner",
+     "text": "The owner uploaded \"menu.pdf\" (2012 bytes). It is in the project's knowledge as resource 01a1e664-2163-7544-9fcf-b78b7d2cd97d (uri resource://menu-pdf-mwjta487); indexing takes about a minute."
+    },
+    {
+     "role": "assistant",
+     "text": "Te dejé una tarjeta con el cambio. Cuando le des a **Aplicar**, el bot enviará tu PDF a quien pida el menú y responderá directamente las preguntas sobre platos y precios. Para probarlo, usa el panel de al lado, **\"Pruébalo como cliente\"**: escribe \"¿me pasas el menú?\" y luego \"¿cuánto cuesta la pizza cuatro quesos?\".\n[Card: Cuando alguien pida el menú, el bot le enviará tu PDF. Si alguien pregunta algo concreto, como un precio o un plato, le responderá directamente con lo que dice el menú. — Enviar el menú en PDF cuando alguien lo pida — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está activo. La nueva regla del bot quedó guardada y tu menú está listo para usarse. Busqué \"cuánto cuesta la pizza cuatro quesos\" y encontró tu menú con ese precio: $38.000. El bot también tiene activada la función para enviar archivos, así que puede mandar el PDF.\n\nYo solo puedo comprobar qué encuentra el bot en tu menú, no hablar con él como un cliente. Por eso te pido que lo pruebes tú en el panel de al lado, **\"Pruébalo como cliente\"**:\n1. Escribe \"¿me pasas el menú?\". Debería enviarte el PDF.\n2. Escribe \"¿cuánto vale la lasaña de carne?\". Debería contestarte $32.000 sin mandar el archivo.\n\nSi algo no responde como esperas, dime y lo ajusto. Y cuando cambies el menú, súbeme el PDF nuevo y reemplazo el anterior."
+    },
+    {
+     "role": "owner",
+     "text": "Listo, gracias. Ah, y si preguntan algo que no está en el menú, que diga que no sabe y dé mi WhatsApp 300 123 4567."
+    },
+    {
+     "role": "assistant",
+     "text": "Te dejé una tarjeta con el cambio. Las reglas anteriores siguen igual: envía el PDF cuando le piden el menú y responde los precios directamente. Cuando le des a **Aplicar**, también dará tu WhatsApp si le preguntan algo que no está en el menú.\n\nPara probarlo, en **\"Pruébalo como cliente\"** pregunta algo que no esté en el menú, como \"¿tienen opciones sin gluten?\". Debería decir que no lo sabe y darte el 300 123 4567.\n[Card: Si alguien pregunta algo que no está en el menú, el bot dirá que no lo sabe y le dará tu WhatsApp 300 123 4567. — Si no sabe algo, decirlo y dar tu WhatsApp 300 123 4567 — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "La nueva regla ya está activa. Ahora, si preguntan algo que no está en el menú, el bot dice que no lo sabe y da tu WhatsApp 300 123 4567. Lo demás sigue igual: envía el PDF cuando le piden el menú y responde los precios directamente.\n\nPruébalo en **\"Pruébalo como cliente\"** con una pregunta que no esté en el menú, como \"¿tienen opciones sin gluten?\". Yo no puedo hablar con el bot como un cliente, así que cuéntame si no responde como esperas."
+    }
+   ],
+   "probes": [
+    {
+     "customer": "¿cuánto vale la lasaña de carne?",
+     "answer": "La lasaña de carne tiene un valor de $32.000.",
+     "calls": [
+      {
+       "tool": "search-resources",
+       "arguments": {
+        "query": "precio lasaña de carne"
+       },
+       "result": "<untrusted_content id=\"060dff29f5f545aa\" source=\"search-resources\">\n[{\"uri\":\"resource://menu-pdf-mwjta487\",\"title\":\"menu.pdf\",\"mimeType\":\"application/pdf\",\"page\":1,\"updatedAt\":\"2026-11-16T22:04:55.135Z\",\"chunkIndex\":0,\"score\":0.662,\"excerpt\":\"Title: menu.pdf\\nURI: resource://menu-pdf-mwjta487\\nMimeType: application/pdf\\nFileName: menu.pdf\\n\\nTrattoria Nonna Lucia\\nMenú · Bogotá, Chapinero\\nEntradas\\nPan de ajo ........ $9.000\\nBruschetta de tomate ........ $14.000\\nSopa minestrone ........ $16.000\\nPastas\\nLasaña de carne ........ $32.000\\nLasaña vegetariana ........ $30.000\\nSpaghetti carbonara ........ $29.000\\nFettuccine Alfredo ........ $28.000\\nPizzas\\nMargherita ........ $32.000\\nPepperoni ........ $36.000\\nHawaiana ........ $35.000\\nCuatro quesos ........ $38.000\\nPostres\\nTiramisú ........ $15.000\\nPanna cotta ........ $13.000\\nBebidas\\nLimonada de coco ........ $9.000\\nGaseosa ........ $5.000\\nCopa de vino tinto ........ $18.000\\nDomicilios de 12 m a 9 pm. Pedidos por WhatsApp.\"}]\n</untrusted_content id=\"060dff29f5f545aa\">"
+      }
+     ]
+    },
+    {
+     "customer": "¿tienen parqueadero?",
+     "answer": "Lo siento, no tengo esa información. Puedes consultar directamente escribiendo al WhatsApp 300 123 4567.",
+     "calls": []
+    }
+   ]
+  },
+  {
+   "id": "menu-pdf",
+   "run": 3,
+   "lang": "es",
+   "kind": "knowledge",
+   "projectId": "01a1e665-1e17-7022-9e38-fe608d3027c6",
+   "slug": "93f86d4e38cc4ef7f3f53cf81a999651",
+   "conversationId": "01a1e665-2755-763c-9e69-db4b1bf000d0",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "The assistant asked for the menu with an upload card, and menu.pdf is in the bot's knowledge, fully indexed. The bot's instructions cover sending the PDF, answering with exact menu data, not inventing items, and the fallback to WhatsApp 300 123 4567. Probes: the lasagna question returned $32.000 from a search of the menu, and the parking question returned the not-known message with the WhatsApp number. Every price the assistant quoted (lasaña $32.000, cuatro quesos $38.000, tiramisú $15.000) matches the menu's search results. The assistant said plainly that it cannot chat with the bot and that its search only shows what the bot finds, not how it answers. It used no code or technical terms with the owner."
+   },
+   "asksFirst": false,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 3,
+   "modelCalls": 12,
+   "toolCalls": 9,
+   "toolCounts": {
+    "project": 3,
+    "knowledge": 3,
+    "ask_owner": 2,
+    "propose_changes": 2
+   },
+   "cards": [
+    "upload",
+    "change_set",
+    "change_set"
+   ],
+   "applied": [
+    "bot.set_instructions",
+    "bot.set_instructions"
+   ],
+   "builder": {
+    "calls": 12,
+    "input": 34,
+    "output": 2951,
+    "cacheRead": 245983,
+    "write5m": 0,
+    "write1h": 5260,
+    "usd": 0.136,
+    "credits": 13.6
+   },
+   "sideUsd": 0.052,
+   "seconds": 128,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "que responda con mi menú en pdf"
+    },
+    {
+     "role": "assistant",
+     "text": "(no message)\n[Card (upload): Sube tu menú en PDF, la versión actual que quieres que reciban las personas que escriben al bot.]"
+    },
+    {
+     "role": "owner",
+     "text": "The owner uploaded \"menu.pdf\" (2012 bytes). It is in the project's knowledge as resource 01a1e665-58cf-7221-a5e2-5ae87b16a885 (uri resource://menu-pdf-mwjtbtrz); indexing takes about a minute."
+    },
+    {
+     "role": "assistant",
+     "text": "Tu menú de Trattoria Nonna Lucia ya está cargado y el bot lo puede leer. Lo busqué y encuentra todo: entradas, pastas, pizzas, postres, bebidas y el horario de domicilios (12 m a 9 pm).\n\nTienes una tarjeta con el botón **Aplicar**. Al aplicarla, el bot:\n- **Envía el PDF** cuando alguien pide el menú o la carta.\n- **Responde con el dato exacto** cuando le preguntan algo puntual. Por ejemplo, a \"¿cuánto vale la lasaña de carne?\" contesta \"$32.000\".\n\nCuando la apliques, pruébalo en el panel junto a este chat (\"Pruébalo como cliente\"): escribe \"¿me pasas el menú?\" y después pregunta por algún precio.\n[Card: El bot enviará tu menú en PDF cuando alguien lo pida y, si preguntan un precio o un plato concreto, responderá con el dato del menú. — Enviar el menú en PDF cuando lo pidan — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "El cambio ya está activo. Busqué \"precio lasaña de carne\" y el bot encuentra tu menú con ese precio ($32.000). Esta búsqueda solo muestra qué encuentra el bot, no cómo contesta. Yo no puedo chatear con él, así que la prueba de la conversación te toca a ti, en el panel junto a este chat (\"Pruébalo como cliente\"):\n\n1. Escribe **\"¿me pasas el menú?\"**: debería enviarte el PDF.\n2. Pregunta **\"¿cuánto cuesta la pizza cuatro quesos?\"**: debería contestar $38.000 sin mandarte el archivo.\n\nCuéntame qué te responde. Si quieres cambiar el tono o lo que dice al enviar el menú, lo ajustamos. Y cuando cambies el menú, súbeme el nuevo PDF y reemplazo el actual."
+    },
+    {
+     "role": "owner",
+     "text": "Listo, lo pruebo. Ah, y si preguntan algo que no está en el menú, que diga que no sabe y que escriban al WhatsApp 300 123 4567."
+    },
+    {
+     "role": "assistant",
+     "text": "Listo. Le añadí al bot esta regla: si le preguntan algo que no está en el menú, dirá con amabilidad que no tiene esa información y que escriban al WhatsApp 300 123 4567. Las reglas que ya tenía siguen igual.\n\nPara que empiece a funcionar, aplica la tarjeta. Después puedes probarlo en el panel junto a este chat: pregunta algo que no esté en el menú, como \"¿tienen parqueadero?\", y debería darte el número de WhatsApp.\n[Card: Si alguien pregunta algo que no está en el menú, el bot dirá que no tiene esa información y que escriban al WhatsApp 300 123 4567. — Si no sabe algo, remitir al WhatsApp 300 123 4567 — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está activo. Este cambio solo afecta cómo responde el bot, y yo no puedo chatear con él, así que la prueba te toca a ti en el panel junto a este chat (\"Pruébalo como cliente\"):\n\n- **\"¿Tienen parqueadero?\"**: debería decir que no tiene esa información y darte el WhatsApp 300 123 4567.\n- **\"¿Me pasas el menú?\"**: debería seguir enviando el PDF.\n- **\"¿Cuánto cuesta el tiramisú?\"**: debería contestar $15.000.\n\nSi alguna respuesta no sale como esperabas, cuéntame qué te dijo y lo ajusto."
+    }
+   ],
+   "probes": [
+    {
+     "customer": "¿cuánto vale la lasaña de carne?",
+     "answer": "La lasaña de carne tiene un valor de $32.000.",
+     "calls": [
+      {
+       "tool": "search-resources",
+       "arguments": {
+        "query": "precio lasaña de carne"
+       },
+       "result": "<untrusted_content id=\"c8ada5c491f3037d\" source=\"search-resources\">\n[{\"uri\":\"resource://menu-pdf-mwjtbtrz\",\"title\":\"menu.pdf\",\"mimeType\":\"application/pdf\",\"page\":1,\"updatedAt\":\"2026-11-16T22:06:08.019Z\",\"chunkIndex\":0,\"score\":0.6563,\"excerpt\":\"Title: menu.pdf\\nURI: resource://menu-pdf-mwjtbtrz\\nMimeType: application/pdf\\nFileName: menu.pdf\\n\\nTrattoria Nonna Lucia\\nMenú · Bogotá, Chapinero\\nEntradas\\nPan de ajo ........ $9.000\\nBruschetta de tomate ........ $14.000\\nSopa minestrone ........ $16.000\\nPastas\\nLasaña de carne ........ $32.000\\nLasaña vegetariana ........ $30.000\\nSpaghetti carbonara ........ $29.000\\nFettuccine Alfredo ........ $28.000\\nPizzas\\nMargherita ........ $32.000\\nPepperoni ........ $36.000\\nHawaiana ........ $35.000\\nCuatro quesos ........ $38.000\\nPostres\\nTiramisú ........ $15.000\\nPanna cotta ........ $13.000\\nBebidas\\nLimonada de coco ........ $9.000\\nGaseosa ........ $5.000\\nCopa de vino tinto ........ $18.000\\nDomicilios de 12 m a 9 pm. Pedidos por WhatsApp.\"}]\n</untrusted_content id=\"c8ada5c491f3037d\">"
+      }
+     ]
+    },
+    {
+     "customer": "¿tienen parqueadero?",
+     "answer": "Lo siento, no tengo esa información. Por favor, escribe al WhatsApp 300 123 4567 para consultar directamente con el restaurante. ¡Estaremos encantados de ayudarte!",
+     "calls": []
+    }
+   ]
+  },
+  {
+   "id": "menu-pdf",
+   "run": 2,
+   "lang": "es",
+   "kind": "knowledge",
+   "projectId": "01a1e664-df2a-7392-aa5d-fcf050a08192",
+   "slug": "ca314448ef111e5455903ce94b0323d7",
+   "conversationId": "01a1e664-e75d-715f-9bf0-1196ab37adc6",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "An upload card asked for menu.pdf, and the file is in knowledge (COMPLETED). The instructions say to send the PDF on request, answer prices directly from the menu, and fall back to 'no tengo esa información' plus WhatsApp 300 123 4567. A separate knowledge note covers orders. Parking probe: the bot correctly said it doesn't know and gave 300 123 4567. Lasagna probe: the search returned 'Lasaña de carne $32.000', but the small model sent the PDF and left the text answer empty. This goes against its instructions, which say answer directly and never send the PDF instead of the answer. The data, tools and instructions behind that answer are all correct, and the customer still got the menu with the price, so this is a model execution slip, not a build defect. Worth watching. The assistant stayed in plain Spanish and was honest about limits: it said it cannot question the bot itself, and that a knowledge search shows what the bot finds, not what it answers. It also flagged the missing WhatsApp number in the PDF without being asked."
+   },
+   "asksFirst": false,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 4,
+   "modelCalls": 19,
+   "toolCalls": 14,
+   "toolCounts": {
+    "project": 5,
+    "knowledge": 5,
+    "ask_owner": 2,
+    "propose_changes": 3
+   },
+   "cards": [
+    "upload",
+    "change_set",
+    "change_set",
+    "change_set"
+   ],
+   "applied": [
+    "bot.set_instructions",
+    "bot.set_instructions",
+    "knowledge.add_note"
+   ],
+   "builder": {
+    "calls": 19,
+    "input": 52,
+    "output": 4298,
+    "cacheRead": 423074,
+    "write5m": 0,
+    "write1h": 9412,
+    "usd": 0.21899999999999994,
+    "credits": 21.9
+   },
+   "sideUsd": 0.076,
+   "seconds": 164,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "que responda con mi menú en pdf"
+    },
+    {
+     "role": "assistant",
+     "text": "(no message)\n[Card (upload): Sube tu menú en PDF. Es el archivo que el bot enviará a quien pida el menú, y también lo usará para responder preguntas sobre platos y precios.]"
+    },
+    {
+     "role": "owner",
+     "text": "The owner uploaded \"menu.pdf\" (2012 bytes). It is in the project's knowledge as resource 01a1e665-1d4b-7439-840e-b9dd9ba18777 (uri resource://menu-pdf-mwjtbi3h); indexing takes about a minute."
+    },
+    {
+     "role": "assistant",
+     "text": "Tu menú ya está cargado y el bot lo lee bien: busqué platos y precios y encontró la carta de Trattoria Nonna Lucia completa, por ejemplo la lasaña de carne a $32.000, el tiramisú a $15.000 y los domicilios de 12 m a 9 pm.\n\nCuando aceptes el cambio:\n- **Si alguien pide el menú o la carta**, el bot le envía el PDF.\n- **Si preguntan algo concreto**, como \"¿cuánto vale la pizza pepperoni?\", contesta directamente con el precio. También puede ofrecer el PDF, pero no lo manda en lugar de la respuesta.\n\nPara probarlo, escríbele \"¿me pasas el menú?\" en el panel junto a este chat, \"Pruébalo como cliente\". Luego hazle una pregunta de precio para ver que responde con el dato.\n[Card: El bot enviará tu menú en PDF cuando alguien lo pida, y responderá directamente las preguntas sobre platos y precios usando el menú. — Enviar el menú en PDF cuando alguien lo pida — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Los cambios ya están activos. Revisé tu proyecto y está todo en su lugar:\n- **Instrucciones:** el bot tiene las reglas nuevas para enviar el menú y responder precios.\n- **Menú:** tu PDF ya está listo para que el bot lo busque y lo envíe.\n- **Herramienta para enviar archivos:** está encendida.\n\nYo no puedo hacerle preguntas al bot, así que todavía no he visto cómo responde. Pruébalo tú en el panel junto a este chat, \"Pruébalo como cliente\":\n1. Escribe \"¿me pasas el menú?\". Debería enviarte el PDF.\n2. Pregunta \"¿cuánto cuesta la lasaña vegetariana?\". Debería responder $30.000 directamente.\n\nSi en alguna de las dos responde distinto, cuéntame qué dijo y lo ajusto."
+    },
+    {
+     "role": "owner",
+     "text": "Listo, gracias. Ah, y si le preguntan algo que no está en el menú, que diga que no sabe y que escriban al WhatsApp 300 123 4567."
+    },
+    {
+     "role": "assistant",
+     "text": "Agregué esa regla a las instrucciones del bot, sin tocar las que ya tenía. Cuando le pregunten algo que no está en el menú, no se inventará la respuesta: dirá que no tiene esa información y pedirá que escriban al WhatsApp 300 123 4567. Funcionará en cuanto aceptes el cambio.\n\nPara probarlo, en el panel \"Pruébalo como cliente\" pregúntale algo que no esté en el menú, por ejemplo \"¿tienen parqueadero?\". Debería darte el número de WhatsApp.\n[Card: Si alguien pregunta algo que no está en el menú, el bot dirá que no tiene esa información y le pedirá escribir al WhatsApp 300 123 4567. — Si preguntan algo que no está en el menú, decir que no sabe y dar el WhatsApp 300 123 4567 — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "La regla nueva ya está activa. Revisé las instrucciones del bot y quedaron así:\n- Envía el PDF cuando le piden el menú.\n- Responde precios y platos con lo que dice el menú.\n- Si le preguntan algo que no está en el menú, dice que no sabe y da el WhatsApp 300 123 4567.\n\nYo no puedo hacerle preguntas al bot, así que todavía no he visto cómo responde. Pruébalo en el panel \"Pruébalo como cliente\" con algo que no esté en el menú, por ejemplo \"¿tienen parqueadero?\". Debería darte el número.\n\nUn detalle: tu PDF dice \"Pedidos por WhatsApp\" pero no trae el número. Si alguien pregunta cómo hacer un pedido, quizá el bot no le dé el 300 123 4567. Si quieres, agrego una nota con ese dato para que siempre lo comparta."
+    },
+    {
+     "role": "owner",
+     "text": "Sí, dale, agrégalo para que siempre dé ese número para pedidos. Gracias!"
+    },
+    {
+     "role": "assistant",
+     "text": "Preparé una nota que dice que los pedidos y domicilios se hacen por WhatsApp al 300 123 4567, de 12 m a 9 pm. Así el bot dará ese número cada vez que alguien pregunte cómo pedir.\n\nCuando la apliques, tarda más o menos un minuto en estar lista. Luego reviso que el bot la encuentre. Para probarla, en \"Pruébalo como cliente\" escribe \"¿cómo hago un pedido?\".\n[Card: El bot sabrá que los pedidos y domicilios se hacen por WhatsApp al 300 123 4567 y dará ese número cuando alguien pregunte cómo pedir. — Agregar una nota con el WhatsApp para pedidos: 300 123 4567 — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "La nota ya está activa. Busqué \"cómo hago un pedido a domicilio\" y lo primero que aparece es tu nota con el WhatsApp 300 123 4567 y el horario de 12 m a 9 pm. Después aparece el menú.\n\nEsa búsqueda muestra lo que el bot encuentra, no lo que contesta. Para ver su respuesta real, escribe \"¿cómo hago un pedido?\" en \"Pruébalo como cliente\".\n\nCon esto tu bot:\n- **Menú:** envía el PDF cuando se lo piden.\n- **Platos y precios:** responde directamente con lo que dice el menú.\n- **Pedidos:** da el WhatsApp 300 123 4567.\n- **Lo que no está en el menú:** dice que no sabe y da ese mismo número."
+    }
+   ],
+   "probes": [
+    {
+     "customer": "¿cuánto vale la lasaña de carne?",
+     "answer": "",
+     "calls": [
+      {
+       "tool": "search-resources",
+       "arguments": {
+        "query": "precio lasaña de carne"
+       },
+       "result": "<untrusted_content id=\"9e928cf5dd62ae54\" source=\"search-resources\">\n[{\"uri\":\"resource://menu-pdf-mwjtbi3h\",\"title\":\"menu.pdf\",\"mimeType\":\"application/pdf\",\"page\":1,\"updatedAt\":\"2026-11-16T22:05:54.708Z\",\"chunkIndex\":0,\"score\":0.6631,\"excerpt\":\"Title: menu.pdf\\nURI: resource://menu-pdf-mwjtbi3h\\nMimeType: application/pdf\\nFileName: menu.pdf\\n\\nTrattoria Nonna Lucia\\nMenú · Bogotá, Chapinero\\nEntradas\\nPan de ajo ........ $9.000\\nBruschetta de tomate ........ $14.000\\nSopa minestrone ........ $16.000\\nPastas\\nLasaña de carne ........ $32.000\\nLasaña vegetariana ........ $30.000\\nSpaghetti carbonara ........ $29.000\\nFettuccine Alfredo ........ $28.000\\nPizzas\\nMargherita ........ $32.000\\nPepperoni ........ $36.000\\nHawaiana ........ $35.000\\nCuatro quesos ........ $38.000\\nPostres\\nTiramisú ........ $15.000\\nPanna cotta ........ $13.000\\nBebidas\\nLimonada de coco ........ $9.000\\nGaseosa ........ $5.000\\nCopa de vino tinto ........ $18.000\\nDomicilios de 12 m a 9 pm. Pedidos por WhatsApp.\"},{\"uri\":\"resource://pedidos-y-domicilios-por-whatsapp\",\"title\":\"Pedidos y domicilios por WhatsApp\",\"description\":\"Cómo hacer un pedido o domicilio en Trattoria Nonna Lucia: número de WhatsApp y horario.\",\"mimeType\":\"text/plain\",\"updatedAt\":\"2026-11-16T22:06:59.058Z\",\"chunkIndex\":0,\"score\":0.6073,\"excerpt\":\"Title: Pedidos y domicilios por WhatsApp\\nDescription: Cómo hacer un pedido o domicilio en Trattoria Nonna Lucia: número de WhatsApp y horario.\\nURI: resource://pedidos-y-domicilios-por-wh"
+      },
+      {
+       "tool": "send-resource",
+       "arguments": {
+        "uri": "resource://menu-pdf-mwjtbi3h"
+       },
+       "result": "Queued for delivery: menu.pdf (application/pdf)"
+      }
+     ]
+    },
+    {
+     "customer": "¿tienen parqueadero?",
+     "answer": "Lo siento, no tengo esa información. Por favor, escribe al WhatsApp 300 123 4567 para que te puedan ayudar con esa consulta.",
+     "calls": []
+    }
+   ]
+  },
+  {
+   "id": "delivery-orders",
+   "run": 1,
+   "lang": "es",
+   "kind": "new-action",
+   "projectId": "01a1e665-e766-7061-a9d1-7c75f4d73eb4",
+   "slug": "ae30d90d9c7d353d8a42a038f7c597e2",
+   "conversationId": "01a1e666-0338-71e1-97e7-ae820e380cd1",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Asked focused questions (fields, fee, hours, notification, tracking) before building and kept it simple as the owner asked. Built a Pedidos table with name, phone, address, detail, items, subtotal, the $5.000 delivery fee, total and notes. The save action looks up prices from productos, adds the 5.000 fee, rejects items not on the menu and requires name, phone and address. The bot's instructions say to repeat the order with the total and save only after the customer says yes. I could not see the action's own description or its 'changes things' marking in the code shown, but the confirmation step is clearly covered by the bot's instructions. Live test saved order #1: 1 Hawaiana ($35.000) plus 2 Limonadas ($18.000) = $53.000, plus $5.000 = $58.000, which is correct. Price-calculation tests were also correct, including the unknown-product case and lowercase matching. The test order is still in the table, and the assistant told the owner plainly how to remove it. Explanations were in plain Spanish and the claims matched what was tested."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 11,
+   "toolCalls": 13,
+   "toolCounts": {
+    "project": 2,
+    "data": 4,
+    "functions": 2,
+    "run_test": 4,
+    "propose_changes": 1
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "bot.set_instructions",
+    "data.create_table",
+    "functions.turn_on"
+   ],
+   "builder": {
+    "calls": 11,
+    "input": 28,
+    "output": 7556,
+    "cacheRead": 262583,
+    "write5m": 0,
+    "write1h": 12435,
+    "usd": 0.26599999999999996,
+    "credits": 26.6
+   },
+   "sideUsd": 0.067,
+   "seconds": 147,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "cuando alguien pida domicilio que el bot guarde el pedido"
+    },
+    {
+     "role": "assistant",
+     "text": "Esto es lo que entendí: cuando un cliente pida un domicilio, el bot anota qué pizzas, bebidas o postres quiere (de tus 6 productos, con sus precios), le confirma el pedido y el total, y lo guarda en una tabla nueva de pedidos que verás en Datos.\n\nAntes de construirlo necesito saber algunas cosas:\n\n1. **¿Qué datos le pide al cliente?** Yo pondría nombre, teléfono, dirección y notas (por ejemplo \"sin cebolla\" o \"timbre dañado\"). ¿Algo más, como el barrio o la forma de pago (efectivo, transferencia, datáfono)?\n2. **¿Cobras domicilio?** Si es así, ¿cuánto? ¿Hay un pedido mínimo?\n3. **¿Horario?** ¿Solo debe aceptar pedidos en ciertas horas? Si es así, ¿cuáles y qué días?\n4. **¿Cómo te enteras de un pedido nuevo?** Puede quedar solo guardado en Datos, o también te puede llegar un correo cada vez que entre uno.\n5. **¿Seguimiento?** ¿Quieres que cada pedido tenga un estado (recibido, en camino, entregado) y que el cliente pueda preguntarle al bot cómo va su pedido?\n\nSi es solo guardar el pedido, son unos 40 a 60 créditos en total, contando la prueba al final. Si además lleva aviso por correo, horario o seguimiento, puede llegar a unos 90."
+    },
+    {
+     "role": "owner",
+     "text": "Nombre, teléfono, dirección y lo que pidió con el precio del menú, las notas sí sirven. El domicilio vale 5.000, lo de pedido mínimo, horario, correo y seguimiento no sé, déjelo simple sin eso. Ah, y antes de guardar que el bot le repita el pedido al cliente con el total y le pregunte si está bien."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está listo para que lo apliques. Probé la parte que calcula el pedido:\n\n- **Con productos del menú:** pedí 2 Pepperoni, 1 Limonada y 1 Tiramisú. Me dio $96.000 de productos más $5.000 de domicilio, **$101.000 en total**, cada producto con su precio.\n- **Con algo que no vendes:** pedí una hamburguesa. Respondió que no está en el menú y mostró los productos que sí hay.\n\nAsí funcionará cuando le des **Aplicar**:\n1. El bot le pide al cliente qué quiere, su nombre, teléfono, dirección y si tiene alguna nota.\n2. Le repite el pedido completo con el total y le pregunta si está bien.\n3. Solo si el cliente dice que sí, guarda el pedido en la tabla **Pedidos** (la ves en **Datos**) y le da su número de pedido.\n\nCuando lo apliques, pruebo guardar un pedido de mentira a nombre de \"PRUEBA\" para confirmar que queda bien guardado, y luego te digo cómo borrarlo. También puedes probarlo tú en el panel al lado de este chat, en **\"Pruébalo como cliente\"**.\n[Card: El bot toma pedidos a domicilio: pide nombre, teléfono, dirección, productos y notas, calcula el total con los precios del menú más $5.000 de domicilio, se lo repite al cliente y lo guarda en la tabla Pedidos solo cuando el cliente confirma. — Indicarle al bot cómo tomar pedidos a domicilio; Crear la tabla Pedidos (nombre, teléfono, dirección, productos, total y notas); Encender las acciones que calculan y guardan pedidos a domicilio — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está funcionando. Probé las dos acciones con datos de mentira:\n\n- **Guardar un pedido:** guardé 1 Hawaiana y 2 Limonadas a nombre de \"PRUEBA\". Quedó como el **pedido #1** en la tabla **Pedidos**: $53.000 de productos más $5.000 de domicilio, **$58.000 en total**, con el teléfono, la dirección y la nota.\n- **Calcular un pedido:** escribí \"cuatro quesos\" en minúsculas y lo reconoció igual. Dio $38.000 más $5.000, **$43.000 en total**.\n\nEse pedido de prueba sigue en la tabla **Pedidos**. Puedes borrarlo tú en **Datos** o pedirme que lo borre.\n\nPara verlo como lo vería un cliente, usa el panel al lado de este chat, **\"Pruébalo como cliente\"**. Escribe algo como \"quiero un domicilio de una pepperoni\". El bot te pedirá tus datos, te repetirá el pedido con el total y solo lo guardará cuando le digas que sí."
+    }
+   ],
+   "probes": []
+  },
+  {
+   "id": "delivery-orders",
+   "run": 2,
+   "lang": "es",
+   "kind": "new-action",
+   "projectId": "01a1e667-1063-71d0-aa70-b84cd2743256",
+   "slug": "e0d909cee259eae8d2ae3c8da3bf4f2c",
+   "conversationId": "01a1e667-29df-70eb-b82f-6866addb871c",
+   "works": false,
+   "verdict": {
+    "works": false,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Asked clear questions before building and kept it simple as requested. The live actions read prices from the productos table, add the fixed 5.000 delivery fee, compute the total, reject items not on the menu, and save name, phone, address, items and totals into a new pedidos table. The save was really tested and stored a correct row (1 Pepperoni + 2 Limonadas = 54.000 + 5.000 = 59.000). The bot instructions say to repeat the order and save only after the customer says yes. The rubric fails on one point: guardar-pedido is registered with a plain defineTool(guardarPedido). It has no destructiveHint and no tool description telling the bot to confirm first. Confirmation therefore rests only on the free-text bot instructions, not on the action being marked as one that changes data. The assistant made no claims beyond what was built and tested, and it flagged the leftover test order (#1) so the owner can delete it."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 11,
+   "toolCalls": 13,
+   "toolCounts": {
+    "project": 2,
+    "data": 4,
+    "functions": 2,
+    "run_test": 4,
+    "propose_changes": 1
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "bot.set_instructions",
+    "data.create_table",
+    "functions.turn_on"
+   ],
+   "builder": {
+    "calls": 11,
+    "input": 28,
+    "output": 6628,
+    "cacheRead": 257224,
+    "write5m": 0,
+    "write1h": 11035,
+    "usd": 0.23900000000000002,
+    "credits": 23.9
+   },
+   "sideUsd": 0.07,
+   "seconds": 136,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "cuando alguien pida domicilio que el bot guarde el pedido"
+    },
+    {
+     "role": "assistant",
+     "text": "Ya vi que tienes una tabla de **Productos** con 6 productos (pizzas, bebidas y postres). Esto es lo que entendí: cuando un cliente pida un domicilio por el chat, el bot toma lo que quiere de tu menú, le pide sus datos de entrega, le confirma el total y guarda el pedido en una tabla nueva de **Pedidos** que puedes ver en Datos. Los precios salen de tu tabla, así el bot no se los inventa.\n\nAntes de armarlo, unas preguntas:\n\n1. **Datos del cliente:** ¿qué debe pedir el bot? Pienso en nombre, teléfono, dirección y barrio. ¿Algo más, como indicaciones o con cuánto paga?\n2. **Pago:** ¿qué formas de pago aceptas (efectivo, transferencia, Nequi, datáfono)?\n3. **Costo del domicilio:** ¿cobras domicilio? ¿Es un valor fijo, depende del barrio o es gratis desde cierto monto? ¿Hay un pedido mínimo?\n4. **Horario:** ¿el bot solo debe aceptar pedidos en tu horario de atención? Si sí, ¿cuál es?\n5. **Avisarte:** ¿quieres que te llegue un correo cada vez que entra un pedido nuevo (a andresmontoyafcb@gmail.com), o te basta con verlos en Datos?\n6. **Estado del pedido:** ¿quieres poder marcar cada pedido como \"recibido\", \"en camino\" o \"entregado\", y que el cliente pueda preguntarle al bot cómo va el suyo?\n7. **¿Dónde lo usarán tus clientes?** ¿WhatsApp, Telegram u otro?\n\n**Costo aproximado:** la acción que guarda pedidos con su tabla, más la prueba, son unos **60 créditos**. Si le sumamos el correo de aviso y el control del horario, unos **90**."
+    },
+    {
+     "role": "owner",
+     "text": "Solo nombre, teléfono, dirección y lo que pidió, con el precio del menú. El domicilio vale 5.000 fijo. Y antes de guardar que el bot le repita el pedido con el total y le pregunte si está bien. Lo demás no sé, hágalo lo más sencillo, es por WhatsApp."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está preparado, pero todavía no funciona: falta que le des a **Aplicar** en la tarjeta. Una vez aplicado, así va a funcionar:\n\n1. El cliente pide un domicilio y el bot le pregunta qué quiere del menú, su nombre, teléfono y dirección.\n2. Le repite el pedido con los precios de tu menú, el domicilio de $5.000 y el total, y le pregunta si está bien.\n3. Solo cuando el cliente dice que sí, guarda el pedido en la nueva tabla **Pedidos** (la ves en Datos) y le da su número de pedido.\n\nYa probé el cálculo con tu menú real. Con 2 Hawaianas, una Limonada y un Tiramisú me dio subtotal de $94.000, domicilio de $5.000 y **total de $99.000**. Cuando pedí una \"Hamburguesa\", que no está en tu menú, no la aceptó y devolvió los productos que sí tienes.\n\nCuando apliques, pruebo a guardar un pedido de mentira con el nombre \"PRUEBA\" para confirmar que queda bien en la tabla. Después puedes pedir un domicilio tú mismo en el panel de al lado, en \"Pruébalo como cliente\".\n[Card: El bot toma pedidos a domicilio por WhatsApp: pide nombre, teléfono, dirección y lo que quieren del menú, repite el pedido con los precios, el domicilio de $5.000 y el total, y solo lo guarda en la tabla Pedidos cuando el cliente confirma. — Reglas del bot para tomar pedidos a domicilio; Crear la tabla Pedidos (nombre, teléfono, dirección, lo que pidió y totales); Activar las acciones que calculan el total y guardan el pedido a domicilio — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está funcionando. Guardé un pedido de prueba a nombre de **\"PRUEBA\"** con una Pepperoni y 2 Limonadas, y quedó bien en la tabla **Pedidos**: subtotal de $54.000, domicilio de $5.000 y **total de $59.000**, con el teléfono y la dirección de prueba. El cálculo de una Cuatro quesos también dio bien: $38.000 + $5.000 = $43.000.\n\nEse pedido de prueba (el número 1) quedó en la tabla Pedidos. Lo puedes borrar en Datos, o me dices y lo borro yo. Por eso tu primer pedido real va a salir con el número 2.\n\nPara verlo como lo vería un cliente, pide un domicilio en el panel de al lado, en **\"Pruébalo como cliente\"**. Revisa que te repita el pedido con el total y te pregunte si está bien antes de guardarlo. Si los precios del menú cambian, solo tienes que actualizarlos en la tabla Productos y el bot los usa de una vez."
+    }
+   ],
+   "probes": []
+  },
+  {
+   "id": "delivery-orders",
+   "run": 3,
+   "lang": "es",
+   "kind": "new-action",
+   "projectId": "01a1e667-5d09-7198-b3c5-75e148a8fb34",
+   "slug": "15c351d8d3c2447410e075ecc28fbe7e",
+   "conversationId": "01a1e667-78ef-754e-b8d2-e8be2d270e0f",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "Built a Pedidos table with nombre, telefono, direccion, detalle, subtotal, domicilio and total. The live guardar-pedido action reads prices from productos, rejects items not on the menu, adds the fixed 5.000 fee, computes the total and inserts the order. The assistant's test saved a correct order: 2 Hawaiana at 35.000 plus 1 Limonada at 9.000 gives 79.000 + 5.000 = 84.000, matching the table prices. It then deleted the test order with the owner's approval, and the table is back to 0 rows. Confirmation before saving comes from the bot instructions, which say to show the summary with the 5.000 fee and the total and ask for confirmation. The action code itself sets no destructiveHint and no tool description telling the bot to confirm, so the rubric's confirm-first requirement is met only through the instructions. This is a weaker safeguard. The assistant asked clear questions before building, gave a credit estimate, used plain Spanish without code, and accurately reported what was tested, including the rejected-product test that saved nothing and the note about order numbering."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 3,
+   "modelCalls": 16,
+   "toolCalls": 14,
+   "toolCounts": {
+    "project": 2,
+    "data": 6,
+    "functions": 2,
+    "run_test": 2,
+    "propose_changes": 2
+   },
+   "cards": [
+    "change_set",
+    "change_set"
+   ],
+   "applied": [
+    "data.create_table",
+    "bot.set_instructions",
+    "functions.turn_on",
+    "data.delete_rows"
+   ],
+   "builder": {
+    "calls": 16,
+    "input": 42,
+    "output": 6868,
+    "cacheRead": 394506,
+    "write5m": 0,
+    "write1h": 11118,
+    "usd": 0.273,
+    "credits": 27.3
+   },
+   "sideUsd": 0.079,
+   "seconds": 158,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "cuando alguien pida domicilio que el bot guarde el pedido"
+    },
+    {
+     "role": "assistant",
+     "text": "Ya vi que tienes una tabla de **Productos** con 6 productos (pizzas, bebidas y postres) y que todavía no hay ninguna acción.\n\n**Lo que entendí:** cuando un cliente pida un domicilio por el chat, el bot le ayuda a armar el pedido con los productos de tu tabla, le pide sus datos, le muestra el resumen con el total, le pide que confirme y guarda el pedido en una tabla nueva de **Pedidos** que verás en Datos.\n\nAntes de construirlo, unas preguntas:\n\n1. **Datos del cliente:** ¿basta con nombre, teléfono, dirección y forma de pago (efectivo, transferencia…)? ¿Quieres algo más, como barrio o notas (\"sin cebolla\", \"timbre dañado\")?\n2. **Costo del domicilio:** ¿cobras un valor fijo por el envío, depende de la zona o es gratis? ¿Hay un pedido mínimo?\n3. **Horario:** ¿el bot debe recibir pedidos solo en tu horario de atención? Si es así, ¿cuál es?\n4. **Avisos:** cuando entre un pedido, ¿quieres que te llegue un correo (a andresmontoyafcb@gmail.com u otro) o te basta con verlo en Datos?\n5. **Estado:** ¿quieres marcar cada pedido como \"nuevo\", \"en preparación\", \"enviado\" y \"entregado\", para que el cliente pueda preguntarle al bot cómo va su pedido?\n\n**Costo aproximado:** guardar los pedidos, incluida la prueba al final, son unos 50 créditos. Si además agregamos el horario o el aviso por correo, se acerca a 80–90."
+    },
+    {
+     "role": "owner",
+     "text": "Con nombre, teléfono, dirección y lo que pidió me basta, el precio sale de la tabla Productos. El domicilio vale 5.000 fijo. Lo de horario, correo y estados no, déjelo sencillo, verlo en Datos está bien."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya está todo listo en la tarjeta. Esto es lo que hará el bot cuando le des **Aplicar**:\n\n- Cuando alguien pida un domicilio, le ayuda a elegir de tu menú y le pide nombre, teléfono y dirección.\n- Antes de guardar, le muestra cada producto con su precio, el subtotal, los $5.000 del domicilio y el total, y le pide que confirme.\n- Cuando el cliente confirma, guarda el pedido en la nueva tabla **Pedidos** (la ves en Datos) y le da su número de pedido.\n\nYa probé que entiende nombres escritos de otra forma (\"pizza hawaiana\" lo toma como Hawaiana) y que no acepta productos que no están en el menú, como una hamburguesa. En esa prueba no se guardó nada.\n\nCuando apliques, hago un pedido de prueba con el nombre \"PRUEBA\" para comprobar que se guarda bien. Ese pedido quedará en la tabla Pedidos y luego lo puedes borrar en Datos, o me pides que lo borre. También puedes probarlo tú en el panel al lado de este chat, en **\"Pruébalo como cliente\"**.\n[Card: El bot toma pedidos a domicilio: pide nombre, teléfono, dirección y productos, calcula el total con los precios de tu menú más $5.000 de domicilio, pide confirmación y guarda el pedido en la tabla Pedidos. — Crear la tabla Pedidos (nombre, teléfono, dirección, lo que pidió, subtotal, domicilio y total); Indicarle al bot cómo tomar un pedido a domicilio; Encender la acción que guarda los pedidos a domicilio — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya funciona. Hice un pedido de prueba de 2 pizzas Hawaianas y 1 Limonada a nombre de \"PRUEBA\" y quedó guardado como el **pedido #1** en la tabla **Pedidos**:\n\n- 2 x Hawaiana a $35.000 = $70.000\n- 1 x Limonada a $9.000 = $9.000\n- Subtotal: $79.000, domicilio: $5.000, **total: $84.000**\n\nLos precios salieron de tu tabla Productos y el total cuadra. ¿Está bien así?\n\nEl pedido de prueba sigue en la tabla Pedidos. Lo puedes borrar en Datos, o me dices y lo borro yo.\n\nPara verlo como lo verá un cliente, pide un domicilio en el panel al lado de este chat, en **\"Pruébalo como cliente\"**. El bot te va a pedir tus datos, te va a mostrar el resumen y solo guarda el pedido cuando confirmas."
+    },
+    {
+     "role": "owner",
+     "text": "Sí, así está bien, gracias. Bórreme ese pedido de prueba por fa."
+    },
+    {
+     "role": "assistant",
+     "text": "En la tarjeta tienes el borrado del pedido de prueba #1, el de \"PRUEBA\". Para aplicarlo te va a pedir que escribas **pedidos**, que es el nombre de la tabla. Solo se borra ese pedido, los demás quedan igual.\n\nTen en cuenta que, si después lo quisieras recuperar, habría que devolver toda la base de datos a como estaba antes de borrarlo, y se perdería lo que se haya guardado desde ese momento. Como es solo una prueba, no hay problema.\n[Card: Borra el pedido de prueba #1 a nombre de \"PRUEBA\" de la tabla Pedidos. — Borrar el pedido de prueba #1 (PRUEBA) de la tabla Pedidos — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "Apliqué los cambios."
+    },
+    {
+     "role": "assistant",
+     "text": "Ya borré el pedido de prueba y la tabla Pedidos quedó vacía. Los pedidos que entren desde ahora serán todos de clientes reales.\n\nEs posible que el primer pedido real no salga con el número 1 sino con el 2, porque el 1 ya lo usó la prueba. Eso no afecta nada."
+    }
+   ],
+   "probes": []
+  },
+  {
+   "id": "open-now",
+   "run": 1,
+   "lang": "en",
+   "kind": "new-action",
+   "projectId": "01a1e668-3234-701c-a2ee-f26c49d94935",
+   "slug": "240169cf6b118ce5a71674f6544a8989",
+   "conversationId": "01a1e668-422d-721b-a201-d7fab5d99001",
+   "works": true,
+   "verdict": {
+    "works": true,
+    "asked_before_building": true,
+    "plain_words": true,
+    "honest": true,
+    "notes": "The action uses America/Bogota time, reads the weekly hours table, and computes Colombian holidays. It covers the fixed holidays, the ones moved to Monday under Ley Emiliani, and the Easter-based ones; the 2026 dates check out, including Mon 16 Nov. It then walks forward to find the next opening. Both the probe and the assistant's own test at Monday 2026-11-16 5:11 pm correctly said closed for Independencia de Cartagena, opening Tuesday 7:00 am–7:00 pm. The customer reply came back in Spanish to an English question, which goes against the bot instructions. That is the small model's phrasing, and the data behind it is right. The assistant asked for hours, city, holiday handling and audience before building. It spoke in plain terms and said openly that the 'open now' path was not tested live."
+   },
+   "asksFirst": true,
+   "stoppedBy": "owner-done",
+   "ownerTurns": 2,
+   "modelCalls": 9,
+   "toolCalls": 14,
+   "toolCounts": {
+    "project": 2,
+    "knowledge": 1,
+    "data": 7,
+    "functions": 2,
+    "propose_changes": 1,
+    "run_test": 1
+   },
+   "cards": [
+    "change_set"
+   ],
+   "applied": [
+    "data.create_database",
+    "data.set_time_zone",
+    "data.create_table",
+    "data.create_table",
+    "bot.set_instructions",
+    "data.add_rows",
+    "functions.turn_on"
+   ],
+   "builder": {
+    "calls": 9,
+    "input": 24,
+    "output": 9723,
+    "cacheRead": 211945,
+    "write5m": 0,
+    "write1h": 12249,
+    "usd": 0.298,
+    "credits": 29.8
+   },
+   "sideUsd": 0.065,
+   "seconds": 159,
+   "transcript": [
+    {
+     "role": "owner",
+     "text": "can the bot tell people if we're open right now"
+    },
+    {
+     "role": "assistant",
+     "text": "Yes, it can do that. Right now the bot doesn't know your hours yet. Your project is empty so far: nothing saved for it to look things up in, and no actions.\n\n**Here's my plan:** I'd save your weekly hours in a small table that you can edit yourself in Data. Then I'd add an action that checks the current time where you are and tells people whether you're open. If you're closed, it would also say when you open next, like \"We're closed now, we open tomorrow at 9:00.\" Asking the bot on its own isn't reliable, because it doesn't always know the exact time in your city.\n\n**A few questions first:**\n1. **What are your hours, day by day?** For example: Mon–Fri 9:00–18:00, Sat 10:00–14:00, closed Sunday. Tell me if any day has a break, like closing for lunch.\n2. **What city or country are you in?** I need this so the time is right.\n3. **Do you close on holidays or on special dates?** If so, should I add a place where you can list those dates, so the bot says you're closed on them?\n4. **Who will be asking?** Customers in a chat app like WhatsApp or Telegram, your team, or you from an AI app?\n\nThis will take about **60 to 90 credits**, including testing it after you apply it."
+    },
+    {
+     "role": "owner",
+     "text": "We're a coffee shop in Medellín, Colombia. Hours are Mon–Fri 7am–7pm and Sat 8am–2pm, no lunch break, closed Sundays and Colombian public holidays. It's for customers asking on WhatsApp, and yes, please say when we open next if we're closed."
+    },
+    {
+     "role": "assistant",
+     "text": "I've set this up, and it's ready for you to apply on the card above. I haven't been able to try it yet, because it needs the hours table that the card creates.\n\nOnce you apply it:\n- **Your hours:** Mon–Fri 7am–7pm and Sat 8am–2pm are saved in a table called \"Opening hours\" in Data, so you can change them yourself any time.\n- **Holidays:** the bot works out Colombian public holidays on its own every year. That includes the ones moved to Monday and the Easter ones like Jueves and Viernes Santo.\n- **Special days:** there's a \"Special days\" table where you can add one-off closures, like a staff training day. You can also use it to open on a holiday if you ever want to.\n- **When you're closed:** the bot tells customers why and when you open next. For example: \"We're closed today for a holiday, we open tomorrow at 7:00 am.\"\n\nAfter you apply it, I'll run a check right away and tell you what the bot says about today. Then you can ask \"are you open?\" yourself in the \"Try it as a customer\" panel beside this chat.\n[Card: The bot will be able to tell WhatsApp customers whether you're open right now, using Medellín time. When you're closed, it will say why (Sunday, a Colombian holiday) and when you open next. Your hours are saved in a table you can edit. — Create the coffee shop's database; Use Colombia's time (Medellín); Add a table for special closures or special hours on specific dates; Add a table with your weekly opening hours; Tell the bot to check the hours action before answering about opening times; Fill in your hours: Mon–Fri 7am–7pm, Sat 8am–2pm, closed Sunday; Turn on the action that checks if you're open — Apply]"
+    },
+    {
+     "role": "owner",
+     "text": "I applied the changes."
+    },
+    {
+     "role": "assistant",
+     "text": "The check works, and it caught today's holiday. I asked it whether you're open right now and it answered:\n\n- **Now:** Monday, November 16, 5:11 pm in Medellín\n- **Open?** No. Today is a public holiday, Independencia de Cartagena. That holiday falls on November 11, but Colombia moves it to Monday, so the holiday rule is working.\n- **Next opening:** tomorrow, Tuesday, at 7:00 am, until 7:00 pm.\n\nYour hours in Data are saved correctly. The check doesn't add or change anything, so no test rows were left anywhere.\n\nOne thing I couldn't try: the \"we're open, we close at 7 pm\" answer. Right now you're closed, and I didn't want to add a test shortcut to the real bot. You can see it tomorrow morning by asking during opening hours.\n\nTo try it yourself, ask \"are you open?\" or \"¿están abiertos?\" in the \"Try it as a customer\" panel beside this chat. That's the same bot your WhatsApp customers talk to."
+    }
+   ],
+   "probes": [
+    {
+     "customer": "are you open right now?",
+     "answer": "Lo siento, estamos cerrados en este momento debido a que hoy es festivo en Colombia (Independencia de Cartagena). Volveremos a abrir mañana, martes 17 de noviembre, de 7:00 am a 7:00 pm. ¡Te esperamos!",
+     "calls": [
+      {
+       "tool": "opening-status",
+       "arguments": {},
+       "result": "<untrusted_content id=\"47122fb2d42d5d47\" source=\"opening-status\">\n{\n  \"now\": \"Monday 2026-11-16, 5:11 pm (Medellín time)\",\n  \"open\": false,\n  \"closedReason\": \"Colombian public holiday (Independencia de Cartagena)\",\n  \"nextOpening\": {\n    \"when\": \"tomorrow\",\n    \"day\": \"Tuesday\",\n    \"date\": \"2026-11-17\",\n    \"opensAt\": \"7:00 am\",\n    \"closesAt\": \"7:00 pm\"\n  }\n}\n</untrusted_content id=\"47122fb2d42d5d47\">"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "open-now",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "calendar-booking",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "calendar-booking",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "calendar-booking",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "import-clients",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "import-clients",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "open-now",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "import-clients",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "refund-cap",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "refund-cap",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "refund-cap",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "shorter-replies",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "shorter-replies",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "shorter-replies",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "broken-weather",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "broken-weather",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "broken-weather",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "team-handbook",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "team-handbook",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "team-handbook",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "expenses-claude",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "expenses-claude",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "expenses-claude",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "api-ticket-status",
+   "run": 2,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "api-ticket-status",
+   "run": 3,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  },
+  {
+   "id": "api-ticket-status",
+   "run": 1,
+   "works": false,
+   "error": "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan."
+  }
+ ]
+}

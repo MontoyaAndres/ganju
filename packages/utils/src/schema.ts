@@ -1373,6 +1373,30 @@ const HTTP_ENDPOINT_CONFIG_WRITE = HTTP_ENDPOINT_CONFIG.superRefine(
         message: constants.OUTPUT_SCHEMA_NOT_OBJECT_MESSAGE
       });
     }
+    // Only names of declared inputs: a literal `{x}` in a URL is otherwise
+    // left alone.
+    const inputs = Object.keys(cfg.inputSchema.properties ?? {});
+    const singleBrace = (value: string) =>
+      inputs.some(name =>
+        new RegExp(
+          `(?<!\\{)\\{\\s*${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\}(?!\\})`
+        ).test(value)
+      );
+    const fields: Array<[string, (string | number)[]]> = [
+      [cfg.url, ['url']],
+      ...cfg.query.map(
+        (q, i) => [q.value, ['query', i, 'value']] as [string, (string | number)[]]
+      )
+    ];
+    for (const [value, path] of fields) {
+      if (singleBrace(value)) {
+        ctx.addIssue({
+          code: 'custom',
+          path,
+          message: constants.HTTP_ENDPOINT_SINGLE_BRACE_MESSAGE
+        });
+      }
+    }
   }
 );
 

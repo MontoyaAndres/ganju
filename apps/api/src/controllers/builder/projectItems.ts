@@ -84,6 +84,18 @@ type ToolRow = NonNullable<Awaited<ReturnType<typeof toolRow>>>;
 
 // The name the owner types to remove it: its own, or the catalog's title,
 // never the internal key.
+// Checked when staged, so a mistake comes back to the assistant to fix instead
+// of failing the owner's Apply.
+const checkHttpEndpoint = (config: unknown) => {
+  const parsed = Schema.HTTP_ENDPOINT_CONFIG_WRITE.safeParse(config ?? {});
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Error(
+      `${issue?.path.join('.') || 'config'}: ${issue?.message ?? 'Invalid HTTP endpoint configuration'}`
+    );
+  }
+};
+
 const toolName = (tool: ToolRow) =>
   ((tool.config as { name?: string } | null)?.name as string | undefined) ??
   utils.describeCatalogTool(tool.toolKey)?.title ??
@@ -355,6 +367,9 @@ export const stageProject = async (
           'A server that needs a sign-in or a key is added by the owner on the Tools page; tell them so.'
         );
       }
+      if (toolKey === constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT) {
+        checkHttpEndpoint(input.config);
+      }
       return push({
         op: action,
         payload: {
@@ -370,6 +385,12 @@ export const stageProject = async (
       if (!row) throw new Error('change takes the id of a tool (tools list).');
       if (row.toolKey === constants.TOOL_DEFINITION_KEY_CUSTOM_CODE) {
         throw new Error('Actions are changed with functions.');
+      }
+      if (
+        row.toolKey === constants.TOOL_DEFINITION_KEY_HTTP_ENDPOINT &&
+        input.config !== undefined
+      ) {
+        checkHttpEndpoint(input.config);
       }
       return push({
         op: action,
