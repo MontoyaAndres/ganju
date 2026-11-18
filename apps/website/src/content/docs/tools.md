@@ -123,8 +123,6 @@ every tool it offers:
   repos, issues and pull requests.
 - **[Notion](/docs/tools/notion/)**: Notion's official remote MCP server to
   search and update pages and databases.
-- **[Greeting](/docs/tools/greeting/)**: a tiny demo tool for testing a new
-  server.
 
 And the two you build:
 

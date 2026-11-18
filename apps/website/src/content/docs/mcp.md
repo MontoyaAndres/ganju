@@ -1,8 +1,8 @@
 ---
 title: MCP clients
-description: Copy your project's MCP URL and connect it to any MCP client (Claude, ChatGPT, Cursor, or VS Code) so your AI works right inside the tools you already use.
+description: Copy your project's MCP URL and connect it to any MCP client (Claude, ChatGPT, Cursor, VS Code, or Gemini CLI) so your AI works right inside the tools you already use.
 order: 7
-updated: 2026-11-13
+updated: 2026-11-18
 ---
 
 Every Ganju project is a **Model Context Protocol (MCP) server**. That means any
@@ -73,6 +73,16 @@ in every case you're pasting the **MCP URL** (or the client-config JSON):
 - **VS Code**: Command Palette → **MCP: Add Server**, or edit
   `.vscode/mcp.json`. See
   [Add MCP servers in VS Code](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
+- **Gemini CLI**: add it from a terminal:
+
+  ```bash
+  gemini mcp add --transport http --scope user my-company https://mcp.ganju.ai/my-company
+  ```
+
+  If the sign-in doesn't open on its own, run `/mcp auth my-company` inside
+  Gemini CLI. See
+  [Gemini CLI's MCP docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md).
+  This is for Gemini CLI; the Gemini app isn't covered here yet.
 
 ## Sign in from the client
 

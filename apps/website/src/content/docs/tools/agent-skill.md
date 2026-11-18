@@ -59,7 +59,7 @@ tools, for example:
 | **CI** | Project-scoped tokens and a GitHub Actions deploy step |
 | **Troubleshooting** | The common error messages, what causes each, and the fix |
 
-It also points the agent at six of the [examples](/docs/tools/examples/), so a
+It also points the agent at six of the seven [examples](/docs/tools/examples/), so a
 new tool often starts as a copy of the closest one.
 
 The skill is about functions. It doesn't cover the project's database

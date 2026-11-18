@@ -680,6 +680,13 @@
       "when": 1794582802893,
       "tag": "0096_mcp_server_icons",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795012312190,
+      "tag": "0097_remove_greeting_tool",
+      "breakpoints": true
     }
   ]
 }

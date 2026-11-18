@@ -125,6 +125,10 @@ const checkStock = async (input, ctx) => {
 export default createHandler({ 'check-stock': defineTool(checkStock) });
 ```
 
+En un proyecto del [CLI](/es/docs/tools/cli/) importas desde `@ganju/sdk`; el
+build lo reescribe a `./ganju-sdk.js`, así que las dos formas usan el mismo
+módulo.
+
 Junto al código, cada versión lleva un **manifiesto** que declara cada función
 como la ve el modelo:
 

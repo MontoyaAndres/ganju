@@ -41,8 +41,6 @@ Some cards are not integrations with an account:
 
 - **Built-in**: the five resource and prompt tools every project starts with.
   No connection needed. See [Built-in](/docs/tools/built-in/).
-- **Greeting**: a one-tool smoke test for confirming a new server responds. See
-  [Greeting](/docs/tools/greeting/).
 - **GitHub** and **Notion**: remote MCP servers run by the vendor. Connecting
   one brings the tools *their* server offers. They open a dialog instead of a
   tool list; see [GitHub](/docs/tools/github/) and
@@ -175,7 +173,6 @@ use the same connections.
 | **[Web Search](/docs/tools/web-search/)** | Search the live web and extract pages (2 tools) |
 | **[GitHub](/docs/tools/github/)** | GitHub's official remote MCP server |
 | **[Notion](/docs/tools/notion/)** | Notion's official remote MCP server |
-| **[Greeting](/docs/tools/greeting/)** | A tiny demo tool for testing a new server |
 
 ## Troubleshooting
 

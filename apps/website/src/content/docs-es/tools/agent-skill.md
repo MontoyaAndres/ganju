@@ -60,7 +60,7 @@ herramientas de Ganju, por ejemplo:
 | **CI** | Tokens con alcance de proyecto y un paso de despliegue en GitHub Actions |
 | **Solución de problemas** | Los mensajes de error comunes, qué los causa y cómo arreglarlos |
 
-También le indica al agente dónde están seis de los
+También le indica al agente dónde están seis de los siete
 [ejemplos](/es/docs/tools/examples/), así que una herramienta nueva suele
 empezar como copia del más parecido.
 

@@ -1615,9 +1615,9 @@ const RESERVED_TOOL_NAME_PREFIXES = [
 ];
 
 // The keys that don't belong to a prefixed group: the RAG core the channel
-// runner intercepts by name, the smoke-test tool, the three proxied definition
-// keys (each registers under its own key when installed natively), and the
-// health tool the SDK answers before it routes to user code.
+// runner intercepts by name, the removed Greeting demo's, the three proxied
+// definition keys (each registers under its own key when installed natively),
+// and the health tool the SDK answers before it routes to user code.
 const RESERVED_TOOL_NAMES = [
   ...RESOURCE_TOOL_KEYS,
   'greeting',

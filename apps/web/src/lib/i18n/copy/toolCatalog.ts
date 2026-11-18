@@ -23,7 +23,7 @@ import type { Lang } from '../core';
  *
  * Keys are `group.<groupKey>.title|description`, `tool.<toolKey>.title|description`,
  * and `field.<toolKey>.<configKey>.label|help` — group and tool keys collide
- * (`greeting`, `custom-code`, `http-endpoint`, `mcp-proxy` are each both), which
+ * (`custom-code`, `http-endpoint`, `mcp-proxy` are each both), which
  * is why they are namespaced rather than bare.
  *
  * Product names are not translated: Gmail, Outlook, Slack, Google Calendar,
@@ -228,12 +228,6 @@ const es: Record<string, string> = {
   'tool.send-resource.title': 'Enviar recurso',
   'tool.send-resource.description':
     'Entrega un recurso al usuario como adjunto en el chat.',
-
-  'group.greeting.title': 'Saludo',
-  'group.greeting.description': 'Utilidades sencillas de saludo',
-  'tool.greeting.title': 'Saludo',
-  'tool.greeting.description':
-    'Responde con un saludo amable en inglés o español (herramienta de demostración).',
 
   'group.http-endpoint.title': 'Endpoints HTTP',
   'group.http-endpoint.description':

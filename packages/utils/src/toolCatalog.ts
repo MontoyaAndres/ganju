@@ -582,23 +582,6 @@ export const TOOL_CATALOG = [
     ]
   },
   {
-    key: 'greeting',
-    title: 'Greeting',
-    description: 'Simple greeting utilities',
-    icon: null,
-    provider: null,
-    tools: [
-      {
-        key: 'greeting',
-        title: 'Greeting',
-        description:
-          'Reply with a friendly hello in English or Spanish (demo tool).',
-        requiredScopes: null,
-        annotations: READ_ONLY
-      }
-    ]
-  },
-  {
     key: 'http-endpoint',
     title: 'HTTP Endpoints',
     description:

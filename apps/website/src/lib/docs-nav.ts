@@ -172,8 +172,7 @@ const SPEC: DocNavSpec[] = [
             label: { en: 'Web Search', es: 'Búsqueda web' }
           },
           { slug: 'tools/github', label: { en: 'GitHub', es: 'GitHub' } },
-          { slug: 'tools/notion', label: { en: 'Notion', es: 'Notion' } },
-          { slug: 'tools/greeting', label: { en: 'Greeting', es: 'Saludo' } }
+          { slug: 'tools/notion', label: { en: 'Notion', es: 'Notion' } }
         ]
       }
     ]

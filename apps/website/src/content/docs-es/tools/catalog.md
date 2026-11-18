@@ -45,8 +45,6 @@ Algunas tarjetas no son integraciones con cuenta:
 - **Integradas**: las cinco herramientas de recursos y prompts con las que
   arranca todo proyecto. No requieren conexión. Mira
   [Integradas](/es/docs/tools/built-in/).
-- **Saludo**: una prueba de una sola herramienta para confirmar que un servidor
-  nuevo responde. Mira [Saludo](/es/docs/tools/greeting/).
 - **GitHub** y **Notion**: servidores MCP remotos que opera el propio
   proveedor. Conectar uno trae las herramientas que ofrece *su* servidor. Abren
   un diálogo en lugar de una lista de herramientas; mira
@@ -186,7 +184,6 @@ pueden usar las mismas conexiones.
 | **[Búsqueda web](/es/docs/tools/web-search/)** | Buscar en la web en vivo y extraer páginas (2 herramientas) |
 | **[GitHub](/es/docs/tools/github/)** | El servidor MCP remoto oficial de GitHub |
 | **[Notion](/es/docs/tools/notion/)** | El servidor MCP remoto oficial de Notion |
-| **[Saludo](/es/docs/tools/greeting/)** | Una herramienta de demostración para probar un servidor nuevo |
 
 ## Solución de problemas
 

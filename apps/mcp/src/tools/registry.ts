@@ -1,4 +1,3 @@
-import { greeting } from './greeting';
 import {
   sendEmail as gmailSendEmail,
   replyEmail as gmailReplyEmail,
@@ -77,7 +76,6 @@ import type { ToolKey } from '@ganju/utils';
 import { ToolDefinition } from './types';
 
 const handlers: Record<ToolKey, ToolDefinition> = {
-  greeting: greeting,
   'list-resources': listResources,
   'read-resource': readResource,
   'send-resource': sendResource,

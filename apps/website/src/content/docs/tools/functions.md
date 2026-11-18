@@ -117,6 +117,9 @@ const checkStock = async (input, ctx) => {
 export default createHandler({ 'check-stock': defineTool(checkStock) });
 ```
 
+In a [CLI](/docs/tools/cli/) project you import from `@ganju/sdk` instead; the
+build rewrites it to `./ganju-sdk.js`, so both forms run the same module.
+
 Beside the code, each version carries a **manifest** that declares every
 function the way the model sees it:
 

@@ -128,8 +128,6 @@ las herramientas que ofrece:
   GitHub para repos, issues y pull requests.
 - **[Notion](/es/docs/tools/notion/)**: el servidor MCP remoto oficial de Notion
   para buscar y actualizar páginas y bases de datos.
-- **[Saludo](/es/docs/tools/greeting/)**: una herramienta de demostración
-  diminuta para probar un servidor nuevo.
 
 Y las dos que construyes:
 

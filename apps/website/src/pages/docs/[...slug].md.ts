@@ -1,18 +1,19 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
-import { gettingStartedNext } from '../../lib/docs-nav';
+import { docMarkdown } from '../../lib/llms';
 
 export async function getStaticPaths() {
   const docs = await getCollection('docs');
   return docs.map(entry => ({ params: { slug: entry.id }, props: { entry } }));
 }
 
-export const GET: APIRoute = ({ props }) => {
-  const { entry } = props as {
-    entry: Awaited<ReturnType<typeof getCollection>>[number];
-  };
-  const body = `# ${entry.data.title}\n\n${entry.data.description}\n\n${(entry.body ?? '').trimEnd()}${gettingStartedNext(entry.id, 'en')}`;
-  return new Response(body, {
-    headers: { 'Content-Type': 'text/markdown; charset=utf-8' }
-  });
-};
+export const GET: APIRoute = ({ props }) =>
+  new Response(
+    docMarkdown(
+      (props as { entry: Parameters<typeof docMarkdown>[0] }).entry,
+      'en'
+    ),
+    {
+      headers: { 'Content-Type': 'text/markdown; charset=utf-8' }
+    }
+  );
