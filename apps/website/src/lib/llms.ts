@@ -177,7 +177,7 @@ const KEY_FACTS = {
 - CLI: \`npm install -g @ganju/cli\` (Node 20 or newer); the binary is \`ganju\`.
 - Data API: \`${SITE.apiUrl}/organization/<organizationId>/project/<projectId>/artifact/data\`, described in OpenAPI at ${SITE.apiUrl}/openapi/data.json
 - Plans: Free $0 (1 project, 100 bot replies a month, 7 tools, 3 HTTP endpoints; no functions, Data or Assistant), Pro $29 a month, Enterprise by agreement. Details: ${SITE.url}/pricing.md
-- Source: ${SITE.repo} (Apache-2.0). Examples: ${SITE.repo}/tree/main/examples. Agent skill for the CLI: ${SITE.repo}/tree/main/skills/ganju-cli`,
+- Source: ${SITE.repo} (Apache-2.0). Agent skill for the CLI: ${SITE.repo}/tree/main/skills/ganju-cli`,
   es: `## Datos clave
 
 - App: ${SITE.appUrl}
@@ -187,7 +187,7 @@ const KEY_FACTS = {
 - CLI: \`npm install -g @ganju/cli\` (Node 20 o más reciente); el comando es \`ganju\`.
 - API de Datos: \`${SITE.apiUrl}/organization/<organizationId>/project/<projectId>/artifact/data\`, descrita en OpenAPI en ${SITE.apiUrl}/openapi/data.json
 - Planes: Free $0 (1 proyecto, 100 respuestas del bot al mes, 7 herramientas, 3 endpoints HTTP; sin funciones, Datos ni Asistente), Pro $29 al mes, Enterprise por acuerdo. Detalles: ${SITE.url}/es/precios.md
-- Código: ${SITE.repo} (Apache-2.0). Ejemplos: ${SITE.repo}/tree/main/examples. Skill del CLI para agentes: ${SITE.repo}/tree/main/skills/ganju-cli`
+- Código: ${SITE.repo} (Apache-2.0). Skill del CLI para agentes: ${SITE.repo}/tree/main/skills/ganju-cli`
 };
 
 const FOR_AGENTS = {
@@ -237,9 +237,38 @@ export async function llmsTxt(lang: Lang): Promise<string> {
   if (lang === 'es') {
     return `# ${SITE.name}
 
-> Ganju conecta asistentes de IA como Claude, ChatGPT y Cursor, y bots de Telegram, Slack, WhatsApp y Discord, con tus propios archivos, herramientas y apps. Un proyecto es a la vez un servidor MCP y un bot. Se construye conversando con el Asistente o con código desde el CLI. Código abierto.
+> Crea software completo que funciona dentro de cualquier IA. Con Ganju construyes
+> aplicaciones que funcionan, con su propio conocimiento, herramientas, datos y lógica,
+> y las llevas a cualquier asistente de IA por MCP (Claude, ChatGPT, Cursor, Gemini CLI)
+> o directo a las personas por apps de chat (WhatsApp, Telegram, Slack y Discord).
+> Código abierto (Apache-2.0), en la nube o instalado por tu cuenta.
+
+En vez de construir un frontend, un backend y un chatbot por separado, construyes una
+vez en Ganju y la IA se vuelve la interfaz. Un mismo proyecto funciona como servidor
+MCP y como bot de chat al mismo tiempo. Los dueños lo construyen conversando con el
+Asistente; los desarrolladores usan el CLI \`ganju\`.
+
+Ejemplos: ${SITE.repo}/tree/main/examples
 
 ${COPY.es.intro} ${SITE.url}/es/llms-full.txt
+
+## En qué se diferencia Ganju
+
+- **Frente a herramientas de automatización (n8n, Zapier, Make):** esas ejecutan flujos
+  que se disparan con un evento. Ganju construye aplicaciones con las que las personas
+  y los asistentes de IA conversan. Traen su propia base de conocimiento, base de datos
+  y herramientas, y la IA decide cuándo usar cada una en la conversación.
+- **Frente a constructores de chatbots:** te dan un bot que vive en un solo canal. Un
+  proyecto de Ganju es un backend completo (datos, funciones, integraciones) que atiende
+  todos los canales y todos los clientes MCP desde la misma fuente.
+- **Frente a plataformas de RAG o de conocimiento:** esas responden preguntas con tus
+  documentos. Ganju también lo hace, y además actúa: envía correos, agenda reuniones,
+  escribe en una base de datos o llama a tus APIs, con aprobación humana para las
+  acciones sensibles.
+- **Frente a construir tu propio servidor MCP:** Ganju se encarga del hosting, la
+  autenticación, las integraciones, los datos, la analítica y las aprobaciones de
+  seguridad, para que te enfoques en la lógica. Igual puedes escribir funciones propias
+  con el CLI \`ganju\`, o instalar todo por tu cuenta.
 
 ${KEY_FACTS.es}
 
@@ -268,9 +297,36 @@ ${link(`${SITE.url}/es/dpa.md`, 'Acuerdo de Tratamiento de Datos', 'Aplica autom
 
   return `# ${SITE.name}
 
-> Ganju connects AI assistants like Claude, ChatGPT and Cursor, and Telegram, Slack, WhatsApp and Discord bots, to your own files, tools and apps. One project is both an MCP server and a bot. Owners build it by chatting with the Assistant; developers write functions with the CLI. Open source.
+> Build complete software that runs inside any AI. Ganju lets you create working
+> applications, with their own knowledge, tools, data, and logic, and deliver them
+> to any AI assistant through MCP (Claude, ChatGPT, Cursor, Gemini CLI) or to people
+> directly through chat apps (WhatsApp, Telegram, Slack, and Discord).
+> Open source (Apache-2.0), hosted or self-hosted.
+
+Instead of building a separate frontend, backend, and chatbot, you build once in Ganju
+and the AI becomes the interface. A single project works as an MCP server and as a
+chat bot at the same time. Owners build it by chatting with the Assistant; developers
+use the \`ganju\` CLI.
+
+Examples: ${SITE.repo}/tree/main/examples
 
 ${COPY.en.intro} ${SITE.url}/llms-full.txt
+
+## How Ganju compares
+
+- **vs. automation tools (n8n, Zapier, Make):** Those run workflows that a trigger
+  fires. Ganju builds applications that people and AI assistants talk to. They come
+  with their own knowledge base, database, and tools, and the AI decides when to use
+  each one in a conversation.
+- **vs. chatbot builders:** Chatbot builders give you a bot that lives in one channel.
+  A Ganju project is a full backend (data, functions, integrations) that serves every
+  channel and every MCP client from the same source.
+- **vs. RAG / knowledge platforms:** Those answer questions from your documents. Ganju
+  does that too, and it can also act: send emails, book meetings, write to a database,
+  or call your APIs, with human approval for sensitive actions.
+- **vs. building an MCP server yourself:** Ganju handles hosting, auth, integrations,
+  data, analytics, and safety approvals, so you can focus on the logic. You can still
+  write custom functions with the \`ganju\` CLI, or self-host the whole thing.
 
 ${KEY_FACTS.en}
 
