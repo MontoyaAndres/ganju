@@ -2674,6 +2674,8 @@ export const ModalDialog = styled.div`
         max-height: 320px;
         overflow-y: auto;
         padding-right: 2px;
+        /* Its overflow lets a flex column shrink it to zero on short screens. */
+        flex-shrink: 0;
       }
 
       .mcp-proxy-item {
