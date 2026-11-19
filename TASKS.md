@@ -140,6 +140,179 @@ Not started, and deliberately not blocking the custom-tools CLI: it is a large
 surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
 
+## Replace the Free plan with a 7-day trial
+
+Planned 2026-11-18. Free goes away; a new organization tries Pro for 7 days with
+a card on file (Polar checkout, no charge until the trial ends), then Pro starts
+on its own. Self-hosting stays free (Apache-2.0) and becomes the "free" answer
+on the pricing page.
+
+**Why:** the Anthropic bill is ours, Free runs on our shared model, and a card
+is a commitment an email isn't. Advice followed: Marc Lou (trial at most 7
+days, card required, subscription starts automatically) and levelsio (drop the
+free plan when you have no VC money).
+
+### Decisions (accepted by the owner 2026-11-18)
+
+Not started: the owner says when to begin.
+
+1. Trial length: **7 days**.
+2. An organization with no plan (never started a trial, or canceled): **can sign
+   in, see and build its project, but nothing runs**: bots don't answer, the MCP
+   URL refuses with a clear message, no Assistant, no uploads that cost
+   embeddings.
+3. Trial limits: **300 Assistant credits and 300 bot replies on our model, hard
+   caps, no overage billed during the trial.** Pro's normal limits start with
+   the first paid period.
+4. One trial per **person** (the org owner's user), not per organization, so a
+   new org doesn't mean a new trial. A second checkout goes straight to paid.
+5. Existing Free organizations: **an email and an in-app banner on launch day,
+   then 14 days before they lock**; they can start a trial like anyone else.
+   Nothing they built is deleted.
+6. Self-hosted without Polar: **new organizations start on Pro (active)**, since
+   there's nobody to pay. Today they start on Free and the operator grants a
+   plan by hand.
+7. Data of organizations that stay without a plan: **kept; no automatic
+   deletion in this work.** Revisit later.
+8. Email before the first charge: **2 days before the trial ends**, ours if
+   Polar doesn't send one.
+9. Saved cards (added 2026-11-19): **cards belong to the person, not the org.**
+   The app lists the person's saved cards (brand, last 4, expiry, read from
+   Polar; we never store card data), and a new org can pay with one of them
+   instead of typing a card again.
+10. Price before paying (added 2026-11-19): **the app shows the next charge
+    before it happens**, as an estimate: plan price + usage so far beyond what
+    the plan includes, priced by us. Polar has no upcoming-invoice API.
+
+### Phase 0: check before building (no code)
+
+- Polar sandbox: set a 7-day trial on the Pro product, or per checkout (the
+  checkout setting overrides the product's; confirm the exact API fields). Our
+  runtime token can't write products, so a product-level trial is set in the
+  dashboard (see the Polar $0 meter notes).
+- Confirm in sandbox: the card is required; the webhook sends `trialing`, then
+  `active` at the first charge, and what a cancel during the trial sends; which
+  field carries the trial's end; whether metered usage during a trial is billed
+  on the first invoice (decides how hard the trial caps must be); whether Polar
+  emails before the trial ends; whether Polar blocks repeat trials itself.
+- Count production organizations on Free with any usage in the last 90 days
+  (read-only, ask first) to size phase 6.
+- Colombian consumer law on automatic renewals: check the trial wording and the
+  reminder email with counsel (Ley 1480).
+- Can an organization's ownership be transferred today (agency builds, client
+  takes it over and pays)? If not, decide whether to build it in this work.
+- Polar keeps one customer per email, so a person paying for two
+  organizations gets two subscriptions on one customer (by design: the webhook
+  matches each subscription to its org through checkout metadata). Test it in
+  the sandbox with one email and two orgs: both checkouts work, each webhook
+  updates the right org, and what the portal shows (two subscriptions both
+  named "Pro"; add the org's name if Polar can show it, so nobody cancels the
+  wrong one).
+- Bug to fix in phase 1: the portal button for a second org fails, because
+  `createCustomerSession` (`apps/api/src/utils/polar.ts`) looks the customer up
+  by `external_customer_id` = the org id, and the shared customer carries the
+  first org's id. Use the stored `subscription.billing_customer_id` instead.
+  Superseded if the customer becomes per person (next bullet).
+- Saved cards (decision 9): one Polar customer per **person**, with
+  `external_customer_id` = the user id instead of the org id; each subscription
+  keeps the org in its metadata. Confirm in sandbox: a new org's checkout for an
+  existing customer offers the saved card, or needs a different flow (charge
+  the saved card without a checkout?); whether each subscription can use its own
+  card or Polar always charges the customer's default; what the server-side
+  `GET /v1/customers/{id}/payment-methods` returns (brand, last 4, expiry).
+  Plan the one-time move of existing customers whose external id is an org id.
+- Price before paying (decision 10): check whether Polar's hosted portal already
+  shows an upcoming charge, and whether `customers/{id}/state` gives meter
+  usage for the period, or we sum our own usage records (credits, bot replies).
+
+### Phase 1: trial checkout and trial limits
+
+- `createCheckout` (`apps/api/src/controllers/billing/index.ts`) asks Polar for
+  the trial when the owner never had one; otherwise a normal paid checkout.
+- Migration: `user.trial_started_at` (one trial per person) and
+  `subscription.trial_ends_at` (filled by `syncSubscription` from the webhook).
+- `getEffectivePlan` (`packages/db/src/lib/plan.ts`) also says whether the
+  subscription is `trialing`; `limitsFor` applies the trial caps on top of Pro.
+  `trialing` is already an entitled status, so everything else keeps working.
+- Assistant credits and bot replies stop at the trial caps with a message that
+  says the trial limit was reached and how to start Pro now (Polar portal: end
+  the trial early, if Polar allows; otherwise wait for the first period).
+- Polar customer per person (decision 9): checkout sends the user id as
+  `external_customer_id`; `syncSubscription` keeps finding the org from the
+  subscription's metadata; the portal session uses the person's customer. This
+  also fixes the second-org portal bug. Move existing customers once.
+- API: list the signed-in person's saved cards (from Polar, never stored), and
+  pay for a new org with one of them if phase 0 says Polar allows it.
+- API: the next-charge estimate for an org (decision 10): plan price, usage
+  so far beyond the included amounts times our prices, the charge date.
+
+### Phase 2: "no plan" replaces Free
+
+- Keep the internal key `FREE` (the database, webhook and ~10 files use it) but
+  give it "no plan" limits: 0 bot replies, 0 tool calls from MCP clients, no
+  Assistant, no embedded uploads, 1 organization, building still allowed.
+- MCP (`apps/mcp/src/controllers/mcp/index.ts`): refuse with "This project's
+  plan has ended; the owner can restart it in Billing" instead of serving tools.
+- Channel runner: no reply to the person; the owner gets one email (at most
+  daily) that the bot is off and why.
+- Every user-facing "Free" label becomes "No plan".
+
+### Phase 3: self-hosting
+
+- With no Polar token, `ensureSubscription` creates the row as Pro, `active`.
+  Existing self-hosted rows aren't touched. Update the Deploy docs section
+  "Plans and billing on your instance".
+
+### Phase 4: the app (en and es)
+
+- After creating an organization: a "Start your 7-day free trial" screen that
+  goes to checkout, with "Not now" leading to the app in "no plan" mode.
+- Billing page states: No plan / Trial, ends on <date>, <n> days left / Pro.
+- A banner with the days left during the trial, and one after it ends.
+- Plan-limit errors that today say "upgrade from Free" say "start your trial"
+  or "start Pro".
+- Billing stays per organization (Pro has unlimited projects and members). The
+  create-organization screen says a new project is usually what you want, and
+  that each organization has its own plan, so nobody pays twice by accident.
+- The checkout of a person who already used their trial says it starts paid.
+- Billing page: "Your cards" (brand, last 4, expiry; add or remove through
+  Polar), and on a new org "Pay with Visa •••• 4242" or a new card.
+- Billing page: "Next charge on <date>: about $X", split into plan and usage,
+  labeled an estimate because usage keeps counting until that date.
+
+### Phase 5: emails (Cloudflare send_email binding)
+
+- Trial ends in 2 days (if Polar doesn't send it): what will be charged (the
+  same estimate as the billing page) and how to cancel.
+- Trial ended without a plan: what stopped and how to restart.
+- Existing Free organizations: the launch notice (phase 6).
+
+### Phase 6: existing Free organizations
+
+- A constant with the lock date (launch + 14 days). Before it, Free keeps its
+  old limits; after it, "no plan" applies. Time-based, so no backfill job.
+- Launch-day email to their owners and admins, and an in-app banner with the
+  date.
+
+### Phase 7: website, docs and pricing (en and es)
+
+- Pricing page, `PRICING_SCHEMA` offers, homepage FAQ and CTAs ("Start building
+  free" becomes "Start your 7-day free trial"), getting-started pages, Settings
+  docs, llms.txt key facts, `docs/PRICING.md`, `apps/website/src/lib/pricing.ts`.
+- Self-hosting is the free option, stated plainly.
+
+### Phase 8: verify
+
+- Dev with Polar sandbox: new org → trial → caps hold → cancel → no plan (bot
+  silent, MCP refuses, owner emailed) → restart → paid.
+- A second trial by the same person is refused; a new org by the same person
+  goes straight to paid.
+- A self-hosted run without Polar starts new orgs on Pro.
+- An old Free org before and after the lock date.
+- One person, two orgs: both subscriptions on one Polar customer, the second
+  org pays with the saved card, the portal opens for both orgs.
+- The next-charge estimate matches the invoice Polar actually sends.
+
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
 ## Builder: an assistant that builds the project with the owner
 
