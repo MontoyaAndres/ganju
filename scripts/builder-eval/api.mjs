@@ -9,19 +9,23 @@ export const API_URL =
 export const MCP_URL =
   process.env.EVAL_MCP_URL ?? 'https://development-mcp.vocesqueabrazan.com';
 
+// Where the CLI sign-in lives, when the API runs elsewhere (a local
+// `wrangler dev` on the dev database accepts the dev sign-in's tokens).
+const AUTH_URL = process.env.EVAL_AUTH_URL ?? API_URL;
+
 const CREDENTIALS = path.join(os.homedir(), '.ganju', 'credentials.json');
 
 const readAccount = () => {
   const all = JSON.parse(fs.readFileSync(CREDENTIALS, 'utf8'));
-  const account = all.accounts?.[API_URL];
+  const account = all.accounts?.[AUTH_URL];
   if (!account)
-    throw new Error(`No CLI sign-in for ${API_URL}; run ganju login`);
+    throw new Error(`No CLI sign-in for ${AUTH_URL}; run ganju login`);
   return account;
 };
 
 const writeAccount = account => {
   const all = JSON.parse(fs.readFileSync(CREDENTIALS, 'utf8'));
-  all.accounts[API_URL] = account;
+  all.accounts[AUTH_URL] = account;
   fs.writeFileSync(CREDENTIALS, JSON.stringify(all, null, 2) + '\n', {
     mode: 0o600
   });
@@ -30,7 +34,7 @@ const writeAccount = account => {
 let refreshing = null;
 const refresh = async account => {
   const meta = await fetch(
-    `${API_URL}/.well-known/oauth-authorization-server`
+    `${AUTH_URL}/.well-known/oauth-authorization-server`
   ).then(r => r.json());
   const response = await fetch(meta.token_endpoint, {
     method: 'POST',

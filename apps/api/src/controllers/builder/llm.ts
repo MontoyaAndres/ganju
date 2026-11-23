@@ -1,10 +1,34 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-export const BUILDER_MODEL = 'claude-opus-5-5';
-
 // List prices per million tokens. A 1-hour cache write costs 2x input, a
-// 5-minute one 1.25x; a cache read is a flat $0.20.
-const PRICE = { input: 4, output: 20, cacheRead: 0.2, write5m: 5, write1h: 8 };
+// 5-minute one 1.25x.
+const PRICES = {
+  'claude-opus-5-5': {
+    input: 4,
+    output: 20,
+    cacheRead: 0.2,
+    write5m: 5,
+    write1h: 8
+  },
+  'claude-sonnet-5-5': {
+    input: 2,
+    output: 10,
+    cacheRead: 0.1,
+    write5m: 2.5,
+    write1h: 4
+  }
+} as const;
+
+export type BuilderModel = keyof typeof PRICES;
+
+const DEFAULT_BUILDER_MODEL: BuilderModel = 'claude-sonnet-5-5';
+
+// BUILDER_MODEL picks another priced model, so it can be compared on the eval
+// without a code change; anything else falls back to the default.
+export const builderModel = (configured?: string | null): BuilderModel =>
+  configured && configured in PRICES
+    ? (configured as BuilderModel)
+    : DEFAULT_BUILDER_MODEL;
 
 export interface StepUsage {
   inputTokens: number;
@@ -25,7 +49,8 @@ interface ApiUsage {
   } | null;
 }
 
-export const usageOf = (usage: ApiUsage): StepUsage => {
+export const usageOf = (usage: ApiUsage, model: BuilderModel): StepUsage => {
+  const price = PRICES[model];
   const write1h = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
   const write5m =
     usage.cache_creation?.ephemeral_5m_input_tokens ??
@@ -40,11 +65,11 @@ export const usageOf = (usage: ApiUsage): StepUsage => {
     cacheWriteTokens: write1h + write5m,
     // Dollars per million tokens times tokens is micro-dollars.
     costMicros: Math.round(
-      input * PRICE.input +
-        output * PRICE.output +
-        cacheRead * PRICE.cacheRead +
-        write5m * PRICE.write5m +
-        write1h * PRICE.write1h
+      input * price.input +
+        output * price.output +
+        cacheRead * price.cacheRead +
+        write5m * price.write5m +
+        write1h * price.write1h
     )
   };
 };
@@ -75,6 +100,7 @@ export interface StepResult {
  * end.
  */
 export const step = async (input: {
+  model: BuilderModel;
   apiKey: string;
   baseUrl?: string | null;
   system: string;
@@ -89,7 +115,7 @@ export const step = async (input: {
     maxRetries: 4
   });
   const params = {
-    model: BUILDER_MODEL,
+    model: input.model,
     max_tokens: 64000,
     system: [
       {
@@ -114,6 +140,6 @@ export const step = async (input: {
   return {
     content: message.content as unknown as ContentBlock[],
     stopReason: message.stop_reason ?? null,
-    usage: usageOf(message.usage as ApiUsage)
+    usage: usageOf(message.usage as ApiUsage, input.model)
   };
 };

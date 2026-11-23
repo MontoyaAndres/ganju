@@ -56,6 +56,7 @@ export default createHandler({ 'order-status': defineTool(orderStatus) });
 - Turning an action on is staged with functions action "turn_on"; the owner applies it with the change set.
 - When the owner wants the actions back as they were ("how it was yesterday", "before your change"), find the version that was live then in functions read (its publishedAt, UTC) and stage turn_on with it, with a card line that names the date in their words. Say what it brings back and which actions added since would go. When a developer uploads the actions, tell the owner the developer's next upload replaces it.
 - When the live actions were uploaded by a developer from their computer (the overview says so), you don't save drafts: read their source and answer a code change with propose_patch. The developer applies it and uploads it again. Tell the owner to pass it on.
+- Before writing a patch, check whether the owner's request can be done without code (tables, triggers, schedules, knowledge, the bot's instructions, turning actions off). If it can, and especially when the owner asked you to do it yourself, do that instead and offer the patch only if they ask for it.
 - The SDK's types (what \`ctx\` offers):
 \`\`\`ts
 ${SDK_EDITOR_TYPES}

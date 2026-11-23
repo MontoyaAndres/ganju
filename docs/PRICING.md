@@ -61,9 +61,9 @@ Recheck these before setting a price. Rows written are the line that matters: a 
 
 **Measured, so far only on dev.** Our counters match Cloudflare's analytics: on 2026-11-05 a known load in a test database (a table created, 300 rows imported, 10 unindexed queries, the table dropped) moved ours by 551,473 rows read, 919 written and 26 calls, and Cloudflare's by 551,546, 919 and 26 (`scripts/reconcile-data-usage.mjs`). The heaviest test database (40 MB; 6.8M rows read and 0.95M written in a month, mostly seeding a 50,000-row table and rebuilding it) would cost about **$0.97** at the rates above if nothing were included, $0.95 of it rows written. Our estimate for a busy restaurant (10,000 orders a month, 50 MB) is well under $0.25. Real customer traffic is still unmeasured.
 
-### The project assistant — Claude Opus 5.5 (measured November 2026)
+### The project assistant — Claude Sonnet 5.5 since 2026-11-23 (measured on Opus 5.5, November 2026)
 
-The Assistant tab runs on `claude-opus-5-5` through our own Anthropic key ([MODELS.md](MODELS.md)), and is the one place where a customer's request costs us dollars rather than fractions of a cent. So it isn't bundled: it is measured in **credits**, one per $0.01 of model cost at Anthropic's list price (the `PRICE` table in [`builder/llm.ts`](../apps/api/src/controllers/builder/llm.ts)), computed from each response's usage and stored on its `builder_message` row.
+The Assistant tab runs on `claude-sonnet-5-5` through our own Anthropic key ([MODELS.md](MODELS.md)), and is the one place where a customer's request costs us dollars rather than fractions of a cent. So it isn't bundled: it is measured in **credits**, one per $0.01 of model cost at Anthropic's list price for the model that ran (the `PRICES` table in [`builder/llm.ts`](../apps/api/src/controllers/builder/llm.ts)), computed from each response's usage and stored on its `builder_message` row.
 
 **Measured with the eval** (`scripts/eval-builder.mjs --server` on dev, 2026-11-11, baseline in [`scripts/golden/builder-phase7-server.json`](../scripts/golden/builder-phase7-server.json)): ten typical owner requests, three runs each, each carried through planning, building, applying and testing.
 
@@ -73,11 +73,13 @@ The Assistant tab runs on `claude-opus-5-5` through our own Anthropic key ([MODE
 | Model calls | 10.7 |
 | Owner turns | 3.1 |
 
+These numbers are from Opus 5.5. Sonnet 5.5 costs half per token ($2/$10 per M, cache reads $0.10), so with the same steps a request costs about half the credits; remeasure with the eval.
+
 Range by request: a new action with its table 29–42 credits (stock, orders, bookings, opening hours, a spreadsheet import), a change to an action about 20, a knowledge or menu change 12–18, a polite "that can't run on a schedule" 10–20, and answers that change nothing (a request it can't do, explaining a broken action) about 5–8. That is what the prompt's estimate to the owner is built on (25 to 50 for a new action, under 15 for knowledge or a small fix).
 
 **Caching carries it.** Across the 30 runs, 6.5M tokens were read from the cache against 824 uncached input tokens and 335k cache writes; output (188k tokens) was about half the cost. Without the stable cached prefix (a system prompt with nothing per project in it, and the tools), every one of the ~11 calls per request would pay full input price on the instructions and the SDK types again.
 
-One thing the stored numbers can't do: `builder_message.cache_write_tokens` holds 1-hour and 5-minute cache writes together, which are priced differently ($8 and $5 per M). `cost_micros` is computed from the split before it is merged, so it is right; re-pricing a period from the token columns alone can only bracket it.
+One thing the stored numbers can't do: `builder_message.cache_write_tokens` holds 1-hour and 5-minute cache writes together, which are priced differently (on Sonnet 5.5, $4 and $2.50 per M). `cost_micros` is computed from the split before it is merged, so it is right; re-pricing a period from the token columns alone can only bracket it.
 
 ### Estimates still to confirm
 

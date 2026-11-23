@@ -269,7 +269,7 @@ export const stageProject = async (
     const text = String(input.text ?? '').trim();
     if (text.length > constants.BOT_INSTRUCTIONS_MAX_LENGTH) {
       throw new Error(
-        `The instructions are ${text.length} characters; keep them under ${constants.BOT_INSTRUCTIONS_MAX_LENGTH}.`
+        `The instructions are ${text.length} characters, ${text.length - constants.BOT_INSTRUCTIONS_MAX_LENGTH} over the ${constants.BOT_INSTRUCTIONS_MAX_LENGTH} limit. Cut at least ${Math.ceil((text.length - constants.BOT_INSTRUCTIONS_MAX_LENGTH) * 1.5) + 50} characters: drop whole sentences or merge rules, not single words.`
       );
     }
     // One per change set: each is the whole text, and Undo checks the text

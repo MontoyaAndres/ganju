@@ -10,7 +10,7 @@ import {
   creditsUsedUp,
   resolveBuilderKey
 } from '../controllers/builder/access';
-import { creditsOf, step } from '../controllers/builder/llm';
+import { builderModel, creditsOf, step } from '../controllers/builder/llm';
 import { Plan } from '../utils';
 import { BUILDER_TOOLS, runBuilderTool } from '../controllers/builder/tools';
 import { summarizeStripped } from '../controllers/builder/retention';
@@ -270,6 +270,7 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
           if (!credits.allowed) throw creditsUsedUp(credits);
         }
         const result = await step({
+          model: builderModel(this.env.BUILDER_MODEL),
           apiKey: key.apiKey,
           baseUrl: key.baseUrl,
           system: BUILDER_SYSTEM_PROMPT,
@@ -320,17 +321,21 @@ export class BuilderConversationDO extends DurableObject<Bindings> {
             this.emit({ type: 'card', card });
           }
         };
-        const outcomes = await Promise.all(
-          calls.map(block => {
-            const input = (block.input ?? {}) as { action?: string };
-            this.emit({
-              type: 'tool',
-              name: String(block.name),
-              action: input.action ?? null
-            });
-            return runBuilderTool(context, String(block.name), block.input);
-          })
-        );
+        // In order, not in parallel: a step often stages the database and
+        // the tables that need it together, and each call checks what the
+        // calls before it staged.
+        const outcomes: Awaited<ReturnType<typeof runBuilderTool>>[] = [];
+        for (const block of calls) {
+          const input = (block.input ?? {}) as { action?: string };
+          this.emit({
+            type: 'tool',
+            name: String(block.name),
+            action: input.action ?? null
+          });
+          outcomes.push(
+            await runBuilderTool(context, String(block.name), block.input)
+          );
+        }
         await this.ctx.storage.put('staged', staged);
 
         const results = {
