@@ -169,7 +169,7 @@ folder in the same command when the user is signed in.
 
 The scaffold leaves `allowedHosts` empty, which means *any* public host, and
 `init`, `build` and `deploy` warn about it. List the hosts the code calls.
-Older CLI versions have no `--ts`; check `ganju help`.
+CLI versions before 0.0.27 have no `--ts` or `--empty`; check `ganju version`.
 
 Declare the tool in `ganju.json`:
 
