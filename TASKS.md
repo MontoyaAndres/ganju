@@ -3855,8 +3855,8 @@ pass on both, and the Telegram checks were done by hand on dev.
     queries, triggers) and its rows and query reads, the WhatsApp templates
     sync, and a database restore; all metered now. The alarm's own write of
     that pending usage wasn't counted either; it is now, in memory. Creating
-    a database (`init`) is metered too (not yet deployed). Still uncounted by
-    design: the migration when an object starts.
+    a database (`init`) is metered too (live on dev and prod 2026-11-24).
+    Still uncounted by design: the migration when an object starts.
 
     **Production baseline, 2026-11-24 ~20:00 UTC** (after the deploy; periods
     from 2026-11-01, so the totals still carry the old gaps). Re-run
