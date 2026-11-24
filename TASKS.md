@@ -146,7 +146,7 @@ A user built a project for a foundation from scratch with the CLI and a coding
 agent: a knowledge profile, the bot's instructions, 3 tables and 3 functions
 live on Telegram. They wrote 11 issues.
 
-Done on 2026-11-24, not yet released:
+Done on 2026-11-24, live on dev and prod (CLI 0.0.27 on npm):
 
 - **#4, `ganju init`:**
   - `--ts` writes typed `src/lookupOrder.ts`, `package.json` and
@@ -163,7 +163,10 @@ Done on 2026-11-24, not yet released:
   description). `PUT /project` no longer clears the description when it's left
   out. Documented in organizations-and-projects.
 - **#9:** `docs/resources.md` answered 200 for GET and HEAD when checked; it was
-  probably transient. Reply to the user.
+  probably transient. The user knows.
+- The `ganju-cli` skill explains what Ganju is (what lives in the CLI and what
+  in the app), links every docs page as `.md`, and covers the database,
+  `ctx.data`/`ctx.channels` and `init --ts`.
 
 To do, in order of value:
 
