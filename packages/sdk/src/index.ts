@@ -1,7 +1,7 @@
 import * as constants from '@ganju/utils/sdkConstants';
 
 import { createContext } from './context';
-import type { ToolContext, ToolEnv, ToolHandler } from './types';
+import type { ToolContext, ToolCustomer, ToolEnv, ToolHandler } from './types';
 
 /**
  * Identity function that types one tool handler.
@@ -34,13 +34,14 @@ export const createHandler = (
       return json({ error: 'This endpoint only accepts POST' }, 405);
     }
 
-    let body: { tool?: unknown; input?: unknown; call?: unknown };
+    let body: {
+      tool?: unknown;
+      input?: unknown;
+      call?: unknown;
+      customer?: unknown;
+    };
     try {
-      body = (await request.json()) as {
-        tool?: unknown;
-        input?: unknown;
-        call?: unknown;
-      };
+      body = (await request.json()) as typeof body;
     } catch {
       return json({ error: 'The request body is not valid JSON' });
     }
@@ -75,7 +76,8 @@ export const createHandler = (
 
     const { ctx, logs } = createContext(
       env,
-      typeof body.call === 'string' ? body.call : ''
+      typeof body.call === 'string' ? body.call : '',
+      readCustomer(body.customer)
     );
     const input =
       body.input && typeof body.input === 'object'
@@ -98,13 +100,18 @@ export const createHandler = (
   }
 });
 
+const readCustomer = (value: unknown): ToolCustomer | null => {
+  const id = (value as { participantId?: unknown } | null)?.participantId;
+  return typeof id === 'string' && id ? { participantId: id } : null;
+};
+
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' }
   });
 
-export type { ToolContext, ToolEnv, ToolHandler };
+export type { ToolContext, ToolCustomer, ToolEnv, ToolHandler };
 export type {
   Connection,
   ChannelsContext,

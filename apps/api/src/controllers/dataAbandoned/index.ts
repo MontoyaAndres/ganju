@@ -166,10 +166,22 @@ const remove = async (c: Context<AppEnv>) => {
       );
     let bookmark: string | null = null;
     try {
-      await db.data.callData('markDeleted', () =>
-        stub.markDeleted({ actor: ACTOR })
+      // Metered: the first call after the alarm carries its usage.
+      const database = { id: row.id, organizationId: row.organizationId };
+      await db.data.callDataMetered(
+        executor,
+        database,
+        'markDeleted',
+        () => stub.markDeleted({ actor: ACTOR }),
+        { ganju: true }
       );
-      ({ bookmark } = await db.data.callData('purge', () => stub.purge()));
+      ({ bookmark } = await db.data.callDataMetered(
+        executor,
+        database,
+        'purge',
+        () => stub.purge(),
+        { ganju: true }
+      ));
     } catch (error) {
       await executor
         .update(table)

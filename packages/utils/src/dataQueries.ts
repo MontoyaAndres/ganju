@@ -623,6 +623,11 @@ export const dropQuery = (
   return { dropped: query.name };
 };
 
+const readsScopedTable = (schema: DataSchema, query: DataQuery) =>
+  query.tables.some(
+    name => schema.tables.find(t => t.name === name)?.customerScoped
+  );
+
 // The queries a caller may run: all of them, or for a channel bot those the
 // owner let the assistant run that read only tables it may read, none of
 // them scoped to a customer. A named query's SQL can't be scoped, so it could
@@ -634,7 +639,13 @@ const mayRun = (schema: DataSchema, caller: DataCaller, query: DataQuery) => {
   ) {
     return false;
   }
-  if (!caller.restricted) return true;
+  if (!caller.restricted) {
+    return (
+      !caller.participantId ||
+      caller.allCustomers === true ||
+      !readsScopedTable(schema, query)
+    );
+  }
   if (!query.assistant) return false;
   return query.tables.every(name => {
     const table = schema.tables.find(t => t.name === name);
@@ -686,6 +697,17 @@ export const runQuery = (
   if (!isPlainObject(args)) throw new DataError('Arguments are an object.');
   const query = findQuery(runner, args.name ?? args.query);
   if (!mayRun(schema, caller, query)) {
+    if (
+      !caller.restricted &&
+      caller.participantId &&
+      !caller.allCustomers &&
+      readsScopedTable(schema, query)
+    ) {
+      throw new DataError(
+        `${query.name} reads a table where each customer sees only their own rows, and a function a bot calls for a customer can't run it: its SQL would read every customer's rows.`,
+        'forbidden'
+      );
+    }
     throw new DataError(
       `There is no named query "${query.name}" the assistant may run.`,
       'not_found'

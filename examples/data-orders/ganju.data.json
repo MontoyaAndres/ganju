@@ -68,6 +68,12 @@
           "name": "notified_event",
           "type": "text",
           "description": "the trigger event notify-kitchen last posted, so a repeat is skipped"
+        },
+        {
+          "name": "restocked",
+          "type": "boolean",
+          "default": false,
+          "description": "set by restock once a cancelled order's dishes are back in stock"
         }
       ]
     },

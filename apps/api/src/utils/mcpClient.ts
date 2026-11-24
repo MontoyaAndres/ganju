@@ -14,6 +14,8 @@ export interface McpClientChannelContext {
   // rows. And the zone the turn resolves dates in, for the data tools.
   participantId?: string;
   timeZone?: string | null;
+  // A private chat: functions treat the participant as their customer.
+  private?: boolean;
 }
 
 export const createMcpClient = async (
@@ -69,6 +71,9 @@ export const createMcpClient = async (
             utils.constants.MCP_CHANNEL_PARTICIPANT_HEADER,
             channelContext.participantId
           );
+        }
+        if (channelContext.private) {
+          headers.set(utils.constants.MCP_CHANNEL_PRIVATE_HEADER, '1');
         }
         if (channelContext.timeZone) {
           headers.set(

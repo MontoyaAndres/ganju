@@ -52,7 +52,7 @@
     {
       "name": "notify-kitchen",
       "title": "Tell the kitchen about a new order",
-      "description": "Posts a new order and its dishes to the staff group. Run by a trigger on orders, never by the assistant.",
+      "description": "Posts a new order and its dishes to the staff group. Run by a trigger when an order is placed, never by the assistant.",
       "entry": "src/notifyKitchen.ts",
       "expose": false,
       "channels": true,
@@ -70,6 +70,16 @@
       "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": true },
       "data": { "access": "read", "tables": ["orders"] },
       "input": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "restock",
+      "title": "Put a cancelled order back in stock",
+      "description": "Adds a cancelled order's dishes back to the menu's stock. Run by a trigger when an order is cancelled, never by the assistant.",
+      "entry": "src/restock.ts",
+      "expose": false,
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": false },
+      "data": { "access": "write", "tables": ["orders", "order_lines", "menu"] },
+      "input": { "type": "object", "properties": {} }
     }
   ],
   "triggers": [
@@ -79,6 +89,12 @@
       "on": "update",
       "when": { "status": { "changedTo": "ready" } },
       "function": "tell-customer"
+    },
+    {
+      "table": "orders",
+      "on": "update",
+      "when": { "status": { "changedTo": "cancelled" } },
+      "function": "restock"
     },
     {
       "name": "still-pending",

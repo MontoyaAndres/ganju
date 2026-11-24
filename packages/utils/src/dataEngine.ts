@@ -39,6 +39,7 @@ import {
   fromStored,
   ftsMatch,
   isScoped,
+  stampsCustomer,
   isSystemColumn,
   joinsParams,
   joinsSql,
@@ -1591,7 +1592,7 @@ const assertRelationsVisible = (
   table: DataTable,
   values: Map<string, SqlValue>
 ) => {
-  if (!caller.restricted && !caller.tables) return;
+  if (!caller.restricted && !caller.tables && !caller.participantId) return;
   for (const [name, value] of values) {
     if (value === null) continue;
     const column = table.columns.find(c => c.name === name);
@@ -1750,6 +1751,7 @@ const runOperation = (
   const scoped = isScoped(caller, table);
 
   if (kind === 'insert') {
+    const stamped = stampsCustomer(caller, table);
     const many = op.rows !== undefined;
     if (many && op.values !== undefined) {
       throw new DataError('An insert takes "values" (one row) or "rows" (a list), not both.');
@@ -1773,7 +1775,7 @@ const runOperation = (
     // One column list for the whole batch, so rows that leave a column out
     // get NULL there rather than its default only when another row sets it.
     const names = [...new Set(prepared.flatMap(values => [...values.keys()]))];
-    const columns = ['id', ...names, 'created_by', 'updated_by', ...(scoped ? ['participant_id'] : [])];
+    const columns = ['id', ...names, 'created_by', 'updated_by', ...(stamped ? ['participant_id'] : [])];
     const ids: number[] = [];
     let nextId = nextRowId(runner, table);
     try {
@@ -1782,7 +1784,7 @@ const runOperation = (
         if (usesDefaults && chunk.length > 1) {
           // Rows with different columns go one by one, so each missing
           // column takes its default.
-          for (const values of chunk) ids.push(insertOne(runner, table, values, actor, scoped, caller, nextId++));
+          for (const values of chunk) ids.push(insertOne(runner, table, values, actor, stamped, caller, nextId++));
           continue;
         }
         const params: SqlValue[] = [];
@@ -1790,7 +1792,7 @@ const runOperation = (
           params.push(nextId++);
           for (const name of names) params.push(values.get(name) ?? null);
           params.push(actor, actor);
-          if (scoped) params.push(participantOf(caller));
+          if (stamped) params.push(participantOf(caller));
         }
         const rows = runner.all(
           `INSERT INTO ${q(table.name)} (${columns.map(q).join(', ')}) VALUES ${chunk

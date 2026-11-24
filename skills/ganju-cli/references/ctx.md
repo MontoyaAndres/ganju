@@ -30,6 +30,22 @@ Buffered and returned with the result. Costs no network round trip. Only the
 first 50 lines per call are kept. Non-strings are JSON-encoded. Shown by
 `ganju test` and `ganju logs`.
 
+## `ctx.customer: { participantId } | null`
+
+Set by the platform when a channel bot (WhatsApp, Telegram, Slack, Discord)
+calls the function in a private chat; `null` in a group or channel (usually
+staff), from an owner's MCP client, a trigger, a schedule or `ganju test`. The model wrote the input, so a name or
+phone there isn't proof of who's talking; `ctx.customer` is.
+
+While it's set, `ctx.data` treats customer-scoped tables (`customerScoped:
+true`) as the bot's own data tools do: inserts are tied to this customer
+(`participant_id`), reads and updates see only their rows, and named queries
+that read those tables are refused. A function that must see every
+customer's rows anyway (availability, clashes) sets `"data": { "allCustomers":
+true }` in `ganju.json`; its new rows are still tied to the customer.
+`ctx.channels.send({ participantId:
+ctx.customer.participantId, … })` messages them.
+
 ## `ctx.secret(name): Promise<string>`
 
 Reads a value stored with `ganju secret set NAME`. Throws

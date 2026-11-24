@@ -24,6 +24,7 @@ import type {
   SendFileOptions,
   SendFileReceipt,
   ToolContext,
+  ToolCustomer,
   ToolEnv
 } from './types';
 
@@ -71,7 +72,11 @@ const createLogBuffer = () => {
 // `callToken` is what the dispatcher signed for this call, naming the
 // function it runs: ctx.data hands it to the broker, which records that
 // function as the writer and applies its manifest's `data`.
-export const createContext = (env: ToolEnv, callToken = '') => {
+export const createContext = (
+  env: ToolEnv,
+  callToken = '',
+  customer: ToolCustomer | null = null
+) => {
   const logs = createLogBuffer();
 
   const call = async <T>(path: string, body?: unknown): Promise<T> => {
@@ -203,6 +208,8 @@ export const createContext = (env: ToolEnv, callToken = '') => {
   };
 
   const ctx: ToolContext = {
+    customer,
+
     connection: (provider: string) =>
       call<Connection>(constants.CUSTOM_CODE_BROKER_PATH_CONNECTION, {
         provider

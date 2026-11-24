@@ -130,8 +130,19 @@ export const tableFor = (
   return table;
 };
 
+// A bot, or a function a bot called for one customer (unless it asked to
+// see every customer's rows).
 export const isScoped = (caller: DataCaller, table: DataTable) =>
-  Boolean(caller.restricted && table.customerScoped);
+  Boolean(
+    table.customerScoped &&
+      (caller.restricted || (caller.participantId && !caller.allCustomers))
+  );
+
+// Whether a new row is tied to the caller's customer: when scoped, and for
+// a function that sees every customer but still serves one.
+export const stampsCustomer = (caller: DataCaller, table: DataTable) =>
+  isScoped(caller, table) ||
+  Boolean(table.customerScoped && caller.participantId);
 
 export const canRead = (caller: DataCaller, table: DataTable) =>
   DATA_ACCESS_RANK[accessOf(caller, table)] >= 1;

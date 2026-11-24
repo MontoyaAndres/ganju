@@ -50,6 +50,12 @@ export interface ProjectTool {
   data?: {
     access?: 'read' | 'write';
     tables?: string[];
+    /**
+     * `true`: when a channel bot calls it, it still sees every customer's
+     * rows in customer-scoped tables (checking clashes or availability).
+     * Left out, only the customer the bot is serving.
+     */
+    allCustomers?: boolean;
   };
   /**
    * `false` deploys the function for triggers only: the assistant never sees

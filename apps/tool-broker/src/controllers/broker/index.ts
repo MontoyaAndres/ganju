@@ -510,7 +510,11 @@ const data = async (c: Context<AppEnv>) => {
   const caller = db.data.dataCaller(opened, {
     actor: signed.trigger ? `trigger:${signed.trigger.id}` : `function:${name}`,
     ...(signed.trigger ? { triggerDepth: signed.trigger.depth } : {}),
-    ...(narrowing?.tables ? { tables: narrowing.tables } : {})
+    ...(narrowing?.tables ? { tables: narrowing.tables } : {}),
+    // A bot called it for one customer: customer-scoped tables hold only
+    // that customer's rows, as for the bot's own data tools.
+    ...(signed.participantId ? { participantId: signed.participantId } : {}),
+    ...(narrowing?.allCustomers ? { allCustomers: true } : {})
   });
   const tally = db.data.createDataUsageTally();
 

@@ -2,7 +2,7 @@
 title: Datos desde funciones
 description: Lee y escribe la base de datos del proyecto desde tus propias funciones con ctx.data, escríbeles a clientes y chats del equipo con ctx.channels, y deja una función solo para disparadores y programaciones.
 order: 56
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 Tus [funciones](/es/docs/tools/functions/) llegan a la
@@ -156,6 +156,9 @@ con `data` en la herramienta dentro de `ganju.json`:
 - `access`: `read` o `write`.
 - `tables`: las únicas tablas que ve. Las demás no existen para ella, tampoco en
   filtros ni relaciones.
+- `allCustomers`: `true` para una función que llama un bot de canal y que debe
+  ver las filas de todos los clientes, como una que revisa un horario contra
+  las reservas de todos. Mira abajo.
 
 Esto lo hace cumplir la plataforma, no tu script. Úsalo en cualquier función
 que un bot de canal llame después de leer lo que escribió un cliente. `tables`
@@ -163,10 +166,24 @@ limita lo que la función nombra, no lo que hace el esquema: eliminar una fila
 igual elimina las filas que apuntan a ella con "eliminar también estas filas",
 también en tablas fuera de la lista.
 
-**Una función ve todas las filas, incluso en tablas donde cada cliente ve solo
-las suyas.** Cuando un bot de canal llama a una función, la llamada no dice qué
-cliente está hablando, y lo que diga sobre el cliente su entrada lo escribió el
-modelo. No lo tomes como quién es.
+**Cuando un bot de canal llama a una función en un chat privado,
+`ctx.customer` dice quién es el cliente.** Es `{ participantId }` y lo pone la plataforma, así que confía
+en él y no en lo que diga del cliente la entrada, que la escribió el modelo. En
+las tablas donde cada cliente ve solo sus filas, `ctx.data` funciona entonces
+como el bot: las filas que agrega la función quedan ligadas a ese cliente, solo
+lee las suyas, y una consulta guardada que lee una de esas tablas se rechaza
+(su SQL leería las filas de todos los clientes). Las demás tablas no cambian.
+
+`ctx.customer` es `null` cuando no hay cliente: un grupo o canal (donde suele
+ser tu equipo, trabajando con las filas de los clientes), tu propio cliente
+MCP, un disparador, una programación o una prueba. La función ve entonces todas las
+filas.
+
+Una función que necesita las filas de todos los clientes aunque la llame un bot
+(revisar un horario contra todas las reservas, contar lo que queda) pone
+`"allCustomers": true` en su `data`. Entonces lee y cambia todas las filas,
+también con consultas guardadas, y las filas que agrega siguen ligadas al
+cliente.
 
 Los cambios que hace una función quedan como `function:<nombre>` en el
 historial de la fila.

@@ -196,6 +196,10 @@ export interface CustomCodeCallPayload {
   // A run a database trigger started: its writes are the trigger's, never
   // matched by that same trigger, and fire others one level deeper.
   trigger?: { id: string; depth: number };
+  // The customer a channel bot was talking to when it called the function.
+  // Signed here because the script can't be trusted to say who it serves:
+  // ctx.data scopes customer-scoped tables to this customer.
+  participantId?: string;
 }
 
 const callSecret = (secret: string) => `${secret}:call`;
@@ -211,7 +215,8 @@ export const mintCustomCodeCallToken = async (
     versionId: payload.versionId,
     tool: payload.tool,
     exp: Math.ceil((issuedAt + payload.ttlMs) / 1000),
-    ...(payload.trigger ? { trigger: payload.trigger } : {})
+    ...(payload.trigger ? { trigger: payload.trigger } : {}),
+    ...(payload.participantId ? { participantId: payload.participantId } : {})
   };
   const encodedPayload = toBase64Url(
     bytesToBase64(encoder.encode(JSON.stringify(body)))
@@ -256,6 +261,12 @@ export const verifyCustomCodeCallToken = async (
       (typeof trigger?.id !== 'string' ||
         !Number.isInteger(trigger.depth) ||
         trigger.depth < 1)
+    ) {
+      return null;
+    }
+    if (
+      candidate.participantId !== undefined &&
+      (typeof candidate.participantId !== 'string' || !candidate.participantId)
     ) {
       return null;
     }

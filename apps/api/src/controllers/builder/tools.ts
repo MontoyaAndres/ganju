@@ -350,16 +350,32 @@ const dataCallerFor = (
   opened: NonNullable<Awaited<ReturnType<typeof openDatabase>>>
 ) => db.data.dataCaller(opened, { actor: `user:${ctx.userId}` });
 
+const settledValue = <T>(result: PromiseSettledResult<T>): T => {
+  if (result.status === 'rejected') throw result.reason;
+  return result.value;
+};
+
 const describeData = async (ctx: BuilderToolContext) => {
   const opened = await openDatabase(ctx);
   if (!opened) return null;
   const who = dataCallerFor(ctx, opened);
-  const [described, stored, queries, triggers] = await Promise.all([
-    db.data.callData('describe', () => opened.stub.describe(who)),
-    db.data.callData('schemaRead', () => opened.stub.schemaRead()),
-    db.data.callData('listQueries', () => opened.stub.listQueries(who)),
-    db.data.callData('listTriggers', () => opened.stub.listTriggers(who))
+  // Metered: the first call after the object's alarm carries what the alarm
+  // read and wrote, and an unmetered one would drop it.
+  const tally = db.data.createDataUsageTally();
+  const settled = await Promise.allSettled([
+    db.data.callData('describe', () => opened.stub.describe(who), tally),
+    db.data.callData('schemaRead', () => opened.stub.schemaRead(), tally),
+    db.data.callData('listQueries', () => opened.stub.listQueries(who), tally),
+    db.data.callData('listTriggers', () => opened.stub.listTriggers(who), tally)
   ]);
+  // Recorded once every call has settled, so none adds to it after.
+  await db.data
+    .recordDataUsage(ctx.db, opened.row.organizationId, opened.row.id, tally)
+    .catch(error => console.error('data-usage-record-failed', error));
+  const described = settledValue(settled[0]);
+  const stored = settledValue(settled[1]);
+  const queries = settledValue(settled[2]);
+  const triggers = settledValue(settled[3]);
   // describe answers with the caller's access, which for the owner is always
   // full; what the bot may do is the table's own setting.
   const botAccess = new Map(stored.tables.map(t => [t.name, t.access]));
@@ -665,7 +681,9 @@ const withTableLabels = async (
   const opened = await openDatabase(ctx).catch(() => null);
   if (opened) {
     const stored = await db.data
-      .callData('schemaRead', () => opened.stub.schemaRead())
+      .callDataMetered(ctx.db, opened.row, 'schemaRead', () =>
+        opened.stub.schemaRead()
+      )
       .catch(() => null);
     for (const table of stored?.tables ?? []) {
       if (table.label) labels.set(table.name, table.label);
@@ -926,22 +944,30 @@ const run = async (
       if (!opened) return 'The project has no database yet.';
       const who = dataCallerFor(ctx, opened);
       if (action === 'rows') {
-        const rows = await db.data.callData('query', () =>
-          opened.stub.query(who, {
-            table: input.table,
-            ...(input.where ? { where: input.where } : {}),
-            limit: Math.min(input.limit ?? 50, DATA_TOOL_MAX_LIMIT)
-          })
+        const rows = await db.data.callDataMetered(
+          ctx.db,
+          opened.row,
+          'query',
+          () =>
+            opened.stub.query(who, {
+              table: input.table,
+              ...(input.where ? { where: input.where } : {}),
+              limit: Math.min(input.limit ?? 50, DATA_TOOL_MAX_LIMIT)
+            })
         );
         return outside(`data:${input.table}`, rows);
       }
       if (action === 'run_query') {
-        const rows = await db.data.callData('runQuery', () =>
-          opened.stub.runQuery(who, {
-            name: input.name,
-            params: input.params ?? {},
-            limit: Math.min(input.limit ?? 50, DATA_TOOL_MAX_LIMIT)
-          })
+        const rows = await db.data.callDataMetered(
+          ctx.db,
+          opened.row,
+          'runQuery',
+          () =>
+            opened.stub.runQuery(who, {
+              name: input.name,
+              params: input.params ?? {},
+              limit: Math.min(input.limit ?? 50, DATA_TOOL_MAX_LIMIT)
+            })
         );
         return outside(`data:query ${input.name}`, rows);
       }

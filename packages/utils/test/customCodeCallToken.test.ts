@@ -70,3 +70,19 @@ test('a run a trigger started carries the trigger and its depth', async () => {
   );
   assert.equal(plain?.trigger, undefined);
 });
+
+test('a call a channel bot made carries its customer', async () => {
+  const token = await mintCustomCodeCallToken(
+    { ...CALL, participantId: 'p_1' },
+    SECRET
+  );
+  assert.equal(
+    (await verifyCustomCodeCallToken(token, SECRET))?.participantId,
+    'p_1'
+  );
+  const plain = await verifyCustomCodeCallToken(
+    await mintCustomCodeCallToken(CALL, SECRET),
+    SECRET
+  );
+  assert.equal(plain?.participantId, undefined);
+});

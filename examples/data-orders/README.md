@@ -10,6 +10,7 @@ the assistant and these functions all read the same numbers.
 | `sales-report` | Units and revenue per dish for a period, from a saved query | `access: read` |
 | `notify-kitchen` | Posts each new order to the staff's group; run by a trigger only | `access: write`, three tables |
 | `tell-customer` | Tells the customer their order is ready; run by a trigger only | `access: read`, `orders` |
+| `restock` | Puts a cancelled order's dishes back in stock; run by a trigger only | `access: write`, three tables |
 
 ## What it shows
 
@@ -44,24 +45,29 @@ deploy` deploys them with the functions:
   customer that it's running late. It's a time trigger (`"on": "time"`), so
   nothing has to change for it to fire, and it fires once per order. An order
   marked ready before then isn't messaged.
+- **An order that becomes `cancelled`** runs `restock`, which puts its
+  dishes back in stock, whoever cancelled it: the owner in the dashboard or
+  the bot when the customer asked. Without it, a cancelled order keeps its
+  dishes out of stock.
 
-Both have `"expose": false`: deployed for triggers, never offered to the
+The functions have `"expose": false`: deployed for triggers, never offered to the
 assistant, and not counted toward its tools. A trigger runs a function at
 least once, so `notify-kitchen` keeps the event's id on the order and skips a
-repeat; its own write to the order is recorded as the trigger and never fires
-it again. The row is what the customer wrote: pass it to a model as untrusted
+repeat, and `restock` marks the order `restocked` in the same write as the
+stock, guarded, so a repeat changes nothing. Their own writes to the order are
+recorded as the trigger and never fire it again. The row is what the customer wrote: pass it to a model as untrusted
 text.
 
 ## Who the customer is
 
-A function a bot calls isn't told which customer is talking, and `ctx.data`
-sees every customer's rows. `place-order` is an order desk for the owner's own
-assistant: the customer's name and phone are whatever the model passes in, and
-the order has no customer to message. On a customer-facing bot the bot takes
-the order itself with `data-write`: `orders` is customer-scoped, so each order
-carries the customer it came from (`participant_id`), which is who
-`tell-customer` messages. Taking dishes out of stock from the bot needs
-`access: "full"` on `menu`.
+When a channel bot calls `place-order`, the platform says which customer it's
+serving (`ctx.customer`), and `ctx.data` treats `orders`, which is
+customer-scoped, the way the bot does: the order is tied to that customer
+(`participant_id`, who `tell-customer` messages), and the function sees only
+their orders. The name and phone in the input are whatever the model passed
+in; trust `ctx.customer` for who the customer is. From the owner's own MCP
+client there's no customer: the function sees every order, and an order it
+saves has no one to message.
 
 ## Run it
 

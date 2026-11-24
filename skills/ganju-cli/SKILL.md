@@ -274,6 +274,7 @@ For the full field list, read `references/ganju-json.md`.
 | `ctx.resources.create / delete` | Write a file or note back onto the project (`index: true` to make it searchable) |
 | `ctx.sendFile({ to, uris, message })` | Deliver resources as attachments via `gmail`, `outlook` or `slack`, without the bytes passing through your code |
 | `ctx.data.describe / query / search / insert / update / delete / write / run` | The project's database. Limit it per tool with `"data": { "access": "read", "tables": [...] }` in `ganju.json`. Read https://ganju.ai/docs/data/functions.md first |
+| `ctx.customer` | `{ participantId }` when a channel bot called the function in a private chat, else `null` (groups are usually staff). Trust it over the input for who the customer is. With it, `ctx.data` sees only that customer's rows in customer-scoped tables and ties new rows to them |
 | `ctx.channels.send / post / templates` | Message a customer, or post to a team chat the bot is in. Needs `"channels": true` on the tool |
 | `ctx.log(...)` | Lines shown by `ganju test` and `ganju logs` (first 50 per call) |
 

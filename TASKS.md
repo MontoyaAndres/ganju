@@ -1,6 +1,3 @@
-- Make an introdution view like chatbase does
-- implement evals in the code and for general use in mcps for users promptfoo
-
 Plans:
 
 Updated 2026-10-15 to match the code (`PLAN_LIMITS` and the `PRICING_*`
@@ -3464,11 +3461,30 @@ production yet, and the CLI with the new commands and `@ganju/sdk`'s
     plus a minute), so a script could reuse it within that window. Only
     hostile code in the owner's own script could, and it gains nothing that
     function couldn't already do.
-- **Open:**
-  - A function a channel bot calls isn't told the customer, and `ctx.data`
-    sees every customer's rows. Documented in the SDK and the example; the
-    participant comes with `ctx.channels` (5b).
-  - A bot cancelling an order doesn't put the stock back unless told to.
+- **Closed (2026-11-24, not yet deployed):**
+  - **A function a channel bot calls now knows the customer.** apps/mcp signs
+    the channel's participant into the call token, and the SDK has
+    `ctx.customer` (`{ participantId }`), only in a private chat: null in a
+    group or channel (usually staff on customers' rows, like perros.com's
+    `/completed` in the shop's Telegram group), from an owner's client, a
+    trigger, a schedule or a test. The API sends `x-ganju-channel-private`. With it, the broker gives `ctx.data` that
+    participant: customer-scoped tables are scoped as for the bot (reads,
+    updates, relation values), inserts there get `participant_id`, and named
+    queries reading them are refused. Before, a bot's `place-order` saved
+    orders with no customer, so `tell-customer` had no one to message.
+    Assistant access levels still don't apply to functions. A function that
+    must see every customer (availability, clashes) opts out with
+    `"data": { "allCustomers": true }`; its new rows are still tied to the
+    customer. Checked production 2026-11-24: the only live function a bot
+    calls on a customer-scoped table is perros.com's `completar-pedido`, run
+    from a staff group, so private-chats-only leaves it unchanged. SDK 0.0.10; tests
+    in utils (scope, named queries, call token). Docs: Data from functions
+    (en/es), the SDK comments, the skill and the Assistant's prompt.
+  - **A cancelled order puts its stock back** in the data-orders example: a
+    `restock` function on an update trigger (`status` changedTo
+    `cancelled`), guarded by a new `restocked` column so a repeated event
+    changes nothing. `notify-kitchen`'s description now passes
+    `build --strict`.
 
 **5b. Triggers, webhooks and `ctx.channels` — M–L (10–15 days)**
 
@@ -3809,12 +3825,38 @@ pass on both, and the Telegram checks were done by hand on dev.
     - `"channels": true` on a function (ganju.json, or the dialog's switch) is required for `ctx.channels`; the broker refuses the rest. Migration 0086 sets it on the functions of versions published since 2026-11-01 (ctx.channels shipped on 2026-11-02, a day of margin), so live functions keep working; a new deploy from an old ganju.json needs it added. Dev ran the earlier, unnarrowed form.
     - The trigger probe checks the refusal; the example's notify-kitchen and tell-customer opt in.
 - **Open:**
-  - **The function dialog's `expose` switch** wasn't seen in a browser:
-    nemo's live version is a CLI bundle, so the dialog is read-only there.
   - **A WhatsApp template sent outside the window** hasn't been checked
-    (5c).
-  - **Reconciling with Cloudflare** (`scripts/reconcile-data-usage.mjs`):
-    written in phase 6, see its status.
+    (5c). Set up in production on 2026-11-24, in the owner's project with the
+    WhatsApp channel +57 310 2129584 (org 01a072ec, project 01a1ac19):
+    - template `prueba_ganju` (es, Utility, "Hola, esta es una prueba de
+      Ganju.") submitted to Meta, waiting for approval;
+    - a database with table `pruebas` (column `texto`, one row, "each customer
+      sees only their own rows" on).
+
+    Left: the owner links their chat (`/link` to the bot from the phone), then
+    a trigger on `pruebas` with "Escribirle al cliente" and the template, and
+    "Probar este mensaje" (as a template it goes out even inside the 24-hour
+    window). Then delete the trigger, and the table, database and template if
+    the owner wants.
+  - **"Escribirle al cliente" is missing without saying why** on a table that
+    isn't "each customer sees only their own rows": the trigger dialog's action
+    list just leaves it out. Show it disabled with that reason, or a line
+    under the list.
+  - **Reconciling with Cloudflare:** run on dev 2026-11-24 for the test org
+    (period from 2026-11-10): rows read 2.45% and rows written 28% under
+    Cloudflare. Causes found and fixed (not yet deployed): the first call after
+    the object's alarm carries the alarm's usage, and calls made without a
+    tally dropped it. They were the Assistant's overview (describe, schema,
+    queries, triggers) and its rows and query reads, the WhatsApp templates
+    sync, and a database restore; all metered now. The alarm's own write of
+    that pending usage wasn't counted either; it is now, in memory. Still
+    uncounted by design: the migration when an object starts. Check again on
+    a period that starts after the deploy.
+- **Closed (2026-11-24):** the function dialog's `expose` switch can't be seen
+  on hosted Ganju: the dialog is editable only where the Assistant is closed,
+  which is a deployment without `ANTHROPIC_API_KEY` (self-hosted). Owners on
+  hosted Ganju get it from the Assistant, developers from `ganju.json`. The
+  dialog writes `expose: false` like `ganju.json` does.
 
 **5c. WhatsApp message templates — M (4–6 days)**
 
@@ -4970,8 +5012,8 @@ codes, names), which are most of what support and sales bots get asked.
   (`ctx.resources.search`), which today are two copies of the same query.
 - Reranking second, behind a flag, only if fusion is not enough: ~30
   candidates → reranker model → `limit`. It costs a model call per query.
-- A small golden set (query → expected uri) per test project to measure it;
-  this is the first real use of the promptfoo evals task above.
+- A small golden set (query → expected uri) per test project to measure it
+  (built as scripts/eval-resource-search.mjs).
 - Done when: an order id or error code lands in the top 3, and semantic
   queries do not get worse on the golden set.
 - Status: done on dev (2026-09-24), live in production (see below). Migration `0074`

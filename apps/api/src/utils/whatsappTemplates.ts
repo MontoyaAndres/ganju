@@ -72,9 +72,15 @@ const templateUsers = async (
       source.env.PROJECT_DATABASE,
       database.objectName
     );
+    // Metered: the first call after the object's alarm carries what the
+    // alarm read and wrote.
     const listed = (await db.data
-      .callData('listTriggers', () =>
-        stub.listTriggers({ actor: 'system:whatsapp-templates' })
+      .callDataMetered(
+        executor,
+        database,
+        'listTriggers',
+        () => stub.listTriggers({ actor: 'system:whatsapp-templates' }),
+        { ganju: true }
       )
       .catch(() => null)) as { triggers: DataTrigger[] } | null;
     for (const trigger of listed?.triggers ?? []) {

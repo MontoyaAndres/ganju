@@ -106,6 +106,8 @@ export const executeCustomCodeCall = async (
     versionId: string;
     toolName: string;
     args: Record<string, unknown>;
+    // The customer a channel bot is serving, from the trusted channel headers.
+    participantId?: string;
   },
   // Signs the call token. Without it the function runs, but ctx.data refuses.
   tokenSecret?: string
@@ -163,6 +165,10 @@ export const executeCustomCodeCall = async (
           body: JSON.stringify({
             tool: input.toolName,
             input: input.args,
+            // For ctx.customer. The broker trusts only the signed copy.
+            ...(input.participantId
+              ? { customer: { participantId: input.participantId } }
+              : {}),
             ...(tokenSecret
               ? {
                   call: await utils.mintCustomCodeCallToken(
@@ -170,7 +176,10 @@ export const executeCustomCodeCall = async (
                       artifactId: input.artifactId,
                       versionId: input.versionId,
                       tool: input.toolName,
-                      ttlMs: config.timeoutMs + CALL_TOKEN_MARGIN_MS
+                      ttlMs: config.timeoutMs + CALL_TOKEN_MARGIN_MS,
+                      ...(input.participantId
+                        ? { participantId: input.participantId }
+                        : {})
                     },
                     tokenSecret
                   )

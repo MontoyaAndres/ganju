@@ -205,7 +205,7 @@ rest. The four keys `connections`, `allowedHosts`, `timeoutMs` and
 | `input` | JSON Schema of the arguments. Each property is offered to the model. |
 | `output` | Optional JSON Schema. Declare one and the tool must return a matching object; MCP clients get structured output instead of text. |
 | `annotations` | `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`. |
-| `data` | What the tool may do with the project's database through `ctx.data`: `{ "access": "read" \| "write", "tables": [...] }`. Left out, everything. |
+| `data` | What the tool may do with the project's database through `ctx.data`: `{ "access": "read" \| "write", "tables": [...], "allCustomers": true }`. Left out, everything. |
 | `expose` | `false` deploys the tool for triggers only: the bot never sees it, and it doesn't count toward the project's tools. |
 | `channels` | `true` lets the tool message customers and chats through `ctx.channels`. Left out, those calls are refused. |
 

@@ -417,6 +417,31 @@ test('channel bots run only what the owner allowed, never over customer rows', (
   assert.deepEqual(runQuery(runner, s(), OWNER, { name: 'all_orders' }).rows, [
     { n: 2 }
   ]);
+  // A function serving a customer: a query's SQL can't be narrowed to them.
+  const serving: DataCaller = { ...FUNCTION, participantId: 'ana' };
+  throwsData(
+    () => runQuery(runner, s(), serving, { name: 'all_orders' }),
+    /every customer's rows/,
+    'forbidden'
+  );
+  assert.deepEqual(
+    runQuery(runner, s(), serving, { name: 'menu_size' }).rows,
+    [{ n: 2 }]
+  );
+  assert.deepEqual(
+    runQuery(runner, s(), { ...serving, allCustomers: true }, { name: 'all_orders' }).rows,
+    [{ n: 2 }]
+  );
+  // A query outside the function's tables stays "no such query".
+  throwsData(
+    () =>
+      runQuery(runner, s(), { ...serving, tables: ['orders'] }, { name: 'menu_size' }),
+    /assistant may run/,
+    'not_found'
+  );
+  assert.deepEqual(runQuery(runner, s(), FUNCTION, { name: 'all_orders' }).rows, [
+    { n: 2 }
+  ]);
 
   assert.deepEqual(dropQuery(runner, 'menu_size'), { dropped: 'menu_size' });
   throwsData(() => dropQuery(runner, 'menu_size'), /no named query/);

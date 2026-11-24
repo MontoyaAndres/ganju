@@ -1003,6 +1003,34 @@ test("scope: a bot without a customer can't use scoped tables", () => {
 
 // Bounds
 
+test('scope: a function a bot called for a customer works on that customer only', () => {
+  const { runner, s } = shop();
+  const fn = (participantId?: string): DataCaller => ({
+    actor: 'function:place-order',
+    ...(participantId ? { participantId } : {})
+  });
+  assert.equal(query(runner, s(), fn('ana'), { table: 'customers' }).total, 0);
+  assert.equal(query(runner, s(), fn('luis'), { table: 'customers' }).total, 1);
+  // With no customer (owner's client, trigger, test run): every row, as before.
+  assert.equal(query(runner, s(), fn(), { table: 'customers' }).total, 1);
+  write(runner, s(), fn('ana'), {
+    operations: [{ op: 'insert', table: 'customers', values: { name: 'Ana' } }]
+  });
+  assert.equal(runner.all("SELECT participant_id FROM customers WHERE name = 'Ana'")[0].participant_id, 'ana');
+  throwsData(
+    () => write(runner, s(), fn('ana'), { operations: [{ op: 'insert', table: 'orders', values: { customer: 1, total: 1 } }] }),
+    /no row 1 in customers/,
+    'not_found'
+  );
+  // data.allCustomers: every customer's rows, and a new row still tied to the customer.
+  const all: DataCaller = { ...fn('ana'), allCustomers: true };
+  assert.equal(query(runner, s(), all, { table: 'customers' }).total, 2);
+  write(runner, s(), all, { operations: [{ op: 'insert', table: 'customers', values: { name: 'Ana 2' } }] });
+  assert.equal(runner.all("SELECT participant_id FROM customers WHERE name = 'Ana 2'")[0].participant_id, 'ana');
+  // Assistant access doesn't apply to a function: a table hidden from bots stays usable.
+  write(runner, s(), fn('ana'), { operations: [{ op: 'insert', table: 'orders', values: { secret: 1, total: 1 } }] });
+});
+
 test('100 values: a self-relation delete and a 150-row include stay under the limit', () => {
   const { runner } = open();
   const s = () => loadSchema(runner);

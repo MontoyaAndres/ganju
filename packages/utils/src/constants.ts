@@ -1913,6 +1913,9 @@ const MCP_CHANNEL_CLIENT_USER_AGENT = 'ganju-channel/0.0.1';
 const MCP_CHANNEL_PARTICIPANT_HEADER = 'x-ganju-channel-participant-id';
 // The zone the channel resolves dates in; the data tools answer in it.
 const MCP_CHANNEL_TIME_ZONE_HEADER = 'x-ganju-channel-time-zone';
+// `1` when the turn is a private chat, where the participant is a customer.
+// In a group it's usually staff, so functions aren't scoped to them.
+const MCP_CHANNEL_PRIVATE_HEADER = 'x-ganju-channel-private';
 const JWKS_KV_KEY = 'jwks:v1';
 const JWKS_TTL_SECONDS = 600;
 
@@ -3321,6 +3324,7 @@ export const constants = {
   MCP_CHANNEL_CLIENT_USER_AGENT,
   MCP_CHANNEL_PARTICIPANT_HEADER,
   MCP_CHANNEL_TIME_ZONE_HEADER,
+  MCP_CHANNEL_PRIVATE_HEADER,
   MCP_SESSION_HEADER,
   MCP_REQUEST_METHOD_INITIALIZE,
   MCP_REQUEST_METHOD_PING,

@@ -154,8 +154,12 @@ export interface DataCaller {
   actor: string;
   // Apply each table's assistant access. Set for channel bots only.
   restricted?: boolean;
-  // Customer-scoped tables: fill and filter `participant_id` with this.
+  // Customer-scoped tables: fill and filter `participant_id` with this. Set
+  // for a channel bot, and for a function a bot called for its customer.
   participantId?: string;
+  // A function that reads and changes every customer's rows (a function's
+  // `data.allCustomers`); new rows are still tied to `participantId`.
+  allCustomers?: boolean;
   // Only these tables exist for the caller (a function's `data.tables`):
   // every other one is hidden, through relations and filters too.
   tables?: string[];

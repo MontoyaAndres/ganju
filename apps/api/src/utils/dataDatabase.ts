@@ -370,7 +370,14 @@ export const restoreDeletedDatabase = async (
   if (!claimed) throw notRestorable;
   const stub = databaseStub(source.env.PROJECT_DATABASE, row.objectName);
   try {
-    await callData('undelete', () => stub.undelete({ actor }));
+    // Metered: it can carry what the alarm did before the delete.
+    await callDataMetered(
+      dbInstance,
+      row,
+      'undelete',
+      () => stub.undelete({ actor }),
+      { ganju: true }
+    );
   } catch (error) {
     // The object is still marked deleted: put the row back as it was, so
     // the grace period runs on.
@@ -459,8 +466,21 @@ export const runDataPurge = async (
       const stub = databaseStub(source.env.PROJECT_DATABASE, row.objectName);
       let bookmark: string | null = row.deleteBookmark;
       try {
-        await callData('markDeleted', () => stub.markDeleted({ actor }));
-        ({ bookmark } = await callData('purge', () => stub.purge()));
+        // Metered: the first call after the alarm carries its usage.
+        await callDataMetered(
+          dbInstance,
+          row,
+          'markDeleted',
+          () => stub.markDeleted({ actor }),
+          { ganju: true }
+        );
+        ({ bookmark } = await callDataMetered(
+          dbInstance,
+          row,
+          'purge',
+          () => stub.purge(),
+          { ganju: true }
+        ));
       } catch (error) {
         // Never created, or already emptied: nothing left to free.
         if (!(error instanceof DataError && error.code === 'not_initialised')) {

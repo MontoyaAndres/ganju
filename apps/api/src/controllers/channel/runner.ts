@@ -941,7 +941,10 @@ const runTurn = async (
     platform: channelRow.platform,
     conversationId: conversation.id,
     participantId: participant.id,
-    timeZone: channelTimeZone
+    timeZone: channelTimeZone,
+    private:
+      options.conversationScope ===
+      utils.constants.CHANNEL_CONVERSATION_SCOPE_PRIVATE
   });
   let assistantText = '';
   let assistantMessageId = '';

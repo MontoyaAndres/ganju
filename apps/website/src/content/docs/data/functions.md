@@ -2,7 +2,7 @@
 title: Data from functions
 description: Read and write the project's database from your own functions with ctx.data, message customers and staff chats with ctx.channels, and keep a function for triggers and schedules only.
 order: 56
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 Your [functions](/docs/tools/functions/) reach the project's
@@ -151,6 +151,9 @@ the tool in `ganju.json`:
 - `access`: `read` or `write`.
 - `tables`: the only tables it sees. The others don't exist for it, in filters
   and relations too.
+- `allCustomers`: `true` for a function a channel bot calls that must see every
+  customer's rows, such as one checking a time slot against everyone's
+  bookings. See below.
 
 The platform enforces this, not your script. Use it for any function a channel
 bot calls after reading what a customer wrote. `tables` limits what the
@@ -158,10 +161,22 @@ function names, not what the schema does: deleting a row still deletes the rows
 that point at it with "delete these rows too", in tables outside the list as
 well.
 
-**A function sees every row, including in tables where each customer sees only
-their own.** When a channel bot calls a function, the call doesn't say which
-customer is talking, and anything about the customer in its input came from the
-model. Don't treat it as who they are.
+**When a channel bot calls a function in a private chat, `ctx.customer` says
+who the customer is.** It's `{ participantId }`, set by the platform, so trust it over anything
+about the customer in the input, which the model wrote. In tables where each
+customer sees only their own rows, `ctx.data` then works the way the bot does:
+rows the function adds are tied to that customer, it reads only theirs, and a
+named query that reads one of those tables is refused (its SQL would read every
+customer's rows). Other tables aren't affected.
+
+`ctx.customer` is `null` when there's no customer: a group or channel (where
+it's usually your staff, working on customers' rows), your own MCP client, a
+trigger, a schedule or a test run. The function then sees every row.
+
+A function that needs every customer's rows even when a bot calls it (checking
+a time slot against all bookings, counting what's left) sets
+`"allCustomers": true` in its `data`. It then reads and changes every row,
+named queries included, and the rows it adds are still tied to the customer.
 
 Changes a function makes are recorded as `function:<name>` in the row's
 history.

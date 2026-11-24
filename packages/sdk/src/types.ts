@@ -292,12 +292,13 @@ export interface DataQueryRun {
  * this function. There is no SQL: named queries are how a report the filters
  * can't express is run.
  *
- * A function sees every row, customer-scoped tables included, even when a
- * channel bot is the one calling it: a bot's call doesn't say which customer
- * is talking, and anything about the customer in its input came from the
- * model, so don't treat it as who they are. Keep a function a bot calls to
- * the tables it needs with `data.tables`. A function a trigger runs does know
- * the customer: a customer-scoped row carries `participant_id`, which
+ * A function sees every row, except when a channel bot calls it for a
+ * customer (`ctx.customer` is set): customer-scoped tables then hold only
+ * that customer's rows, rows it inserts there are tied to them, and named
+ * queries reading those tables are refused, as for the bot's own data tools.
+ * Other tables are unaffected. Keep a function a bot calls to the tables it
+ * needs with `data.tables`. A function a trigger runs isn't serving a
+ * customer: a customer-scoped row carries `participant_id`, which
  * `ctx.channels.send` takes.
  *
  * Writes made by a function a trigger ran are recorded as that trigger
@@ -464,7 +465,26 @@ export interface TriggerEvent<Row = Record<string, unknown>> {
   rowCountMore?: true;
 }
 
+/** The customer a channel bot was serving when it called this function. */
+export interface ToolCustomer {
+  /** Their id on the channel; `ctx.channels.send` takes it. */
+  participantId: string;
+}
+
 export interface ToolContext {
+  /**
+   * Who the bot is talking to, set by the platform when a channel bot calls
+   * the function in a private chat, and null otherwise (a group, where it's
+   * usually staff; an owner's own MCP client; a trigger; a test run). Trust it over anything in `input` about
+   * who the customer is: the model wrote the input.
+   *
+   * When it's set, `ctx.data` treats customer-scoped tables as the bot does:
+   * rows written there are tied to this customer, reads return only theirs,
+   * and named queries that read those tables are refused. A function that
+   * must see every customer (availability, clashes) sets
+   * `"data": { "allCustomers": true }`; its new rows are still tied to them.
+   */
+  customer: ToolCustomer | null;
   /**
    * A short-lived access token for one of the artifact's managed connections.
    * Throws when the provider isn't declared in the tool's `connections`, isn't

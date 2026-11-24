@@ -282,14 +282,26 @@ export class ProjectDatabase
 
   private keepAlarmUsage(runner: SqlRunner, usage: DataUsage) {
     if (usage.rowsRead === 0 && usage.rowsWritten === 0) return;
-    const raw = getMeta(runner, UNREPORTED_USAGE_KEY);
-    const before = raw ? (JSON.parse(raw) as DataUsage) : { rowsRead: 0, rowsWritten: 0 };
+    // In memory when known: it holds the earlier bookkeeping writes too.
+    let before = this.unreported;
+    if (before === undefined) {
+      const raw = getMeta(runner, UNREPORTED_USAGE_KEY);
+      before = raw ? (JSON.parse(raw) as DataUsage) : null;
+    }
+    before ??= { rowsRead: 0, rowsWritten: 0 };
     const total = {
       rowsRead: before.rowsRead + usage.rowsRead,
       rowsWritten: before.rowsWritten + usage.rowsWritten
     };
+    const start = runner.usageSoFar!();
     setMeta(runner, UNREPORTED_USAGE_KEY, JSON.stringify(total));
-    this.unreported = total;
+    const end = runner.usageSoFar!();
+    // Cloudflare counts this write too. It can't be in the value it writes,
+    // so it's added in memory; a restart before the next call loses only it.
+    this.unreported = {
+      rowsRead: total.rowsRead + end.rowsRead - start.rowsRead,
+      rowsWritten: total.rowsWritten + end.rowsWritten - start.rowsWritten
+    };
   }
 
   private isCopying(runner: SqlRunner) {

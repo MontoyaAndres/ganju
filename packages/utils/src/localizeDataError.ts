@@ -373,6 +373,8 @@ export const DATA_ERROR_MESSAGES_ES: Record<string, string | Render> = {
     'Una consulta guardada necesita un nombre: minúsculas, dígitos y _, empezando por una letra.',
   'A database holds up to {0} named queries.':
     'Una base de datos tiene hasta {0} consultas guardadas.',
+  "{0} reads a table where each customer sees only their own rows, and a function a bot calls for a customer can't run it: its SQL would read every customer's rows.":
+    '{0} lee una tabla donde cada cliente ve solo sus propias filas, y una función que un bot llama para un cliente no puede ejecutarla: su SQL leería las filas de todos los clientes.',
   'There is no named query "{0}" the assistant may run.':
     'No hay ninguna consulta guardada "{0}" que el asistente pueda ejecutar.',
   '"params" is an object, e.g. { "from": "2026-10-01" }.':

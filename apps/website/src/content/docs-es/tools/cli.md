@@ -210,7 +210,7 @@ en el otro.
 | `input` | JSON Schema de los argumentos. Cada propiedad se le ofrece al modelo. |
 | `output` | JSON Schema opcional. Si declaras uno, la herramienta debe devolver un objeto que coincida; los clientes MCP reciben salida estructurada en vez de texto. |
 | `annotations` | `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`. |
-| `data` | Lo que la herramienta puede hacer con la base de datos del proyecto con `ctx.data`: `{ "access": "read" \| "write", "tables": [...] }`. Si lo omites, todo. |
+| `data` | Lo que la herramienta puede hacer con la base de datos del proyecto con `ctx.data`: `{ "access": "read" \| "write", "tables": [...], "allCustomers": true }`. Si lo omites, todo. |
 | `expose` | `false` despliega la herramienta solo para disparadores: el bot nunca la ve y no cuenta para las herramientas del proyecto. |
 | `channels` | `true` permite que la herramienta escriba a clientes y chats con `ctx.channels`. Si lo omites, esas llamadas se rechazan. |
 

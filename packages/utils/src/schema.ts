@@ -1596,7 +1596,11 @@ const CUSTOM_CODE_TOOL = z.object({
   data: z
     .strictObject({
       access: z.enum(['read', 'write']).optional(),
-      tables: z.array(z.string().min(1).max(63)).max(50).optional()
+      tables: z.array(z.string().min(1).max(63)).max(50).optional(),
+      // true: a function a channel bot calls sees every customer's rows in
+      // customer-scoped tables (clashes, availability). Left out, only the
+      // customer it serves.
+      allCustomers: z.boolean().optional()
     })
     .optional(),
   // true: the function may message customers and chats through ctx.channels.

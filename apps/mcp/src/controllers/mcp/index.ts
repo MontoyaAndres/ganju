@@ -209,6 +209,13 @@ const business = async (c: Context<AppEnv>) => {
   const channelParticipantId = channelTrust
     ? (c.req.header(utils.constants.MCP_CHANNEL_PARTICIPANT_HEADER) ?? null)
     : null;
+  // Functions serve the participant as a customer only in a private chat;
+  // in a group it's usually staff working on customers' rows.
+  const channelCustomerId =
+    channelTrust &&
+    c.req.header(utils.constants.MCP_CHANNEL_PRIVATE_HEADER) === '1'
+      ? channelParticipantId
+      : null;
   const channelTimeZone = channelTrust
     ? (c.req.header(utils.constants.MCP_CHANNEL_TIME_ZONE_HEADER) ?? undefined)
     : undefined;
@@ -1282,7 +1289,10 @@ const business = async (c: Context<AppEnv>) => {
                   versionId: activeVersionId,
                   scriptName,
                   toolName: entry.name,
-                  args
+                  args,
+                  ...(channelCustomerId
+                    ? { participantId: channelCustomerId }
+                    : {})
                 },
                 utils.getEnv(c, utils.constants.CUSTOM_CODE_TOKEN_SECRET_ENV)
               );
