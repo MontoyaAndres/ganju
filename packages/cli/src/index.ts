@@ -109,6 +109,7 @@ ${color.bold('Project data')}
 
 ${color.bold('Other')}
   ganju whoami                  who this machine is signed in as
+  ganju version                 the installed CLI version
   ganju logout                  forget the stored token
 
 ${color.bold('Flags')}
@@ -117,6 +118,7 @@ ${color.bold('Flags')}
   --force                       deploy: replace a live version made in the app
   --no-minify                   build/deploy: keep the bundle readable
   --strict                      build: fail when the tool linter has warnings
+                                (not on an empty allowedHosts)
   --input '<json>'              test: the arguments to call the tool with
   --input-file <path>           test: the same, from a file
   --version <n|latest|active>   test: run an existing version instead of this code
@@ -126,7 +128,8 @@ ${color.bold('Flags')}
   --ts                          init: TypeScript, with package.json and tsconfig
   --empty                       init: no example tool
   --organization / --project    link/init: skip the prompts (init links too)
-  --yes                         test: run a function that writes data without asking
+  --yes                         test: run a function that writes data without
+                                asking (required without a terminal)
   --expires <days|never>        token create: when it stops working
   --json                        machine-readable output where it makes sense
 

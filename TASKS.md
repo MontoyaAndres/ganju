@@ -153,8 +153,8 @@ Done on 2026-11-24, live on dev and prod (CLI 0.0.27 on npm):
   - the next steps it prints leave out what's done;
   - `init`, `build` and `deploy` warn that an empty `allowedHosts` means any
     public host.
-- **#3, part:** `ganju test` warns and asks (`--yes` skips it; CI only warns)
-  when the function can write to the database.
+- **#3, part:** `ganju test` warns and asks (`--yes` skips it) when the
+  function can write to the database.
 - **#5, part:** reference page `docs/data/schema-file.md` (en, es).
 - **#8:** rename a project from its Home (pencil by the name, name and
   description). `PUT /project` no longer clears the description when it's left
@@ -164,6 +164,18 @@ Done on 2026-11-24, live on dev and prod (CLI 0.0.27 on npm):
 - The `ganju-cli` skill explains what Ganju is (what lives in the CLI and what
   in the app), links every docs page as `.md`, and covers the database,
   `ctx.data`/`ctx.channels` and `init --ts`.
+
+Second round, after the user tried CLI 0.0.27 (CLI 0.0.29, not on npm yet):
+
+- **#12, bug:** without a terminal (CI, coding agents) `test` warned and wrote
+  anyway with exit 0. Now it refuses with exit 1 unless `--yes`, before any
+  draft is made. Checked on dev against restock-check 1124.
+- **#13:** `ganju version` is in `ganju help`.
+- **#4 leftovers:** `init --ts --empty` writes `src/env.d.ts`, so `tsc
+  --noEmit` passes before the first tool, and its next steps say build and
+  deploy fail until there's one. The help, the CLI docs and the skill say
+  `--strict` doesn't fail on an empty `allowedHosts` (item 4 below is the real
+  fix).
 
 To do, in order of value:
 
@@ -3488,8 +3500,8 @@ production yet, and the CLI with the new commands and `@ganju/sdk`'s
   - **Checked on dev (2026-11-24):** through dev MCP with the channel
     headers, two customers in private chats each saw only their own order
     and a group's order was tied to no one; the data-orders example in a new
-    project ("restock-check 1124", qa-timecap) put a cancelled order's stock
-    back once, and a repeated event was skipped.
+    project ("restock-check 1124", qa-timecap, kept for later checks) put a
+    cancelled order's stock back once, and a repeated event was skipped.
 
 **5b. Triggers, webhooks and `ctx.channels` — M–L (10–15 days)**
 

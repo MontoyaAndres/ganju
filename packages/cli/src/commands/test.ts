@@ -179,7 +179,8 @@ const writesData = (code: string): boolean =>
 
 /**
  * A test runs against the real database, so a function that writes leaves
- * its rows behind. Asked first in a terminal; elsewhere (CI) only said.
+ * its rows behind. Asked first in a terminal; without one (CI, agents) it
+ * needs --yes, before any draft is made.
  */
 const confirmWrites = async (
   toolName: string,
@@ -188,7 +189,12 @@ const confirmWrites = async (
   warn(
     `${toolName} can write to the project's database, and a test writes for real: what it inserts, updates or deletes stays.`
   );
-  if (flags.yes || flags.json || !process.stdin.isTTY) return;
+  if (flags.yes) return;
+  if (!process.stdin.isTTY) {
+    throw new CliError(`Not run: ${toolName} writes to the database`, {
+      hint: 'Pass --yes to run it without a terminal, or give it `"data": { "access": "read" }` in ganju.json if it only reads.'
+    });
+  }
   if (!(await confirm('Run it anyway?'))) {
     throw new CliError('Not run', {
       hint: 'Give the function `"data": { "access": "read" }` in ganju.json if it only reads, or pass --yes.'

@@ -129,7 +129,8 @@ creates one. Before testing a tool with side effects, tell the user what will
 happen, and point it at a safe target such as their own address or a scratch
 repo. Tests count toward the monthly call quota and leave a draft version
 behind, which is harmless. A function that can write to the database makes
-`test` warn and ask first in a terminal (`--yes` skips it): its rows stay
+`test` warn and ask first in a terminal; without one it refuses unless you pass
+`--yes`, which you should only do when the user agreed to real writes. Its rows stay
 written, so clean them up with `ganju data delete` afterwards or test against
 rows you made for it.
 
@@ -387,7 +388,8 @@ https://ganju.ai/docs/tools/examples/
 
 - `ganju build --strict` passes, which also means the tool linter has nothing
   to say about descriptions, inputs or annotations. If there's a tsconfig,
-  `tsc --noEmit` passes too.
+  `tsc --noEmit` passes too. `--strict` doesn't fail on an empty
+  `allowedHosts`, so check that one yourself (below).
 - Every tool passes `ganju test` with a realistic input and no schema
   violations, including one failure case such as a not-found or bad input,
   showing an error message the model can act on.

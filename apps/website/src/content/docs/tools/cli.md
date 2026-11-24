@@ -295,7 +295,9 @@ warns about:
   itself;
 - **two tools that look alike** in name or description.
 
-Warnings never stop a build. `--strict` makes them fail it.
+Warnings never stop a build. `--strict` makes them fail it. The warning about
+an empty `allowedHosts` isn't one of them: no value means "no hosts", so a
+project whose functions call nothing outside couldn't pass.
 
 `ganju deploy` prints the same checks, run by the API against the whole
 server, so they also cover overlap with the project's other tools and warn
@@ -378,8 +380,8 @@ uploads nothing.
 
 When the function can write to the project's database (its code calls
 `ctx.data.insert`, `update` or `delete`, and its `data.access` isn't `read`),
-`test` says so and asks before running it. `--yes` skips the question; outside a
-terminal, as in CI, it only warns.
+`test` says so and asks before running it. `--yes` skips the question. Outside a
+terminal, as in CI or a coding agent, it won't run without `--yes`.
 
 The input is checked against the tool's input schema before the run, and the
 result against its output schema after, because those are the two ways a real

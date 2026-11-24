@@ -89,6 +89,10 @@ const tsconfigJson = `${JSON.stringify(
   2
 )}\n`;
 
+const envFile = 'src/env.d.ts';
+const envSource =
+  "// Gives tsc a file to check until the first tool's file is here.\n";
+
 const projectFile = (
   name: string,
   options: { ts: boolean; empty: boolean }
@@ -202,6 +206,10 @@ export const init = async (
     ) {
       written.push('tsconfig.json');
     }
+    // tsc fails with TS18003 when `include` matches no file.
+    if (empty && (await writeNew(join(root, envFile), envSource, envFile))) {
+      written.push(envFile);
+    }
   }
   success(`created ${written.join(', ')}`);
   warn(
@@ -226,7 +234,12 @@ export const init = async (
   if (ts) steps.push(['npm install', 'the SDK types and tsc']);
   if (!signedIn) steps.push(['ganju login']);
   if (!linked) steps.push(['ganju link', 'pick the project this deploys to']);
-  if (empty) steps.push(['add a tool to ganju.json and its file in src/']);
+  if (empty) {
+    steps.push([
+      'add a tool to ganju.json and its file in src/',
+      'build and deploy fail until there is one'
+    ]);
+  }
   steps.push(['ganju deploy']);
 
   note('');

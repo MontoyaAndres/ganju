@@ -304,6 +304,9 @@ adivine sus argumentos. Advierte sobre:
 - **dos herramientas que se parecen** en nombre o descripción.
 
 Las advertencias nunca detienen una compilación. `--strict` hace que fallen.
+El aviso de `allowedHosts` vacío no es una de ellas: ningún valor significa
+"ningún host", así que un proyecto cuyas funciones no llaman afuera no podría
+pasar.
 
 `ganju deploy` muestra las mismas revisiones, que la API corre sobre todo el
 servidor, así que también cubren el parecido con las demás herramientas del
@@ -390,7 +393,8 @@ nada.
 Cuando la función puede escribir en la base de datos del proyecto (su código
 llama a `ctx.data.insert`, `update` o `delete`, y su `data.access` no es
 `read`), `test` lo avisa y pregunta antes de ejecutarla. `--yes` se salta la
-pregunta; fuera de una terminal, como en CI, solo avisa.
+pregunta. Fuera de una terminal, como en CI o un agente de código, no la
+ejecuta sin `--yes`.
 
 La entrada se revisa contra el esquema de entrada de la herramienta antes de
 correr, y el resultado contra su esquema de salida después, porque esas son las
