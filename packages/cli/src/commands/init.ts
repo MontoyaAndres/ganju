@@ -230,7 +230,7 @@ export const init = async (
   }
 
   const steps: Array<[string, string?]> = [];
-  if (target) steps.push([`cd ${target}`]);
+  if (root !== process.cwd()) steps.push([`cd ${target}`]);
   if (ts) steps.push(['npm install', 'the SDK types and tsc']);
   if (!signedIn) steps.push(['ganju login']);
   if (!linked) steps.push(['ganju link', 'pick the project this deploys to']);
