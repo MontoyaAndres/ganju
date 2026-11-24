@@ -2,7 +2,7 @@
 title: Organizations & projects
 description: "How Ganju is structured: an organization holds your team, billing, and plan; each project inside it is a self-contained workspace for one assistant."
 order: 1
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 Ganju has two levels. Your **organization** represents your team or company:
@@ -57,6 +57,11 @@ On Pro and Enterprise it offers to **Open the Assistant**.
 
 **Free** organizations have **one project**. Creating a second one asks you to
 upgrade; Pro and Enterprise have no project limit.
+
+To rename a project later, open its **Home** and select the pencil next to its
+name: **Rename project** changes the **Name** and **Description**. Only a
+project admin can. The MCP URL doesn't change; edit it apart, with the pencil
+next to **MCP URL**.
 
 ## Manage organizations
 

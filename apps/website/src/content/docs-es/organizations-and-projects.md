@@ -2,7 +2,7 @@
 title: Organizaciones y proyectos
 description: "Cómo está estructurado Ganju: una organización reúne a tu equipo, la facturación y el plan; cada proyecto dentro de ella es un espacio de trabajo independiente para un asistente."
 order: 1
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 Ganju tiene dos niveles. Tu **organización** representa a tu equipo o empresa,
@@ -62,6 +62,11 @@ integradas. En Pro y Enterprise te ofrece **Abrir el Asistente**.
 
 Las organizaciones **Free** tienen **un proyecto**. Crear un segundo te pide
 mejorar el plan; Pro y Enterprise no tienen límite de proyectos.
+
+Para cambiarle el nombre a un proyecto después, abre su **Inicio** y selecciona
+el lápiz junto a su nombre: **Renombrar el proyecto** cambia el **Nombre** y la
+**Descripción**. Solo puede hacerlo un administrador del proyecto. La URL de
+MCP no cambia; se edita aparte, con el lápiz junto a **URL de MCP**.
 
 ## Gestiona tus organizaciones
 

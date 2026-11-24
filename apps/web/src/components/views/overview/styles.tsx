@@ -35,6 +35,12 @@ export const Wrapper = styled.div`
     .overview-heading {
       min-width: 0;
 
+      .overview-title-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
       .overview-title {
         font-size: ${theme.fonts['2xl']};
         font-weight: 700;
@@ -1022,4 +1028,11 @@ export const HealthModalBody = styled.div`
       }
     }
   `}
+`;
+
+export const ProjectModalBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
 `;

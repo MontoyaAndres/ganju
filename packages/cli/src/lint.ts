@@ -2,7 +2,7 @@ import { lintTools } from '@ganju/utils/toolLint';
 import type { ToolLintFinding } from '@ganju/utils/toolLint';
 
 import { buildManifest } from './project.js';
-import type { ProjectTool } from './project.js';
+import type { ProjectFile, ProjectTool } from './project.js';
 import { color, note, warn } from './output.js';
 
 /**
@@ -27,4 +27,16 @@ export const printLintFindings = (findings: ToolLintFinding[]): void => {
       `  ${color.yellow('·')} ${finding.message} ${color.gray(`[${finding.rule}]`)}`
     );
   }
+};
+
+/**
+ * Empty `allowedHosts` lets functions reach any public host. Not part of
+ * `--strict`: there's no value that means "none", so a project whose
+ * functions call nothing outside couldn't make it pass.
+ */
+export const warnOpenEgress = (file: ProjectFile): void => {
+  if (file.allowedHosts?.length) return;
+  warn(
+    'allowedHosts is empty, so your functions can call any public host. List the hosts they call in ganju.json.'
+  );
 };

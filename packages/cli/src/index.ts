@@ -48,6 +48,8 @@ const FLAGS = {
   project: { type: 'string' },
   expires: { type: 'string' },
   status: { type: 'boolean' },
+  ts: { type: 'boolean' },
+  empty: { type: 'boolean' },
   // ganju data
   name: { type: 'string' },
   yes: { type: 'boolean', short: 'y' },
@@ -81,6 +83,7 @@ const usage = () => {
 
 ${color.bold('Getting started')}
   ganju init [dir]              scaffold a project that deploys as-is
+                                (--ts for TypeScript, --empty for no example)
   ganju login                   sign in on this machine
   ganju link                    point ganju.json at an organization and project
                                 (creates it if there is none)
@@ -120,7 +123,10 @@ ${color.bold('Flags')}
   --tool <name>                 logs: only this tool
   --limit <n>                   logs: how many entries (default 20)
   --follow                      logs: keep polling for new calls
-  --organization / --project    link: skip the prompts
+  --ts                          init: TypeScript, with package.json and tsconfig
+  --empty                       init: no example tool
+  --organization / --project    link/init: skip the prompts (init links too)
+  --yes                         test: run a function that writes data without asking
   --expires <days|never>        token create: when it stops working
   --json                        machine-readable output where it makes sense
 
@@ -242,7 +248,12 @@ const main = async (argv: string[]): Promise<void> => {
 
   switch (command) {
     case 'init':
-      return init(positionals[0]);
+      return init(positionals[0], {
+        ts: flag('ts'),
+        empty: flag('empty'),
+        organization: flag('organization'),
+        project: flag('project')
+      });
     case 'login':
       return login();
     case 'logout':
@@ -269,7 +280,8 @@ const main = async (argv: string[]): Promise<void> => {
         input: flag('input'),
         inputFile: flag('input-file'),
         version: flag('version'),
-        json: flag('json')
+        json: flag('json'),
+        yes: flag('yes')
       });
     case 'logs':
       return logs({

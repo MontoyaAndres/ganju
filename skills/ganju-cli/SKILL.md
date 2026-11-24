@@ -1,6 +1,6 @@
 ---
 name: ganju-cli
-description: Write, test, deploy and debug Ganju custom tools (Functions) with the `ganju` CLI and the `@ganju/sdk` handler API. Use this whenever the user works in a folder with a `ganju.json`, imports `@ganju/sdk` or `defineTool`, mentions `@ganju/cli` or any `ganju` command (init, link, build, test, deploy, logs, versions, rollback, secret, token), or wants to add a custom tool to their Ganju MCP server, assistant or bot — even if they only say "make my assistant able to do X" in a Ganju project, or ask why a Ganju tool call failed.
+description: Build on Ganju from a terminal. Write, test, deploy and debug custom tools (Functions) with the `ganju` CLI and the `@ganju/sdk` handler API, manage the project's database with `ganju data` and `ganju.data.json`, and know which parts of a Ganju bot (knowledge, the bot's instructions, channels) live in the app instead. Use this whenever the user works in a folder with a `ganju.json` or `ganju.data.json`, imports `@ganju/sdk` or `defineTool`, mentions `@ganju/cli` or any `ganju` command (init, link, build, test, deploy, logs, versions, rollback, secret, token, data), mentions Ganju at all, or wants to add a tool, a table or a trigger to their Ganju MCP server, assistant or bot, even if they only say "make my assistant able to do X" in a Ganju project, or ask why a Ganju tool call failed.
 ---
 
 # Ganju CLI
@@ -21,6 +21,58 @@ src/lib/*.ts     shared helpers (optional)
 
 The whole project deploys as **one script**. Every version carries both the
 code and the tool contract, so rolling back restores both.
+
+## What Ganju is
+
+Ganju turns one **project** into an AI application: its own knowledge, tools,
+database and instructions, served at the same time as an **MCP server**
+(`https://mcp.ganju.ai/<project-slug>`, for Claude, ChatGPT, Cursor, Gemini
+CLI) and as a **bot** on WhatsApp, Telegram, Slack and Discord. Owners who
+don't code build it by chatting with the **Assistant** in the app; developers
+and coding agents use this CLI.
+
+| Piece | What it is | Changed from |
+| --- | --- | --- |
+| Organization | The team, billing and plan (Free, Pro, Enterprise). Holds projects | App: Settings |
+| Project | One application: everything below belongs to one project. Has a name, a description and a slug (its MCP URL) | App: the project's Home. Changing the slug changes the MCP URL |
+| Knowledge (resources) | Files, notes and crawled websites the AI searches and cites | App: Resources page. Functions can read and write it with `ctx.resources` |
+| Bot instructions | How the bot answers on channels (tone, rules, what to ask), up to 2,000 characters | App: Channels page |
+| Prompts | Reusable templates that become slash commands | App: Prompts page |
+| Channels | The WhatsApp, Telegram, Slack and Discord bots, each with a model | App: Channels page. `ganju channel templates` lists WhatsApp templates |
+| Tools | Catalog integrations (Gmail, Calendar…), HTTP endpoints (one API request, no code), remote MCP servers, and **Functions** (your code) | Functions: this CLI. The rest: App, Tools page |
+| Data | The project's database: typed tables, relations, search, named queries, triggers, schedules, restore to any moment in 30 days | `ganju data …` and `ganju.data.json`; triggers and schedules in `ganju.json`. Also the app's Data page |
+
+So a request like "set up the bot's profile and instructions" has a part you
+can do (tables, functions, triggers) and a part the person does in the app
+(knowledge, instructions, channels). Say which is which instead of reaching for
+browser automation. Functions and Data need **Pro or Enterprise**.
+
+## Read the docs instead of guessing
+
+Every docs page has a Markdown version: add `.md` to its URL. Fetch the page
+for the topic before guessing a field name or reading the OpenAPI spec.
+
+| Topic | Page |
+| --- | --- |
+| Index of every page | https://ganju.ai/llms.txt (not `llms-full.txt`: it's the whole site, too large to read at once) |
+| The CLI, every command and flag | https://ganju.ai/docs/tools/cli.md |
+| Functions | https://ganju.ai/docs/tools/functions.md |
+| Example projects | https://ganju.ai/docs/tools/examples.md |
+| The database | https://ganju.ai/docs/data.md |
+| `ganju.data.json`, every field | https://ganju.ai/docs/data/schema-file.md |
+| `ctx.data` and `ctx.channels` in functions | https://ganju.ai/docs/data/functions.md |
+| Triggers (on row changes) | https://ganju.ai/docs/data/triggers.md |
+| Schedules (daily, weekly) | https://ganju.ai/docs/data/schedules.md |
+| The Data API over HTTP | https://ganju.ai/docs/data-api.md |
+| Knowledge | https://ganju.ai/docs/resources.md |
+| Channels and bot instructions | https://ganju.ai/docs/channels.md |
+| HTTP endpoints (tools with no code) | https://ganju.ai/docs/tools/http-endpoints.md |
+| Organizations and projects | https://ganju.ai/docs/organizations-and-projects.md |
+| Plans and limits | https://ganju.ai/pricing.md |
+
+Spanish pages are under `/es` (https://ganju.ai/es/llms.txt). If you can't
+fetch pages, the `references/` files next to this skill cover `ganju.json`,
+`ctx` and common errors.
 
 ## Before you run anything
 
@@ -48,8 +100,8 @@ not `--dry-run`.
 `GANJU_API_URL` or `apiUrl` in `ganju.json` points at a non-default deployment.
 The default is `https://api.ganju.ai`.
 
-Functions need the project's organization to be on the **Pro** plan. A plan
-error from `deploy` or `test` means that, not a bug in the code.
+Functions need the project's organization to be on **Pro** or **Enterprise**.
+A plan error from `deploy` or `test` means that, not a bug in the code.
 
 ## The loop
 
@@ -76,7 +128,10 @@ that sends email sends a real email, and a test that creates a GitHub issue
 creates one. Before testing a tool with side effects, tell the user what will
 happen, and point it at a safe target such as their own address or a scratch
 repo. Tests count toward the monthly call quota and leave a draft version
-behind, which is harmless.
+behind, which is harmless. A function that can write to the database makes
+`test` warn and ask first in a terminal (`--yes` skips it): its rows stay
+written, so clean them up with `ganju data delete` afterwards or test against
+rows you made for it.
 
 `ganju test` checks the input against the tool's input schema before running
 and the output against its output schema after. Both are reported. Treat an
@@ -103,18 +158,18 @@ Every command exits non-zero on failure.
 
 ## Writing a tool
 
-`ganju init [dir]` scaffolds a JavaScript project with a placeholder
-`lookup-order` tool. Remove the placeholder (its `ganju.json` entry and its
-file) unless the user wants it, or it ships as a real tool that answers
-`"unknown"`. The scaffold also leaves `allowedHosts` empty, which means *any*
-host, so fill it in.
+`ganju init [dir]` scaffolds a project with a placeholder `lookup-order` tool.
+Prefer `ganju init my-tools --ts --empty`: `--ts` writes TypeScript with a
+`package.json` (`@ganju/sdk`, `typescript`) and a `tsconfig.json`, so after
+`npm install`, `npx tsc --noEmit` type-checks what `ganju build` only compiles;
+`--empty` leaves the placeholder out. Without `--empty`, remove the placeholder
+(its `ganju.json` entry and its file) unless the user wants it, or it ships as
+a real tool that answers `"unknown"`. `--organization`/`--project` link the
+folder in the same command when the user is signed in.
 
-For TypeScript, which is what the examples use, rename the entries to `.ts`
-and add a `package.json` with `@ganju/sdk` and `typescript` as dev
-dependencies, so `ctx` has types. Add a `tsconfig.json` too, with
-`"target": "ES2022"`, `"module": "ESNext"`, `"moduleResolution": "Bundler"`,
-`"strict": true`, `"noEmit": true` and `"lib": ["ES2022", "DOM"]`. Then
-`npx tsc --noEmit` type-checks what `ganju build` only compiles.
+The scaffold leaves `allowedHosts` empty, which means *any* public host, and
+`init`, `build` and `deploy` warn about it. List the hosts the code calls.
+Older CLI versions have no `--ts`; check `ganju help`.
 
 Declare the tool in `ganju.json`:
 
@@ -179,7 +234,7 @@ failed deploys and failed calls:
   undone; `{ "destructiveHint": true }` for one that sends, deletes, spends or
   can't be undone. When the organization turns on "Confirm sensitive actions",
   the platform asks the person before any tool that isn't marked read-only or
-  `destructiveHint: false` — so an unannotated lookup gets asked about on every
+  `destructiveHint: false`, so an unannotated lookup gets asked about on every
   call. Don't write "confirm with the person first" in a description: the
   platform already asks, and the model would ask twice.
 - **Leave missing output fields out, never set them to `null`.** The output
@@ -218,6 +273,8 @@ For the full field list, read `references/ganju-json.md`.
 | `ctx.resources.search / list / read` | The project's knowledge base: uploaded files, crawled sites, notes |
 | `ctx.resources.create / delete` | Write a file or note back onto the project (`index: true` to make it searchable) |
 | `ctx.sendFile({ to, uris, message })` | Deliver resources as attachments via `gmail`, `outlook` or `slack`, without the bytes passing through your code |
+| `ctx.data.describe / query / search / insert / update / delete / write / run` | The project's database. Limit it per tool with `"data": { "access": "read", "tables": [...] }` in `ganju.json`. Read https://ganju.ai/docs/data/functions.md first |
+| `ctx.channels.send / post / templates` | Message a customer, or post to a team chat the bot is in. Needs `"channels": true` on the tool |
 | `ctx.log(...)` | Lines shown by `ganju test` and `ganju logs` (first 50 per call) |
 
 Connection names: `google-gmail`, `google-calendar`, `google-drive`,
@@ -280,9 +337,35 @@ Then in the pipeline:
 which `ganju link` writes. Neither is secret. Put `ganju build` in the PR check
 and `ganju deploy` on merge.
 
+## The project's database
+
+`ganju data` manages the database from the terminal: tables, rows, import and
+export, named queries, history and restore. `ganju data help` lists it all.
+Keep the schema as code:
+
+```bash
+ganju data schema pull     # write ganju.data.json from the database
+ganju data schema diff     # what push would change
+ganju data schema push     # apply it; drops and type changes need --yes
+```
+
+Every field of `ganju.data.json` (tables, columns, `access`, `customerScoped`,
+relations, named queries) is in https://ganju.ai/docs/data/schema-file.md, with
+a full example. Write each table's and column's `description`: it is how the
+bot decides what the table is for. `access` controls what channel bots may do
+with a table (`none`, `read`, `add`, `full`), and `customerScoped: true` keeps
+each customer to their own rows.
+
+Triggers (run something when rows change) and schedules (daily or weekly) go
+in `ganju.json`'s `triggers` and deploy with `ganju deploy`. Several need no
+function: a signed webhook, an email, a message to the customer, or a post to a
+team's Telegram group or Slack or Discord channel with `{{column}}` in the
+text. Read https://ganju.ai/docs/data/triggers.md before writing a function
+just to notify someone.
+
 ## Starting from an example
 
-The Ganju repository has six small projects in `examples/`, each showing one
+The Ganju repository has seven small projects in `examples/`, each showing one
 capability. Copying the closest one is usually faster than starting from
 `ganju init`:
 
@@ -294,6 +377,7 @@ capability. Copying the closest one is usually faster than starting from
 | `calendar-free-time` | `ctx.connection('google-calendar')`, time zones with `Intl` |
 | `news-digest` | `ctx.resources.create` then `ctx.sendFile` to Gmail |
 | `order-desk` | `annotations` for each kind of tool, and "Confirm sensitive actions" |
+| `data-orders` | `ctx.data` with `ganju.data.json`: orders, their lines and stock in the project's database |
 
 Source: https://github.com/MontoyaAndres/ganju/tree/main/examples. Docs:
 https://ganju.ai/docs/tools/examples/

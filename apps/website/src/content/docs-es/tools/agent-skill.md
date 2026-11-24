@@ -2,7 +2,7 @@
 title: Skill para agentes
 description: Instala el skill ganju-cli para que Claude Code y otros agentes de programación escriban, prueben, desplieguen y depuren tus funciones de Ganju con la CLI, y sepan qué pasos dejarte a ti.
 order: 39
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 El **skill ganju-cli** le enseña a un agente de programación con IA, como
@@ -45,31 +45,34 @@ herramientas de Ganju, por ejemplo:
 
 - la carpeta tiene un `ganju.json`, o el código importa `@ganju/sdk`;
 - mencionas un comando `ganju`: `deploy`, `test`, `logs`, `secret`, …;
-- pides agregar una herramienta a tu asistente, bot o servidor MCP de Ganju;
+- pides agregar una herramienta, una tabla o un disparador a tu asistente, bot
+  o servidor MCP de Ganju, o mencionas Ganju;
 - preguntas por qué falló una llamada a una herramienta de Ganju.
 
 ## Qué enseña
 
 | Área | Qué aprende el agente |
 | --- | --- |
+| **Qué es Ganju** | Organizaciones, proyectos, conocimiento, instrucciones del bot, prompts, canales, herramientas y Datos, y cuáles cambia la CLI y cuáles solo la app |
+| **Dónde leer más** | Un mapa de las páginas de la documentación en Markdown (agrega `.md` a la URL de cualquier página), para que lea la página en vez de adivinar |
 | **El flujo** | `init` → `link` → `build` → `test` → `deploy` → `logs`, y cuándo es seguro ejecutar cada uno |
 | **`ganju.json`** | La declaración de herramientas, el subconjunto de JSON Schema soportado, los nombres reservados, `connections`, `allowedHosts`, `timeoutMs` y `resourceAccess` |
 | **Handlers** | `defineTool`, el runtime de Workers (sin APIs de Node) y mensajes de error con los que el modelo pueda actuar |
-| **`ctx`** | `secret`, `connection`, `resources`, `sendFile` y `log`: firmas, límites y trampas |
+| **`ctx`** | `secret`, `connection`, `resources`, `sendFile` y `log`: firmas, límites y trampas. `data` y `channels`, con la página que debe leer antes |
+| **Datos** | `ganju data`, `ganju.data.json` como código, el `access` de cada tabla y los disparadores que no necesitan una función |
 | **Depuración** | Leer `ganju test` y `ganju logs`, probar la versión en vivo y hacer rollback |
 | **CI** | Tokens con alcance de proyecto y un paso de despliegue en GitHub Actions |
 | **Solución de problemas** | Los mensajes de error comunes, qué los causa y cómo arreglarlos |
 
-También le indica al agente dónde están seis de los siete
+También le indica al agente dónde están los siete
 [ejemplos](/es/docs/tools/examples/), así que una herramienta nueva suele
 empezar como copia del más parecido.
 
-El skill trata de funciones. No cubre la base de datos del proyecto
-(`ganju data`, `ctx.data`, los disparadores en `ganju.json`) ni
-`ctx.channels`; para eso, indícale al agente
-[Datos desde funciones](/es/docs/data/functions/), la
-[API de Datos](/es/docs/data-api/#desde-la-línea-de-comandos) y la
-[referencia de la CLI](/es/docs/tools/cli/).
+El skill trae lo esencial y enlaza el resto. Para los detalles de la base de
+datos, los disparadores o los canales, hace que el agente lea la página de la
+documentación, así que un agente que no puede abrir páginas web sabe menos de
+eso. El conocimiento, las instrucciones del bot y los canales se configuran en
+la app, y el skill le dice al agente que te deje esos pasos a ti.
 
 ## Qué te deja a ti
 

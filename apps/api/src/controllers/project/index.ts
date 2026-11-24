@@ -97,7 +97,10 @@ const update = async (c: Context<AppEnv>) => {
     .update(db.schema.project)
     .set({
       name: currentValues.name,
-      description: currentValues.description || null
+      // Left out keeps the description, so a rename alone doesn't clear it.
+      ...(currentValues.description !== undefined
+        ? { description: currentValues.description || null }
+        : {})
     })
     .where(
       and(

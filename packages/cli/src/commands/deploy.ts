@@ -1,6 +1,6 @@
 import { bundleProject } from '../bundle.js';
 import { commandContext, describeTarget } from '../context.js';
-import { printLintFindings } from '../lint.js';
+import { printLintFindings, warnOpenEgress } from '../lint.js';
 import { CliError } from '../errors.js';
 import { appLive } from '../guard.js';
 import type { GuardVersion } from '../guard.js';
@@ -51,6 +51,7 @@ export const deploy = async (flags: {
 }): Promise<void> => {
   const { project, target, api, artifactPath } = await commandContext();
   const tools = readTools(project);
+  warnOpenEgress(project.file);
 
   // A draft replaces nothing, so only a publish is checked.
   if (!flags.draft && !flags.force) {

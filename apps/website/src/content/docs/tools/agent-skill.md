@@ -2,7 +2,7 @@
 title: Agent skill
 description: Install the ganju-cli skill so Claude Code and other coding agents can write, test, deploy and debug your Ganju functions with the CLI, and know which steps to leave to you.
 order: 39
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 The **ganju-cli skill** teaches an AI coding agent, such as Claude Code, how to
@@ -44,29 +44,33 @@ tools, for example:
 
 - the folder has a `ganju.json`, or the code imports `@ganju/sdk`;
 - you mention a `ganju` command: `deploy`, `test`, `logs`, `secret`, …;
-- you ask to add a tool to your Ganju assistant, bot or MCP server;
+- you ask to add a tool, a table or a trigger to your Ganju assistant, bot or
+  MCP server, or mention Ganju at all;
 - you ask why a Ganju tool call failed.
 
 ## What it teaches
 
 | Area | What the agent learns |
 | --- | --- |
+| **What Ganju is** | Organizations, projects, knowledge, bot instructions, prompts, channels, tools and Data, and which of them the CLI changes and which only the app does |
+| **Where to read more** | A map of the docs pages in Markdown (add `.md` to any page's URL), so it reads the page instead of guessing |
 | **The workflow** | `init` → `link` → `build` → `test` → `deploy` → `logs`, and when each one is safe to run |
 | **`ganju.json`** | Tool declarations, the supported JSON Schema subset, reserved names, `connections`, `allowedHosts`, `timeoutMs`, `resourceAccess` |
 | **Handlers** | `defineTool`, the Worker runtime (no Node APIs), and error messages the model can act on |
-| **`ctx`** | `secret`, `connection`, `resources`, `sendFile` and `log`: signatures, limits and gotchas |
+| **`ctx`** | `secret`, `connection`, `resources`, `sendFile` and `log`: signatures, limits and gotchas. `data` and `channels`, with the page to read first |
+| **Data** | `ganju data`, `ganju.data.json` as code, table `access`, and triggers that need no function |
 | **Debugging** | Reading `ganju test` and `ganju logs`, testing the live version, rolling back |
 | **CI** | Project-scoped tokens and a GitHub Actions deploy step |
 | **Troubleshooting** | The common error messages, what causes each, and the fix |
 
-It also points the agent at six of the seven [examples](/docs/tools/examples/), so a
+It also points the agent at the seven [examples](/docs/tools/examples/), so a
 new tool often starts as a copy of the closest one.
 
-The skill is about functions. It doesn't cover the project's database
-(`ganju data`, `ctx.data`, triggers in `ganju.json`) or `ctx.channels`; for
-those, point the agent at [Data from functions](/docs/data/functions/), the
-[Data API](/docs/data-api/#from-the-command-line) and the
-[CLI reference](/docs/tools/cli/).
+The skill carries the essentials and links to the rest. For the details of the
+database, triggers or channels, it has the agent fetch the docs page, so an
+agent that can't fetch web pages knows less about those. Knowledge, the bot's
+instructions and channels are set up in the app, and the skill tells the agent
+to leave those steps to you.
 
 ## What it leaves to you
 

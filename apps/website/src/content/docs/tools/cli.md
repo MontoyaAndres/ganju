@@ -2,7 +2,7 @@
 title: CLI
 description: "The ganju command line: write, deploy, test and debug your project's functions from a terminal, manage its database, and ship from CI."
 order: 37
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 `ganju` is the command line for developers. It writes, tests and deploys a
@@ -38,6 +38,21 @@ ganju deploy            # bundle, upload, publish
 with one `lookup-order` tool declared, and `src/lookupOrder.js` implementing it.
 The next command succeeds, and you edit from something that ran.
 
+```bash
+ganju init my-tools --ts                  # TypeScript: adds package.json and tsconfig.json
+ganju init my-tools --empty               # no example tool
+ganju init my-tools --organization "Acme" --project "Orders bot"   # and link it
+```
+
+`--ts` writes `src/lookupOrder.ts` with typed input and output, a
+`package.json` with `@ganju/sdk` and `typescript`, and a `tsconfig.json`; run
+`npm install`, then `npx tsc --noEmit` checks the types. `--organization` and
+`--project` link the folder right away when you're already signed in. The steps
+`init` prints next leave out what's already done.
+
+`allowedHosts` starts empty, and **empty means any public host**: `init`,
+`build` and `deploy` say so until you list the hosts your functions call.
+
 `ganju deploy` prints each step, and ends with the tools now live:
 
 ```
@@ -60,7 +75,7 @@ and `ganju --version` for the version you have.
 
 | Command | What it does |
 | --- | --- |
-| `ganju init [dir]` | Scaffold `ganju.json` and a handler in `dir` (default: the current folder). Refuses if that folder already has a `ganju.json`, and keeps an existing handler rather than overwriting it. |
+| `ganju init [dir]` | Scaffold `ganju.json` and a handler in `dir` (default: the current folder). Refuses if that folder already has a `ganju.json`, and keeps an existing handler rather than overwriting it. `--ts` for TypeScript, `--empty` for no example tool, `--organization`/`--project` to link it too. |
 | `ganju login` | Sign in on this machine, in your browser. |
 | `ganju logout` | Delete the stored token for this API. Nothing you deployed changes. |
 | `ganju whoami` | Who this machine is signed in as, and against which API. |
@@ -361,6 +376,11 @@ Without `--version`, `test` bundles the folder and uploads it as a new draft
 first (it prints `saved as draft vN — not published`). With `--version`, it
 uploads nothing.
 
+When the function can write to the project's database (its code calls
+`ctx.data.insert`, `update` or `delete`, and its `data.access` isn't `read`),
+`test` says so and asks before running it. `--yes` skips the question; outside a
+terminal, as in CI, it only warns.
+
 The input is checked against the tool's input schema before the run, and the
 result against its output schema after, because those are the two ways a real
 call fails. You get the tool's `ctx.log` lines, then the output or the error,
@@ -532,7 +552,8 @@ token. Run `ganju data help` for the list in your terminal.
 | `ganju data schema diff` | Show what `push` would change. |
 | `ganju data schema push [--yes]` | Apply the file. Drops and type changes need `--yes`. |
 
-`--schema <file>` uses another file instead of `ganju.data.json`.
+`--schema <file>` uses another file instead of `ganju.data.json`. Every field
+the file takes is in [The schema file](/docs/data/schema-file/).
 
 ### Rows
 

@@ -3,7 +3,11 @@ import { join, relative } from 'node:path';
 
 import { bundleProject } from '../bundle.js';
 import { CliError } from '../errors.js';
-import { lintProjectTools, printLintFindings } from '../lint.js';
+import {
+  lintProjectTools,
+  printLintFindings,
+  warnOpenEgress
+} from '../lint.js';
 import { color, formatBytes, note, step, success } from '../output.js';
 import { loadProject, readTools } from '../project.js';
 
@@ -35,6 +39,7 @@ export const build = async (flags: {
   // Before the bundle, so `--strict` in CI fails without waiting on esbuild.
   const findings = lintProjectTools(tools);
   printLintFindings(findings);
+  warnOpenEgress(project.file);
   if (flags.strict && findings.length > 0) {
     throw new CliError('Build failed: --strict and the linter has warnings', {
       hint: 'Fix them in ganju.json, or drop --strict to build anyway.'

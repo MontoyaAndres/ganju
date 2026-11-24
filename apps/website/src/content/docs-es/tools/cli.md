@@ -2,7 +2,7 @@
 title: CLI
 description: La línea de comandos ganju. Escribe, despliega, prueba y depura las funciones de tu proyecto desde una terminal, administra su base de datos y publica desde CI.
 order: 37
-updated: 2026-11-13
+updated: 2026-11-24
 ---
 
 `ganju` es la línea de comandos para desarrolladores. Escribe, prueba y
@@ -40,6 +40,22 @@ ganju deploy            # empaqueta, sube y publica
 que la implementa. El siguiente comando funciona, y editas a partir de algo que
 ya corrió.
 
+```bash
+ganju init my-tools --ts                  # TypeScript: agrega package.json y tsconfig.json
+ganju init my-tools --empty               # sin herramienta de ejemplo
+ganju init my-tools --organization "Acme" --project "Bot de pedidos"   # y lo vincula
+```
+
+`--ts` escribe `src/lookupOrder.ts` con la entrada y la salida tipadas, un
+`package.json` con `@ganju/sdk` y `typescript`, y un `tsconfig.json`; corre
+`npm install` y luego `npx tsc --noEmit` revisa los tipos. `--organization` y
+`--project` vinculan la carpeta de una vez si ya iniciaste sesión. Los pasos
+que `init` muestra después omiten lo que ya está hecho.
+
+`allowedHosts` empieza vacío, y **vacío significa cualquier host público**:
+`init`, `build` y `deploy` lo avisan hasta que pongas los hosts que llaman tus
+funciones.
+
 `ganju deploy` muestra cada paso y termina con las herramientas ya en vivo:
 
 ```
@@ -62,7 +78,7 @@ terminal, y `ganju --version` para ver qué versión tienes.
 
 | Comando | Qué hace |
 | --- | --- |
-| `ganju init [dir]` | Crea `ganju.json` y un handler en `dir` (por defecto, la carpeta actual). Se niega si esa carpeta ya tiene un `ganju.json`, y conserva un handler existente en vez de sobrescribirlo. |
+| `ganju init [dir]` | Crea `ganju.json` y un handler en `dir` (por defecto, la carpeta actual). Se niega si esa carpeta ya tiene un `ganju.json`, y conserva un handler existente en vez de sobrescribirlo. `--ts` para TypeScript, `--empty` sin herramienta de ejemplo, `--organization`/`--project` para vincularlo también. |
 | `ganju login` | Inicia sesión en esta máquina, en tu navegador. |
 | `ganju logout` | Borra el token guardado para esta API. Nada de lo que desplegaste cambia. |
 | `ganju whoami` | Con qué cuenta inició sesión esta máquina, y contra qué API. |
@@ -371,6 +387,11 @@ Sin `--version`, `test` empaqueta la carpeta y primero la sube como un borrador
 nuevo (muestra `saved as draft vN — not published`). Con `--version`, no sube
 nada.
 
+Cuando la función puede escribir en la base de datos del proyecto (su código
+llama a `ctx.data.insert`, `update` o `delete`, y su `data.access` no es
+`read`), `test` lo avisa y pregunta antes de ejecutarla. `--yes` se salta la
+pregunta; fuera de una terminal, como en CI, solo avisa.
+
 La entrada se revisa contra el esquema de entrada de la herramienta antes de
 correr, y el resultado contra su esquema de salida después, porque esas son las
 dos formas en que falla una llamada real. Recibes las líneas de `ctx.log`,
@@ -545,7 +566,8 @@ ver la lista en tu terminal.
 | `ganju data schema diff` | Muestra lo que cambiaría `push`. |
 | `ganju data schema push [--yes]` | Aplica el archivo. Las eliminaciones y los cambios de tipo necesitan `--yes`. |
 
-`--schema <archivo>` usa otro archivo en vez de `ganju.data.json`.
+`--schema <archivo>` usa otro archivo en vez de `ganju.data.json`. Todos los
+campos del archivo están en [El archivo de esquema](/es/docs/data/schema-file/).
 
 ### Filas
 

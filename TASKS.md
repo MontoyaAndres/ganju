@@ -140,6 +140,104 @@ Not started, and deliberately not blocking the custom-tools CLI: it is a large
 surface, most of it is CRUD over endpoints that already exist, and none of it is
 needed for someone to write and ship a tool.
 
+## Feedback from a user's CLI session (2026-11-24)
+
+A user built a project for a foundation from scratch with the CLI and a coding
+agent: a knowledge profile, the bot's instructions, 3 tables and 3 functions
+live on Telegram. They wrote 11 issues.
+
+Done on 2026-11-24, not yet released:
+
+- **#4, `ganju init`:**
+  - `--ts` writes typed `src/lookupOrder.ts`, `package.json` and
+    `tsconfig.json`, and `tsc --noEmit` and `build --strict` pass;
+  - `--empty` skips the example;
+  - `--organization`/`--project` link right away when signed in;
+  - the next steps it prints leave out what's done;
+  - `init`, `build` and `deploy` warn that an empty `allowedHosts` means any
+    public host.
+- **#3, part:** `ganju test` warns and asks (`--yes` skips it; CI only warns)
+  when the function can write to the database.
+- **#5, part:** reference page `docs/data/schema-file.md` (en, es).
+- **#8:** rename a project from its Home (pencil by the name, name and
+  description). `PUT /project` no longer clears the description when it's left
+  out. Documented in organizations-and-projects.
+- **#9:** `docs/resources.md` answered 200 for GET and HEAD when checked; it was
+  probably transient. Reply to the user.
+
+To do, in order of value:
+
+1. **The CLI covers code but not the rest of the bot (#1).** This is the
+   "Administer everything from the CLI" section above. Start with what the
+   user hit:
+   - `ganju instructions get|set --file` (checks the 2,000-character limit);
+   - `ganju resource list|add|add-site|rm` (with `--json`);
+   - `ganju project rename`;
+   - `ganju channel list`.
+
+   Later, optional `instructions` and `resources` keys in `ganju.json`,
+   applied by deploy the way `ganju data schema push` applies the schema.
+2. **`ganju chat` (#2):** talk to the bot from the terminal with the same
+   instructions, knowledge, tools and model as a channel. It prints the tools
+   called (arguments and result) and the resources cited. `--file cases.yaml`
+   takes assertions ("calls X", "never says Y") and exits non-zero on a
+   failure, for CI.
+   - Needs a test-run endpoint like the Test panel's.
+   - Writes are a decision, shared with item 3: a dry run, or a warning as
+     `ganju test` gives now.
+3. **`ganju test` leftovers (#3):**
+   - test drafts take version numbers (4 tests, then the first deploy was v5).
+     Either don't number test drafts or delete them after the run;
+   - `--rollback`: run the writes and undo them, showing what would have been
+     written. That's hard on the data object. A checkpoint before and an
+     offer to restore after (`ganju data checkpoint` exists) may be enough.
+4. **A way to say "no outside hosts" (#4):** today `allowedHosts: []` means any
+   public host, and nothing means none. Add an explicit value, used by the
+   outbound worker, the API schema, `ganju.json` and the Assistant's
+   `save_draft`. Then make it `init`'s default and let `build --strict` fail
+   on an empty list.
+5. **`ganju.data.json` tooling (#5):**
+   - publish a JSON Schema generated from `DATA_TABLE_INPUT`/`DATA_QUERY_INPUT`
+     (the website doesn't depend on utils yet) and have `pull` write
+     `"$schema"`;
+   - `ganju data schema init --example`.
+6. **`ganju conversations` (#6):** list, show one (messages, resources cited,
+   tools called) and `--follow`. Customer personal data hidden by default,
+   with a flag to show it. Decide who may see it first.
+7. **Chat picker for the "Send a chat message" trigger (#11):** the action
+   already exists with no code (Triggers tab, `{{column}}` templates and
+   conditions); the user didn't find it and wrote a function. The gap is
+   typing the Chat id: list the groups and channels the bot has seen instead.
+   Also check that the Assistant offers this action for "notify my team when
+   an urgent case comes in".
+8. **`personal` columns:** stored and shown by `ganju data tables`, but nothing
+   acts on them. The user listed it as a strength, so they think it does
+   something. Decide what it should do (hide in exports, logs and channel
+   answers) or drop it.
+9. **The project switcher keeps the old name after a rename** until the page
+   reloads (it loads once). Small.
+10. **`ganju docs <topic>`:** print a docs page from inside the CLI package, so
+    a coding agent has Ganju's docs offline and matching the installed
+    version. The `ganju-cli` skill now tells agents to fetch the `.md` pages
+    (a docs map, and an overview of what lives in the app versus the CLI), but
+    some agents can't fetch.
+    - Bundle the docs Markdown into the CLI at build time from
+      `apps/website/src/content/docs` (and `docs-es`).
+    - `ganju docs` lists the topics; `ganju docs data/schema-file` prints one;
+      `--lang es`.
+    - Then the skill says "run `ganju docs <topic>`" and its `references/` can
+      shrink to what isn't in the docs.
+
+Deferred, with the reason:
+
+- **Org profile fields the bot reads (#7):** knowledge plus the bot's
+  instructions already cover it, and fields would be a second place for the
+  same facts. "Fill my profile from this website" fits the Assistant better:
+  it reads the site and writes the knowledge and the instructions.
+- **CLI messages in Spanish (#10):** the CLI's users are developers and their
+  agents. Owners who don't code use the app and the Assistant, which are in
+  Spanish.
+
 ## Replace the Free plan with a 7-day trial
 
 Planned 2026-11-18. Free goes away; a new organization tries Pro for 7 days with

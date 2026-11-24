@@ -32,17 +32,20 @@ interface ArtifactRow {
  * reported a uuid would leave the author checking the dashboard to find out
  * which MCP server they just changed.
  */
-export const link = async (flags: {
-  organization?: string;
-  project?: string;
-}): Promise<void> => {
+export const link = async (
+  flags: {
+    organization?: string;
+    project?: string;
+  },
+  from = process.cwd()
+): Promise<void> => {
   // With no project file anywhere above, one is made here: someone who only
   // wants `ganju data` has no tools to scaffold with `ganju init`. It is
   // written once a project is picked, so a link given up on leaves nothing.
-  const found = await findProject();
+  const found = await findProject(from);
   const project = found ?? {
-    root: process.cwd(),
-    path: join(process.cwd(), PROJECT_FILE),
+    root: from,
+    path: join(from, PROJECT_FILE),
     file: {}
   };
 

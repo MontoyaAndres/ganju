@@ -12,8 +12,10 @@ import {
   say,
   step,
   success,
-  fail
+  fail,
+  warn
 } from '../output.js';
+import { confirm } from '../prompt.js';
 import {
   buildConfig,
   buildManifest,
@@ -80,6 +82,7 @@ export const test = async (
     inputFile?: string;
     version?: string;
     json?: boolean;
+    yes?: boolean;
   }
 ): Promise<void> => {
   if (!toolName) {
@@ -91,9 +94,22 @@ export const test = async (
   const { project, api, artifactPath } = await commandContext();
   const input = await readInput(flags);
 
-  const versionId = flags.version
-    ? await resolveVersion(api, artifactPath, flags.version)
-    : await uploadDraft(project, api, artifactPath);
+  const declared = project.file.tools?.find(tool => tool.name === toolName);
+  let versionId: string;
+  if (flags.version) {
+    if (declared?.data?.access === 'write') {
+      await confirmWrites(toolName, flags);
+    }
+    versionId = await resolveVersion(api, artifactPath, flags.version);
+  } else {
+    const tools = readTools(project);
+    step('bundling the current code');
+    const bundle = await bundleProject(project, tools, { minify: true });
+    if (declared?.data?.access !== 'read' && writesData(bundle.code)) {
+      await confirmWrites(toolName, flags);
+    }
+    versionId = await uploadDraft(project, api, artifactPath, bundle.code);
+  }
 
   step(`running ${color.bold(toolName)}`);
   const result = await api.request<TestResult>(
@@ -153,6 +169,30 @@ const report = (result: TestResult): void => {
       note(`  ${describeViolation(violation)}`);
     }
     process.exitCode = 1;
+  }
+};
+
+// Property names survive minifying, so the calls show in the bundle. It's
+// the whole project's bundle, so a function next to a writer is flagged too.
+const writesData = (code: string): boolean =>
+  /\bdata\.(insert|update|delete)\(/.test(code);
+
+/**
+ * A test runs against the real database, so a function that writes leaves
+ * its rows behind. Asked first in a terminal; elsewhere (CI) only said.
+ */
+const confirmWrites = async (
+  toolName: string,
+  flags: { yes?: boolean; json?: boolean }
+): Promise<void> => {
+  warn(
+    `${toolName} can write to the project's database, and a test writes for real: what it inserts, updates or deletes stays.`
+  );
+  if (flags.yes || flags.json || !process.stdin.isTTY) return;
+  if (!(await confirm('Run it anyway?'))) {
+    throw new CliError('Not run', {
+      hint: 'Give the function `"data": { "access": "read" }` in ganju.json if it only reads, or pass --yes.'
+    });
   }
 };
 
@@ -231,13 +271,10 @@ const resolveVersion = async (
 const uploadDraft = async (
   project: LoadedProject,
   api: ApiClient,
-  artifactPath: string
+  artifactPath: string,
+  code: string
 ): Promise<string> => {
   const tools = readTools(project);
-
-  step('bundling the current code');
-  const bundle = await bundleProject(project, tools, { minify: true });
-
   const config = buildConfig(project.file);
   const version = await api.request<VersionRow>(
     `${artifactPath}/custom-code/version`,
@@ -253,9 +290,9 @@ const uploadDraft = async (
       method: 'PUT',
       headers: {
         'content-type': 'application/javascript',
-        'content-length': String(Buffer.byteLength(bundle.code, 'utf8'))
+        'content-length': String(Buffer.byteLength(code, 'utf8'))
       },
-      body: bundle.code
+      body: code
     }
   );
 

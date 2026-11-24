@@ -32,7 +32,7 @@ import {
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 
-import { Wrapper, McpModalBody } from './styles';
+import { Wrapper, McpModalBody, ProjectModalBody } from './styles';
 import { ToolHealth } from './ToolHealth';
 import { useAssistantAccess } from '../assistant/access';
 import { i18n } from '../../../lib';
@@ -405,6 +405,12 @@ export const Overview = () => {
   const [savingSlug, setSavingSlug] = useState(false);
   const slugInputRef = useRef<HTMLInputElement>(null);
 
+  const [editingProject, setEditingProject] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [projectError, setProjectError] = useState<string | null>(null);
+  const [savingProject, setSavingProject] = useState(false);
+
   const apiBase = `/organization/${organizationId}/project/${projectId}`;
 
   const mcpRoot = (process.env.NEXT_PUBLIC_MCP_URL || '').replace(/\/+$/, '');
@@ -532,6 +538,62 @@ export const Overview = () => {
     }
   };
 
+  const startEditProject = () => {
+    if (!data) return;
+    setProjectName(data.project.name);
+    setProjectDescription(data.project.description ?? '');
+    setProjectError(null);
+    setEditingProject(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!data || savingProject) return;
+    const name = projectName.trim();
+    const description = projectDescription.trim();
+    if (name.length < 3) {
+      setProjectError(t('projectNameTooShort'));
+      return;
+    }
+    setSavingProject(true);
+    setProjectError(null);
+    try {
+      const result = await utils.fetcher({
+        url: apiBase,
+        config: {
+          method: 'PUT',
+          credentials: 'include',
+          body: JSON.stringify({ name, description })
+        }
+      });
+      if (result && !result.error) {
+        setData(prev =>
+          prev
+            ? {
+                ...prev,
+                project: {
+                  ...prev.project,
+                  name,
+                  description: description || null
+                }
+              }
+            : prev
+        );
+        setEditingProject(false);
+        snackbar.success(t('toastProjectUpdated'));
+      } else {
+        setProjectError(
+          (typeof result?.error === 'string'
+            ? result.error
+            : result?.error?.message) || t('projectUpdateFailed')
+        );
+      }
+    } catch {
+      setProjectError(t('projectUpdateFailed'));
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
   const goTo = (section: string) => router.push(`${apiBase}/${section}`);
 
   // Only block the whole page on the very first load failing.
@@ -575,7 +637,18 @@ export const Overview = () => {
               </>
             ) : (
               <>
-                <h1 className="overview-title">{data.project.name}</h1>
+                <div className="overview-title-row">
+                  <h1 className="overview-title">{data.project.name}</h1>
+                  <Tooltip title={t('editProject')}>
+                    <IconButton
+                      size="small"
+                      aria-label={t('editProject')}
+                      onClick={startEditProject}
+                    >
+                      <EditOutlined />
+                    </IconButton>
+                  </Tooltip>
+                </div>
                 <p className="overview-subtitle">
                   {data.project.description || t('defaultDescription')}
                 </p>
@@ -922,6 +995,65 @@ export const Overview = () => {
               />
             </div>
           </McpModalBody>
+        </UI.Modal>
+        <UI.Modal
+          open={editingProject}
+          title={t('editProject')}
+          width={480}
+          closeLabel={c('close')}
+          onClose={() => {
+            if (!savingProject) setEditingProject(false);
+          }}
+          footer={
+            <>
+              <UI.Button
+                size="small"
+                className="small"
+                disabled={savingProject}
+                onClick={() => setEditingProject(false)}
+              >
+                {c('cancel')}
+              </UI.Button>
+              <UI.Button
+                variant="contained"
+                size="small"
+                className="small"
+                disabled={savingProject}
+                onClick={handleSaveProject}
+              >
+                <span className="button-text">
+                  {savingProject ? c('saving') : c('save')}
+                </span>
+              </UI.Button>
+            </>
+          }
+        >
+          <ProjectModalBody>
+            <UI.Input
+              label={t('projectName')}
+              name="name"
+              value={projectName}
+              autoFocus
+              disabled={savingProject}
+              error={!!projectError}
+              helperText={projectError ?? undefined}
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+              onChange={e => {
+                setProjectName(e.target.value);
+                if (projectError) setProjectError(null);
+              }}
+            />
+            <UI.Input
+              label={t('projectDescription')}
+              name="description"
+              value={projectDescription}
+              multiline
+              rows={3}
+              disabled={savingProject}
+              slotProps={{ htmlInput: { maxLength: 500 } }}
+              onChange={e => setProjectDescription(e.target.value)}
+            />
+          </ProjectModalBody>
         </UI.Modal>
       </div>
     </Wrapper>

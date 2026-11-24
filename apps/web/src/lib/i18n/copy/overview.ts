@@ -22,6 +22,12 @@ const en = {
   mcpUrl: 'MCP URL',
   clickToCopy: 'Click to copy',
   editMcpUrl: 'Edit MCP URL',
+  editProject: 'Rename project',
+  projectName: 'Name',
+  projectDescription: 'Description',
+  projectNameTooShort: 'Give the project a name of at least 3 characters.',
+  projectUpdateFailed: 'Could not save the project.',
+  toastProjectUpdated: 'Project saved',
 
   // Activity chart.
   activity: 'Activity',
@@ -208,6 +214,12 @@ export const OVERVIEW: Catalog<OverviewCopy> = {
     mcpUrl: 'URL de MCP',
     clickToCopy: 'Haz clic para copiar',
     editMcpUrl: 'Editar la URL de MCP',
+    editProject: 'Renombrar el proyecto',
+    projectName: 'Nombre',
+    projectDescription: 'Descripción',
+    projectNameTooShort: 'Dale al proyecto un nombre de al menos 3 caracteres.',
+    projectUpdateFailed: 'No pudimos guardar el proyecto.',
+    toastProjectUpdated: 'Proyecto guardado',
 
     activity: 'Actividad',
     activityHelp:
