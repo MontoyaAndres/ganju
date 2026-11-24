@@ -165,7 +165,7 @@ Done on 2026-11-24, live on dev and prod (CLI 0.0.27 on npm):
   in the app), links every docs page as `.md`, and covers the database,
   `ctx.data`/`ctx.channels` and `init --ts`.
 
-Second round, after the user tried CLI 0.0.27 (CLI 0.0.29, not on npm yet):
+Second round, after the user tried CLI 0.0.27 (CLI 0.0.29 on npm, docs live on prod):
 
 - **#12, bug:** without a terminal (CI, coding agents) `test` warned and wrote
   anyway with exit 0. Now it refuses with exit 1 unless `--yes`, before any
@@ -176,6 +176,8 @@ Second round, after the user tried CLI 0.0.27 (CLI 0.0.29, not on npm yet):
   deploy fail until there's one. The help, the CLI docs and the skill say
   `--strict` doesn't fail on an empty `allowedHosts` (item 4 below is the real
   fix).
+- `init .` printed "cd ." as a step; fixed after 0.0.29, ships with the next
+  CLI version.
 
 To do, in order of value:
 
