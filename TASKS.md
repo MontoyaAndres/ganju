@@ -3461,7 +3461,7 @@ production yet, and the CLI with the new commands and `@ganju/sdk`'s
     plus a minute), so a script could reuse it within that window. Only
     hostile code in the owner's own script could, and it gains nothing that
     function couldn't already do.
-- **Closed (2026-11-24, not yet deployed):**
+- **Closed (2026-11-24, live on dev and prod; SDK 0.0.10, utils 0.0.27, CLI 0.0.28 on npm):**
   - **A function a channel bot calls now knows the customer.** apps/mcp signs
     the channel's participant into the call token, and the SDK has
     `ctx.customer` (`{ participantId }`), only in a private chat: null in a
@@ -3485,6 +3485,11 @@ production yet, and the CLI with the new commands and `@ganju/sdk`'s
     `cancelled`), guarded by a new `restocked` column so a repeated event
     changes nothing. `notify-kitchen`'s description now passes
     `build --strict`.
+  - **Checked on dev (2026-11-24):** through dev MCP with the channel
+    headers, two customers in private chats each saw only their own order
+    and a group's order was tied to no one; the data-orders example in a new
+    project ("restock-check 1124", qa-timecap) put a cancelled order's stock
+    back once, and a repeated event was skipped.
 
 **5b. Triggers, webhooks and `ctx.channels` — M–L (10–15 days)**
 
@@ -3844,14 +3849,27 @@ pass on both, and the Telegram checks were done by hand on dev.
     under the list.
   - **Reconciling with Cloudflare:** run on dev 2026-11-24 for the test org
     (period from 2026-11-10): rows read 2.45% and rows written 28% under
-    Cloudflare. Causes found and fixed (not yet deployed): the first call after
+    Cloudflare. Causes found and fixed (live on dev and prod 2026-11-24): the first call after
     the object's alarm carries the alarm's usage, and calls made without a
     tally dropped it. They were the Assistant's overview (describe, schema,
     queries, triggers) and its rows and query reads, the WhatsApp templates
     sync, and a database restore; all metered now. The alarm's own write of
-    that pending usage wasn't counted either; it is now, in memory. Still
-    uncounted by design: the migration when an object starts. Check again on
-    a period that starts after the deploy.
+    that pending usage wasn't counted either; it is now, in memory. Creating
+    a database (`init`) is metered too (not yet deployed). Still uncounted by
+    design: the migration when an object starts.
+
+    **Production baseline, 2026-11-24 ~20:00 UTC** (after the deploy; periods
+    from 2026-11-01, so the totals still carry the old gaps). Re-run
+    `node scripts/reconcile-data-usage.mjs --prod` in a day or two and compare
+    the growth since these numbers: ours and Cloudflare's should grow by
+    almost the same amount.
+
+    | Organization | Ours read | CF read | Ours written | CF written |
+    | --- | --- | --- | --- | --- |
+    | Girardot - demos (01a072ec) | 5,710,102 | 6,110,742 | 211,343 | 216,707 |
+    | Voces que abrazan (01a20e43) | 2,146 | 3,997 | 161 | 196 |
+
+    Storage matched within 0.04%.
 - **Closed (2026-11-24):** the function dialog's `expose` switch can't be seen
   on hosted Ganju: the dialog is editable only where the Assistant is closed,
   which is a deployment without `ANTHROPIC_API_KEY` (self-hosted). Owners on

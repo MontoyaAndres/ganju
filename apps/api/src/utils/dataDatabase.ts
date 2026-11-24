@@ -182,7 +182,9 @@ export const createDatabase = async (
 
   const stub = databaseStub(source.env.PROJECT_DATABASE, row.objectName);
   try {
-    const info = await callData('init', () =>
+    // Metered: setting up the object's own tables reads and writes rows
+    // Cloudflare counts.
+    const info = await callDataMetered(dbInstance, row, 'init', () =>
       stub.init({ artifactId: input.artifactId, name: input.name })
     );
     const [ready] = await dbInstance
