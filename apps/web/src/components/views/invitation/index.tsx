@@ -5,6 +5,7 @@ import { utils } from '@ganju/utils';
 
 import { Wrapper } from './styles';
 import { i18n } from '../../../lib';
+import { signInHref } from '../../../utils';
 
 interface TokenInvitation {
   id: string;
@@ -235,7 +236,7 @@ export const Invitation = (props: IProps) => {
             <UI.Button
               variant="contained"
               size="small"
-              onClick={() => router.push('/')}
+              onClick={() => router.push(signInHref(router.asPath))}
             >
               {t('signInAction')}
             </UI.Button>

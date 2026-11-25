@@ -4,7 +4,7 @@ import { UI } from '@ganju/ui';
 import { utils } from '@ganju/utils';
 
 import { Wrapper } from './styles';
-import { authClient } from '../../../utils';
+import { authClient, safeNext } from '../../../utils';
 import { i18n } from '../../../lib';
 
 export const Auth = () => {
@@ -19,7 +19,7 @@ export const Auth = () => {
     setStatus('pending');
     await authClient.signIn.social({
       provider,
-      callbackURL: `${process.env.NEXT_PUBLIC_WEB_URL}/organization`
+      callbackURL: `${process.env.NEXT_PUBLIC_WEB_URL}${safeNext(router.query.next) ?? '/organization'}`
     });
   };
 

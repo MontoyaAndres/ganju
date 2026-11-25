@@ -254,6 +254,16 @@ Deferred, with the reason:
 
 ## Replace the Free plan with a 7-day trial
 
+**Live in production 2026-11-25** (migrations 0098 to 0100, utils 0.0.28 and
+CLI 0.0.30 on npm). Website, docs, llms.txt and terms checked live: no Free
+plan, the 7-day trial. Next: 2026-12-09, older Free orgs move to "no plan";
+check the notice emails went out before. Cancel during a trial checked on
+dev 2026-11-25 (org test1: trialing, set to cancel at 2026-12-02); the
+trial-ended email comes when Polar ends it on 2026-12-02. Production on 2026-11-25 (read-only): 14 Free orgs (14
+owners, no real use), 2 Enterprise; the owner chose to let the notice go out
+at the 2026-11-26 13:00 UTC run; check `free_plan_notice_at` is set on all 14
+afterwards.
+
 Planned 2026-11-18. Free goes away; a new organization tries Pro for 7 days with
 a card on file (Polar checkout, no charge until the trial ends), then Pro starts
 on its own. Self-hosting stays free (Apache-2.0) and becomes the "free" answer
@@ -4049,8 +4059,8 @@ pass on both, and the Telegram checks were done by hand on dev.
   - **A WhatsApp template sent outside the window** hasn't been checked
     (5c). Set up in production on 2026-11-24, in the owner's project with the
     WhatsApp channel +57 310 2129584 (org 01a072ec, project 01a1ac19):
-    - template `prueba_ganju` (es, Utility, "Hola, esta es una prueba de
-      Ganju.") submitted to Meta, waiting for approval;
+    - template `prueba_ganju` (es, "Hola, esta es una prueba de Ganju.")
+      submitted as Utility; Meta approved it on 2026-11-25 as Marketing;
     - a database with table `pruebas` (column `texto`, one row, "each customer
       sees only their own rows" on).
 

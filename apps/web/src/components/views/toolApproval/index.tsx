@@ -6,6 +6,7 @@ import type { ToolApprovalStatus } from '@ganju/utils';
 
 import { Wrapper } from './styles';
 import { i18n } from '../../../lib';
+import { signInHref } from '../../../utils';
 
 export interface ToolApprovalRequest {
   id: string;
@@ -111,7 +112,7 @@ export const ToolApproval = (props: IProps) => {
       <>
         <h1 className="approval-title">{t('signInTitle')}</h1>
         <p className="approval-text">{t('signInText')}</p>
-        {action(t('signInAction'), '/')}
+        {action(t('signInAction'), signInHref(router.asPath))}
       </>
     );
   }

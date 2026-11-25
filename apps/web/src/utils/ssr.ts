@@ -2,6 +2,8 @@ import { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import { utils } from '@ganju/utils';
 import type { PlanLimits } from '@ganju/utils';
 
+import { safeNext, signInHref } from './next';
+
 /**
  * What the organization is entitled to, as `getAuthMe` puts it in page props.
  *
@@ -106,7 +108,7 @@ const getAuthMe: GetServerSideProps = async context => {
       props: {},
       redirect: {
         permanent: false,
-        destination: '/'
+        destination: signInHref(context.resolvedUrl)
       }
     };
   }
@@ -134,7 +136,7 @@ const getAuthMe: GetServerSideProps = async context => {
     props: {},
     redirect: {
       permanent: false,
-      destination: '/'
+      destination: signInHref(context.resolvedUrl)
     }
   };
 };
@@ -202,7 +204,7 @@ const redirectIfAuthenticated: GetServerSideProps = async context => {
       props: {},
       redirect: {
         permanent: false,
-        destination: '/organization'
+        destination: safeNext(context.query.next) ?? '/organization'
       }
     };
   }
