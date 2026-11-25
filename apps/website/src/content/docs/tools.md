@@ -2,7 +2,7 @@
 title: Tools
 description: "Give your bot the ability to take action: integrations like Gmail, Outlook, Slack and Calendar, your own HTTP APIs, and functions the Assistant or your developer writes."
 order: 4
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Tools** are the actions your bot can take. Where
@@ -88,9 +88,9 @@ Every tool has a switch and a remove button, and they do different things.
 **Remove** deletes it with its settings. Only tools that are on count toward
 the limit, so you can keep more configured than you expose at once:
 
-- **Free**: up to 7 tools on at once.
 - **Pro and Enterprise**: up to 40 on at once, the most a channel sends to the
   model.
+- **Without a plan**: up to 7 tools on at once.
 
 Each tool counts as one, including each function and each tool of a remote MCP
 server, and a function only triggers run doesn't count.

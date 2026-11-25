@@ -2,7 +2,7 @@
 title: Acciones
 description: "Dale a tu bot la capacidad de actuar: integraciones como Gmail, Outlook, Slack y Calendar, tus propias APIs HTTP y funciones que escribe el Asistente o tu desarrollador."
 order: 4
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Las **herramientas** son las acciones que puede ejecutar tu bot. Mientras los
@@ -91,9 +91,9 @@ configuración y su conexión; **Eliminar** la borra con su configuración. Solo
 cuentan para el límite las herramientas encendidas, así que puedes tener más
 configuradas de las que expones a la vez:
 
-- **Free**: hasta 7 herramientas encendidas a la vez.
 - **Pro y Enterprise**: hasta 40 encendidas a la vez, lo máximo que un canal le
   envía al modelo.
+- **Sin plan**: hasta 7 herramientas encendidas a la vez.
 
 Cada herramienta cuenta como una, incluidas cada función y cada herramienta de
 un servidor MCP remoto, y una función que solo ejecutan los disparadores no

@@ -26,6 +26,8 @@ export interface IProps {
     updatedAt: string;
     isMember: boolean;
     plan: string;
+    trialing?: boolean;
+    noPlan?: boolean;
     projects: {
       id: string;
       name: string;

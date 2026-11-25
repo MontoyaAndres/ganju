@@ -1,8 +1,8 @@
 ---
 title: Configuración
-description: "La sala de control de tu organización: cámbiale el nombre, administra la facturación y el consumo, invita miembros, crea tokens de acceso, trae tus propios modelos de lenguaje y maneja las acciones destructivas."
+description: 'La sala de control de tu organización: cámbiale el nombre, administra la facturación y el consumo, invita miembros, crea tokens de acceso, trae tus propios modelos de lenguaje y maneja las acciones destructivas.'
 order: 6
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Ajustes** es la sala de control de tu organización. Ábrelo desde el menú de tu
@@ -10,15 +10,15 @@ avatar, abajo en la barra lateral (**Ajustes**), o con **Ajustes** en la tarjeta
 de una organización en la página **Organizaciones**. Un submenú a la izquierda
 salta entre cada área:
 
-| Sección | Qué hay | Quién la ve |
-| --- | --- | --- |
-| [**Organización**](#organización) | Nombre, conteos, **Confirmar acciones sensibles** | Miembros de la organización |
-| [**Plan y facturación**](#facturación-y-plan) | Plan, consumo, pasar a Pro o gestionar la facturación, límite de créditos del Asistente | Miembros de la organización |
-| [**Miembros**](#miembros) | Quién está en la organización, invitaciones | Miembros de la organización |
-| [**Proyectos**](#proyectos) | Los miembros y los tokens de acceso de cada proyecto | Todos |
-| [**Modelos**](#modelos-trae-el-tuyo) | Tus propios modelos de lenguaje | Miembros de la organización |
-| [**Tus datos**](#tus-datos) | Exporta tus datos personales, Términos y Privacidad | Todos |
-| [**Zona de riesgo**](#zona-de-riesgo) | Eliminar la organización, eliminar tu cuenta | Todos (eliminar la organización: solo el propietario) |
+| Sección                                       | Qué hay                                                                           | Quién la ve                                           |
+| --------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [**Organización**](#organización)             | Nombre, conteos, **Confirmar acciones sensibles**                                 | Miembros de la organización                           |
+| [**Plan y facturación**](#facturación-y-plan) | Plan, prueba, consumo, gestionar la facturación, límite de créditos del Asistente | Miembros de la organización                           |
+| [**Miembros**](#miembros)                     | Quién está en la organización, invitaciones                                       | Miembros de la organización                           |
+| [**Proyectos**](#proyectos)                   | Los miembros y los tokens de acceso de cada proyecto                              | Todos                                                 |
+| [**Modelos**](#modelos-trae-el-tuyo)          | Tus propios modelos de lenguaje                                                   | Miembros de la organización                           |
+| [**Tus datos**](#tus-datos)                   | Exporta tus datos personales, Términos y Privacidad                               | Todos                                                 |
+| [**Zona de riesgo**](#zona-de-riesgo)         | Eliminar la organización, eliminar tu cuenta                                      | Todos (eliminar la organización: solo el propietario) |
 
 Quien está solo en un proyecto, y no en la organización, ve únicamente
 **Proyectos**, **Tus datos** y **Zona de riesgo**.
@@ -47,7 +47,7 @@ proyectos de la organización.
   Telegram, Discord y WhatsApp ofrecen botones **Sí / No**; en los demás la
   respuesta se escribe.
 - **En los clientes MCP** (Claude, Cursor, ChatGPT), la primera llamada vuelve
-  como *todavía no ejecutada* con un token de un solo uso. El asistente pregunta
+  como _todavía no ejecutada_ con un token de un solo uso. El asistente pregunta
   en su propio chat y, si le dicen que sí, vuelve a llamar con el token. Solo
   sirve para esos mismos argumentos, una vez, dentro de 10 minutos.
 
@@ -87,44 +87,98 @@ propia persona en el panel. Mira
 
 ## Facturación y plan
 
-**Plan y facturación** muestra tu plan actual (**Plan Free**, **Plan Pro** o
-**Plan Enterprise**), su fecha de renovación y tu consumo frente a cada cupo.
+**Plan y facturación** muestra el plan de tu organización, su fecha de
+renovación y tu consumo frente a cada cupo. Una organización está en uno de estos
+estados:
 
-- En **Free** ves lo que suma Pro y **Pasar a Pro**, que abre el pago.
-- En un plan de pago, **Gestionar la facturación** abre el portal de facturación
-  (método de pago, facturas y cancelación). Si el plan va a terminar, dice **Tu
-  plan termina el …**.
+- **Prueba de Pro**: toda organización nueva puede empezar una
+  [prueba gratis de Pro de 7 días](#la-prueba-gratis-de-7-días). La página
+  muestra los días que quedan, la fecha en que termina la prueba y **Empezar Pro
+  ahora**.
+- **Plan Pro** o **Plan Enterprise**: **Gestionar la facturación** abre el
+  portal de facturación (de Polar, nuestro proveedor de pagos): método de pago,
+  facturas, cancelación y tu próximo cobro con el consumo hasta hoy. Si el plan
+  va a terminar, dice **Tu plan termina el …**.
+- **Sin plan**: la organización nunca empezó su prueba, o la prueba o el plan
+  terminaron. La página explica qué está apagado y ofrece **Empezar prueba
+  gratis de 7 días**, o **Empezar Pro** si ya usaste tu prueba. Mira
+  [Sin plan](#sin-plan).
+
+Un plan **Enterprise** pagado por transferencia dice que **se factura según tu
+acuerdo** con Ganju, con el consumo de este periodo abajo.
 
 ![Plan y facturación en Pro: el uso del mes, los créditos del asistente, los créditos extra al mes y el aviso por correo de acciones rotas](/images/settings-billing-pro.webp)
 
+### La prueba gratis de 7 días
+
+Justo después de crear una organización, Ganju te ofrece **Empieza tu prueba
+gratis de 7 días**:
+
+- **Empezar prueba gratis** abre el pago. Agregas una tarjeta, pero no se cobra
+  nada durante la prueba. Cuando termina, Pro empieza solo a 29 USD al mes más
+  el consumo, a menos que canceles antes. Polar te envía un recordatorio por
+  correo 3 días antes de que termine la prueba.
+- **Ahora no** deja la organización [sin plan](#sin-plan). Puedes empezar la
+  prueba después desde **Plan y facturación**.
+
+Hay una prueba por persona: es del propietario de la organización. Otra
+organización que crees después empieza pagada.
+
+Durante la prueba tienes todo lo de Pro, con estos topes:
+
+- **300 respuestas del bot con el modelo de IA de Ganju**. Las respuestas con tu
+  [propio modelo](#modelos-trae-el-tuyo) no cuentan para este tope.
+- **300 créditos del Asistente**, sin créditos extra.
+- No se cobra consumo adicional.
+
+Un aviso arriba de cada página muestra cuántos días de prueba quedan. Para quitar
+los topes antes, selecciona **Empezar Pro ahora** en **Plan y facturación**: la
+prueba termina, se cobra el primer mes a tu tarjeta y los topes desaparecen.
+
+### Sin plan
+
+Una organización sin plan conserva todo lo que construyó, y puedes seguir
+editándola dentro de estos límites: **1 proyecto**, **7 herramientas**, **3
+prompts** y **1 canal**, sin archivos nuevos. Pero nada funciona:
+
+- Los bots no responden. El propietario y los administradores reciben un correo
+  al respecto, como mucho una vez al día.
+- El servidor MCP de la organización rechaza las solicitudes.
+- El [Asistente](/es/docs/assistant/), [Datos](/es/docs/data/), las
+  [funciones](/es/docs/tools/functions/), la sincronización automática de
+  recursos y las subidas que necesitan indexarse están apagados.
+
+Empieza la prueba, o Pro, desde **Plan y facturación** para volver a encender
+todo.
+
 ### Qué significa cada fila
 
-| Fila | Cuenta | Planes |
-| --- | --- | --- |
-| **Respuestas del asistente este mes** | Las respuestas de tu bot en todos los canales. Los mensajes que entran son gratis. | Todos |
-| **De esas, con nuestro modelo de IA** | Las respuestas que usaron el modelo compartido de Ganju en vez de uno tuyo. | Pro, Enterprise |
-| **Contenido indexado (RAG)** | El texto consultable de tus recursos. | Todos |
-| **Llamadas a tus funciones** | Llamadas a [funciones](/es/docs/tools/functions/), es decir, tu propio código. Las integraciones del catálogo y los servidores MCP remotos no cuentan. | Pro, Enterprise |
-| **Créditos del asistente** | Lo que usaron el [Asistente](/es/docs/assistant/) y su chat de prueba. | Pro, Enterprise |
-| **Almacenamiento de archivos** | Los archivos subidos. | Todos |
-| **Proyectos** | Los proyectos de la organización. | Todos |
+| Fila                                  | Cuenta                                                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Respuestas del asistente este mes** | Las respuestas de tu bot en todos los canales. Los mensajes que entran son gratis.                                                                     |
+| **De esas, con nuestro modelo de IA** | Las respuestas que usaron el modelo compartido de Ganju en vez de uno tuyo.                                                                            |
+| **Contenido indexado (RAG)**          | El texto consultable de tus recursos.                                                                                                                  |
+| **Llamadas a tus funciones**          | Llamadas a [funciones](/es/docs/tools/functions/), es decir, tu propio código. Las integraciones del catálogo y los servidores MCP remotos no cuentan. |
+| **Créditos del asistente**            | Lo que usaron el [Asistente](/es/docs/assistant/) y su chat de prueba.                                                                                 |
+| **Almacenamiento de archivos**        | Los archivos subidos.                                                                                                                                  |
+| **Proyectos**                         | Los proyectos de la organización.                                                                                                                      |
 
 Pasado un cupo incluido, la fila muestra cuánto te pasaste y la tarifa a la que
 se cobra. Cuando la organización tuvo notas de voz en el periodo, una línea bajo
 las filas muestra cuántas (transcribirlas va incluido; solo cuenta la
-respuesta). En Pro y Enterprise, un bloque **Datos** muestra el almacenamiento
-de bases de datos del periodo, las filas escritas y leídas, las solicitudes y las
-ejecuciones de disparadores. Se miden, pero todavía no se cobran: Datos va
-incluido en tu plan.
+respuesta). Un bloque **Datos** muestra el almacenamiento de bases de datos del
+periodo, las filas escritas y leídas, las solicitudes y las ejecuciones de
+disparadores. Se miden, pero todavía no se cobran: Datos va incluido en tu plan.
 
 ### Créditos del Asistente
 
-El Asistente se cobra en **créditos**: Pro y Enterprise incluyen 1.000 al mes.
-Debajo de la fila de créditos:
+El Asistente se cobra en **créditos**: Pro y Enterprise incluyen 1.000 al mes
+(300 durante la prueba). Debajo de la fila de créditos:
 
 - **Créditos extra al mes**: cuántos créditos más allá de los incluidos puede
   usar la organización, a 2 USD por cada 100. **2.000** por defecto; **0** se
-  detiene en los incluidos. Selecciona **Guardar**.
+  detiene en los incluidos. Selecciona **Guardar**. Los créditos extra empiezan
+  con Pro, no durante la prueba.
 - **Avisar por correo al dueño y a los administradores cuando una acción de un
   proyecto deja de funcionar**: un interruptor para el aviso que se envía
   cuando una acción que armó el Asistente sigue fallando.
@@ -136,33 +190,33 @@ prueba como cliente.
 
 ### Compara los planes
 
-|                              | **Free**                                  | **Pro**                                 | **Enterprise** |
-| ---------------------------- | ----------------------------------------- | --------------------------------------- | -------------- |
-| Precio                       | 0 USD                                     | **29 USD / mes**                        | A medida       |
-| Respuestas del asistente incluidas | **100 / mes**                       | **3.000 / mes** (hasta 1.000 con el modelo de Ganju) | Condiciones a medida |
-| Pasadas las respuestas incluidas | El asistente se pausa; mejora el plan para seguir | Sigue funcionando y se cobra como consumo adicional | Condiciones a medida |
-| Contenido indexado (RAG)     | 5 MB                                      | 1 GB, luego 2 USD / GB                  | Condiciones a medida |
-| Almacenamiento de archivos   | 30 MB                                     | Ilimitado                               | Ilimitado      |
-| Proyectos                    | 1                                         | Ilimitados                              | Ilimitados     |
-| Prompts por proyecto         | 3                                         | Ilimitados                              | Ilimitados     |
-| Herramientas activadas por proyecto | 7                                  | Ilimitadas                              | Ilimitadas     |
-| Endpoints HTTP por proyecto  | 3                                         | Ilimitados                              | Ilimitados     |
-| Canales por proyecto         | 1                                         | Ilimitados                              | Ilimitados     |
-| Sincronización automática de recursos | A mano                           | Cada día o cada semana                  | Cada día o cada semana |
-| [Asistente](/es/docs/assistant/) | No incluido                           | ✓ 1.000 créditos / mes incluidos        | ✓              |
-| [Datos](/es/docs/data/)      | No incluido                               | ✓ hasta 50 tablas, 9 GB por base de datos | ✓            |
-| [Funciones](/es/docs/tools/functions/) | No incluido                     | ✓ 1.000.000 de llamadas / mes incluidas | ✓              |
-| Invitar miembros del equipo  | No incluido                               | ✓                                       | ✓              |
-| Traer tu propio modelo       | No incluido                               | ✓                                       | ✓              |
+|                                        | **Pro**                                              | **Enterprise**         |
+| -------------------------------------- | ---------------------------------------------------- | ---------------------- |
+| Precio                                 | **29 USD / mes** más el consumo                      | A medida               |
+| Respuestas del asistente incluidas     | **3.000 / mes** (hasta 1.000 con el modelo de Ganju) | Condiciones a medida   |
+| Pasadas las respuestas incluidas       | Sigue funcionando y se cobra como consumo adicional  | Condiciones a medida   |
+| Contenido indexado (RAG)               | 1 GB, luego 2 USD / GB                               | Condiciones a medida   |
+| Almacenamiento de archivos             | Ilimitado                                            | Ilimitado              |
+| Proyectos                              | Ilimitados                                           | Ilimitados             |
+| Prompts por proyecto                   | Ilimitados                                           | Ilimitados             |
+| Herramientas activadas por proyecto    | 40                                                   | 40                     |
+| Endpoints HTTP por proyecto            | Ilimitados                                           | Ilimitados             |
+| Canales por proyecto                   | Ilimitados                                           | Ilimitados             |
+| Sincronización automática de recursos  | Cada día o cada semana                               | Cada día o cada semana |
+| [Asistente](/es/docs/assistant/)       | ✓ 1.000 créditos / mes incluidos                     | ✓                      |
+| [Datos](/es/docs/data/)                | ✓ hasta 50 tablas, 9 GB por base de datos            | ✓                      |
+| [Funciones](/es/docs/tools/functions/) | ✓ 1.000.000 de llamadas / mes incluidas              | ✓                      |
+| Invitar miembros del equipo            | ✓                                                    | ✓                      |
+| Traer tu propio modelo                 | ✓                                                    | ✓                      |
+
+La [prueba de 7 días](#la-prueba-gratis-de-7-días) es Pro con 300 respuestas con
+el modelo de Ganju y 300 créditos del Asistente.
 
 **Enterprise** es un plan a medida para organizaciones más grandes: todo lo de
 Pro sin límites de proyectos, herramientas, prompts ni canales, una dirección web
 y herramientas a medida, y un contacto con nombre para el soporte. El precio, los
 cupos y las condiciones del contrato se acuerdan directamente.
 [Habla con ventas](/es/contacto/).
-
-Puedes ser propietario de **una sola organización Free**. Para crear más, al
-menos una organización tuya tiene que estar en un plan de pago.
 
 ### Cómo funciona de verdad la cuota de mensajes
 
@@ -174,9 +228,6 @@ Cada plan incluye un cupo de respuestas que corren con el **modelo compartido de
 Ganju**. Como Ganju paga esa inferencia, el modelo compartido es un _cupo_, no
 algo ilimitado:
 
-- **Free**: 100 respuestas al mes con el modelo compartido. Cuando llegas al
-  tope, el asistente se pausa hasta el siguiente ciclo, o hasta que mejores el
-  plan. Free no puede traer su propia clave de modelo.
 - **Pro**: 3.000 respuestas al mes incluidas, de las cuales hasta **1.000
   pueden correr con el modelo compartido**. Pasadas esas 1.000, las respuestas
   compartidas siguen funcionando y se cobran a la tarifa compartida, más alta.
@@ -184,6 +235,9 @@ algo ilimitado:
   pasa a la tarifa con clave propia, mucho más barata. Es lo que hace la
   mayoría cuando ya maneja volumen real. La página de facturación te lleva
   directo (**conecta tu propio modelo**).
+- **Prueba**: hasta 300 respuestas con el modelo compartido, sin consumo
+  adicional. Las respuestas con tu propia clave de modelo no cuentan para este
+  tope.
 
 ### Consumo adicional (Pro)
 
@@ -211,13 +265,13 @@ Pro no suma nada a tu factura hasta que superas los cupos incluidos:
 
 ### Si un pago falla o cancelas
 
-Mientras una suscripción está activa, en prueba o con el pago atrasado, sus
-funciones de pago siguen funcionando. Una vez cancelada o impaga, la
-organización vuelve a los límites del plan Free. Las bases de datos de los
-proyectos se conservan, en modo de solo lectura.
+Mientras una suscripción está activa, en prueba o con el pago atrasado, todo
+sigue funcionando. Una vez cancelada o impaga, la organización queda
+[sin plan](#sin-plan): no se borra nada de lo que construiste, pero sus bots y lo
+demás dejan de funcionar hasta que vuelva a tener un plan.
 
-> ¿Quieres más gratis? Ganju es Apache-2.0, así que puedes
-> [instalarlo tú mismo](/es/docs/deploy/) y usar tus propias claves.
+> ¿Prefieres tu propio servidor? Ganju es Apache-2.0, así que puedes
+> [instalarlo tú mismo](/es/docs/deploy/) gratis y usar tus propias claves.
 
 ## Miembros
 
@@ -285,8 +339,7 @@ de sesión desde el navegador (`ganju login`).
 ## Modelos: trae el tuyo
 
 Por defecto tus canales usan el **Modelo por defecto**. En **Modelos** puedes
-traer el tuyo (Pro y Enterprise; en Free esta sección explica que es una función
-de Pro). Selecciona **Agregar modelo** y completa:
+traer el tuyo. Selecciona **Agregar modelo** y completa:
 
 - **Nombre visible**: una etiqueta para reconocerlo (por ejemplo, "Gemini de
   producción").
@@ -345,11 +398,12 @@ Acciones permanentes. Exporta antes lo que quieras conservar.
 
 - **No encuentro Facturación ni Miembros.** Estás en un proyecto, pero no en la
   organización. Pídele a un miembro de la organización que te invite.
-- **"Conectar tu propio modelo de IA es una función de Pro".** Las
-  organizaciones Free funcionan con el modelo compartido; mejora el plan para
-  agregar el tuyo.
+- **Mi bot dejó de responder y un aviso dice que no hay plan.** La prueba
+  terminó, o el plan se canceló o quedó impago. Empieza la prueba, o Pro, en
+  Plan y facturación. Mira [Sin plan](#sin-plan).
 - **El Asistente se detuvo a mitad de mes.** La organización usó sus créditos
   incluidos y sus **Créditos extra al mes**. Un miembro de la organización puede
-  subir el límite en Plan y facturación.
+  subir el límite en Plan y facturación. Durante la prueba no hay créditos
+  extra: selecciona **Empezar Pro ahora** para tenerlos.
 - **No puedo quitar un modelo.** Algún canal todavía lo usa. Cambia primero el
   **Modelo de lenguaje** de ese canal.

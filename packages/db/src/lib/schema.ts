@@ -31,6 +31,8 @@ export const user = pgTable(
     email: text('email').notNull().unique(),
     emailVerified: boolean('email_verified').default(false).notNull(),
     image: text('image'),
+    // When this person's one trial started; a later checkout starts paid.
+    trialStartedAt: timestamp('trial_started_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
       .notNull()
@@ -474,6 +476,12 @@ export const subscription = pgTable(
     currentPeriodStart: timestamp('current_period_start', { mode: 'date' }),
     currentPeriodEnd: timestamp('current_period_end', { mode: 'date' }),
     cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    trialEndsAt: timestamp('trial_ends_at', { mode: 'date' }),
+    // Last "your bot is off" email to the owner of an organization without a
+    // plan; sent at most daily.
+    noPlanNoticeAt: timestamp('no_plan_notice_at', { mode: 'date' }),
+    // When the owner was told the Free plan ends (once, before the lock date).
+    freePlanNoticeAt: timestamp('free_plan_notice_at', { mode: 'date' }),
     customDomain: boolean('custom_domain').notNull().default(false),
     messageCount: integer('message_count').notNull().default(0),
     sharedMessageCount: integer('shared_message_count').notNull().default(0),

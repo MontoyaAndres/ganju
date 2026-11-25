@@ -2,7 +2,7 @@
 title: Analítica
 description: "El panel de Inicio de cada proyecto muestra lo que hace tu asistente: la actividad en canales y clientes MCP, la salud de las herramientas con las llamadas detrás de cada número, las herramientas sin uso, los disparadores de datos y un flujo de actividad reciente."
 order: 6
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Cada proyecto abre en su panel de **Inicio**: selecciona **Inicio** arriba en la
@@ -121,8 +121,8 @@ proyecto:
   en 30 días (herramientas integradas, servidores MCP, funciones, endpoints
   HTTP). Cada herramienta activada se envía al modelo en cada turno, así que
   selecciona **Desactivar** para apagar una. Puedes volver a activarla desde
-  **Acciones**. En Free, si el proyecto está en su límite de herramientas, la
-  confirmación te avisa que tendrás que apagar otra antes de volver a activar
+  **Acciones**. En una organización sin plan, si el proyecto está en su límite de
+  7 herramientas, la confirmación te avisa que tendrás que apagar otra antes de volver a activar
   esta.
 
 ## Actividad reciente

@@ -1,6 +1,6 @@
 # Subencargados
 
-**Última actualización: 10 de septiembre de 2026**
+**Última actualización: 25 de noviembre de 2026**
 
 Un subencargado es una empresa que usamos para prestar el servicio alojado de Ganju y
 que puede tratar datos personales por cuenta nuestra. Esta página es la lista
@@ -58,7 +58,7 @@ correspondiente. Si nunca los conectas, nunca ven nada tuyo.
 
 | Subencargado | Se activa al | Datos que trata |
 | --- | --- | --- |
-| **Google LLC** (modelo compartido) | Ejecutar respuestas de canal en el modelo compartido de Ganju — la opción por defecto, y la única en el plan Gratis | Historial de conversación, prompt de sistema, definiciones y resultados de herramientas, fragmentos recuperados |
+| **Google LLC** (modelo compartido) | Ejecutar respuestas de canal en el modelo compartido de Ganju, la opción por defecto | Historial de conversación, prompt de sistema, definiciones y resultados de herramientas, fragmentos recuperados |
 | **Anthropic, PBC** | Agregar una llave de modelo de Anthropic | El mismo contenido del turno, en tu propia cuenta |
 | **OpenAI, L.L.C.** | Agregar una llave de modelo de OpenAI o compatible con OpenAI | El mismo contenido del turno, en tu propia cuenta |
 | **Tavily** | Instalar las herramientas de búsqueda o extracción web | Tus consultas de búsqueda y las URL de destino |

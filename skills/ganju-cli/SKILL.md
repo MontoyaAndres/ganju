@@ -33,7 +33,7 @@ and coding agents use this CLI.
 
 | Piece | What it is | Changed from |
 | --- | --- | --- |
-| Organization | The team, billing and plan (Free, Pro, Enterprise). Holds projects | App: Settings |
+| Organization | The team, billing and plan (Pro, after a 7-day trial, or Enterprise). Holds projects | App: Settings |
 | Project | One application: everything below belongs to one project. Has a name, a description and a slug (its MCP URL) | App: the project's Home. Changing the slug changes the MCP URL |
 | Knowledge (resources) | Files, notes and crawled websites the AI searches and cites | App: Resources page. Functions can read and write it with `ctx.resources` |
 | Bot instructions | How the bot answers on channels (tone, rules, what to ask), up to 2,000 characters | App: Channels page |

@@ -22,6 +22,7 @@ import {
   resolveMcpProxyOauthSecret,
   Plan
 } from '../../utils';
+import { sendNoPlanNotice } from '../../utils/noPlanNotice';
 
 import type {
   LlmMessage,
@@ -546,6 +547,26 @@ const runTurn = async (
   // tool-calling loop entirely. Like the shared-model block below, this reply is
   // read by a stranger chatting with the bot, not the owner — keep it neutral;
   // the upgrade prompt lives in the owner's billing dashboard.
+  if (messageCap.noPlan) {
+    c.executionCtx.waitUntil(
+      sendNoPlanNotice(c, dbInstance, projectRow.organizationId).catch(error =>
+        console.error('no-plan-notice-failed', error)
+      )
+    );
+    return {
+      assistantText: '',
+      conversationId: conversation.id,
+      userMessageId: userMessage.id,
+      assistantMessageId: '',
+      attachments: [],
+      sources: [],
+      sourcesFooter: null,
+      sourceButtons: [],
+      confirmation: null,
+      silent: true
+    };
+  }
+
   if (!messageCap.allowed) {
     return {
       assistantText:
@@ -648,8 +669,7 @@ const runTurn = async (
     .map(
       message =>
         message.metadata?.[utils.VOICE_NOTE_METADATA_KEY] as
-          | { transcribed?: unknown; tooLong?: unknown }
-          | undefined
+          { transcribed?: unknown; tooLong?: unknown } | undefined
     )
     .filter(Boolean);
   if (

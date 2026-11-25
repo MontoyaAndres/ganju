@@ -2,7 +2,7 @@
 title: Crear una organización y un proyecto
 description: Configura tu equipo y tu primer espacio de trabajo, y aprende a moverte por un proyecto.
 order: 3
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 3
 outcome: "Una organización, tu primer proyecto, y ya sabes moverte por su Inicio."
 ---
@@ -28,9 +28,20 @@ puede tener hasta 500.
 
 ![El formulario Crea tu organización, con campos para el nombre de la organización, el nombre del proyecto y su descripción](/images/new-org-project.webp)
 
-Toda organización nueva empieza en el plan **Free**, con un proyecto. Mira
-[Configuración → Compara los planes](/es/docs/settings/#compara-los-planes) para
-ver lo que suma Pro.
+Justo después de crearla, Ganju te ofrece **Empieza tu prueba gratis de 7 días**:
+
+- **Empezar prueba gratis** abre el pago con una tarjeta. No se cobra nada
+  durante la prueba. Pro (29 USD al mes más el consumo) empieza solo cuando
+  termina, a menos que canceles antes. Te llega un recordatorio por correo 3
+  días antes.
+- **Ahora no** deja la organización sin plan: puedes construir, pero el bot no
+  responde, y el Asistente, Datos y las funciones quedan apagados. Puedes
+  empezar la prueba después desde **Ajustes → Plan y facturación**.
+
+Hay una prueba por persona, e incluye todo lo de Pro, con 300 respuestas del bot
+con el modelo de IA de Ganju y 300 créditos del Asistente. Un aviso arriba de
+cada página muestra los días que quedan. Mira
+[Configuración → Facturación y plan](/es/docs/settings/#facturación-y-plan).
 
 ## El Inicio de tu proyecto
 
@@ -41,7 +52,7 @@ como Claude (mira [Clientes MCP](/es/docs/mcp/)). Debajo: la gráfica de
 **Salud de las herramientas** y la **Actividad reciente**, todo explicado en
 [Analítica](/es/docs/analytics/).
 
-En Pro y Enterprise, un proyecto recién creado también muestra **Arma tu bot con
+Cuando la organización tiene un plan, un proyecto recién creado también muestra **Arma tu bot con
 el Asistente** con un botón **Abrir el Asistente**. La tarjeta desaparece cuando
 el proyecto tiene recursos, prompts, canales o herramientas además de las
 integradas.
@@ -53,9 +64,9 @@ La barra lateral es igual en todos los proyectos:
 | Elemento | Qué haces ahí |
 | --- | --- |
 | **Inicio** | Mira la actividad y la salud; copia la URL de MCP. |
-| **Asistente** | Describe qué debe hacer el bot y deja que lo construya (Pro y Enterprise; en Free aparece bloqueado, con la opción de mejorar el plan). |
+| **Asistente** | Describe qué debe hacer el bot y deja que lo construya. |
 | **Conocimiento** | Dos pestañas: **Recursos** (archivos, sitios web, Google Drive, OneDrive) y **Prompts** (plantillas que se vuelven comandos). |
-| **Datos** | Las tablas del proyecto (Pro y Enterprise). |
+| **Datos** | Las tablas del proyecto. |
 | **Acciones** | La página **Acciones**, con tres pestañas: **Funciones**, **Endpoints HTTP** y **Catálogo**. |
 | **Canales** | Conecta Telegram, WhatsApp, Slack o Discord, y define las **Instrucciones del bot**. |
 
@@ -68,15 +79,14 @@ para cambiar de proyecto o crear uno nuevo. Mira
 Todo proyecto empieza con cinco herramientas integradas ya activadas
 (**Listar recursos**, **Leer recurso**, **Enviar recurso**, **Buscar recursos** y
 **Listar prompts**) para que tu bot pueda trabajar con tu conocimiento desde el
-principio. Ese es el **5** del contador de Herramientas. No necesitan conexión, y
-cuentan para el límite de 7 herramientas por proyecto del plan Free.
+principio. Ese es el **5** del contador de Herramientas. No necesitan conexión.
 
 ![La integración Integradas con sus cinco herramientas encendidas](/images/tools-catalog-builtin.webp)
 
 ## Invita a tu equipo
 
 Los miembros pertenecen a la organización, y cada proyecto tiene además su propia
-lista de miembros. Invitar es una función de **Pro**:
+lista de miembros. Para invitar a alguien:
 
 - Desde **Organizaciones**, selecciona **Invitar** en la tarjeta de la
   organización, escribe un **Correo electrónico** y selecciona **Enviar

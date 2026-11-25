@@ -29,7 +29,20 @@ interface BillingLimits {
 
 interface BillingStatus {
   plan: string;
+  // Without a plan the org can build, but its bots, MCP and Assistant are off.
+  noPlan?: boolean;
+  // When Free stops, while the organization is still on Free.
+  freeEndsAt?: string | null;
   limits: BillingLimits;
+  trial?: {
+    // Whether a checkout would start with a trial (the owner never had one).
+    available: boolean;
+    days: number;
+    active: boolean;
+    endsAt: string | null;
+    builderCredits: number;
+    sharedMessages: number;
+  };
   usage: {
     projectCount: number;
     rawBytes: number;
@@ -306,6 +319,8 @@ export const BillingManager = (props: BillingManagerProps) => {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [confirmStartPro, setConfirmStartPro] = useState(false);
+  const c = i18n.useT(i18n.copy.COMMON);
 
   const base = `/organization/${organizationId}/billing`;
 
@@ -338,7 +353,9 @@ export const BillingManager = (props: BillingManagerProps) => {
   // Surface the Checkout redirect result once, then strip the query param.
   useEffect(() => {
     const result = router.query.billing;
-    if (result === 'success') {
+    if (result === 'trial') {
+      snackbar.success(t('toastTrialStarted'));
+    } else if (result === 'success') {
       snackbar.success(t('toastCheckoutSuccess'));
     } else if (result === 'cancelled') {
       snackbar.error(t('toastCheckoutCancelled'));
@@ -371,6 +388,30 @@ export const BillingManager = (props: BillingManagerProps) => {
     }
   };
 
+  // Ends the trial now: the first month is charged and the trial's caps lift.
+  // The webhook moves the row, so the page refreshes after a moment.
+  const startProNow = async () => {
+    if (acting) return;
+    setActing(true);
+    try {
+      const data = await utils.fetcher({
+        url: `${base}/end-trial`,
+        config: { method: 'POST', credentials: 'include' }
+      });
+      if (utils.isApiError(data)) {
+        snackbar.error(utils.getApiErrorMessage(data, t('toastBillingFailed')));
+        return;
+      }
+      snackbar.success(t('toastProStarting'));
+      setConfirmStartPro(false);
+      setTimeout(() => fetchStatus(), 5000);
+    } catch {
+      snackbar.error(t('toastBillingFailed'));
+    } finally {
+      setActing(false);
+    }
+  };
+
   if (loading && !status) {
     return <UI.Skeleton variant="rounded" width="100%" height={220} />;
   }
@@ -380,11 +421,77 @@ export const BillingManager = (props: BillingManagerProps) => {
   }
 
   const isFree = status.plan === utils.constants.PLAN_FREE;
+  const noPlan = !!status.noPlan;
+  const trial = status.trial;
+  const trialing = !!trial?.active;
+  const trialAvailable = !!trial?.available;
+  const isEnterprise = status.plan === utils.constants.PLAN_ENTERPRISE;
+  const hasBillingAccount = !!status.subscription?.hasBillingAccount;
   const planLabel = isFree
     ? 'Free'
     : status.plan === utils.constants.PLAN_PRO
       ? 'Pro'
       : 'Enterprise';
+  const price = status.pricing.proBaseUsd;
+  const daysLeft = trial?.endsAt
+    ? Math.max(
+        0,
+        Math.ceil((new Date(trial.endsAt).getTime() - Date.now()) / 86_400_000)
+      )
+    : null;
+
+  const description = (() => {
+    if (noPlan) {
+      return trialAvailable
+        ? `${t('noPlanPitch')} ${t('trialPitch', { days: trial?.days ?? 7, price })}`
+        : `${t('noPlanPitch')} ${t('trialUsedPitch', { price })}`;
+    }
+    if (isFree && status.freeEndsAt) {
+      const ends = t('freeEnds', { date: t.date(status.freeEndsAt) });
+      return trialAvailable
+        ? `${ends} ${t('trialPitch', { days: trial?.days ?? 7, price })}`
+        : `${ends} ${t('trialUsedPitch', { price })}`;
+    }
+    if (isFree) {
+      return trialAvailable
+        ? t('trialPitch', { days: trial?.days ?? 7, price })
+        : t('upgradePitch', {
+            messages: t.n(status.pricing.includedMessages),
+            price
+          });
+    }
+    if (trialing) {
+      const date = trial?.endsAt ? t.date(trial.endsAt) : t('planEndsFallback');
+      if (status.subscription?.cancelAtPeriodEnd) {
+        return t('trialCanceled', { date });
+      }
+      return t('trialEnds', {
+        date,
+        left:
+          daysLeft === 1
+            ? t('dayLeft')
+            : t('daysLeft', { n: t.n(daysLeft ?? 0) }),
+        price,
+        replies: t.n(trial?.sharedMessages ?? 0),
+        credits: t.n(trial?.builderCredits ?? 0)
+      });
+    }
+    if (isEnterprise) {
+      return hasBillingAccount ? t('enterpriseCard') : t('enterpriseAgreement');
+    }
+    const period = status.subscription?.cancelAtPeriodEnd
+      ? t('planEnds', {
+          date: status.subscription.currentPeriodEnd
+            ? t.date(status.subscription.currentPeriodEnd)
+            : t('planEndsFallback')
+        })
+      : status.subscription?.currentPeriodEnd
+        ? t('planRenews', {
+            date: t.date(status.subscription.currentPeriodEnd)
+          })
+        : t('planActive');
+    return hasBillingAccount ? `${period} ${t('portalHint')}` : period;
+  })();
 
   // Replies on our AI model bill at several times the own-key rate, so they get
   // their own metered row rather than hiding inside the total. Without it the
@@ -435,45 +542,46 @@ export const BillingManager = (props: BillingManagerProps) => {
       <div className="settings-section-header">
         <div className="settings-section-text">
           <h2 className="settings-section-title">
-            {t('planHeading', { plan: planLabel })}
+            {noPlan
+              ? t('noPlanHeading')
+              : t('planHeading', { plan: planLabel })}
             {status.subscription && !isFree && (
               <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>
                 {' '}
-                · {status.subscription.status}
+                · {trialing ? t('statusTrial') : status.subscription.status}
               </span>
             )}
           </h2>
-          <p className="settings-section-description">
-            {isFree
-              ? t('upgradePitch', {
-                  messages: t.n(status.pricing.includedMessages),
-                  price: status.pricing.proBaseUsd
-                })
-              : status.subscription?.cancelAtPeriodEnd
-                ? t('planEnds', {
-                    date: status.subscription.currentPeriodEnd
-                      ? t.date(status.subscription.currentPeriodEnd)
-                      : t('planEndsFallback')
-                  })
-                : status.subscription?.currentPeriodEnd
-                  ? t('planRenews', {
-                      date: t.date(status.subscription.currentPeriodEnd)
-                    })
-                  : t('planActive')}
-          </p>
+          <p className="settings-section-description">{description}</p>
         </div>
-        <UI.Button
-          variant="contained"
-          size="small"
-          disabled={acting}
-          onClick={() => goToBilling(isFree ? 'checkout' : 'portal')}
-        >
-          {acting
-            ? t('opening')
-            : isFree
-              ? t('upgradeAction')
-              : t('manageBilling')}
-        </UI.Button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {trialing && !status.subscription?.cancelAtPeriodEnd && (
+            <UI.Button
+              variant="contained"
+              size="small"
+              disabled={acting}
+              onClick={() => setConfirmStartPro(true)}
+            >
+              {t('startProNow')}
+            </UI.Button>
+          )}
+          {(isFree || hasBillingAccount) && (
+            <UI.Button
+              variant={trialing ? 'outlined' : 'contained'}
+              size="small"
+              disabled={acting}
+              onClick={() => goToBilling(isFree ? 'checkout' : 'portal')}
+            >
+              {acting
+                ? t('opening')
+                : !isFree
+                  ? t('manageBilling')
+                  : trialAvailable
+                    ? t('startTrialAction', { days: trial?.days ?? 7 })
+                    : t('upgradeAction')}
+            </UI.Button>
+          )}
+        </div>
       </div>
 
       <div style={{ marginTop: 8 }}>
@@ -561,15 +669,21 @@ export const BillingManager = (props: BillingManagerProps) => {
               hint={
                 status.usage.builder.llmId
                   ? t('builderOwnKeyHint')
-                  : t('builderHint', { cap: t.n(status.usage.builder.cap) })
+                  : trialing
+                    ? t('builderTrialHint', {
+                        credits: t.n(status.usage.builder.included)
+                      })
+                    : t('builderHint', { cap: t.n(status.usage.builder.cap) })
               }
             />
-            <BuilderCapField
-              organizationId={organizationId}
-              cap={status.usage.builder.cap}
-              per100Usd={status.pricing.builderPer100CreditsUsd}
-              onSaved={() => fetchStatus()}
-            />
+            {!trialing && (
+              <BuilderCapField
+                organizationId={organizationId}
+                cap={status.usage.builder.cap}
+                per100Usd={status.pricing.builderPer100CreditsUsd}
+                onSaved={() => fetchStatus()}
+              />
+            )}
             <BuilderAlertsField
               organizationId={organizationId}
               alerts={status.usage.builder.alerts}
@@ -665,6 +779,18 @@ export const BillingManager = (props: BillingManagerProps) => {
             </div>
           )}
       </div>
+
+      <UI.Alert
+        open={confirmStartPro}
+        title={t('confirmStartProTitle')}
+        description={t('confirmStartProText', { price })}
+        confirmText={t('confirmStartProAction')}
+        cancelText={c('cancel')}
+        loadingText={t('opening')}
+        loading={acting}
+        onConfirm={startProNow}
+        onCancel={() => setConfirmStartPro(false)}
+      />
     </>
   );
 };

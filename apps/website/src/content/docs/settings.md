@@ -2,7 +2,7 @@
 title: Settings
 description: "Your organization's control room: rename it, manage billing and usage, invite members, create access tokens, bring your own language models, and handle destructive actions."
 order: 6
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Settings** is your organization's control room. Open it from your avatar menu
@@ -10,15 +10,15 @@ at the bottom of the rail (**Settings**), or with **Settings** on an
 organization's card on the **Organizations** page. A left sub-nav jumps between
 each area:
 
-| Section | What's there | Who sees it |
-| --- | --- | --- |
-| [**Organization**](#organization) | Name, counts, **Confirm sensitive actions** | Organization members |
-| [**Billing & plan**](#billing--plan) | Plan, usage, upgrade or manage billing, Assistant credit limit | Organization members |
-| [**Members**](#members) | Who's in the organization, invitations | Organization members |
-| [**Projects**](#projects) | Each project's members and access tokens | Everyone |
-| [**Models**](#models-bring-your-own) | Your own language models | Organization members |
-| [**Your data**](#your-data) | Export your personal data, Terms and Privacy | Everyone |
-| [**Danger zone**](#danger-zone) | Remove the organization, delete your account | Everyone (removing the organization: Owner only) |
+| Section                              | What's there                                               | Who sees it                                      |
+| ------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------ |
+| [**Organization**](#organization)    | Name, counts, **Confirm sensitive actions**                | Organization members                             |
+| [**Billing & plan**](#billing--plan) | Plan, trial, usage, manage billing, Assistant credit limit | Organization members                             |
+| [**Members**](#members)              | Who's in the organization, invitations                     | Organization members                             |
+| [**Projects**](#projects)            | Each project's members and access tokens                   | Everyone                                         |
+| [**Models**](#models-bring-your-own) | Your own language models                                   | Organization members                             |
+| [**Your data**](#your-data)          | Export your personal data, Terms and Privacy               | Everyone                                         |
+| [**Danger zone**](#danger-zone)      | Remove the organization, delete your account               | Everyone (removing the organization: Owner only) |
 
 Someone who's only in a project, not in the organization, sees just
 **Projects**, **Your data**, and **Danger zone**.
@@ -44,8 +44,8 @@ it only on a yes. It applies to every project in the organization.
   stored calls; anything else, including "yes, but change the time", drops
   them. Telegram private chats, Discord and WhatsApp offer **Yes / No** buttons;
   elsewhere the answer is typed.
-- **In MCP clients** (Claude, Cursor, ChatGPT), the first call comes back *not
-  run yet* with a one-time token. The assistant asks in its own chat and, on a
+- **In MCP clients** (Claude, Cursor, ChatGPT), the first call comes back _not
+  run yet_ with a one-time token. The assistant asks in its own chat and, on a
   yes, calls again with the token. It only works for those exact arguments,
   once, within 10 minutes.
 
@@ -83,43 +83,95 @@ dashboard. See [MCP clients → Approving actions](/docs/mcp/#approving-actions)
 
 ## Billing & plan
 
-**Billing & plan** shows your current plan (**Free plan**, **Pro plan**, or
-**Enterprise plan**), its renewal date, and your usage against each allowance.
+**Billing & plan** shows your organization's plan, its renewal date, and your
+usage against each allowance. An organization is in one of these states:
 
-- On **Free** you see what Pro adds and **Upgrade to Pro**, which opens checkout.
-- On a paid plan, **Manage billing** opens the billing portal: payment method,
-  invoices, and cancelling. If the plan is set to end, it says **Your plan ends
-  on …**.
+- **Pro trial**: every new organization can start a
+  [7-day free trial of Pro](#the-7-day-free-trial). The page shows the days
+  left, the date the trial ends, and **Start Pro now**.
+- **Pro plan** or **Enterprise plan**: **Manage billing** opens the billing
+  portal (run by Polar, our payment provider): payment method, invoices,
+  cancelling, and your next charge with the usage so far. If the plan is set to
+  end, it says **Your plan ends on …**.
+- **No plan**: the organization never started its trial, or the trial or plan
+  ended. The page explains what's off and offers **Start 7-day free trial**, or
+  **Start Pro** if you already used your trial. See
+  [Without a plan](#without-a-plan).
+
+An **Enterprise** plan paid by bank transfer says it's **billed by your
+agreement** with Ganju, with this period's usage below.
 
 ![Billing & plan on Pro: the usage rows, Assistant credits, Extra credits a month and the broken-action email switch](/images/settings-billing-pro.webp)
 
+### The 7-day free trial
+
+Right after you create an organization, Ganju offers **Start your 7-day free
+trial**:
+
+- **Start free trial** opens checkout. You add a card, but nothing is charged
+  during the trial. When it ends, Pro starts automatically at $29 a month plus
+  usage, unless you cancel before. Polar emails you a reminder 3 days before the
+  trial ends.
+- **Not now** leaves the organization [without a plan](#without-a-plan). You
+  can start the trial later from **Billing & plan**.
+
+The trial is one per person: it belongs to the organization's owner. Another
+organization you create later starts paid.
+
+During the trial you get everything in Pro, with these caps:
+
+- **300 bot replies on Ganju's AI model**. Replies on your
+  [own model](#models-bring-your-own) aren't capped by this.
+- **300 Assistant credits**, with no extra credits.
+- No overage is billed.
+
+A banner above every page shows how many trial days are left. To lift the caps
+early, select **Start Pro now** on **Billing & plan**: the trial ends, the first
+month is charged to your card, and the caps are gone.
+
+### Without a plan
+
+An organization without a plan keeps everything it built, and you can still edit
+it within these limits: **1 project**, **7 tools**, **3 prompts** and **1 channel**,
+with no new files. But nothing runs:
+
+- Bots don't answer. The owner and admins get an email about it, at most once a
+  day.
+- The organization's MCP server refuses requests.
+- The [Assistant](/docs/assistant/), [Data](/docs/data/),
+  [functions](/docs/tools/functions/), automatic resource sync, and uploads that
+  need indexing are off.
+
+Start the trial, or Pro, from **Billing & plan** to turn everything back on.
+
 ### What the usage rows mean
 
-| Row | Counts | Plans |
-| --- | --- | --- |
-| **Assistant replies this month** | Your bot's replies on every channel. Incoming messages are free. | All |
-| **Of those, on our AI model** | Replies that ran on Ganju's shared model rather than one of your own. | Pro, Enterprise |
-| **Embedded content (RAG)** | The searchable text of your resources. | All |
-| **Custom tool calls** | Calls to [functions](/docs/tools/functions/), your own code. Catalog integrations and remote MCP servers don't count. | Pro, Enterprise |
-| **Assistant credits** | What the [Assistant](/docs/assistant/) and its test chat used. | Pro, Enterprise |
-| **File storage** | Uploaded files. | All |
-| **Projects** | Projects in the organization. | All |
+| Row                              | Counts                                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Assistant replies this month** | Your bot's replies on every channel. Incoming messages are free.                                                      |
+| **Of those, on our AI model**    | Replies that ran on Ganju's shared model rather than one of your own.                                                 |
+| **Embedded content (RAG)**       | The searchable text of your resources.                                                                                |
+| **Custom tool calls**            | Calls to [functions](/docs/tools/functions/), your own code. Catalog integrations and remote MCP servers don't count. |
+| **Assistant credits**            | What the [Assistant](/docs/assistant/) and its test chat used.                                                        |
+| **File storage**                 | Uploaded files.                                                                                                       |
+| **Projects**                     | Projects in the organization.                                                                                         |
 
 Past an included amount, a row shows how much you're over and the rate it bills
 at. When the organization has had voice notes this period, a line under the rows
-shows how many (transcribing them is included; only the reply counts). On Pro
-and Enterprise a **Data** block shows the period's database storage, rows
-written and read, requests, and trigger runs, tracked but not billed yet: Data is
-included in your plan.
+shows how many (transcribing them is included; only the reply counts). A
+**Data** block shows the period's database storage, rows written and read,
+requests, and trigger runs, tracked but not billed yet: Data is included in your
+plan.
 
 ### Assistant credits
 
 The Assistant bills in **credits**: 1,000 a month are included on Pro and
-Enterprise. Below the credits row:
+Enterprise (300 during the trial). Below the credits row:
 
 - **Extra credits a month**: how many credits past the included ones the
   organization may use, at $2 per 100. **2,000** by default; **0** stops at the
-  included credits. Select **Save**.
+  included credits. Select **Save**. Extra credits start with Pro, not during
+  the trial.
 - **Email the owner and admins when a project's action stops working**: a
   switch for the alert sent when an action the Assistant built keeps failing.
 
@@ -130,32 +182,32 @@ chat does.
 
 ### Compare plans
 
-|                              | **Free**                               | **Pro**                              | **Enterprise** |
-| ---------------------------- | -------------------------------------- | ------------------------------------ | -------------- |
-| Price                        | $0                                     | **$29 / mo**                         | Custom         |
-| Assistant replies included   | **100 / mo**                           | **3,000 / mo** (up to 1,000 on Ganju's model) | Custom terms |
-| Past the included replies    | Assistant pauses; upgrade to continue  | Keeps going, billed as overage       | Custom terms   |
-| Embedded content (RAG)       | 5 MB                                   | 1 GB, then $2 / GB                   | Custom terms   |
-| File storage                 | 30 MB                                  | Unlimited                            | Unlimited      |
-| Projects                     | 1                                      | Unlimited                            | Unlimited      |
-| Prompts per project          | 3                                      | Unlimited                            | Unlimited      |
-| Tools turned on per project  | 7                                      | Unlimited                            | Unlimited      |
-| HTTP endpoints per project   | 3                                      | Unlimited                            | Unlimited      |
-| Channels per project         | 1                                      | Unlimited                            | Unlimited      |
-| Automatic resource sync      | None (sync by hand)                    | Daily or weekly                      | Daily or weekly |
-| [Assistant](/docs/assistant/) |                                       | ✓ 1,000 credits / mo included        | ✓              |
-| [Data](/docs/data/)          |                                        | ✓ up to 50 tables, 9 GB per database | ✓              |
-| [Functions](/docs/tools/functions/) |                                 | ✓ 1,000,000 calls / mo included      | ✓              |
-| Invite team members          |                                        | ✓                                    | ✓              |
-| Bring your own model         |                                        | ✓                                    | ✓              |
+|                                     | **Pro**                                       | **Enterprise**  |
+| ----------------------------------- | --------------------------------------------- | --------------- |
+| Price                               | **$29 / mo** plus usage                       | Custom          |
+| Assistant replies included          | **3,000 / mo** (up to 1,000 on Ganju's model) | Custom terms    |
+| Past the included replies           | Keeps going, billed as overage                | Custom terms    |
+| Embedded content (RAG)              | 1 GB, then $2 / GB                            | Custom terms    |
+| File storage                        | Unlimited                                     | Unlimited       |
+| Projects                            | Unlimited                                     | Unlimited       |
+| Prompts per project                 | Unlimited                                     | Unlimited       |
+| Tools turned on per project         | 40                                            | 40              |
+| HTTP endpoints per project          | Unlimited                                     | Unlimited       |
+| Channels per project                | Unlimited                                     | Unlimited       |
+| Automatic resource sync             | Daily or weekly                               | Daily or weekly |
+| [Assistant](/docs/assistant/)       | ✓ 1,000 credits / mo included                 | ✓               |
+| [Data](/docs/data/)                 | ✓ up to 50 tables, 9 GB per database          | ✓               |
+| [Functions](/docs/tools/functions/) | ✓ 1,000,000 calls / mo included               | ✓               |
+| Invite team members                 | ✓                                             | ✓               |
+| Bring your own model                | ✓                                             | ✓               |
+
+The [7-day trial](#the-7-day-free-trial) is Pro with 300 replies on Ganju's model
+and 300 Assistant credits.
 
 **Enterprise** is a custom plan for larger organizations: everything in Pro with
 no limits on projects, tools, prompts or channels, a custom web address and
 tools, and a named contact for support. Pricing, allowances and contract terms
 are arranged directly, so [contact sales](/contact/).
-
-You can own **one Free organization**. To create more, at least one organization
-you own must be on a paid plan.
 
 ### How the message allowance really works
 
@@ -166,15 +218,14 @@ Every plan includes an allowance of replies that run on **Ganju's shared model**
 Because Ganju pays for that inference, the shared model is an _allowance_, not
 unlimited:
 
-- **Free**: 100 replies a month on the shared model. When you hit the cap the
-  assistant pauses until the next cycle, or you upgrade. Free can't bring its
-  own model key.
 - **Pro**: 3,000 replies a month included, of which up to **1,000 may run on
   the shared model**. Past those 1,000, shared replies keep working and bill at
   the higher shared rate below. Adding your own provider key in
   [Models](#models-bring-your-own) moves them to the much cheaper own-key rate,
   which is what most people do once they're sending real volume. The billing
   page links straight to it (**connect your own model**).
+- **Trial**: up to 300 replies on the shared model, with no overage. Replies on
+  your own model key aren't capped by this.
 
 ### Overage (Pro)
 
@@ -198,12 +249,13 @@ Pro adds nothing to your bill until you go past the included amounts:
 
 ### If a payment fails or you cancel
 
-While a subscription is active, trialing, or past due, its paid features keep
-working. Once it's canceled or unpaid, the organization falls back to the Free
-plan's limits. Project databases are kept, read-only.
+While a subscription is active, trialing, or past due, everything keeps working.
+Once it's canceled or unpaid, the organization has
+[no plan](#without-a-plan): nothing you built is deleted, but its bots and the
+rest stop running until it has a plan again.
 
-> Want more for free? Ganju is Apache-2.0, so you can
-> [self-host](/docs/deploy/) and run on your own keys.
+> Prefer to run it yourself? Ganju is Apache-2.0, so you can
+> [self-host](/docs/deploy/) for free and run on your own keys.
 
 ## Members
 
@@ -269,8 +321,7 @@ login (`ganju login`).
 ## Models: bring your own
 
 By default your channels use the **System default** model. Under **Models**
-you can bring your own (Pro and Enterprise; on Free this section explains it's a
-Pro feature). Select **Add model**, then fill in:
+you can bring your own. Select **Add model**, then fill in:
 
 - **Display name**: a label to recognize it by (e.g. "Production Gemini").
 - **Model**: pick from the catalog: Gemini 3.8 Flash, Gemini 3.1 Pro,
@@ -326,10 +377,12 @@ Permanent actions. Export anything you want to keep first.
 
 - **I can't find Billing or Members.** You're in a project but not in the
   organization. Ask an organization member to invite you.
-- **"Connecting your own AI model is a Pro feature".** Free organizations run on
-  the shared model; upgrade to add your own.
+- **My bot stopped answering and a banner says there's no plan.** The trial
+  ended, or the plan was canceled or went unpaid. Start the trial, or Pro, under
+  Billing & plan. See [Without a plan](#without-a-plan).
 - **The Assistant stopped mid-month.** The organization used its included
   credits and its **Extra credits a month**. An organization member can raise
-  the limit under Billing & plan.
+  the limit under Billing & plan. During the trial there are no extra credits:
+  select **Start Pro now** to get them.
 - **Removing a model fails.** A channel still uses it, so change that channel's
   **Language model** first.

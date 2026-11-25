@@ -1,8 +1,8 @@
 ---
 title: Getting started
-description: "Seven short pages take you from no account to a bot answering real people on Telegram, WhatsApp, Slack, or Discord. All of it works on the Free plan."
+description: "Seven short pages take you from no account to a bot answering real people on Telegram, WhatsApp, Slack, or Discord. All of it fits in Pro's 7-day free trial."
 order: 1
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 ## How the pieces fit
@@ -43,23 +43,16 @@ they're the same building blocks the Assistant uses. See
 npm install -g @ganju/cli
 ```
 
-## Free and Pro, for these steps
+## The trial, for these steps
 
-Everything in the walkthrough works on Free. Pro raises the limits and adds the
-Assistant:
+When you create your organization, Ganju offers a **7-day free trial** of Pro.
+Everything in the walkthrough works during the trial, which includes 300 bot
+replies on Ganju's AI model and 300 Assistant credits. You add a card, nothing is
+charged during the trial, and Pro ($29 a month plus usage) starts when it ends
+unless you cancel.
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Prompts per project | 3 | Unlimited |
-| Searchable content | 5 MB | 1 GB included |
-| Tools switched on at once | 7 | 40 |
-| HTTP endpoints per project | 3 | Unlimited |
-| Channels per project | 1 | Unlimited |
-| Bot replies a month | 100, then it pauses | 3,000 included, then billed |
-| Assistant, functions, and Data | No | Yes |
-| Invite teammates | No | Yes |
-
-Prices and the full comparison are in
+Without a plan your bot doesn't answer, so start the trial before you connect a
+channel. Prices and the full comparison are in
 [Settings → Compare plans](/docs/settings/#compare-plans).
 
 ## Go deeper
@@ -68,8 +61,8 @@ The pages above are the quick path. When you're ready to expand what your
 assistant can do, each building block has a fuller guide:
 
 - **[Organizations & projects](/docs/organizations-and-projects/)**: the
-  organization/project structure, the switcher, and running Free and Pro side by
-  side.
+  organization/project structure, the switcher, and keeping separate
+  organizations side by side.
 - **[Assistant](/docs/assistant/)**: build by describing, with credits on paid
   plans.
 - **[Prompts](/docs/prompts/)**: multi-turn templates, typed variables, and

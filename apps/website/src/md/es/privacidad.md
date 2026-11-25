@@ -1,6 +1,6 @@
 # Política de Privacidad y Tratamiento de Datos Personales
 
-**Última actualización: 11 de noviembre de 2026 · Vigente desde: 11 de noviembre de 2026**
+**Última actualización: 25 de noviembre de 2026 · Vigente desde: 25 de noviembre de 2026**
 
 Esta política explica qué datos recoge Ganju cuando usas el servicio alojado en
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai` y `mcp.ganju.ai`, para qué los usamos,
@@ -171,7 +171,7 @@ Usamos los datos anteriores para:
 - **Mostrarte qué pasó** — la gráfica de Actividad, los contadores de consumo y el
   historial reciente de cada proyecto se construyen con los registros descritos arriba.
 - **Facturarte correctamente** — contar respuestas del asistente y almacenamiento
-  indexado contra el cupo de tu plan, aplicar los topes del plan Gratis y reportar el
+  indexado contra el cupo de tu plan, aplicar los topes de la prueba gratuita y reportar el
   excedente a nuestro proveedor de facturación.
 - **Mantener todo seguro** — detectar abusos, depurar fallas, filtrar solicitudes
   salientes e investigar incidentes de seguridad.
@@ -192,7 +192,7 @@ nuestra infraestructura.
 Cada recurso indexable que agregas se envía a la **API de Gemini de Google**
 (`gemini-embedding-001`) usando **la llave de API de Ganju**, para convertirlo en
 vectores. Las consultas de búsqueda se procesan igual. Esto ocurre en todos los
-planes, incluido el Gratis, y hoy no hay forma de desactivarlo si usas el servicio
+planes, incluso durante una prueba gratuita, y hoy no hay forma de desactivarlo si usas el servicio
 alojado y quieres conservar la búsqueda. Si eso no es aceptable para un documento en
 particular, no lo cargues — o instala Ganju por tu cuenta.
 
@@ -207,8 +207,7 @@ responder.
 
 Qué modelo lo recibe depende de tu configuración:
 
-- **El modelo compartido de Ganju** — la opción por defecto, y la única en el plan
-  Gratis. Hoy es un modelo **Gemini de Google**, invocado con nuestra llave.
+- **El modelo compartido de Ganju**: la opción por defecto. Hoy es un modelo **Gemini de Google**, invocado con nuestra llave.
 - **Tu propio modelo** — en los planes pagos puedes agregar una llave de Anthropic,
   OpenAI, Google o cualquier endpoint compatible con OpenAI. Esas solicitudes van al
   proveedor bajo tu propia cuenta y sus términos.

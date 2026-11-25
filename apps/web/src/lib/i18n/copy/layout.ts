@@ -78,7 +78,20 @@ const en = {
   noAccessTitle: "You don't have access to this project",
   noAccessText:
     "You're a member of this organization, but not of this project. A project admin can invite you from the project's members in the organization settings.",
-  noAccessAction: 'Go to organization settings'
+  noAccessAction: 'Go to organization settings',
+
+  // The plan banner above every page of an organization.
+  /** `{left}` is planBannerDayLeft or planBannerDaysLeft. */
+  planBannerTrial: 'Pro trial: {left}.',
+  planBannerDayLeft: '1 day left',
+  planBannerDaysLeft: '{n} days left',
+  planBannerTrialAction: 'See billing',
+  planBannerNoPlan:
+    'This organization has no plan: its bots, MCP server and Assistant are off.',
+  planBannerNoPlanAction: 'Start Pro',
+  planBannerFreeEnds:
+    'The Free plan ends on {date}. After that, bots of organizations without a plan stop answering; nothing you built is deleted.',
+  planBannerFreeEndsAction: 'Start your free trial'
 };
 
 type LayoutCopy = typeof en;
@@ -146,6 +159,17 @@ export const LAYOUT: Catalog<LayoutCopy> = {
     noAccessTitle: 'No tienes acceso a este proyecto',
     noAccessText:
       'Eres miembro de esta organización, pero no de este proyecto. Un administrador del proyecto puede invitarte desde los miembros del proyecto, en los ajustes de la organización.',
-    noAccessAction: 'Ir a los ajustes de la organización'
+    noAccessAction: 'Ir a los ajustes de la organización',
+
+    planBannerTrial: 'Prueba de Pro: {left}.',
+    planBannerDayLeft: 'queda 1 día',
+    planBannerDaysLeft: 'quedan {n} días',
+    planBannerTrialAction: 'Ver facturación',
+    planBannerNoPlan:
+      'Esta organización no tiene plan: sus bots, su servidor MCP y el Asistente están apagados.',
+    planBannerNoPlanAction: 'Empezar Pro',
+    planBannerFreeEnds:
+      'El plan Free termina el {date}. Después, los bots de las organizaciones sin plan dejan de responder; nada de lo que construiste se borra.',
+    planBannerFreeEndsAction: 'Empezar tu prueba gratis'
   }
 };

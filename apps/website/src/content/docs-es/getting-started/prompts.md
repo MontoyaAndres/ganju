@@ -2,7 +2,7 @@
 title: Prompts
 description: Crea plantillas de prompts reutilizables que se vuelven comandos en tus canales de chat.
 order: 4
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 3
 outcome: "Un comando `/start` que la gente puede ejecutar en cualquier canal."
 ---
@@ -46,6 +46,5 @@ canal vinculado. Abre una tarjeta para editarlo, o para eliminarlo.
 
 ## Límites
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Prompts por proyecto | 3 | Ilimitados |
+Pro y Enterprise no tienen límite de prompts por proyecto. Una organización sin
+plan puede tener hasta 3.

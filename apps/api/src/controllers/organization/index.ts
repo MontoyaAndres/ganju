@@ -40,9 +40,8 @@ const create = async (c: Context<AppEnv>) => {
       })
       .returning();
 
-    // Every org starts on the Free plan; the row backs all later quota checks
-    // and the upgrade flow.
-    await Plan.ensureSubscription(tx, org.id);
+    // The row backs all later quota checks and the checkout.
+    await Plan.ensureSubscription(tx, org.id, { billing: !!createPolar(c) });
 
     await tx
       .insert(db.schema.organizationUser)
@@ -91,7 +90,23 @@ const create = async (c: Context<AppEnv>) => {
     return { organization: org, project };
   });
 
-  return c.json(result);
+  // Once Free is retired, the app offers checkout right after creating an
+  // organization; `available` says whether it would start with a trial.
+  const [creator] = await dbInstance
+    .select({ trialStartedAt: db.schema.user.trialStartedAt })
+    .from(db.schema.user)
+    .where(eq(db.schema.user.id, currentValues.userId))
+    .limit(1);
+  const offer = !!createPolar(c) && utils.constants.FREE_PLAN_LOCK_DATE != null;
+
+  return c.json({
+    ...result,
+    trial: {
+      offer,
+      available: !creator?.trialStartedAt,
+      days: utils.constants.TRIAL_DAYS
+    }
+  });
 };
 
 const update = async (c: Context<AppEnv>) => {
@@ -215,7 +230,13 @@ const list = async (c: Context<AppEnv>) => {
         }
       },
       subscription: {
-        columns: { plan: true, status: true }
+        columns: {
+          plan: true,
+          status: true,
+          createdAt: true,
+          trialEndsAt: true,
+          currentPeriodStart: true
+        }
       }
     }
   });
@@ -254,6 +275,12 @@ const list = async (c: Context<AppEnv>) => {
       updatedAt: organization.updatedAt,
       isMember,
       plan,
+      trialing: db.plan.isTrialing(
+        (sub ?? null) as typeof db.schema.subscription.$inferSelect | null
+      ),
+      noPlan: db.plan.hasNoPlan(
+        (sub ?? null) as typeof db.schema.subscription.$inferSelect | null
+      ),
       projects,
       members: isMember
         ? organization.organizationUsers.map(organizationUser => ({

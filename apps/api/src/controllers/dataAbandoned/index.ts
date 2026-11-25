@@ -218,13 +218,13 @@ const remove = async (c: Context<AppEnv>) => {
     const text = [
       `Hola,`,
       ``,
-      `Ganju eliminó la base de datos ${row.name}: su organización siguió en el plan Free después de los avisos. Guardamos una copia hasta el ${keepUntil}; si la necesitas, escríbenos a soporte.`,
+      `Ganju eliminó la base de datos ${row.name}: su organización siguió sin Pro después de los avisos. Guardamos una copia hasta el ${keepUntil}; si la necesitas, escríbenos a soporte.`,
       ``,
       `---`,
       ``,
       `Hello,`,
       ``,
-      `Ganju deleted the database ${row.name}: its organization stayed on the Free plan after the notices. We keep a copy until ${keepUntil}; if you need it, write to support.`
+      `Ganju deleted the database ${row.name}: its organization stayed without Pro after the notices. We keep a copy until ${keepUntil}; if you need it, write to support.`
     ].join('\n');
     let notified = 0;
     for (const address of to) {

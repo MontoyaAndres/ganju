@@ -86,9 +86,10 @@ export const SOFTWARE_APPLICATION_SCHEMA = {
   publisher: { '@id': ORG_ID },
   offers: {
     '@type': 'Offer',
-    price: '0',
+    price: '29',
     priceCurrency: 'USD',
-    description: 'Free plan available; open source under Apache-2.0.'
+    description:
+      'Pro is $29 a month plus usage and starts with a 7-day free trial. Open source under Apache-2.0 and free to self-host.'
   }
 } as const;
 
@@ -100,9 +101,10 @@ export const SOFTWARE_APPLICATION_SCHEMA_ES = {
   inLanguage: 'es',
   offers: {
     '@type': 'Offer',
-    price: '0',
+    price: '29',
     priceCurrency: 'USD',
-    description: 'Plan gratuito disponible; código abierto bajo Apache-2.0.'
+    description:
+      'Pro cuesta $29 al mes más consumo y empieza con una prueba gratis de 7 días. Código abierto bajo Apache-2.0 y gratis para instalar por tu cuenta.'
   }
 } as const;
 
@@ -122,21 +124,12 @@ export const PRICING_SCHEMA = {
   offers: [
     {
       '@type': 'Offer',
-      name: 'Free',
-      price: '0',
-      priceCurrency: 'USD',
-      url: `${SITE.url}/pricing/`,
-      description:
-        'One project with 100 bot replies a month, 7 tools, 3 prompts and 1 channel.'
-    },
-    {
-      '@type': 'Offer',
       name: 'Pro',
       price: '29',
       priceCurrency: 'USD',
       url: `${SITE.url}/pricing/`,
       description:
-        'Unlimited projects, prompts and channels. Includes 3,000 bot replies a month, 1 GB of searchable content, the Assistant and a database per project; past that, usage-based pricing.'
+        'Unlimited projects, prompts and channels. Includes 3,000 bot replies a month, 1 GB of searchable content, the Assistant and a database per project; past that, usage-based pricing. Starts with a 7-day free trial; a card is required and nothing is charged until the trial ends.'
     }
   ]
 } as const;
@@ -150,21 +143,12 @@ export const PRICING_SCHEMA_ES = {
   offers: [
     {
       '@type': 'Offer',
-      name: 'Free',
-      price: '0',
-      priceCurrency: 'USD',
-      url: `${SITE.url}/es/precios/`,
-      description:
-        'Un proyecto con 100 respuestas del bot al mes, 7 herramientas, 3 prompts y 1 canal.'
-    },
-    {
-      '@type': 'Offer',
       name: 'Pro',
       price: '29',
       priceCurrency: 'USD',
       url: `${SITE.url}/es/precios/`,
       description:
-        'Proyectos, prompts y canales ilimitados. Incluye 3.000 respuestas del bot al mes, 1 GB de contenido consultable, el Asistente y una base de datos por proyecto; después, precio por consumo.'
+        'Proyectos, prompts y canales ilimitados. Incluye 3.000 respuestas del bot al mes, 1 GB de contenido consultable, el Asistente y una base de datos por proyecto; después, precio por consumo. Empieza con una prueba gratis de 7 días; se necesita una tarjeta y no se cobra nada hasta que termine la prueba.'
     }
   ]
 } as const;

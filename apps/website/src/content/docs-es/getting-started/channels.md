@@ -2,7 +2,7 @@
 title: Canales
 description: Ofrece tu IA a clientes y equipos en las apps que ya usan (Telegram, WhatsApp, Slack y Discord) y dile cómo responder.
 order: 7
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 5
 outcome: "Un bot en vivo en Telegram (u otra app) que responde con tu conocimiento y tus acciones."
 ---
@@ -115,10 +115,10 @@ gente tu asistente.
 
 ## Límites y facturación
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Canales por proyecto | 1 | Ilimitados |
-| Respuestas del asistente al mes | 100, luego se pausa | 3.000 incluidas, luego se cobran |
+Pro tiene canales ilimitados por proyecto e incluye 3.000 respuestas del bot al
+mes; las que pasen de ahí se cobran. Durante la prueba de 7 días, las respuestas
+con el modelo de IA de Ganju tienen un tope de 300. Una organización sin plan
+conserva un canal por proyecto, y su bot no responde.
 
 Solo cuentan las **respuestas** de tu bot; los mensajes que la gente le envía
 son gratis. Mira

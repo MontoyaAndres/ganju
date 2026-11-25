@@ -2,7 +2,7 @@
 title: Catálogo
 description: "Las integraciones que traemos: conecta una cuenta una vez, enciende las herramientas que quieras y apágalas de nuevo sin perder la configuración."
 order: 39
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 El **catálogo** es todo lo que traemos y mantenemos: Gmail, Outlook, Slack,
@@ -92,15 +92,16 @@ entero.
 
 Los límites:
 
-- **Free:** 7 herramientas encendidas por proyecto. Las cinco integradas cuentan.
 - **Pro y Enterprise:** sin límite del plan, pero un proyecto puede tener como
   máximo **40** herramientas encendidas.
+- **Sin plan:** 7 herramientas encendidas por proyecto. Las cinco integradas
+  cuentan.
 - Cada herramienta que permitas de un servidor MCP remoto cuenta como una, y un
   proyecto con [base de datos](/es/docs/data/) suma sus tres herramientas de
   datos.
 
 Pasado el límite, encender una más se rechaza con un mensaje que dice cuántas
-hay encendidas; apaga alguna o mejora tu plan. Además, los canales nunca le
+hay encendidas; apaga alguna, o empieza Pro si la organización no tiene plan. Además, los canales nunca le
 envían más de 40 herramientas al modelo, y las integradas de recursos siempre
 se conservan primero, así que tu asistente nunca pierde la capacidad de leer tu
 conocimiento.
@@ -115,8 +116,8 @@ distintas:
 | **Apagar** (interruptor) | La herramienta deja de exponerse. Su configuración, su credencial y sus ajustes sobreviven, y deja de contar contra tu límite. La fila se marca **Apagada · conserva su configuración**. |
 | **Eliminar** (papelera) | La fila se borra, y la configuración se va con ella. La confirmación te recuerda apagarla si solo quieres quitarla del servidor. |
 
-Apagar una herramienta libera un espacio, así que en Free puedes rotar entre más
-herramientas de las que tu plan expone a la vez. Volver a encenderla revisa el
+Apagar una herramienta libera un espacio, así que puedes rotar entre más
+herramientas de las que el límite expone a la vez. Volver a encenderla revisa el
 límite de nuevo.
 
 **Desconectar** es una tercera cosa: revoca la credencial guardada de toda la
@@ -195,7 +196,7 @@ pueden usar las mismas conexiones.
 - **Una herramienta responde "credential not connected" o "not connected".**
   Alguien desconectó la integración. Conéctala de nuevo desde su tarjeta.
 - **Encender una herramienta se rechaza.** Llegaste a tu límite. Apaga una que
-  no necesites, o mejora tu plan.
+  no necesites, o empieza Pro si la organización no tiene plan.
 - **El bot ignora una herramienta que tiene.** Revisa que esté encendida (no
   **Apagada · conserva su configuración**) y que su descripción encaje con lo
   que se pide. Recuerda también que un canal envía como máximo 40 herramientas.

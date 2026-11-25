@@ -2,7 +2,7 @@
 title: Built-in
 description: "The five core tools every project ships with: how your assistant lists, searches, reads, and delivers your resources and prompts."
 order: 40
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Every project starts with five **built-in** tools already on. They're the core
@@ -60,8 +60,7 @@ and how to use it.
 
 ## Keep them on
 
-The built-in tools count toward your tool limit (on Free, 5 of the 7), but
-they're the last thing to cut. You can turn one off or remove it like any other
+The built-in tools count toward your tool limit, but they're the last thing to cut. You can turn one off or remove it like any other
 row, and the assistant then loses that ability: without Search Resources it
 answers blind. When a channel has more than 40 tools, these five are the ones
 always kept.

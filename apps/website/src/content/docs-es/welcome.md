@@ -2,7 +2,7 @@
 title: Bienvenido
 description: Conecta tu IA con tus archivos, herramientas y apps, y luego ofrécesela a quien quieras por los canales que ya usa.
 order: 0
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Bienvenido a la documentación de Ganju. Ganju conecta asistentes de IA como
@@ -86,9 +86,10 @@ combinas para definir exactamente qué sabe tu asistente, qué hace y dónde viv
 
 ## Los planes de un vistazo
 
-Empezar en Ganju es gratis. **Free** te da un proyecto con un cupo mensual
-pequeño de respuestas; **Pro** (29 USD/mes) levanta los límites y suma el
-Asistente, Datos, Funciones, miembros del equipo y tus propios modelos. Mira
+Ganju tiene un plan alojado, **Pro**: 29 USD al mes más el consumo, con el
+Asistente, Datos, Funciones, miembros del equipo y tus propios modelos. Toda
+organización nueva empieza con una **prueba gratis de 7 días** de Pro.
+**Enterprise** es un plan a medida para organizaciones más grandes. Mira
 [Configuración → Compara los planes](/es/docs/settings/#compara-los-planes) para
 ver cada número.
 

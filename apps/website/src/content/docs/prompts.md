@@ -2,7 +2,7 @@
 title: Prompts
 description: Build reusable, multi-turn prompt templates with typed variables. Each becomes a slash command in your linked chat channels and a prompt in any MCP client.
 order: 2
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Prompts** are reusable message templates your project exposes through its MCP
@@ -173,8 +173,9 @@ today's specials") and it proposes the prompt for you to approve.
 
 ## Plan limits
 
-The **Free** plan holds up to **3 prompts** per project. **Pro** and
-**Enterprise** have no limit. See [Settings](/docs/settings/) for plans.
+**Pro** and **Enterprise** have no limit on prompts. An organization
+[without a plan](/docs/settings/#without-a-plan) can keep up to **3 prompts** per
+project. See [Settings](/docs/settings/) for plans.
 
 ## Troubleshooting
 

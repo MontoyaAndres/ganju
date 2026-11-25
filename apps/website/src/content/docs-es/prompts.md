@@ -2,7 +2,7 @@
 title: Prompts
 description: Arma plantillas de prompts reutilizables y de varios turnos con variables tipadas. Cada una se vuelve un comando en tus canales de chat vinculados y un prompt en cualquier cliente MCP.
 order: 2
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Los **prompts** son plantillas de mensajes reutilizables que tu proyecto expone a
@@ -183,9 +183,9 @@ liste los platos del día") y te propone el prompt para que lo apruebes.
 
 ## Límites del plan
 
-El plan **Free** admite hasta **3 prompts** por proyecto. **Pro** y
-**Enterprise** no tienen límite. Mira los planes en
-[Configuración](/es/docs/settings/).
+**Pro** y **Enterprise** no tienen límite de prompts. Una organización
+[sin plan](/es/docs/settings/#sin-plan) puede tener hasta **3 prompts** por
+proyecto. Mira los planes en [Configuración](/es/docs/settings/).
 
 ## Solución de problemas
 

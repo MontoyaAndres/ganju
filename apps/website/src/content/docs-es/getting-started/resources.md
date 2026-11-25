@@ -1,10 +1,10 @@
 ---
 title: Recursos
-description: "Agrega los archivos y el conocimiento que tu IA puede consultar: desde unidades en la nube, el rastreo de un sitio web o subidas directas."
+description: 'Agrega los archivos y el conocimiento que tu IA puede consultar: desde unidades en la nube, el rastreo de un sitio web o subidas directas.'
 order: 5
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 5
-outcome: "Tus archivos, carpetas de Drive o sitio web listos para que el bot los consulte, marcados como **Listo**."
+outcome: 'Tus archivos, carpetas de Drive o sitio web listos para que el bot los consulte, marcados como **Listo**.'
 ---
 
 Los **recursos** son los documentos y el conocimiento que tu asistente puede
@@ -79,14 +79,17 @@ consultar. Aparecen como **Listo**, igual que cualquier otro recurso.
 
 Las fuentes de Drive, OneDrive y sitios web se pueden actualizar. Abre la fuente
 y selecciona **Sincronizar ahora**. Solo se vuelve a indexar el contenido nuevo
-o modificado, y lo que se eliminó en el origen también se elimina aquí. En
-**Pro** y **Enterprise** también puedes activar **Sincronizar automáticamente** y
-elegir **Cada día** o **Cada semana**; en Free, sincroniza a mano.
+o modificado, y lo que se eliminó en el origen también se elimina aquí. También
+puedes activar **Sincronizar automáticamente** y elegir **Cada día** o **Cada
+semana**.
 
 ## Límites
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Contenido consultable (indexado) | 5 MB | 1 GB incluido, luego 2 USD/GB en Pro |
-| Almacenamiento de archivos | 30 MB | Ilimitado |
-| Sincronización automática | No disponible | Cada día o cada semana |
+|                                  | Pro                           |
+| -------------------------------- | ----------------------------- |
+| Contenido consultable (indexado) | 1 GB incluido, luego 2 USD/GB |
+| Almacenamiento de archivos       | Ilimitado                     |
+| Sincronización automática        | Cada día o cada semana        |
+
+Una organización sin plan conserva sus recursos, pero no puede agregar
+archivos, y la sincronización automática queda apagada.

@@ -2,7 +2,7 @@
 title: Assistant
 description: Describe what your bot should know or do in your own words, and the assistant builds it with you, tests it, and changes nothing until you press Apply.
 order: 1.5
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 The **Assistant** tab is where you build your bot by talking about it. Tell it
@@ -11,9 +11,9 @@ them to me", "book appointments in my Google Calendar") and it plans the work
 with you, builds it, tries it, and hands you one card to apply. You never see
 code, and nothing your customers see changes until you press **Apply**.
 
-The assistant is part of the **Pro** and **Enterprise** plans; on Free the tab
-shows **Build your bot by describing it** with **Upgrade**. It answers in the
-language you write in, Spanish or English.
+The assistant is part of the **Pro** and **Enterprise** plans and the 7-day
+trial. In an organization without a plan it's off. It answers in the language
+you write in, Spanish or English.
 
 ![The Assistant tab: the owner asks for new opening hours and the assistant answers with its plan, four questions and a credit estimate](/images/assistant-chat.webp)
 
@@ -170,7 +170,8 @@ about 90 when it also emails, checks your hours or handles payments; a change to
 an action 10 to 50, and new knowledge or a small fix under 15. Each reply shows
 what it used, and each chat its total.
 
-Pro and Enterprise include **1,000 credits a month**. Past that, extra credits
+Pro and Enterprise include **1,000 credits a month**; the 7-day trial includes
+300, with no extra credits. Past the included credits, extra credits
 are $2 per 100, up to a monthly limit an admin sets in **Settings → Billing &
 plan** (2,000 extra by default; 0 stops at the included credits). The chats
 list shows the month so far; when the credits run out, it says so.

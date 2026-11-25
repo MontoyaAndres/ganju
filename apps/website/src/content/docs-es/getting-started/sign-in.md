@@ -2,13 +2,13 @@
 title: Iniciar sesión
 description: Crea tu cuenta de Ganju con Google o GitHub, acepta una invitación y administra tu perfil.
 order: 2
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 2
 outcome: "Ya entraste a Ganju y estás viendo tus organizaciones."
 ---
 
-Empezar en Ganju es gratis y no necesitas tarjeta de crédito. No hay un registro
-aparte: la primera vez que inicias sesión, se crea tu cuenta.
+No hay un registro aparte: la primera vez que inicias sesión, se crea tu cuenta.
+Tu primera organización puede empezar una prueba gratis de Pro de 7 días.
 
 ## Inicia sesión
 

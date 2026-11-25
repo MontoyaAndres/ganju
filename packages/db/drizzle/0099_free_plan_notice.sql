@@ -1,0 +1,1 @@
+ALTER TABLE "subscription" ADD COLUMN "free_plan_notice_at" timestamp;

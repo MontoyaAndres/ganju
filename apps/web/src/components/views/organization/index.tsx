@@ -86,6 +86,15 @@ export const Organization = (props: IProps) => {
   const [inviteEmailError, setInviteEmailError] = useState('');
   const [inviting, setInviting] = useState(false);
 
+  // The checkout offered right after creating an organization.
+  const [trialOffer, setTrialOffer] = useState<{
+    organizationId: string;
+    projectPath: string;
+    available: boolean;
+    days: number;
+  } | null>(null);
+  const [startingCheckout, setStartingCheckout] = useState(false);
+
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
@@ -160,9 +169,19 @@ export const Organization = (props: IProps) => {
         return;
       }
 
-      router.push(
-        `/organization/${newOrganization.organization.id}/project/${newOrganization.project.id}`
-      );
+      const projectPath = `/organization/${newOrganization.organization.id}/project/${newOrganization.project.id}`;
+      if (newOrganization.trial?.offer) {
+        setModalOpen(false);
+        setStatus('resolved');
+        setTrialOffer({
+          organizationId: newOrganization.organization.id,
+          projectPath,
+          available: !!newOrganization.trial.available,
+          days: newOrganization.trial.days
+        });
+        return;
+      }
+      router.push(projectPath);
     } catch (err) {
       setStatus('rejected');
       if (
@@ -376,7 +395,11 @@ export const Organization = (props: IProps) => {
                       : ''
                   }`}
                 >
-                  {planLabel(organization.plan)}
+                  {organization.noPlan
+                    ? t('planNone')
+                    : organization.trialing
+                      ? t('planTrial')
+                      : planLabel(organization.plan)}
                 </span>
               </>
             ) : (
@@ -459,6 +482,70 @@ export const Organization = (props: IProps) => {
     );
   };
 
+  const startCheckout = async () => {
+    if (!trialOffer || startingCheckout) return;
+    setStartingCheckout(true);
+    try {
+      const data = await utils.fetcher({
+        url: `/organization/${trialOffer.organizationId}/billing/checkout`,
+        config: { method: 'POST', credentials: 'include' }
+      });
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      snackbar.error(utils.getApiErrorMessage(data, c('somethingWentWrong')));
+    } catch {
+      snackbar.error(c('somethingWentWrong'));
+    } finally {
+      setStartingCheckout(false);
+    }
+  };
+
+  const trialModal = (
+    <UI.Modal
+      open={!!trialOffer}
+      title={
+        trialOffer?.available
+          ? t('trialTitle', { days: trialOffer.days })
+          : t('trialUsedTitle')
+      }
+      closeLabel={c('close')}
+      onClose={() => trialOffer && router.push(trialOffer.projectPath)}
+      footer={
+        <>
+          <UI.Button
+            variant="outlined"
+            size="small"
+            disabled={startingCheckout}
+            onClick={() => trialOffer && router.push(trialOffer.projectPath)}
+          >
+            {t('trialNotNow')}
+          </UI.Button>
+          <UI.Button
+            variant="contained"
+            size="small"
+            disabled={startingCheckout}
+            onClick={startCheckout}
+          >
+            {trialOffer?.available ? t('trialStart') : t('trialStartPaid')}
+          </UI.Button>
+        </>
+      }
+    >
+      <p>
+        {trialOffer?.available
+          ? t('trialText', {
+              days: trialOffer.days,
+              price: utils.constants.PRICING_PRO_BASE_USD
+            })
+          : t('trialUsedText', {
+              price: utils.constants.PRICING_PRO_BASE_USD
+            })}
+      </p>
+    </UI.Modal>
+  );
+
   const renderCreateForm = () => (
     <form className="create-organization-form" onSubmit={handleSubmit}>
       <div className="form-section">
@@ -531,6 +618,7 @@ export const Organization = (props: IProps) => {
           </p>
         </div>
         {renderCreateForm()}
+        {trialModal}
       </CreateOrganizationWrapper>
     );
   }
@@ -584,6 +672,9 @@ export const Organization = (props: IProps) => {
                       </h3>
                       <p className="form-section-description">
                         {t('sectionOrganizationHelpShort')}
+                      </p>
+                      <p className="form-section-description">
+                        {t('newOrgPlanNote')}
                       </p>
                     </div>
                     <UI.Input
@@ -705,6 +796,7 @@ export const Organization = (props: IProps) => {
           </ModalOverlay>
         </UI.Portal>
       )}
+      {trialModal}
     </Wrapper>
   );
 };

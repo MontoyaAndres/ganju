@@ -1,18 +1,31 @@
 # Precios de Ganju
 
-Precios simples. Pruébalo gratis, pasa a Pro cuando tu bot tenga uso real, y
-solo paga más si te pasas de lo incluido.
+Precios simples. Pro cuesta $29 al mes y empieza con una prueba gratis de 7
+días. Solo pagas más si te pasas de lo incluido. O instala Ganju tú mismo sin
+costo.
 
-## Free: $0/mes
+## Prueba gratis: 7 días de Pro
 
-Prueba Ganju con un bot.
+Cada organización nueva empieza con una prueba gratis de Pro de 7 días.
 
-- 1 proyecto
-- 100 respuestas del bot al mes, en nuestro modelo de IA (el bot se pausa al llegar al límite)
-- 7 herramientas, 3 prompts, 1 canal
-- 5 MB de contenido consultable, 30 MB de archivos
-- Úsalo desde Claude, ChatGPT o Cursor
-- Soporte de la comunidad
+- Se necesita una tarjeta al pagar; no se cobra nada durante la prueba.
+- Si no cancelas antes del día 7, Pro empieza y se cobran $29 a la tarjeta por
+  el primer mes. Desde ahí, el consumo que pase de lo incluido se cobra por
+  periodo.
+- Cancela cuando quieras antes de que termine la prueba y no se cobra nada. Te
+  llega un correo de recordatorio 3 días antes de que termine.
+- Durante la prueba tienes todo lo de Pro, con un tope de 300 respuestas del
+  bot en nuestro modelo de IA y 300 créditos del Asistente, sin cobro por
+  consumo. Las respuestas con tu propia clave de IA no cuentan para ese tope.
+- Los cupos completos de Pro empiezan con tu primer mes pagado. Puedes empezar
+  Pro antes desde Facturación.
+- Una sola prueba gratis por persona: una segunda organización tuya empieza en
+  Pro de una vez.
+
+Una organización sin plan (prueba cancelada o terminada sin pago, o Pro
+cancelado después del periodo pagado) conserva todo lo que construyó y se puede
+seguir editando, pero sus bots no responden, su servidor MCP rechaza las
+solicitudes y el Asistente se apaga hasta que empiece Pro.
 
 ## Pro: $29/mes
 
@@ -56,27 +69,29 @@ Para equipos grandes con sus propias condiciones.
 
 ## Compara los planes
 
-| | Free | Pro | Enterprise |
-| --- | --- | --- | --- |
-| Precio | $0 | $29 / mes | A la medida |
-| Proyectos | 1 | Ilimitados | Ilimitados |
-| Respuestas del bot incluidas | 100 / mes | 3.000 / mes | A la medida |
-| Pasadas las incluidas | El bot se pausa | Se cobran por consumo | A la medida |
-| Contenido consultable | 5 MB | 1 GB, luego $2 / GB | A la medida |
-| Almacenamiento de archivos | 30 MB | Ilimitado | Ilimitado |
-| Prompts por proyecto | 3 | Ilimitados | Ilimitados |
-| Herramientas encendidas | 7 | Hasta 40 por canal | Hasta 40 por canal |
-| Endpoints HTTP por proyecto | 3 | Ilimitados | Ilimitados |
-| Canales por proyecto | 1 | Ilimitados | Ilimitados |
-| Sincronización automática de recursos | A mano | Diaria o semanal | Diaria o semanal |
-| El Asistente | No | 1.000 créditos / mes | Sí |
-| Funciones | No | 1M de llamadas / mes | Sí |
-| Base de datos por proyecto | No | 9 GB, 50 tablas | Sí |
-| Invitar a tu equipo | No | Sí | Sí |
-| Usar tu propio modelo de IA | No | Sí | Sí |
-| Soporte | Comunidad | 24/7 | Contacto asignado |
+| | Pro | Enterprise |
+| --- | --- | --- |
+| Precio | $29 / mes | A la medida |
+| Proyectos | Ilimitados | Ilimitados |
+| Respuestas del bot incluidas | 3.000 / mes | A la medida |
+| Pasadas las incluidas | Se cobran por consumo | A la medida |
+| Contenido consultable | 1 GB, luego $2 / GB | A la medida |
+| Almacenamiento de archivos | Ilimitado | Ilimitado |
+| Prompts por proyecto | Ilimitados | Ilimitados |
+| Herramientas encendidas | Hasta 40 por canal | Hasta 40 por canal |
+| Endpoints HTTP por proyecto | Ilimitados | Ilimitados |
+| Canales por proyecto | Ilimitados | Ilimitados |
+| Sincronización automática de recursos | Diaria o semanal | Diaria o semanal |
+| El Asistente | 1.000 créditos / mes | Sí |
+| Funciones | 1M de llamadas / mes | Sí |
+| Base de datos por proyecto | 9 GB, 50 tablas | Sí |
+| Invitar a tu equipo | Sí | Sí |
+| Usar tu propio modelo de IA | Sí | Sí |
+| Soporte | 24/7 | Contacto asignado |
 
-## Instálalo tú mismo
+## Autoalojado: gratis
 
-Ganju es software libre (Apache-2.0). Córrelo gratis en tu propia cuenta de Cloudflare.
+Ganju es software libre (Apache-2.0), y correr tu propia instancia es gratis.
+Pones tu propia cuenta de Cloudflare, tu base de datos Postgres y tus claves de
+IA, y tú operas y pagas la infraestructura. Guía: https://ganju.ai/es/docs/deploy/
 Código: https://github.com/MontoyaAndres/ganju

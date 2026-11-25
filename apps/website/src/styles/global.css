@@ -1024,16 +1024,6 @@ svg {
   margin-top: 10px;
 }
 
-.calc-free {
-  margin-top: 12px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--peppermint, #e8f5e9);
-  color: var(--success);
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
 @media (max-width: 768px) {
   .calc {
     padding: 22px;
@@ -2008,7 +1998,7 @@ svg {
   margin: 1.4em 0;
 }
 
-/* Markdown tables (e.g. the Free vs Pro plan comparison). `display: block`
+/* Markdown tables (e.g. the plan comparison). `display: block`
    + overflow lets a wide table scroll on narrow screens instead of being
    clipped by the page's overflow-x: hidden. */
 .prose table {
@@ -2637,8 +2627,8 @@ a.docs-group-link:hover {
 }
 
 /* Pro's column, the same emphasis as its card. */
-.plan-compare td:nth-child(3),
-.plan-compare thead th:nth-child(3) {
+.plan-compare td:nth-child(2),
+.plan-compare thead th:nth-child(2) {
   background: var(--accent-soft);
 }
 

@@ -2,7 +2,7 @@
 title: Tools
 description: "Switch on the actions your AI can take: connect an integration, point it at your own API, or let the Assistant write one."
 order: 6
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 4
 outcome: "An integration like Gmail connected, with the tools you want switched on."
 ---
@@ -13,7 +13,7 @@ Calendar. Open **Tools** in the rail. The page has three tabs:
 
 | Tab | What's in it |
 | --- | --- |
-| **[Functions](/docs/tools/functions/)** | Custom actions written in code, by the [Assistant](/docs/assistant/) for you, or by a developer with the CLI. Pro. |
+| **[Functions](/docs/tools/functions/)** | Custom actions written in code, by the [Assistant](/docs/assistant/) for you, or by a developer with the CLI. |
 | **[HTTP Endpoints](/docs/tools/http-endpoints/)** | An API you already run, described once and turned into a named tool. No code. |
 | **[Catalog](/docs/tools/catalog/)** | The integrations Ganju ships, plus remote MCP servers like GitHub and Notion. |
 
@@ -68,15 +68,18 @@ lists tools no one has used in 30 days, with a **Disable** button.
 
 ## Limits
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Tools switched on at once | 7 (built-ins included) | 40 |
-| HTTP endpoints per project | 3 | Unlimited |
-| Functions | None | ✓ |
+| | Pro / Enterprise |
+| --- | --- |
+| Tools switched on at once | 40 |
+| HTTP endpoints per project | Unlimited |
+| Functions | ✓ |
+
+An organization without a plan can keep up to 7 tools on (built-ins included),
+and its functions don't run.
 
 ## When the catalog doesn't cover it
 
-- **Ask the [Assistant](/docs/assistant/)** (Pro). Describe what the bot should
+- **Ask the [Assistant](/docs/assistant/)**. Describe what the bot should
   do; it writes the action, tests it, and turns it on with your click. The
   actions it writes appear under **Functions**, where you can read them. To add
   or change one, ask the Assistant.

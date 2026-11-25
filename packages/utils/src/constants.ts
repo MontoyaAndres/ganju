@@ -2487,6 +2487,39 @@ const PLAN_LIMITS: Record<
   }
 };
 
+// A new organization tries Pro for this long with a card on file; Polar
+// charges at the end unless it's canceled. One trial per person.
+const TRIAL_DAYS = 7;
+// Polar bills no usage during a trial, so the trial stops at these instead of
+// metering past them.
+const TRIAL_BUILDER_CREDITS = 300;
+const TRIAL_SHARED_MESSAGES = 300;
+
+// Organizations created from the launch on start without a plan; older ones
+// keep the old Free limits until the lock date, then get NO_PLAN_LIMITS too.
+// The launch is set after the deploy that brings the trial, so nobody is
+// created into "no plan" by an app that can't offer it.
+const FREE_PLAN_LAUNCH_DATE = '2026-11-26T00:00:00Z';
+const FREE_PLAN_LOCK_DATE: string | null = '2026-12-09T00:00:00Z';
+
+// What an MCP client is told when the project's organization has no plan.
+const NO_PLAN_MCP_MESSAGE =
+  "This project's plan has ended. The owner can restart it in Settings → Billing & plan.";
+
+// An organization without a plan can sign in and build, but nothing runs.
+const NO_PLAN_LIMITS: PlanLimits = {
+  ...PLAN_LIMITS.FREE,
+  maxRawStorageBytes: 0,
+  maxEmbeddedBytes: 0,
+  monthlyMessageCap: 0,
+  includedSharedMessages: 0,
+  sharedKeyHardCap: 0,
+  includedToolCalls: 0,
+  toolCallHardCap: 0,
+  includedMessages: 0,
+  includedEmbeddedBytes: 0
+};
+
 // Quota features — used as the `feature` discriminator on PlanLimitError so the
 // dashboard can tailor the upgrade prompt.
 const PLAN_FEATURE_ORGANIZATION = 'organization' as 'organization';
@@ -2682,6 +2715,13 @@ export const constants = {
   SUBSCRIPTION_STATUSES,
   SUBSCRIPTION_ENTITLED_STATUSES,
   PLAN_LIMITS,
+  NO_PLAN_LIMITS,
+  FREE_PLAN_LOCK_DATE,
+  FREE_PLAN_LAUNCH_DATE,
+  NO_PLAN_MCP_MESSAGE,
+  TRIAL_DAYS,
+  TRIAL_BUILDER_CREDITS,
+  TRIAL_SHARED_MESSAGES,
   PRICING_PRO_BASE_USD,
   PRICING_INCLUDED_MESSAGES,
   PRICING_INCLUDED_SHARED_MESSAGES,

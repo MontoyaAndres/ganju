@@ -18,7 +18,7 @@ const faqs = [
   },
   {
     q: 'Can I write my own tools?',
-    a: "Yes — that's what Functions are. You describe the tool, fill in what it should do, try it privately, and press Deploy; we run it, so there's no server to set up and nothing to install. It's handed your connected accounts, your saved keys and your files, so the part you write stays small and never holds a password. Functions are a Pro feature and do involve a little JavaScript; on the free plan you can point an HTTP Endpoint at your own app instead, with no code at all."
+    a: "Yes: that's what Functions are. You describe the tool, fill in what it should do, try it privately, and press Deploy; we run it, so there's no server to set up and nothing to install. It's handed your connected accounts, your saved keys and your files, so the part you write stays small and never holds a password. Functions do involve a little JavaScript; if you'd rather not write any, you can point an HTTP Endpoint at your own app instead, with no code at all."
   },
   {
     q: 'Is my data safe?',
@@ -26,7 +26,7 @@ const faqs = [
   },
   {
     q: 'Can I run Ganju myself?',
-    a: 'Yes. Ganju is open source and free to use and modify. Host it on your own account, or let us run it for you on a paid plan.'
+    a: 'Yes. Ganju is open source and free to use and modify. Host it on your own account, or let us run it for you on Pro, which starts with a 7-day free trial.'
   }
 ];
 
@@ -103,7 +103,7 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA, faqSchema(faqs)];
         </a>
         <div class="hero-cta">
           <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">
-            Start building free
+            Start your 7-day free trial
           </a>
           <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
         </div>
@@ -545,12 +545,12 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA, faqSchema(faqs)];
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Pricing</span>
-        <h2>Start free. Scale when you're ready.</h2>
-        <p>Use it free, upgrade as you grow — or run it yourself for free.</p>
+        <h2>Try Pro free for 7 days.</h2>
+        <p>After the trial, Pro is $29 a month plus usage past what's included. Or run Ganju yourself for free.</p>
       </div>
       <div class="hero-cta center reveal">
         <a class="btn btn-primary btn-lg" href="/pricing/">See full pricing</a>
-        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start free</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start free trial</a>
       </div>
     </div>
   </section>
@@ -581,9 +581,9 @@ const jsonLd = [SOFTWARE_APPLICATION_SCHEMA, faqSchema(faqs)];
     <div class="cta-glow" aria-hidden="true"></div>
     <div class="container cta-inner reveal">
       <h2>Give your AI everything it needs to help.</h2>
-      <p>Set it up in minutes — free to start.</p>
+      <p>Set it up in minutes. Try it free for 7 days.</p>
       <div class="hero-cta center">
-        <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start building free</a>
+        <a class="btn btn-primary btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start your 7-day free trial</a>
         <a class="btn btn-ghost btn-lg" href="/docs/">Read the docs</a>
       </div>
     </div>

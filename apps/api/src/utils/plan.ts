@@ -10,7 +10,10 @@ const { constants, PlanLimitError } = utils;
 // They are re-exported through this module's `Plan` object unchanged, so every
 // call site in apps/api still reads the same.
 const {
-  limitsFor,
+  limitsForSubscription,
+  isTrialing,
+  trialCapsApply,
+  hasNoPlan,
   isEntitled,
   planFromSubscription,
   getEffectivePlan,
@@ -33,8 +36,10 @@ export {
   incrementToolCallUsage
 };
 
-// Create the Free subscription row that backs a new organization. Idempotent so
-// it's safe to call from the org-create transaction (and again on backfill).
+// Create the subscription row that backs a new organization: no plan until a
+// checkout, or Pro when the instance has no billing (self-hosted: there is
+// nobody to pay). Idempotent so it's safe to call from the org-create
+// transaction (and again on backfill).
 //
 // The period is stamped here rather than left null. An unstamped row reads as
 // "this belongs to a period that has ended" on the first check, which rolls it —
@@ -44,13 +49,15 @@ export {
 // a future caller should have to know.
 export const ensureSubscription = async (
   executor: DbExecutor,
-  organizationId: string
+  organizationId: string,
+  { billing = true }: { billing?: boolean } = {}
 ): Promise<void> => {
   await executor
     .insert(db.schema.subscription)
     .values({
       organizationId,
-      plan: constants.PLAN_FREE,
+      plan: billing ? constants.PLAN_FREE : constants.PLAN_PRO,
+      status: constants.SUBSCRIPTION_STATUS_ACTIVE,
       messagePeriodStart: db.plan.usagePeriodStart(null)
     })
     .onConflictDoNothing({ target: db.schema.subscription.organizationId });
@@ -68,7 +75,7 @@ const assertCountQuota = (
   if (limit == null) return;
   if (currentCount >= limit) {
     throw new PlanLimitError(
-      `Your ${plan} plan allows up to ${limit} ${noun}. Upgrade to Pro for unlimited ${noun}.`,
+      `Without Pro, an organization can have up to ${limit} ${noun}. Start Pro for unlimited ${noun}.`,
       { feature, plan, limit, used: currentCount }
     );
   }
@@ -99,7 +106,7 @@ export const assertToolQuota = (
       : ` This turns on ${adding} tools and ${currentCount} are already on.`;
   throw new PlanLimitError(
     byPlan
-      ? `Your ${plan} plan allows up to ${limit} tools.${already} Turn some off or upgrade to Pro for more.`
+      ? `Without Pro, a project can have up to ${limit} tools.${already} Turn some off or start Pro for more.`
       : `A project can have up to ${limit} tools turned on, each tool from an MCP server or a script counting as one.${already} Turn some off first.`,
     {
       feature: constants.PLAN_FEATURE_TOOL,
@@ -223,7 +230,7 @@ export const assertInviteAllowed = ({
 }: Pick<EffectivePlan, 'plan' | 'limits'>): void => {
   if (!limits.canInvite) {
     throw new PlanLimitError(
-      'Inviting teammates is a Pro feature. Upgrade this organization to invite people.',
+      'Inviting teammates is part of Pro. Start Pro for this organization to invite people.',
       { feature: constants.PLAN_FEATURE_INVITE, plan }
     );
   }
@@ -237,7 +244,7 @@ export const assertCustomLlmAllowed = ({
 }: Pick<EffectivePlan, 'plan' | 'limits'>): void => {
   if (!limits.canUseCustomLlm) {
     throw new PlanLimitError(
-      'Connecting your own AI model is a Pro feature. Upgrade this organization to add a custom model.',
+      'Connecting your own AI model is part of Pro. Start Pro for this organization to add one.',
       { feature: constants.PLAN_FEATURE_LLM, plan }
     );
   }
@@ -257,7 +264,7 @@ export const assertCustomCodeAllowed = ({
 }: Pick<EffectivePlan, 'plan' | 'limits'>): void => {
   if (!limits.canUseCustomCode) {
     throw new PlanLimitError(
-      'Writing your own tools in code is a Pro feature. Upgrade this organization to deploy custom tools.',
+      'Writing your own tools in code is part of Pro. Start Pro for this organization to deploy them.',
       { feature: constants.PLAN_FEATURE_CUSTOM_CODE, plan }
     );
   }
@@ -274,7 +281,7 @@ export const assertAutoSyncAllowed = (
   if (!(limits.autoSyncIntervals as readonly string[]).includes(interval)) {
     throw new PlanLimitError(
       limits.autoSyncIntervals.length === 0
-        ? 'Automatic sync is a Pro feature. Upgrade this organization to keep sources up to date on their own, or sync them by hand.'
+        ? 'Automatic sync is part of Pro. Start Pro for this organization to keep sources up to date on their own, or sync them by hand.'
         : `The ${plan} plan doesn't sync ${interval}.`,
       { feature: constants.PLAN_FEATURE_RESOURCE_SYNC, plan }
     );
@@ -291,7 +298,7 @@ export const assertHttpEndpointQuota = (
   const max = limits.maxHttpEndpointsPerArtifact;
   if (max !== null && currentCount >= max) {
     throw new PlanLimitError(
-      `The ${plan} plan allows ${max} HTTP endpoint${max === 1 ? '' : 's'} per server. Upgrade to add more.`,
+      `Without Pro, a server can have ${max} HTTP endpoint${max === 1 ? '' : 's'}. Start Pro to add more.`,
       { feature: constants.PLAN_FEATURE_HTTP_ENDPOINT, plan, limit: max }
     );
   }
@@ -351,7 +358,7 @@ export const assertOrganizationCreation = async (
 
   if (!hasPaid) {
     throw new PlanLimitError(
-      'The Free plan is limited to one organization. Upgrade an organization to Pro to create more.',
+      'Without Pro you can have one organization. Start Pro on it to create more.',
       {
         feature: constants.PLAN_FEATURE_ORGANIZATION,
         plan: constants.PLAN_FREE,
@@ -387,6 +394,8 @@ const loadOrCreateSubscription = async (
 export type MessageCapResult = {
   allowed: boolean;
   plan: string;
+  // No plan: the bot stays silent and the owner is told by email.
+  noPlan: boolean;
   used: number;
   cap: number | null;
   // Assistant turns this period that ran on the SHARED platform model. Only
@@ -411,7 +420,7 @@ export const checkMessageCap = async (
 ): Promise<MessageCapResult> => {
   const sub = await loadOrCreateSubscription(executor, organizationId);
   const plan = planFromSubscription(sub);
-  const limits = limitsFor(plan);
+  const limits = limitsForSubscription(sub, now);
   const cap = limits.monthlyMessageCap;
 
   // The period, its boundary and what a rollover zeroes are shared with
@@ -423,6 +432,7 @@ export const checkMessageCap = async (
   return {
     allowed: cap == null || used < cap,
     plan,
+    noPlan: hasNoPlan(sub, now),
     used,
     cap,
     sharedUsed,
@@ -455,6 +465,7 @@ export const incrementMessageUsage = async (
 
 export type BuilderCredits = {
   plan: string;
+  trialing: boolean;
   // Credits on our key this period, and what the plan includes.
   used: number;
   included: number;
@@ -481,11 +492,16 @@ export const checkBuilderCredits = async (
   const sub = await loadOrCreateSubscription(executor, organizationId);
   const { builderCostMicros } = await rollUsagePeriodIfDue(executor, sub, now);
   const plan = planFromSubscription(sub);
-  const included = limitsFor(plan).includedBuilderCredits;
-  const cap = sub.builderCreditCap ?? constants.BUILDER_DEFAULT_CREDIT_CAP;
+  const included = limitsForSubscription(sub, now).includedBuilderCredits;
+  const trialing = isTrialing(sub);
+  // A trial has no extra credits: Polar bills no usage during it.
+  const cap = trialCapsApply(sub)
+    ? 0
+    : (sub.builderCreditCap ?? constants.BUILDER_DEFAULT_CREDIT_CAP);
   const used = creditsOfMicros(builderCostMicros);
   return {
     plan,
+    trialing,
     used,
     included,
     cap,
@@ -567,7 +583,9 @@ export const assertToolCallBudget = async (
   if (budget.allowed) return;
 
   throw new PlanLimitError(
-    `This organization has reached its monthly limit of ${budget.hardCap?.toLocaleString('en-US')} custom tool calls, so a test run is not allowed right now.`,
+    budget.hardCap === 0
+      ? "This organization has no plan, so its tools don't run. Start Pro in Settings → Billing & plan."
+      : `This organization has reached its monthly limit of ${budget.hardCap?.toLocaleString('en-US')} custom tool calls, so a test run is not allowed right now.`,
     {
       feature: constants.PLAN_FEATURE_TOOL_CALL,
       plan: budget.plan,

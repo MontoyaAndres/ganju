@@ -2,7 +2,7 @@
 title: Welcome
 description: Connect your AI to your files, tools, and apps, then offer it to anyone through the channels they already use.
 order: 0
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Welcome to the Ganju docs. Ganju connects AI assistants like Claude, ChatGPT,
@@ -82,9 +82,10 @@ lives:
 
 ## Plans at a glance
 
-Ganju is free to start. **Free** gives you one project with a small monthly
-allowance of replies; **Pro** ($29/mo) lifts the limits and adds the Assistant,
-Data, Functions, team members, and your own models. See
+Ganju has one hosted plan, **Pro**: $29 a month plus usage, with the Assistant,
+Data, Functions, team members, and your own models. Every new organization
+starts with a **7-day free trial** of Pro. **Enterprise** is a custom plan for
+larger organizations. See
 [Settings → Compare plans](/docs/settings/#compare-plans) for every number.
 
 > Every page on this site is also available as Markdown; just add `.md` to the

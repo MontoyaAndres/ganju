@@ -2,7 +2,7 @@
 title: Organizations & projects
 description: "How Ganju is structured: an organization holds your team, billing, and plan; each project inside it is a self-contained workspace for one assistant."
 order: 1
-updated: 2026-11-24
+updated: 2026-11-25
 ---
 
 Ganju has two levels. Your **organization** represents your team or company:
@@ -31,8 +31,9 @@ assistant, with its own [knowledge](/docs/resources/), [prompts](/docs/prompts/)
 - **Shared team and billing.** Members and the plan sit at the organization
   level, so everything inside is covered by one subscription and one member
   list.
-- **Clean separation, one account.** Run a Free organization for personal
-  projects and a Pro one for your company, side by side, from the same login.
+- **Clean separation, one account.** Run an organization for personal projects
+  and another for your company, side by side, from the same login, each with
+  its own plan and billing.
 
 ## Switch between them
 
@@ -51,12 +52,12 @@ member count) to see its projects on the right, then open one. At the bottom:
 3. Select **Create**.
 
 You land on the new project's Home, which starts with the five built-in tools.
-On Pro and Enterprise it offers to **Open the Assistant**.
+When the organization has a plan, it offers to **Open the Assistant**.
 
 ![The Create a new project dialog: Name and Description](/images/new-project-dialog.webp)
 
-**Free** organizations have **one project**. Creating a second one asks you to
-upgrade; Pro and Enterprise have no project limit.
+Pro and Enterprise have no project limit. An organization
+[without a plan](/docs/settings/#without-a-plan) can keep only one.
 
 To rename a project later, open its **Home** and select the pencil next to its
 name: **Rename project** changes the **Name** and **Description**. Only a
@@ -67,7 +68,7 @@ next to **MCP URL**.
 
 **Manage organizations** opens the **Organizations** page, listing every
 organization you belong to. Each card shows your badges (**Owner** if you
-created it, and its plan: **Free**, **Pro**, or **Enterprise**), its project and
+created it, and its plan: **Pro trial**, **Pro**, **Enterprise**, or **No plan**), its project and
 member counts, and when it was created, with **Invite** and **Settings**
 actions. If you were added to just one project in an organization, its card
 reads **Project access** instead and says how many projects you can open.
@@ -83,9 +84,10 @@ Select **New organization**. The **Create a new organization** dialog asks for
 the organization **Name** and its first project's **Project name** and
 **Project description**. Every organization starts with one project.
 
-You can own **one Free organization**. To create more, at least one
-organization you own must be on a paid plan: upgrade one to Pro and you can add
-others (each new one starts on Free with its own billing).
+Each organization has its own plan and billing. Right after you create it, Ganju
+offers **Start your 7-day free trial** of Pro, or **Not now**. The trial is one
+per person, so if you already used it, the dialog offers **Start Pro** instead.
+See [Settings → The 7-day free trial](/docs/settings/#the-7-day-free-trial).
 
 ## Who can do what
 

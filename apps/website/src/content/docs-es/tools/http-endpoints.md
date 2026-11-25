@@ -2,7 +2,7 @@
 title: Endpoints HTTP
 description: Apunta tu bot a una API que ya tienes. Describe una petición y se convierte en una herramienta con nombre, sin código y sin despliegue.
 order: 38
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Los **Endpoints HTTP** convierten una API que ya tienes en una herramienta.
@@ -12,8 +12,7 @@ sin paso de despliegue.
 
 Es el escalón intermedio entre el catálogo y las
 [funciones](/es/docs/tools/functions/): más flexible que una integración que
-ofrecemos, y mucho menos trabajo que escribir código. También es la
-herramienta personalizada disponible en **todos los planes**, incluido Free.
+ofrecemos, y mucho menos trabajo que escribir código.
 
 Puedes llenar el formulario tú mismo, o pedírselo al
 [Asistente](/es/docs/assistant/): puede agregar y cambiar un endpoint HTTP como
@@ -28,8 +27,8 @@ con un interruptor, un botón para editar y otro para eliminar. **Apagar
 conserva el endpoint y todo lo configurado en él** (la fila muestra **Apagada ·
 conserva su configuración**); **Eliminar lo borra con su configuración**. Usa
 el interruptor cuando quieras que la herramienta se quede callada, y elimínala
-cuando ya no la necesites. En Free, la pestaña muestra cuántos de tus 3
-endpoints usaste.
+cuando ya no la necesites. En una organización sin plan, la pestaña muestra
+cuántos de tus 3 endpoints usaste.
 
 ## Agregar un endpoint
 
@@ -127,8 +126,8 @@ permite al modelo distinguir "la llamada falló" de "la respuesta es no".
 
 ## Límites
 
-Free permite **3 endpoints** por proyecto. Pro y Enterprise no tienen límite de
-endpoints; cada endpoint encendido sigue contando para las
+Pro y Enterprise no tienen límite de endpoints (una organización
+[sin plan](/es/docs/settings/#sin-plan) puede tener 3 por proyecto); cada endpoint encendido sigue contando para las
 [herramientas](/es/docs/tools/#encender-y-apagar-herramientas) del proyecto.
 Las llamadas a endpoints HTTP no se miden como llamadas a herramientas: solo
 cuentan las llamadas a [tu propio código](/es/docs/tools/functions/).

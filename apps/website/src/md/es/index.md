@@ -30,8 +30,8 @@ licencia Apache-2.0.
 Una **función** es una herramienta pequeña que le agregas a tu asistente: buscar
 algo en tu propio sistema, calcular algo, disparar un proceso en otro lado. La
 describes, completas lo que hace y le das a Deploy — nosotros la ejecutamos, sin
-servidor que administrar y sin instalar nada. Es una característica Pro; en Free,
-`http-endpoint` apunta a tu propia aplicación sin nada de código.
+servidor que administrar y sin instalar nada. Si prefieres no escribir código,
+`http-endpoint` apunta a tu propia aplicación.
 
 1. **Descríbela** — ponle un nombre y di cuándo debería usarla tu asistente. El
    código inicial se escribe solo.

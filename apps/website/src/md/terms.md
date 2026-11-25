@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated: September 10, 2026 · Effective: September 10, 2026**
+**Last updated: November 25, 2026 · Effective: November 25, 2026**
 
 These terms are the agreement between you and **Ganju S.A.S.**, a *sociedad por
 acciones simplificada* incorporated under the laws of Colombia with its registered
@@ -85,17 +85,46 @@ of whoever holds the Owner role.
 
 ### The plans
 
-| | Free | Pro | Enterprise |
-| --- | --- | --- | --- |
-| Price | $0 | **$29 / month** plus usage | Custom |
-| Organizations you own | 1 | Unlimited | Unlimited |
-| Projects | 1 | Unlimited | Unlimited |
-| Tools · prompts · channels per assistant | 7 · 3 · 1 | Unlimited | Unlimited |
-| File storage | 30 MB | Unlimited | Unlimited |
-| Embedded (searchable) content | 5 MB | 1 GB included | Custom |
-| Assistant replies included | 100 / month | 3,000 / month, of which 1,000 on Ganju's model | Custom |
-| Invite teammates | — | ✓ | ✓ |
-| Bring your own model key | — | ✓ | ✓ |
+The hosted Service has one plan, **Pro**. Enterprise is available by separate
+agreement.
+
+| | Pro | Enterprise |
+| --- | --- | --- |
+| Price | **$29 / month** plus usage | Custom |
+| Organizations you own | Unlimited | Unlimited |
+| Projects | Unlimited | Unlimited |
+| Tools · prompts · channels per assistant | Unlimited | Unlimited |
+| File storage | Unlimited | Unlimited |
+| Embedded (searchable) content | 1 GB included | Custom |
+| Assistant replies included | 3,000 / month, of which 1,000 on Ganju's model | Custom |
+| Invite teammates | ✓ | ✓ |
+| Bring your own model key | ✓ | ✓ |
+
+Self-hosting the open-source code is free; these terms don't apply to it.
+
+### Free trial
+
+A new organization can start a **7-day free trial of Pro**. This is how it works:
+
+- **A payment card is required** to start the trial. You enter it at checkout with
+  Polar, our merchant of record (see [Payment](#payment)).
+- **Nothing is charged during the trial**, and no usage is billed.
+- **The subscription starts automatically when the trial ends, unless you cancel
+  before then.** On that day Polar charges the first month's fee of **$29** (plus
+  taxes where required), and the subscription then **renews automatically every
+  month** at $29 plus usage-based charges until you cancel.
+- **You can cancel at any time before the trial ends, at no cost**, from **Settings →
+  Billing & plan**, which opens Polar's customer portal. If you cancel before the
+  trial ends, you aren't charged anything.
+- **Polar emails you a reminder 3 days before the trial ends**, before the first
+  charge.
+- During the trial, usage is capped at **300 assistant replies on Ganju's model** and
+  **300 credits for the in-app assistant that builds tools for you**.
+- **One free trial per person.** Any later organization you create starts on the paid
+  subscription, without a trial.
+
+If the trial ends without a subscription, your organization is left without an active
+plan; see [Without an active plan](#without-an-active-plan).
 
 ### How metering works
 
@@ -109,8 +138,8 @@ they are not the calls metered above.
 Every plan includes an allowance of replies that run on **Ganju's shared model**,
 whose inference we pay for. That allowance is not unlimited:
 
-- **On Free**, once the monthly cap is reached, your assistants stop replying until
-  the next cycle or until you upgrade. Free cannot bring its own model key.
+- **During a free trial**, usage is capped as described in
+  [Free trial](#free-trial), and nothing is billed.
 - **On Pro**, replies keep working once the shared-model allowance is spent — they
   simply bill at the higher shared rate below. Adding your own model key moves them
   to the lower rate instead.
@@ -173,11 +202,16 @@ request **reversión del pago** through your card issuer in the cases it lists, 
 fraud or a service that was never provided. Nothing in these terms limits either
 right.
 
-If a payment fails or a subscription lapses, your organization **falls back to Free
-plan limits**, which may pause channel replies and block actions that exceed Free
-quotas. Your content isn't deleted for non-payment, but it may become inaccessible
-beyond what the Free plan allows until you resolve the payment. We'll give at least
-30 days' notice by email before raising the price of a plan you're on.
+### Without an active plan
+
+Your organization is left without an active plan if a free trial ends without a
+subscription, a payment fails, or a subscription is cancelled or lapses. **Nothing is
+deleted automatically because an organization lacks a plan**: its content stays, and
+you can still edit it. **Its assistants, channels and MCP server stop working, and so
+does the in-app assistant that builds tools for you, until a plan starts.**
+
+We'll give at least 30 days' notice by email before raising the price of a plan you're
+on.
 
 ## Your content
 
@@ -294,7 +328,7 @@ scopes that work. Test before you point it at anything that matters.
 ## Availability, support, and changes
 
 We aim to keep the Service running, but it's provided without an uptime commitment on
-Free and Pro. Enterprise availability commitments, if any, live in a separate
+Pro, including during a free trial. Enterprise availability commitments, if any, live in a separate
 agreement. We may perform maintenance, and we'll try to schedule disruptive work
 considerately.
 
@@ -362,8 +396,8 @@ profits, revenue, goodwill, or data, however caused and under any theory of liab
 
 **Our total aggregate liability arising out of or relating to these terms or the
 Service is limited to the greater of (a) the fees you paid us in the 12 months before
-the event giving rise to the claim, or (b) US $100.** If you're on the Free plan,
-that means US $100.
+the event giving rise to the claim, or (b) US $100.** If you haven't paid us
+anything, for example during a free trial, that means US $100.
 
 This allocation of risk is a fundamental part of the bargain between us and applies
 even if a limited remedy fails of its essential purpose.

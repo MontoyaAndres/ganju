@@ -11,6 +11,12 @@ import type { PlanLimits } from '@ganju/utils';
 export interface Plan {
   plan: string;
   limits: PlanLimits;
+  trialing?: boolean;
+  trialEndsAt?: string | null;
+  // Without a plan the org can build, but its bots, MCP and Assistant are off.
+  noPlan?: boolean;
+  // When Free stops, while the organization is still on Free.
+  freeEndsAt?: string | null;
 }
 
 const getMe = async (context: GetServerSidePropsContext) => {

@@ -6,17 +6,17 @@ import { PRICING } from '../lib/pricing';
 import { CALCULATOR } from '../lib/i18n';
 
 const description =
-  'Ganju pricing: start free, move to Pro for $29 a month when your bot gets real use, or self-host for free under Apache-2.0.';
+  'Ganju pricing: Pro is $29 a month plus usage and starts with a 7-day free trial. Or self-host Ganju for free under Apache-2.0.';
 
 // Every answer restates a fact already on this page; keep them in sync.
 const faqs = [
   {
-    q: 'Is there a free plan?',
-    a: 'Yes. Free is $0 a month: one project with 100 bot replies a month on our AI model, 7 tools, 3 prompts, 1 channel and 5 MB of searchable content. No card needed.'
+    q: 'How does the free trial work?',
+    a: "Every new organization starts with a 7-day free trial of Pro. You add a card at checkout, but nothing is charged during the trial. If you don't cancel before day 7, Pro starts and the card is charged $29 for the first month. Cancel any time before then and nothing is charged. You get a reminder email 3 days before the trial ends. There is one free trial per person: a second organization you own starts on Pro right away."
   },
   {
-    q: 'What happens when I go past the Free limits?',
-    a: 'Your bot pauses until the next month starts, or until you move to Pro. Nothing is deleted.'
+    q: 'What is included in the trial?',
+    a: "Everything in Pro, capped at 300 bot replies on our AI model and 300 Assistant credits, with no usage billed. Replies on your own AI key don't count toward that cap. The full Pro allowances start with your first paid month, and you can start Pro early from Billing."
   },
   {
     q: 'How much does Pro cost?',
@@ -36,38 +36,38 @@ const faqs = [
   },
   {
     q: 'Is the database charged?',
-    a: 'Not yet. On Pro and Enterprise each project gets a database of up to 9 GB and 50 tables. Its usage is measured and shown on your billing page, but not billed. On Free, an existing database stays readable but not editable.'
+    a: 'Not yet. On Pro and Enterprise each project gets a database of up to 9 GB and 50 tables. Its usage is measured and shown on your billing page, but not billed.'
   },
   {
     q: 'Can I cancel any time?',
-    a: 'Yes. Pro keeps working until the end of the period you paid for, then the organization goes back to the Free limits. Your project databases are kept, read-only.'
+    a: "Yes. Pro keeps working until the end of the period you paid for. After that the organization has no plan: everything you built is kept and you can still edit it, but your bots don't answer, your MCP server refuses requests and the Assistant is off until you start Pro again. The same happens if you cancel the trial or it ends unpaid."
   },
   {
-    q: 'Can I self-host Ganju for free?',
-    a: 'Yes. Ganju is open source under Apache-2.0. Deploy it to your own Cloudflare account at no cost, with your own AI keys, and your data stays in your account.'
+    q: 'Is there a free option?',
+    a: 'Yes: self-hosting. Ganju is open source under Apache-2.0, and running your own instance is free. You bring your own Cloudflare account, Postgres database and AI keys, and your data stays in your account. Our hosted service is Pro, which starts with a 7-day free trial.'
   }
 ];
 
 const cards = [
   {
-    tier: 'Free',
-    amount: '$0',
-    per: '/mo',
-    sub: 'Try Ganju with one bot.',
+    tier: 'Self-hosted',
+    amount: 'Free',
+    per: '',
+    sub: 'Run Ganju on your own infrastructure.',
     items: [
-      '1 project',
-      '100 bot replies a month',
-      '7 tools, 3 prompts, 1 channel',
-      '5 MB of searchable content',
-      'Use it from Claude, ChatGPT or Cursor'
+      'Open source under Apache-2.0',
+      'Runs on your own Cloudflare account',
+      'Bring your own Postgres and AI keys',
+      'You run and pay for the infrastructure',
+      'Your data stays in your account'
     ],
-    cta: { label: 'Start free', href: SITE.appUrl, external: true, primary: false }
+    cta: { label: 'Read the deploy guide', href: '/docs/deploy/', external: false, primary: false }
   },
   {
     tier: 'Pro',
     amount: '$29',
     per: '/mo',
-    sub: 'For a bot people use every day.',
+    sub: 'For a bot people use every day. Free for 7 days.',
     ribbon: 'Most popular',
     items: [
       'Unlimited projects, prompts and channels',
@@ -77,7 +77,7 @@ const cards = [
       'Functions and a database per project',
       'Invite your team and use your own AI model'
     ],
-    cta: { label: 'Start Pro', href: SITE.appUrl, external: true, primary: true }
+    cta: { label: 'Start free trial', href: SITE.appUrl, external: true, primary: true }
   },
   {
     tier: 'Enterprise',
@@ -114,23 +114,23 @@ const free = [
 
 const yes = '✓';
 const compare = [
-  ['Price', '$0', '$29 / mo', 'Custom'],
-  ['Projects', '1', 'Unlimited', 'Unlimited'],
-  ['Bot replies included', '100 / mo', '3,000 / mo', 'Custom'],
-  ['Past the included replies', 'Bot pauses', 'Billed as usage', 'Custom'],
-  ['Searchable content', '5 MB', '1 GB, then $2 / GB', 'Custom'],
-  ['File storage', '30 MB', 'Unlimited', 'Unlimited'],
-  ['Prompts per project', '3', 'Unlimited', 'Unlimited'],
-  ['Tools switched on', '7', 'Up to 40 per channel', 'Up to 40 per channel'],
-  ['HTTP endpoints per project', '3', 'Unlimited', 'Unlimited'],
-  ['Channels per project', '1', 'Unlimited', 'Unlimited'],
-  ['Automatic resource sync', 'By hand', 'Daily or weekly', 'Daily or weekly'],
-  ['The Assistant', '', '1,000 credits / mo', yes],
-  ['Functions', '', '1M calls / mo', yes],
-  ['Database per project', '', '9 GB, 50 tables', yes],
-  ['Invite your team', '', yes, yes],
-  ['Bring your own AI model', '', yes, yes],
-  ['Support', 'Community', '24/7', 'Named contact']
+  ['Price', '$29 / mo', 'Custom'],
+  ['Projects', 'Unlimited', 'Unlimited'],
+  ['Bot replies included', '3,000 / mo', 'Custom'],
+  ['Past the included replies', 'Billed as usage', 'Custom'],
+  ['Searchable content', '1 GB, then $2 / GB', 'Custom'],
+  ['File storage', 'Unlimited', 'Unlimited'],
+  ['Prompts per project', 'Unlimited', 'Unlimited'],
+  ['Tools switched on', 'Up to 40 per channel', 'Up to 40 per channel'],
+  ['HTTP endpoints per project', 'Unlimited', 'Unlimited'],
+  ['Channels per project', 'Unlimited', 'Unlimited'],
+  ['Automatic resource sync', 'Daily or weekly', 'Daily or weekly'],
+  ['The Assistant', '1,000 credits / mo', yes],
+  ['Functions', '1M calls / mo', yes],
+  ['Database per project', '9 GB, 50 tables', yes],
+  ['Invite your team', yes, yes],
+  ['Bring your own AI model', yes, yes],
+  ['Support', '24/7', 'Named contact']
 ];
 
 const alternates = { en: '/pricing', es: '/es/precios' };
@@ -150,8 +150,8 @@ const jsonLd = [
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Pricing</span>
-        <h1>Simple pricing. Start free.</h1>
-        <p>Try it for free. Move to Pro when your bot gets real use. You only pay more if you go past what's included.</p>
+        <h1>Simple pricing. Try Pro free for 7 days.</h1>
+        <p>Pro is $29 a month. You only pay more if you go past what's included.</p>
       </div>
 
       <div class="pricing-grid">
@@ -180,7 +180,8 @@ const jsonLd = [
         }
       </div>
       <p class="pricing-note reveal">
-        Prefer to run it yourself? Ganju is open source. <a href="/docs/deploy/">Self-host it for free</a>.
+        Every new organization starts with a 7-day free trial of Pro. A card is required, nothing is charged
+        during the trial, and you can cancel any time before day 7. <a href="#faq">How the trial works</a>.
       </p>
     </div>
   </section>
@@ -222,7 +223,7 @@ const jsonLd = [
       <div class="plan-table-wrap reveal">
         <table class="plan-table plan-compare">
           <thead>
-            <tr><th></th><th>Free</th><th>Pro</th><th>Enterprise</th></tr>
+            <tr><th></th><th>Pro</th><th>Enterprise</th></tr>
           </thead>
           <tbody>
             {compare.map(([row, ...cells]) => (
@@ -277,7 +278,7 @@ const jsonLd = [
       </div>
       <div class="hero-cta center reveal">
         <a class="btn btn-primary btn-lg" href="/contact/">Contact us</a>
-        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start free</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Start free trial</a>
       </div>
     </div>
   </section>

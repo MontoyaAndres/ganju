@@ -1,6 +1,6 @@
 # Términos y Condiciones del Servicio
 
-**Última actualización: 10 de septiembre de 2026 · Vigente desde: 10 de septiembre de 2026**
+**Última actualización: 25 de noviembre de 2026 · Vigente desde: 25 de noviembre de 2026**
 
 Estos términos son el acuerdo entre tú y **Ganju S.A.S.**, sociedad por acciones
 simplificada constituida bajo las leyes de Colombia con domicilio en Bogotá, D.C.,
@@ -89,17 +89,49 @@ actuamos según las instrucciones de quien tenga el rol de Propietario.
 
 ### Los planes
 
-| | Gratis | Pro | Empresarial |
-| --- | --- | --- | --- |
-| Precio | $0 | **USD 29 / mes** más consumo | A convenir |
-| Organizaciones propias | 1 | Ilimitadas | Ilimitadas |
-| Proyectos | 1 | Ilimitados | Ilimitados |
-| Herramientas · prompts · canales por asistente | 7 · 3 · 1 | Ilimitados | Ilimitados |
-| Almacenamiento de archivos | 30 MB | Ilimitado | Ilimitado |
-| Contenido indexado (buscable) | 5 MB | 1 GB incluido | A convenir |
-| Respuestas del asistente incluidas | 100 / mes | 3.000 / mes | A convenir |
-| Invitar compañeros | — | ✓ | ✓ |
-| Usar tu propia llave de modelo | — | ✓ | ✓ |
+El Servicio alojado tiene un solo plan, **Pro**. El plan Empresarial está disponible
+mediante un acuerdo aparte.
+
+| | Pro | Empresarial |
+| --- | --- | --- |
+| Precio | **USD 29 / mes** más consumo | A convenir |
+| Organizaciones propias | Ilimitadas | Ilimitadas |
+| Proyectos | Ilimitados | Ilimitados |
+| Herramientas · prompts · canales por asistente | Ilimitados | Ilimitados |
+| Almacenamiento de archivos | Ilimitado | Ilimitado |
+| Contenido indexado (buscable) | 1 GB incluido | A convenir |
+| Respuestas del asistente incluidas | 3.000 / mes | A convenir |
+| Invitar compañeros | ✓ | ✓ |
+| Usar tu propia llave de modelo | ✓ | ✓ |
+
+Alojar tú mismo el código abierto es gratis; estos términos no se aplican a eso.
+
+### Prueba gratuita
+
+Una organización nueva puede empezar una **prueba gratuita de Pro por 7 días**. Así
+funciona:
+
+- **Se requiere una tarjeta de pago** para empezar la prueba. La ingresas al pagar con
+  Polar, nuestro comercializador registrado (ver [Pago](#pago)).
+- **No se cobra nada durante la prueba**, y no se factura ningún consumo.
+- **La suscripción empieza automáticamente al terminar la prueba, salvo que la
+  canceles antes.** Ese día Polar cobra la primera mensualidad de **USD 29** (más los
+  impuestos que correspondan), y desde entonces la suscripción **se renueva
+  automáticamente cada mes** por USD 29 más los cargos por consumo, hasta que la
+  canceles.
+- **Puedes cancelar en cualquier momento antes de que termine la prueba, sin ningún
+  costo**, desde **Configuración → Plan y facturación**, que abre el portal de
+  clientes de Polar. Si cancelas antes de que termine la prueba, no se te cobra nada.
+- **Polar te envía un recordatorio por correo 3 días antes de que termine la
+  prueba**, antes del primer cobro.
+- Durante la prueba, el consumo tiene un tope de **300 respuestas del asistente con el
+  modelo de Ganju** y **300 créditos del asistente de la app que construye
+  herramientas por ti**.
+- **Una sola prueba gratuita por persona.** Cualquier otra organización que crees
+  después empieza con la suscripción paga, sin prueba.
+
+Si la prueba termina sin una suscripción, tu organización queda sin un plan activo;
+ver [Sin un plan activo](#sin-un-plan-activo).
 
 ### Cómo funciona la medición
 
@@ -113,8 +145,8 @@ nunca se facturan como respuestas, y no son las llamadas que medimos arriba.
 Todos los planes incluyen un cupo de respuestas que corren sobre el **modelo
 compartido de Ganju**, cuya inferencia pagamos nosotros. Ese cupo no es ilimitado:
 
-- **En Gratis**, al alcanzar el tope mensual tus asistentes dejan de responder hasta
-  el siguiente ciclo o hasta que actualices el plan. Gratis no puede usar llave propia.
+- **Durante una prueba gratuita**, el consumo tiene los topes que se describen en
+  [Prueba gratuita](#prueba-gratuita), y no se factura nada.
 - **En Pro**, agotado el cupo del modelo compartido las respuestas siguen
   funcionando: simplemente se facturan a la tarifa compartida que se indica abajo.
   Agregar tu propia llave de modelo las mueve a la tarifa más baja.
@@ -180,13 +212,16 @@ solicitar la **reversión del pago** ante tu emisor de tarjeta en los casos all�
 previstos, como fraude o servicio no prestado. Nada en estos términos limita ninguno
 de estos derechos.
 
-### Falta de pago
+### Sin un plan activo
 
-Si un pago falla o una suscripción caduca, tu organización **vuelve a los límites del
-plan Gratis**, lo que puede pausar las respuestas de los canales y bloquear acciones
-que superen esos cupos. No borramos tu contenido por falta de pago, pero puede
-volverse inaccesible más allá de lo que permite el plan Gratis hasta que regularices
-el pago. Avisaremos con al menos 30 días de anticipación por correo antes de subir el
+Tu organización queda sin un plan activo si una prueba gratuita termina sin una
+suscripción, si un pago falla o si una suscripción se cancela o caduca. **No borramos
+nada automáticamente porque una organización no tenga plan**: su contenido se
+conserva y puedes seguir editándolo. **Sus asistentes, canales y servidor MCP dejan de
+funcionar, igual que el asistente de la app que construye herramientas por ti, hasta
+que empiece un plan.**
+
+Avisaremos con al menos 30 días de anticipación por correo antes de subir el
 precio de un plan que estés usando.
 
 ## Tu contenido
@@ -310,7 +345,7 @@ permisos más estrechos que funcionen. Prueba antes de apuntarlo a algo que impo
 ## Disponibilidad, soporte y cambios
 
 Buscamos mantener el Servicio en funcionamiento, pero se presta sin compromiso de
-disponibilidad en los planes Gratis y Pro. Los compromisos de disponibilidad
+disponibilidad en el plan Pro, incluso durante una prueba gratuita. Los compromisos de disponibilidad
 empresariales, si los hay, constan en un acuerdo aparte. Podemos realizar
 mantenimiento, y procuraremos programar los trabajos disruptivos con consideración.
 
@@ -380,8 +415,8 @@ cesante, pérdida de ingresos, de reputación o de datos, cualquiera sea su caus
 
 **Nuestra responsabilidad total agregada derivada de estos términos o del Servicio se
 limita al mayor de: (a) las sumas que nos hayas pagado en los 12 meses anteriores al
-hecho que origina la reclamación, o (b) USD 100.** Si estás en el plan Gratis, eso
-equivale a USD 100.
+hecho que origina la reclamación, o (b) USD 100.** Si no nos has pagado nada,
+por ejemplo durante una prueba gratuita, eso equivale a USD 100.
 
 Esta distribución del riesgo es un elemento esencial del acuerdo entre las partes y
 aplica aun si un remedio limitado falla en su propósito esencial. No aplica a los

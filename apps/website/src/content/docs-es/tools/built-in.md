@@ -2,7 +2,7 @@
 title: Integradas
 description: "Las cinco herramientas base que trae todo proyecto: cómo tu asistente lista, busca, lee y entrega tus recursos y prompts."
 order: 40
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Todo proyecto arranca con cinco herramientas **integradas** ya encendidas. Son
@@ -63,8 +63,7 @@ descubrir: muestran qué hay disponible y cómo usarlo.
 
 ## Mantenlas encendidas
 
-Las integradas cuentan contra tu límite de herramientas (en Free, 5 de las 7),
-pero son lo último que deberías recortar. Puedes apagar o eliminar cualquiera
+Las integradas cuentan contra tu límite de herramientas, pero son lo último que deberías recortar. Puedes apagar o eliminar cualquiera
 como cualquier otra fila, y el asistente pierde esa capacidad. Sin Buscar
 recursos, responde a ciegas. Cuando un canal tiene más de 40 herramientas, estas
 cinco son las que siempre se conservan.

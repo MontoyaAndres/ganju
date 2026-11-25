@@ -473,6 +473,9 @@ export const runToolCallAlerts = async (
         name: db.schema.organization.name,
         plan: db.schema.subscription.plan,
         status: db.schema.subscription.status,
+        createdAt: db.schema.subscription.createdAt,
+        trialEndsAt: db.schema.subscription.trialEndsAt,
+        currentPeriodStart: db.schema.subscription.currentPeriodStart,
         used: db.schema.subscription.toolCallCount
       })
       .from(db.schema.subscription)
@@ -519,11 +522,15 @@ export const runToolCallAlerts = async (
           ? row.used - previous
           : row.used;
 
-      const plan = db.plan.planFromSubscription({
+      const sub = {
         plan: row.plan,
-        status: row.status
-      } as typeof db.schema.subscription.$inferSelect);
-      const hardCap = db.plan.limitsFor(plan).toolCallHardCap;
+        status: row.status,
+        createdAt: row.createdAt,
+        trialEndsAt: row.trialEndsAt,
+        currentPeriodStart: row.currentPeriodStart
+      } as typeof db.schema.subscription.$inferSelect;
+      const plan = db.plan.planFromSubscription(sub);
+      const hardCap = db.plan.limitsForSubscription(sub).toolCallHardCap;
 
       const reason: ToolCallFlag['reason'] | null =
         hardCap != null && row.used >= hardCap

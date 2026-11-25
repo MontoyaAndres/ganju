@@ -51,6 +51,8 @@ import { NoAccess } from './no-access';
 import { useAssistantAccess } from '../../views/assistant/access';
 import { authClient } from '../../../utils';
 import { i18n } from '../../../lib';
+import { PlanBanner } from './plan-banner';
+import type { Plan } from '../../../utils/ssr';
 
 type SocialProvider = 'google' | 'github';
 
@@ -811,6 +813,12 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
           </div>
         )}
         <div className="box-container">
+          {currentOrgId && (
+            <PlanBanner
+              organizationId={currentOrgId}
+              plan={(page.props as { plan?: Plan | null }).plan}
+            />
+          )}
           {projectAccessDenied ? (
             <NoAccess organizationId={currentOrgId} />
           ) : (

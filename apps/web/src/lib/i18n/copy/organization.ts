@@ -65,6 +65,23 @@ const en = {
   description: 'Description',
   submit: 'Create Organization',
   modalTitle: 'Create a new organization',
+  newOrgPlanNote:
+    'Each organization has its own plan and billing. To add another bot, a new project in an organization you already have is usually what you want.',
+
+  // Right after creating an organization, once there's no Free plan.
+  /** `{days}` of trial. */
+  trialTitle: 'Start your {days}-day free trial',
+  /** `{days}` of trial, `{price}` in dollars. */
+  trialText:
+    'Pro, free for {days} days: your bots answer, the Assistant builds with you and your tools run. We ask for a card and charge ${price}/mo plus usage when the trial ends, unless you cancel before. Without a plan you can build, but nothing runs.',
+  trialUsedTitle: 'Start Pro',
+  trialUsedText:
+    'You already used your free trial, so Pro starts paid: ${price}/mo plus usage. Without a plan you can build, but nothing runs.',
+  trialStart: 'Start free trial',
+  trialStartPaid: 'Start Pro',
+  trialNotNow: 'Not now',
+  planNone: 'No plan',
+  planTrial: 'Pro trial',
 
   // Invite modal.
   /** `{name}` — the organization being invited to. */
@@ -143,6 +160,20 @@ export const ORGANIZATION: Catalog<OrganizationCopy> = {
     description: 'Descripción',
     submit: 'Crear organización',
     modalTitle: 'Crear una organización',
+    newOrgPlanNote:
+      'Cada organización tiene su propio plan y su propia facturación. Para agregar otro bot, normalmente lo que quieres es un proyecto nuevo en una organización que ya tienes.',
+
+    trialTitle: 'Empieza tu prueba gratis de {days} días',
+    trialText:
+      'Pro gratis por {days} días: tus bots responden, el Asistente construye contigo y tus herramientas funcionan. Pedimos una tarjeta y cobramos {price} USD/mes más el consumo al terminar la prueba, a menos que canceles antes. Sin un plan puedes construir, pero nada funciona.',
+    trialUsedTitle: 'Empezar Pro',
+    trialUsedText:
+      'Ya usaste tu prueba gratis, así que Pro empieza pagado: {price} USD/mes más el consumo. Sin un plan puedes construir, pero nada funciona.',
+    trialStart: 'Empezar prueba gratis',
+    trialStartPaid: 'Empezar Pro',
+    trialNotNow: 'Ahora no',
+    planNone: 'Sin plan',
+    planTrial: 'Prueba de Pro',
 
     inviteTitle: 'Invitar a {name}',
     inviteEmail: 'Correo electrónico',

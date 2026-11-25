@@ -58,6 +58,7 @@ import {
   runAbandonedDatabases
 } from './utils';
 import { runBuilderHealthAlerts } from './controllers/builder/health';
+import { runFreePlanNotices } from './utils/noPlanNotice';
 import {
   handleIndexBatch,
   handleCrawlDiscoverBatch,
@@ -286,6 +287,11 @@ app
     '/organization/:organizationId/billing/portal',
     UserMiddleware.verify,
     BillingController.createPortal
+  )
+  .post(
+    '/organization/:organizationId/billing/end-trial',
+    UserMiddleware.verify,
+    BillingController.endTrial
   )
   .put(
     '/organization/:organizationId/builder/settings',
@@ -962,6 +968,8 @@ export default {
     ) {
       ctx.waitUntil(runDataIndexAdvice({ env }));
       ctx.waitUntil(runAbandonedDatabases({ env }));
+      // Before the Free plan's lock date: tell each Free organization once.
+      ctx.waitUntil(runFreePlanNotices({ env }));
     }
   },
   queue: (

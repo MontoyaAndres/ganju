@@ -27,8 +27,8 @@ up in minutes, no coding required. Open source under Apache-2.0.
 A **function** is a small tool you add to your assistant: look something up in
 your own system, work something out, start a job somewhere else. You describe
 it, fill in what it does, and press Deploy — we run it, with no server to manage
-and nothing to install. A Pro feature; on Free, `http-endpoint` points at your
-own app with no code at all.
+and nothing to install. If you'd rather not write any code, `http-endpoint`
+points at your own app instead.
 
 1. **Describe it** — give the tool a name and say when your assistant should
    reach for it. The starting code is written for you.

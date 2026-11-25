@@ -2,13 +2,13 @@
 title: Sign in
 description: Create your Ganju account with Google or GitHub, accept an invitation, and manage your profile.
 order: 2
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 2
 outcome: "You're signed in to Ganju and looking at your organizations."
 ---
 
-Ganju is free to start, no credit card required. There's no separate sign-up:
-the first time you sign in, your account is created.
+There's no separate sign-up: the first time you sign in, your account is
+created. Your first organization can start a 7-day free trial of Pro.
 
 ## Sign in
 

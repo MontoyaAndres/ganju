@@ -2,7 +2,7 @@
 title: Acciones
 description: "Activa las acciones que tu IA puede hacer: conecta una integración, apúntala a tu propia API o deja que el Asistente escriba una."
 order: 6
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 4
 outcome: "Una integración como Gmail conectada, con las herramientas que quieres encendidas."
 ---
@@ -13,7 +13,7 @@ y Google Calendar. Abre **Acciones** en la barra lateral. La página tiene tres 
 
 | Pestaña | Qué hay |
 | --- | --- |
-| **[Funciones](/es/docs/tools/functions/)** | Acciones propias escritas en código, por el [Asistente](/es/docs/assistant/) para ti o por un desarrollador con el CLI. Pro. |
+| **[Funciones](/es/docs/tools/functions/)** | Acciones propias escritas en código, por el [Asistente](/es/docs/assistant/) para ti o por un desarrollador con el CLI. |
 | **[Endpoints HTTP](/es/docs/tools/http-endpoints/)** | Una API que ya tienes, descrita una vez y convertida en una herramienta con nombre. Sin código. |
 | **[Catálogo](/es/docs/tools/catalog/)** | Las integraciones que trae Ganju, más servidores MCP remotos como GitHub y Notion. |
 
@@ -72,15 +72,18 @@ del Inicio lista las que nadie usó en 30 días, con un botón **Desactivar**.
 
 ## Límites
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Herramientas encendidas a la vez | 7 (incluidas las integradas) | 40 |
-| Endpoints HTTP por proyecto | 3 | Ilimitados |
-| Funciones | No disponible | ✓ |
+| | Pro / Enterprise |
+| --- | --- |
+| Herramientas encendidas a la vez | 40 |
+| Endpoints HTTP por proyecto | Ilimitados |
+| Funciones | ✓ |
+
+Una organización sin plan puede tener hasta 7 herramientas encendidas (incluidas
+las integradas), y sus funciones no se ejecutan.
 
 ## Cuando el catálogo no alcanza
 
-- **Pídeselo al [Asistente](/es/docs/assistant/)** (Pro). Describe qué debe hacer
+- **Pídeselo al [Asistente](/es/docs/assistant/)**. Describe qué debe hacer
   el bot; escribe la acción, la prueba y la activa con tu clic. Las acciones que
   escribe aparecen en **Funciones**, donde puedes leerlas. Para agregar o
   cambiar una, pídeselo al Asistente.

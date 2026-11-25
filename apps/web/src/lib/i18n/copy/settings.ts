@@ -41,8 +41,7 @@ const en = {
   toastToolConfirmationOff: 'Bots will no longer ask before sensitive actions',
 
   // Billing.
-  billingSubtitle:
-    "Your organization's plan, current usage, and subscription. Upgrade to Pro to lift the Free limits.",
+  billingSubtitle: "Your organization's plan, current usage, and subscription.",
   billingUnavailable: 'Billing is unavailable right now.',
   /** `{plan}` — Free, Pro or Enterprise. */
   planHeading: '{plan} plan',
@@ -55,6 +54,35 @@ const en = {
   planActive: 'Your subscription is active.',
   upgradeAction: 'Upgrade to Pro',
   manageBilling: 'Manage billing',
+  noPlanHeading: 'No plan',
+  noPlanPitch:
+    'Your bots, MCP server and Assistant are off. Everything you built is still here.',
+  /** `{days}` of trial and `{price}` in dollars. */
+  trialPitch:
+    'Try Pro free for {days} days: unlimited tools, prompts, channels and team members, the Assistant and Data. We ask for a card and charge ${price}/mo plus usage when the trial ends, unless you cancel before.',
+  trialUsedPitch:
+    'You already used your free trial, so Pro starts paid: ${price}/mo plus usage.',
+  /** `{left}` is dayLeft or daysLeft. */
+  trialEnds:
+    'Your trial ends on {date} ({left}). Then Pro starts at ${price}/mo plus usage. During the trial: {replies} replies on our AI model and {credits} Assistant credits.',
+  trialCanceled:
+    "Your trial ends on {date} and won't turn into Pro: it was canceled.",
+  freeEnds:
+    'The Free plan ends on {date}: after that, this organization keeps what you built, but its bots, MCP server and Assistant turn off until it has a plan.',
+  dayLeft: '1 day left',
+  daysLeft: '{n} days left',
+  statusTrial: 'trial',
+  startTrialAction: 'Start {days}-day free trial',
+  startProNow: 'Start Pro now',
+  confirmStartProTitle: 'Start Pro now?',
+  confirmStartProText:
+    'The trial ends now and ${price} for the first month is charged to the card on file. The trial limits are lifted.',
+  confirmStartProAction: 'Start Pro',
+  portalHint: 'Manage billing shows your next charge, with the usage so far.',
+  enterpriseAgreement:
+    'Billed by your agreement with Ganju. Usage this period is below; write to us with any question about an invoice.',
+  enterpriseCard:
+    'Usage is charged to your card; the agreed fee is invoiced separately.',
   opening: 'Opening…',
   usageMessages: 'Assistant replies this month',
   usageSharedMessages: 'Of those, on our AI model',
@@ -88,6 +116,8 @@ const en = {
   usageBuilder: 'Assistant credits',
   builderHint:
     'What the project assistant and its customer test chat use. Past the included credits it stops at {cap} extra credits a month.',
+  builderTrialHint:
+    'The trial includes {credits} credits and no extra ones; they start with Pro.',
   builderOwnKeyHint:
     "The assistant runs on your organization's Anthropic key and uses no credits; only the customer test chat does. Change it from the Assistant tab.",
   builderCapLabel: 'Extra credits a month',
@@ -108,6 +138,8 @@ const en = {
   usageDataRequests: 'Requests',
   usageDataTriggerRuns: 'Trigger runs',
   toastCheckoutSuccess: 'Subscription active — welcome to Pro!',
+  toastTrialStarted: 'Your Pro trial started. Welcome!',
+  toastProStarting: 'Pro is starting. It can take a minute to show here.',
   toastCheckoutCancelled: 'Checkout cancelled.',
   toastBillingFailed: 'Could not open billing. Try again.',
 
@@ -359,7 +391,7 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Los bots ya no preguntarán antes de acciones sensibles',
 
     billingSubtitle:
-      'El plan de tu organización, su consumo actual y su suscripción. Pasa a Pro para levantar los límites del plan Gratis.',
+      'El plan de tu organización, su consumo actual y su suscripción.',
     billingUnavailable: 'La facturación no está disponible en este momento.',
     planHeading: 'Plan {plan}',
     upgradePitch:
@@ -370,6 +402,34 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     planActive: 'Tu suscripción está activa.',
     upgradeAction: 'Pasar a Pro',
     manageBilling: 'Gestionar la facturación',
+    noPlanHeading: 'Sin plan',
+    noPlanPitch:
+      'Tus bots, tu servidor MCP y el Asistente están apagados. Todo lo que construiste sigue aquí.',
+    trialPitch:
+      'Prueba Pro gratis por {days} días: herramientas, prompts, canales y miembros ilimitados, el Asistente y Datos. Pedimos una tarjeta y cobramos {price} USD/mes más el consumo al terminar la prueba, a menos que canceles antes.',
+    trialUsedPitch:
+      'Ya usaste tu prueba gratis, así que Pro empieza pagado: {price} USD/mes más el consumo.',
+    trialEnds:
+      'Tu prueba termina el {date} ({left}). Luego empieza Pro a {price} USD/mes más el consumo. Durante la prueba: {replies} respuestas con nuestro modelo de IA y {credits} créditos del Asistente.',
+    trialCanceled:
+      'Tu prueba termina el {date} y no pasará a Pro: fue cancelada.',
+    freeEnds:
+      'El plan Free termina el {date}: después, esta organización conserva lo que construiste, pero sus bots, su servidor MCP y el Asistente se apagan hasta que tenga un plan.',
+    dayLeft: 'queda 1 día',
+    daysLeft: 'quedan {n} días',
+    statusTrial: 'prueba',
+    startTrialAction: 'Empezar prueba gratis de {days} días',
+    startProNow: 'Empezar Pro ahora',
+    confirmStartProTitle: '¿Empezar Pro ahora?',
+    confirmStartProText:
+      'La prueba termina ahora y se cobran {price} USD del primer mes a la tarjeta registrada. Se quitan los límites de la prueba.',
+    confirmStartProAction: 'Empezar Pro',
+    portalHint:
+      'En Gestionar la facturación ves tu próximo cobro, con el consumo hasta hoy.',
+    enterpriseAgreement:
+      'Se factura según tu acuerdo con Ganju. Abajo está el consumo de este periodo; escríbenos si tienes preguntas sobre una factura.',
+    enterpriseCard:
+      'El consumo se cobra a tu tarjeta; la tarifa acordada se factura aparte.',
     opening: 'Abriendo…',
     usageMessages: 'Respuestas del asistente este mes',
     usageSharedMessages: 'De esas, con nuestro modelo de IA',
@@ -398,6 +458,8 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     usageBuilder: 'Créditos del asistente',
     builderHint:
       'Lo que usan el asistente del proyecto y su chat de prueba. Pasados los créditos incluidos, se detiene en {cap} créditos extra al mes.',
+    builderTrialHint:
+      'La prueba incluye {credits} créditos y ninguno extra; esos empiezan con Pro.',
     builderOwnKeyHint:
       'El asistente usa la clave de Anthropic de tu organización y no gasta créditos; solo los usa el chat de prueba como cliente. Cámbialo desde la pestaña Asistente.',
     builderCapLabel: 'Créditos extra al mes',
@@ -419,6 +481,9 @@ export const SETTINGS: Catalog<SettingsCopy> = {
     usageDataRequests: 'Solicitudes',
     usageDataTriggerRuns: 'Ejecuciones de disparadores',
     toastCheckoutSuccess: 'Suscripción activa — ¡bienvenido a Pro!',
+    toastTrialStarted: 'Tu prueba de Pro empezó. ¡Bienvenido!',
+    toastProStarting:
+      'Pro está empezando. Puede tardar un minuto en verse aquí.',
     toastCheckoutCancelled: 'Cancelaste el pago.',
     toastBillingFailed: 'No pudimos abrir la facturación. Inténtalo de nuevo.',
 

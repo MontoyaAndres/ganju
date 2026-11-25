@@ -1,6 +1,6 @@
 # Subprocessors
 
-**Last updated: September 10, 2026**
+**Last updated: November 25, 2026**
 
 A subprocessor is a company we use to deliver the hosted Ganju service that may
 handle personal data on our behalf. This page is the authoritative list. It's part of
@@ -51,7 +51,7 @@ never connect them, they never see anything of yours.
 
 | Subprocessor | Triggered by | Data it handles |
 | --- | --- | --- |
-| **Google LLC** (shared model) | Running channel replies on Ganju's shared model — the default, and the only option on Free | Conversation history, system prompt, tool definitions and results, retrieved chunks |
+| **Google LLC** (shared model) | Running channel replies on Ganju's shared model, the default | Conversation history, system prompt, tool definitions and results, retrieved chunks |
 | **Anthropic, PBC** | Adding an Anthropic model key | The same turn content, on your own account |
 | **OpenAI, L.L.C.** | Adding an OpenAI or OpenAI-compatible model key | The same turn content, on your own account |
 | **Tavily** | Installing the web-search or web-extract tools | Your search queries and target URLs |

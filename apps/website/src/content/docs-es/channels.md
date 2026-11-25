@@ -2,7 +2,7 @@
 title: Canales
 description: Lleva tu asistente a personas reales en las apps que ya usan (Telegram, WhatsApp, Slack y Discord), ajusta cómo responde y mira cada conversación.
 order: 5
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Los **canales** son la forma de poner tu asistente frente a otras personas. Todo
@@ -214,10 +214,13 @@ Los canales en sí se conectan y se configuran en el panel.
 
 ## Límites del plan
 
-- **Free**: un canal por proyecto y 100 mensajes del bot al mes en toda la
-  organización, con el modelo por defecto.
 - **Pro** y **Enterprise**: canales ilimitados, mensajes medidos más allá de lo
   que incluye el plan, y tus propios modelos.
+- **Prueba de 7 días**: todo lo de Pro, con hasta 300 respuestas del bot con el
+  modelo de IA de Ganju. Las respuestas con tu propio modelo no cuentan para
+  este tope.
+- **Sin plan**: un canal por proyecto, y el bot no responde. El propietario y
+  los administradores reciben un correo al respecto, como mucho una vez al día.
 
 Mira planes y consumo en [Configuración](/es/docs/settings/).
 
@@ -238,7 +241,9 @@ Mira planes y consumo en [Configuración](/es/docs/settings/).
   alcanzado**. Sube el límite o espera a que se libere el día.
 - **"…is already connected to project…".** Ese bot, app o número está conectado
   al canal de otro proyecto. Elimina ese canal primero, o usa otro bot.
-- **Plan Free: no puedes agregar un canal.** Free admite un canal por proyecto.
+- **El bot dejó de responder y un aviso dice que no hay plan.** La prueba o el
+  plan de la organización terminó. Empieza la prueba, o Pro, en
+  [Configuración → Facturación y plan](/es/docs/settings/#facturación-y-plan).
 
 Sigue con: administra modelos, miembros y facturación en
 [Configuración](/es/docs/settings/).

@@ -2,7 +2,7 @@
 title: HTTP Endpoints
 description: "Point your bot at an API you already run: describe one request and it becomes a named tool, with no code and no deploy."
 order: 38
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **HTTP Endpoints** turn an API you already run into a tool. You describe one
@@ -11,8 +11,7 @@ model can call. No code, no bundle, no deploy step.
 
 This is the middle rung between the catalog and
 [functions](/docs/tools/functions/): more flexible than an integration we ship,
-and far less work than code. It's also the custom tool available on **every
-plan**, including Free.
+and far less work than code.
 
 You can fill in the form yourself, or ask the [Assistant](/docs/assistant/):
 it can add and change an HTTP endpoint as part of a change set you apply.
@@ -25,8 +24,8 @@ Each endpoint you add becomes its own tool, listed here with a switch, an edit
 button and a remove button. **Off keeps the endpoint and everything configured
 on it** (the row shows **Off · settings kept**); **Remove deletes it with its
 settings**. Use the switch when you want the tool to go quiet, and remove it
-when you're done with it. On Free, the tab shows how many of your 3 endpoints
-you've used.
+when you're done with it. In an organization without a plan, the tab shows how
+many of your 3 endpoints you've used.
 
 ## Add an endpoint
 
@@ -120,8 +119,8 @@ text that happens to start with "Error", which is what lets the model tell
 
 ## Limits
 
-Free allows **3 endpoints** per project. Pro and Enterprise have no endpoint
-limit; every endpoint that is on still counts toward the project's
+Pro and Enterprise have no endpoint limit (an organization
+[without a plan](/docs/settings/#without-a-plan) can keep 3 per project); every endpoint that is on still counts toward the project's
 [tools](/docs/tools/#turning-tools-on-and-off). HTTP endpoint calls aren't
 metered as tool calls: only calls into [your own code](/docs/tools/functions/)
 are.

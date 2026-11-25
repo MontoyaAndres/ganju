@@ -6,17 +6,17 @@ import { PRICING } from '../../lib/pricing';
 import { CALCULATOR } from '../../lib/i18n';
 
 const description =
-  'Precios de Ganju: empieza gratis, pasa a Pro por $29 al mes cuando tu bot tenga uso real, o instálalo tú mismo sin costo bajo Apache-2.0.';
+  'Precios de Ganju: Pro cuesta $29 al mes más consumo y empieza con una prueba gratis de 7 días. O instala Ganju tú mismo sin costo bajo Apache-2.0.';
 
 // Cada respuesta repite un dato que ya está en esta página; mantenlas sincronizadas.
 const faqs = [
   {
-    q: '¿Hay un plan gratis?',
-    a: 'Sí. Free cuesta $0 al mes: un proyecto con 100 respuestas del bot al mes en nuestro modelo de IA, 7 herramientas, 3 prompts, 1 canal y 5 MB de contenido consultable. No necesitas tarjeta.'
+    q: '¿Cómo funciona la prueba gratis?',
+    a: 'Cada organización nueva empieza con una prueba gratis de Pro de 7 días. Agregas una tarjeta al pagar, pero no se cobra nada durante la prueba. Si no cancelas antes del día 7, Pro empieza y se cobran $29 a la tarjeta por el primer mes. Cancela cuando quieras antes de esa fecha y no se cobra nada. Te llega un correo de recordatorio 3 días antes de que termine la prueba. Hay una sola prueba gratis por persona: una segunda organización tuya empieza en Pro de una vez.'
   },
   {
-    q: '¿Qué pasa si paso los límites de Free?',
-    a: 'Tu bot se pausa hasta que empiece el mes siguiente, o hasta que pases a Pro. No se borra nada.'
+    q: '¿Qué incluye la prueba?',
+    a: 'Todo lo de Pro, con un tope de 300 respuestas del bot en nuestro modelo de IA y 300 créditos del Asistente, sin cobro por consumo. Las respuestas con tu propia clave de IA no cuentan para ese tope. Los cupos completos de Pro empiezan con tu primer mes pagado, y puedes empezar Pro antes desde Facturación.'
   },
   {
     q: '¿Cuánto cuesta Pro?',
@@ -36,38 +36,38 @@ const faqs = [
   },
   {
     q: '¿Se cobra la base de datos?',
-    a: 'Todavía no. En Pro y Enterprise cada proyecto tiene una base de datos de hasta 9 GB y 50 tablas. Su consumo se mide y aparece en tu página de facturación, pero no se cobra. En Free, una base de datos que ya exista se puede leer pero no editar.'
+    a: 'Todavía no. En Pro y Enterprise cada proyecto tiene una base de datos de hasta 9 GB y 50 tablas. Su consumo se mide y aparece en tu página de facturación, pero no se cobra.'
   },
   {
     q: '¿Puedo cancelar cuando quiera?',
-    a: 'Sí. Pro sigue funcionando hasta el final del periodo que pagaste, y después la organización vuelve a los límites de Free. Las bases de datos de tus proyectos se conservan, en solo lectura.'
+    a: 'Sí. Pro sigue funcionando hasta el final del periodo que pagaste. Después la organización queda sin plan: todo lo que construiste se conserva y lo puedes seguir editando, pero tus bots no responden, tu servidor MCP rechaza las solicitudes y el Asistente se apaga hasta que vuelvas a empezar Pro. Lo mismo pasa si cancelas la prueba o si termina sin pago.'
   },
   {
-    q: '¿Puedo instalar Ganju por mi cuenta gratis?',
-    a: 'Sí. Ganju es software libre bajo Apache-2.0. Despliégalo en tu propia cuenta de Cloudflare sin costo, con tus propias claves de IA, y tus datos se quedan en tu cuenta.'
+    q: '¿Hay una opción gratis?',
+    a: 'Sí: instalarlo tú mismo. Ganju es software libre bajo Apache-2.0, y correr tu propia instancia es gratis. Pones tu propia cuenta de Cloudflare, tu base de datos Postgres y tus claves de IA, y tus datos se quedan en tu cuenta. Nuestro servicio alojado es Pro, que empieza con una prueba gratis de 7 días.'
   }
 ];
 
 const cards = [
   {
-    tier: 'Free',
-    amount: '$0',
-    per: '/mes',
-    sub: 'Prueba Ganju con un bot.',
+    tier: 'Autoalojado',
+    amount: 'Gratis',
+    per: '',
+    sub: 'Corre Ganju en tu propia infraestructura.',
     items: [
-      '1 proyecto',
-      '100 respuestas del bot al mes',
-      '7 herramientas, 3 prompts, 1 canal',
-      '5 MB de contenido consultable',
-      'Úsalo desde Claude, ChatGPT o Cursor'
+      'Software libre bajo Apache-2.0',
+      'Corre en tu propia cuenta de Cloudflare',
+      'Pones tu propio Postgres y tus claves de IA',
+      'Tú operas y pagas la infraestructura',
+      'Tus datos se quedan en tu cuenta'
     ],
-    cta: { label: 'Empieza gratis', href: SITE.appUrl, external: true, primary: false }
+    cta: { label: 'Ver la guía de instalación', href: '/es/docs/deploy/', external: false, primary: false }
   },
   {
     tier: 'Pro',
     amount: '$29',
     per: '/mes',
-    sub: 'Para un bot que la gente usa todos los días.',
+    sub: 'Para un bot que la gente usa todos los días. Gratis por 7 días.',
     ribbon: 'El más elegido',
     items: [
       'Proyectos, prompts y canales ilimitados',
@@ -77,7 +77,7 @@ const cards = [
       'Funciones y una base de datos por proyecto',
       'Invita a tu equipo y usa tu propio modelo de IA'
     ],
-    cta: { label: 'Empezar con Pro', href: SITE.appUrl, external: true, primary: true }
+    cta: { label: 'Prueba gratis 7 días', href: SITE.appUrl, external: true, primary: true }
   },
   {
     tier: 'Enterprise',
@@ -114,23 +114,23 @@ const free = [
 
 const yes = '✓';
 const compare = [
-  ['Precio', '$0', '$29 / mes', 'A la medida'],
-  ['Proyectos', '1', 'Ilimitados', 'Ilimitados'],
-  ['Respuestas del bot incluidas', '100 / mes', '3.000 / mes', 'A la medida'],
-  ['Pasadas las incluidas', 'El bot se pausa', 'Se cobran por consumo', 'A la medida'],
-  ['Contenido consultable', '5 MB', '1 GB, luego $2 / GB', 'A la medida'],
-  ['Almacenamiento de archivos', '30 MB', 'Ilimitado', 'Ilimitado'],
-  ['Prompts por proyecto', '3', 'Ilimitados', 'Ilimitados'],
-  ['Herramientas encendidas', '7', 'Hasta 40 por canal', 'Hasta 40 por canal'],
-  ['Endpoints HTTP por proyecto', '3', 'Ilimitados', 'Ilimitados'],
-  ['Canales por proyecto', '1', 'Ilimitados', 'Ilimitados'],
-  ['Sincronización automática de recursos', 'A mano', 'Diaria o semanal', 'Diaria o semanal'],
-  ['El Asistente', '', '1.000 créditos / mes', yes],
-  ['Funciones', '', '1M de llamadas / mes', yes],
-  ['Base de datos por proyecto', '', '9 GB, 50 tablas', yes],
-  ['Invitar a tu equipo', '', yes, yes],
-  ['Usar tu propio modelo de IA', '', yes, yes],
-  ['Soporte', 'Comunidad', '24/7', 'Contacto asignado']
+  ['Precio', '$29 / mes', 'A la medida'],
+  ['Proyectos', 'Ilimitados', 'Ilimitados'],
+  ['Respuestas del bot incluidas', '3.000 / mes', 'A la medida'],
+  ['Pasadas las incluidas', 'Se cobran por consumo', 'A la medida'],
+  ['Contenido consultable', '1 GB, luego $2 / GB', 'A la medida'],
+  ['Almacenamiento de archivos', 'Ilimitado', 'Ilimitado'],
+  ['Prompts por proyecto', 'Ilimitados', 'Ilimitados'],
+  ['Herramientas encendidas', 'Hasta 40 por canal', 'Hasta 40 por canal'],
+  ['Endpoints HTTP por proyecto', 'Ilimitados', 'Ilimitados'],
+  ['Canales por proyecto', 'Ilimitados', 'Ilimitados'],
+  ['Sincronización automática de recursos', 'Diaria o semanal', 'Diaria o semanal'],
+  ['El Asistente', '1.000 créditos / mes', yes],
+  ['Funciones', '1M de llamadas / mes', yes],
+  ['Base de datos por proyecto', '9 GB, 50 tablas', yes],
+  ['Invitar a tu equipo', yes, yes],
+  ['Usar tu propio modelo de IA', yes, yes],
+  ['Soporte', '24/7', 'Contacto asignado']
 ];
 
 const alternates = { en: '/pricing', es: '/es/precios' };
@@ -150,8 +150,8 @@ const jsonLd = [
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">Precios</span>
-        <h1>Precios simples. Empieza gratis.</h1>
-        <p>Pruébalo gratis. Pasa a Pro cuando tu bot tenga uso real. Solo pagas más si te pasas de lo incluido.</p>
+        <h1>Precios simples. Prueba Pro gratis por 7 días.</h1>
+        <p>Pro cuesta $29 al mes. Solo pagas más si te pasas de lo incluido.</p>
       </div>
 
       <div class="pricing-grid">
@@ -180,7 +180,8 @@ const jsonLd = [
         }
       </div>
       <p class="pricing-note reveal">
-        ¿Prefieres correrlo tú mismo? Ganju es software libre. <a href="/es/docs/deploy/">Instálalo gratis</a>.
+        Cada organización nueva empieza con una prueba gratis de Pro de 7 días. Se necesita una tarjeta, no se cobra
+        nada durante la prueba y puedes cancelar cuando quieras antes del día 7. <a href="#faq">Cómo funciona la prueba</a>.
       </p>
     </div>
   </section>
@@ -222,7 +223,7 @@ const jsonLd = [
       <div class="plan-table-wrap reveal">
         <table class="plan-table plan-compare">
           <thead>
-            <tr><th></th><th>Free</th><th>Pro</th><th>Enterprise</th></tr>
+            <tr><th></th><th>Pro</th><th>Enterprise</th></tr>
           </thead>
           <tbody>
             {compare.map(([row, ...cells]) => (
@@ -277,7 +278,7 @@ const jsonLd = [
       </div>
       <div class="hero-cta center reveal">
         <a class="btn btn-primary btn-lg" href="/es/contacto/">Contáctanos</a>
-        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Empieza gratis</a>
+        <a class="btn btn-ghost btn-lg" href={SITE.appUrl} target="_blank" rel="noopener">Prueba gratis 7 días</a>
       </div>
     </div>
   </section>

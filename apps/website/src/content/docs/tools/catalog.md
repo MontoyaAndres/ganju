@@ -2,7 +2,7 @@
 title: Catalog
 description: "The integrations we ship: connect an account once, switch on the tools you want, and turn them off again without losing the setup."
 order: 39
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 The **Catalog** is everything we ship and maintain: Gmail, Outlook, Slack,
@@ -85,15 +85,15 @@ sharper assistant. Turn on the tools you need, not the whole group.
 
 The limits that apply:
 
-- **Free:** 7 tools turned on per project. The five built-in tools count toward
-  it.
 - **Pro and Enterprise:** no plan limit, but a project can have at most **40**
   tools turned on.
+- **Without a plan:** 7 tools turned on per project. The five built-in tools
+  count toward it.
 - Each tool you allow from a remote MCP server counts as one, and a project
   with a [database](/docs/data/) adds its three data tools to the count.
 
 Past the limit, turning one more on is refused with a message saying how many
-are on; turn something off or upgrade. Channels also never send more than 40
+are on; turn something off, or start Pro if the organization has no plan. Channels also never send more than 40
 tools to the model, and the built-in resource tools are always kept first, so
 your assistant never loses the ability to read your knowledge.
 
@@ -107,8 +107,8 @@ questions:
 | **Off** (switch) | The tool stops being exposed. Its configuration, its credential and its settings survive, and it stops counting toward your tool limit. The row is marked **Off · settings kept**. |
 | **Remove** (trash) | The row is deleted, and the settings go with it. The confirmation reminds you to turn it off instead if you only want it gone from the server. |
 
-Turning a tool off frees a slot, so on Free you can rotate through more tools
-than your plan exposes at once. Turning one back on re-checks the limit.
+Turning a tool off frees a slot, so you can rotate through more tools than the
+limit exposes at once. Turning one back on re-checks the limit.
 
 **Disconnect** is a third thing: it revokes the stored credential for the whole
 integration. Every enabled tool in the group stops working immediately, but
@@ -184,7 +184,7 @@ use the same connections.
 - **A tool answers "credential not connected" or "not connected".** Someone
   disconnected the integration. Connect it again from its card.
 - **Turning a tool on is refused.** You're at your tool limit. Turn off a tool
-  you don't need, or upgrade.
+  you don't need, or start Pro if the organization has no plan.
 - **The bot ignores a tool it has.** Check it's on (not **Off · settings kept**)
   and that its description fits the request, and remember a channel sends at
   most 40 tools.

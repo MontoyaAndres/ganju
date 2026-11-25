@@ -1,8 +1,8 @@
 ---
 title: Primeros pasos
-description: "Siete páginas cortas te llevan de no tener cuenta a un bot que le responde a gente real en Telegram, WhatsApp, Slack o Discord. Todo funciona en el plan Free."
+description: "Siete páginas cortas te llevan de no tener cuenta a un bot que le responde a gente real en Telegram, WhatsApp, Slack o Discord. Todo cabe en la prueba gratis de 7 días de Pro."
 order: 1
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 ## Cómo encajan las piezas
@@ -46,22 +46,16 @@ mano cuando quieras; son los mismos bloques que usa el Asistente. Mira
 npm install -g @ganju/cli
 ```
 
-## Free y Pro, en estos pasos
+## La prueba, en estos pasos
 
-Todo lo de esta guía funciona en Free. Pro sube los límites y suma el
-Asistente:
+Cuando creas tu organización, Ganju te ofrece una **prueba gratis de 7 días** de
+Pro. Todo lo de esta guía funciona durante la prueba, que incluye 300 respuestas
+del bot con el modelo de IA de Ganju y 300 créditos del Asistente. Agregas una
+tarjeta, no se cobra nada durante la prueba, y Pro (29 USD al mes más el consumo)
+empieza cuando termina, a menos que canceles.
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Prompts por proyecto | 3 | Ilimitados |
-| Contenido consultable | 5 MB | 1 GB incluido |
-| Herramientas encendidas a la vez | 7 | 40 |
-| Endpoints HTTP por proyecto | 3 | Ilimitados |
-| Canales por proyecto | 1 | Ilimitados |
-| Respuestas del bot al mes | 100, luego se pausa | 3.000 incluidas, luego se cobran |
-| Asistente, funciones y Datos | No | Sí |
-| Invitar a tu equipo | No | Sí |
-
+Sin un plan tu bot no responde, así que empieza la prueba antes de conectar un
+canal.
 Los precios y la comparación completa están en
 [Configuración → Comparar planes](/es/docs/settings/#compara-los-planes).
 
@@ -71,8 +65,8 @@ Las páginas de arriba son el camino rápido. Cuando quieras ampliar lo que pued
 hacer tu asistente, cada bloque tiene una guía más completa:
 
 - **[Organizaciones y proyectos](/es/docs/organizations-and-projects/)**: la
-  estructura de organización y proyecto, el selector, y cómo tener Free y Pro
-  lado a lado.
+  estructura de organización y proyecto, el selector, y cómo tener varias
+  organizaciones lado a lado.
 - **[Asistente](/es/docs/assistant/)**: construye describiendo, con créditos en
   los planes de pago.
 - **[Prompts](/es/docs/prompts/)**: plantillas de varios turnos, variables

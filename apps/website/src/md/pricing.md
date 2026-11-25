@@ -1,18 +1,29 @@
 # Ganju Pricing
 
-Simple pricing. Try it for free, move to Pro when your bot gets real use, and
-only pay more if you go past what's included.
+Simple pricing. Pro is $29 a month and starts with a 7-day free trial. You only
+pay more if you go past what's included. Or self-host Ganju for free.
 
-## Free: $0/mo
+## Free trial: 7 days of Pro
 
-Try Ganju with one bot.
+Every new organization starts with a 7-day free trial of Pro.
 
-- 1 project
-- 100 bot replies a month, on our AI model (the bot pauses at the limit)
-- 7 tools, 3 prompts, 1 channel
-- 5 MB of searchable content, 30 MB of files
-- Use it from Claude, ChatGPT or Cursor
-- Community support
+- A card is required at checkout; nothing is charged during the trial.
+- If you don't cancel before day 7, Pro starts and the card is charged $29 for
+  the first month. Usage past what's included is billed per period after that.
+- Cancel any time before the trial ends and nothing is charged. You get a
+  reminder email 3 days before it ends.
+- During the trial you get everything in Pro, capped at 300 bot replies on our
+  AI model and 300 Assistant credits, with no usage billed. Replies on your own
+  AI key don't count toward that cap.
+- The full Pro allowances start with your first paid month. You can start Pro
+  early from Billing.
+- One free trial per person: a second organization you own starts on Pro right
+  away.
+
+An organization without a plan (trial canceled or ended unpaid, or Pro canceled
+after the paid period) keeps everything it built and can still be edited, but
+its bots don't answer, its MCP server refuses requests and the Assistant is off
+until it starts Pro.
 
 ## Pro: $29/mo
 
@@ -55,27 +66,29 @@ For larger teams with their own terms.
 
 ## Compare plans
 
-| | Free | Pro | Enterprise |
-| --- | --- | --- | --- |
-| Price | $0 | $29 / mo | Custom |
-| Projects | 1 | Unlimited | Unlimited |
-| Bot replies included | 100 / mo | 3,000 / mo | Custom |
-| Past the included replies | Bot pauses | Billed as usage | Custom |
-| Searchable content | 5 MB | 1 GB, then $2 / GB | Custom |
-| File storage | 30 MB | Unlimited | Unlimited |
-| Prompts per project | 3 | Unlimited | Unlimited |
-| Tools switched on | 7 | Up to 40 per channel | Up to 40 per channel |
-| HTTP endpoints per project | 3 | Unlimited | Unlimited |
-| Channels per project | 1 | Unlimited | Unlimited |
-| Automatic resource sync | By hand | Daily or weekly | Daily or weekly |
-| The Assistant | No | 1,000 credits / mo | Yes |
-| Functions | No | 1M calls / mo | Yes |
-| Database per project | No | 9 GB, 50 tables | Yes |
-| Invite your team | No | Yes | Yes |
-| Bring your own AI model | No | Yes | Yes |
-| Support | Community | 24/7 | Named contact |
+| | Pro | Enterprise |
+| --- | --- | --- |
+| Price | $29 / mo | Custom |
+| Projects | Unlimited | Unlimited |
+| Bot replies included | 3,000 / mo | Custom |
+| Past the included replies | Billed as usage | Custom |
+| Searchable content | 1 GB, then $2 / GB | Custom |
+| File storage | Unlimited | Unlimited |
+| Prompts per project | Unlimited | Unlimited |
+| Tools switched on | Up to 40 per channel | Up to 40 per channel |
+| HTTP endpoints per project | Unlimited | Unlimited |
+| Channels per project | Unlimited | Unlimited |
+| Automatic resource sync | Daily or weekly | Daily or weekly |
+| The Assistant | 1,000 credits / mo | Yes |
+| Functions | 1M calls / mo | Yes |
+| Database per project | 9 GB, 50 tables | Yes |
+| Invite your team | Yes | Yes |
+| Bring your own AI model | Yes | Yes |
+| Support | 24/7 | Named contact |
 
-## Self-host
+## Self-hosted: free
 
-Ganju is open source (Apache-2.0). Run it on your own Cloudflare account for free.
+Ganju is open source (Apache-2.0), and running your own instance is free. You
+bring your own Cloudflare account, Postgres database and AI keys, and you run
+and pay for the infrastructure. Guide: https://ganju.ai/docs/deploy/
 Source: https://github.com/MontoyaAndres/ganju

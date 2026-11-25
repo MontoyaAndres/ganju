@@ -2,7 +2,7 @@
 title: Organizaciones y proyectos
 description: "Cómo está estructurado Ganju: una organización reúne a tu equipo, la facturación y el plan; cada proyecto dentro de ella es un espacio de trabajo independiente para un asistente."
 order: 1
-updated: 2026-11-24
+updated: 2026-11-25
 ---
 
 Ganju tiene dos niveles. Tu **organización** representa a tu equipo o empresa,
@@ -34,9 +34,9 @@ puede tener muchos proyectos.
 - **Equipo y facturación compartidos.** Los miembros y el plan están a nivel de
   organización, así que todo lo de adentro queda cubierto por una sola
   suscripción y una sola lista de miembros.
-- **Separación limpia, una sola cuenta.** Ten una organización Free para
-  proyectos personales y una Pro para tu empresa, lado a lado, con el mismo
-  inicio de sesión.
+- **Separación limpia, una sola cuenta.** Ten una organización para proyectos
+  personales y otra para tu empresa, lado a lado, con el mismo inicio de
+  sesión, cada una con su propio plan y su propia facturación.
 
 ## Cambia entre ellos
 
@@ -56,12 +56,12 @@ abre uno. Abajo: **Gestionar organizaciones** y **Nuevo proyecto**.
 3. Selecciona **Crear**.
 
 Llegas al Inicio del proyecto nuevo, que empieza con las cinco herramientas
-integradas. En Pro y Enterprise te ofrece **Abrir el Asistente**.
+integradas. Cuando la organización tiene un plan, te ofrece **Abrir el Asistente**.
 
 ![El diálogo para crear un proyecto: nombre y descripción](/images/new-project-dialog.webp)
 
-Las organizaciones **Free** tienen **un proyecto**. Crear un segundo te pide
-mejorar el plan; Pro y Enterprise no tienen límite de proyectos.
+Pro y Enterprise no tienen límite de proyectos. Una organización
+[sin plan](/es/docs/settings/#sin-plan) solo puede tener uno.
 
 Para cambiarle el nombre a un proyecto después, abre su **Inicio** y selecciona
 el lápiz junto a su nombre: **Renombrar el proyecto** cambia el **Nombre** y la
@@ -72,7 +72,7 @@ MCP no cambia; se edita aparte, con el lápiz junto a **URL de MCP**.
 
 **Gestionar organizaciones** abre la página **Organizaciones**, con cada
 organización a la que perteneces. Cada tarjeta muestra tus insignias
-(**Propietario** si la creaste, y su plan: **Free**, **Pro** o **Enterprise**),
+(**Propietario** si la creaste, y su plan: **Prueba de Pro**, **Pro**, **Enterprise** o **Sin plan**),
 su número de proyectos y miembros, y cuándo se creó, con las acciones
 **Invitar** y **Ajustes**. Si te agregaron solo a un proyecto de una
 organización, su tarjeta dice **Acceso al proyecto** y cuántos proyectos puedes
@@ -89,10 +89,11 @@ Selecciona **Nueva organización**. El diálogo **Crear una organización** pide
 **Nombre** de la organización y el **Nombre del proyecto** y la **Descripción del
 proyecto** de su primer proyecto: toda organización empieza con uno.
 
-Puedes ser propietario de **una sola organización Free**. Para crear más, al
-menos una organización tuya tiene que estar en un plan de pago. Pasa una a Pro
-y podrás agregar otras (cada una nueva empieza en Free, con su propia
-facturación).
+Cada organización tiene su propio plan y su propia facturación. Justo después de
+crearla, Ganju te ofrece **Empieza tu prueba gratis de 7 días** de Pro, o
+**Ahora no**. Hay una prueba por persona, así que si ya la usaste, el diálogo te
+ofrece **Empezar Pro**. Mira
+[Configuración → La prueba gratis de 7 días](/es/docs/settings/#la-prueba-gratis-de-7-días).
 
 ## Quién puede hacer qué
 

@@ -13,9 +13,7 @@ import type { PricingConfig } from '../components/react/PricingCalculator';
 // key (organizationLlm.apiKey). Turns on our shared model cost us real money and
 // bill at a separate, much higher rate; the app enforces both, and this
 // estimator deliberately models only the own-key case (see messagesHint copy),
-// because a two-rate slider is more confusing than it is accurate. Free can't
-// bring a key at all, so it simply stops at its cap; its turn envelope (history
-// + tool loops) is also tightened to bound our trial cost.
+// because a two-rate slider is more confusing than it is accurate.
 export const PRICING: PricingConfig = {
   proBase: 29, // $/mo flat base
   includedMessages: 3_000, // channel assistant turns included
@@ -23,8 +21,6 @@ export const PRICING: PricingConfig = {
   messagePer1k: 2, // $ per 1,000 extra messages, on the org's OWN key
   storagePerGb: 2, // $ per extra GB of embedded content
   customDomain: 15, // $/mo custom-domain add-on (covers Cloudflare ACM + margin)
-  freeMessages: 100, // Free tier monthly cap — trial-sized; runs on our shared key
-  freeEmbeddedMb: 5, // Free tier embedded-content allowance
   messageMax: 200_000, // estimator slider upper bound
   storageMax: 200 // estimator slider upper bound (GB)
 };

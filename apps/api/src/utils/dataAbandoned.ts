@@ -286,7 +286,7 @@ export const ownerEmail = (
       ? [
           `Hola,`,
           ``,
-          `La organización ${input.organizationName} está en el plan Free desde el ${since}. Free no incluye Datos, así que estas bases de datos son de solo lectura desde entonces:`,
+          `La organización ${input.organizationName} no tiene Pro desde el ${since}. Sin Pro no hay Datos, así que estas bases de datos son de solo lectura desde entonces:`,
           ``,
           ...lines('es'),
           ``,
@@ -299,7 +299,7 @@ export const ownerEmail = (
       : [
           `Hola,`,
           ``,
-          `Quedan 3 días: a partir del ${date} Ganju eliminará estas bases de datos de ${input.organizationName}, que está en el plan Free desde el ${since}:`,
+          `Quedan 3 días: a partir del ${date} Ganju eliminará estas bases de datos de ${input.organizationName}, que no tiene Pro desde el ${since}:`,
           ``,
           ...lines('es'),
           ``,
@@ -311,7 +311,7 @@ export const ownerEmail = (
       ? [
           `Hello,`,
           ``,
-          `The organization ${input.organizationName} has been on the Free plan since ${since}. Free doesn't include Data, so these databases have been read-only since then:`,
+          `The organization ${input.organizationName} has been without Pro since ${since}. Without Pro there's no Data, so these databases have been read-only since then:`,
           ``,
           ...lines('en'),
           ``,
@@ -324,7 +324,7 @@ export const ownerEmail = (
       : [
           `Hello,`,
           ``,
-          `3 days left: from ${date} Ganju will delete these databases of ${input.organizationName}, which has been on the Free plan since ${since}:`,
+          `3 days left: from ${date} Ganju will delete these databases of ${input.organizationName}, which has been without Pro since ${since}:`,
           ``,
           ...lines('en'),
           ``,

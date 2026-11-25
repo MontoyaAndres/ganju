@@ -2,7 +2,7 @@
 title: Datos
 description: Dale a un proyecto su propia base de datos (tablas con columnas tipadas, relaciones y búsqueda) que el asistente, tus funciones, la CLI y la API leen y escriben, con restauración a cualquier momento de los últimos 30 días.
 order: 7
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Cada proyecto en **Pro** o **Enterprise** puede tener su propia **base de
@@ -34,8 +34,7 @@ ganju data create --name pizzeria
 ```
 
 Un proyecto tiene una base de datos. La mayoría de los proyectos nunca la
-necesitan, así que no se crea nada hasta que la pides. En Free, la página
-muestra **Datos es parte de Pro** con **Ver planes**.
+necesitan, así que no se crea nada hasta que la pides.
 
 ## La página de Datos
 
@@ -389,18 +388,19 @@ inmediato.
 
 ## Planes y facturación
 
-Datos es parte de **Pro** y **Enterprise**. Si la organización pasa a Free, sus
-bases de datos se quedan, en **solo lectura**: puedes leer y descargar todo, el
-asistente y tus funciones pueden seguir leyendo, y no se puede cambiar nada
-hasta que mejores el plan. Los disparadores y las programaciones se pausan.
+Datos es parte de **Pro**, **Enterprise** y la prueba de 7 días. Si la
+organización queda [sin plan](/es/docs/settings/#sin-plan), sus bases de datos se
+quedan, en **solo lectura**: puedes leer y descargar todo, y no se puede cambiar
+nada hasta que vuelva a tener un plan. Los disparadores y las programaciones se
+pausan.
 
-Una base de datos cuya organización sigue en Free se elimina después de un
+Una base de datos cuya organización sigue sin plan se elimina después de un
 aviso:
 
-- **Día 30 en Free:** el dueño y los administradores reciben un correo con cada
+- **Día 30 sin plan:** el dueño y los administradores reciben un correo con cada
   base de datos (proyecto, tamaño, tablas), que dice que está en solo lectura y
-  la fecha en que se eliminará, con enlaces para mejorar el plan y para
-  descargar una copia.
+  la fecha en que se eliminará, con enlaces para empezar Pro y para descargar
+  una copia.
 - **3 días antes de esa fecha (día 41):** un recordatorio.
 - **Desde el día 44:** Ganju la elimina manualmente. Se guarda una copia durante
   90 días; escríbele a soporte si la necesitas.

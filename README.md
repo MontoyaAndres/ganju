@@ -6,7 +6,7 @@ Ganju is an open-source platform for building and hosting [Model Context Protoco
 
 It runs almost entirely on the **Cloudflare** developer platform (Workers, Queues, R2, Hyperdrive, Containers, Durable Objects) with Postgres + `pgvector` for storage and retrieval.
 
-**Ganju is live at [ganju.ai](https://ganju.ai)** — dashboard at [app.ganju.ai](https://app.ganju.ai), MCP servers at `https://mcp.ganju.ai/<slug>`, docs at [ganju.ai/docs](https://ganju.ai/docs). The Free plan needs no card. Everything here is Apache-2.0, so [running your own instance](docs/DEPLOYMENT.md) is a supported path rather than a fallback — self-hosting has no plan caps.
+**Ganju is live at [ganju.ai](https://ganju.ai)** — dashboard at [app.ganju.ai](https://app.ganju.ai), MCP servers at `https://mcp.ganju.ai/<slug>`, docs at [ganju.ai/docs](https://ganju.ai/docs). Every new organization starts with a 7-day free trial of Pro. Everything here is Apache-2.0, so [running your own instance](docs/DEPLOYMENT.md) is a supported path rather than a fallback, and self-hosting is free with no plan caps.
 
 ## Features
 

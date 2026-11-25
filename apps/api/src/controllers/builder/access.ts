@@ -38,7 +38,9 @@ export interface BuilderKey {
 
 export const creditsUsedUp = (credits: BuilderCredits): Error =>
   new utils.PlanLimitError(
-    "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan.",
+    credits.trialing
+      ? `The trial's ${credits.included} assistant credits are used up. An admin can start Pro now in Settings → Billing & plan.`
+      : "This month's assistant credits are used up. An admin can raise the limit in Settings → Billing & plan.",
     {
       feature: utils.constants.PLAN_FEATURE_BUILDER_CREDITS,
       plan: credits.plan,

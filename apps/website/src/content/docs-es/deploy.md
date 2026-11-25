@@ -1,8 +1,8 @@
 ---
 title: Instálalo tú mismo
-description: "Ganju es software libre (Apache-2.0). Corre tu propia instancia sobre Cloudflare y Postgres: tus claves, tu infraestructura."
+description: 'Ganju es software libre (Apache-2.0). Corre tu propia instancia sobre Cloudflare y Postgres: tus claves, tu infraestructura.'
 order: 8
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Ganju es **software libre bajo Apache-2.0**, así que puedes correr toda la
@@ -23,16 +23,16 @@ Ganju corre casi por completo sobre la plataforma de desarrollo de
 para el almacenamiento y la búsqueda. Es un monorepo de npm workspaces +
 [Turborepo](https://turbo.build/):
 
-| App | Entorno | Responsabilidad |
-|---|---|---|
-| `apps/api` | Cloudflare Worker | Plano de control: autenticación, CRUD, OAuth, webhooks de canales, colas, crons, el Asistente |
-| `apps/mcp` | Cloudflare Worker | El servidor MCP que expone cada proyecto |
-| `apps/data` | Cloudflare Worker | Las bases de datos de los proyectos (un Durable Object SQLite por base de datos) |
-| `apps/tool-broker` | Cloudflare Worker | Lo que llaman las funciones de los clientes para conexiones, secretos y archivos |
-| `apps/tool-outbound` | Cloudflare Worker | Filtra cada solicitud saliente que hace la función de un cliente |
-| `apps/web` | Next.js (OpenNext → Cloudflare) | El panel |
-| `apps/website` | Cloudflare Pages | El sitio de marketing y esta documentación |
-| `apps/resource-handler` | Contenedor | El trabajo pesado: extracción de documentos, rastreo, envíos grandes. Se construye y despliega con `apps/api` |
+| App                     | Entorno                         | Responsabilidad                                                                                               |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `apps/api`              | Cloudflare Worker               | Plano de control: autenticación, CRUD, OAuth, webhooks de canales, colas, crons, el Asistente                 |
+| `apps/mcp`              | Cloudflare Worker               | El servidor MCP que expone cada proyecto                                                                      |
+| `apps/data`             | Cloudflare Worker               | Las bases de datos de los proyectos (un Durable Object SQLite por base de datos)                              |
+| `apps/tool-broker`      | Cloudflare Worker               | Lo que llaman las funciones de los clientes para conexiones, secretos y archivos                              |
+| `apps/tool-outbound`    | Cloudflare Worker               | Filtra cada solicitud saliente que hace la función de un cliente                                              |
+| `apps/web`              | Next.js (OpenNext → Cloudflare) | El panel                                                                                                      |
+| `apps/website`          | Cloudflare Pages                | El sitio de marketing y esta documentación                                                                    |
+| `apps/resource-handler` | Contenedor                      | El trabajo pesado: extracción de documentos, rastreo, envíos grandes. Se construye y despliega con `apps/api` |
 
 > **Ojo:** necesitas un plan **de pago** de Cloudflare Workers. El contenedor
 > `ResourceHandler` lo requiere, y las [Funciones](/es/docs/tools/functions/) se
@@ -56,15 +56,15 @@ npm run dev               # arranca todas las apps con Turbo
 
 Puertos locales por defecto:
 
-| App | Puerto |
-|---|---|
-| `apps/api` | 8080 |
-| `apps/mcp` | 8081 |
-| `apps/resource-handler` | 8082 |
-| `apps/tool-broker` | 8083 |
-| `apps/tool-outbound` | 8084 |
-| `apps/data` | 8085 |
-| `apps/web` | 3000 |
+| App                     | Puerto |
+| ----------------------- | ------ |
+| `apps/api`              | 8080   |
+| `apps/mcp`              | 8081   |
+| `apps/resource-handler` | 8082   |
+| `apps/tool-broker`      | 8083   |
+| `apps/tool-outbound`    | 8084   |
+| `apps/data`             | 8085   |
+| `apps/web`              | 3000   |
 
 `apps/data` tiene que estar corriendo para que las bases de datos de los
 proyectos funcionen en local. Las funciones siempre corren en el dispatch
@@ -142,11 +142,11 @@ wrangler secret put GOOGLE_CLIENT_SECRET --env production
 conjunto. `apps/tool-outbound` y `apps/web` no necesitan ninguno. Tres secretos
 tienen que ser **idénticos** en los Workers que los comparten:
 
-| Secreto | Lo comparten |
-|---|---|
-| `CRYPTO_SECRET` | api, mcp, tool-broker |
-| `MCP_INTERNAL_SECRET` | api, mcp |
-| `CUSTOM_CODE_TOKEN_SECRET` | api, tool-broker |
+| Secreto                    | Lo comparten          |
+| -------------------------- | --------------------- |
+| `CRYPTO_SECRET`            | api, mcp, tool-broker |
+| `MCP_INTERNAL_SECRET`      | api, mcp              |
+| `CUSTOM_CODE_TOKEN_SECRET` | api, tool-broker      |
 
 Elige `CRYPTO_SECRET` una sola vez: cada token de OAuth y clave de API guardados
 se cifran con él, así que cambiarlo después los deja todos inservibles.
@@ -198,11 +198,18 @@ en `{api,mcp,app}.<tu-dominio>`; `development` usa el prefijo `development-`.
 ## Planes y facturación en tu instancia
 
 Cobrar es opcional. Sin un token de Polar, el pago y el portal de facturación
-están apagados, y cada organización funciona con los límites del plan **Free**
-hasta que le asignes un plan. Como operador lo haces en la base de datos,
-poniendo en la fila `subscription` de la organización `plan = 'PRO'` (o
-`'ENTERPRISE'`) y `status = 'active'`. Para vender planes tú mismo, configura
-Polar como se describe en DEPLOYMENT.md.
+están apagados, y cada organización nueva empieza en **Pro**, porque no hay
+quién pague. Las organizaciones creadas en una versión anterior pueden no tener plan, y una
+organización sin plan no funciona. Pásalas todas a Pro una vez, en la base de
+datos:
+
+```sql
+UPDATE subscription SET plan = 'PRO', status = 'active' WHERE plan = 'FREE';
+```
+
+Para cambiar una sola organización, pon en su fila `subscription`
+`plan = 'PRO'` (o `'ENTERPRISE'`) y `status = 'active'`. Para vender planes tú
+mismo, configura Polar como se describe en DEPLOYMENT.md.
 
 ## Observa y opera
 
@@ -218,5 +225,5 @@ y [DATA_MODEL.md](https://github.com/MontoyaAndres/ganju/blob/main/docs/DATA_MOD
 en el repositorio.
 
 ¿Prefieres no correr nada de esto? La [versión alojada](https://app.ganju.ai) se
-encarga de todo: empieza en el plan Free y
-[mejora tu plan](/es/docs/settings/#facturación-y-plan) cuando crezcas.
+encarga de todo: empieza con una
+[prueba gratis de Pro de 7 días](/es/docs/settings/#facturación-y-plan).

@@ -2,9 +2,9 @@
 title: Resources
 description: Add the files and knowledge your AI can search, from cloud drives, a website crawl, or direct uploads.
 order: 5
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 5
-outcome: "Your files, Drive folders, or website searchable by the bot, marked **Ready**."
+outcome: 'Your files, Drive folders, or website searchable by the bot, marked **Ready**.'
 ---
 
 **Resources** are the documents and knowledge your assistant can search, so it
@@ -75,14 +75,16 @@ When the crawl finishes, the site's pages are indexed and searchable, shown
 
 Drive, OneDrive, and website sources can be refreshed. Open the source and
 select **Sync now**. Only new or changed content is re-indexed, and what was
-removed at the source is removed here too. On **Pro** and **Enterprise** you can
-also turn on **Sync automatically** and choose **Daily** or **Weekly**; on Free,
-sync by hand.
+removed at the source is removed here too. You can also turn on **Sync automatically**
+and choose **Daily** or **Weekly**.
 
 ## Limits
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Searchable (embedded) content | 5 MB | 1 GB included, then $2/GB on Pro |
-| File storage | 30 MB | Unlimited |
-| Automatic sync | None | Daily or weekly |
+|                               | Pro                       |
+| ----------------------------- | ------------------------- |
+| Searchable (embedded) content | 1 GB included, then $2/GB |
+| File storage                  | Unlimited                 |
+| Automatic sync                | Daily or weekly           |
+
+An organization without a plan keeps its resources, but can't add files, and
+automatic sync is off.

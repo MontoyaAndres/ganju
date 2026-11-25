@@ -1,8 +1,8 @@
 ---
 title: Resources
-description: "Give your AI knowledge to search: import from Google Drive or OneDrive, upload files or paste text, crawl a website, keep it all in sync, and cite your sources."
+description: 'Give your AI knowledge to search: import from Google Drive or OneDrive, upload files or paste text, crawl a website, keep it all in sync, and cite your sources.'
 order: 3
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Resources** are the documents and knowledge your assistant can search, so it
@@ -21,7 +21,7 @@ client.
 - **Bring what you already have.** Pull straight from Google Drive or OneDrive,
   upload files, or crawl a whole website, with no reformatting or copy-paste.
 - **Always current.** Sync a drive or a website and only what changed is indexed
-  again; on Pro it happens on its own, daily or weekly.
+  again, on its own daily or weekly if you like.
 - **Show your sources.** With citations on, the bot lists the exact resource
   behind each answer, with a link to the page or file.
 
@@ -70,11 +70,11 @@ Select **Create**. The resource shows **Indexing** while Ganju reads it, then
 
 One file can be up to **500 MB**. What Ganju **reads and makes searchable**:
 
-| Kind | Formats |
-| --- | --- |
-| Documents | PDF, Word (`.doc`, `.docx`), PowerPoint (`.pptx`) |
-| Spreadsheets | Excel (`.xls`, `.xlsx`), CSV |
-| Google files | Docs, Sheets and Slides (from Google Drive) |
+| Kind          | Formats                                                                                                                 |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Documents     | PDF, Word (`.doc`, `.docx`), PowerPoint (`.pptx`)                                                                       |
+| Spreadsheets  | Excel (`.xls`, `.xlsx`), CSV                                                                                            |
+| Google files  | Docs, Sheets and Slides (from Google Drive)                                                                             |
 | Text and code | plain text, Markdown, HTML, JSON, XML, YAML, TOML, SQL, GraphQL, JavaScript, TypeScript, Python, Ruby, Perl, PHP, shell |
 
 You can also store images (PNG, JPEG, GIF, WebP, SVG) and other
@@ -132,8 +132,8 @@ new or changed content is indexed again, and what was removed at the source is
 removed here too. The section shows when it **Last synced**.
 
 The sync settings button next to **Sync** sets **Sync automatically** and **How
-often**: **Daily** or **Weekly**. Automatic sync is a **Pro** and
-**Enterprise** feature; on Free you can still sync any source by hand.
+often**: **Daily** or **Weekly**. In an organization
+[without a plan](/docs/settings/#without-a-plan), automatic sync is off.
 
 ## Resource details
 
@@ -186,17 +186,16 @@ asks you to upload it.
 
 ## Plan limits
 
-| | Free | Pro and Enterprise |
-| --- | --- | --- |
-| One file | 500 MB | 500 MB |
-| Stored files (per organization) | 30 MB | No limit |
-| Indexed content (per organization) | 5 MB | No limit |
-| Automatic sync | None | Daily or weekly |
+|                                    | Pro and Enterprise |
+| ---------------------------------- | ------------------ |
+| One file                           | 500 MB             |
+| Stored files (per organization)    | No limit           |
+| Indexed content (per organization) | No limit           |
+| Automatic sync                     | Daily or weekly    |
 
 Indexed content is the text Ganju extracted and made searchable, which is
-usually far smaller than the files. When an organization on Free is full, new
-resources are refused until you remove some or upgrade. See
-[Settings](/docs/settings/) for plans.
+usually far smaller than the files. An organization
+[without a plan](/docs/settings/#without-a-plan) keeps its resources, but can't add files, and automatic sync is off. See [Settings](/docs/settings/) for plans.
 
 ## Troubleshooting
 

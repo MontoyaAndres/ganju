@@ -1,6 +1,6 @@
 # Pricing math
 
-Worked cost model for the three plans, in plain numbers. The "Plans" summary in [TASKS.md](../TASKS.md) follows these numbers; the plan limits and prices themselves live in `PLAN_LIMITS` and the `PRICING_*` constants in [constants.ts](../packages/utils/src/constants.ts), which win if anything here disagrees.
+Worked cost model for Pro, its 7-day trial, and Enterprise, in plain numbers. The "Plans" summary in [TASKS.md](../TASKS.md) follows these numbers; the plan limits and prices themselves live in `PLAN_LIMITS`, the `TRIAL_*` and `PRICING_*` constants in [constants.ts](../packages/utils/src/constants.ts), which win if anything here disagrees.
 
 ## Part 1 — What things actually cost us
 
@@ -202,7 +202,7 @@ The overage rate has the same shape: **$2 per 1,000** is right as a platform fee
 
 ### The fix: split the counter, and *sell* shared-key inference
 
-The tempting fix is "Pro must bring its own key." **Don't** — it breaks every upgrade. Free runs on our shared key and Free users *cannot* connect their own (`canUseCustomLlm: false`), so by definition every Free→Pro converter is running on our key at the moment they convert. Requiring BYO means 100% of upgrades break the customer's working bot on the day they start paying us.
+The tempting fix is "Pro must bring its own key." **Don't.** A trial works on our shared key with no setup, so most trials are running on our key on the day they convert. Requiring BYO would break the customer's working bot on the day they start paying us.
 
 Keep it available, give it a generous buffer, price the rest to make money:
 
@@ -218,26 +218,33 @@ A 1,000-turn buffer is ~33/day — a typical small-business bot's entire month. 
 
 **Two more dependencies:**
 
-- **Don't upgrade the shared model.** Keep Free's tightened turn envelope (history depth, tool-loop iterations) applied to Pro's shared-key turns too.
+- **Don't upgrade the shared model.** Keep the tightened turn envelope (history depth, tool-loop iterations) on shared-key turns.
 - **Track shared-key turns separately from total turns.** The original sketch used one org-total counter, which can't enforce a sub-cap. Done: `incrementMessageUsage` bumps `subscription.shared_message_count` alongside `message_count` for every turn that ran on our key, in one statement.
 
-## Part 4 — The three plans
+## Part 4 — The plans
 
-### Free — $0
+### Trial: 7 days of Pro, $0
+
+Every new organization starts here. There is no unpaid plan to fall back to: the trial converts to Pro or the organization ends up without a plan.
 
 | | |
 |---|---|
-| MCP servers | 1 (1 org, 1 project) |
-| Tools | 7 installed · `http-endpoint` capped at 3 · curated `mcp-proxy` only |
-| Custom code | ❌ |
-| Prompts / channels | 3 / 1 |
-| Storage | 30 MB raw files · 5 MB embedded |
-| Channel messages | **100/month, hard cap**, on our model |
-| Project data | ❌ (a database kept from Pro is read-only, then deleted after notice) |
-| LLM | Ours only (no BYO) |
-| Support | Community |
+| Length | `TRIAL_DAYS` = 7 |
+| Card | Required at checkout; nothing charged during the trial |
+| At day 7 | Pro starts unless canceled; $29 for the first month, usage billed per period after that |
+| Reminder | Polar emails one 3 days before the trial ends |
+| What's in it | Everything in Pro |
+| Replies on our model | `TRIAL_SHARED_MESSAGES` = 300, hard stop (Polar bills no usage during a trial, so there is no overage to meter) |
+| Assistant credits | `TRIAL_BUILDER_CREDITS` = 300, hard stop |
+| Replies on the customer's own key | Not capped by the 300 |
+| Full Pro allowances | From the first paid month; the owner can start Pro early from Billing |
+| Who gets one | One trial per person (the organization owner); a second organization of the same owner starts paid |
 
-**Cost to us:** 100 × $0.004 = $0.40 + ~$0.01 storage = **~$0.41/month** fully maxed. The 7-tool cap keeps per-turn cost near the low end. Most free users use a fraction of the cap → realistically **~$0.10/month**.
+**Without a plan** (trial canceled or ended unpaid, or Pro canceled after the paid period): `NO_PLAN_LIMITS`. Everything built is kept and can still be edited, but bots don't answer, the MCP server refuses requests (`NO_PLAN_MCP_MESSAGE`) and the Assistant is off until the organization starts Pro.
+
+**Cost to us, fully maxed:** 300 × $0.004 = $1.20 of inference + 300 credits = $3.00 of Assistant cost + one week of Pro's storage and tool-call allowances (~$1.10 if both were maxed) = **~$5.30 per trial**. A typical trial that tries the bot and asks the Assistant for a couple of actions is closer to **~$1**. The card requirement and one trial per owner bound how many there are.
+
+The free option is self-hosting: Ganju is Apache-2.0, and someone who wants it at no cost runs their own instance on their own Cloudflare, Postgres and model keys.
 
 ### Pro — $29/month
 
@@ -287,16 +294,17 @@ Infrastructure costs very little here. The price is for the contract, support, a
 
 ## Part 5 — Five worked examples
 
-### Ana — bakery owner (Free)
+### Ana — bakery owner (trial, then Pro on our model)
 
-One Telegram bot, 12 MB of PDFs, 60 messages a month.
+One Telegram bot, 12 MB of PDFs, 60 messages a month, all on our model. Her trial week uses about 15 replies and 50 Assistant credits (~$0.56 to us). From day 7:
 
 | | |
 |---|---|
-| She pays | **$0** |
+| She pays | **$29** |
 | Inference (60 × $0.004) | $0.24 |
 | Storage | $0.01 |
 | **Costs us** | **$0.25/month** |
+| **We keep** | **$28.75 (99%)** |
 
 ### Carlos — agency developer (Pro, brings his own key)
 
@@ -381,28 +389,28 @@ At list rates 80 GB alone would bill $581, so the negotiated $1,200 is comfortab
 
 Workers for Platforms is the largest line, and as of 14 Aug it **is** being paid — the add-on was enabled and both dispatch namespaces created for Custom Tools Phase 2. So the ~$83 above is now the real figure rather than a forecast, where it used to be ~$58. The $25 is a flat per-account fee covering 1,000 scripts; it does not scale with customers until well past that.
 
-The three Pro examples in Part 5 net $26.01, $29.10 and $32.22 — call it **~$29 blended**, because overage revenue rises alongside the usage that causes it:
+The three heavier Pro examples in Part 5 (Carlos, Marta, Lucía) net $26.01, $29.10 and $32.22 — call it **~$29 blended**, because overage revenue rises alongside the usage that causes it:
 
 > **3 Pro customers pay for the entire platform.**
 
 Each additional Pro customer then carries roughly:
 
-- **70 fully-maxed free users** ($29 ÷ $0.41), or
-- **290 typical free users** ($29 ÷ $0.10)
+- **5 fully-maxed trials that never convert** ($29 ÷ ~$5.30), or
+- **29 typical trials that never convert** ($29 ÷ ~$1)
 
-**A realistic 1,000-user snapshot at 3% conversion:**
+**A month with 100 trials started and 30% converting** (the conversion rate is an assumption until there is real data):
 
 | | |
 |---|---|
 | 30 Pro × $29 | +$870 |
-| 970 free × ~$0.10 | −$97 |
+| 70 unconverted trials × ~$1 | −$70 |
 | 30 Pro serving cost × ~$5 | −$150 |
 | Platform fixed | −$83 |
-| **Net** | **+$540/month** |
+| **Net** | **+$567/month** |
 
 Note this snapshot deliberately assumes **no overage at all** on either side: $29 flat revenue against a light customer — a few hundred MB of content (~$0.75) plus ~1,000 shared-key turns (~$4). Using Part 5's blended $15 serving cost here would be wrong, because that average includes Lucía, and a customer who costs that much is also paying $63 rather than $29.
 
-The free tier is cheap enough to be a marketing cost, not a risk.
+A trial that never converts costs ~$1 typically and ~$5.30 at most, so trials are a marketing cost, not a risk.
 
 ## Part 7 — Status
 
@@ -423,7 +431,7 @@ The guardrails the model depends on are now in code:
 - **Storage repriced, then made honest.** 1 GB included (was 5) at **$2/GB** (was $0.50), and the embedding halved to 1536 dimensions so the real cost is ~$2.41/GB rather than ~$4.51. Price and cost were moved toward each other from both ends.
 - **$29 and the two message rates.** `PRICING_PRO_BASE_USD = 29`, `PRICING_INCLUDED_SHARED_MESSAGES = 1_000`, `PRICING_SHARED_MESSAGE_PER_1K_USD = 15`, mirrored through the billing API, dashboard, marketing site, docs and terms.
 - **Custom tool calls are metered.** `subscription.tool_call_count` counts dispatches into a customer's own code — not native or proxied tools, which cost one screened fetch — and reports overage above **1,000,000/month** to a fourth meter (`ganju_custom_tool_calls`) at **$5 per million**. Counted in apps/mcp, one statement per request, and only for a call that actually reached the isolate. The line in Part 4 that sold this had nothing behind it until now.
-- **A monthly ceiling on that compute.** `toolCallHardCap` — 20,000,000 on Pro, `null` on Enterprise, 10,000 on Free for the downgraded org whose script is still published. The per-script CPU ceiling bounds one call and the rate limiter bounds a minute; this is what bounds a month. Refused at dispatch with the reason, never by dropping the tool from `tools/list`.
+- **A monthly ceiling on that compute.** `toolCallHardCap` — 20,000,000 on Pro, `null` on Enterprise, 0 for an organization without a plan. The per-script CPU ceiling bounds one call and the rate limiter bounds a minute; this is what bounds a month. Refused at dispatch with the reason, never by dropping the tool from `tools/list`.
 - **An abuse process, not just controls** — the runbook in [ABUSE.md](ABUSE.md), and the one command it leans on.
 - **Project data is measured from day one.** Five counters on `subscription` (rows read, rows written, requests, peak storage in MB, trigger runs), snapshotted into `usage_period`, shown as a Data block on the billing page, and reported to four Polar meters at $0. A monthly reconcile against Cloudflare's analytics keeps the counters honest. Ganju's own reads (the hourly size, the index job, the abandoned-database flow) are counted and billed like the customer's.
 - **The project assistant is sold in credits.** 1,000 credits ($10 of model cost) included in Pro, then $2 per 100 — 2× cost (`PRICING_BUILDER_*`) — reported hourly to `ganju_builder_credits` past the allowance. An admin's monthly cap on extra credits (`subscription.builder_credit_cap`, default 2,000) stops new turns rather than capping the meter, so lowering it can't take back what was used; the organization's own Anthropic key uses no credits at all. Its "try it as a customer" chat on our model is charged the same way, at `SHARED_MODEL_PRICE`. Per request it measures 22.9 credits (Part 1), so the allowance is about 40 requests a month.

@@ -2,7 +2,7 @@
 title: Deploy it yourself
 description: Ganju is open source (Apache-2.0). Run your own instance on Cloudflare and Postgres, with your keys and your infrastructure.
 order: 8
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Ganju is **open source under Apache-2.0**, so you can run the whole platform
@@ -22,16 +22,16 @@ Ganju runs almost entirely on the **Cloudflare** developer platform, with
 **Postgres + [pgvector](https://github.com/pgvector/pgvector)** for storage and
 retrieval. It's an npm-workspaces + [Turborepo](https://turbo.build/) monorepo:
 
-| App | Runtime | Responsibility |
-|---|---|---|
-| `apps/api` | Cloudflare Worker | Control plane: auth, CRUD, OAuth, channel webhooks, queues, crons, the Assistant |
-| `apps/mcp` | Cloudflare Worker | The MCP server every project exposes |
-| `apps/data` | Cloudflare Worker | Project databases (one SQLite Durable Object per database) |
-| `apps/tool-broker` | Cloudflare Worker | What customer-written functions call for connections, secrets and files |
-| `apps/tool-outbound` | Cloudflare Worker | Screens every outbound request a customer's function makes |
-| `apps/web` | Next.js (OpenNext → Cloudflare) | The dashboard |
-| `apps/website` | Cloudflare Pages | The marketing site and these docs |
-| `apps/resource-handler` | Container | Heavy work: document extraction, crawling, large sends. Built and deployed with `apps/api` |
+| App                     | Runtime                         | Responsibility                                                                             |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------ |
+| `apps/api`              | Cloudflare Worker               | Control plane: auth, CRUD, OAuth, channel webhooks, queues, crons, the Assistant           |
+| `apps/mcp`              | Cloudflare Worker               | The MCP server every project exposes                                                       |
+| `apps/data`             | Cloudflare Worker               | Project databases (one SQLite Durable Object per database)                                 |
+| `apps/tool-broker`      | Cloudflare Worker               | What customer-written functions call for connections, secrets and files                    |
+| `apps/tool-outbound`    | Cloudflare Worker               | Screens every outbound request a customer's function makes                                 |
+| `apps/web`              | Next.js (OpenNext → Cloudflare) | The dashboard                                                                              |
+| `apps/website`          | Cloudflare Pages                | The marketing site and these docs                                                          |
+| `apps/resource-handler` | Container                       | Heavy work: document extraction, crawling, large sends. Built and deployed with `apps/api` |
 
 > **Heads up:** you need a **paid** Cloudflare Workers plan. The
 > `ResourceHandler` container requires it, and
@@ -55,15 +55,15 @@ npm run dev               # start all apps via Turbo
 
 Default local ports:
 
-| App | Port |
-|---|---|
-| `apps/api` | 8080 |
-| `apps/mcp` | 8081 |
+| App                     | Port |
+| ----------------------- | ---- |
+| `apps/api`              | 8080 |
+| `apps/mcp`              | 8081 |
 | `apps/resource-handler` | 8082 |
-| `apps/tool-broker` | 8083 |
-| `apps/tool-outbound` | 8084 |
-| `apps/data` | 8085 |
-| `apps/web` | 3000 |
+| `apps/tool-broker`      | 8083 |
+| `apps/tool-outbound`    | 8084 |
+| `apps/data`             | 8085 |
+| `apps/web`              | 3000 |
 
 `apps/data` must be running for project databases to work locally. Functions
 always run in the remote dispatch namespace, so `wrangler dev` must be logged in
@@ -136,11 +136,11 @@ wrangler secret put GOOGLE_CLIENT_SECRET --env production
 `apps/tool-outbound` and `apps/web` need none. Three secrets must be
 **identical** across the Workers that share them:
 
-| Secret | Shared by |
-|---|---|
-| `CRYPTO_SECRET` | api, mcp, tool-broker |
-| `MCP_INTERNAL_SECRET` | api, mcp |
-| `CUSTOM_CODE_TOKEN_SECRET` | api, tool-broker |
+| Secret                     | Shared by             |
+| -------------------------- | --------------------- |
+| `CRYPTO_SECRET`            | api, mcp, tool-broker |
+| `MCP_INTERNAL_SECRET`      | api, mcp              |
+| `CUSTOM_CODE_TOKEN_SECRET` | api, tool-broker      |
 
 Choose `CRYPTO_SECRET` once: every stored OAuth token and API key is encrypted
 under it, so rotating it later orphans them all.
@@ -192,11 +192,18 @@ prefix.
 ## Plans and billing on your instance
 
 Billing is optional. Without a Polar token, checkout and the billing portal are
-off, and every organization runs with the **Free** plan's limits until you grant
-it a plan. As the operator you do that in the database, by setting the
-organization's `subscription` row to `plan = 'PRO'` (or `'ENTERPRISE'`) and
-`status = 'active'`. To sell plans yourself, set up Polar as described in
-DEPLOYMENT.md.
+off, and every new organization starts on **Pro**, since there's nobody to pay.
+Organizations created on an older version may have no plan, and an
+organization without a plan doesn't run. Move them all to Pro once, in the
+database:
+
+```sql
+UPDATE subscription SET plan = 'PRO', status = 'active' WHERE plan = 'FREE';
+```
+
+To change one organization, set its `subscription` row to `plan = 'PRO'` (or
+`'ENTERPRISE'`) and `status = 'active'`. To sell plans yourself, set up Polar
+as described in DEPLOYMENT.md.
 
 ## Observe & operate
 
@@ -211,5 +218,5 @@ and [DATA_MODEL.md](https://github.com/MontoyaAndres/ganju/blob/main/docs/DATA_M
 in the repo.
 
 Prefer not to run any of this? The [hosted version](https://app.ganju.ai)
-handles all of it: start on the Free plan and
-[upgrade](/docs/settings/#billing--plan) when you grow.
+handles all of it: start with a
+[7-day free trial of Pro](/docs/settings/#billing--plan).

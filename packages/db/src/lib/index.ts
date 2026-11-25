@@ -64,6 +64,11 @@ import {
 } from './whatsappTemplates';
 import {
   limitsFor,
+  limitsForSubscription,
+  isTrialing,
+  trialCapsApply,
+  hasNoPlan,
+  organizationHasNoPlan,
   isEntitled,
   planFromSubscription,
   getEffectivePlan,
@@ -107,6 +112,11 @@ export type {
 
 export const plan = {
   limitsFor,
+  limitsForSubscription,
+  isTrialing,
+  trialCapsApply,
+  hasNoPlan,
+  organizationHasNoPlan,
   isEntitled,
   planFromSubscription,
   getEffectivePlan,

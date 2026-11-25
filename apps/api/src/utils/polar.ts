@@ -13,6 +13,8 @@ export type PolarSubscription = {
   current_period_start?: string | null;
   current_period_end?: string | null;
   cancel_at_period_end?: boolean | null;
+  trial_start?: string | null;
+  trial_end?: string | null;
   created_at?: string | null;
   modified_at?: string | null;
   customer_id?: string | null;
@@ -47,11 +49,14 @@ export type PolarClient = {
     customerEmail?: string;
     successUrl: string;
     locale: string;
+    // Days of trial, or 0 for a checkout that starts paid.
+    trialDays: number;
   }) => Promise<{ url: string }>;
   createCustomerSession: (
-    organizationId: string,
+    customerId: string,
     returnUrl: string
   ) => Promise<{ customerPortalUrl: string }>;
+  endTrial: (subscriptionId: string) => Promise<void>;
   ingestEvent: (event: PolarMeterEvent) => Promise<PolarIngestResult>;
   revokeSubscription: (subscriptionId: string) => Promise<void>;
 };
@@ -77,7 +82,7 @@ export const createPolar = (source: EnvSource): PolarClient | null => {
       : constants.POLAR_SANDBOX_API_BASE;
 
   const request = async <T>(
-    method: 'POST' | 'DELETE',
+    method: 'POST' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown
   ): Promise<T> => {
@@ -110,7 +115,8 @@ export const createPolar = (source: EnvSource): PolarClient | null => {
       organizationId,
       customerEmail,
       successUrl,
-      locale
+      locale,
+      trialDays
     }) => {
       const checkout = await request<{ url?: string }>(
         'POST',
@@ -121,18 +127,29 @@ export const createPolar = (source: EnvSource): PolarClient | null => {
           ...(customerEmail ? { customer_email: customerEmail } : {}),
           metadata: { organizationId },
           success_url: successUrl,
-          locale
+          locale,
+          // Set per checkout, so the product needs no trial of its own and a
+          // person who already had one gets none.
+          ...(trialDays > 0
+            ? {
+                allow_trial: true,
+                trial_interval: 'day',
+                trial_interval_count: trialDays
+              }
+            : { allow_trial: false })
         }
       );
       if (!checkout.url) throw new Error('Polar checkout returned no URL');
       return { url: checkout.url };
     },
 
-    createCustomerSession: async (organizationId, returnUrl) => {
+    // By Polar's customer id: a person's second organization shares the first
+    // one's customer, whose external id names the first organization.
+    createCustomerSession: async (customerId, returnUrl) => {
       const session = await request<{ customer_portal_url?: string }>(
         'POST',
         '/v1/customer-sessions/',
-        { external_customer_id: organizationId, return_url: returnUrl }
+        { customer_id: customerId, return_url: returnUrl }
       );
       if (!session.customer_portal_url) {
         throw new Error('Polar customer session returned no portal URL');
@@ -148,6 +165,14 @@ export const createPolar = (source: EnvSource): PolarClient | null => {
       request<PolarIngestResult>('POST', '/v1/events/ingest', {
         events: [event]
       }),
+
+    // Charges the first period now; the subscription stays trialing if the
+    // payment fails.
+    endTrial: async subscriptionId => {
+      await request('PATCH', `/v1/subscriptions/${subscriptionId}`, {
+        trial_end: 'now'
+      });
+    },
 
     // Immediate cancellation, which is what an organization deletion means.
     revokeSubscription: async subscriptionId => {

@@ -2,7 +2,7 @@
 title: Asistente
 description: Describe con tus palabras qué debe saber o hacer tu bot. El asistente lo construye contigo, lo prueba y no cambia nada hasta que presionas Aplicar.
 order: 1.5
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 La pestaña **Asistente** es donde construyes tu bot conversando. Cuéntale lo que
@@ -12,9 +12,9 @@ trabajo contigo, lo construye, lo prueba y te entrega una sola tarjeta para
 aplicar. Nunca ves código, y nada de lo que ven tus clientes cambia hasta que
 presionas **Aplicar**.
 
-El asistente es parte de los planes **Pro** y **Enterprise**; en Free la pestaña
-muestra **Construye tu bot describiéndolo** con **Mejorar plan**. Responde en el
-idioma en que le escribes, español o inglés.
+El asistente es parte de los planes **Pro** y **Enterprise** y de la prueba de 7
+días. En una organización sin plan está apagado. Responde en el idioma en que le
+escribes, español o inglés.
 
 ![La pestaña Asistente: el dueño pide un nuevo horario y el asistente responde con su plan, cuatro preguntas y un estimado de créditos](/images/assistant-chat.webp)
 
@@ -182,7 +182,8 @@ unos 90 si además envía correos, revisa tu horario o maneja pagos; un cambio a
 una acción de 10 a 50, y conocimiento nuevo o un arreglo pequeño menos de 15.
 Cada respuesta muestra lo que usó, y cada chat su total.
 
-Pro y Enterprise incluyen **1.000 créditos al mes**. Después, los créditos
+Pro y Enterprise incluyen **1.000 créditos al mes**; la prueba de 7 días incluye
+300, sin créditos extra. Después de los incluidos, los créditos
 extra cuestan $2 por cada 100, hasta el límite mensual que un administrador
 elige en **Ajustes → Plan y facturación** (2.000 extra si no lo cambias; 0 se
 detiene en los créditos incluidos). La lista de chats muestra lo que va del

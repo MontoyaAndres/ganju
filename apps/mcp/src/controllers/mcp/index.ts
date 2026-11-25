@@ -172,6 +172,15 @@ const business = async (c: Context<AppEnv>) => {
     return c.json({ error: 'You do not have access to this artifact' }, 403);
   }
 
+  if (
+    await db.plan.organizationHasNoPlan(
+      dbInstance,
+      artifact.project.organizationId
+    )
+  ) {
+    return c.json({ error: utils.constants.NO_PLAN_MCP_MESSAGE }, 402);
+  }
+
   // Folders and crawl seeds aren't queryable resources. The rule is shared with
   // apps/tool-broker, which serves the same artifact's resources to custom code:
   // a website seed carries the SAME uri as the page indexed beneath it, so a
@@ -1263,7 +1272,7 @@ const business = async (c: Context<AppEnv>) => {
                       type: 'text' as const,
                       text:
                         budget.plan === utils.constants.PLAN_FREE
-                          ? `Error: this organization has used its ${budget.hardCap?.toLocaleString('en-US')} monthly custom tool calls on the Free plan. Upgrade to keep "${entry.name}" running.`
+                          ? `Error: this organization has used its ${budget.hardCap?.toLocaleString('en-US')} monthly custom tool calls without Pro. Start Pro to keep "${entry.name}" running.`
                           : `Error: this organization has reached its monthly limit of ${budget.hardCap?.toLocaleString('en-US')} custom tool calls. Contact support to raise it.`
                     }
                   ],
@@ -1376,8 +1385,7 @@ const business = async (c: Context<AppEnv>) => {
       // Optional and absent on every endpoint that predates it. Declaring one
       // is what turns a JSON response into structuredContent for the client.
       let endpointOutputSchema:
-        | ReturnType<typeof utils.jsonSchemaToZodShape>
-        | undefined;
+        ReturnType<typeof utils.jsonSchemaToZodShape> | undefined;
       try {
         endpointOutputSchema = endpointConfig.outputSchema
           ? utils.jsonSchemaToZodShape(

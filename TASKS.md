@@ -298,6 +298,52 @@ Not started: the owner says when to begin.
 
 ### Phase 0: check before building (no code)
 
+**What Polar's docs say (read 2026-11-25):**
+
+- A trial can be set per checkout: `trial_interval: "day"`,
+  `trial_interval_count: 7`, and `allow_trial: false` turns it off even if the
+  product has one. So the product needs no trial and no dashboard change.
+- A trial checkout collects the card; nothing is charged until the trial ends.
+- The subscription carries `trial_start` and `trial_end`; status `trialing`.
+  `subscription.cycled` fires when a trial converts to paid. Cancel during the
+  trial: "they won't be charged at all".
+- Meters start when the trial converts: usage during the trial isn't billed.
+  So the trial caps are hard stops, and we report no usage while trialing.
+- **Polar emails the customer 3 days before a trial ends** (trials of 3 days or
+  more). Decision 8 is covered by Polar; our own 2-day email isn't needed
+  unless the owner wants both.
+- **"Prevent trial abuse"** (Settings → Subscription, sandbox and production):
+  matches emails, card fingerprints and customer. The owner turns it on in the
+  dashboard; our own check (one trial per owner) works without it.
+- Ending a trial early: `PATCH /v1/subscriptions/{id}` with
+  `trial_end: "now"` charges the first period. Not offered in Polar's portal,
+  so the app has the button.
+- Saved cards (decision 9): `GET /v1/customers/{id}/payment-methods` gives
+  brand, last 4 and expiry, but **no checkout parameter picks a saved card**,
+  and a customer's `external_id` can't be changed once set. "Pay with Visa
+  •••• 4242" on a new org may not be possible; needs a sandbox test before
+  building, and the owner may want to drop it.
+- Next charge (decision 10): **Polar's portal already shows the upcoming charge
+  with estimated meter charges.** No preview API. Our own estimate may not be
+  needed.
+
+**Settled 2026-11-25 (replaces decisions 8 to 10):**
+
+- 8: Polar's own reminder, 3 days before. No email of ours before the charge.
+- 9: no saved cards and no "pay with a saved card". Polar customers stay as
+  they are (one per email, each subscription matched to its org through
+  checkout metadata); the portal opens by Polar's customer id, which fixes
+  the second-org bug.
+- 10: no estimate of ours. The billing page sends Pro orgs to Polar's portal,
+  which shows the next charge and the estimated usage charges.
+- Enterprise: the trial never applies (checkout only sells Pro; Enterprise is
+  granted by hand). Paid by bank transfer (no `billing_customer_id`): the
+  billing page says "billed by agreement", shows the period's usage, and has
+  no portal button (today it shows one that fails). Paid by card on the
+  Enterprise product: the portal, noting the agreed fee is billed separately.
+
+Still open in phase 0 (need the owner or a sandbox run):
+
 - Polar sandbox: set a 7-day trial on the Pro product, or per checkout (the
   checkout setting overrides the product's; confirm the exact API fields). Our
   runtime token can't write products, so a product-level trial is set in the
@@ -339,6 +385,32 @@ Not started: the owner says when to begin.
 
 ### Phase 1: trial checkout and trial limits
 
+Done on 2026-11-25, server side, not deployed (migration `0098_trial` generated,
+not run):
+
+- Checkout asks Polar for a 7-day trial unless the org's owner already had one
+  (`user.trial_started_at`, set by the webhook on the first `trialing`), and
+  returns `trial`. `allow_trial: false` otherwise.
+- `subscription.trial_ends_at` from the webhook; `subscription.cycled` handled.
+- `limitsForSubscription` (`packages/db/src/lib/plan.ts`): trialing = Pro with
+  300 shared bot replies, 300 Assistant credits and no extra credits, tool
+  calls and embedded storage capped at what Pro includes. Used by message cap,
+  Assistant credits, tool-call budget, alerting.
+- Metering reports nothing while trialing.
+- `POST /organization/:id/billing/end-trial` (admins) ends the trial now.
+- Billing status returns `trial: { available, days, active, endsAt, ... }`.
+- Portal session by Polar customer id: fixes the second-org portal bug.
+- Assistant credits error says the trial's credits are used up.
+- Phase 3 done with it: no Polar token → new orgs start on Pro, active.
+- `NO_PLAN_LIMITS` and `FREE_PLAN_LOCK_DATE` (null) are in constants; while
+  null, Free keeps its old limits (phase 2 and 6 switch).
+
+Phase 1 is done: customer per person, saved cards and our own estimate were
+dropped (see "Settled" above). Phase 4 drops "Your cards" and the next-charge
+estimate, and adds the Enterprise states.
+
+Original plan:
+
 - `createCheckout` (`apps/api/src/controllers/billing/index.ts`) asks Polar for
   the trial when the owner never had one; otherwise a normal paid checkout.
 - Migration: `user.trial_started_at` (one trial per person) and
@@ -360,6 +432,24 @@ Not started: the owner says when to begin.
 
 ### Phase 2: "no plan" replaces Free
 
+Done on 2026-11-25, server side, not deployed. Everything below switches on
+when `FREE_PLAN_LOCK_DATE` is set (phase 6); until then Free is unchanged.
+
+- `NO_PLAN_LIMITS`: 0 bot replies, 0 custom tool calls, 0 embedded storage,
+  no Assistant, no Data; Free's structural limits (1 project, 7 tools) stay,
+  so building still works.
+- `hasNoPlan` / `organizationHasNoPlan` in `packages/db/src/lib/plan.ts`;
+  `getEffectivePlan` and the billing status return `noPlan`.
+- MCP answers 402 with `NO_PLAN_MCP_MESSAGE` before serving anything.
+- Channel runner: no reply (`silent`), and `sendNoPlanNotice`
+  (`apps/api/src/utils/noPlanNotice.ts`) emails the owner and admins, at most
+  daily (`subscription.no_plan_notice_at`, in migration `0098_trial`).
+- Uploads and tool test runs say the org has no plan instead of "Free limit".
+- Left for phase 4: the "No plan" labels in the app.
+- Note: the abandoned-database emails still say "on the Free plan"; reword
+  them in phase 6 (decision 7 keeps the data; those emails only list
+  databases for Ganju to delete by hand).
+
 - Keep the internal key `FREE` (the database, webhook and ~10 files use it) but
   give it "no plan" limits: 0 bot replies, 0 tool calls from MCP clients, no
   Assistant, no embedded uploads, 1 organization, building still allowed.
@@ -371,11 +461,36 @@ Not started: the owner says when to begin.
 
 ### Phase 3: self-hosting
 
+Done 2026-11-25 with phase 1. Deploy docs (en, es) say new orgs start on Pro
+and give the one-line SQL to move old Free orgs to Pro, since the lock date
+would also stop them on a self-hosted instance.
+
 - With no Polar token, `ensureSubscription` creates the row as Pro, `active`.
   Existing self-hosted rows aren't touched. Update the Deploy docs section
   "Plans and billing on your instance".
 
 ### Phase 4: the app (en and es)
+
+Done on 2026-11-25, not deployed (migration `0098_trial` run on dev):
+
+- Billing page: "No plan", trial ("ends on <date>, n days left", the trial's
+  caps), "Start <n>-day free trial" or "Upgrade to Pro" when the owner already
+  had one, "Start Pro now" (confirm, then `end-trial`), Polar portal for the
+  next charge, Enterprise "billed by agreement" with no portal button (card
+  Enterprise: usage by card, fee invoiced apart). No extra-credits field
+  during a trial. Checkout returns with `?billing=trial` for a trial toast.
+- After creating an organization: a "Start your 7-day free trial" dialog
+  (or "Start Pro" if the trial was used), "Not now" goes to the project.
+  Shown only once `FREE_PLAN_LOCK_DATE` is set and billing is on
+  (`trial.offer` in the create response).
+- The create-organization dialog says each organization has its own plan and
+  that a new project is usually what you want.
+- A banner above every org page: trial days left, or "no plan" with Start Pro
+  (from the plan the pages already load; `/plan` returns `trialing`,
+  `trialEndsAt`, `noPlan`).
+- Organization cards: "Pro trial" and "No plan".
+- Left: plan-limit errors from the API still say "Your FREE plan allows...";
+  reword with phase 7's copy.
 
 - After creating an organization: a "Start your 7-day free trial" screen that
   goes to checkout, with "Not now" leading to the app in "no plan" mode.
@@ -394,6 +509,14 @@ Not started: the owner says when to begin.
 
 ### Phase 5: emails (Cloudflare send_email binding)
 
+Done 2026-11-25, not deployed:
+
+- Trial ends in 2 days: dropped, Polar sends its own 3 days before.
+- Trial ended without a plan: the webhook sees `trialing` → not entitled and
+  emails the owner and admins (`sendTrialEndedEmail`): before the lock date
+  "back on Free's limits", after it "bots, MCP and Assistant are off".
+- Bots off without a plan: at most daily (phase 2).
+
 - Trial ends in 2 days (if Polar doesn't send it): what will be charged (the
   same estimate as the billing page) and how to cancel.
 - Trial ended without a plan: what stopped and how to restart.
@@ -401,12 +524,57 @@ Not started: the owner says when to begin.
 
 ### Phase 6: existing Free organizations
 
+Done 2026-11-25, not deployed (migration `0099_free_plan_notice` generated,
+not run):
+
+- Launch = set `FREE_PLAN_LOCK_DATE` in `packages/utils/src/constants.ts` to
+  launch + 14 days, and ship it with phase 7's copy.
+- `runFreePlanNotices` (daily job): once per Free org, before the lock date,
+  emails the owner and admins the date and how to keep it running; marks
+  `subscription.free_plan_notice_at`; 200 orgs a day; skipped without Polar.
+- `/plan` and billing return `freeEndsAt`: a banner on every org page and the
+  Billing page say Free ends on <date> and offer the trial.
+- Still to reword at launch: the abandoned-database emails ("on the Free
+  plan since").
+
 - A constant with the lock date (launch + 14 days). Before it, Free keeps its
   old limits; after it, "no plan" applies. Time-based, so no backfill job.
 - Launch-day email to their owners and admins, and an in-app banner with the
   date.
 
 ### Phase 7: website, docs and pricing (en and es)
+
+Done 2026-11-25, not deployed. The owner's call: Free is deleted, nothing
+public says it ever existed.
+
+- Pricing pages: Self-hosted (free, Apache-2.0) + Pro (7-day trial) +
+  Enterprise; trial FAQ; JSON-LD, calculator, llms.txt, homepage CTAs,
+  `docs/PRICING.md`.
+- 46 doc pages (en, es): Billing & plan rewritten (trial, No plan, Start Pro
+  now, portal, Enterprise), getting-started describes the trial dialog,
+  "Free" limits became "without a plan" limits. Pro tools row fixed to 40.
+- Terms, privacy, subprocessors (en, es): a "Free trial" clause (card,
+  nothing charged, automatic start and monthly renewal, cancel before day 7
+  at no cost, Polar's 3-day reminder, one per person) and "Without an active
+  plan". For counsel: the 5-business-day withdrawal window vs. the first
+  charge on day 7; whether removing Free needs the 30-day notice of material
+  changes; "nothing deleted automatically" next to the termination clause;
+  how "one trial per person" is identified.
+- API, MCP and app messages no longer name Free ("Without Pro…", "Start
+  Pro"); README and the CLI skill updated.
+- **Launch set:** `FREE_PLAN_LAUNCH_DATE = 2026-11-26`,
+  `FREE_PLAN_LOCK_DATE = 2026-12-09`. Orgs created from 2026-11-26 start with
+  no plan; older Free orgs keep Free's limits until 2026-12-09, get the notice
+  email (up to 1,000 a day) and banner, then no plan. Deploy before
+  2026-11-26, or move the launch date to the deploy day.
+- Code review fixes: a failed first charge (past_due right after the trial)
+  keeps the trial's caps and emails the owner to check the card; the org list
+  and tool-call alerts read the row's creation date and trial; no plan means
+  no new files (0 MB).
+
+Deploy order: run `0098_trial` and `0099_free_plan_notice` (prod; 0099 on
+dev too), build `packages/utils` and `packages/db`, then api, mcp, web,
+website. In Polar (sandbox and production): turn on "Prevent trial abuse".
 
 - Pricing page, `PRICING_SCHEMA` offers, homepage FAQ and CTAs ("Start building
   free" becomes "Start your 7-day free trial"), getting-started pages, Settings

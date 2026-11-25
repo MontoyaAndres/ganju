@@ -2,7 +2,7 @@
 title: Settings
 description: Manage your organization, plan, members, models, access tokens, and more from one place.
 order: 8
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 3
 outcome: "You know where to change the plan, invite people, and pick the model."
 ---
@@ -13,7 +13,7 @@ left sub-nav jumps between each area: **Organization**, **Billing & plan**,
 **Members**, **Projects**, **Models**, **Your data**, and the **Danger zone**.
 
 > **Want the full picture?** This is the quick version. The complete
-> **[Settings](/docs/settings/)** guide explains how the Free, Pro, and
+> **[Settings](/docs/settings/)** guide explains the 7-day trial, how the Pro and
 > Enterprise plans really work, billing and overage, members, access tokens, and
 > bringing your own model.
 
@@ -35,8 +35,10 @@ only on a yes. Details in
 Your current plan and renewal date, and usage against each allowance: assistant
 replies (and how many ran on Ganju's model), embedded (RAG) content, custom tool
 calls, Assistant credits, file storage, and projects. Only your assistant's
-replies count toward billing; incoming messages are free. On Free you'll see
-**Upgrade to Pro**; on a paid plan, **Manage billing**.
+replies count toward billing; incoming messages are free. During the trial
+you'll see the days left and **Start Pro now**; on Pro or Enterprise, **Manage
+billing**; without a plan, a button to start the trial (or Pro, if you already
+used yours).
 
 ![Billing & plan on Pro: the usage rows, Assistant credits, Extra credits a month and the broken-action email switch](/images/settings-billing-pro.webp)
 
@@ -44,7 +46,7 @@ replies count toward billing; incoming messages are free. On Free you'll see
 
 **Members** lists everyone in the organization. Invite a teammate by email
 (they accept the invitation in-app) and remove members or revoke pending
-invitations. Inviting is a Pro feature.
+invitations.
 
 **Projects** lists every project; each has its own **Members** (who can open
 that project) and **Access tokens** (for deploying from CI with the
@@ -54,7 +56,7 @@ that project) and **Access tokens** (for deploying from CI with the
 
 ## Language models
 
-By default your channels use the system model. On Pro you can bring your own:
+By default your channels use the system model. You can bring your own:
 under **Models**, select **Add model**, give it a **Display name**, choose the
 **Model** (Gemini, GPT, or Claude models, or **Custom (OpenAI-compatible)**),
 and paste your **API key**, with an optional **Base URL** and **System

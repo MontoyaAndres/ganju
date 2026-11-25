@@ -33,21 +33,6 @@ export function docMarkdown(entry: Doc, lang: Lang): string {
   return toMarkdownLinks(body);
 }
 
-// Pages for features Free doesn't include.
-const PAID = new Set([
-  'assistant',
-  'data',
-  'data/functions',
-  'data/triggers',
-  'data/schedules',
-  'data/sheet-sync',
-  'data-api',
-  'tools/functions',
-  'tools/cli',
-  'tools/examples',
-  'tools/agent-skill'
-]);
-
 // Top-level pages with no group of their own in the sidebar.
 const LOOSE: Record<string, 'start' | 'account' | 'selfHost'> = {
   '': 'start',
@@ -66,7 +51,6 @@ const COPY = {
     account: 'Projects and account',
     selfHost: 'Self-hosting',
     more: 'More docs',
-    paid: 'Pro and Enterprise only.',
     intro:
       'Every page is also available as Markdown by appending `.md` to its URL. The whole documentation in one file:'
   },
@@ -75,7 +59,6 @@ const COPY = {
     account: 'Proyectos y cuenta',
     selfHost: 'Instálalo tú mismo',
     more: 'Más guías',
-    paid: 'Solo Pro y Enterprise.',
     intro:
       'Cada página también está en Markdown: agrega `.md` a su URL. Toda la documentación en un solo archivo:'
   }
@@ -161,10 +144,7 @@ const link = (url: string, title: string, note: string) =>
 
 const docLink = (doc: Doc, label: string, lang: Lang) => {
   const prefix = lang === 'es' ? '/es/docs/' : '/docs/';
-  const note = PAID.has(doc.id)
-    ? `${doc.data.description} ${COPY[lang].paid}`
-    : doc.data.description;
-  return link(`${SITE.url}${prefix}${doc.id}.md`, label, note);
+  return link(`${SITE.url}${prefix}${doc.id}.md`, label, doc.data.description);
 };
 
 const KEY_FACTS = {
@@ -176,7 +156,7 @@ const KEY_FACTS = {
 - Gemini CLI: \`gemini mcp add --transport http --scope user <name> https://mcp.ganju.ai/<project-slug>\`
 - CLI: \`npm install -g @ganju/cli\` (Node 20 or newer); the binary is \`ganju\`.
 - Data API: \`${SITE.apiUrl}/organization/<organizationId>/project/<projectId>/artifact/data\`, described in OpenAPI at ${SITE.apiUrl}/openapi/data.json
-- Plans: Free $0 (1 project, 100 bot replies a month, 7 tools, 3 HTTP endpoints; no functions, Data or Assistant), Pro $29 a month, Enterprise by agreement. Details: ${SITE.url}/pricing.md
+- Plans: Pro $29 a month plus usage, starting with a 7-day free trial (card required, nothing charged until day 7); Enterprise by agreement. Self-hosting is free (Apache-2.0). Details: ${SITE.url}/pricing.md
 - Source: ${SITE.repo} (Apache-2.0). Agent skill for the CLI: ${SITE.repo}/tree/main/skills/ganju-cli`,
   es: `## Datos clave
 
@@ -186,7 +166,7 @@ const KEY_FACTS = {
 - Gemini CLI: \`gemini mcp add --transport http --scope user <nombre> https://mcp.ganju.ai/<slug-del-proyecto>\`
 - CLI: \`npm install -g @ganju/cli\` (Node 20 o más reciente); el comando es \`ganju\`.
 - API de Datos: \`${SITE.apiUrl}/organization/<organizationId>/project/<projectId>/artifact/data\`, descrita en OpenAPI en ${SITE.apiUrl}/openapi/data.json
-- Planes: Free $0 (1 proyecto, 100 respuestas del bot al mes, 7 herramientas, 3 endpoints HTTP; sin funciones, Datos ni Asistente), Pro $29 al mes, Enterprise por acuerdo. Detalles: ${SITE.url}/es/precios.md
+- Planes: Pro $29 al mes más consumo, con una prueba gratis de 7 días (se necesita tarjeta, no se cobra nada hasta el día 7); Enterprise por acuerdo. Instalarlo por tu cuenta es gratis (Apache-2.0). Detalles: ${SITE.url}/es/precios.md
 - Código: ${SITE.repo} (Apache-2.0). Skill del CLI para agentes: ${SITE.repo}/tree/main/skills/ganju-cli`
 };
 

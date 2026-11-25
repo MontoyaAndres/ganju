@@ -1,8 +1,8 @@
 ---
 title: Recursos
-description: "Dale a tu IA conocimiento para buscar: importa desde Google Drive o OneDrive, sube archivos o pega texto, rastrea un sitio web, mantenlo todo sincronizado y cita tus fuentes."
+description: 'Dale a tu IA conocimiento para buscar: importa desde Google Drive o OneDrive, sube archivos o pega texto, rastrea un sitio web, mantenlo todo sincronizado y cita tus fuentes.'
 order: 3
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Los **recursos** son los documentos y el conocimiento en los que tu asistente
@@ -22,7 +22,7 @@ puede buscar en él en todos los canales, igual que cualquier cliente MCP.
 - **Trae lo que ya tienes.** Importa directo desde Google Drive u OneDrive, sube
   archivos o rastrea un sitio web completo, sin reformatear ni copiar y pegar.
 - **Siempre al día.** Sincroniza una unidad o un sitio y solo se vuelve a
-  indexar lo que cambió; en Pro pasa solo, cada día o cada semana.
+  indexar lo que cambió, y puede pasar solo, cada día o cada semana.
 - **Muestra tus fuentes.** Con las citas activadas, el bot muestra el recurso
   exacto detrás de cada respuesta, con un enlace a la página o al archivo.
 
@@ -73,12 +73,12 @@ luego **Listo** (o **Falló**, si no se pudo leer el archivo).
 
 Un archivo puede pesar hasta **500 MB**. Lo que Ganju **lee y vuelve buscable**:
 
-| Clase | Formatos |
-| --- | --- |
-| Documentos | PDF, Word (`.doc`, `.docx`), PowerPoint (`.pptx`) |
-| Hojas de cálculo | Excel (`.xls`, `.xlsx`), CSV |
-| Archivos de Google | Documentos, Hojas de cálculo y Presentaciones (desde Google Drive) |
-| Texto y código | texto plano, Markdown, HTML, JSON, XML, YAML, TOML, SQL, GraphQL, JavaScript, TypeScript, Python, Ruby, Perl, PHP, shell |
+| Clase              | Formatos                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Documentos         | PDF, Word (`.doc`, `.docx`), PowerPoint (`.pptx`)                                                                        |
+| Hojas de cálculo   | Excel (`.xls`, `.xlsx`), CSV                                                                                             |
+| Archivos de Google | Documentos, Hojas de cálculo y Presentaciones (desde Google Drive)                                                       |
+| Texto y código     | texto plano, Markdown, HTML, JSON, XML, YAML, TOML, SQL, GraphQL, JavaScript, TypeScript, Python, Ruby, Perl, PHP, shell |
 
 También puedes guardar imágenes (PNG, JPEG, GIF, WebP, SVG) y otros
 archivos. Conservan su título, descripción y URI (que sí se pueden buscar), y
@@ -139,9 +139,9 @@ vuelve a indexar lo nuevo o lo que cambió, y lo que se eliminó en el origen
 también se elimina aquí. La sección muestra la **Última sincronización**.
 
 El botón de configuración junto a **Sincronizar** define **Sincronizar
-automáticamente** y la **Frecuencia**: **Cada día** o **Cada semana**. La
-sincronización automática es una función de **Pro** y **Enterprise**; en Free
-puedes sincronizar cualquier fuente a mano.
+automáticamente** y la **Frecuencia**: **Cada día** o **Cada semana**. En una
+organización [sin plan](/es/docs/settings/#sin-plan), la sincronización
+automática está apagada.
 
 ## Detalles de un recurso
 
@@ -198,17 +198,17 @@ lo subas.
 
 ## Límites del plan
 
-| | Free | Pro y Enterprise |
-| --- | --- | --- |
-| Un archivo | 500 MB | 500 MB |
-| Archivos guardados (por organización) | 30 MB | Sin límite |
-| Contenido indexado (por organización) | 5 MB | Sin límite |
-| Sincronización automática | No incluida | Cada día o cada semana |
+|                                       | Pro y Enterprise       |
+| ------------------------------------- | ---------------------- |
+| Un archivo                            | 500 MB                 |
+| Archivos guardados (por organización) | Sin límite             |
+| Contenido indexado (por organización) | Sin límite             |
+| Sincronización automática             | Cada día o cada semana |
 
 El contenido indexado es el texto que Ganju extrajo y volvió buscable, que suele
-ser mucho más liviano que los archivos. Cuando una organización en Free se
-llena, los recursos nuevos se rechazan hasta que elimines algunos o cambies de
-plan. Mira los planes en [Configuración](/es/docs/settings/).
+ser mucho más liviano que los archivos. Una organización
+[sin plan](/es/docs/settings/#sin-plan) conserva sus recursos, pero no puede
+agregar archivos, y la sincronización automática está apagada. Mira los planes en [Configuración](/es/docs/settings/).
 
 ## Solución de problemas
 

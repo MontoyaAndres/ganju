@@ -208,6 +208,9 @@ export const meterOrganization = async (
   );
 
   if (!polar || !sub?.billingCustomerId) return;
+  // Polar starts the meters when the trial converts; the trial's own caps
+  // keep it inside what Pro includes.
+  if (sub.status === constants.SUBSCRIPTION_STATUS_TRIALING) return;
 
   const limits = limitsFor(sub.plan);
 

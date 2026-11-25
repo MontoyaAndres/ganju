@@ -18,8 +18,6 @@ export interface PricingConfig {
   messagePer1k: number;
   storagePerGb: number;
   customDomain: number;
-  freeMessages: number;
-  freeEmbeddedMb: number;
   messageMax: number;
   storageMax: number;
 }
@@ -55,8 +53,6 @@ export default function PricingCalculator({
     messagePer1k,
     storagePerGb,
     customDomain: customDomainPrice,
-    freeMessages,
-    freeEmbeddedMb,
     messageMax,
     storageMax
   } = config;
@@ -97,13 +93,6 @@ export default function PricingCalculator({
     customDomainPrice,
     proBase
   ]);
-
-  // "Free is enough" when usage stays under the free message cap and the free
-  // content allowance, with no paid add-on turned on.
-  const withinFree =
-    messages <= freeMessages &&
-    storageGb <= freeEmbeddedMb / 1_024 &&
-    !customDomain;
 
   return (
     <div className="calc">
@@ -244,8 +233,6 @@ export default function PricingCalculator({
           </p>
 
           <p className="calc-note">{copy.note}</p>
-
-          {withinFree && <p className="calc-free">{copy.free}</p>}
         </div>
       </div>
     </div>

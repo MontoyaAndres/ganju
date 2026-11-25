@@ -2,7 +2,7 @@
 title: Funciones
 description: Tus propias herramientas en código. El Asistente las escribe por ti, los desarrolladores las despliegan con la CLI, y la página Herramientas muestra lo que está en vivo, te deja probarlo y volver atrás.
 order: 36
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Las **funciones** son herramientas escritas en código. En la app se llaman
@@ -18,12 +18,10 @@ envío de archivos, la base de datos y tus canales le llegan al código como
 **capacidades del host**, así que nunca maneja un refresh token ni un adjunto
 de 40 MB.
 
-> Las funciones son parte de **Pro** y **Enterprise**. En Free, la pestaña
-> Funciones muestra **Escribe tus propias herramientas** con **Cambiar a Pro**,
-> y los [Endpoints HTTP](/es/docs/tools/http-endpoints/) son la herramienta
+> Las funciones son parte de **Pro**, **Enterprise** y la prueba de 7 días. En
+> una organización [sin plan](/es/docs/settings/#sin-plan) no se ejecutan. Los
+> [Endpoints HTTP](/es/docs/tools/http-endpoints/) son la herramienta
 > personalizada que no necesita código.
-
-![La pestaña Funciones en el plan Free: "Escribe tus propias herramientas" con un ejemplo de código y Mejorar a Pro](/images/tools-functions-free.webp)
 
 ## Quién las escribe
 

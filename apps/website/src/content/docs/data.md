@@ -2,7 +2,7 @@
 title: Data
 description: Give a project its own database (tables with typed columns, relations and search) that the assistant, your functions, the CLI and the API all read and write, with restore to any moment in the last 30 days.
 order: 7
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Every project on **Pro** or **Enterprise** can have its own **database**: tables
@@ -33,8 +33,7 @@ ganju data create --name pizzeria
 ```
 
 A project has one database. Most projects never need one, so nothing is
-created until you ask. On Free, the page shows **Data is part of Pro** with
-**See plans** instead.
+created until you ask.
 
 ## The Data page
 
@@ -367,16 +366,16 @@ write there stops working at once.
 
 ## Plans and billing
 
-Data is part of **Pro** and **Enterprise**. If the organization moves to Free,
-its databases stay, **read-only**: you can read and download everything, the
-assistant and your functions can still read, and nothing can be changed until
-you upgrade. Triggers and schedules pause.
+Data is part of **Pro**, **Enterprise** and the 7-day trial. If the
+organization ends up [without a plan](/docs/settings/#without-a-plan), its
+databases stay, **read-only**: you can read and download everything, and
+nothing can be changed until it has a plan again. Triggers and schedules pause.
 
-A database whose organization stays on Free is deleted after a notice:
+A database whose organization stays without a plan is deleted after a notice:
 
-- **Day 30 on Free:** the owner and the admins get an email listing each
+- **Day 30 without a plan:** the owner and the admins get an email listing each
   database (project, size, tables), saying it is read-only and the date it will
-  be deleted, with links to upgrade and to download a copy.
+  be deleted, with links to start Pro and to download a copy.
 - **3 days before that date (day 41):** a reminder.
 - **From day 44:** Ganju deletes it by hand. A copy is kept for 90 days; write
   to support if you need it.

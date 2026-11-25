@@ -2,7 +2,7 @@
 title: Configuración
 description: Administra tu organización, tu plan, los miembros, los modelos, los tokens de acceso y más desde un solo lugar.
 order: 8
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 3
 outcome: "Ya sabes dónde cambiar el plan, invitar gente y elegir el modelo."
 ---
@@ -14,8 +14,8 @@ avatar (**Ajustes**) o desde la tarjeta de una organización en la página
 **Modelos**, **Tus datos** y la **Zona de riesgo**.
 
 > **¿Quieres el panorama completo?** Esta es la versión rápida. La guía completa
-> de **[Configuración](/es/docs/settings/)** explica cómo funcionan de verdad los
-> planes Free, Pro y Enterprise, la facturación y el consumo adicional, los
+> de **[Configuración](/es/docs/settings/)** explica la prueba de 7 días, cómo funcionan de
+> verdad los planes Pro y Enterprise, la facturación y el consumo adicional, los
 > miembros, los tokens de acceso y cómo traer tu propio modelo.
 
 ## Organización
@@ -37,8 +37,10 @@ Tu plan actual y su fecha de renovación, y el consumo frente a cada cupo:
 respuestas del asistente (y cuántas usaron el modelo de Ganju), contenido
 indexado (RAG), llamadas a tus funciones, créditos del Asistente, almacenamiento
 de archivos y proyectos. Solo las respuestas de tu asistente cuentan para la
-facturación; los mensajes que entran son gratis. En Free verás **Pasar a Pro**;
-en un plan de pago, **Gestionar la facturación**.
+facturación; los mensajes que entran son gratis. Durante la prueba
+verás los días que quedan y **Empezar Pro ahora**; en Pro o Enterprise,
+**Gestionar la facturación**; sin plan, un botón para empezar la prueba (o Pro,
+si ya usaste la tuya).
 
 ![Plan y facturación en Pro: el uso del mes, los créditos del asistente, los créditos extra al mes y el aviso por correo de acciones rotas](/images/settings-billing-pro.webp)
 
@@ -46,7 +48,7 @@ en un plan de pago, **Gestionar la facturación**.
 
 **Miembros** lista a todos en la organización. Invita a alguien de tu equipo por
 correo (acepta la invitación dentro de la app), y quita miembros o revoca
-invitaciones pendientes. Invitar es una función de Pro.
+invitaciones pendientes.
 
 **Proyectos** lista cada proyecto; cada uno tiene sus propios **Miembros**
 (quiénes pueden abrir ese proyecto) y **Tokens de acceso** (para desplegar desde
@@ -56,7 +58,7 @@ CI con el [`ganju` CLI](/es/docs/tools/cli/)).
 
 ## Modelos de lenguaje
 
-Por defecto tus canales usan el modelo del sistema. En Pro puedes traer el tuyo:
+Por defecto tus canales usan el modelo del sistema. Puedes traer el tuyo:
 en **Modelos**, selecciona **Agregar modelo**, ponle un **Nombre visible**, elige
 el **Modelo** (modelos de Gemini, GPT o Claude, o **Personalizado (compatible con
 OpenAI)**) y pega tu **Clave de API**, con una **URL base** y un **Prompt de

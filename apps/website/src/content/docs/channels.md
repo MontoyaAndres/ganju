@@ -2,7 +2,7 @@
 title: Channels
 description: Deliver your assistant to real people on the apps they already use (Telegram, WhatsApp, Slack, and Discord), tune how it answers, and watch every conversation.
 order: 5
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Channels** are how you put your assistant in front of other people. Everything
@@ -203,10 +203,12 @@ Channels themselves are connected and configured in the dashboard.
 
 ## Plan limits
 
-- **Free**: one channel per project, and 100 bot messages a month across the
-  organization, on the system default model.
 - **Pro** and **Enterprise**: unlimited channels, messages metered past what the
   plan includes, and your own models.
+- **7-day trial**: everything in Pro, with up to 300 bot replies on Ganju's AI
+  model. Replies on your own model aren't capped by this.
+- **Without a plan**: one channel per project, and the bot doesn't answer. The
+  owner and admins get an email about it, at most once a day.
 
 See [Settings](/docs/settings/) for plans and usage.
 
@@ -227,6 +229,8 @@ See [Settings](/docs/settings/) for plans and usage.
 - **"…is already connected to project…".** That bot, app or number is
   connected to another project's channel. Remove that channel first, or use a
   different bot.
-- **Free plan: can't add a channel.** Free allows one channel per project.
+- **The bot stopped answering and a banner says there's no plan.** The
+  organization's trial or plan ended. Start the trial, or Pro, under
+  [Settings → Billing & plan](/docs/settings/#billing--plan).
 
 Next: manage models, members, and billing in [Settings](/docs/settings/).

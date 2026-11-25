@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: November 11, 2026 · Effective: November 11, 2026**
+**Last updated: November 25, 2026 · Effective: November 25, 2026**
 
 This policy explains what Ganju collects when you use the hosted service at
 `ganju.ai`, `app.ganju.ai`, `api.ganju.ai`, and `mcp.ganju.ai`, why we collect it,
@@ -162,7 +162,7 @@ We use the data above to:
 - **Show you what happened** — the Activity chart, usage counters, and recent-activity
   feed on each project's Home page are built from the audit records above.
 - **Bill you correctly** — count assistant replies and embedded storage against your
-  plan's allowance, enforce Free-plan caps, and report overage to our billing
+  plan's allowance, enforce free-trial caps, and report overage to our billing
   provider.
 - **Keep things safe** — detect abuse, debug failures, screen outbound requests, and
   investigate security incidents.
@@ -183,7 +183,7 @@ infrastructure.
 Every embeddable resource you add is sent to **Google's Gemini API**
 (`gemini-embedding-001`) using **Ganju's own API key**, so it can be turned into
 vectors. Search queries are embedded the same way. This happens on every plan,
-including Free, and there is currently no way to opt out while using the hosted
+including during a free trial, and there is currently no way to opt out while using the hosted
 service and keeping search. If that's not acceptable for a given document, don't
 upload it — or self-host.
 
@@ -197,7 +197,7 @@ return, and any resource chunks retrieved to answer the question.
 
 Which model receives it depends on your setup:
 
-- **Ganju's shared model** — the default, and the only option on Free. This is
+- **Ganju's shared model**: the default. This is
   currently a **Google Gemini** model, called with our key.
 - **Your own model** — on paid plans you can add a key for Anthropic, OpenAI, Google,
   or any OpenAI-compatible endpoint. Those requests go to that provider under your

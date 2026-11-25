@@ -687,6 +687,20 @@
       "when": 1795012312190,
       "tag": "0097_remove_greeting_tool",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1795629209028,
+      "tag": "0098_trial",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1795630514891,
+      "tag": "0099_free_plan_notice",
+      "breakpoints": true
     }
   ]
 }

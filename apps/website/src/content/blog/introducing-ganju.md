@@ -24,4 +24,4 @@ tools, and your AI is ready — in minutes, no code required.
 
 It's open source under Apache-2.0 — run it yourself, or let us host it for you.
 
-[Get started free →](https://app.ganju.ai)
+[Start your 7-day free trial →](https://app.ganju.ai)

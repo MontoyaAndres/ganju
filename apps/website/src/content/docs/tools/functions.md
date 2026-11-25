@@ -2,7 +2,7 @@
 title: Functions
 description: "Your own tools in code: the Assistant writes them for you, developers deploy them with the CLI, and the Tools page shows what is live, lets you test it and roll back."
 order: 36
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 **Functions** are tools written in code. In the app they're called
@@ -17,12 +17,10 @@ no server to run and no pipeline to wire up. Connected accounts, file sending,
 the database and your channels reach the code as **host capabilities**, so it
 never handles a refresh token or a 40 MB attachment.
 
-> Functions are part of **Pro** and **Enterprise**. On Free, the Functions tab
-> shows **Write your own tools** with **Upgrade to Pro**, and
+> Functions are part of **Pro**, **Enterprise** and the 7-day trial. In an
+> organization [without a plan](/docs/settings/#without-a-plan) they don't run.
 > [HTTP Endpoints](/docs/tools/http-endpoints/) are the custom tool that needs
 > no code.
-
-![The Functions tab on the Free plan: "Write your own tools" with a code sample and Upgrade to Pro](/images/tools-functions-free.webp)
 
 ## Who writes them
 

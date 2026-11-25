@@ -2,7 +2,7 @@
 title: Channels
 description: Offer your AI to clients and teams on the apps they already use (Telegram, WhatsApp, Slack, and Discord) and tell it how to answer.
 order: 7
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 5
 outcome: "A live bot on Telegram (or another app) that answers with your knowledge and tools."
 ---
@@ -112,10 +112,10 @@ your assistant.
 
 ## Limits and billing
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Channels per project | 1 | Unlimited |
-| Assistant replies a month | 100, then it pauses | 3,000 included, then billed |
+Pro has unlimited channels per project and includes 3,000 bot replies a month,
+then bills the extra ones. During the 7-day trial, replies on Ganju's AI model
+are capped at 300. An organization without a plan keeps one channel per project,
+and its bot doesn't answer.
 
 Only your bot's **replies** count; messages people send it are free. See
 [Settings → Billing & plan](/docs/settings/#billing--plan).

@@ -267,7 +267,6 @@ export interface CalculatorCopy {
   /** `{messages}` and `{storage}` — what the plan bundles. */
   included: string;
   note: string;
-  free: string;
 }
 
 export const CALCULATOR: Record<Lang, CalculatorCopy> = {
@@ -297,8 +296,7 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     domainLine: 'Your own web address',
     included:
       'Your plan already includes {messages} messages and {storage} GB every month.',
-    note: 'Using Ganju from Claude, Cursor, or ChatGPT is always free. It never uses up your messages.',
-    free: '🎉 Good news: this fits the Free plan. You might not need Pro yet.'
+    note: 'Using Ganju from Claude, Cursor, or ChatGPT is always free. It never uses up your messages.'
   },
   es: {
     locale: 'es-CO',
@@ -325,7 +323,6 @@ export const CALCULATOR: Record<Lang, CalculatorCopy> = {
     extraStorage: '{n} GB de contenido adicional',
     domainLine: 'Tu propia dirección web',
     included: 'Tu plan ya incluye {messages} mensajes y {storage} GB cada mes.',
-    note: 'Usar Ganju desde Claude, Cursor o ChatGPT siempre es gratis. Nunca consume tus mensajes.',
-    free: '🎉 Buenas noticias: esto cabe en el plan Gratis. Puede que todavía no necesites Pro.'
+    note: 'Usar Ganju desde Claude, Cursor o ChatGPT siempre es gratis. Nunca consume tus mensajes.'
   }
 };

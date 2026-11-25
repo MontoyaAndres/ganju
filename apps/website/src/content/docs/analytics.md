@@ -2,7 +2,7 @@
 title: Analytics
 description: "Every project's Home dashboard shows what your assistant is doing: activity across channels and MCP clients, tool health with the calls behind each number, unused tools, data triggers, and a recent-activity feed."
 order: 6
-updated: 2026-11-13
+updated: 2026-11-25
 ---
 
 Every project opens on its **Home** dashboard (select **Home** at the top of
@@ -111,8 +111,8 @@ Under the table, Tool health adds what applies to the project:
 - **Unused in 30 days**: tools that are on but weren't called once in 30 days
   (built-in tools, MCP servers, functions, HTTP endpoints). Every enabled tool
   is sent to the model on every turn, so select **Disable** to turn one off.
-  You can turn it back on from **Tools**. On Free, if the project is at its tool
-  limit, the confirmation warns that you'll have to turn another tool off before
+  You can turn it back on from **Tools**. In an organization without a plan, if
+  the project is at its 7-tool limit, the confirmation warns that you'll have to turn another tool off before
   you can turn this one back on.
 
 ## Recent activity

@@ -26,6 +26,10 @@ const { constants, PlanLimitError } = utils;
 export type EffectivePlan = {
   plan: string;
   limits: PlanLimits;
+  trialing: boolean;
+  noPlan: boolean;
+  // When Free stops for this organization, while it's still on Free.
+  freeEndsAt: Date | null;
   subscription: typeof schema.subscription.$inferSelect | null;
 };
 
@@ -47,6 +51,110 @@ export const planFromSubscription = (
   return isEntitled(sub.status) ? sub.plan : constants.PLAN_FREE;
 };
 
+export const isTrialing = (
+  sub: typeof schema.subscription.$inferSelect | null
+): boolean => sub?.status === constants.SUBSCRIPTION_STATUS_TRIALING;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The trial's caps hold while it runs, and also when its first charge failed:
+ * Polar then moves the subscription to past_due, which is entitled, though
+ * nothing was paid. A later past_due (a renewal) has a period that starts well
+ * after the trial's end.
+ */
+export const trialCapsApply = (
+  sub: Pick<
+    typeof schema.subscription.$inferSelect,
+    'status' | 'trialEndsAt' | 'currentPeriodStart'
+  > | null
+): boolean => {
+  if (!sub) return false;
+  if (sub.status === constants.SUBSCRIPTION_STATUS_TRIALING) return true;
+  if (sub.status !== constants.SUBSCRIPTION_STATUS_PAST_DUE) return false;
+  if (!sub.trialEndsAt) return false;
+  return (
+    !sub.currentPeriodStart ||
+    sub.currentPeriodStart.getTime() <= sub.trialEndsAt.getTime() + DAY_MS
+  );
+};
+
+/**
+ * Whether an organization without a paid plan still gets Free's old limits:
+ * always while the Free plan has no lock date; once it has one, only an
+ * organization that existed at launch (the notice period before the lock
+ * date), and only until that date.
+ */
+const onLegacyFree = (
+  sub: Pick<typeof schema.subscription.$inferSelect, 'createdAt'> | null,
+  now: Date
+): boolean => {
+  if (constants.FREE_PLAN_LOCK_DATE == null) return true;
+  const lock = Date.parse(constants.FREE_PLAN_LOCK_DATE);
+  if (now.getTime() >= lock) return false;
+  const launch = Date.parse(constants.FREE_PLAN_LAUNCH_DATE);
+  // A partial row (no creation time) is read as an old organization.
+  return !sub?.createdAt || sub.createdAt.getTime() < launch;
+};
+
+// Polar bills no usage during a trial, so every allowance that would meter is
+// a hard stop at what the plan includes.
+const trialLimits = (limits: PlanLimits): PlanLimits => ({
+  ...limits,
+  includedSharedMessages: Math.min(
+    limits.includedSharedMessages,
+    constants.TRIAL_SHARED_MESSAGES
+  ),
+  sharedKeyHardCap: constants.TRIAL_SHARED_MESSAGES,
+  includedBuilderCredits: constants.TRIAL_BUILDER_CREDITS,
+  toolCallHardCap: limits.includedToolCalls,
+  maxEmbeddedBytes: limits.includedEmbeddedBytes
+});
+
+/**
+ * The limits in force for a subscription: its plan's, with the trial's caps
+ * while it's trialing, and "no plan" for a lapsed or never-paid organization
+ * once the Free plan is retired.
+ */
+export const limitsForSubscription = (
+  sub: typeof schema.subscription.$inferSelect | null,
+  now: Date = new Date()
+): PlanLimits => {
+  const plan = planFromSubscription(sub);
+  if (plan === constants.PLAN_FREE) {
+    return onLegacyFree(sub, now)
+      ? constants.PLAN_LIMITS.FREE
+      : constants.NO_PLAN_LIMITS;
+  }
+  const limits = limitsFor(plan);
+  return trialCapsApply(sub) ? trialLimits(limits) : limits;
+};
+
+// Without a plan an organization can build, but nothing runs: no bot replies,
+// no MCP, no Assistant.
+export const hasNoPlan = (
+  sub: typeof schema.subscription.$inferSelect | null,
+  now: Date = new Date()
+): boolean =>
+  planFromSubscription(sub) === constants.PLAN_FREE && !onLegacyFree(sub, now);
+
+export const organizationHasNoPlan = async (
+  executor: DbExecutor,
+  organizationId: string
+): Promise<boolean> => {
+  if (constants.FREE_PLAN_LOCK_DATE == null) return false;
+  const [sub] = await executor
+    .select({
+      plan: schema.subscription.plan,
+      status: schema.subscription.status,
+      createdAt: schema.subscription.createdAt
+    })
+    .from(schema.subscription)
+    .where(eq(schema.subscription.organizationId, organizationId))
+    .limit(1);
+  return hasNoPlan((sub ?? null) as typeof schema.subscription.$inferSelect);
+};
+
 export const getEffectivePlan = async (
   executor: DbExecutor,
   organizationId: string
@@ -57,9 +165,25 @@ export const getEffectivePlan = async (
     .where(eq(schema.subscription.organizationId, organizationId))
     .limit(1);
 
-  const plan = planFromSubscription(sub ?? null);
-  return { plan, limits: limitsFor(plan), subscription: sub ?? null };
+  const subscription = sub ?? null;
+  const now = new Date();
+  return {
+    plan: planFromSubscription(subscription),
+    limits: limitsForSubscription(subscription),
+    trialing: isTrialing(subscription),
+    noPlan: hasNoPlan(subscription),
+    freeEndsAt:
+      planFromSubscription(subscription) === constants.PLAN_FREE &&
+      constants.FREE_PLAN_LOCK_DATE != null &&
+      onLegacyFree(subscription, now)
+        ? new Date(constants.FREE_PLAN_LOCK_DATE)
+        : null,
+    subscription
+  };
 };
+
+const NO_PLAN_ERROR =
+  'This organization has no plan. Start Pro in Settings → Billing & plan to add files.';
 
 // Sum of raw file bytes across every artifact in the org.
 export const sumRawStorage = async (
@@ -100,13 +224,20 @@ export const assertRawStorageQuota = async (
   organizationId: string,
   addBytes: number
 ): Promise<void> => {
-  const { plan, limits } = await getEffectivePlan(executor, organizationId);
+  const { plan, limits, noPlan } = await getEffectivePlan(
+    executor,
+    organizationId
+  );
   if (limits.maxRawStorageBytes == null) return;
 
   const used = await sumRawStorage(executor, organizationId);
   if (used + Math.max(0, addBytes) > limits.maxRawStorageBytes) {
     throw new PlanLimitError(
-      'This organization has reached its Free file-storage limit. Upgrade to Pro for more storage.',
+      noPlan
+        ? NO_PLAN_ERROR
+        : plan === constants.PLAN_FREE
+          ? 'This organization has reached its file-storage limit without Pro. Start Pro for more storage.'
+          : 'This organization has reached its file-storage limit.',
       {
         feature: constants.PLAN_FEATURE_RAW_STORAGE,
         plan,
@@ -124,13 +255,20 @@ export const assertEmbeddedStorageQuota = async (
   executor: DbExecutor,
   organizationId: string
 ): Promise<void> => {
-  const { plan, limits } = await getEffectivePlan(executor, organizationId);
+  const { plan, limits, noPlan } = await getEffectivePlan(
+    executor,
+    organizationId
+  );
   if (limits.maxEmbeddedBytes == null) return;
 
   const used = await sumEmbeddedStorage(executor, organizationId);
   if (used >= limits.maxEmbeddedBytes) {
     throw new PlanLimitError(
-      'This organization has reached its Free embedded-content (RAG) limit. Upgrade to Pro for more.',
+      noPlan
+        ? NO_PLAN_ERROR
+        : plan === constants.PLAN_FREE
+          ? 'This organization has reached its embedded-content (RAG) limit without Pro. Start Pro for more.'
+          : "This organization has reached the trial's embedded-content (RAG) limit. The full allowance starts with the first paid month.",
       {
         feature: constants.PLAN_FEATURE_EMBEDDED_STORAGE,
         plan,
@@ -326,7 +464,7 @@ export const checkToolCallBudget = async (
     .limit(1);
 
   const plan = planFromSubscription(sub ?? null);
-  const limits = limitsFor(plan);
+  const limits = limitsForSubscription(sub ?? null, now);
 
   if (!sub) {
     return {

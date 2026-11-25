@@ -2,7 +2,7 @@
 title: Create an organization & project
 description: Set up your team and your first workspace, and learn your way around a project.
 order: 3
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 3
 outcome: "An organization, your first project, and you know your way around its Home."
 ---
@@ -27,8 +27,19 @@ Names need at least 3 characters (100 at most); a description can be up to 500.
 
 ![The Create Your Organization form, with fields for the organization name, project name, and project description](/images/new-org-project.webp)
 
-Every new organization starts on the **Free** plan, with one project. See
-[Settings → Compare plans](/docs/settings/#compare-plans) for what Pro adds.
+Right after you create it, Ganju offers **Start your 7-day free trial**:
+
+- **Start free trial** opens checkout with a card. Nothing is charged during the
+  trial. Pro ($29 a month plus usage) starts automatically when it ends, unless
+  you cancel before. You get a reminder email 3 days before.
+- **Not now** leaves the organization without a plan: you can build, but the bot
+  doesn't answer, and the Assistant, Data, and functions stay off. You can start
+  the trial later from **Settings → Billing & plan**.
+
+The trial is one per person and includes everything in Pro, with 300 bot
+replies on Ganju's AI model and 300 Assistant credits. A banner above every page
+shows the days left. See
+[Settings → Billing & plan](/docs/settings/#billing--plan).
 
 ## Your project's Home
 
@@ -38,7 +49,7 @@ description, and its **MCP URL**, the address AI clients like Claude connect to
 **Resources**, **Tools**, and **Prompts**, **Tool health**, and **Recent
 activity**, all explained in [Analytics](/docs/analytics/).
 
-On Pro and Enterprise, a brand-new project also shows **Build your bot with the
+When the organization has a plan, a brand-new project also shows **Build your bot with the
 Assistant** with an **Open the Assistant** button. The card goes away once the
 project has resources, prompts, channels, or tools beyond the built-in ones.
 
@@ -49,9 +60,9 @@ The left rail is the same in every project:
 | Rail item | What you do there |
 | --- | --- |
 | **Home** | Watch activity and health; copy the MCP URL. |
-| **Assistant** | Describe what the bot should do and let it build it (Pro and Enterprise; Free sees it locked with an upgrade). |
+| **Assistant** | Describe what the bot should do and let it build it. |
 | **Knowledge** | Two tabs: **Resources** (files, websites, Google Drive, OneDrive) and **Prompts** (templates that become slash commands). |
-| **Data** | The project's tables (Pro and Enterprise). |
+| **Data** | The project's tables. |
 | **Tools** | Three tabs: **Functions**, **HTTP Endpoints**, and **Catalog**. |
 | **Channels** | Connect Telegram, WhatsApp, Slack, or Discord, and set the **Bot instructions**. |
 
@@ -64,15 +75,14 @@ switch project or create a new one; see
 Every project starts with five built-in tools already on (**List Resources**,
 **Read Resource**, **Send Resource**, **Search Resources**, and **List
 Prompts**), so your bot can work with your knowledge right away. That's the
-**5** on the Tools counter. They need no connection, and they count toward the
-Free plan's limit of 7 tools per project.
+**5** on the Tools counter. They need no connection.
 
 ![The Built-in integration with its five tools switched on](/images/tools-catalog-builtin.webp)
 
 ## Invite your team
 
 Members belong to the organization, and each project has its own member list
-too. Inviting is a **Pro** feature:
+too. To invite someone:
 
 - From **Organizations**, select **Invite** on the organization's card, enter an
   **Email**, and select **Send invitation**.

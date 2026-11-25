@@ -1,11 +1,12 @@
 import { Context } from 'hono';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@ganju/db';
 import type { DbExecutor } from '@ganju/db';
 import { utils } from '@ganju/utils';
 
 import { Plan, createPolar, verifyPolarWebhook } from '../../utils';
 import type { PolarSubscription, PolarWebhookEvent } from '../../utils/polar';
+import { sendTrialEndedEmail } from '../../utils/noPlanNotice';
 
 // types
 import { AppEnv } from '../../types';
@@ -16,12 +17,35 @@ const getPlan = async (c: Context<AppEnv>) => {
   const organizationId = c.req.param('organizationId');
   if (!organizationId) throw new Error('organizationId is required');
 
-  const { plan, limits } = await Plan.getEffectivePlan(
-    db.create(c),
-    organizationId
-  );
+  const { plan, limits, trialing, noPlan, freeEndsAt, subscription } =
+    await Plan.getEffectivePlan(db.create(c), organizationId);
 
-  return c.json({ plan, limits });
+  return c.json({
+    plan,
+    limits,
+    trialing,
+    trialEndsAt: trialing ? (subscription?.trialEndsAt ?? null) : null,
+    noPlan,
+    freeEndsAt
+  });
+};
+
+// The trial belongs to the organization's owner, not to whoever clicks: one
+// trial per person, whichever organization it's on.
+const ownerTrialStartedAt = async (
+  dbInstance: DbExecutor,
+  organizationId: string
+): Promise<Date | null> => {
+  const [row] = await dbInstance
+    .select({ trialStartedAt: db.schema.user.trialStartedAt })
+    .from(db.schema.organization)
+    .innerJoin(
+      db.schema.user,
+      eq(db.schema.user.id, db.schema.organization.ownerId)
+    )
+    .where(eq(db.schema.organization.id, organizationId))
+    .limit(1);
+  return row?.trialStartedAt ?? null;
 };
 
 const getStatus = async (c: Context<AppEnv>) => {
@@ -30,16 +54,29 @@ const getStatus = async (c: Context<AppEnv>) => {
 
   const dbInstance = db.create(c);
 
-  const { plan, limits, subscription } = await Plan.getEffectivePlan(
-    dbInstance,
-    organizationId
-  );
-  const usage = await Plan.getOrganizationUsage(dbInstance, organizationId);
+  const { plan, limits, trialing, noPlan, freeEndsAt, subscription } =
+    await Plan.getEffectivePlan(dbInstance, organizationId);
+  const [usage, trialStartedAt] = await Promise.all([
+    Plan.getOrganizationUsage(dbInstance, organizationId),
+    ownerTrialStartedAt(dbInstance, organizationId)
+  ]);
 
   return c.json({
     plan,
+    // Without a plan the org can build, but its bots, MCP and Assistant are off.
+    noPlan,
+    freeEndsAt,
     limits,
     usage,
+    trial: {
+      // Whether a checkout for this organization would start with a trial.
+      available: !trialStartedAt,
+      days: constants.TRIAL_DAYS,
+      active: trialing,
+      endsAt: trialing ? (subscription?.trialEndsAt ?? null) : null,
+      builderCredits: constants.TRIAL_BUILDER_CREDITS,
+      sharedMessages: constants.TRIAL_SHARED_MESSAGES
+    },
     subscription: subscription
       ? {
           status: subscription.status,
@@ -103,6 +140,7 @@ const createCheckout = async (c: Context<AppEnv>) => {
   const webUrl = utils.getEnv(c, 'NEXT_PUBLIC_WEB_URL') || '';
   const returnBase = `${webUrl}/organization/${organizationId}/settings`;
   const user = c.get('user');
+  const trial = !(await ownerTrialStartedAt(dbInstance, organizationId));
 
   // One product carries the $29 base and all four metered prices, so there is
   // nothing to assemble here and no rate that can be silently left off. The
@@ -112,7 +150,7 @@ const createCheckout = async (c: Context<AppEnv>) => {
     productId,
     organizationId,
     customerEmail: user.email,
-    successUrl: `${returnBase}?billing=success`,
+    successUrl: `${returnBase}?billing=${trial ? 'trial' : 'success'}`,
     // Polar's own chrome — the pay button, "Subtotal", the card form — is
     // localized by this. Left unset it reads the BROWSER's language, and that
     // is not the language the user picked in the dashboard: someone reading
@@ -123,10 +161,11 @@ const createCheckout = async (c: Context<AppEnv>) => {
     //
     // It does NOT translate the product name or description — those come from
     // the Polar Product, which has no per-locale copy.
-    locale: checkoutLocale(c)
+    locale: checkoutLocale(c),
+    trialDays: trial ? constants.TRIAL_DAYS : 0
   });
 
-  return c.json({ url });
+  return c.json({ url, trial });
 };
 
 const createPortal = async (c: Context<AppEnv>) => {
@@ -152,11 +191,35 @@ const createPortal = async (c: Context<AppEnv>) => {
   // stored. Portal localization is still in beta at Polar and scoped to
   // checkout, so this page may render untranslated.
   const { customerPortalUrl } = await polar.createCustomerSession(
-    organizationId,
+    sub.billingCustomerId,
     `${webUrl}/organization/${organizationId}/settings`
   );
 
   return c.json({ url: customerPortalUrl });
+};
+
+/**
+ * End the trial now so Pro's full limits start: Polar charges the first period
+ * on the spot. Not offered in Polar's portal, so the app asks for it here.
+ */
+const endTrial = async (c: Context<AppEnv>) => {
+  const organizationId = c.req.param('organizationId');
+  if (!organizationId) throw new Error('organizationId is required');
+
+  const polar = createPolar(c);
+  if (!polar) throw new Error('Billing is not configured');
+
+  const { trialing, subscription } = await Plan.getEffectivePlan(
+    db.create(c),
+    organizationId
+  );
+  if (!trialing || !subscription?.billingSubscriptionId) {
+    throw new Error('This organization is not on a trial');
+  }
+
+  // The webhook that follows moves the row to active.
+  await polar.endTrial(subscription.billingSubscriptionId);
+  return c.json({ ok: true });
 };
 
 // Epoch ms for when the subscription itself last changed. Not when Polar sent
@@ -172,7 +235,11 @@ const syncSubscription = async (
   dbInstance: DbExecutor,
   sub: PolarSubscription,
   productToPlan: Record<string, string>
-): Promise<void> => {
+): Promise<{
+  organizationId: string;
+  trialEndedUnpaid: boolean;
+  chargeFailed: boolean;
+} | null> => {
   const customerId = sub.customer?.id || sub.customer_id || null;
 
   // Prefer the organization stamped on the checkout, which rides onto the
@@ -204,14 +271,17 @@ const syncSubscription = async (
     organizationId = byCustomer?.organizationId;
   }
 
-  if (!organizationId) return;
+  if (!organizationId) return null;
 
   // Drop stale, out-of-order deliveries: if we've already applied a newer change
   // for this subscription, ignore this one (e.g. a late `updated` arriving after
   // a `revoked`). Equal timestamps are reapplied — the update is idempotent.
   const changedAt = subscriptionChangedAt(sub);
   const [current] = await dbInstance
-    .select({ lastBillingEventAt: db.schema.subscription.lastBillingEventAt })
+    .select({
+      lastBillingEventAt: db.schema.subscription.lastBillingEventAt,
+      status: db.schema.subscription.status
+    })
     .from(db.schema.subscription)
     .where(eq(db.schema.subscription.organizationId, organizationId))
     .limit(1);
@@ -219,7 +289,7 @@ const syncSubscription = async (
     current?.lastBillingEventAt != null &&
     changedAt < current.lastBillingEventAt
   ) {
-    return;
+    return null;
   }
 
   const status = sub.status;
@@ -241,6 +311,22 @@ const syncSubscription = async (
   const periodEnd = sub.current_period_end
     ? new Date(sub.current_period_end)
     : null;
+  const trialEnd = sub.trial_end ? new Date(sub.trial_end) : null;
+
+  // Spends the owner's one trial. Kept when it's canceled: canceling and
+  // checking out again starts paid.
+  if (status === constants.SUBSCRIPTION_STATUS_TRIALING) {
+    const startedAt = sub.trial_start ? new Date(sub.trial_start) : new Date();
+    await dbInstance
+      .update(db.schema.user)
+      .set({ trialStartedAt: startedAt })
+      .where(
+        and(
+          sql`${db.schema.user.id} = (SELECT ${db.schema.organization.ownerId} FROM ${db.schema.organization} WHERE ${db.schema.organization.id} = ${organizationId})`,
+          isNull(db.schema.user.trialStartedAt)
+        )
+      );
+  }
 
   await dbInstance
     .update(db.schema.subscription)
@@ -260,9 +346,19 @@ const syncSubscription = async (
       currentPeriodStart: periodStart,
       currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
+      trialEndsAt: trialEnd,
       lastBillingEventAt: changedAt
     })
     .where(eq(db.schema.subscription.organizationId, organizationId));
+
+  return {
+    organizationId,
+    // Canceled, or the first charge failed (past_due).
+    trialEndedUnpaid:
+      current?.status === constants.SUBSCRIPTION_STATUS_TRIALING &&
+      (!entitled || status === constants.SUBSCRIPTION_STATUS_PAST_DUE),
+    chargeFailed: status === constants.SUBSCRIPTION_STATUS_PAST_DUE
+  };
 };
 
 const webhook = async (c: Context<AppEnv>) => {
@@ -314,8 +410,24 @@ const webhook = async (c: Context<AppEnv>) => {
   switch (event.type) {
     case 'subscription.created':
     case 'subscription.updated':
+    // Also sent when a trial converts to paid.
+    case 'subscription.cycled':
     case 'subscription.revoked': {
-      await syncSubscription(dbInstance, event.data, productToPlan);
+      const synced = await syncSubscription(
+        dbInstance,
+        event.data,
+        productToPlan
+      );
+      if (synced?.trialEndedUnpaid) {
+        c.executionCtx.waitUntil(
+          sendTrialEndedEmail(
+            c,
+            dbInstance,
+            synced.organizationId,
+            synced.chargeFailed
+          ).catch(error => console.error('trial-ended-email-failed', error))
+        );
+      }
       break;
     }
     default:
@@ -330,5 +442,6 @@ export const BillingController = {
   getStatus,
   createCheckout,
   createPortal,
+  endTrial,
   webhook
 };

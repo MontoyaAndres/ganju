@@ -2,7 +2,7 @@
 title: Prompts
 description: Create reusable prompt templates that become slash commands in your chat channels.
 order: 4
-updated: 2026-11-13
+updated: 2026-11-25
 minutes: 3
 outcome: "A `/start` command people can run in any channel."
 ---
@@ -46,6 +46,5 @@ Open a card to edit it, or delete it from there.
 
 ## Limits
 
-| | Free | Pro / Enterprise |
-| --- | --- | --- |
-| Prompts per project | 3 | Unlimited |
+Pro and Enterprise have no limit on prompts per project. An organization
+without a plan can keep up to 3.
