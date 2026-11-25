@@ -562,8 +562,8 @@ public says it ever existed.
   how "one trial per person" is identified.
 - API, MCP and app messages no longer name Free ("Without Pro…", "Start
   Pro"); README and the CLI skill updated.
-- **Launch set:** `FREE_PLAN_LAUNCH_DATE = 2026-11-26`,
-  `FREE_PLAN_LOCK_DATE = 2026-12-09`. Orgs created from 2026-11-26 start with
+- **Launch set:** `FREE_PLAN_LAUNCH_DATE = 2026-11-25` (moved from the 26th so orgs created on launch day don't get Free),
+  `FREE_PLAN_LOCK_DATE = 2026-12-09`. Orgs created from 2026-11-25 start with
   no plan; older Free orgs keep Free's limits until 2026-12-09, get the notice
   email (up to 1,000 a day) and banner, then no plan. Deploy before
   2026-11-26, or move the launch date to the deploy day.
@@ -590,6 +590,25 @@ Dates follow the viewer: the app formats them in the browser's time zone (the
 plan banner renders only in the browser for that), and emails with a date use
 the recipient's `user.time_zone`, recorded at each sign-in from Cloudflare's
 geolocation (migration `0100_user_time_zone`), Bogotá when unknown.
+
+Trial checked on dev 2026-11-25 (org "test polar", sandbox card): webhook
+stored `trialing` and `trial_ends_at` (7 days), the owner's
+`trial_started_at` and `time_zone` (America/Bogota) are set; `/plan` gives
+300 shared replies, 1M tool calls, 300 credits and no extra; Billing shows
+"Pro plan · trial", the end date, Start Pro now and Manage billing; the
+banner says 7 days left; a checkout for another org of the same owner comes
+back with `trial: false`. "Start Pro now" checked
+the same day: the row went to `active`, the trial ended at that moment, a
+monthly period started and the counters rolled. Still to try: canceling a
+trial in the portal (the trial-ended email); it needs another owner, since
+this one's trial is used.
+
+Owner's call 2026-11-25: nobody uses Ganju for free. An organization without
+a plan can't be used: every page except Settings shows a checkout gate
+("Start your 7-day free trial", or "Start Pro" when the trial was used;
+`/plan` returns `trialAvailable`), and the post-create dialog has no "Not
+now". Docs, pricing and terms (en, es) say so. Dates unchanged: orgs created
+before the launch keep Free until the lock date.
 
 - Pricing page, `PRICING_SCHEMA` offers, homepage FAQ and CTAs ("Start building
   free" becomes "Start your 7-day free trial"), getting-started pages, Settings

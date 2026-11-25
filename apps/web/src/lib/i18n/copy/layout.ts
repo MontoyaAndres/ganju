@@ -91,7 +91,20 @@ const en = {
   planBannerNoPlanAction: 'Start Pro',
   planBannerFreeEnds:
     'The Free plan ends on {date}. After that, bots of organizations without a plan stop answering; nothing you built is deleted.',
-  planBannerFreeEndsAction: 'Start your free trial'
+  planBannerFreeEndsAction: 'Start your free trial',
+
+  // Instead of the page while the organization has no plan.
+  /** `{days}` of trial. */
+  planGateTrialTitle: 'Start your {days}-day free trial',
+  /** `{days}` of trial, `{price}` in dollars. */
+  planGateTrialText:
+    'This organization needs a plan before you can use it. Try Pro free for {days} days: we ask for a card and charge ${price}/mo plus usage when the trial ends, unless you cancel before.',
+  planGateTrialAction: 'Start free trial',
+  planGateProTitle: 'Start Pro',
+  planGateProText:
+    'This organization needs a plan before you can use it. You already used your free trial, so Pro starts paid: ${price}/mo plus usage.',
+  planGateProAction: 'Start Pro',
+  planGateSettings: 'Organization settings'
 };
 
 type LayoutCopy = typeof en;
@@ -170,6 +183,16 @@ export const LAYOUT: Catalog<LayoutCopy> = {
     planBannerNoPlanAction: 'Empezar Pro',
     planBannerFreeEnds:
       'El plan Free termina el {date}. Después, los bots de las organizaciones sin plan dejan de responder; nada de lo que construiste se borra.',
-    planBannerFreeEndsAction: 'Empezar tu prueba gratis'
+    planBannerFreeEndsAction: 'Empezar tu prueba gratis',
+
+    planGateTrialTitle: 'Empieza tu prueba gratis de {days} días',
+    planGateTrialText:
+      'Esta organización necesita un plan para poder usarla. Prueba Pro gratis por {days} días: pedimos una tarjeta y cobramos {price} USD/mes más el consumo al terminar la prueba, a menos que canceles antes.',
+    planGateTrialAction: 'Empezar prueba gratis',
+    planGateProTitle: 'Empezar Pro',
+    planGateProText:
+      'Esta organización necesita un plan para poder usarla. Ya usaste tu prueba gratis, así que Pro empieza pagado: {price} USD/mes más el consumo.',
+    planGateProAction: 'Empezar Pro',
+    planGateSettings: 'Ajustes de la organización'
   }
 };

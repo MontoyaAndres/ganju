@@ -85,8 +85,9 @@ the organization **Name** and its first project's **Project name** and
 **Project description**. Every organization starts with one project.
 
 Each organization has its own plan and billing. Right after you create it, Ganju
-offers **Start your 7-day free trial** of Pro, or **Not now**. The trial is one
-per person, so if you already used it, the dialog offers **Start Pro** instead.
+asks you to **Start your 7-day free trial** of Pro: an organization can't be
+used without a plan. The trial is one per person, so if you already used it,
+you're asked to **Start Pro** instead.
 See [Settings → The 7-day free trial](/docs/settings/#the-7-day-free-trial).
 
 ## Who can do what

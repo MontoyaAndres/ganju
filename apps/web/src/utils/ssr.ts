@@ -15,6 +15,8 @@ export interface Plan {
   trialEndsAt?: string | null;
   // Without a plan the org can build, but its bots, MCP and Assistant are off.
   noPlan?: boolean;
+  // Without a plan: whether its checkout would start with a trial.
+  trialAvailable?: boolean;
   // When Free stops, while the organization is still on Free.
   freeEndsAt?: string | null;
 }

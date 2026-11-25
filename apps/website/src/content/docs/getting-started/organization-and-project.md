@@ -27,14 +27,14 @@ Names need at least 3 characters (100 at most); a description can be up to 500.
 
 ![The Create Your Organization form, with fields for the organization name, project name, and project description](/images/new-org-project.webp)
 
-Right after you create it, Ganju offers **Start your 7-day free trial**:
+Right after you create it, Ganju asks you to **Start your 7-day free trial**:
 
 - **Start free trial** opens checkout with a card. Nothing is charged during the
   trial. Pro ($29 a month plus usage) starts automatically when it ends, unless
   you cancel before. You get a reminder email 3 days before.
-- **Not now** leaves the organization without a plan: you can build, but the bot
-  doesn't answer, and the Assistant, Data, and functions stay off. You can start
-  the trial later from **Settings → Billing & plan**.
+- An organization can't be used without a plan, so until you start it, every
+  page asks for the same checkout. If you already used your trial, you start Pro
+  instead.
 
 The trial is one per person and includes everything in Pro, with 300 bot
 replies on Ganju's AI model and 300 Assistant credits. A banner above every page

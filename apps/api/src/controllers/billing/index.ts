@@ -17,8 +17,9 @@ const getPlan = async (c: Context<AppEnv>) => {
   const organizationId = c.req.param('organizationId');
   if (!organizationId) throw new Error('organizationId is required');
 
+  const dbInstance = db.create(c);
   const { plan, limits, trialing, noPlan, freeEndsAt, subscription } =
-    await Plan.getEffectivePlan(db.create(c), organizationId);
+    await Plan.getEffectivePlan(dbInstance, organizationId);
 
   return c.json({
     plan,
@@ -26,6 +27,10 @@ const getPlan = async (c: Context<AppEnv>) => {
     trialing,
     trialEndsAt: trialing ? (subscription?.trialEndsAt ?? null) : null,
     noPlan,
+    // Whether a checkout for this organization would start with a trial.
+    trialAvailable: noPlan
+      ? !(await ownerTrialStartedAt(dbInstance, organizationId))
+      : undefined,
     freeEndsAt
   });
 };

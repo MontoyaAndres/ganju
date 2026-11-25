@@ -73,13 +73,12 @@ const en = {
   trialTitle: 'Start your {days}-day free trial',
   /** `{days}` of trial, `{price}` in dollars. */
   trialText:
-    'Pro, free for {days} days: your bots answer, the Assistant builds with you and your tools run. We ask for a card and charge ${price}/mo plus usage when the trial ends, unless you cancel before. Without a plan you can build, but nothing runs.',
+    "Pro, free for {days} days: your bots answer, the Assistant builds with you and your tools run. We ask for a card and charge ${price}/mo plus usage when the trial ends, unless you cancel before. An organization can't be used without a plan.",
   trialUsedTitle: 'Start Pro',
   trialUsedText:
-    'You already used your free trial, so Pro starts paid: ${price}/mo plus usage. Without a plan you can build, but nothing runs.',
+    "You already used your free trial, so Pro starts paid: ${price}/mo plus usage. An organization can't be used without a plan.",
   trialStart: 'Start free trial',
   trialStartPaid: 'Start Pro',
-  trialNotNow: 'Not now',
   planNone: 'No plan',
   planTrial: 'Pro trial',
 
@@ -165,13 +164,12 @@ export const ORGANIZATION: Catalog<OrganizationCopy> = {
 
     trialTitle: 'Empieza tu prueba gratis de {days} días',
     trialText:
-      'Pro gratis por {days} días: tus bots responden, el Asistente construye contigo y tus herramientas funcionan. Pedimos una tarjeta y cobramos {price} USD/mes más el consumo al terminar la prueba, a menos que canceles antes. Sin un plan puedes construir, pero nada funciona.',
+      'Pro gratis por {days} días: tus bots responden, el Asistente construye contigo y tus herramientas funcionan. Pedimos una tarjeta y cobramos {price} USD/mes más el consumo al terminar la prueba, a menos que canceles antes. Una organización no se puede usar sin un plan.',
     trialUsedTitle: 'Empezar Pro',
     trialUsedText:
-      'Ya usaste tu prueba gratis, así que Pro empieza pagado: {price} USD/mes más el consumo. Sin un plan puedes construir, pero nada funciona.',
+      'Ya usaste tu prueba gratis, así que Pro empieza pagado: {price} USD/mes más el consumo. Una organización no se puede usar sin un plan.',
     trialStart: 'Empezar prueba gratis',
     trialStartPaid: 'Empezar Pro',
-    trialNotNow: 'Ahora no',
     planNone: 'Sin plan',
     planTrial: 'Prueba de Pro',
 

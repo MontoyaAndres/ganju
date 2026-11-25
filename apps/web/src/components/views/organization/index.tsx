@@ -511,26 +511,18 @@ export const Organization = (props: IProps) => {
           : t('trialUsedTitle')
       }
       closeLabel={c('close')}
+      // Closing lands on the project, which asks for the same checkout
+      // until the organization has a plan.
       onClose={() => trialOffer && router.push(trialOffer.projectPath)}
       footer={
-        <>
-          <UI.Button
-            variant="outlined"
-            size="small"
-            disabled={startingCheckout}
-            onClick={() => trialOffer && router.push(trialOffer.projectPath)}
-          >
-            {t('trialNotNow')}
-          </UI.Button>
-          <UI.Button
-            variant="contained"
-            size="small"
-            disabled={startingCheckout}
-            onClick={startCheckout}
-          >
-            {trialOffer?.available ? t('trialStart') : t('trialStartPaid')}
-          </UI.Button>
-        </>
+        <UI.Button
+          variant="contained"
+          size="small"
+          disabled={startingCheckout}
+          onClick={startCheckout}
+        >
+          {trialOffer?.available ? t('trialStart') : t('trialStartPaid')}
+        </UI.Button>
       }
     >
       <p>

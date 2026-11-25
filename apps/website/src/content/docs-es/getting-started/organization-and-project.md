@@ -28,15 +28,14 @@ puede tener hasta 500.
 
 ![El formulario Crea tu organización, con campos para el nombre de la organización, el nombre del proyecto y su descripción](/images/new-org-project.webp)
 
-Justo después de crearla, Ganju te ofrece **Empieza tu prueba gratis de 7 días**:
+Justo después de crearla, Ganju te pide **Empezar tu prueba gratis de 7 días**:
 
 - **Empezar prueba gratis** abre el pago con una tarjeta. No se cobra nada
   durante la prueba. Pro (29 USD al mes más el consumo) empieza solo cuando
   termina, a menos que canceles antes. Te llega un recordatorio por correo 3
   días antes.
-- **Ahora no** deja la organización sin plan: puedes construir, pero el bot no
-  responde, y el Asistente, Datos y las funciones quedan apagados. Puedes
-  empezar la prueba después desde **Ajustes → Plan y facturación**.
+- Una organización no se puede usar sin un plan, así que mientras no la empieces,
+  cada página pide el mismo pago. Si ya usaste tu prueba, empiezas Pro.
 
 Hay una prueba por persona, e incluye todo lo de Pro, con 300 respuestas del bot
 con el modelo de IA de Ganju y 300 créditos del Asistente. Un aviso arriba de

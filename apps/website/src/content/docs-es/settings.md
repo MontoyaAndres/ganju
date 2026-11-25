@@ -111,15 +111,15 @@ acuerdo** con Ganju, con el consumo de este periodo abajo.
 
 ### La prueba gratis de 7 días
 
-Justo después de crear una organización, Ganju te ofrece **Empieza tu prueba
+Justo después de crear una organización, Ganju te pide **Empezar tu prueba
 gratis de 7 días**:
 
 - **Empezar prueba gratis** abre el pago. Agregas una tarjeta, pero no se cobra
   nada durante la prueba. Cuando termina, Pro empieza solo a 29 USD al mes más
   el consumo, a menos que canceles antes. Polar te envía un recordatorio por
   correo 3 días antes de que termine la prueba.
-- **Ahora no** deja la organización [sin plan](#sin-plan). Puedes empezar la
-  prueba después desde **Plan y facturación**.
+- Mientras no empiece, la organización queda [sin plan](#sin-plan) y cada
+  página pide el mismo pago.
 
 Hay una prueba por persona: es del propietario de la organización. Otra
 organización que crees después empieza pagada.
@@ -137,9 +137,10 @@ prueba termina, se cobra el primer mes a tu tarjeta y los topes desaparecen.
 
 ### Sin plan
 
-Una organización sin plan conserva todo lo que construyó, y puedes seguir
-editándola dentro de estos límites: **1 proyecto**, **7 herramientas**, **3
-prompts** y **1 canal**, sin archivos nuevos. Pero nada funciona:
+Una organización sin plan conserva todo lo que construyó, pero no se puede usar:
+cada página te pide empezar la prueba, o Pro si ya la usaste. Solo
+**Configuración** queda abierta, para empezar un plan o eliminar la
+organización. Mientras tanto:
 
 - Los bots no responden. El propietario y los administradores reciben un correo
   al respecto, como mucho una vez al día.

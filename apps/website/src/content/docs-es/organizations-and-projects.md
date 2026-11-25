@@ -90,9 +90,9 @@ Selecciona **Nueva organización**. El diálogo **Crear una organización** pide
 proyecto** de su primer proyecto: toda organización empieza con uno.
 
 Cada organización tiene su propio plan y su propia facturación. Justo después de
-crearla, Ganju te ofrece **Empieza tu prueba gratis de 7 días** de Pro, o
-**Ahora no**. Hay una prueba por persona, así que si ya la usaste, el diálogo te
-ofrece **Empezar Pro**. Mira
+crearla, Ganju te pide **Empezar tu prueba gratis de 7 días** de Pro: una
+organización no se puede usar sin un plan. Hay una prueba por persona, así que
+si ya la usaste, te pide **Empezar Pro**. Mira
 [Configuración → La prueba gratis de 7 días](/es/docs/settings/#la-prueba-gratis-de-7-días).
 
 ## Quién puede hacer qué

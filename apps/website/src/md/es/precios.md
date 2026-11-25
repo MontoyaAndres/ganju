@@ -23,9 +23,9 @@ Cada organización nueva empieza con una prueba gratis de Pro de 7 días.
   Pro de una vez.
 
 Una organización sin plan (prueba cancelada o terminada sin pago, o Pro
-cancelado después del periodo pagado) conserva todo lo que construyó y se puede
-seguir editando, pero sus bots no responden, su servidor MCP rechaza las
-solicitudes y el Asistente se apaga hasta que empiece Pro.
+cancelado después del periodo pagado) conserva todo lo que construyó, pero no se puede
+usar, sus bots no responden y su servidor MCP rechaza las solicitudes hasta que
+empiece Pro.
 
 ## Pro: $29/mes
 

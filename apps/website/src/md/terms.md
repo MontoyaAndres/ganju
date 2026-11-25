@@ -206,8 +206,8 @@ right.
 
 Your organization is left without an active plan if a free trial ends without a
 subscription, a payment fails, or a subscription is cancelled or lapses. **Nothing is
-deleted automatically because an organization lacks a plan**: its content stays, and
-you can still edit it. **Its assistants, channels and MCP server stop working, and so
+deleted automatically because an organization lacks a plan**: its content stays, but
+you can't use it except to start a plan or remove it. **Its assistants, channels and MCP server stop working, and so
 does the in-app assistant that builds tools for you, until a plan starts.**
 
 We'll give at least 30 days' notice by email before raising the price of a plan you're

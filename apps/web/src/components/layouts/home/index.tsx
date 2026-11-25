@@ -52,6 +52,7 @@ import { useAssistantAccess } from '../../views/assistant/access';
 import { authClient } from '../../../utils';
 import { i18n } from '../../../lib';
 import { PlanBanner } from './plan-banner';
+import { PlanGate } from './plan-gate';
 import type { Plan } from '../../../utils/ssr';
 
 type SocialProvider = 'google' | 'github';
@@ -98,6 +99,7 @@ type HomePage = ReactElement<unknown, string | JSXElementConstructor<any>>;
 
 const HomeLayout = ({ page }: { page: HomePage }) => {
   const auth = (page.props as { auth?: AuthProps }).auth;
+  const pagePlan = (page.props as { plan?: Plan | null }).plan;
   const snackbar = UI.Alert.useSnackbar();
   const [accountClicked, setAccountClicked] = useState(false);
   const [mobileMenuClicked, setMobileMenuClicked] = useState(false);
@@ -814,13 +816,14 @@ const HomeLayout = ({ page }: { page: HomePage }) => {
         )}
         <div className="box-container">
           {currentOrgId && (
-            <PlanBanner
-              organizationId={currentOrgId}
-              plan={(page.props as { plan?: Plan | null }).plan}
-            />
+            <PlanBanner organizationId={currentOrgId} plan={pagePlan} />
           )}
           {projectAccessDenied ? (
             <NoAccess organizationId={currentOrgId} />
+          ) : currentOrgId &&
+            pagePlan?.noPlan &&
+            pathname !== '/organization/[id]/settings' ? (
+            <PlanGate organizationId={currentOrgId} plan={pagePlan} />
           ) : (
             page
           )}

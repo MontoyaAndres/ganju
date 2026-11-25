@@ -21,9 +21,8 @@ Every new organization starts with a 7-day free trial of Pro.
   away.
 
 An organization without a plan (trial canceled or ended unpaid, or Pro canceled
-after the paid period) keeps everything it built and can still be edited, but
-its bots don't answer, its MCP server refuses requests and the Assistant is off
-until it starts Pro.
+after the paid period) keeps everything it built, but it can't be used, its
+bots don't answer and its MCP server refuses requests until it starts Pro.
 
 ## Pro: $29/mo
 

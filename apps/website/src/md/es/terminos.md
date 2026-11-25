@@ -217,7 +217,7 @@ de estos derechos.
 Tu organización queda sin un plan activo si una prueba gratuita termina sin una
 suscripción, si un pago falla o si una suscripción se cancela o caduca. **No borramos
 nada automáticamente porque una organización no tenga plan**: su contenido se
-conserva y puedes seguir editándolo. **Sus asistentes, canales y servidor MCP dejan de
+conserva, pero no puedes usarla salvo para empezar un plan o eliminarla. **Sus asistentes, canales y servidor MCP dejan de
 funcionar, igual que el asistente de la app que construye herramientas por ti, hasta
 que empiece un plan.**
 

@@ -69,6 +69,10 @@ const en = {
     "Your trial ends on {date} and won't turn into Pro: it was canceled.",
   freeEnds:
     'The Free plan ends on {date}: after that, this organization keeps what you built, but its bots, MCP server and Assistant turn off until it has a plan.',
+  /** Around the "connect your own model" link, during a trial. */
+  sharedTrialBefore:
+    "The trial includes {count} replies on our AI model; past that the bot stops until Pro starts. Replies on your own model aren't limited: ",
+  sharedTrialAfter: '.',
   dayLeft: '1 day left',
   daysLeft: '{n} days left',
   statusTrial: 'trial',
@@ -415,6 +419,9 @@ export const SETTINGS: Catalog<SettingsCopy> = {
       'Tu prueba termina el {date} y no pasará a Pro: fue cancelada.',
     freeEnds:
       'El plan Free termina el {date}: después, esta organización conserva lo que construiste, pero sus bots, su servidor MCP y el Asistente se apagan hasta que tenga un plan.',
+    sharedTrialBefore:
+      'La prueba incluye {count} respuestas con nuestro modelo de IA; pasado eso el bot se detiene hasta que empiece Pro. Las respuestas con tu propio modelo no tienen ese límite: ',
+    sharedTrialAfter: '.',
     dayLeft: 'queda 1 día',
     daysLeft: 'quedan {n} días',
     statusTrial: 'prueba',

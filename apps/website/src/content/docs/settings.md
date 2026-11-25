@@ -105,15 +105,15 @@ agreement** with Ganju, with this period's usage below.
 
 ### The 7-day free trial
 
-Right after you create an organization, Ganju offers **Start your 7-day free
-trial**:
+Right after you create an organization, Ganju asks you to **Start your 7-day
+free trial**:
 
 - **Start free trial** opens checkout. You add a card, but nothing is charged
   during the trial. When it ends, Pro starts automatically at $29 a month plus
   usage, unless you cancel before. Polar emails you a reminder 3 days before the
   trial ends.
-- **Not now** leaves the organization [without a plan](#without-a-plan). You
-  can start the trial later from **Billing & plan**.
+- Until it starts, the organization is [without a plan](#without-a-plan) and
+  every page asks for the same checkout.
 
 The trial is one per person: it belongs to the organization's owner. Another
 organization you create later starts paid.
@@ -131,9 +131,9 @@ month is charged to your card, and the caps are gone.
 
 ### Without a plan
 
-An organization without a plan keeps everything it built, and you can still edit
-it within these limits: **1 project**, **7 tools**, **3 prompts** and **1 channel**,
-with no new files. But nothing runs:
+An organization without a plan keeps everything it built, but it can't be used:
+every page asks you to start the trial, or Pro if the trial was used. Only
+**Settings** stays open, to start a plan or remove the organization. Meanwhile:
 
 - Bots don't answer. The owner and admins get an email about it, at most once a
   day.

@@ -616,8 +616,19 @@ export const BillingManager = (props: BillingManagerProps) => {
             used={status.usage.sharedMessagesUsed}
             limit={sharedCap}
             render={t.n}
-            overageRate={`$${sharedRate}/1k`}
-            hint={sharedHint}
+            // The trial stops at its replies instead of billing past them.
+            overageRate={trialing ? undefined : `$${sharedRate}/1k`}
+            hint={
+              trialing ? (
+                <>
+                  {t('sharedTrialBefore', { count: t.n(sharedCap) })}
+                  {connectModelLink}
+                  {t('sharedTrialAfter')}
+                </>
+              ) : (
+                sharedHint
+              )
+            }
           />
         )}
         <UsageRow
