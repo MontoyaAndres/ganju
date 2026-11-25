@@ -32,7 +32,7 @@ export const Wrapper = styled.div`
   ${({ theme }) => css`
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 60px);
+    height: calc(100dvh - 60px - var(--plan-banner-h, 0px));
     max-width: 1560px;
     margin: 0 auto;
     padding: 12px;
@@ -43,7 +43,7 @@ export const Wrapper = styled.div`
     }
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100dvh;
+      height: calc(100dvh - var(--plan-banner-h, 0px));
       padding: 20px 24px;
     }
 

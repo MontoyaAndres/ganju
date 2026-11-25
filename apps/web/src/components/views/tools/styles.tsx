@@ -121,10 +121,10 @@ export const Wrapper = styled.div`
   ${({ theme }) => css`
     ${jsonField(theme)}
 
-    height: calc(100dvh - 60px);
+    height: calc(100dvh - 60px - var(--plan-banner-h, 0px));
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100dvh;
+      height: calc(100dvh - var(--plan-banner-h, 0px));
     }
 
     .tools-container {

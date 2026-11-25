@@ -8,13 +8,13 @@ interface IProps {
 export const Wrapper = styled.div<IProps>`
   ${({ theme, panelWidth }) => css`
     display: flex;
-    height: calc(100dvh - 60px);
+    height: calc(100dvh - 60px - var(--plan-banner-h, 0px));
     position: relative;
     max-width: 1100px;
     margin: 0 auto;
 
     @media (min-width: ${theme.screens.xl}) {
-      height: 100dvh;
+      height: calc(100dvh - var(--plan-banner-h, 0px));
     }
 
     .sync-card {

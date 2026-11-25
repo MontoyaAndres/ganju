@@ -69,6 +69,7 @@ export const PlanGate = (props: { organizationId: string; plan: Plan }) => {
         <UI.Button
           variant="contained"
           size="small"
+          className="small"
           disabled={starting}
           onClick={startCheckout}
         >

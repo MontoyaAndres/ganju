@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@emotion/react';
 
@@ -6,6 +6,7 @@ import { i18n } from '../../../lib';
 import type { Plan } from '../../../utils/ssr';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MARGIN_BOTTOM = 12;
 
 /** Days left in the trial, or "no plan", above every page of an organization. */
 export const PlanBanner = (props: {
@@ -19,14 +20,36 @@ export const PlanBanner = (props: {
   // the browser: the server would format them in its own time zone.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const ref = useRef<HTMLDivElement>(null);
+  const shown =
+    mounted &&
+    !!plan &&
+    (!!plan.trialing || !!plan.noPlan || !!plan.freeEndsAt);
 
-  if (
-    !mounted ||
-    !plan ||
-    (!plan.trialing && !plan.noPlan && !plan.freeEndsAt)
-  ) {
-    return null;
-  }
+  // Full-height pages subtract this, so the banner doesn't push them past the
+  // window and add a scrollbar.
+  useEffect(() => {
+    const root = document.documentElement;
+    const element = ref.current;
+    if (!shown || !element) {
+      root.style.removeProperty('--plan-banner-h');
+      return;
+    }
+    const update = () =>
+      root.style.setProperty(
+        '--plan-banner-h',
+        `${element.offsetHeight + MARGIN_BOTTOM}px`
+      );
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--plan-banner-h');
+    };
+  }, [shown]);
+
+  if (!shown || !plan) return null;
 
   const billing = `/organization/${organizationId}/settings`;
   let text: string;
@@ -58,6 +81,7 @@ export const PlanBanner = (props: {
 
   return (
     <div
+      ref={ref}
       role="status"
       style={{
         display: 'flex',
@@ -65,7 +89,7 @@ export const PlanBanner = (props: {
         gap: 8,
         alignItems: 'center',
         padding: '8px 12px',
-        marginBottom: 12,
+        marginBottom: MARGIN_BOTTOM,
         borderRadius: 8,
         fontSize: 13,
         ...(plan.noPlan || plan.freeEndsAt
