@@ -33,6 +33,9 @@ export const user = pgTable(
     image: text('image'),
     // When this person's one trial started; a later checkout starts paid.
     trialStartedAt: timestamp('trial_started_at', { mode: 'date' }),
+    // IANA time zone of the last sign-in, from Cloudflare's geolocation:
+    // emails show dates in it.
+    timeZone: text('time_zone'),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'date' })
       .notNull()

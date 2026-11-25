@@ -5,7 +5,7 @@ import { utils } from '@ganju/utils';
 import type { DbExecutor } from '@ganju/db';
 import type { EmailSource } from './email';
 import { deliver } from './email';
-import { ownerAndAdminEmails } from './dataAbandoned';
+import { ownerAndAdminEmails, ownerAndAdminRecipients } from './dataAbandoned';
 
 const NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -137,13 +137,25 @@ export const sendTrialEndedEmail = async (
 // Organizations told per daily run, so a large backlog spreads over days.
 const FREE_PLAN_NOTICE_BATCH = 1000;
 
-const day = (date: Date, locale: string) =>
-  date.toLocaleDateString(locale, {
+// In the recipient's time zone; Bogotá when it isn't known yet.
+const day = (date: Date, locale: string, timeZone: string | null) => {
+  const options = {
     day: 'numeric',
     month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC'
-  });
+    year: 'numeric'
+  } as const;
+  try {
+    return date.toLocaleDateString(locale, {
+      ...options,
+      timeZone: timeZone || 'America/Bogota'
+    });
+  } catch {
+    return date.toLocaleDateString(locale, {
+      ...options,
+      timeZone: 'America/Bogota'
+    });
+  }
+};
 
 /**
  * Once the Free plan has a lock date: tell the owner and admins of every
@@ -199,34 +211,37 @@ export const runFreePlanNotices = async (
 
     const name = await organizationName(executor, organizationId);
     const billingUrl = `${webUrl}/organization/${organizationId}/settings`;
-    const es = [
-      'Hola,',
-      '',
-      `Ganju cambia el plan Free por una prueba gratis de Pro de ${utils.constants.TRIAL_DAYS} días. ${name} está en el plan Free.`,
-      '',
-      `A partir del ${day(lockDate, 'es-CO')}, una organización sin plan se puede seguir construyendo, pero sus bots no responden y su servidor MCP y el Asistente se apagan. Nada de lo que construiste se borra.`,
-      '',
-      `Para que siga funcionando, empieza tu prueba gratis (o Pro, si ya la usaste): ${billingUrl}`,
-      '',
-      'Si prefieres alojar Ganju por tu cuenta, sigue siendo gratis (Apache-2.0).'
-    ];
-    const en = [
-      'Hello,',
-      '',
-      `Ganju is replacing the Free plan with a ${utils.constants.TRIAL_DAYS}-day free trial of Pro. ${name} is on the Free plan.`,
-      '',
-      `From ${day(lockDate, 'en-US')}, an organization without a plan can still be built, but its bots don't answer and its MCP server and Assistant turn off. Nothing you built is deleted.`,
-      '',
-      `To keep it running, start your free trial (or Pro, if you already had one): ${billingUrl}`,
-      '',
-      'If you would rather host Ganju yourself, that stays free (Apache-2.0).'
-    ];
-    const email = {
-      subject: `Ganju: el plan Free termina el ${day(lockDate, 'es-CO')} / The Free plan ends on ${day(lockDate, 'en-US')}`,
-      text: [...es, '', '---', '', ...en].join('\n')
-    };
-    for (const to of await ownerAndAdminEmails(executor, organizationId)) {
-      await deliver(source, { to, ...email });
+    for (const { email: to, timeZone } of await ownerAndAdminRecipients(
+      executor,
+      organizationId
+    )) {
+      const es = [
+        'Hola,',
+        '',
+        `Ganju cambia el plan Free por una prueba gratis de Pro de ${utils.constants.TRIAL_DAYS} días. ${name} está en el plan Free.`,
+        '',
+        `A partir del ${day(lockDate, 'es-CO', timeZone)}, una organización sin plan se puede seguir construyendo, pero sus bots no responden y su servidor MCP y el Asistente se apagan. Nada de lo que construiste se borra.`,
+        '',
+        `Para que siga funcionando, empieza tu prueba gratis (o Pro, si ya la usaste): ${billingUrl}`,
+        '',
+        'Si prefieres alojar Ganju por tu cuenta, sigue siendo gratis (Apache-2.0).'
+      ];
+      const en = [
+        'Hello,',
+        '',
+        `Ganju is replacing the Free plan with a ${utils.constants.TRIAL_DAYS}-day free trial of Pro. ${name} is on the Free plan.`,
+        '',
+        `From ${day(lockDate, 'en-US', timeZone)}, an organization without a plan can still be built, but its bots don't answer and its MCP server and Assistant turn off. Nothing you built is deleted.`,
+        '',
+        `To keep it running, start your free trial (or Pro, if you already had one): ${billingUrl}`,
+        '',
+        'If you would rather host Ganju yourself, that stays free (Apache-2.0).'
+      ];
+      await deliver(source, {
+        to,
+        subject: `Ganju: el plan Free termina el ${day(lockDate, 'es-CO', timeZone)} / The Free plan ends on ${day(lockDate, 'en-US', timeZone)}`,
+        text: [...es, '', '---', '', ...en].join('\n')
+      });
     }
     told++;
   }

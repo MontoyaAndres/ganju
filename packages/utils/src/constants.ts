@@ -2498,9 +2498,10 @@ const TRIAL_SHARED_MESSAGES = 300;
 // Organizations created from the launch on start without a plan; older ones
 // keep the old Free limits until the lock date, then get NO_PLAN_LIMITS too.
 // The launch is set after the deploy that brings the trial, so nobody is
-// created into "no plan" by an app that can't offer it.
-const FREE_PLAN_LAUNCH_DATE = '2026-11-26T00:00:00Z';
-const FREE_PLAN_LOCK_DATE: string | null = '2026-12-09T00:00:00Z';
+// created into "no plan" by an app that can't offer it. Both are midnight in
+// Bogotá, so the date the app shows is the date the emails say.
+const FREE_PLAN_LAUNCH_DATE = '2026-11-26T05:00:00Z';
+const FREE_PLAN_LOCK_DATE: string | null = '2026-12-09T05:00:00Z';
 
 // What an MCP client is told when the project's organization has no plan.
 const NO_PLAN_MCP_MESSAGE =

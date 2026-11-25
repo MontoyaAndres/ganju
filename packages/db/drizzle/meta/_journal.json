@@ -701,6 +701,13 @@
       "when": 1795630514891,
       "tag": "0099_free_plan_notice",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1795634963114,
+      "tag": "0100_user_time_zone",
+      "breakpoints": true
     }
   ]
 }

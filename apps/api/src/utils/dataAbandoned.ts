@@ -57,13 +57,14 @@ const mb = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
 const day = (date: Date) => date.toISOString().slice(0, 10);
 const when = (date: Date | null) => (date ? date.toISOString() : 'never');
 
-// The org's owner and its admins, once each.
-export const ownerAndAdminEmails = async (
+// The org's owner and its admins, once each, with the time zone each last
+// signed in from.
+export const ownerAndAdminRecipients = async (
   executor: DbExecutor,
   organizationId: string
-): Promise<string[]> => {
+): Promise<{ email: string; timeZone: string | null }[]> => {
   const [owner] = await executor
-    .select({ email: db.schema.user.email })
+    .select({ email: db.schema.user.email, timeZone: db.schema.user.timeZone })
     .from(db.schema.organization)
     .innerJoin(
       db.schema.user,
@@ -72,7 +73,7 @@ export const ownerAndAdminEmails = async (
     .where(eq(db.schema.organization.id, organizationId))
     .limit(1);
   const admins = await executor
-    .select({ email: db.schema.user.email })
+    .select({ email: db.schema.user.email, timeZone: db.schema.user.timeZone })
     .from(db.schema.organizationUser)
     .innerJoin(
       db.schema.user,
@@ -85,14 +86,20 @@ export const ownerAndAdminEmails = async (
       )
     );
   const seen = new Set<string>();
-  const out: string[] = [];
-  for (const email of [owner?.email, ...admins.map(a => a.email)]) {
-    if (!email || seen.has(email.toLowerCase())) continue;
-    seen.add(email.toLowerCase());
-    out.push(email);
+  const out: { email: string; timeZone: string | null }[] = [];
+  for (const person of [owner, ...admins]) {
+    if (!person?.email || seen.has(person.email.toLowerCase())) continue;
+    seen.add(person.email.toLowerCase());
+    out.push(person);
   }
   return out;
 };
+
+export const ownerAndAdminEmails = async (
+  executor: DbExecutor,
+  organizationId: string
+): Promise<string[]> =>
+  (await ownerAndAdminRecipients(executor, organizationId)).map(r => r.email);
 
 // Every live database with its org's plan. Paid orgs come back too, so their
 // marks can be cleared.

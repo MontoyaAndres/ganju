@@ -1,4 +1,5 @@
 import { Context } from 'hono';
+import { eq } from 'drizzle-orm';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { betterAuth } from 'better-auth';
 import { jwt } from 'better-auth/plugins/jwt';
@@ -70,6 +71,24 @@ export const createAuth = (
       useSecureCookies: isProduction
     },
     databaseHooks: {
+      session: {
+        create: {
+          after: async session => {
+            const timeZone = (
+              c.req.raw as Request & { cf?: { timezone?: unknown } }
+            ).cf?.timezone;
+            if (typeof timeZone !== 'string' || !timeZone) return;
+            try {
+              await dbInstance
+                .update(db.schema.user)
+                .set({ timeZone })
+                .where(eq(db.schema.user.id, session.userId));
+            } catch (error) {
+              console.error('failed to record time zone', error);
+            }
+          }
+        }
+      },
       user: {
         create: {
           // Capture the acceptance the moment the account exists, with the IP

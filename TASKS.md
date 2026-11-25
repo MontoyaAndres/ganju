@@ -576,6 +576,21 @@ Deploy order: run `0098_trial` and `0099_free_plan_notice` (prod; 0099 on
 dev too), build `packages/utils` and `packages/db`, then api, mcp, web,
 website. In Polar (sandbox and production): turn on "Prevent trial abuse".
 
+2026-11-25: deployed to dev and checked there (org list, `/plan` and billing
+return the trial fields; Free orgs show the "Free plan ends" banner and
+Billing text; Enterprise shows "billed by agreement" with no portal button).
+Launch and lock moved to midnight Bogotá (`05:00Z`) so the app and the emails
+show the same day; needs another api/mcp/web deploy. Counsel approved the
+terms (no users yet). Polar sandbox: "Prevent trial abuse" on; production
+still to do (the browser extension had no access to polar.sh). Polar (sandbox and production): "Prevent trial abuse" and "Allow
+multiple subscriptions" turned on 2026-11-25 (one customer per email can pay
+for several organizations).
+
+Dates follow the viewer: the app formats them in the browser's time zone (the
+plan banner renders only in the browser for that), and emails with a date use
+the recipient's `user.time_zone`, recorded at each sign-in from Cloudflare's
+geolocation (migration `0100_user_time_zone`), Bogotá when unknown.
+
 - Pricing page, `PRICING_SCHEMA` offers, homepage FAQ and CTAs ("Start building
   free" becomes "Start your 7-day free trial"), getting-started pages, Settings
   docs, llms.txt key facts, `docs/PRICING.md`, `apps/website/src/lib/pricing.ts`.

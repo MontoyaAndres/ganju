@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@emotion/react';
 
@@ -14,8 +15,16 @@ export const PlanBanner = (props: {
   const { organizationId, plan } = props;
   const theme = useTheme();
   const t = i18n.useT(i18n.copy.LAYOUT);
+  // Dates and days left are the viewer's local ones, so this renders only in
+  // the browser: the server would format them in its own time zone.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  if (!plan || (!plan.trialing && !plan.noPlan && !plan.freeEndsAt)) {
+  if (
+    !mounted ||
+    !plan ||
+    (!plan.trialing && !plan.noPlan && !plan.freeEndsAt)
+  ) {
     return null;
   }
 
