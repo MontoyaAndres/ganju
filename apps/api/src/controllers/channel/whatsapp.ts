@@ -51,8 +51,8 @@ export interface WhatsappBotInfo {
   verifiedName?: string;
 }
 
-// Inbound webhook payload (Cloud API). We only care about message events; status
-// receipts (sent/delivered/read) arrive under `value.statuses` and are ignored.
+// Inbound webhook payload (Cloud API). Status receipts arrive under
+// `value.statuses`: only a failed one is kept, as an error.
 interface WhatsappInboundMessage {
   from: string;
   id: string;
@@ -104,7 +104,18 @@ interface WhatsappWebhookValue {
   metadata?: { display_phone_number?: string; phone_number_id?: string };
   contacts?: Array<{ profile?: { name?: string }; wa_id?: string }>;
   messages?: WhatsappInboundMessage[];
-  statuses?: unknown[];
+  statuses?: WhatsappStatus[];
+}
+
+interface WhatsappStatus {
+  id?: string;
+  status?: string;
+  errors?: Array<{
+    code?: number;
+    title?: string;
+    message?: string;
+    error_data?: { details?: string };
+  }>;
 }
 
 interface WhatsappWebhookPayload {
@@ -226,6 +237,38 @@ export const handleWhatsappWebhook = async (c: Context<AppEnv>) => {
             channelId: channelRow.id
           }
         })
+      )
+    );
+  }
+
+  // Meta can accept a send and fail to deliver it later (a marketing limit, a
+  // blocked number): the only trace is this receipt.
+  const failed = (payload.entry ?? [])
+    .flatMap(entry => entry.changes ?? [])
+    .filter(change => {
+      const to = change.value?.metadata?.phone_number_id;
+      return !to || to === credentials.phoneNumberId;
+    })
+    .flatMap(change => change.value?.statuses ?? [])
+    .filter(status => status.status === 'failed');
+  for (const status of failed) {
+    const error = status.errors?.[0];
+    c.executionCtx.waitUntil(
+      dbUtils.handleError(
+        c,
+        new Error(
+          `WhatsApp message not delivered: ${error?.code ?? '?'} ${error?.title ?? ''}`.trim()
+        ),
+        {
+          service: utils.constants.SERVICE_NAME_API,
+          metadata: {
+            source: 'whatsapp-delivery-failed',
+            channelId: channelRow.id,
+            messageId: status.id,
+            code: error?.code,
+            details: error?.error_data?.details ?? error?.message
+          }
+        }
       )
     );
   }

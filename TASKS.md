@@ -4060,13 +4060,17 @@ pass on both, and the Telegram checks were done by hand on dev.
     (5c). Set up in production on 2026-11-24, in the owner's project with the
     WhatsApp channel +57 310 2129584 (org 01a072ec, project 01a1ac19):
     - template `prueba_ganju` (es, "Hola, esta es una prueba de Ganju.")
-      submitted as Utility; Meta approved it on 2026-11-25 as Marketing;
+      submitted as Utility; Meta approved it on 2026-11-25 as Marketing, and
+      the test send was accepted but never delivered (Meta's marketing limit,
+      likely). Template `prueba_pedido` (es, Utility, "Hola {{1}}, recibimos
+      tu pedido {{2}}. Te avisaremos cuando esté listo.") submitted the same
+      day; once approved, point trigger `prueba_plantilla` at it;
     - a database with table `pruebas` (column `texto`, one row, "each customer
       sees only their own rows" on).
 
-    Left: the owner links their chat (`/link` to the bot from the phone), then
-    a trigger on `pruebas` with "Escribirle al cliente" and the template, and
-    "Probar este mensaje" (as a template it goes out even inside the 24-hour
+    The owner's chat was linked 2026-11-25, and trigger `prueba_plantilla`
+    (on new rows, "Escribirle al cliente", template `prueba_ganju`) saved the
+    same day. Left: "Probar este mensaje" (as a template it goes out even inside the 24-hour
     window). Then delete the trigger, and the table, database and template if
     the owner wants.
   - **"Escribirle al cliente" is missing without saying why** on a table that
