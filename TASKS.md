@@ -4073,10 +4073,9 @@ pass on both, and the Telegram checks were done by hand on dev.
     same day. Left: "Probar este mensaje" (as a template it goes out even inside the 24-hour
     window). Then delete the trigger, and the table, database and template if
     the owner wants.
-  - **"Escribirle al cliente" is missing without saying why** on a table that
-    isn't "each customer sees only their own rows": the trigger dialog's action
-    list just leaves it out. Show it disabled with that reason, or a line
-    under the list.
+  - **"Escribirle al cliente" missing without saying why**: fixed 2026-11-25,
+    not yet deployed. On a table that isn't "each customer sees only their own
+    rows", the action now shows disabled, with the reason under the list.
   - **Reconciling with Cloudflare:** run on dev 2026-11-24 for the test org
     (period from 2026-11-10): rows read 2.45% and rows written 28% under
     Cloudflare. Causes found and fixed (live on dev and prod 2026-11-24): the first call after

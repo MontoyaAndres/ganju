@@ -5,6 +5,7 @@ import { Wrapper } from './styles';
 export interface SelectOption {
   label: string;
   value: string;
+  disabled?: boolean;
 }
 
 export interface IProps extends Omit<TextFieldProps, 'select'> {
@@ -18,7 +19,11 @@ export const Select = (props: IProps) => {
     <Wrapper>
       <MaterialTextField {...rest} select fullWidth>
         {options.map(option => (
-          <MenuItem key={option.value} value={option.value}>
+          <MenuItem
+            key={option.value}
+            value={option.value}
+            disabled={option.disabled}
+          >
             {option.label}
           </MenuItem>
         ))}

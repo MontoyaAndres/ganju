@@ -726,12 +726,10 @@ const TriggerDialog = ({
     if (SYSTEM_TIMES.includes(next)) setAfterBefore(false);
   };
 
-  const actions = ACTIONS.filter(
-    type =>
-      type !== 'customer' ||
-      table.customerScoped ||
-      trigger?.action.type === 'customer'
-  );
+  // Shown but off, with the reason under the list: a missing option reads as
+  // a missing feature.
+  const customerUnavailable =
+    !table.customerScoped && trigger?.action.type !== 'customer';
 
   // Kept in the list when it isn't in the live script any more.
   const functionOptions = [
@@ -1192,9 +1190,13 @@ const TriggerDialog = ({
           value={actionType}
           disabled={saving}
           onChange={e => setActionType(e.target.value as DataTriggerActionType)}
-          options={actions.map(type => ({
+          helperText={
+            customerUnavailable ? t('triggerCustomerUnavailable') : undefined
+          }
+          options={ACTIONS.map(type => ({
             label: t(`triggerAction_${type}`),
-            value: type
+            value: type,
+            disabled: type === 'customer' && customerUnavailable
           }))}
         />
 

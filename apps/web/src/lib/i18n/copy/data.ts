@@ -657,6 +657,8 @@ const en = {
   triggerCustomerHelp:
     'Sent to the customer whose conversation wrote the row, on the channel they used.',
   triggerCustomerSummary: "the row's customer",
+  triggerCustomerUnavailable:
+    'Message the customer needs "Each customer sees only their own rows", in this table\'s Schema tab.',
   triggerTemplate: 'Use a WhatsApp template',
   triggerTemplateHelp:
     "Outside WhatsApp's 24-hour window only an approved template reaches the customer. Meta bills template messages to your own WhatsApp account.",
@@ -1400,6 +1402,8 @@ export const DATA: Catalog<DataCopy> = {
     triggerCustomerHelp:
       'Se envía al cliente cuya conversación escribió la fila, por el canal que usó.',
     triggerCustomerSummary: 'el cliente de la fila',
+    triggerCustomerUnavailable:
+      'Escribirle al cliente necesita «Cada cliente ve solo sus propias filas», en la pestaña Esquema de esta tabla.',
     triggerTemplate: 'Usar una plantilla de WhatsApp',
     triggerTemplateHelp:
       'Fuera de la ventana de 24 horas de WhatsApp, solo una plantilla aprobada le llega al cliente. Meta cobra los mensajes con plantilla a tu propia cuenta de WhatsApp.',
