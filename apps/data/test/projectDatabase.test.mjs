@@ -14,6 +14,7 @@ const APP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 let mf;
 let dir;
+let options;
 
 before(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ganju-data-test-'));
@@ -28,7 +29,9 @@ before(async () => {
     outfile: path.join(dir, 'index.js'),
     logLevel: 'error'
   });
-  mf = new Miniflare({
+  options = {
+    // On disk, so a restart (setOptions) starts the objects again with their data.
+    durableObjectsPersist: path.join(dir, 'objects'),
     workers: [
       {
         name: 'caller',
@@ -73,7 +76,8 @@ before(async () => {
         }`
       }
     ]
-  });
+  };
+  mf = new Miniflare(options);
 });
 
 after(async () => {
@@ -598,4 +602,15 @@ test('a synced table takes its rows from syncRows alone, and a refused sync stay
   assert.match(menu.sync.error, /already on line 2/);
   const after = await call('query', owner, { table: 'menu', sort: ['name'] });
   assert.deepEqual(after.value.rows.map(r => r.price), [33000, 29000]);
+});
+
+test('the reads an object makes as it starts are billed to its next call, once', async () => {
+  const call = callOn('restart-1');
+  await restaurant(call);
+  const warm = (await call('info')).usage.rowsRead;
+  await mf.setOptions(options);
+  const cold = (await call('info')).usage.rowsRead;
+  // Reloading the schema is ~75 rows; the start reads sqlite_master twice on top.
+  assert.ok(cold - warm > 100, `cold ${cold}, warm ${warm}`);
+  assert.equal((await call('info')).usage.rowsRead, warm);
 });

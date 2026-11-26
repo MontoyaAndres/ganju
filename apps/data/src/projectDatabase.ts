@@ -160,6 +160,9 @@ export class ProjectDatabase
   private lifecycle: { initialized: boolean; deleted: boolean } | null = null;
   // Usage the alarm left to report: undefined until read once after a start.
   private unreported: DataUsage | null | undefined = undefined;
+  // The start's own reads: Cloudflare counts them, and an object starts for
+  // nearly every call or alarm on a quiet database.
+  private startup: DataUsage | null = null;
   // Whether a background table copy is running, read once per object start;
   // starting one, and the alarm step that ends it, clear it.
   private copying: boolean | null = null;
@@ -170,8 +173,10 @@ export class ProjectDatabase
     // deploy. A database that was never created has nothing to migrate, and
     // creating tables in it here would make it hold data nobody knows about.
     ctx.blockConcurrencyWhile(async () => {
-      const runner = this.runner({ rowsRead: 0, rowsWritten: 0 });
+      const usage: DataUsage = { rowsRead: 0, rowsWritten: 0 };
+      const runner = this.runner(usage);
       if (hasInternalTables(runner)) migrateInternal(runner);
+      this.startup = usage;
     });
   }
 
@@ -220,6 +225,7 @@ export class ProjectDatabase
     fn: (runner: SqlRunner) => T | Promise<T>
   ): Promise<DataResult<T>> {
     const usage: DataUsage = { rowsRead: 0, rowsWritten: 0 };
+    this.takeStartupUsage(usage);
     const runner = this.runner(usage);
     try {
       // `PRAGMA foreign_keys = OFF` lasts until the object restarts and only
@@ -264,6 +270,13 @@ export class ProjectDatabase
         usage
       };
     }
+  }
+
+  private takeStartupUsage(usage: DataUsage) {
+    if (!this.startup) return;
+    usage.rowsRead += this.startup.rowsRead;
+    usage.rowsWritten += this.startup.rowsWritten;
+    this.startup = null;
   }
 
   // Adds what the alarm read and wrote since the last call to this call's
@@ -1221,6 +1234,7 @@ export class ProjectDatabase
 
   async alarm() {
     const usage: DataUsage = { rowsRead: 0, rowsWritten: 0 };
+    this.takeStartupUsage(usage);
     const runner = this.runner(usage);
     if (!hasInternalTables(runner) || !getMeta(runner, 'initialized_at')) return;
     // Like a call, foreign keys are set before the first write: off for a

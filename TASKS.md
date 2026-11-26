@@ -261,8 +261,8 @@ check the notice emails went out before. Cancel during a trial checked on
 dev 2026-11-25 (org test1: trialing, set to cancel at 2026-12-02); the
 trial-ended email comes when Polar ends it on 2026-12-02. Production on 2026-11-25 (read-only): 14 Free orgs (14
 owners, no real use), 2 Enterprise; the owner chose to let the notice go out
-at the 2026-11-26 13:00 UTC run; check `free_plan_notice_at` is set on all 14
-afterwards.
+at the 2026-11-26 13:00 UTC run. Checked 2026-11-26 (read-only): all 14 have
+`free_plan_notice_at` 13:00:57 UTC and `error_log` has nothing since.
 
 Planned 2026-11-18. Free goes away; a new organization tries Pro for 7 days with
 a card on file (Polar checkout, no charge until the trial ends), then Pro starts
@@ -4074,7 +4074,7 @@ pass on both, and the Telegram checks were done by hand on dev.
     window). Then delete the trigger, and the table, database and template if
     the owner wants.
   - **"Escribirle al cliente" missing without saying why**: fixed 2026-11-25,
-    not yet deployed. On a table that isn't "each customer sees only their own
+    live on dev and prod (checked on dev, table qa_cats). On a table that isn't "each customer sees only their own
     rows", the action now shows disabled, with the reason under the list.
   - **Reconciling with Cloudflare:** run on dev 2026-11-24 for the test org
     (period from 2026-11-10): rows read 2.45% and rows written 28% under
@@ -4097,6 +4097,19 @@ pass on both, and the Telegram checks were done by hand on dev.
     | --- | --- | --- | --- | --- |
     | Girardot - demos (01a072ec) | 5,710,102 | 6,110,742 | 211,343 | 216,707 |
     | Voces que abrazan (01a20e43) | 2,146 | 3,997 | 161 | 196 |
+
+    **Re-run 2026-11-26 13:20 UTC: still under.** Growth since the baseline:
+    Girardot read ours +157,738 vs Cloudflare +199,470 (-21%), written +1,059
+    vs +1,537 (-31%); Voces read +3,877 vs +10,741 (-64%), written +2 vs +3.
+    Cloudflare per call on the small databases: ~85 rows read (perros-com 43
+    calls, 3,592 read; 8d7f 58 calls, 5,176; Voces 50 calls, 10,741). Likely
+    cause: the constructor's startup check (`hasInternalTables` scans
+    `sqlite_master`, then `migrateInternal` does it again) runs on every cold
+    start, call or alarm, and is uncounted. Fixed 2026-11-26 (not deployed
+    yet): the start's usage is added to the first call or alarm after it; a
+    test restarts the object and checks it (103 rows on the test database,
+    dropped before). After deploying `apps/data`, take a new baseline and
+    re-run a day later.
 
     Storage matched within 0.04%.
 - **Closed (2026-11-24):** the function dialog's `expose` switch can't be seen
