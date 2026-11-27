@@ -4112,7 +4112,9 @@ pass on both, and the Telegram checks were done by hand on dev.
     owner keeps the trigger, table, database and templates for later tests.
   - **"Escribirle al cliente" missing without saying why**: fixed 2026-11-25,
     live on dev and prod (checked on dev, table qa_cats). On a table that isn't "each customer sees only their own
-    rows", the action now shows disabled, with the reason under the list.
+    rows", the action now shows disabled, with the reason as a second line
+    on that option inside the menu (moved there 2026-11-27, checked on dev;
+    it used to sit under the field whatever action was chosen).
   - **Reconciling with Cloudflare:** run on dev 2026-11-24 for the test org
     (period from 2026-11-10): rows read 2.45% and rows written 28% under
     Cloudflare. Causes found and fixed (live on dev and prod 2026-11-24): the first call after
