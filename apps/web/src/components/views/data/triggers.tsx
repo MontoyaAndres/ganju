@@ -1190,13 +1190,13 @@ const TriggerDialog = ({
           value={actionType}
           disabled={saving}
           onChange={e => setActionType(e.target.value as DataTriggerActionType)}
-          helperText={
-            customerUnavailable ? t('triggerCustomerUnavailable') : undefined
-          }
           options={ACTIONS.map(type => ({
             label: t(`triggerAction_${type}`),
             value: type,
-            disabled: type === 'customer' && customerUnavailable
+            disabled: type === 'customer' && customerUnavailable,
+            ...(type === 'customer' && customerUnavailable
+              ? { description: t('triggerCustomerUnavailable') }
+              : {})
           }))}
         />
 

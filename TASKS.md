@@ -256,10 +256,9 @@ Deferred, with the reason:
 
 **Live in production 2026-11-25** (migrations 0098 to 0100, utils 0.0.28 and
 CLI 0.0.30 on npm). Website, docs, llms.txt and terms checked live: no Free
-plan, the 7-day trial. Next: 2026-12-09, older Free orgs move to "no plan";
-check the notice emails went out before. Cancel during a trial checked on
-dev 2026-11-25 (org test1: trialing, set to cancel at 2026-12-02); the
-trial-ended email comes when Polar ends it on 2026-12-02. Production on 2026-11-25 (read-only): 14 Free orgs (14
+plan, the 7-day trial. Next: 2026-12-09, older Free orgs move to "no plan"
+(notice emails went out 2026-11-26). Phase 8 verified on dev 2026-11-27,
+including a trial that ends unpaid (forced in the sandbox) and its email. Production on 2026-11-25 (read-only): 14 Free orgs (14
 owners, no real use), 2 Enterprise; the owner chose to let the notice go out
 at the 2026-11-26 13:00 UTC run. Checked 2026-11-26 (read-only): all 14 have
 `free_plan_notice_at` 13:00:57 UTC and `error_log` has nothing since.
@@ -633,9 +632,45 @@ before the launch keep Free until the lock date.
   goes straight to paid.
 - A self-hosted run without Polar starts new orgs on Pro.
 - An old Free org before and after the lock date.
-- One person, two orgs: both subscriptions on one Polar customer, the second
-  org pays with the saved card, the portal opens for both orgs.
+- One person, two orgs: both subscriptions on one Polar customer, the portal
+  opens for both orgs. (No saved card at checkout: dropped 2026-11-25, the
+  card is typed again.)
 - The next-charge estimate matches the invoice Polar actually sends.
+
+Checked 2026-11-27 without a checkout:
+- The plan rules (`packages/db/src/lib/plan.ts`), with fixed dates before and
+  after the lock: trialing gets the 300 replies / 300 credits caps; a first
+  charge that failed (past_due at the trial's end) keeps them, a later
+  renewal doesn't; a canceled trial and a new org that never checked out
+  have no plan; an old Free org keeps Free's limits before 2026-12-09 and has
+  no plan after; Pro, self-hosted Pro and Enterprise are never gated. All
+  pass.
+- No plan stops things: the channel runner refuses (`messageCap.noPlan`),
+  MCP refuses (`organizationHasNoPlan`), the Assistant needs
+  `canUseBuilder` (off without a plan), and every limit is 0.
+- Self-hosted: without Polar a new org is created on Pro, active, and no
+  checkout is offered (`ensureSubscription({ billing: false })`, `offer`).
+- One trial per person: `user.trial_started_at` decides, for the org's owner.
+  Dev org "test polar" (created after launch, owner already trialed) has no
+  plan, so its gate offers Pro, not a trial.
+- Dev org test1: trialing, set to cancel, trial ends 2026-12-02 20:21 UTC.
+
+Checked 2026-11-27 with a sandbox checkout (the owner paid):
+- A second org by the same person (dev "test2"): the dialog after creating
+  it says **Start Pro** ("You already used your free trial, so Pro starts
+  paid: $29/mo plus usage"); after checkout it's Pro, active, renews
+  2026-12-27, no gate, full Pro allowances.
+- One Polar customer for the person: test1, test2 and "My new organization"
+  share `billing_customer_id`, and Manage billing opens the same portal from
+  test1 and test2, listing all three subscriptions.
+- Estimate vs charge: the app said $29/mo plus usage; Polar's order for
+  test2 is $29 paid, and its next charge estimate is $29 (no usage).
+- Card: typed again at checkout, as expected since saved cards were dropped
+  (2026-11-25).
+
+Left: on or after 2026-12-02 20:21 UTC, test1's trial ends (canceled): the
+trial-ended email, the gate shows Start Pro, bot silent and MCP refused,
+then Start Pro → paid. Delete test2 when done (its subscription goes with it).
 
 ## Work on web widget (compatible with wordpress, drupal, shopify, etc) websites.
 ## Builder: an assistant that builds the project with the owner
@@ -4070,9 +4105,11 @@ pass on both, and the Telegram checks were done by hand on dev.
 
     The owner's chat was linked 2026-11-25, and trigger `prueba_plantilla`
     (on new rows, "Escribirle al cliente", template `prueba_ganju`) saved the
-    same day. Left: "Probar este mensaje" (as a template it goes out even inside the 24-hour
-    window). Then delete the trigger, and the table, database and template if
-    the owner wants.
+    same day. **Checked 2026-11-27:** `prueba_pedido` approved as Utility,
+    the trigger pointed at it ({{1}} "Andrés", {{2}} "#1"), and the owner's
+    "Enviar prueba" as the template reached their WhatsApp. Marketing
+    templates can be accepted and never delivered; Utility ones arrive. The
+    owner keeps the trigger, table, database and templates for later tests.
   - **"Escribirle al cliente" missing without saying why**: fixed 2026-11-25,
     live on dev and prod (checked on dev, table qa_cats). On a table that isn't "each customer sees only their own
     rows", the action now shows disabled, with the reason under the list.
@@ -4105,11 +4142,19 @@ pass on both, and the Telegram checks were done by hand on dev.
     calls, 3,592 read; 8d7f 58 calls, 5,176; Voces 50 calls, 10,741). Likely
     cause: the constructor's startup check (`hasInternalTables` scans
     `sqlite_master`, then `migrateInternal` does it again) runs on every cold
-    start, call or alarm, and is uncounted. Fixed 2026-11-26 (not deployed
-    yet): the start's usage is added to the first call or alarm after it; a
+    start, call or alarm, and is uncounted. Fixed 2026-11-26, live on dev and
+    prod: the start's usage is added to the first call or alarm after it; a
     test restarts the object and checks it (103 rows on the test database,
-    dropped before). After deploying `apps/data`, take a new baseline and
-    re-run a day later.
+    dropped before).
+
+    **Baseline after that deploy, 2026-11-26 13:34 UTC.** Re-run
+    `node scripts/reconcile-data-usage.mjs --prod` on 2026-11-27 or later and
+    compare the growth; it should now be almost the same on both sides.
+
+    | Organization | Ours read | CF read | Ours written | CF written |
+    | --- | --- | --- | --- | --- |
+    | Girardot - demos (01a072ec) | 5,867,840 | 6,310,560 | 212,402 | 218,250 |
+    | Voces que abrazan (01a20e43) | 6,023 | 14,738 | 163 | 199 |
 
     Storage matched within 0.04%.
 - **Closed (2026-11-24):** the function dialog's `expose` switch can't be seen
